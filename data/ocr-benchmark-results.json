@@ -1,0 +1,472 @@
+{
+  "generated_at": "2026-07-15T03:52:37.297Z",
+  "metric": "Visually reviewed critical-anchor recall after NFKC and punctuation/whitespace normalization; not a substitute for full CER.",
+  "engines": [
+    {
+      "label": "llama-vlm",
+      "directory": ".cache/ocr-benchmark/llama-vlm-raw",
+      "anchor_recall": 0.6,
+      "matched_anchors": 42,
+      "total_anchors": 70,
+      "samples": [
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-005.png",
+          "page_type": "single-column prose with title and date",
+          "matching_files": [
+            ".cache/ocr-benchmark/llama-vlm-raw/page-005.response.json",
+            ".cache/ocr-benchmark/llama-vlm-raw/page-005.txt"
+          ],
+          "matched_anchors": 11,
+          "total_anchors": 11,
+          "anchor_recall": 1,
+          "missed_anchors": []
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-100.png",
+          "page_type": "dense single-column prose",
+          "matching_files": [
+            ".cache/ocr-benchmark/llama-vlm-raw/page-100.response.json",
+            ".cache/ocr-benchmark/llama-vlm-raw/page-100.txt"
+          ],
+          "matched_anchors": 8,
+          "total_anchors": 8,
+          "anchor_recall": 1,
+          "missed_anchors": []
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-300.png",
+          "page_type": "historical syllabus title page with numbered hierarchy",
+          "matching_files": [
+            ".cache/ocr-benchmark/llama-vlm-raw/page-300.response.json",
+            ".cache/ocr-benchmark/llama-vlm-raw/page-300.txt"
+          ],
+          "matched_anchors": 10,
+          "total_anchors": 10,
+          "anchor_recall": 1,
+          "missed_anchors": []
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-567.png",
+          "page_type": "two-column title-author bibliography",
+          "matching_files": [
+            ".cache/ocr-benchmark/llama-vlm-raw/page-567.response.json",
+            ".cache/ocr-benchmark/llama-vlm-raw/page-567.txt"
+          ],
+          "matched_anchors": 1,
+          "total_anchors": 29,
+          "anchor_recall": 0.0345,
+          "missed_anchors": [
+            "客至 杜甫",
+            "旅夜书怀 杜甫",
+            "咏怀古迹（其三） 杜甫",
+            "渔翁 柳宗元",
+            "石头城 刘禹锡",
+            "琵琶行 白居易",
+            "闻乐天左降江州司马 元稹",
+            "李凭箜篌引 李贺",
+            "过华清宫 李商隐",
+            "菩萨蛮（小山重叠金明灭） 温庭筠",
+            "浪淘沙（帘外雨潺潺） 李煜",
+            "虞美人（春花秋月何时了） 李煜",
+            "雨霖铃（寒蝉凄切） 柳永",
+            "桂枝香·金陵怀古 王安石",
+            "江城子·乙卯正月二十日夜记梦 苏轼",
+            "念奴娇·赤壁怀古 苏轼",
+            "鹊桥仙（纤云弄巧） 秦观",
+            "苏幕遮（燎沉香） 周邦彦",
+            "一剪梅（红藕香残玉簟秋） 李清照",
+            "声声慢（寻寻觅觅） 李清照",
+            "书愤 陆游",
+            "临安春雨初霁 陆游",
+            "永遇乐·京口北固亭怀古 辛弃疾",
+            "扬州慢（淮左名都） 姜夔",
+            "窦娥冤 关汉卿",
+            "长亭送别 王实甫",
+            "醉太平（人皆嫌命窘） 张可久",
+            "哀江南 孔尚任"
+          ]
+        },
+        {
+          "image": "/private/tmp/moe-2022-03-page5.png",
+          "page_type": "modern official standard with header and numbered prose",
+          "matching_files": [
+            ".cache/ocr-benchmark/llama-vlm-raw/moe-2022-03-page5.response.json",
+            ".cache/ocr-benchmark/llama-vlm-raw/moe-2022-03-page5.txt"
+          ],
+          "matched_anchors": 12,
+          "total_anchors": 12,
+          "anchor_recall": 1,
+          "missed_anchors": []
+        }
+      ]
+    },
+    {
+      "label": "paddleocr-vl",
+      "directory": ".cache/ocr-benchmark/paddleocr-vl-1.6",
+      "anchor_recall": 0.9714,
+      "matched_anchors": 68,
+      "total_anchors": 70,
+      "samples": [
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-005.png",
+          "page_type": "single-column prose with title and date",
+          "matching_files": [
+            ".cache/ocr-benchmark/paddleocr-vl-1.6/page-005-1-markdown/page-005.md",
+            ".cache/ocr-benchmark/paddleocr-vl-1.6/page-005-1.json"
+          ],
+          "matched_anchors": 11,
+          "total_anchors": 11,
+          "anchor_recall": 1,
+          "missed_anchors": []
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-100.png",
+          "page_type": "dense single-column prose",
+          "matching_files": [
+            ".cache/ocr-benchmark/paddleocr-vl-1.6/page-100-1-markdown/page-100.md",
+            ".cache/ocr-benchmark/paddleocr-vl-1.6/page-100-1.json"
+          ],
+          "matched_anchors": 8,
+          "total_anchors": 8,
+          "anchor_recall": 1,
+          "missed_anchors": []
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-300.png",
+          "page_type": "historical syllabus title page with numbered hierarchy",
+          "matching_files": [
+            ".cache/ocr-benchmark/paddleocr-vl-1.6/page-300-1-markdown/page-300.md",
+            ".cache/ocr-benchmark/paddleocr-vl-1.6/page-300-1.json"
+          ],
+          "matched_anchors": 9,
+          "total_anchors": 10,
+          "anchor_recall": 0.9,
+          "missed_anchors": [
+            "1929年"
+          ]
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-567.png",
+          "page_type": "two-column title-author bibliography",
+          "matching_files": [
+            ".cache/ocr-benchmark/paddleocr-vl-1.6/page-567-1-markdown/page-567.md",
+            ".cache/ocr-benchmark/paddleocr-vl-1.6/page-567-1.json"
+          ],
+          "matched_anchors": 28,
+          "total_anchors": 29,
+          "anchor_recall": 0.9655,
+          "missed_anchors": [
+            "窦娥冤 关汉卿"
+          ]
+        },
+        {
+          "image": "/private/tmp/moe-2022-03-page5.png",
+          "page_type": "modern official standard with header and numbered prose",
+          "matching_files": [
+            ".cache/ocr-benchmark/paddleocr-vl-1.6/moe-2022-03-page5-1-markdown/moe-2022-03-page5.md",
+            ".cache/ocr-benchmark/paddleocr-vl-1.6/moe-2022-03-page5-1.json"
+          ],
+          "matched_anchors": 12,
+          "total_anchors": 12,
+          "anchor_recall": 1,
+          "missed_anchors": []
+        }
+      ]
+    },
+    {
+      "label": "pp-structure",
+      "directory": ".cache/ocr-benchmark/pp-structure-v3",
+      "anchor_recall": 0.7143,
+      "matched_anchors": 50,
+      "total_anchors": 70,
+      "samples": [
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-005.png",
+          "page_type": "single-column prose with title and date",
+          "matching_files": [
+            ".cache/ocr-benchmark/pp-structure-v3/page-005-1-markdown/page-005.md",
+            ".cache/ocr-benchmark/pp-structure-v3/page-005-1.json"
+          ],
+          "matched_anchors": 11,
+          "total_anchors": 11,
+          "anchor_recall": 1,
+          "missed_anchors": []
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-100.png",
+          "page_type": "dense single-column prose",
+          "matching_files": [
+            ".cache/ocr-benchmark/pp-structure-v3/page-100-1-markdown/page-100.md",
+            ".cache/ocr-benchmark/pp-structure-v3/page-100-1.json"
+          ],
+          "matched_anchors": 8,
+          "total_anchors": 8,
+          "anchor_recall": 1,
+          "missed_anchors": []
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-300.png",
+          "page_type": "historical syllabus title page with numbered hierarchy",
+          "matching_files": [
+            ".cache/ocr-benchmark/pp-structure-v3/page-300-1-markdown/page-300.md",
+            ".cache/ocr-benchmark/pp-structure-v3/page-300-1.json"
+          ],
+          "matched_anchors": 9,
+          "total_anchors": 10,
+          "anchor_recall": 0.9,
+          "missed_anchors": [
+            "1929年"
+          ]
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-567.png",
+          "page_type": "two-column title-author bibliography",
+          "matching_files": [
+            ".cache/ocr-benchmark/pp-structure-v3/page-567-1-markdown/page-567.md",
+            ".cache/ocr-benchmark/pp-structure-v3/page-567-1.json"
+          ],
+          "matched_anchors": 12,
+          "total_anchors": 29,
+          "anchor_recall": 0.4138,
+          "missed_anchors": [
+            "客至 杜甫",
+            "旅夜书怀 杜甫",
+            "咏怀古迹（其三） 杜甫",
+            "渔翁 柳宗元",
+            "石头城 刘禹锡",
+            "琵琶行 白居易",
+            "闻乐天左降江州司马 元稹",
+            "李凭箜篌引 李贺",
+            "过华清宫 李商隐",
+            "菩萨蛮（小山重叠金明灭） 温庭筠",
+            "浪淘沙（帘外雨潺潺） 李煜",
+            "虞美人（春花秋月何时了） 李煜",
+            "雨霖铃（寒蝉凄切） 柳永",
+            "桂枝香·金陵怀古 王安石",
+            "江城子·乙卯正月二十日夜记梦 苏轼",
+            "鹊桥仙（纤云弄巧） 秦观",
+            "苏幕遮（燎沉香） 周邦彦"
+          ]
+        },
+        {
+          "image": "/private/tmp/moe-2022-03-page5.png",
+          "page_type": "modern official standard with header and numbered prose",
+          "matching_files": [
+            ".cache/ocr-benchmark/pp-structure-v3/moe-2022-03-page5-1-markdown/moe-2022-03-page5.md",
+            ".cache/ocr-benchmark/pp-structure-v3/moe-2022-03-page5-1.json"
+          ],
+          "matched_anchors": 10,
+          "total_anchors": 12,
+          "anchor_recall": 0.8333,
+          "missed_anchors": [
+            "义务教育语文课程标准（2022年版）",
+            "教—学—评一致性"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "apple-vision",
+      "directory": ".cache/ocr-benchmark/apple-vision",
+      "anchor_recall": 0.8286,
+      "matched_anchors": 58,
+      "total_anchors": 70,
+      "samples": [
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-005.png",
+          "page_type": "single-column prose with title and date",
+          "matching_files": [
+            ".cache/ocr-benchmark/apple-vision/page-005.json",
+            ".cache/ocr-benchmark/apple-vision/page-005.txt"
+          ],
+          "matched_anchors": 10,
+          "total_anchors": 11,
+          "anchor_recall": 0.9091,
+          "missed_anchors": [
+            "1949年以前革命根据地的资料暂缺"
+          ]
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-100.png",
+          "page_type": "dense single-column prose",
+          "matching_files": [
+            ".cache/ocr-benchmark/apple-vision/page-100.json",
+            ".cache/ocr-benchmark/apple-vision/page-100.txt"
+          ],
+          "matched_anchors": 8,
+          "total_anchors": 8,
+          "anchor_recall": 1,
+          "missed_anchors": []
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-300.png",
+          "page_type": "historical syllabus title page with numbered hierarchy",
+          "matching_files": [
+            ".cache/ocr-benchmark/apple-vision/page-300.json",
+            ".cache/ocr-benchmark/apple-vision/page-300.txt"
+          ],
+          "matched_anchors": 9,
+          "total_anchors": 10,
+          "anchor_recall": 0.9,
+          "missed_anchors": [
+            "高级中学普通科国文暂行课程标准"
+          ]
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-567.png",
+          "page_type": "two-column title-author bibliography",
+          "matching_files": [
+            ".cache/ocr-benchmark/apple-vision/page-567.json",
+            ".cache/ocr-benchmark/apple-vision/page-567.txt"
+          ],
+          "matched_anchors": 22,
+          "total_anchors": 29,
+          "anchor_recall": 0.7586,
+          "missed_anchors": [
+            "李凭箜篌引 李贺",
+            "菩萨蛮（小山重叠金明灭） 温庭筠",
+            "雨霖铃（寒蝉凄切） 柳永",
+            "江城子·乙卯正月二十日夜记梦 苏轼",
+            "永遇乐·京口北固亭怀古 辛弃疾",
+            "扬州慢（淮左名都） 姜夔",
+            "窦娥冤 关汉卿"
+          ]
+        },
+        {
+          "image": "/private/tmp/moe-2022-03-page5.png",
+          "page_type": "modern official standard with header and numbered prose",
+          "matching_files": [
+            ".cache/ocr-benchmark/apple-vision/moe-2022-03-page5.json",
+            ".cache/ocr-benchmark/apple-vision/moe-2022-03-page5.txt"
+          ],
+          "matched_anchors": 9,
+          "total_anchors": 12,
+          "anchor_recall": 0.75,
+          "missed_anchors": [
+            "义务教育语文课程标准（2022年版）",
+            "遴选重要观念、主题内容和基础知识",
+            "教—学—评一致性"
+          ]
+        }
+      ]
+    },
+    {
+      "label": "tesseract",
+      "directory": ".cache/ocr-benchmark/tesseract-5.5.2",
+      "anchor_recall": 0.3714,
+      "matched_anchors": 26,
+      "total_anchors": 70,
+      "samples": [
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-005.png",
+          "page_type": "single-column prose with title and date",
+          "matching_files": [
+            ".cache/ocr-benchmark/tesseract-5.5.2/page-005.json",
+            ".cache/ocr-benchmark/tesseract-5.5.2/page-005.txt"
+          ],
+          "matched_anchors": 7,
+          "total_anchors": 11,
+          "anchor_recall": 0.6364,
+          "missed_anchors": [
+            "教学计划",
+            "教学大纲",
+            "1949年以前革命根据地的资料暂缺",
+            "中国近代教育史资料"
+          ]
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-100.png",
+          "page_type": "dense single-column prose",
+          "matching_files": [
+            ".cache/ocr-benchmark/tesseract-5.5.2/page-100.json",
+            ".cache/ocr-benchmark/tesseract-5.5.2/page-100.txt"
+          ],
+          "matched_anchors": 7,
+          "total_anchors": 8,
+          "anchor_recall": 0.875,
+          "missed_anchors": [
+            "分辨和挑选比喻的词语"
+          ]
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-300.png",
+          "page_type": "historical syllabus title page with numbered hierarchy",
+          "matching_files": [
+            ".cache/ocr-benchmark/tesseract-5.5.2/page-300.json",
+            ".cache/ocr-benchmark/tesseract-5.5.2/page-300.txt"
+          ],
+          "matched_anchors": 4,
+          "total_anchors": 10,
+          "anchor_recall": 0.4,
+          "missed_anchors": [
+            "1929年",
+            "高级中学普通科国文暂行课程标准",
+            "第一目标",
+            "第二作业要项",
+            "文法及修辞",
+            "第三时间支配"
+          ]
+        },
+        {
+          "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-567.png",
+          "page_type": "two-column title-author bibliography",
+          "matching_files": [
+            ".cache/ocr-benchmark/tesseract-5.5.2/page-567.json",
+            ".cache/ocr-benchmark/tesseract-5.5.2/page-567.txt"
+          ],
+          "matched_anchors": 2,
+          "total_anchors": 29,
+          "anchor_recall": 0.069,
+          "missed_anchors": [
+            "客至 杜甫",
+            "旅夜书怀 杜甫",
+            "咏怀古迹（其三） 杜甫",
+            "渔翁 柳宗元",
+            "石头城 刘禹锡",
+            "琵琶行 白居易",
+            "闻乐天左降江州司马 元稹",
+            "李凭箜篌引 李贺",
+            "菩萨蛮（小山重叠金明灭） 温庭筠",
+            "浪淘沙（帘外雨潺潺） 李煜",
+            "虞美人（春花秋月何时了） 李煜",
+            "雨霖铃（寒蝉凄切） 柳永",
+            "桂枝香·金陵怀古 王安石",
+            "江城子·乙卯正月二十日夜记梦 苏轼",
+            "念奴娇·赤壁怀古 苏轼",
+            "鹊桥仙（纤云弄巧） 秦观",
+            "苏幕遮（燎沉香） 周邦彦",
+            "一剪梅（红藕香残玉簟秋） 李清照",
+            "声声慢（寻寻觅觅） 李清照",
+            "书愤 陆游",
+            "临安春雨初霁 陆游",
+            "永遇乐·京口北固亭怀古 辛弃疾",
+            "扬州慢（淮左名都） 姜夔",
+            "窦娥冤 关汉卿",
+            "长亭送别 王实甫",
+            "醉太平（人皆嫌命窘） 张可久",
+            "哀江南 孔尚任"
+          ]
+        },
+        {
+          "image": "/private/tmp/moe-2022-03-page5.png",
+          "page_type": "modern official standard with header and numbered prose",
+          "matching_files": [
+            ".cache/ocr-benchmark/tesseract-5.5.2/moe-2022-03-page5.json",
+            ".cache/ocr-benchmark/tesseract-5.5.2/moe-2022-03-page5.txt"
+          ],
+          "matched_anchors": 6,
+          "total_anchors": 12,
+          "anchor_recall": 0.5,
+          "missed_anchors": [
+            "义务教育语文课程标准（2022年版）",
+            "优化了课程内容结构",
+            "遴选重要观念、主题内容和基础知识",
+            "教—学—评一致性",
+            "为什么教",
+            "育人蓝图变为现实"
+          ]
+        }
+      ]
+    }
+  ]
+}

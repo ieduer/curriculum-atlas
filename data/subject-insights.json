@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "review_status": "editor_reviewed",
+  "insights": [
+    {
+      "id": "all-2001-goal-shift",
+      "subject": "综合",
+      "era": "2001新课程改革",
+      "dimension": "goal",
+      "title": "从统一知识传授转向学生发展",
+      "summary": "课程目标开始同时讨论知识与技能、过程与方法、情感态度与价值观，课程实施强调主动参与、探究与合作。",
+      "evidence_document_ids": ["policy-2001-reform-outline"],
+      "sort_order": 10
+    },
+    {
+      "id": "all-2017-competency",
+      "subject": "综合",
+      "era": "2017—2022核心素养阶段",
+      "dimension": "quality",
+      "title": "核心素养、学业质量与评价被放入同一框架",
+      "summary": "现行高中与义务教育标准把育人目标、课程内容、学业质量和考试评价连接起来，教师可据此检查教—学—评一致性。",
+      "evidence_document_ids": ["moe-hs-2020-01", "moe-2022-01"],
+      "sort_order": 20
+    },
+    {
+      "id": "chinese-2011-2022-practice",
+      "subject": "语文",
+      "era": "2011→2022",
+      "dimension": "task",
+      "title": "语文实践从活动建议走向学习任务群",
+      "summary": "2022版以学习任务群组织课程内容，强化真实语言运用情境、整合性学习与过程性评价。",
+      "evidence_document_ids": ["moe-2011-01", "moe-2022-03"],
+      "sort_order": 30
+    },
+    {
+      "id": "math-2011-2022-consistency",
+      "subject": "数学",
+      "era": "2011→2022",
+      "dimension": "concept",
+      "title": "数学核心素养成为目标、内容和评价的共同语言",
+      "summary": "2022版在2011版课程理念基础上进一步用核心素养统摄学段目标、内容结构和学业质量描述。",
+      "evidence_document_ids": ["moe-2011-08", "moe-2022-05"],
+      "sort_order": 40
+    },
+    {
+      "id": "science-2022-inquiry",
+      "subject": "科学",
+      "era": "2022",
+      "dimension": "evaluation",
+      "title": "科学探究表现进入可观察的学业要求",
+      "summary": "评价不只检查事实记忆，还要收集问题提出、证据使用、模型解释和实践迁移等表现证据。",
+      "evidence_document_ids": ["moe-2022-10", "moe-2022-11", "moe-2022-12", "moe-2022-13"],
+      "sort_order": 50
+    },
+    {
+      "id": "gaokao-2019-2020-framework",
+      "subject": "考试评价",
+      "era": "2019→2020",
+      "dimension": "evaluation",
+      "title": "高考命题由学科考纲走向评价体系框架",
+      "summary": "2019学科考试大纲仍是重要历史切片；2020高考评价体系说明提供了连接育人目标、考查内容和考查要求的上位框架。",
+      "evidence_document_ids": ["neea-2019-01", "policy-2020-gaokao-evaluation"],
+      "sort_order": 60
+    }
+  ],
+  "terms": [
+    {"id":"core-competency","label":"核心素养","definition":"学生通过课程学习逐步形成的正确价值观、必备品格和关键能力。","first_seen_year":2014,"category":"育人目标","evidence_document_ids":["moe-hs-2020-01","moe-2022-01"]},
+    {"id":"academic-quality","label":"学业质量","definition":"学生完成相应学段课程学习后的学业成就表现，用于连接目标、内容与评价。","first_seen_year":2017,"category":"评价","evidence_document_ids":["moe-hs-2020-01","moe-2022-01"]},
+    {"id":"learning-task-group","label":"学习任务群","definition":"以学习主题和典型实践活动组织课程内容的结构方式。","first_seen_year":2017,"category":"课程内容","evidence_document_ids":["moe-hs-2020-02","moe-2022-03"]},
+    {"id":"teaching-learning-assessment","label":"教—学—评一致性","definition":"教学目标、学习活动与评价证据围绕同一育人目标协同设计。","first_seen_year":2022,"category":"课程实施","evidence_document_ids":["moe-2022-01"]},
+    {"id":"three-dimensional-goals","label":"三维目标","definition":"知识与技能、过程与方法、情感态度与价值观三个相互联系的课程目标维度。","first_seen_year":2001,"category":"育人目标","evidence_document_ids":["policy-2001-reform-outline"]}
+  ],
+  "relations": [
+    {"source":"three-dimensional-goals","target":"core-competency","relation_type":"evolves_into","weight":0.9,"evidence_document_ids":["policy-2001-reform-outline","moe-hs-2020-01"]},
+    {"source":"core-competency","target":"academic-quality","relation_type":"operationalized_by","weight":1,"evidence_document_ids":["moe-hs-2020-01","moe-2022-01"]},
+    {"source":"core-competency","target":"learning-task-group","relation_type":"implemented_through","weight":0.8,"evidence_document_ids":["moe-hs-2020-02","moe-2022-03"]},
+    {"source":"academic-quality","target":"teaching-learning-assessment","relation_type":"aligns","weight":0.9,"evidence_document_ids":["moe-2022-01"]}
+  ]
+}

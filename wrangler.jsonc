@@ -1,0 +1,110 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bdfz-curriculum-atlas",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    { "pattern": "curriculum.bdfz.net", "custom_domain": true }
+  ],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "html_handling": "drop-trailing-slash",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bdfz-curriculum-atlas",
+      "database_id": "161b511c-9ea8-4257-a5c7-bb3dab8c62a8",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "SOURCES",
+      "bucket_name": "bdfz-curriculum-atlas-sources"
+    }
+  ],
+  "services": [
+    {
+      "binding": "APIS",
+      "service": "apis"
+    },
+    {
+      "binding": "USER_CENTER",
+      "service": "bdfz-user-center"
+    }
+  ],
+  "vars": {
+    "ENVIRONMENT": "production",
+    "SITE_ORIGIN": "https://curriculum.bdfz.net",
+    "AI_ORIGIN": "https://curriculum.bdfz.net",
+    "USER_CENTER_ORIGIN": "https://my.bdfz.net",
+    "AI_GATEWAY_URL": "https://apis.bdfz.net/",
+    "AI_MODEL_LABEL": "apis-gemini-managed",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAD2L69XnvdMMWYuw",
+    "ADMIN_SLUGS": "suen"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+      "persist": true,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "persist": true,
+      "head_sampling_rate": 0.05
+    }
+  },
+  "env": {
+    "preview": {
+      "name": "bdfz-curriculum-atlas-preview",
+      "workers_dev": true,
+      "preview_urls": true,
+      "routes": [],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "bdfz-curriculum-atlas-preview",
+          "database_id": "fa830759-53a4-4db5-b75f-249fb20309ba",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "SOURCES",
+          "bucket_name": "bdfz-curriculum-atlas-sources-preview"
+        }
+      ],
+      "services": [
+        {
+          "binding": "APIS",
+          "service": "apis"
+        },
+        {
+          "binding": "USER_CENTER",
+          "service": "bdfz-user-center"
+        }
+      ],
+      "vars": {
+        "ENVIRONMENT": "preview",
+        "SITE_ORIGIN": "https://bdfz-curriculum-atlas-preview.bdfz.workers.dev",
+        "AI_ORIGIN": "https://curriculum.bdfz.net",
+        "USER_CENTER_ORIGIN": "https://my.bdfz.net",
+        "AI_GATEWAY_URL": "https://apis.bdfz.net/",
+        "AI_MODEL_LABEL": "apis-gemini-managed",
+        "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
+        "ADMIN_SLUGS": "suen"
+      }
+    }
+  }
+}

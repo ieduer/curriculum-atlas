@@ -1,0 +1,9 @@
+node_modules/
+.cache/
+.wrangler/
+.playwright-cli/
+dist/
+data/corpus-chunks/
+output/
+*.log
+.DS_Store

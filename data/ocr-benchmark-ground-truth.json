@@ -1,0 +1,106 @@
+{
+  "reviewed_at": "2026-07-15T03:28:00.000Z",
+  "review_method": "Original-resolution visual inspection by the corpus editor; anchors preserve printed characters and punctuation where material.",
+  "samples": [
+    {
+      "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-005.png",
+      "page_type": "single-column prose with title and date",
+      "anchors": [
+        "前言",
+        "清朝末年至今",
+        "学堂章程",
+        "1922年以后直至1949年以前",
+        "课程标准",
+        "教学计划",
+        "教学大纲",
+        "1949年以前革命根据地的资料暂缺",
+        "中国近代教育史资料",
+        "九五",
+        "2000年9月"
+      ]
+    },
+    {
+      "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-100.png",
+      "page_type": "dense single-column prose",
+      "anchors": [
+        "内容画图画",
+        "分辨和挑选比喻的词语",
+        "教师朗读的音调",
+        "科学知识的文章",
+        "直观为基础",
+        "接受性原则",
+        "逐步推进",
+        "86"
+      ]
+    },
+    {
+      "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-300.png",
+      "page_type": "historical syllabus title page with numbered hierarchy",
+      "anchors": [
+        "1929年",
+        "高级中学普通科国文暂行课程标准",
+        "第一目标",
+        "继续培养学生读解古书的能力",
+        "第二作业要项",
+        "精读",
+        "略读",
+        "文法及修辞",
+        "第三时间支配",
+        "286"
+      ]
+    },
+    {
+      "image": "/private/tmp/curriculum-atlas-yuwen-samples/page-567.png",
+      "page_type": "two-column title-author bibliography",
+      "anchors": [
+        "客至 杜甫",
+        "旅夜书怀 杜甫",
+        "咏怀古迹（其三） 杜甫",
+        "渔翁 柳宗元",
+        "石头城 刘禹锡",
+        "琵琶行 白居易",
+        "闻乐天左降江州司马 元稹",
+        "李凭箜篌引 李贺",
+        "过华清宫 李商隐",
+        "菩萨蛮（小山重叠金明灭） 温庭筠",
+        "浪淘沙（帘外雨潺潺） 李煜",
+        "虞美人（春花秋月何时了） 李煜",
+        "雨霖铃（寒蝉凄切） 柳永",
+        "桂枝香·金陵怀古 王安石",
+        "江城子·乙卯正月二十日夜记梦 苏轼",
+        "念奴娇·赤壁怀古 苏轼",
+        "鹊桥仙（纤云弄巧） 秦观",
+        "苏幕遮（燎沉香） 周邦彦",
+        "一剪梅（红藕香残玉簟秋） 李清照",
+        "声声慢（寻寻觅觅） 李清照",
+        "书愤 陆游",
+        "临安春雨初霁 陆游",
+        "永遇乐·京口北固亭怀古 辛弃疾",
+        "扬州慢（淮左名都） 姜夔",
+        "窦娥冤 关汉卿",
+        "长亭送别 王实甫",
+        "醉太平（人皆嫌命窘） 张可久",
+        "哀江南 孔尚任",
+        "553"
+      ]
+    },
+    {
+      "image": "/private/tmp/moe-2022-03-page5.png",
+      "page_type": "modern official standard with header and numbered prose",
+      "anchors": [
+        "义务教育语文课程标准（2022年版）",
+        "优化了课程内容结构",
+        "遴选重要观念、主题内容和基础知识",
+        "研制了学业质量标准",
+        "教学深度与广度",
+        "教—学—评一致性",
+        "为什么教",
+        "教到什么程度",
+        "加强了学段衔接",
+        "迈进之际",
+        "育人蓝图变为现实",
+        "4"
+      ]
+    }
+  ]
+}

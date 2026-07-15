@@ -1,0 +1,51 @@
+import { textParam } from './http';
+import { ftsQuery } from './search-query';
+import type { Env, Passage } from './types';
+
+interface SearchFilters {
+  query: string;
+  subject?: string;
+  stage?: string;
+  limit?: number;
+}
+
+export async function retrieve(env: Env, filters: SearchFilters): Promise<Passage[]> {
+  const query = textParam(filters.query, 240);
+  if (query.length < 2) return [];
+  const limit = Math.min(12, Math.max(1, filters.limit || 8));
+  const subject = textParam(filters.subject || '', 40);
+  const stage = textParam(filters.stage || '', 40);
+  const match = ftsQuery(query);
+  if (match) {
+    const result = await env.DB.prepare(
+      `SELECT p.id, p.document_id, d.title, d.subject, d.version_label,
+              p.page_number, p.source_locator, p.body, d.source_url,
+              bm25(paragraph_fts) AS score
+       FROM paragraph_fts
+       JOIN paragraphs p ON p.id = paragraph_fts.paragraph_id
+       JOIN documents d ON d.id = p.document_id
+       WHERE paragraph_fts MATCH ?
+         AND p.citation_allowed = 1
+         AND d.citation_allowed = 1
+         AND (? = '' OR d.subject = ?)
+         AND (? = '' OR d.stage = ?)
+       ORDER BY score ASC
+       LIMIT ?`,
+    ).bind(match, subject, subject, stage, stage, limit).all<Passage>();
+    if (result.results.length) return result.results;
+  }
+
+  const like = `%${query.replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
+  const fallback = await env.DB.prepare(
+    `SELECT p.id, p.document_id, d.title, d.subject, d.version_label,
+            p.page_number, p.source_locator, p.body, d.source_url, 0 AS score
+     FROM paragraphs p JOIN documents d ON d.id = p.document_id
+     WHERE p.body LIKE ? ESCAPE '\\'
+       AND p.citation_allowed = 1
+       AND d.citation_allowed = 1
+       AND (? = '' OR d.subject = ?)
+       AND (? = '' OR d.stage = ?)
+     ORDER BY d.sort_year DESC, p.ordinal ASC LIMIT ?`,
+  ).bind(like, subject, subject, stage, stage, limit).all<Passage>();
+  return fallback.results;
+}

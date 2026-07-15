@@ -1,0 +1,12 @@
+{
+  "generated_at": "2026-07-15T04:49:55.745Z",
+  "policy": "scan_ocr_online_version_aware_triangulation",
+  "valid": true,
+  "results": [
+    {
+      "id": "legacy-chinese-p567-doueyuan-author",
+      "valid": true,
+      "errors": []
+    }
+  ]
+}

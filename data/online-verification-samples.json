@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T04:20:00Z",
+  "samples": [
+    {
+      "id": "legacy-chinese-p567-doueyuan-author",
+      "document_id": "legacy-compendium-chinese",
+      "document_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "contained_document": "2000年全日制普通高级中学语文教学大纲（试验修订版）",
+      "physical_pdf_page": 567,
+      "printed_page": 553,
+      "section": "附录二 古诗文背诵篇目（二）诗词曲",
+      "entity_type": "catalog_item_authorship",
+      "entity_label": "窦娥冤—关汉卿",
+      "source_image_sha256": "f1805f221392fe095ddeabc7ff5bb868b5595ba564f71821b095ce3c98e1b2a5",
+      "primary_ocr_sha256": "9bfc9b41e0ed38c40e8c0b5ce800307097cd2231bd136b82da0dfc2605e71a37",
+      "edition_match_status": "stable_fact_only",
+      "verification_status": "verified_stable_fact_only",
+      "ocr_witnesses": [
+        {
+          "engine": "PaddleOCR-VL-1.6 structured benchmark render",
+          "reading": "窦娥冤—吴汉卿",
+          "assessment": "conflicts"
+        },
+        {
+          "engine": "PaddleOCR-VL-1.6 structured production render at 240 dpi",
+          "reading": "窦娥冤—关汉卿",
+          "assessment": "supports_after_rerender"
+        },
+        {
+          "engine": "PP-StructureV3 / PP-OCRv5",
+          "reading": "窦娥冤—关汉卿",
+          "assessment": "supports"
+        },
+        {
+          "engine": "Apple Vision accurate zh-Hans",
+          "reading": "窦娥冤—关汉卿",
+          "assessment": "supports_after_rerender"
+        }
+      ],
+      "online_evidence": [
+        {
+          "role": "document_identity_and_version_context",
+          "publisher": "中国教育和科研计算机网",
+          "url": "https://www.edu.cn/list5_625/20060323/t20060323_156883.shtml",
+          "source_type": "official_education_news_archive",
+          "version_match": "exact_document_exact_edition",
+          "fact": "2000年9月起全国普通高中一年级使用该试验修订版大纲。"
+        },
+        {
+          "role": "supersession_boundary",
+          "publisher": "中国教育和科研计算机网",
+          "url": "https://www.cernet.edu.cn/zhong_guo_jiao_yu/ji_chu/ji_jiao_news/200603/t20060323_52769.shtml",
+          "source_type": "official_education_news_archive",
+          "version_match": "exact_document_exact_edition",
+          "fact": "2002年修订版替代2000年试验修订版，证明二者不可混用。"
+        },
+        {
+          "role": "issuing_date",
+          "publisher": "中国教育和科研计算机网",
+          "url": "https://www.edu.cn/jys_10974/20120314/t20120314_752109_1.shtml",
+          "source_type": "education_history_archive",
+          "version_match": "exact_document_exact_edition",
+          "fact": "教育部于2000年3月14日印发普通高中语文等学科教学大纲试验修订版。"
+        },
+        {
+          "role": "stable_authorship_fact",
+          "publisher": "中华人民共和国最高人民法院",
+          "url": "https://www.court.gov.cn/jianshe/xiangqing/173442.html",
+          "source_type": "government",
+          "version_match": "stable_fact_only",
+          "fact": "《窦娥冤》为元代戏曲家关汉卿所作。"
+        },
+        {
+          "role": "stable_authorship_fact",
+          "publisher": "中华人民共和国教育部",
+          "url": "https://hudong.moe.gov.cn/s78/A07/zcs_ztzl/2017_zt06/17zt06_bznr/bznr_zzggkdg/202008/P020200821550330709003.pdf",
+          "source_type": "official_curriculum_standard",
+          "version_match": "same_work_different_edition",
+          "fact": "另一份教育部课程标准也列《窦娥冤》作者为关汉卿，只用于稳定作者事实。"
+        }
+      ],
+      "resolution": "采用‘关汉卿’。240 dpi生产重识别、两个独立OCR读法和两类官方在线来源一致；低分辨率基准中的‘吴’判为单字误识。",
+      "uncertainty_note": null,
+      "citation_allowed": true,
+      "reviewed_by": "Codex visual and source triangulation"
+    }
+  ]
+}
