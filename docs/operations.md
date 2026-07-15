@@ -42,7 +42,9 @@ Worker、D1、R2 和五个公共注册表面的回滚方法见 `docs/deployment.
 
 每次发布在 canonical Cloudflare report 和 `agent_action_log.jsonl` 记录：时间、Worker 版本、D1 schema/counts、R2 ETag、API/浏览器证据、User Center 写入回查、Pulse 覆盖、回滚锚点与未解决风险。
 
-最近一次验证为 2026-07-15：生产 Worker `2c576476-b5fa-4789-a18e-7510b3fa3744`，立即回滚锚点 `7709c041-c541-4baa-babb-3c7f29b18a30`；`/api/health` 返回 `2026.07.15-v4`、schema 3 与五项绑定全真。D1/R2 未变更，发布前 D1 Time Travel bookmark 为 `0000001d-00000000-000050a9-681d1945fdef8d2ab5746e1ef6faef7f`。正式图数据为 399 个概念观察点、427 条仅表示相邻观察/共同观察的关系、1,054 条证据，其中 396 个节点达到段落引文门槛、3 个历史节点只能显示人工复核警示。桌面与 390×844 浏览器验收、概念搜索、年代截断、学科显隐、谱系/跨学科切换、候选证据禁链、15 项测试和预览/生产控制台零错误均通过。
+最近一次验证为 2026-07-15：生产 Worker `805f3f0d-ec68-49e1-8cff-cd1afa37910b`（deployment `ca6ca23f-1ae7-4698-b856-de228bfe6d37`），立即 Worker 回滚锚点为 `2c576476-b5fa-4789-a18e-7510b3fa3744`；预览版本为 `cf7aed3f-1313-49ae-9035-3e608bf1a42c`。`/api/health` 返回 `2026.07.15-v5`、全局 schema 3、分类子 schema 1、195/195 完整分类、175 份学科文档、20 份范围文档、0 未分类，五项绑定全真。迁移前生产 D1 Time Travel bookmark 为 `00000024-00000000-000050a9-d19c9e4a30d2b99a4a3c07e7336d6761`；`0004_document_classifications.sql` 为增量表且保持 v4 Worker 兼容。D1 含 FTS5 虚拟表，Wrangler 全库导出按 Cloudflare 已知限制被拒，因此 Time Travel 是本次数据库恢复锚点；R2 没有写入。
+
+正式概念模型为 449 个概念观察点（其中 11 个范围/框架观察）、439 条非语义自动关系、7,578 个版本内出现记录和 5,000 条完整证据；星图核心 JSON 为 2,774,210 bytes，完整学术模型为 25,586,323 bytes，线上与本地 SHA-256 分别一致为 `73beb039dadd347883594515203f27b818f8250f1f09c7f5ee2206c7da1f53a1` 和 `005bf911dd2b6ed2e30994ce437d041d9792ceadca11e2e0e3007f24d2060992`。完整学术模型只作按需研究资产，首屏不会下载。桌面与 390×844 浏览器确认星图 29 个显式学科 facet 中没有课程方案、考试评价、考试大纲、综合、汇编或艺术与劳动，特殊教育真实课程仍保留；比较、资料和 AI 的学科合同同样只接受显式学科实体，范围文档继续保留在资料与金色范围节点中。移动端无横向溢出，预览和生产控制台均为 0 错误；42 项测试、TypeScript、Wrangler dry-run 与 OCR 健康检查通过。Pulse `/api/meta` 和 `/api/range` 均唯一命中该站，生产观测为 `worker_analytics` / `tracked` / 154 requests / 0 errors。OCR 队列为 25/8,232 页完成、8,207 待处理、0 失败、25/25 见证与审计、0 stale、0 可引文；8 页待人工图像核对、2 页待空白图确认、15 页 fail-closed。自动监督已恢复为 ACTIVE，每 10 分钟执行一个有界批次。
 
 OCR 长任务由 `scripts/ocr-supervisor.mjs` 监管；`npm run ocr:check` 提供机器健康码，`npm run ocr:status` 查看锁、心跳、磁盘、见证、审计、复核和概念图覆盖。退出码合同为：`0` 健康、`2` 退避/局部隔离、`10` 运行或页/见证失败、`11` 停滞、`12` 全局硬停止、`75` 正在运行且锁归属有效。`npm run ocr:recover` 是显式绕过非隔离退避的单页恢复探针；它绝不绕过 quarantine。
 
