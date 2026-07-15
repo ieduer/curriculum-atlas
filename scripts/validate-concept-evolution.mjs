@@ -30,7 +30,7 @@ const arrays = [
   'subject_taxonomy', 'subject_entity_audit', 'subject_facets', 'concepts', 'concept_senses', 'surface_forms',
   'curriculum_lines', 'works', 'editions', 'revisions', 'embedded_items', 'occurrences',
   'episodes', 'relations', 'relation_reviews', 'edges', 'evidence', 'coverage_cells',
-  'editorial_audit',
+  'editorial_audit', 'ontology_scopes', 'ontology_nodes', 'ontology_relations', 'ontology_evidence',
 ];
 for (const name of arrays) fail(Array.isArray(graph[name]), `${name}: missing array`);
 
@@ -39,6 +39,10 @@ fail(graph.schema_version === 2, 'academic artifact schema_version must be 2');
 fail(core.academic_schema_version === 2, 'core academic_schema_version must be 2');
 fail(graph.academic_schema_version === 2, 'academic_schema_version must be 2');
 fail(quality.academic_schema_version === 2, 'quality academic_schema_version must be 2');
+fail(core.ontology_schema_version === 1 && graph.ontology_schema_version === 1, 'ontology schema version must be 1');
+for (const name of ['ontology_scopes', 'ontology_nodes', 'ontology_relations', 'ontology_evidence']) {
+  fail(Array.isArray(core[name]), `core ${name}: missing array`);
+}
 fail(graph.build_revision === quality.build_revision, 'quality/build revision mismatch');
 fail(core.build_revision === graph.build_revision, 'core/academic build revision mismatch');
 fail(core.academic_model_ref?.build_revision === graph.build_revision, 'core academic reference revision mismatch');
@@ -70,6 +74,10 @@ const relations = index('relations');
 const relationReviews = index('relation_reviews');
 const evidence = index('evidence');
 const coverageCells = index('coverage_cells');
+const ontologyScopes = index('ontology_scopes');
+const ontologyNodes = index('ontology_nodes');
+const ontologyRelations = index('ontology_relations');
+const ontologyEvidence = index('ontology_evidence');
 
 const taxonomyBySourceLabel = new Map(graph.subject_taxonomy.map((item) => [item.source_label, item]));
 fail(taxonomyBySourceLabel.size === graph.subject_taxonomy.length, 'subject_taxonomy: duplicate source labels');
@@ -261,6 +269,14 @@ for (const item of graph.evidence) {
   if (item.embedded_item_id !== null) fail(item.citation_allowed === false, `${item.id}: OCR fragment is quotable`);
 }
 
+function expectedVisibilityFacets(episode) {
+  if (episode.subject?.facet_eligible === true) return [episode.subject.facet];
+  if (episode.scope_entity?.entity_kind !== 'curriculum_course') return [];
+  return [...new Set((episode.scope_entity.related_subjects || []).flatMap((subject) => graph.subject_taxonomy
+    .filter((item) => isFacetEntity(item) && (item.source_label === subject || item.canonical === subject))
+    .map((item) => item.facet)))];
+}
+
 for (const episode of graph.episodes) {
   fail(concepts.has(episode.concept_id) && senses.has(episode.concept_sense_id), `${episode.id}: concept/sense missing`);
   if (episode.subject?.facet_eligible === true) {
@@ -277,6 +293,11 @@ for (const episode of graph.episodes) {
   }
   fail(lines.has(episode.curriculum_line?.id) && works.has(episode.work_id) && editions.has(episode.edition_id), `${episode.id}: line/work/edition missing`);
   fail(episode.edition?.identity_id === episode.edition_id, `${episode.id}: incompatible edition identity`);
+  fail(Array.isArray(episode.visibility_facets), `${episode.id}: visibility facets missing`);
+  fail(JSON.stringify([...episode.visibility_facets].sort()) === JSON.stringify(expectedVisibilityFacets(episode).sort()), `${episode.id}: visibility facets are not provenance-derived`);
+  fail(episode.subject?.facet_eligible === true
+    ? episode.visibility_policy === 'direct_subject_facet'
+    : episode.visibility_facets.length ? episode.visibility_policy === 'reviewed_course_relation' : episode.visibility_policy === 'global_only', `${episode.id}: visibility policy mismatch`);
   fail(Number.isInteger(episode.time?.year) && episode.time.year >= 1800 && episode.time.year <= 2030, `${episode.id}: invalid year`);
   fail(episode.evidence_ids.length > 0 && episode.evidence_ids.every((id) => evidence.has(id)), `${episode.id}: evidence missing`);
   fail(episode.occurrence_ids.length > 0 && episode.occurrence_ids.every((id) => occurrences.has(id)), `${episode.id}: occurrences missing`);
@@ -297,6 +318,61 @@ for (const episode of graph.episodes) {
   fail(episode.claim_policy.historical_superlative_allowed === false, `${episode.id}: historical superlative enabled`);
   fail(episode.claim_policy.first_appearance_allowed === false, `${episode.id}: first appearance claim enabled`);
   fail(episode.claim_policy.disappearance_allowed === false, `${episode.id}: disappearance claim enabled`);
+}
+
+fail(!graph.episodes.some((episode) => episode.concept_id === 'sports-ability' && episode.scope_entity?.canonical === '综合康复'), 'rehabilitation motor ability was conflated with 体育运动能力');
+fail(!graph.episodes.some((episode) => episode.concept_id === 'artistic-expression' && episode.scope_entity?.canonical === '律动'), 'generic 律动艺术表现 was conflated with an art core competency');
+
+const ontologyNodeTypes = new Set([
+  'subject_model', 'curriculum_construct', 'language_activity', 'historical_goal_framework', 'historical_goal_dimension',
+  'competency_framework', 'core_competency_dimension', 'course_goal', 'practice_framework', 'practice_domain',
+  'student_ability', 'content_organizer', 'task_group', 'quality_framework', 'quality_level', 'quality_dimension',
+]);
+const ontologyRelationTypes = new Set(['component_of', 'operationalizes', 'assesses', 'foundational_for', 'reframed_by', 'develops', 'realized_through']);
+for (const scope of graph.ontology_scopes) {
+  fail(graph.subject_facets.includes(scope.subject_facet), `${scope.id}: uncontrolled ontology subject facet`);
+  if (scope.edition_id !== null) fail(editions.has(scope.edition_id), `${scope.id}: ontology edition missing`);
+  fail(Boolean(scope.stage && scope.school_type && scope.version_scope), `${scope.id}: incomplete ontology version scope`);
+}
+for (const item of graph.ontology_evidence) {
+  fail(Boolean(item.document_id && item.edition_id && item.source_locator && item.body_sha256 && item.source_artifact_sha256), `${item.id}: incomplete ontology evidence identity`);
+  fail(editions.has(item.edition_id), `${item.id}: ontology evidence edition missing`);
+  fail(item.evidence_status === 'citation_ready' && item.citation_allowed === true, `${item.id}: ontology evidence is not citation ready`);
+  fail(Array.isArray(item.section_path) && item.section_path.length > 0 && item.required_terms.length > 0, `${item.id}: ontology section path or anchor terms missing`);
+}
+for (const node of graph.ontology_nodes) {
+  fail(ontologyNodeTypes.has(node.node_type), `${node.id}: invalid ontology node type`);
+  fail(ontologyScopes.has(node.scope_id), `${node.id}: ontology scope missing`);
+  fail(Boolean(node.label && node.definition && node.normative_role), `${node.id}: incomplete ontology semantics`);
+  fail(['editor_reviewed', 'reviewed_inference'].includes(node.review_status), `${node.id}: invalid ontology review status`);
+  fail(node.evidence_anchor_ids.length > 0 && node.evidence_anchor_ids.every((id) => ontologyEvidence.has(id)), `${node.id}: ontology evidence missing`);
+  if (node.lexical_concept_id !== null) fail(concepts.has(node.lexical_concept_id), `${node.id}: linked lexical concept missing`);
+  if (node.parent_id !== null) fail(ontologyNodes.has(node.parent_id) && ontologyRelationTypes.has(node.parent_relation), `${node.id}: parent or parent relation missing`);
+}
+for (const relation of graph.ontology_relations) {
+  fail(ontologyRelationTypes.has(relation.type), `${relation.id}: invalid ontology relation type`);
+  fail(ontologyNodes.has(relation.source) && ontologyNodes.has(relation.target), `${relation.id}: ontology endpoint missing`);
+  fail(ontologyScopes.has(relation.scope_id), `${relation.id}: ontology relation scope missing`);
+  fail(relation.evidence_anchor_ids.length > 0 && relation.evidence_anchor_ids.every((id) => ontologyEvidence.has(id)), `${relation.id}: ontology relation evidence missing`);
+  if (relation.type === 'reframed_by') {
+    fail(new Set(relation.evidence_anchor_ids.map((id) => ontologyEvidence.get(id)?.document_id)).size >= 2, `${relation.id}: cross-version relation lacks dual-source evidence`);
+  }
+}
+fail(graph.ontology_nodes.filter((node) => node.node_type === 'course_goal').length === 12, 'Chinese ontology must expose 12 course goals');
+fail(graph.ontology_nodes.filter((node) => node.node_type === 'student_ability').length === 15, 'Chinese ontology must expose 15 practice abilities');
+fail(graph.ontology_nodes.filter((node) => node.node_type === 'task_group').length === 18, 'Chinese ontology must expose 18 unique task groups');
+fail(graph.ontology_nodes.filter((node) => node.node_type === 'quality_level').length === 5, 'Chinese ontology must expose 5 quality levels');
+fail(graph.ontology_nodes.filter((node) => node.node_type === 'quality_dimension').every((node) => node.review_status === 'reviewed_inference'), 'quality dimension alignment must remain an explicit reviewed inference');
+fail(!graph.ontology_nodes.some((node) => node.node_type === 'performance_indicator'), 'quality table indicators must remain fail-closed until visual row reconstruction');
+for (const start of graph.ontology_nodes) {
+  const visited = new Set();
+  let cursor = start;
+  while (cursor?.parent_id !== null) {
+    fail(!visited.has(cursor.id), `${start.id}: ontology parent cycle`);
+    if (visited.has(cursor.id)) break;
+    visited.add(cursor.id);
+    cursor = ontologyNodes.get(cursor.parent_id);
+  }
 }
 
 for (const cell of graph.coverage_cells) {

@@ -17,13 +17,16 @@ test('the primary viewport is the curriculum cosmos rather than a marketing page
 test('subjects and concepts are controlled inside the star map', () => {
   assert.match(html, /id="subject-orbit"/);
   assert.match(html, /data-map-mode="cross"/);
+  assert.match(html, /data-map-mode="structure"/);
+  assert.match(html, /id="concept-layers"/);
+  assert.doesNotMatch(html, /id="subject-panel"|class="subject-more"/);
   assert.doesNotMatch(html, /href="\/subjects"|href="\/terms"/);
   assert.match(app, /path === '\/terms'[\s\S]*setMapMode\('cross'\)/);
 });
 
 test('subject hide-all clears every node and edge without a redundant count readout', () => {
   assert.match(app, /hideAllSubjects: false/);
-  assert.match(app, /state\.hideAllSubjects = true/);
+  assert.match(app, /episodeVisibleForSubjectFilter\(episode, state\.hiddenSubjects, state\.hideAllSubjects/);
   assert.match(atlas, /this\.filters\.hideAll/);
   assert.match(atlas, /!source \|\| !target \|\| !this\.visible\(source\) \|\| !this\.visible\(target\)/);
   assert.doesNotMatch(html, /dock-status|颗概念星|条观察关系|个待核节点/);
@@ -59,7 +62,16 @@ test('the graph fits its data bounds inside responsive safe areas', () => {
   assert.match(atlas, /const MIN_ZOOM = \.2/);
   assert.match(atlas, /boxesOverlap\(box, candidate\)/);
   assert.match(atlas, /visibilitychange/);
-  assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?\.search-orbit \{[^}]*right: 136px;[^}]*width: auto;/);
-  assert.match(styles, /\.subject-orbit > \.subject-button:nth-of-type\(n\+8\)/);
-  assert.doesNotMatch(styles, /\n\s*\.subject-button:nth-of-type\(n\+8\)/);
+  assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?\.search-orbit \{[^}]*right: 194px;[^}]*width: auto;/);
+  assert.doesNotMatch(styles, /\.subject-orbit > \.subject-button:nth-of-type/);
+  assert.match(styles, /\.subject-orbit \{[^}]*overflow-y: auto;/);
+});
+
+test('deep concept exploration remains inside the star map and preserves evidence boundaries', () => {
+  assert.match(app, /function renderConceptLayers\(\)/);
+  assert.match(app, /function showOntologyInspector\(node\)/);
+  assert.match(app, /版本边界：/);
+  assert.match(app, /reviewed_inference/);
+  assert.match(styles, /\.ontology-center/);
+  assert.match(styles, /\.ontology-star\.inferred/);
 });

@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeEntityLabel, episodeSubjectFacet, subjectColor } from './atlas.js?v=20260715v8';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeEntityLabel, episodeSubjectFacet, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260715v10';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -27,7 +27,7 @@ const mount = document.querySelector('#cosmos-mount');
 const inspector = document.querySelector('#star-inspector');
 const tooltip = document.querySelector('#atlas-tooltip');
 const subjectOrbit = document.querySelector('#subject-orbit');
-const subjectPanel = document.querySelector('#subject-panel');
+const conceptLayers = document.querySelector('#concept-layers');
 const eraButtons = document.querySelector('#era-buttons');
 const yearRange = document.querySelector('#year-range');
 const yearStart = document.querySelector('#year-start');
@@ -49,6 +49,10 @@ const state = {
   insights: [],
   conceptGraph: null,
   evidenceById: new Map(),
+  ontologyNodeById: new Map(),
+  ontologyEvidenceById: new Map(),
+  ontologyScopeById: new Map(),
+  ontologyFocusId: null,
   me: null,
   cosmos: null,
   hiddenSubjects: new Set(),
@@ -91,7 +95,7 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const conceptGraph = await api('/data/concept-evolution.json?v=20260715v8');
+  const conceptGraph = await api('/data/concept-evolution.json?v=20260715v10');
   const [meta, documents, insights] = await Promise.all([
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
@@ -104,11 +108,18 @@ async function loadBase() {
     || !Array.isArray(conceptGraph.episodes)
     || !Array.isArray(conceptGraph.evidence)
     || !Array.isArray(conceptGraph.subject_facets)
-    || !Array.isArray(conceptGraph.subject_taxonomy)) {
+    || !Array.isArray(conceptGraph.subject_taxonomy)
+    || conceptGraph.ontology_schema_version !== 1
+    || !Array.isArray(conceptGraph.ontology_nodes)
+    || !Array.isArray(conceptGraph.ontology_relations)
+    || !Array.isArray(conceptGraph.ontology_evidence)) {
     throw new Error('概念星图数据未通过结构校验');
   }
   state.conceptGraph = conceptGraph;
   state.evidenceById = new Map(conceptGraph.evidence.map((item) => [item.id, item]));
+  state.ontologyNodeById = new Map(conceptGraph.ontology_nodes.map((item) => [item.id, item]));
+  state.ontologyEvidenceById = new Map(conceptGraph.ontology_evidence.map((item) => [item.id, item]));
+  state.ontologyScopeById = new Map(conceptGraph.ontology_scopes.map((item) => [item.id, item]));
   const years = conceptGraph.episodes.map((episode) => Number(episode.time?.year)).filter((year) => Number.isFinite(year) && year >= 1800);
   if (!years.length) throw new Error('概念星图没有可显示的年代节点');
   const minYear = Math.min(...years);
@@ -244,11 +255,164 @@ function showConceptInspector(episode) {
       ${evidenceHtml || '<small>证据定位缺失；该节点不应显示，请报告数据问题。</small>'}
     </div>
     <div class="inspector-actions">
+      ${episode.ontology_node_id ? `<button class="action-button primary" type="button" data-open-ontology="${escapeHtml(episode.ontology_node_id)}">展开概念层级</button>` : ''}
       <a class="action-button primary" href="/sources?q=${encodeURIComponent(episode.label)}" data-link>检索全部原文</a>
       ${subject ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(subject)}" data-link>比较版本</a>` : ''}
     </div>`;
   inspector.querySelector('.inspector-close').addEventListener('click', () => clearConceptInspector());
+  inspector.querySelector('[data-open-ontology]')?.addEventListener('click', (event) => {
+    state.ontologyFocusId = event.currentTarget.dataset.openOntology;
+    setMapMode('structure');
+    showOntologyInspector(state.ontologyNodeById.get(state.ontologyFocusId));
+  });
   inspector.hidden = false;
+}
+
+const ONTOLOGY_TYPE_LABELS = {
+  subject_model: '学科模型', curriculum_construct: '课程对象', language_activity: '语言活动',
+  historical_goal_framework: '历史目标框架', historical_goal_dimension: '三维目标',
+  competency_framework: '核心素养框架', core_competency: '核心素养', course_goal: '课程目标',
+  practice_framework: '实践框架', practice_domain: '实践领域', student_ability: '学生能力',
+  content_organizer: '内容组织', task_group: '学习任务群', quality_framework: '质量框架',
+  quality_level: '质量水平', quality_dimension: '质量维度',
+};
+
+const ONTOLOGY_RELATION_LABELS = {
+  component_of: '组成', foundational_for: '奠基', reframed_by: '转化为', develops: '发展',
+  realized_through: '通过实践实现', operationalizes: '落实为目标', assesses: '评价',
+};
+
+function ontologyNodeSubject(node) {
+  return state.ontologyScopeById.get(node?.scope_id)?.subject_facet || null;
+}
+
+function ontologyChildren(parentId) {
+  return state.conceptGraph.ontology_nodes.filter((node) => node.parent_id === parentId);
+}
+
+function ontologyPath(node) {
+  const path = [];
+  const visited = new Set();
+  let cursor = node;
+  while (cursor && !visited.has(cursor.id)) {
+    path.unshift(cursor);
+    visited.add(cursor.id);
+    cursor = cursor.parent_id ? state.ontologyNodeById.get(cursor.parent_id) : null;
+  }
+  return path;
+}
+
+function showOntologyInspector(node) {
+  if (!node) return;
+  state.ontologyFocusId = node.id;
+  state.selectedEpisode = null;
+  state.cosmos?.setSelected(null);
+  const scope = state.ontologyScopeById.get(node.scope_id);
+  const records = (node.evidence_anchor_ids || []).map((id) => state.ontologyEvidenceById.get(id)).filter(Boolean);
+  const relations = state.conceptGraph.ontology_relations
+    .filter((relation) => relation.source === node.id || relation.target === node.id)
+    .map((relation) => {
+      const outward = relation.source === node.id;
+      const peer = state.ontologyNodeById.get(outward ? relation.target : relation.source);
+      return peer ? `<button type="button" data-ontology-node="${escapeHtml(peer.id)}"><span>${escapeHtml(ONTOLOGY_RELATION_LABELS[relation.type] || relation.type)}</span>${escapeHtml(peer.label)}</button>` : '';
+    }).filter(Boolean).join('');
+  const evidenceHtml = records.map((item) => `<article class="concept-evidence">
+    <a href="/document/${encodeURIComponent(item.document_id)}" data-link>${escapeHtml(item.document_title)}</a>
+    <small>${escapeHtml(item.source_locator)} · ${escapeHtml((item.section_path || []).join(' › '))}</small>
+    <p>段落锚点：${escapeHtml((item.required_terms || []).join(' · '))}</p>
+  </article>`).join('');
+  const reviewLabel = node.review_status === 'reviewed_inference' ? '编辑推断 · 非官方表头' : '官方原文锚定';
+  inspector.innerHTML = `
+    <button class="inspector-close" type="button" aria-label="关闭">×</button>
+    <p class="inspector-kicker">${escapeHtml(ontologyNodeSubject(node) || '学科')} · ${escapeHtml(ONTOLOGY_TYPE_LABELS[node.node_type] || node.node_type)}</p>
+    <h2>${escapeHtml(node.label)}</h2>
+    <p>${escapeHtml(node.definition)}</p>
+    <div class="inspector-meta">
+      <span>${escapeHtml(scope?.stage || '跨学段')}</span><span>${escapeHtml(reviewLabel)}</span>
+      <span>下位概念 ${ontologyChildren(node.id).length}</span>
+    </div>
+    ${scope ? `<small class="ontology-scope-note">版本边界：${escapeHtml(scope.version_scope)}</small>` : ''}
+    ${relations ? `<div class="ontology-relations"><h3>经核关系</h3>${relations}</div>` : ''}
+    <div class="inspector-insights">
+      <h3>官方证据</h3>
+      ${evidenceHtml || '<small>该导航节点没有独立段落锚点，不得据此形成版本结论。</small>'}
+    </div>
+    <div class="inspector-actions">
+      ${node.lexical_concept_id ? `<a class="action-button" href="/terms?term=${encodeURIComponent(node.lexical_concept_id)}" data-link>查看历代观察</a>` : ''}
+      <a class="action-button primary" href="/sources?q=${encodeURIComponent(node.label)}" data-link>检索全部原文</a>
+    </div>`;
+  inspector.querySelector('.inspector-close').addEventListener('click', () => clearConceptInspector(false));
+  inspector.querySelectorAll('[data-ontology-node]').forEach((button) => button.addEventListener('click', () => {
+    const next = state.ontologyNodeById.get(button.dataset.ontologyNode);
+    if (!next) return;
+    state.ontologyFocusId = next.id;
+    renderConceptLayers();
+    showOntologyInspector(next);
+  }));
+  inspector.hidden = false;
+}
+
+function ontologyPositions(count) {
+  if (!count) return [];
+  const innerCount = count > 10 ? Math.min(8, Math.ceil(count * .45)) : count;
+  const compact = innerWidth <= 640;
+  return Array.from({ length: count }, (_, index) => {
+    const outer = index >= innerCount;
+    const ringIndex = outer ? index - innerCount : index;
+    const ringCount = outer ? count - innerCount : innerCount;
+    const angle = -Math.PI / 2 + (ringIndex / ringCount) * Math.PI * 2 + (outer ? Math.PI / ringCount : 0);
+    const radiusX = outer ? (compact ? 35 : 43) : count > 10 ? (compact ? 23 : 27) : count > 6 ? (compact ? 34 : 39) : (compact ? 30 : 34);
+    const radiusY = outer ? 40 : count > 10 ? 25 : count > 6 ? 35 : 31;
+    return { x: 50 + Math.cos(angle) * radiusX, y: 50 + Math.sin(angle) * radiusY, outer };
+  });
+}
+
+function renderConceptLayers() {
+  if (state.mode !== 'structure') {
+    conceptLayers.hidden = true;
+    mount.classList.remove('structure-muted');
+    return;
+  }
+  const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
+  const visibleSubjects = state.hideAllSubjects ? [] : subjects.filter((subject) => !state.hiddenSubjects.has(subject));
+  const activeSubject = visibleSubjects.length === 1 ? visibleSubjects[0] : null;
+  const roots = state.conceptGraph.ontology_nodes.filter((node) => !node.parent_id);
+  const root = roots.find((node) => ontologyNodeSubject(node) === activeSubject);
+  conceptLayers.hidden = false;
+  mount.classList.add('structure-muted');
+  if (!root) {
+    conceptLayers.innerHTML = `<div class="ontology-empty"><b>${escapeHtml(activeSubject || '当前组合')}的深层模型尚未达到发布门槛</b><span>只有版本身份、原文段落和概念关系同时核验后才会进入星图。</span></div>`;
+    return;
+  }
+  let focus = state.ontologyNodeById.get(state.ontologyFocusId);
+  if (!focus || ontologyNodeSubject(focus) !== activeSubject || !ontologyPath(focus).some((node) => node.id === root.id)) focus = root;
+  state.ontologyFocusId = focus.id;
+  const children = ontologyChildren(focus.id);
+  const positions = ontologyPositions(children.length);
+  const breadcrumb = ontologyPath(focus).map((node, index, path) => `<button type="button" data-ontology-node="${escapeHtml(node.id)}" ${index === path.length - 1 ? 'aria-current="page"' : ''}>${escapeHtml(node.label)}</button>`).join('<span>›</span>');
+  const lines = positions.map((position) => `<line x1="50" y1="50" x2="${position.x.toFixed(2)}" y2="${position.y.toFixed(2)}"></line>`).join('');
+  const stars = children.map((child, index) => {
+    const position = positions[index];
+    const descendants = ontologyChildren(child.id).length;
+    const inferred = child.review_status === 'reviewed_inference';
+    return `<button class="ontology-star ${position.outer ? 'outer' : ''} ${inferred ? 'inferred' : ''}" type="button" data-ontology-node="${escapeHtml(child.id)}" style="--star-x:${position.x.toFixed(2)}%;--star-y:${position.y.toFixed(2)}%;--star-delay:${index * 24}ms">
+      <i aria-hidden="true"></i><b>${escapeHtml(child.label)}</b><small>${escapeHtml(ONTOLOGY_TYPE_LABELS[child.node_type] || child.node_type)}${descendants ? ` · ${descendants}` : ''}</small>
+    </button>`;
+  }).join('');
+  conceptLayers.innerHTML = `<nav class="ontology-breadcrumb" aria-label="概念层级路径">${breadcrumb}</nav>
+    <div class="ontology-stage ${children.length > 10 ? 'dense' : ''}">
+      <svg class="ontology-edges" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
+      <button class="ontology-center" type="button" data-inspect-ontology="${escapeHtml(focus.id)}"><i aria-hidden="true"></i><b>${escapeHtml(focus.label)}</b><small>${escapeHtml(ONTOLOGY_TYPE_LABELS[focus.node_type] || focus.node_type)} · ${children.length} 个下位概念</small></button>
+      ${stars || '<p class="ontology-leaf">已到当前核验层级；可从右侧证据继续查看原文。</p>'}
+    </div>`;
+  conceptLayers.querySelectorAll('[data-ontology-node]').forEach((button) => button.addEventListener('click', () => {
+    const next = state.ontologyNodeById.get(button.dataset.ontologyNode);
+    if (!next) return;
+    state.ontologyFocusId = next.id;
+    renderConceptLayers();
+    showOntologyInspector(next);
+  }));
+  conceptLayers.querySelector('[data-inspect-ontology]')?.addEventListener('click', () => showOntologyInspector(focus));
 }
 
 function showTooltip(node, event) {
@@ -266,17 +430,19 @@ function showTooltip(node, event) {
 
 function updateMapStatus() {
   const visibleEpisodes = state.conceptGraph.episodes.filter((episode) => Number(episode.time.year) <= state.maxYear
-    && !state.hideAllSubjects
-    && (!episodeSubjectFacet(episode) || !state.hiddenSubjects.has(episodeSubjectFacet(episode)))
+    && episodeVisibleForSubjectFilter(episode, state.hiddenSubjects, state.hideAllSubjects, state.conceptGraph.subject_facets)
     && (!state.query || `${episode.label}${(episode.aliases || []).join('')}${episodeEntityLabel(episode)}${episode.time.year}${episode.category}`.toLocaleLowerCase('zh-CN').includes(state.query)));
   const visibleIds = new Set(visibleEpisodes.map((episode) => episode.id));
   if (state.selectedEpisode && !visibleIds.has(state.selectedEpisode.id)) clearConceptInspector();
   state.cosmos?.setFilters({ hiddenSubjects: state.hiddenSubjects, hideAll: state.hideAllSubjects, maxYear: state.maxYear, query: state.query });
+  if (state.mode === 'structure') renderConceptLayers();
 }
 
 function subjectButton(subject, count, panel = false) {
   const visible = !state.hideAllSubjects && !state.hiddenSubjects.has(subject);
-  return `<button class="subject-button ${visible ? 'active' : ''}" type="button" data-subject="${escapeHtml(subject)}" aria-pressed="${visible}" style="--subject-color:${subjectColor(subject)}" title="${visible ? '隐藏' : '显示'}${escapeHtml(subject)}">${escapeHtml(subject)}${panel ? ` · ${count}` : ''}</button>`;
+  const onlyVisible = visible && state.conceptGraph.subject_facets.filter((name) => !state.hiddenSubjects.has(name)).length === 1;
+  const action = onlyVisible ? '恢复全部学科' : `只看${subject}；Shift 点击可多选`;
+  return `<button class="subject-button ${visible ? 'active' : ''}" type="button" data-subject="${escapeHtml(subject)}" aria-pressed="${visible}" style="--subject-color:${subjectColor(subject)}" title="${escapeHtml(action)}">${escapeHtml(subject)}${panel ? ` · ${count}` : ''}</button>`;
 }
 
 function controlledSubjectFacetCounts(conceptGraph) {
@@ -297,24 +463,24 @@ function controlledSubjectFacetCounts(conceptGraph) {
 
 function renderSubjectControls() {
   const { subjects, counts } = controlledSubjectFacetCounts(state.conceptGraph);
-  const core = CORE_SUBJECTS.filter((subject) => counts.has(subject)).slice(0, 12);
-  subjectOrbit.innerHTML = `${core.map((subject) => subjectButton(subject, counts.get(subject))).join('')}<button class="subject-more" type="button" id="subject-more">全部学科 · ${subjects.length}</button>`;
-  subjectPanel.innerHTML = `<header><div><small>点击星色控制显隐</small><h2>全部学科</h2></div><button type="button" id="subject-panel-close" aria-label="关闭">×</button></header><div class="inspector-actions"><button class="action-button" type="button" id="show-all-subjects">全部显示</button><button class="action-button" type="button" id="hide-all-subjects">全部隐藏</button></div><div class="subject-grid">${subjects.map((subject) => subjectButton(subject, counts.get(subject), true)).join('')}</div>`;
-  document.querySelector('#subject-more').addEventListener('click', () => { subjectPanel.hidden = false; });
-  document.querySelector('#subject-panel-close').addEventListener('click', () => { subjectPanel.hidden = true; });
-  document.querySelector('#show-all-subjects').addEventListener('click', () => { state.hideAllSubjects = false; state.hiddenSubjects.clear(); renderSubjectControls(); updateMapStatus(); subjectPanel.hidden = false; });
-  document.querySelector('#hide-all-subjects').addEventListener('click', () => { state.hideAllSubjects = true; subjects.forEach((subject) => state.hiddenSubjects.add(subject)); renderSubjectControls(); updateMapStatus(); subjectPanel.hidden = false; });
-  document.querySelectorAll('[data-subject]').forEach((button) => button.addEventListener('click', () => {
+  const core = CORE_SUBJECTS.filter((subject) => counts.has(subject));
+  subjectOrbit.innerHTML = core.map((subject) => subjectButton(subject, counts.get(subject))).join('');
+  subjectOrbit.querySelectorAll('[data-subject]').forEach((button) => button.addEventListener('click', (event) => {
     const subject = button.dataset.subject;
-    if (state.hideAllSubjects) {
+    const visibleSubjects = subjects.filter((name) => !state.hiddenSubjects.has(name));
+    if (event.shiftKey) {
+      state.hideAllSubjects = false;
+      if (state.hiddenSubjects.has(subject)) state.hiddenSubjects.delete(subject);
+      else state.hiddenSubjects.add(subject);
+    } else if (visibleSubjects.length === 1 && visibleSubjects[0] === subject) {
+      state.hideAllSubjects = false;
+      state.hiddenSubjects.clear();
+    } else {
       state.hideAllSubjects = false;
       state.hiddenSubjects.clear();
       subjects.forEach((name) => { if (name !== subject) state.hiddenSubjects.add(name); });
-    } else if (state.hiddenSubjects.has(subject)) state.hiddenSubjects.delete(subject);
-    else state.hiddenSubjects.add(subject);
-    const panelWasOpen = !subjectPanel.hidden;
+    }
     renderSubjectControls();
-    subjectPanel.hidden = !panelWasOpen;
     updateMapStatus();
   }));
 }
@@ -331,9 +497,24 @@ function renderEraControls() {
 }
 
 function setMapMode(mode) {
-  state.mode = mode === 'cross' ? 'cross' : 'lineage';
-  state.cosmos?.setMode(state.mode);
+  state.mode = ['lineage', 'cross', 'structure'].includes(mode) ? mode : 'lineage';
+  if (!state.conceptGraph) return;
+  if (state.mode === 'structure') {
+    const firstRoot = state.conceptGraph.ontology_nodes.find((node) => !node.parent_id);
+    const subject = ontologyNodeSubject(firstRoot);
+    const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
+    if (subject && subjects.includes(subject)) {
+      state.hideAllSubjects = false;
+      state.hiddenSubjects.clear();
+      subjects.forEach((name) => { if (name !== subject) state.hiddenSubjects.add(name); });
+      renderSubjectControls();
+    }
+    state.ontologyFocusId ||= firstRoot?.id || null;
+  }
+  state.cosmos?.setMode(state.mode === 'cross' ? 'cross' : 'lineage');
   document.querySelectorAll('[data-map-mode]').forEach((button) => button.classList.toggle('active', button.dataset.mapMode === state.mode));
+  renderConceptLayers();
+  updateMapStatus();
 }
 
 function openWorkbench({ kicker, title, tabs, active }) {
@@ -661,10 +842,10 @@ clearQuery.addEventListener('click', () => {
 document.querySelector('#workbench-close').addEventListener('click', () => closeWorkbench());
 scrim.addEventListener('click', () => closeWorkbench());
 window.addEventListener('popstate', route);
+window.addEventListener('resize', () => { if (state.mode === 'structure') renderConceptLayers(); });
 window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
-    if (!subjectPanel.hidden) subjectPanel.hidden = true;
-    else if (!workbench.hidden) closeWorkbench();
+    if (!workbench.hidden) closeWorkbench();
     else if (!inspector.hidden) clearConceptInspector();
   }
 });

@@ -103,11 +103,20 @@ Never:
 
 The machine-readable policy is `data/online-verification-standard.json`; database support is in `migrations/0003_online_verification.sql`.
 
+## Queue coverage gate
+
+OCR 速度不能掩盖漏排。`scripts/audit-local-moe-scans.mjs` 在每次重建队列前审计本机缓存的教育部 2011/2022 义务教育课程标准：核对 PDF 签名、物理页数、SHA-256 和是否存在可用原生正文，并将结果固定到 `data/local-official-scans.json`。覆盖测试要求所有合格扫描件都进入 `data/ocr-queue.json`，且不得因为文件名、目录来源或已有目录记录而静默遗漏。
+
+2026-07-15 审计新增 36 份教育部扫描件、3,157 页；总队列由 50 份/8,690 页扩大为 86 份/11,847 页。36 份均为 `text_quality_status=ocr_required`、`citation_allowed=false`。2011 年版语文 83 页和 2022 年版语文 109 页优先级为 0，以便尽快为普通义务教育语文本体补齐版次证据；优先识别不改变任何质量门。
+
+生产队列只在完整批次边界切换。watchdog 先进入 hold，核对精确 drain PID、cwd、命令、锁归属和已完成批次，再向该 owner 发送终止信号；确认锁释放后恢复 run。不得在 PaddleOCR 页处理中为加载新队列强行中断，也不得删除已通过 source/image/result hash 与 exact audit 的页面。
+
 ## Reproducible commands
 
 Generate the queue:
 
 ```bash
+node scripts/audit-local-moe-scans.mjs
 node scripts/prepare-ocr-queue.mjs
 ```
 

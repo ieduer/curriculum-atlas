@@ -339,6 +339,7 @@ test('concept candidate gate requires current fingerprints and matching academic
     queue_sha256: '2'.repeat(64),
     concept_model_sha256: '3'.repeat(64),
     lexicon_sha256: '4'.repeat(64),
+    ontology_sha256: '7'.repeat(64),
     builder_sha256: '5'.repeat(64),
     validator_sha256: '6'.repeat(64),
   };

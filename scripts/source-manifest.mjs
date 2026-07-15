@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 const moe2022Base = 'https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/';
 const moe2011Base = 'https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/';
 const neea2019Base = 'https://www.neea.edu.cn/res/Home/1901/';
+const localOfficialScans = JSON.parse(await readFile(new URL('../data/local-official-scans.json', import.meta.url), 'utf8')).documents;
+const localOfficialScanById = new Map(localOfficialScans.map((record) => [record.id, record]));
 
 const common = {
   country: '中国',
@@ -14,13 +16,23 @@ const common = {
 
 function documentRecord(series, index, spec, fields) {
   const [subject, title, filename] = spec;
+  const id = `${series}-${String(index + 1).padStart(2, '0')}`;
+  const localScan = localOfficialScanById.get(id);
   return {
-    id: `${series}-${String(index + 1).padStart(2, '0')}`,
+    id,
     subject,
     title,
     filename,
     ...common,
     ...fields,
+    ...(localScan ? {
+      local_cache_path: localScan.local_cache_path,
+      page_count: localScan.page_count,
+      checksum_sha256: localScan.checksum_sha256,
+      text_quality_status: 'ocr_required',
+      citation_allowed: false,
+      local_verification_status: 'verified_local_pdf_scan',
+    } : {}),
   };
 }
 

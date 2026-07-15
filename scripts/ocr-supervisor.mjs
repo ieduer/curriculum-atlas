@@ -65,6 +65,7 @@ const conceptFingerprintFiles = Object.freeze({
   queue_sha256: 'data/ocr-queue.json',
   concept_model_sha256: 'data/concept-model-v2.json',
   lexicon_sha256: 'data/concept-lexicon.json',
+  ontology_sha256: 'data/concept-ontology.json',
   builder_sha256: 'scripts/build-concept-evolution.mjs',
   validator_sha256: 'scripts/validate-concept-evolution.mjs',
 });

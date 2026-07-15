@@ -56,6 +56,21 @@ export function episodeSubjectFacet(episode) {
     : null;
 }
 
+export function episodeVisibilityFacets(episode) {
+  if (Array.isArray(episode?.visibility_facets)) return episode.visibility_facets.filter((facet) => typeof facet === 'string' && facet.trim());
+  const direct = episodeSubjectFacet(episode);
+  return direct ? [direct] : [];
+}
+
+export function episodeVisibleForSubjectFilter(episode, hiddenSubjects, hideAll, subjectFacets) {
+  if (hideAll) return false;
+  const controlled = Array.isArray(subjectFacets) ? subjectFacets : [];
+  const hidden = hiddenSubjects instanceof Set ? hiddenSubjects : new Set(hiddenSubjects || []);
+  if (hidden.size === 0) return true;
+  const visible = new Set(controlled.filter((facet) => !hidden.has(facet)));
+  return episodeVisibilityFacets(episode).some((facet) => visible.has(facet));
+}
+
 export function episodeCanonicalSubject(episode) {
   const subject = episode?.subject;
   return ['subject', 'assessment_subject'].includes(subject?.entity_kind) && subject?.facet_eligible === true && typeof subject?.canonical === 'string' && subject.canonical.trim()
@@ -190,12 +205,13 @@ export class CurriculumCosmos {
   setData(graph) {
     this.graph = graph;
     const episodes = (graph?.episodes || []).filter((episode) => Number(episode.time?.year) >= 1800);
-    this.subjects = [...new Set(episodes.map(episodeSubjectFacet).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    this.subjects = Array.isArray(graph?.subject_facets) ? [...graph.subject_facets] : [...new Set(episodes.map(episodeSubjectFacet).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
     this.tracks = [...new Set(episodes.map((episode) => `${episodeSubjectFacet(episode) ? 'subject' : episodeCourseEntity(episode) ? 'course' : 'scope'}:${episodeEntityLabel(episode)}`))]
       .sort((a, b) => a.localeCompare(b, 'zh-CN'));
     const trackIndex = new Map(this.tracks.map((track, index) => [track, index]));
     this.nodes = episodes.map((episode) => {
       const subject = episodeSubjectFacet(episode);
+      const visibilityFacets = episodeVisibilityFacets(episode);
       const course = episodeCourseEntity(episode);
       const entityLabel = episodeEntityLabel(episode);
       const track = `${subject ? 'subject' : course ? 'course' : 'scope'}:${entityLabel}`;
@@ -206,7 +222,7 @@ export class CurriculumCosmos {
       const radius = 255 + (slot % 5) * 15 + (conceptDrift() - .5) * 54;
       const display = episode.claim_policy?.display_level || 'candidate_dashed';
       return {
-        kind: 'concept', episode, id: episode.id, subject, course: course?.canonical || null, entityLabel, facetEligible: Boolean(subject), year: Number(episode.time.year),
+        kind: 'concept', episode, id: episode.id, subject, visibilityFacets, course: course?.canonical || null, entityLabel, facetEligible: Boolean(subject), year: Number(episode.time.year),
         conceptId: episode.concept_id, color: subject ? subjectColor(subject) : course ? '#67d7b1' : '#e7bd61',
         x: yearX(Math.max(1902, Math.min(2022, Number(episode.time.year)))),
         y: Math.sin(angle) * radius + (conceptDrift() - .5) * 68 + (lineDrift() - .5) * 24,
@@ -253,7 +269,7 @@ export class CurriculumCosmos {
   }
 
   visible(node) {
-    if (this.filters.hideAll || node.year > this.filters.maxYear || (node.subject && this.filters.hiddenSubjects.has(node.subject))) return false;
+    if (node.year > this.filters.maxYear || !episodeVisibleForSubjectFilter(node.episode, this.filters.hiddenSubjects, this.filters.hideAll, this.subjects)) return false;
     if (!this.filters.query) return true;
     const episode = node.episode;
     return `${episode.label} ${(episode.aliases || []).join(' ')} ${node.entityLabel} ${node.year} ${episode.category} ${episode.curriculum_line?.stage}`

@@ -1,0 +1,231 @@
+{
+  "schema_version": 1,
+  "ontology_id": "curriculum-concept-ontology-v1",
+  "assertion_boundary": "This is an edition-scoped, evidence-resolved research ontology. Parent and semantic relations are released only with official citation-ready anchors; same labels across editions are not silently merged. OCR candidates remain outside this reviewed layer.",
+  "mining_policy": {
+    "automatic_lexical_observation_is_semantic_identity": false,
+    "ocr_candidate_release_allowed": false,
+    "cross_version_mapping_requires_dual_evidence_and_review": true,
+    "quality_table_row_release_requires_visual_reconstruction": true,
+    "next_ocr_expansion_targets": ["section_heading", "definition", "course_goal", "practice_domain", "task_group", "student_ability", "quality_level", "performance_indicator"]
+  },
+  "scopes": [
+    {
+      "id": "scope:zh-research-index",
+      "subject_facet": "语文",
+      "stage": "跨学段",
+      "school_type": "multiple",
+      "edition_id": null,
+      "version_scope": "研究导航层；不把不同版本同名概念视为同一义项"
+    },
+    {
+      "id": "scope:zh-2016-blind",
+      "subject_facet": "语文",
+      "stage": "义务教育",
+      "school_type": "special_education_school_for_the_blind",
+      "edition_id": "edition:ictr-42b373aa14b0",
+      "version_scope": "盲校义务教育语文课程标准（2016年版）；不得代替普通义务教育版本"
+    },
+    {
+      "id": "scope:zh-hs-2020",
+      "subject_facet": "语文",
+      "stage": "高中",
+      "school_type": "general_education",
+      "edition_id": "edition:moe-hs-2020-02",
+      "version_scope": "普通高中语文课程标准（2017年版2020年修订）"
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "id": "anchor:zh-course-nature",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_ordinal": 10,
+      "section_path": ["一、课程性质与基本理念", "（一）课程性质"],
+      "required_terms": ["语言文字的运用", "听说读写活动", "文学活动", "真实的语言运用情境"]
+    },
+    {
+      "id": "anchor:zh-three-dimensional-2016",
+      "document_id": "ictr-42b373aa14b0",
+      "paragraph_ordinal": 12,
+      "section_path": ["二、课程目标与内容", "一、总体目标与内容"],
+      "required_terms": ["知识与能力", "过程与方法", "情感态度与价值观", "相互渗透"]
+    },
+    {
+      "id": "anchor:zh-three-dimensional-integration-2020",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_ordinal": 7,
+      "section_path": ["前言", "（二）关于学科课程标准"],
+      "required_terms": ["知识与技能", "过程与方法", "情感态度与价值观", "三维目标进行了整合"]
+    },
+    {
+      "id": "anchor:zh-core-language-thinking",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_ordinal": 14,
+      "section_path": ["二、学科核心素养与课程目标", "（一）学科核心素养"],
+      "required_terms": ["语言建构与运用", "思维发展与提升", "正确价值观", "关键能力"]
+    },
+    {
+      "id": "anchor:zh-core-aesthetic-culture",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_ordinal": 15,
+      "section_path": ["二、学科核心素养与课程目标", "（一）学科核心素养"],
+      "required_terms": ["审美鉴赏与创造", "文化传承与理解", "语言建构与运用是语文学科核心素养的基础"]
+    },
+    {
+      "id": "anchor:zh-course-goals-intro",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_ordinal": 16,
+      "section_path": ["二、学科核心素养与课程目标", "（二）课程目标"],
+      "required_terms": ["阅读与鉴赏", "表达与交流", "梳理与探究", "语言积累与建构"]
+    },
+    {
+      "id": "anchor:zh-course-goals-2-9",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_ordinal": 17,
+      "section_path": ["二、学科核心素养与课程目标", "（二）课程目标"],
+      "required_terms": ["语言表达与交流", "语言梳理与整合", "增强形象思维能力", "鉴赏文学作品", "美的表达与创造"]
+    },
+    {
+      "id": "anchor:zh-course-goals-10-12",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_ordinal": 18,
+      "section_path": ["二、学科核心素养与课程目标", "（二）课程目标"],
+      "required_terms": ["传承中华文化", "理解多样文化", "关注、参与当代文化"]
+    },
+    {
+      "id": "anchor:zh-task-group-design",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_ordinal": 19,
+      "section_path": ["三、课程结构", "（一）设计依据"],
+      "required_terms": ["语文学习任务群", "以任务为导向", "以学习项目为载体", "自主、合作、探究性学习"]
+    },
+    {
+      "id": "anchor:zh-task-group-list",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_ordinal": 21,
+      "section_path": ["三、课程结构", "（二）结构"],
+      "required_terms": ["必修课程7个", "选择性必修课程9个", "选修课程9个", "整本书阅读与研讨", "学术论著专题研讨"]
+    },
+    {
+      "id": "anchor:zh-quality-definition",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_ordinal": 67,
+      "section_path": ["五、学业质量", "（一）学业质量内涵"],
+      "required_terms": ["学业质量是学生", "学业质量标准", "学科核心素养", "不同水平"]
+    },
+    {
+      "id": "anchor:zh-quality-levels",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_ordinal": 116,
+      "section_path": ["五、学业质量", "（三）学业质量水平与考试评价的关系"],
+      "required_terms": ["五个级别", "水平一", "水平二", "水平三", "水平四"]
+    },
+    {
+      "id": "anchor:zh-quality-exam-relations",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_ordinal": 117,
+      "section_path": ["五、学业质量", "（三）学业质量水平与考试评价的关系"],
+      "required_terms": ["水平五", "学业水平考试的依据", "高校考试招生录取的依据"]
+    },
+    {
+      "id": "anchor:zh-practice-assessment-dimensions",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_ordinal": 127,
+      "section_path": ["六、实施建议", "（二）学业水平考试与高考命题建议", "2.命题思路和框架"],
+      "required_terms": ["阅读与鉴赏", "整体感知", "信息提取", "理解阐释", "推断探究", "赏析评价", "发现创新"]
+    }
+  ],
+  "nodes": [
+    { "id": "zh-curriculum", "label": "语文课程概念体系", "node_type": "subject_model", "scope_id": "scope:zh-research-index", "parent_id": null, "parent_relation": null, "lexical_concept_id": null, "definition": "按版本证据组织目标、素养、实践、任务群、能力与学业质量的研究导航层。", "normative_role": "research_index", "evidence_anchor_ids": ["anchor:zh-course-nature"], "review_status": "editor_reviewed" },
+    { "id": "zh-language-use", "label": "语言文字运用", "node_type": "curriculum_construct", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-curriculum", "parent_relation": "component_of", "lexical_concept_id": "language-use", "definition": "语文课程所学习的祖国语言文字运用，覆盖真实情境中的语言实践。", "normative_role": "course_object", "evidence_anchor_ids": ["anchor:zh-course-nature"], "review_status": "editor_reviewed" },
+    { "id": "zh-language-use-listening", "label": "听的活动", "node_type": "language_activity", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-language-use", "parent_relation": "component_of", "lexical_concept_id": null, "definition": "语言文字运用所含听说读写活动之一。", "normative_role": "learning_activity", "evidence_anchor_ids": ["anchor:zh-course-nature"], "review_status": "editor_reviewed" },
+    { "id": "zh-language-use-speaking", "label": "说的活动", "node_type": "language_activity", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-language-use", "parent_relation": "component_of", "lexical_concept_id": null, "definition": "语言文字运用所含听说读写活动之一。", "normative_role": "learning_activity", "evidence_anchor_ids": ["anchor:zh-course-nature"], "review_status": "editor_reviewed" },
+    { "id": "zh-language-use-reading", "label": "读的活动", "node_type": "language_activity", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-language-use", "parent_relation": "component_of", "lexical_concept_id": null, "definition": "语言文字运用所含听说读写活动之一。", "normative_role": "learning_activity", "evidence_anchor_ids": ["anchor:zh-course-nature"], "review_status": "editor_reviewed" },
+    { "id": "zh-language-use-writing", "label": "写的活动", "node_type": "language_activity", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-language-use", "parent_relation": "component_of", "lexical_concept_id": null, "definition": "语言文字运用所含听说读写活动之一。", "normative_role": "learning_activity", "evidence_anchor_ids": ["anchor:zh-course-nature"], "review_status": "editor_reviewed" },
+    { "id": "zh-language-use-literature", "label": "文学活动", "node_type": "language_activity", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-language-use", "parent_relation": "component_of", "lexical_concept_id": null, "definition": "语言文字运用明确包含的文学活动。", "normative_role": "learning_activity", "evidence_anchor_ids": ["anchor:zh-course-nature"], "review_status": "editor_reviewed" },
+
+    { "id": "zh-three-dimensional-goals", "label": "三维目标（历史框架）", "node_type": "historical_goal_framework", "scope_id": "scope:zh-2016-blind", "parent_id": "zh-curriculum", "parent_relation": "component_of", "lexical_concept_id": "three-dimensional-goals", "definition": "2016年盲校语文标准从三个方面设计并要求相互渗透、融为一体的课程目标框架。", "normative_role": "course_goal_framework", "evidence_anchor_ids": ["anchor:zh-three-dimensional-2016", "anchor:zh-three-dimensional-integration-2020"], "review_status": "editor_reviewed" },
+    { "id": "zh-goal-knowledge-ability", "label": "知识与能力", "node_type": "historical_goal_dimension", "scope_id": "scope:zh-2016-blind", "parent_id": "zh-three-dimensional-goals", "parent_relation": "component_of", "lexical_concept_id": "knowledge-and-ability", "definition": "该版本三方面课程目标之一。", "normative_role": "course_goal_dimension", "evidence_anchor_ids": ["anchor:zh-three-dimensional-2016"], "review_status": "editor_reviewed" },
+    { "id": "zh-goal-process-method", "label": "过程与方法", "node_type": "historical_goal_dimension", "scope_id": "scope:zh-2016-blind", "parent_id": "zh-three-dimensional-goals", "parent_relation": "component_of", "lexical_concept_id": "process-and-method", "definition": "该版本三方面课程目标之一。", "normative_role": "course_goal_dimension", "evidence_anchor_ids": ["anchor:zh-three-dimensional-2016"], "review_status": "editor_reviewed" },
+    { "id": "zh-goal-emotion-attitude-values", "label": "情感态度与价值观", "node_type": "historical_goal_dimension", "scope_id": "scope:zh-2016-blind", "parent_id": "zh-three-dimensional-goals", "parent_relation": "component_of", "lexical_concept_id": "emotion-attitude-values", "definition": "该版本三方面课程目标之一。", "normative_role": "course_goal_dimension", "evidence_anchor_ids": ["anchor:zh-three-dimensional-2016"], "review_status": "editor_reviewed" },
+
+    { "id": "zh-core-competencies", "label": "语文学科核心素养", "node_type": "competency_framework", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-curriculum", "parent_relation": "component_of", "lexical_concept_id": "chinese-core-competency", "definition": "学生在语言实践中形成并在真实语言运用情境中表现的综合素养。", "normative_role": "course_goal_framework", "evidence_anchor_ids": ["anchor:zh-core-language-thinking", "anchor:zh-core-aesthetic-culture"], "review_status": "editor_reviewed" },
+    { "id": "zh-competency-language", "label": "语言建构与运用", "node_type": "core_competency_dimension", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-core-competencies", "parent_relation": "component_of", "lexical_concept_id": "language-construction-use", "definition": "在语言实践中积累、梳理和整合，掌握语言文字特点与规律并有效交流。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-core-language-thinking"], "review_status": "editor_reviewed" },
+    { "id": "zh-competency-thinking", "label": "思维发展与提升", "node_type": "core_competency_dimension", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-core-competencies", "parent_relation": "component_of", "lexical_concept_id": "thinking-development-enhancement", "definition": "通过语言运用发展多种思维，并提升思维品质。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-core-language-thinking"], "review_status": "editor_reviewed" },
+    { "id": "zh-competency-aesthetic", "label": "审美鉴赏与创造", "node_type": "core_competency_dimension", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-core-competencies", "parent_relation": "component_of", "lexical_concept_id": "aesthetic-appreciation-creation", "definition": "在审美体验与评价中形成审美意识、情趣、品位和创造方法。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-core-aesthetic-culture"], "review_status": "editor_reviewed" },
+    { "id": "zh-competency-culture", "label": "文化传承与理解", "node_type": "core_competency_dimension", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-core-competencies", "parent_relation": "component_of", "lexical_concept_id": "culture-inheritance-understanding", "definition": "传承中华文化、理解多样文化并提升文化自觉与文化自信。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-core-aesthetic-culture"], "review_status": "editor_reviewed" },
+
+    { "id": "zh-target-language-accumulation", "label": "语言积累与建构", "node_type": "course_goal", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-competency-language", "parent_relation": "operationalizes", "lexical_concept_id": "language-accumulation-construction", "definition": "积累语言材料和言语经验，形成语感并掌握语言运用规律。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-course-goals-intro", "anchor:zh-course-goals-2-9"], "review_status": "editor_reviewed" },
+    { "id": "zh-target-language-expression", "label": "语言表达与交流", "node_type": "course_goal", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-competency-language", "parent_relation": "operationalizes", "lexical_concept_id": "language-expression-communication", "definition": "按具体语境和对象文明得体地表达交流，并理解、分析和评价作品。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-course-goals-2-9"], "review_status": "editor_reviewed" },
+    { "id": "zh-target-language-sorting", "label": "语言梳理与整合", "node_type": "course_goal", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-competency-language", "parent_relation": "operationalizes", "lexical_concept_id": "language-sorting-integration", "definition": "将语言材料、语文知识和言语经验结构化为方法与策略。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-course-goals-2-9"], "review_status": "editor_reviewed" },
+    { "id": "zh-target-image-thinking", "label": "增强形象思维能力", "node_type": "course_goal", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-competency-thinking", "parent_relation": "operationalizes", "lexical_concept_id": "image-thinking-ability", "definition": "借助联想和想象丰富对生活与文学形象的感受、理解和表达。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-course-goals-2-9"], "review_status": "editor_reviewed" },
+    { "id": "zh-target-logical-thinking", "label": "发展逻辑思维", "node_type": "course_goal", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-competency-thinking", "parent_relation": "operationalizes", "lexical_concept_id": "logical-thinking-development", "definition": "辨识、分析、比较、归纳、概括、判断和论证语言文学现象。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-course-goals-2-9"], "review_status": "editor_reviewed" },
+    { "id": "zh-target-thinking-quality", "label": "提升思维品质", "node_type": "course_goal", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-competency-thinking", "parent_relation": "operationalizes", "lexical_concept_id": "thinking-quality-improvement", "definition": "反思语文实践并提升思维的深刻、敏捷、灵活、批判和独创品质。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-course-goals-2-9"], "review_status": "editor_reviewed" },
+    { "id": "zh-target-language-aesthetic", "label": "增进对祖国语言文字的美感体验", "node_type": "course_goal", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-competency-aesthetic", "parent_relation": "operationalizes", "lexical_concept_id": "language-aesthetic-experience", "definition": "感受祖国语言文字之美并增强热爱之情。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-course-goals-2-9"], "review_status": "editor_reviewed" },
+    { "id": "zh-target-literature-appreciation", "label": "鉴赏文学作品", "node_type": "course_goal", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-competency-aesthetic", "parent_relation": "operationalizes", "lexical_concept_id": "literary-works-appreciation", "definition": "感受、欣赏、鉴别和评价文学作品的语言、形象、情感与风格。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-course-goals-2-9"], "review_status": "editor_reviewed" },
+    { "id": "zh-target-beauty-creation", "label": "美的表达与创造", "node_type": "course_goal", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-competency-aesthetic", "parent_relation": "operationalizes", "lexical_concept_id": "beauty-expression-creation", "definition": "以语言文字表达审美体验、情感与观念并进行创造。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-course-goals-2-9", "anchor:zh-course-goals-10-12"], "review_status": "editor_reviewed" },
+    { "id": "zh-target-inherit-culture", "label": "传承中华文化", "node_type": "course_goal", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-competency-culture", "parent_relation": "operationalizes", "lexical_concept_id": "inherit-chinese-culture", "definition": "理解、认同、热爱并传承中华优秀传统文化和革命文化。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-course-goals-10-12"], "review_status": "editor_reviewed" },
+    { "id": "zh-target-diverse-culture", "label": "理解多样文化", "node_type": "course_goal", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-competency-culture", "parent_relation": "operationalizes", "lexical_concept_id": "understand-diverse-cultures", "definition": "尊重、包容、理解和借鉴不同民族、区域与国家的优秀文化。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-course-goals-10-12"], "review_status": "editor_reviewed" },
+    { "id": "zh-target-contemporary-culture", "label": "关注、参与当代文化", "node_type": "course_goal", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-competency-culture", "parent_relation": "operationalizes", "lexical_concept_id": "participate-contemporary-culture", "definition": "参与当代文化传播交流并发展文化自信与社会责任。", "normative_role": "student_outcome", "evidence_anchor_ids": ["anchor:zh-course-goals-10-12"], "review_status": "editor_reviewed" },
+
+    { "id": "zh-practices", "label": "语文实践", "node_type": "practice_framework", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-curriculum", "parent_relation": "component_of", "lexical_concept_id": null, "definition": "核心素养形成、发展与表现所依托的三类语文实践领域。", "normative_role": "learning_process", "evidence_anchor_ids": ["anchor:zh-course-goals-intro", "anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-practice-reading", "label": "阅读与鉴赏", "node_type": "practice_domain", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practices", "parent_relation": "component_of", "lexical_concept_id": "reading-appreciation", "definition": "阅读、理解、推断、鉴赏与评价等语文实践领域。", "normative_role": "learning_and_assessment_domain", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-practice-expression", "label": "表达与交流", "node_type": "practice_domain", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practices", "parent_relation": "component_of", "lexical_concept_id": "expression-communication", "definition": "叙述、陈述、解释、说明和应对交流等语文实践领域。", "normative_role": "learning_and_assessment_domain", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-practice-sorting", "label": "梳理与探究", "node_type": "practice_domain", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practices", "parent_relation": "component_of", "lexical_concept_id": "sorting-inquiry", "definition": "积累、筛选、归类、解决问题与发现创新等语文实践领域。", "normative_role": "learning_and_assessment_domain", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-reading-overall-perception", "label": "整体感知", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-reading", "parent_relation": "assesses", "lexical_concept_id": "overall-perception", "definition": "阅读与鉴赏命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-reading-information-extraction", "label": "信息提取", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-reading", "parent_relation": "assesses", "lexical_concept_id": "information-extraction", "definition": "阅读与鉴赏命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-reading-comprehension", "label": "理解阐释", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-reading", "parent_relation": "assesses", "lexical_concept_id": "comprehension-interpretation", "definition": "阅读与鉴赏命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-reading-inference", "label": "推断探究", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-reading", "parent_relation": "assesses", "lexical_concept_id": "inference-inquiry", "definition": "阅读与鉴赏命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-reading-evaluation", "label": "赏析评价", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-reading", "parent_relation": "assesses", "lexical_concept_id": "appreciation-evaluation", "definition": "阅读与鉴赏命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-expression-narrative", "label": "叙述表现", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-expression", "parent_relation": "assesses", "lexical_concept_id": "narrative-expression", "definition": "表达与交流命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-expression-statement", "label": "陈述阐释", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-expression", "parent_relation": "assesses", "lexical_concept_id": "statement-interpretation", "definition": "表达与交流命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-expression-analysis", "label": "解释分析", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-expression", "parent_relation": "assesses", "lexical_concept_id": "explanation-analysis", "definition": "表达与交流命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-expression-introduction", "label": "介绍说明", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-expression", "parent_relation": "assesses", "lexical_concept_id": "introduction-explanation", "definition": "表达与交流命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-expression-responsive", "label": "应对交流", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-expression", "parent_relation": "assesses", "lexical_concept_id": "responsive-communication", "definition": "表达与交流命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-sorting-accumulation", "label": "积累整合", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-sorting", "parent_relation": "assesses", "lexical_concept_id": "accumulation-integration", "definition": "梳理与探究命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-sorting-screening", "label": "筛选提炼", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-sorting", "parent_relation": "assesses", "lexical_concept_id": "screening-refinement", "definition": "梳理与探究命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-sorting-classification", "label": "归整分类", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-sorting", "parent_relation": "assesses", "lexical_concept_id": "classification-organization", "definition": "梳理与探究命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-sorting-problem-solving", "label": "解决问题", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-sorting", "parent_relation": "assesses", "lexical_concept_id": "problem-solving", "definition": "梳理与探究命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+    { "id": "zh-sorting-discovery", "label": "发现创新", "node_type": "student_ability", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-practice-sorting", "parent_relation": "assesses", "lexical_concept_id": "discovery-innovation", "definition": "梳理与探究命题所侧重考查的能力内容。", "normative_role": "assessment_dimension", "evidence_anchor_ids": ["anchor:zh-practice-assessment-dimensions"], "review_status": "editor_reviewed" },
+
+    { "id": "zh-task-groups", "label": "语文学习任务群", "node_type": "content_organizer", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-curriculum", "parent_relation": "component_of", "lexical_concept_id": "learning-task-group", "definition": "以任务为导向、以学习项目为载体，整合情境、内容、方法和资源的课程内容组织机制。", "normative_role": "content_organization", "evidence_anchor_ids": ["anchor:zh-task-group-design", "anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-whole-book", "label": "整本书阅读与研讨", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "whole-book-reading-discussion", "course_categories": ["必修", "选择性必修", "选修"], "definition": "三类课程共同设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-contemporary-culture", "label": "当代文化参与", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "contemporary-culture-participation", "course_categories": ["必修", "选择性必修", "选修"], "definition": "三类课程共同设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-cross-media", "label": "跨媒介阅读与交流", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "cross-media-reading-communication", "course_categories": ["必修", "选择性必修", "选修"], "definition": "三类课程共同设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-language-accumulation", "label": "语言积累、梳理与探究", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "language-accumulation-sorting-inquiry", "course_categories": ["必修", "选择性必修"], "definition": "必修与选择性必修设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-literary-reading", "label": "文学阅读与写作", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "literary-reading-writing", "course_categories": ["必修"], "definition": "必修课程设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-speculative-reading", "label": "思辨性阅读与表达", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "speculative-reading-expression", "course_categories": ["必修"], "definition": "必修课程设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-practical-reading", "label": "实用性阅读与交流", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "practical-reading-communication", "course_categories": ["必修"], "definition": "必修课程设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-traditional-classics", "label": "中华传统文化经典研习", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "traditional-culture-classics-study", "course_categories": ["选择性必修"], "definition": "选择性必修课程设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-revolutionary-study", "label": "中国革命传统作品研习", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "revolutionary-works-study", "course_categories": ["选择性必修"], "definition": "选择性必修课程设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-modern-authors-study", "label": "中国现当代作家作品研习", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "modern-authors-works-study", "course_categories": ["选择性必修"], "definition": "选择性必修课程设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-foreign-authors-study", "label": "外国作家作品研习", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "foreign-authors-works-study", "course_categories": ["选择性必修"], "definition": "选择性必修课程设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-science-culture-study", "label": "科学与文化论著研习", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "science-culture-treatises-study", "course_categories": ["选择性必修"], "definition": "选择性必修课程设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-chinese-language-topic", "label": "汉字汉语专题研讨", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "chinese-language-topic-study", "course_categories": ["选修"], "definition": "选修课程设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-traditional-culture-topic", "label": "中华传统文化专题研讨", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "traditional-culture-topic-study", "course_categories": ["选修"], "definition": "选修课程设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-revolutionary-topic", "label": "中国革命传统作品专题研讨", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "revolutionary-works-topic-study", "course_categories": ["选修"], "definition": "选修课程设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-modern-authors-topic", "label": "中国现当代作家作品专题研讨", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "modern-authors-topic-study", "course_categories": ["选修"], "definition": "选修课程设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-cross-cultural-topic", "label": "跨文化专题研讨", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "cross-cultural-topic-study", "course_categories": ["选修"], "definition": "选修课程设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+    { "id": "zh-task-academic-treatises-topic", "label": "学术论著专题研讨", "node_type": "task_group", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-task-groups", "parent_relation": "component_of", "lexical_concept_id": "academic-treatises-topic-study", "course_categories": ["选修"], "definition": "选修课程设置的学习任务群。", "normative_role": "course_content", "evidence_anchor_ids": ["anchor:zh-task-group-list"], "review_status": "editor_reviewed" },
+
+    { "id": "zh-quality", "label": "学业质量", "node_type": "quality_framework", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-curriculum", "parent_relation": "component_of", "lexical_concept_id": "academic-quality", "definition": "结合课程内容，以核心素养及表现水平为主要维度刻画学生完成课程后的学业成就。", "normative_role": "assessment_framework", "evidence_anchor_ids": ["anchor:zh-quality-definition", "anchor:zh-quality-levels", "anchor:zh-quality-exam-relations"], "review_status": "editor_reviewed" },
+    { "id": "zh-quality-level-1", "label": "学业质量水平一", "node_type": "quality_level", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-quality", "parent_relation": "component_of", "lexical_concept_id": "academic-quality-level-one", "definition": "必修课程学习要求的第一层级。", "normative_role": "performance_level", "evidence_anchor_ids": ["anchor:zh-quality-levels"], "review_status": "editor_reviewed" },
+    { "id": "zh-quality-level-2", "label": "学业质量水平二", "node_type": "quality_level", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-quality", "parent_relation": "component_of", "lexical_concept_id": "academic-quality-level-two", "definition": "必修课程学习要求，并作为高中语文学业水平考试依据。", "normative_role": "performance_level_and_exam_anchor", "evidence_anchor_ids": ["anchor:zh-quality-levels", "anchor:zh-quality-exam-relations"], "review_status": "editor_reviewed" },
+    { "id": "zh-quality-level-3", "label": "学业质量水平三", "node_type": "quality_level", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-quality", "parent_relation": "component_of", "lexical_concept_id": "academic-quality-level-three", "definition": "选择性必修课程学习要求的第一层级。", "normative_role": "performance_level", "evidence_anchor_ids": ["anchor:zh-quality-levels"], "review_status": "editor_reviewed" },
+    { "id": "zh-quality-level-4", "label": "学业质量水平四", "node_type": "quality_level", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-quality", "parent_relation": "component_of", "lexical_concept_id": "academic-quality-level-four", "definition": "选择性必修课程学习要求，并作为高校考试招生录取依据。", "normative_role": "performance_level_and_exam_anchor", "evidence_anchor_ids": ["anchor:zh-quality-levels", "anchor:zh-quality-exam-relations"], "review_status": "editor_reviewed" },
+    { "id": "zh-quality-level-5", "label": "学业质量水平五", "node_type": "quality_level", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-quality", "parent_relation": "component_of", "lexical_concept_id": "academic-quality-level-five", "definition": "选修课程的较高要求，可供高校或用人单位参考。", "normative_role": "advanced_performance_level", "evidence_anchor_ids": ["anchor:zh-quality-exam-relations"], "review_status": "editor_reviewed" },
+    { "id": "zh-quality-axis-language", "label": "语言建构与运用表现轴", "node_type": "quality_dimension", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-quality", "parent_relation": "assesses", "lexical_concept_id": null, "definition": "学业质量表各水平第1组描述与语言建构与运用的对齐；待表格视觉重组后再发布20条表现指标。", "normative_role": "editorial_alignment", "evidence_anchor_ids": ["anchor:zh-quality-definition", "anchor:zh-core-language-thinking"], "review_status": "reviewed_inference" },
+    { "id": "zh-quality-axis-thinking", "label": "思维发展与提升表现轴", "node_type": "quality_dimension", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-quality", "parent_relation": "assesses", "lexical_concept_id": null, "definition": "学业质量表各水平第2组描述与思维发展与提升的对齐；该对应不是官方表头明文。", "normative_role": "editorial_alignment", "evidence_anchor_ids": ["anchor:zh-quality-definition", "anchor:zh-core-language-thinking"], "review_status": "reviewed_inference" },
+    { "id": "zh-quality-axis-aesthetic", "label": "审美鉴赏与创造表现轴", "node_type": "quality_dimension", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-quality", "parent_relation": "assesses", "lexical_concept_id": null, "definition": "学业质量表各水平第3组描述与审美鉴赏与创造的对齐；该对应不是官方表头明文。", "normative_role": "editorial_alignment", "evidence_anchor_ids": ["anchor:zh-quality-definition", "anchor:zh-core-aesthetic-culture"], "review_status": "reviewed_inference" },
+    { "id": "zh-quality-axis-culture", "label": "文化传承与理解表现轴", "node_type": "quality_dimension", "scope_id": "scope:zh-hs-2020", "parent_id": "zh-quality", "parent_relation": "assesses", "lexical_concept_id": null, "definition": "学业质量表各水平第4组描述与文化传承与理解的对齐；该对应不是官方表头明文。", "normative_role": "editorial_alignment", "evidence_anchor_ids": ["anchor:zh-quality-definition", "anchor:zh-core-aesthetic-culture"], "review_status": "reviewed_inference" }
+  ],
+  "relations": [
+    { "id": "zh-rel-language-foundation-thinking", "type": "foundational_for", "source": "zh-competency-language", "target": "zh-competency-thinking", "scope_id": "scope:zh-hs-2020", "evidence_anchor_ids": ["anchor:zh-core-aesthetic-culture"], "assertion_status": "official_statement", "review_status": "editor_reviewed" },
+    { "id": "zh-rel-language-foundation-aesthetic", "type": "foundational_for", "source": "zh-competency-language", "target": "zh-competency-aesthetic", "scope_id": "scope:zh-hs-2020", "evidence_anchor_ids": ["anchor:zh-core-aesthetic-culture"], "assertion_status": "official_statement", "review_status": "editor_reviewed" },
+    { "id": "zh-rel-language-foundation-culture", "type": "foundational_for", "source": "zh-competency-language", "target": "zh-competency-culture", "scope_id": "scope:zh-hs-2020", "evidence_anchor_ids": ["anchor:zh-core-aesthetic-culture"], "assertion_status": "official_statement", "review_status": "editor_reviewed" },
+    { "id": "zh-rel-three-goals-reframed", "type": "reframed_by", "source": "zh-three-dimensional-goals", "target": "zh-core-competencies", "scope_id": "scope:zh-research-index", "evidence_anchor_ids": ["anchor:zh-three-dimensional-2016", "anchor:zh-three-dimensional-integration-2020"], "assertion_status": "cross_version_reviewed_relation", "review_status": "editor_reviewed" },
+    { "id": "zh-rel-practice-develops-core", "type": "develops", "source": "zh-practices", "target": "zh-core-competencies", "scope_id": "scope:zh-hs-2020", "evidence_anchor_ids": ["anchor:zh-course-goals-intro", "anchor:zh-practice-assessment-dimensions"], "assertion_status": "official_statement", "review_status": "editor_reviewed" },
+    { "id": "zh-rel-task-realizes-language-use", "type": "realized_through", "source": "zh-language-use", "target": "zh-task-groups", "scope_id": "scope:zh-hs-2020", "evidence_anchor_ids": ["anchor:zh-task-group-design"], "assertion_status": "official_statement", "review_status": "editor_reviewed" },
+    { "id": "zh-rel-quality-assesses-core", "type": "assesses", "source": "zh-quality", "target": "zh-core-competencies", "scope_id": "scope:zh-hs-2020", "evidence_anchor_ids": ["anchor:zh-quality-definition"], "assertion_status": "official_statement", "review_status": "editor_reviewed" }
+  ]
+}

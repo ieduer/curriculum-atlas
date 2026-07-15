@@ -4,14 +4,15 @@
   "artifact_profile": "curriculum-concept-evolution-quality-v1",
   "academic_schema": "curriculum-concept-evolution-academic-v2",
   "model_kind": "curriculum-concept-observation-model",
-  "build_revision": "ab30d3e09c9cf6706b7a3957e97925f66354d869dd840e8e9218401935288577",
+  "build_revision": "028200e24fa87e835f0f8a9ba91aeae8d0e5edf9a668c3198e84b2c3deaf9436",
   "input_fingerprints": {
-    "catalog_sha256": "4c16b14c13c0a11bff88d424b5d72a87538a5e1350885ce8a040ff96a41792e0",
-    "queue_sha256": "20ce93616473c0f1229c17373ff6fe3d075402a6bfa7c6615edc1a8898793659",
+    "catalog_sha256": "c1d67cbe987e6b9966a9b00302113e992750717e2e27553232948deba9da76c5",
+    "queue_sha256": "0cf6c2f8b21737c165287e9ae894bc93fc6e49ebd623c2463df296bc43fb73c5",
     "concept_model_sha256": "98d8b3b8c9f4ad1e7f02410c2470fa8b34820996e380d39230a763fd49b3356e",
-    "lexicon_sha256": "0d7681210c7ec7335d6e8d28726f0395553e024a1f57606749db39682fae1e49",
-    "builder_sha256": "f76f837d14e39158a7afe51e888bcc122312e29c22897237d04275012780a09d",
-    "validator_sha256": "1362fc8345fb8e54391f0bb4ad0766b5b196e9e07c204f4393dd639f68e73f40"
+    "lexicon_sha256": "d8b792139ff4d28afff5cd685ce8b73174435353dd9343430ade26e8e763608b",
+    "ontology_sha256": "d157c838a785bf3f22fa9b26ca9cf1566e82e34b63be10a506191cea7abbfc6d",
+    "builder_sha256": "7e7c117abf75c29f41c88e92d94d0c716256305423d31df86b7cba960b315e2b",
+    "validator_sha256": "e5ea6cd2d2ef69852f841173bb695a046496f9c2352a6f5d791277ac6f408d88"
   },
   "passed": true,
   "checks": [
@@ -36,7 +37,27 @@
       "passed": true
     },
     {
+      "id": "episode_visibility_facets_controlled",
+      "passed": true
+    },
+    {
+      "id": "concept_scope_does_not_use_related_subjects",
+      "passed": true
+    },
+    {
+      "id": "ontology_nodes_resolved",
+      "passed": true
+    },
+    {
+      "id": "ontology_relations_resolved",
+      "passed": true
+    },
+    {
       "id": "core_payload_under_4mb",
+      "passed": true
+    },
+    {
+      "id": "academic_payload_under_cloudflare_asset_limit",
       "passed": true
     },
     {
@@ -60,12 +81,12 @@
       "passed": true
     }
   ],
-  "core_bytes": 2961343,
-  "academic_bytes": 26124389,
-  "academic_sha256": "9b1f63eb6963152dcac24233f71b0adc518386802dd497809e8e26f80ecd8733",
+  "core_bytes": 3756102,
+  "academic_bytes": 21896790,
+  "academic_sha256": "c2cccb603ca8d13c6c2cb86ba80da53e14c8a81aa199c563d50c739ee29d8dd0",
   "release_boundary": "基于当前可用语料的词面概念观察图；不是完整课程史，不宣称概念义项连续、绝对首次、消失、取代、影响或因果演进。",
   "unresolved": [
-    "8138 OCR pages remain",
+    "10705 OCR pages remain",
     "Concept-sense definitions and semantic rename, split, merge, replacement, and influence relations require editor-reviewed dual-ended evidence.",
     "Exact repeated-text clusters are marked rather than silently discarded; their editorial classification remains pending.",
     "Source-text candidates remain non-quotable until paragraph-level citation gates pass."

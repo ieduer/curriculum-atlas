@@ -24,15 +24,17 @@ const readOptionalJson = async (relative, fallback) => {
     throw error;
   }
 };
-const [catalog, lexicon, queue, model, ingestManifest] = await Promise.all([
+const [catalog, lexicon, ontology, queue, model, ingestManifest] = await Promise.all([
   readJson('data/catalog.json'),
   readJson('data/concept-lexicon.json'),
+  readJson('data/concept-ontology.json'),
   readJson('data/ocr-queue.json'),
   readJson('data/concept-model-v2.json'),
   readOptionalJson('data/ingest-manifest.json', { entries: [] }),
 ]);
 
 if (model.schema_version !== 2) throw new Error('data/concept-model-v2.json must use schema_version 2');
+if (ontology.schema_version !== 1) throw new Error('data/concept-ontology.json must use schema_version 1');
 
 const sha256 = (value) => createHash('sha256').update(String(value)).digest('hex');
 const sha256Bytes = (value) => createHash('sha256').update(value).digest('hex');
@@ -42,6 +44,7 @@ const inputFingerprints = Object.fromEntries(await Promise.all([
   ['queue_sha256', 'data/ocr-queue.json'],
   ['concept_model_sha256', 'data/concept-model-v2.json'],
   ['lexicon_sha256', 'data/concept-lexicon.json'],
+  ['ontology_sha256', 'data/concept-ontology.json'],
   ['builder_sha256', 'scripts/build-concept-evolution.mjs'],
   ['validator_sha256', 'scripts/validate-concept-evolution.mjs'],
 ].map(async ([key, relativePath]) => [key, sha256Bytes(await readFile(path.join(root, relativePath)))])));
@@ -192,8 +195,7 @@ function subjectEntity(record) {
 function subjectsFor(concept, entity) {
   return concept.subjects.includes('*')
     || concept.subjects.includes(entity.canonical)
-    || concept.subjects.includes(entity.source_label)
-    || entity.related_subjects?.some((subject) => concept.subjects.includes(subject));
+    || concept.subjects.includes(entity.source_label);
 }
 
 function episodeSubject(entity) {
@@ -321,6 +323,16 @@ const canonicalSubjects = [...new Set(catalog.documents.map(subjectEntity)
   .filter(isFacetEntity)
   .map((entity) => entity.canonical))].sort((left, right) => left.localeCompare(right, 'zh-CN'));
 const subjectFacets = Object.keys(model.subject_facet_groups || {});
+
+function visibilityForEntity(entity) {
+  if (isFacetEntity(entity)) return { facets: [entity.facet], policy: 'direct_subject_facet' };
+  if (entity.entity_kind !== 'curriculum_course') return { facets: [], policy: 'global_only' };
+  const facets = [...new Set((entity.related_subjects || []).map((subject) => {
+    const related = subjectEntity({ id: `related:${subject}`, subject });
+    return isFacetEntity(related) ? related.facet : null;
+  }).filter((facet) => facet && subjectFacets.includes(facet)))];
+  return { facets, policy: facets.length ? 'reviewed_course_relation' : 'global_only' };
+}
 
 const conceptSenses = [];
 const senseByConcept = new Map();
@@ -458,6 +470,104 @@ for (const record of catalog.documents) {
   const item = { record, entity: subjectEntity(record), pages, paragraphs, characters, usablePages, time: observationTime(record) };
   allTextDocuments.push(item);
   if (characters >= lexicon.matching_policy.minimum_meaningful_document_characters && item.time.year) eligibleDocuments.push(item);
+}
+
+const ontologyScopeById = new Map((ontology.scopes || []).map((scope) => [scope.id, scope]));
+if (ontologyScopeById.size !== (ontology.scopes || []).length) throw new Error('Ontology scope IDs must be unique');
+for (const scope of ontology.scopes || []) {
+  if (!subjectFacets.includes(scope.subject_facet)) throw new Error(`Ontology scope ${scope.id} has uncontrolled subject facet ${scope.subject_facet}`);
+  if (scope.edition_id !== null && !editionsById.has(scope.edition_id)) throw new Error(`Ontology scope ${scope.id} references missing edition ${scope.edition_id}`);
+}
+
+const eligibleDocumentById = new Map(eligibleDocuments.map((document) => [document.record.id, document]));
+const compactEvidenceText = (value) => String(value || '').replace(/\s+/g, '');
+const ontologyEvidence = (ontology.evidence_anchors || []).map((anchor) => {
+  const document = eligibleDocumentById.get(anchor.document_id);
+  if (!document || !effectiveCitationAllowed(document.record)) {
+    throw new Error(`Ontology anchor ${anchor.id} must resolve to citation-ready source text: ${anchor.document_id}`);
+  }
+  const paragraph = document.paragraphs.find((item) => item.ordinal === anchor.paragraph_ordinal);
+  if (!paragraph) throw new Error(`Ontology anchor ${anchor.id} paragraph ${anchor.paragraph_ordinal} is missing`);
+  const compactBody = compactEvidenceText(paragraph.body);
+  for (const term of anchor.required_terms || []) {
+    if (!compactBody.includes(compactEvidenceText(term))) throw new Error(`Ontology anchor ${anchor.id} is missing required term: ${term}`);
+  }
+  const edition = editionByDocumentId.get(anchor.document_id);
+  return {
+    id: anchor.id,
+    document_id: anchor.document_id,
+    document_title: document.record.title,
+    edition_id: edition.id,
+    paragraph_ordinal: paragraph.ordinal,
+    physical_pdf_page: paragraph.physical_page,
+    source_locator: `第${paragraph.physical_page}页·段${paragraph.ordinal}`,
+    section_path: anchor.section_path,
+    body_sha256: paragraph.body_sha256,
+    source_artifact_sha256: edition.source_artifact_sha256,
+    required_terms: anchor.required_terms,
+    evidence_status: 'citation_ready',
+    citation_allowed: true,
+  };
+});
+const ontologyEvidenceById = new Map(ontologyEvidence.map((item) => [item.id, item]));
+if (ontologyEvidenceById.size !== ontologyEvidence.length) throw new Error('Ontology evidence anchor IDs must be unique');
+
+const ontologyNodeTypes = new Set([
+  'subject_model', 'curriculum_construct', 'language_activity', 'historical_goal_framework', 'historical_goal_dimension',
+  'competency_framework', 'core_competency_dimension', 'course_goal', 'practice_framework', 'practice_domain',
+  'student_ability', 'content_organizer', 'task_group', 'quality_framework', 'quality_level', 'quality_dimension',
+]);
+const ontologyRelationTypes = new Set(['component_of', 'operationalizes', 'assesses', 'foundational_for', 'reframed_by', 'develops', 'realized_through']);
+const ontologyNodes = (ontology.nodes || []).map((node) => {
+  if (!ontologyNodeTypes.has(node.node_type)) throw new Error(`Ontology node ${node.id} has invalid type ${node.node_type}`);
+  if (!ontologyScopeById.has(node.scope_id)) throw new Error(`Ontology node ${node.id} references missing scope ${node.scope_id}`);
+  if (!['editor_reviewed', 'reviewed_inference'].includes(node.review_status)) throw new Error(`Ontology node ${node.id} has invalid review status`);
+  if (!node.evidence_anchor_ids?.length || !node.evidence_anchor_ids.every((id) => ontologyEvidenceById.has(id))) {
+    throw new Error(`Ontology node ${node.id} lacks resolved citation-ready evidence`);
+  }
+  if (node.lexical_concept_id !== null && !conceptById.has(node.lexical_concept_id)) throw new Error(`Ontology node ${node.id} references missing concept ${node.lexical_concept_id}`);
+  if (node.parent_relation !== null && !ontologyRelationTypes.has(node.parent_relation)) throw new Error(`Ontology node ${node.id} has invalid parent relation`);
+  return { ...node };
+});
+const ontologyNodeById = new Map(ontologyNodes.map((node) => [node.id, node]));
+if (ontologyNodeById.size !== ontologyNodes.length) throw new Error('Ontology node IDs must be unique');
+for (const node of ontologyNodes) {
+  if (node.parent_id !== null && !ontologyNodeById.has(node.parent_id)) throw new Error(`Ontology node ${node.id} references missing parent ${node.parent_id}`);
+}
+for (const start of ontologyNodes) {
+  const visited = new Set();
+  let cursor = start;
+  while (cursor?.parent_id !== null) {
+    if (visited.has(cursor.id)) throw new Error(`Ontology parent cycle detected at ${cursor.id}`);
+    visited.add(cursor.id);
+    cursor = ontologyNodeById.get(cursor.parent_id);
+  }
+}
+const ontologyParentRelations = ontologyNodes.filter((node) => node.parent_id !== null).map((node) => ({
+  id: `ontology-parent:${node.id}`,
+  type: node.parent_relation,
+  source: node.id,
+  target: node.parent_id,
+  scope_id: node.scope_id,
+  evidence_anchor_ids: node.evidence_anchor_ids,
+  assertion_status: node.review_status === 'reviewed_inference' ? 'reviewed_inference' : 'official_structure',
+  review_status: node.review_status,
+}));
+const ontologyRelations = [...ontologyParentRelations, ...(ontology.relations || [])];
+const ontologyRelationIds = new Set();
+for (const relation of ontologyRelations) {
+  if (ontologyRelationIds.has(relation.id)) throw new Error(`Duplicate ontology relation ${relation.id}`);
+  ontologyRelationIds.add(relation.id);
+  if (!ontologyRelationTypes.has(relation.type)) throw new Error(`Ontology relation ${relation.id} has invalid type ${relation.type}`);
+  if (!ontologyNodeById.has(relation.source) || !ontologyNodeById.has(relation.target)) throw new Error(`Ontology relation ${relation.id} has missing endpoint`);
+  if (!ontologyScopeById.has(relation.scope_id)) throw new Error(`Ontology relation ${relation.id} has missing scope`);
+  if (!relation.evidence_anchor_ids?.length || !relation.evidence_anchor_ids.every((id) => ontologyEvidenceById.has(id))) {
+    throw new Error(`Ontology relation ${relation.id} lacks resolved citation-ready evidence`);
+  }
+  if (relation.type === 'reframed_by') {
+    const documents = new Set(relation.evidence_anchor_ids.map((id) => ontologyEvidenceById.get(id).document_id));
+    if (documents.size < 2) throw new Error(`Cross-version ontology relation ${relation.id} requires dual-source evidence`);
+  }
 }
 
 const hashDocuments = new Map();
@@ -880,6 +990,7 @@ const episodes = [...observationGroups.values()].map((item) => {
   const status = evidenceStatuses.sort((left, right) => statusRank[right] - statusRank[left])[0] || item.status;
   const denominator = item.coverageCell.eligible_meaningful_characters;
   const rate = denominator > 0 ? item.local_unique_mention_count / denominator * 10000 : null;
+  const visibility = visibilityForEntity(item.scope_entity);
   return {
     id: compactId('concept', `${item.sense.id}|${item.line.id}|${item.edition.id}|${item.year}`),
     concept_id: item.concept.id,
@@ -887,9 +998,12 @@ const episodes = [...observationGroups.values()].map((item) => {
     label: item.concept.label,
     aliases: item.concept.aliases || [],
     category: item.concept.category,
+    ontology_node_id: item.concept.ontology_node_id || null,
     subject: item.subject,
     scope_entity: item.scope_entity,
     course_entity: item.scope_entity.entity_kind === 'curriculum_course' ? item.scope_entity : null,
+    visibility_facets: visibility.facets,
+    visibility_policy: visibility.policy,
     curriculum_line: item.line,
     work_id: item.work.id,
     edition_id: item.edition.id,
@@ -1064,6 +1178,7 @@ const years = episodes.map((episode) => episode.time.year);
 const inputRevision = sha256(JSON.stringify({
   catalog_generated_at: catalog.generated_at,
   lexicon,
+  ontology,
   model,
   queue_generated_at: queue.generated_at,
   completed_ocr_pages: completedOcrPages.sort(),
@@ -1106,6 +1221,7 @@ const editorialAudit = [
 const academicGraph = {
   schema_version: 2,
   academic_schema_version: 2,
+  ontology_schema_version: 1,
   artifact_profile: 'curriculum-concept-evolution-academic-v2',
   academic_schema: academicSchema,
   model_kind: model.model_name,
@@ -1142,6 +1258,11 @@ const academicGraph = {
   course_families: model.course_families,
   course_to_subject_links: model.course_to_subject_links,
   subject_facets: subjectFacets,
+  ontology_release_policy: ontology.mining_policy,
+  ontology_scopes: ontology.scopes,
+  ontology_nodes: ontologyNodes,
+  ontology_relations: ontologyRelations,
+  ontology_evidence: ontologyEvidence,
   concepts,
   concept_senses: conceptSenses,
   surface_forms: surfaceForms,
@@ -1161,7 +1282,9 @@ const academicGraph = {
   editorial_audit: editorialAudit,
 };
 
-const academicPayload = `${JSON.stringify(academicGraph, null, 2)}\n`;
+// The academic graph is machine-consumed and must stay below Cloudflare's
+// 25 MiB per-asset limit without dropping research fields.
+const academicPayload = `${JSON.stringify(academicGraph)}\n`;
 const academicSha256 = sha256(academicPayload);
 const coreEpisodes = episodes.map((episode) => {
   const { occurrence_ids: occurrenceIds, surface_form_ids: surfaceFormIds, ...coreEpisode } = episode;
@@ -1196,6 +1319,7 @@ const coreEdges = relations.map((relation) => ({
 const graph = {
   schema_version: 1,
   academic_schema_version: 2,
+  ontology_schema_version: 1,
   artifact_profile: 'curriculum-concept-evolution-core-v1',
   academic_schema: academicSchema,
   model_kind: model.model_name,
@@ -1220,10 +1344,18 @@ const graph = {
       relations: relations.length,
       evidence: evidence.length,
       coverage_cells: coverageCells.length,
+      ontology_nodes: ontologyNodes.length,
+      ontology_relations: ontologyRelations.length,
+      ontology_evidence: ontologyEvidence.length,
     },
   },
   coverage: academicGraph.coverage,
   subject_facets: subjectFacets,
+  ontology_release_policy: ontology.mining_policy,
+  ontology_scopes: ontology.scopes,
+  ontology_nodes: ontologyNodes,
+  ontology_relations: ontologyRelations,
+  ontology_evidence: ontologyEvidence,
   course_families: model.course_families,
   course_to_subject_links: model.course_to_subject_links,
   subject_taxonomy: subjectTaxonomy.map((item) => ({
@@ -1259,7 +1391,14 @@ const checks = [
     ? facetEntityKinds.has(item.subject.entity_kind) && Boolean(item.subject.canonical) && subjectFacets.includes(item.subject.facet)
     : item.subject.canonical === null && Boolean(item.scope_entity?.canonical)
       && (item.scope_entity.entity_kind !== 'curriculum_course' || item.course_entity?.canonical === item.scope_entity.canonical)) },
+  { id: 'episode_visibility_facets_controlled', passed: episodes.every((item) => Array.isArray(item.visibility_facets)
+    && item.visibility_facets.every((facet) => subjectFacets.includes(facet))
+    && (item.visibility_policy !== 'direct_subject_facet' || item.visibility_facets.length === 1 && item.visibility_facets[0] === item.subject.facet)) },
+  { id: 'concept_scope_does_not_use_related_subjects', passed: episodes.every((item) => subjectsFor(conceptById.get(item.concept_id), item.scope_entity)) },
+  { id: 'ontology_nodes_resolved', passed: ontologyNodes.length > 0 && ontologyNodes.every((item) => item.evidence_anchor_ids.every((id) => ontologyEvidenceById.has(id))) },
+  { id: 'ontology_relations_resolved', passed: ontologyRelations.length > 0 && ontologyRelations.every((item) => item.evidence_anchor_ids.every((id) => ontologyEvidenceById.has(id))) },
   { id: 'core_payload_under_4mb', passed: Buffer.byteLength(corePayload) < 4 * 1024 * 1024 },
+  { id: 'academic_payload_under_cloudflare_asset_limit', passed: Buffer.byteLength(academicPayload) < 25 * 1024 * 1024 },
   { id: 'solid_has_citation_ready_evidence', passed: episodes.filter((item) => item.claim_policy.display_level === 'solid').every((item) => item.evidence_ids.some((id) => citationReadyEvidence.has(id))) },
   { id: 'non_solid_not_quotable', passed: episodes.filter((item) => item.claim_policy.display_level !== 'solid').every((item) => !item.claim_policy.quotation_allowed) },
   { id: 'relations_have_dual_evidence', passed: relations.every((item) => item.source_evidence_ids.length > 0 && item.target_evidence_ids.length > 0) },

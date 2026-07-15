@@ -16,6 +16,9 @@ const occurrences = byId('occurrences');
 const evidence = byId('evidence');
 const episodes = byId('episodes');
 const relationReviews = byId('relation_reviews');
+const ontologyScopes = byId('ontology_scopes');
+const ontologyNodes = byId('ontology_nodes');
+const ontologyEvidence = byId('ontology_evidence');
 const taxonomy = new Map(graph.subject_taxonomy.map((item) => [item.source_label, item]));
 const subjectAudit = new Map(graph.subject_entity_audit.map((item) => [item.document_id, item]));
 
@@ -29,6 +32,7 @@ test('v2 academic entities coexist with the legacy frontend envelope', () => {
     'concept_senses', 'surface_forms', 'curriculum_lines', 'works', 'editions', 'revisions',
     'embedded_items', 'occurrences', 'relations', 'relation_reviews', 'coverage_cells',
     'editorial_audit', 'episodes', 'edges', 'evidence', 'subject_taxonomy', 'subject_entity_audit',
+    'ontology_scopes', 'ontology_nodes', 'ontology_relations', 'ontology_evidence',
   ]) assert.ok(Array.isArray(graph[name]), `${name} missing`);
   assert.deepEqual(graph.edges.map((edge) => edge.id), graph.relations.map((relation) => relation.id));
 });
@@ -38,6 +42,7 @@ test('entity IDs are unique and occurrence evidence is referentially complete', 
     'concepts', 'concept_senses', 'surface_forms', 'curriculum_lines', 'works', 'editions',
     'revisions', 'embedded_items', 'occurrences', 'episodes', 'relations', 'relation_reviews',
     'evidence', 'coverage_cells',
+    'ontology_scopes', 'ontology_nodes', 'ontology_relations', 'ontology_evidence',
   ]) assert.equal(byId(name).size, graph[name].length, `${name} has duplicate IDs`);
 
   for (const occurrence of graph.occurrences) {
@@ -51,6 +56,35 @@ test('entity IDs are unique and occurrence evidence is referentially complete', 
     assert.ok(occurrence.position.end > occurrence.position.start);
     assert.equal(occurrence.section_context.normative_role, 'unknown');
   }
+});
+
+test('Chinese deep ontology is edition-scoped, evidence-resolved, and fail-closed', () => {
+  assert.equal(graph.ontology_schema_version, 1);
+  assert.equal(graph.ontology_nodes.length, 76);
+  assert.equal(graph.ontology_evidence.length, 14);
+  assert.equal(graph.ontology_nodes.filter((node) => node.node_type === 'course_goal').length, 12);
+  assert.equal(graph.ontology_nodes.filter((node) => node.node_type === 'student_ability').length, 15);
+  assert.equal(graph.ontology_nodes.filter((node) => node.node_type === 'task_group').length, 18);
+  assert.equal(graph.ontology_nodes.filter((node) => node.node_type === 'quality_level').length, 5);
+  assert.equal(graph.ontology_nodes.some((node) => node.node_type === 'performance_indicator'), false);
+
+  for (const anchor of graph.ontology_evidence) {
+    assert.equal(anchor.citation_allowed, true);
+    assert.equal(anchor.evidence_status, 'citation_ready');
+    assert.ok(anchor.document_id && anchor.paragraph_ordinal && anchor.source_artifact_sha256 && anchor.body_sha256);
+  }
+  for (const node of graph.ontology_nodes) {
+    assert.ok(ontologyScopes.has(node.scope_id));
+    assert.ok((node.evidence_anchor_ids || []).every((id) => ontologyEvidence.has(id)));
+    if (node.parent_id) assert.ok(ontologyNodes.has(node.parent_id));
+  }
+  const historical = ontologyNodes.get('zh-three-dimensional-goals');
+  assert.equal(ontologyScopes.get(historical.scope_id).school_type, 'special_education_school_for_the_blind');
+  const crossVersion = graph.ontology_relations.find((relation) => relation.id === 'zh-rel-three-goals-reframed');
+  assert.equal(crossVersion.assertion_status, 'cross_version_reviewed_relation');
+  assert.equal(crossVersion.evidence_anchor_ids.length, 2);
+  assert.ok(graph.ontology_nodes.filter((node) => node.node_type === 'quality_dimension')
+    .every((node) => node.review_status === 'reviewed_inference'));
 });
 
 test('unresolved lexical concepts are not split into empty subject pseudo-senses', () => {

@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { episodeCanonicalSubject, episodeEntityLabel, episodeSubjectFacet } from '../public/atlas.js';
+import {
+  episodeCanonicalSubject,
+  episodeEntityLabel,
+  episodeSubjectFacet,
+  episodeVisibilityFacets,
+  episodeVisibleForSubjectFilter,
+} from '../public/atlas.js';
 
 const root = new URL('../', import.meta.url);
 
@@ -69,15 +75,17 @@ test('frontend subject controls consume strict display facets and hide all nodes
     readFile(new URL('public/index.html', root), 'utf8'),
   ]);
   assert.match(app, /controlledSubjectFacetCounts\(state\.conceptGraph\)/);
+  assert.match(app, /episodeVisibleForSubjectFilter\(episode, state\.hiddenSubjects, state\.hideAllSubjects/);
   assert.match(app, /item\?\.facet_eligible === true && \['subject', 'assessment_subject'\]\.includes\(item\.entity_kind\)/);
   assert.match(app, /typeof item\.facet === 'string'/);
   assert.match(app, /document\?\.entity_kind === 'subject'/);
-  assert.match(atlas, /this\.filters\.hideAll \|\| node\.year > this\.filters\.maxYear/);
+  assert.match(atlas, /node\.year > this\.filters\.maxYear \|\| !episodeVisibleForSubjectFilter/);
   assert.match(atlas, /!source \|\| !target \|\| !this\.visible\(source\) \|\| !this\.visible\(target\)/);
   assert.match(atlas, /color: subject \? subjectColor\(subject\) : course \? '#67d7b1' : '#e7bd61'/);
   assert.match(app, /location\.hostname !== 'curriculum\.bdfz\.net'/);
   assert.match(app, /https:\/\/my\.bdfz\.net\/site-auth\.js/);
   assert.match(app, /https:\/\/pulse\.bdfz\.net\/beacon\.js/);
+  assert.doesNotMatch(index, /id="subject-panel"|class="subject-more"/);
   assert.doesNotMatch(index, /src="https:\/\/my\.bdfz\.net\/site-auth\.js"/);
   assert.doesNotMatch(index, /src="https:\/\/pulse\.bdfz\.net\/beacon\.js"/);
 
@@ -89,6 +97,27 @@ test('frontend subject controls consume strict display facets and hide all nodes
   assert.equal(stylesheetVersion, appEntryVersion, 'stylesheet cache version drifted');
   assert.equal(atlasModuleVersion, appEntryVersion, 'atlas module cache version drifted');
   assert.equal(graphVersion, appEntryVersion, 'concept graph cache version drifted');
+});
+
+test('each subject isolate is fail-closed and Chinese cannot inherit sports-course concepts', async () => {
+  const graph = JSON.parse(await readFile(new URL('public/data/concept-evolution.json', root), 'utf8'));
+  const subjects = graph.subject_facets;
+  assert.equal(subjects.length, 12);
+
+  assert.equal(graph.episodes.filter((episode) => episodeVisibleForSubjectFilter(episode, new Set(), false, subjects)).length, graph.episodes.length);
+  assert.equal(graph.episodes.filter((episode) => episodeVisibleForSubjectFilter(episode, new Set(subjects), false, subjects)).length, 0);
+  assert.equal(graph.episodes.filter((episode) => episodeVisibleForSubjectFilter(episode, new Set(), true, subjects)).length, 0);
+
+  for (const subject of subjects) {
+    const hidden = new Set(subjects.filter((name) => name !== subject));
+    const visible = graph.episodes.filter((episode) => episodeVisibleForSubjectFilter(episode, hidden, false, subjects));
+    assert.ok(visible.length > 0 || ['历史与社会', '劳动'].includes(subject), `${subject} isolate unexpectedly empty`);
+    assert.ok(visible.every((episode) => episodeVisibilityFacets(episode).includes(subject)), `${subject} isolate leaked an unrelated episode`);
+    if (subject === '语文') {
+      assert.equal(visible.some((episode) => episode.label === '运动能力'), false, 'Chinese isolate leaked sports motor ability');
+      assert.equal(visible.some((episode) => ['综合康复', '运动与保健'].includes(episode.scope_entity?.canonical)), false, 'Chinese isolate leaked a sports or rehabilitation course');
+    }
+  }
 });
 
 test('the 12 display groups preserve exact identities and remain stable controls', async () => {

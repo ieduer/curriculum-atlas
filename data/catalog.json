@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-15T11:40:35.909Z",
+  "generated_at": "2026-07-15T15:06:13.518Z",
   "source_policy": "Primary official sources first; missing originals stay explicitly missing.",
   "counts": {
     "documents": 196,
@@ -8,7 +8,7 @@
     "local_verified_scan": 12,
     "metadata_only": 6,
     "citation_ready": 103,
-    "ocr_review_pending": 52
+    "ocr_review_pending": 88
   },
   "documents": [
     {
@@ -30,7 +30,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582343217634.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-01.pdf",
+      "page_count": 23,
+      "checksum_sha256": "976efdf360bf6a28156f5b232aec48566104726ae2617c379cf4cdb4b60aef73",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-02",
@@ -51,7 +57,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582343475848.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-02.pdf",
+      "page_count": 73,
+      "checksum_sha256": "16c0a291b522ce5b0afe3b1a28e696d8cca0d4d63cc01ff552a1d6ce06506cf0",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-03",
@@ -72,7 +84,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582344386456.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-03.pdf",
+      "page_count": 109,
+      "checksum_sha256": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-04",
@@ -93,7 +111,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582345700037.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-04.pdf",
+      "page_count": 86,
+      "checksum_sha256": "c807b9162d7f7a652c9acedc187c39b28d29b73edfa9e6964045f9a8672a90ef",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-05",
@@ -114,7 +138,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220510531636118932.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-05.pdf",
+      "page_count": 189,
+      "checksum_sha256": "1183b95c58a65eaac4c456f2d2b329bbe42f65a6482993edb537e3eaf8baa144",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-06",
@@ -135,7 +165,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582349487953.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-06.pdf",
+      "page_count": 201,
+      "checksum_sha256": "59ec3971e0dbd6ca487c4e4972cbc80effaf2fd62418d07e5f62c6698fa222fb",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-07",
@@ -156,7 +192,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020230605524874315398.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-07.pdf",
+      "page_count": 147,
+      "checksum_sha256": "1ecd0cc391376ce76fb61a705f90ef804f746426c99f4813cc8367c0496851c6",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-08",
@@ -177,7 +219,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582353002089.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-08.pdf",
+      "page_count": 111,
+      "checksum_sha256": "42c9c10a4374ca9b88009a666b86c622b828050da5ebaa636e72ca026b54e1cd",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-09",
@@ -198,7 +246,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582354066450.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-09.pdf",
+      "page_count": 65,
+      "checksum_sha256": "5aade5cb5cfa103c48277c8ff663783df69cafb0fec2411f4aad1924d75c67b8",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-10",
@@ -219,7 +273,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582355009892.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-10.pdf",
+      "page_count": 193,
+      "checksum_sha256": "630b2fb082aed2f0b6aaff1cd30cdea530c41459ee0ffd5847e3e07b7324546f",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-11",
@@ -240,7 +300,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582357585169.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-11.pdf",
+      "page_count": 71,
+      "checksum_sha256": "884069da6c924acb27b966ea20b9c7a4d8f0d6dfc828c80cd252aa72bf990340",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-12",
@@ -261,7 +327,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020230605524875861384.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-12.pdf",
+      "page_count": 87,
+      "checksum_sha256": "8e04592efba9a6baf41ebf6970d868f2461fbd8e43328fb2ddb57165aa0c2b5c",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-13",
@@ -282,7 +354,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582359998122.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-13.pdf",
+      "page_count": 76,
+      "checksum_sha256": "95993bea87c30104631fa10f2f20f11b98d0718d69c4aeeac46c53a387f43c00",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-14",
@@ -303,7 +381,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582361024968.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-14.pdf",
+      "page_count": 74,
+      "checksum_sha256": "065f9df22d35da8813508c23782c7853dab3c54e34f552a627f8dd1698fa1e01",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-15",
@@ -324,7 +408,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582362336303.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-15.pdf",
+      "page_count": 148,
+      "checksum_sha256": "bc53754f8fb55e32f1ac49abfbbd120ee587d0385ed5dfbea620baa16624e03d",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-16",
@@ -345,7 +435,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582364678888.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-16.pdf",
+      "page_count": 131,
+      "checksum_sha256": "7c5c688f5e1b9d8e5c2a0ef908055322df67bb36d5b85ca1c540f1c35807230d",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2022-17",
@@ -366,7 +462,13 @@
       "current_status": "current_with_revision_watch",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582367012450.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2022-17.pdf",
+      "page_count": 68,
+      "checksum_sha256": "d5f080fee80df073ef67f6b0dbe303250913777aee32f98bea4f22df1c6247d8",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-01",
@@ -386,7 +488,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401378158281.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-01.pdf",
+      "page_count": 83,
+      "checksum_sha256": "3d205824c00c73e5323d37afb8ed9ee878919286447b72adfbe9bc487f9ffae9",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-02",
@@ -406,7 +514,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401378728645.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-02.pdf",
+      "page_count": 183,
+      "checksum_sha256": "41cf1d11ccd595cf5c36f014e56c4be473945c8ee3c04346d72228c85da7499b",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-03",
@@ -426,7 +540,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401379805960.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-03.pdf",
+      "page_count": 110,
+      "checksum_sha256": "d44099fd6c767a97773f2aadf88d9c0178949075efa7eb263ecc09c260f52844",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-04",
@@ -446,7 +566,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401380521630.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-04.pdf",
+      "page_count": 92,
+      "checksum_sha256": "a0ccaf4b2f7ff4738964ce4989d7a6ff2757226f4aaaf5364ededfb85734b17f",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-05",
@@ -466,7 +592,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401381008557.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-05.pdf",
+      "page_count": 27,
+      "checksum_sha256": "911e326f20ad2b9346d34010dffae39ffb7002419635356e1744543e6786c7dd",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-06",
@@ -486,7 +618,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401381189926.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-06.pdf",
+      "page_count": 31,
+      "checksum_sha256": "8220353d2fd7e917ca29282a66ebffeea82c5918b03cf728d276e537294b668a",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-07",
@@ -506,7 +644,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401381408819.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-07.pdf",
+      "page_count": 26,
+      "checksum_sha256": "23b30418036b898bc032b326fa9da567fe197b1f4bd67dc846ec600e052dce40",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-08",
@@ -526,7 +670,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401382030426.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-08.pdf",
+      "page_count": 135,
+      "checksum_sha256": "ce7fd3249663b46b51185722441e88d0d7b04470d766c5013b701bd6000bbc18",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-09",
@@ -546,7 +696,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401383156396.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-09.pdf",
+      "page_count": 62,
+      "checksum_sha256": "7298b87568d964d34eb975a0ee5adcd36dbaf68adcbc1bf8d2871c0dd54c4284",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-10",
@@ -566,7 +722,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401383699026.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-10.pdf",
+      "page_count": 66,
+      "checksum_sha256": "0660efed411d5f6e777480f1735851303bbd8b076167dbdc7945b217defaa6bb",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-11",
@@ -586,7 +748,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401384311181.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-11.pdf",
+      "page_count": 60,
+      "checksum_sha256": "f7353d29a71a0a6cff2100f2f975baadfeb4f8afabce6468f21f5b3122fc93e9",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-12",
@@ -606,7 +774,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401384948134.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-12.pdf",
+      "page_count": 89,
+      "checksum_sha256": "4468169cecce2242d5a82777d799dd61ed7fc67d7af6ede44fc63700d2e9111f",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-13",
@@ -626,7 +800,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401385879509.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-13.pdf",
+      "page_count": 50,
+      "checksum_sha256": "9ef41a1e2a9953b1517a616e421076a15cdcf7944682f4e4d359aaaa765cc852",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-14",
@@ -646,7 +826,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401386310077.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-14.pdf",
+      "page_count": 34,
+      "checksum_sha256": "4913abf9a526a5c387b94a3b07dc083f954f02af5475764f18227f73018a4fff",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-15",
@@ -666,7 +852,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401386580231.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-15.pdf",
+      "page_count": 50,
+      "checksum_sha256": "a7b72b98facc9d0a95c87794bc1c97976a04d5e1d11d15ff64cc01c48d50dee5",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-16",
@@ -686,7 +878,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401387203763.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-16.pdf",
+      "page_count": 63,
+      "checksum_sha256": "22eb62fa091df8dc68a3fdb79dad31cbae8c1a10e8ac8584f239be6fe031257e",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-17",
@@ -706,7 +904,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401387878443.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-17.pdf",
+      "page_count": 39,
+      "checksum_sha256": "6e57233d4198d95bd2033287eee0054ce9fba96054c75b8273fcbf1354e8bc6b",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-18",
@@ -726,7 +930,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401388154397.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-18.pdf",
+      "page_count": 38,
+      "checksum_sha256": "43bddf14ae024de718a019c0706d692007b94689a2c59280ca5974b1b6a12cd8",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-2011-19",
@@ -746,7 +956,13 @@
       "current_status": "superseded",
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/W020220418401388381349.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "local_cache_path": ".cache/sources/moe-2011-19.pdf",
+      "page_count": 67,
+      "checksum_sha256": "cd1f30cbb92a53a5226828ca4d163a528284fe9dd0faab2a4d44a298d71ac611",
+      "text_quality_status": "ocr_required",
+      "citation_allowed": false,
+      "local_verification_status": "verified_local_pdf_scan"
     },
     {
       "id": "moe-hs-2020-01",
