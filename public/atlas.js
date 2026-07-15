@@ -40,6 +40,21 @@ export function subjectColor(subject) {
   return CORE_COLORS[subject] || FALLBACK_COLORS[hash(subject) % FALLBACK_COLORS.length];
 }
 
+export function episodeSubjectFacet(episode) {
+  const subject = episode?.subject;
+  return subject?.entity_kind === 'subject' && subject?.facet_eligible === true && typeof subject?.canonical === 'string' && subject.canonical.trim()
+    ? subject.canonical.trim()
+    : null;
+}
+
+export function episodeEntityLabel(episode) {
+  return episodeSubjectFacet(episode)
+    || (typeof episode?.scope_entity?.label === 'string' && episode.scope_entity.label.trim())
+    || (typeof episode?.scope_entity?.canonical === 'string' && episode.scope_entity.canonical.trim())
+    || (typeof episode?.subject?.source_label === 'string' && episode.subject.source_label.trim())
+    || '跨学科框架';
+}
+
 function rgba(hex, alpha) {
   const value = hex.replace('#', '');
   const number = Number.parseInt(value.length === 3 ? value.split('').map((part) => part + part).join('') : value, 16);
@@ -125,6 +140,7 @@ export class CurriculumCosmos {
     this.crossEdges = [];
     this.screenNodes = [];
     this.subjects = [];
+    this.tracks = [];
     this.filters = { hiddenSubjects: new Set(), maxYear: 2022, query: '' };
     this.mode = 'lineage';
     this.selectedId = null;
@@ -150,19 +166,23 @@ export class CurriculumCosmos {
   setData(graph) {
     this.graph = graph;
     const episodes = (graph?.episodes || []).filter((episode) => Number(episode.time?.year) >= 1800);
-    this.subjects = [...new Set(episodes.map((episode) => episode.subject?.canonical || '未分类'))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
-    const subjectIndex = new Map(this.subjects.map((subject, index) => [subject, index]));
+    this.subjects = [...new Set(episodes.map(episodeSubjectFacet).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    this.tracks = [...new Set(episodes.map((episode) => `${episodeSubjectFacet(episode) ? 'subject' : 'scope'}:${episodeEntityLabel(episode)}`))]
+      .sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    const trackIndex = new Map(this.tracks.map((track, index) => [track, index]));
     this.nodes = episodes.map((episode) => {
-      const subject = episode.subject?.canonical || '未分类';
-      const slot = subjectIndex.get(subject) || 0;
-      const angle = (slot / Math.max(1, this.subjects.length)) * TAU + .58;
+      const subject = episodeSubjectFacet(episode);
+      const entityLabel = episodeEntityLabel(episode);
+      const track = `${subject ? 'subject' : 'scope'}:${entityLabel}`;
+      const slot = trackIndex.get(track) || 0;
+      const angle = (slot / Math.max(1, this.tracks.length)) * TAU + .58;
       const conceptDrift = randomFrom(hash(episode.concept_id));
       const lineDrift = randomFrom(hash(episode.curriculum_line?.id));
       const radius = 255 + (slot % 5) * 15 + (conceptDrift() - .5) * 54;
       const display = episode.claim_policy?.display_level || 'candidate_dashed';
       return {
-        kind: 'concept', episode, id: episode.id, subject, year: Number(episode.time.year),
-        conceptId: episode.concept_id, color: subjectColor(subject),
+        kind: 'concept', episode, id: episode.id, subject, entityLabel, facetEligible: Boolean(subject), year: Number(episode.time.year),
+        conceptId: episode.concept_id, color: subject ? subjectColor(subject) : '#e7bd61',
         x: yearX(Math.max(1902, Math.min(2022, Number(episode.time.year)))),
         y: Math.sin(angle) * radius + (conceptDrift() - .5) * 68 + (lineDrift() - .5) * 24,
         z: Math.cos(angle) * radius * .8 + (conceptDrift() - .5) * 52 + (lineDrift() - .5) * 24,
@@ -213,10 +233,10 @@ export class CurriculumCosmos {
   }
 
   visible(node) {
-    if (node.year > this.filters.maxYear || this.filters.hiddenSubjects.has(node.subject)) return false;
+    if (node.year > this.filters.maxYear || (node.subject && this.filters.hiddenSubjects.has(node.subject))) return false;
     if (!this.filters.query) return true;
     const episode = node.episode;
-    return `${episode.label} ${(episode.aliases || []).join(' ')} ${node.subject} ${node.year} ${episode.category} ${episode.curriculum_line?.stage}`
+    return `${episode.label} ${(episode.aliases || []).join(' ')} ${node.entityLabel} ${node.year} ${episode.category} ${episode.curriculum_line?.stage}`
       .toLocaleLowerCase('zh-CN').includes(this.filters.query);
   }
 

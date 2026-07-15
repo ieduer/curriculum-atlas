@@ -1,0 +1,204 @@
+{
+  "schema_version": 2,
+  "model_name": "curriculum-concept-observation-model",
+  "taxonomy_provenance": [
+    {
+      "authority": "中华人民共和国教育部",
+      "standard": "JY/T 0644—2022 教育基础数据",
+      "role": "基础教育学科代码表的权威命名与代码锚点",
+      "url": "https://www.moe.gov.cn/srcsite/A16/s3342/202302/W020230214589106063444.pdf",
+      "source_sha256": "fa5fcd758e434353c1d9625968f125d9d1b2a69820a0e364ee48cd4e03d95aa5",
+      "review_scope": "表8，行533—599"
+    },
+    {
+      "authority": "中华人民共和国教育部",
+      "standard": "三类特殊教育学校义务教育课程标准答问（2016）",
+      "role": "确认特色课程标准是课程实体；作为受控扩展保留且不伪造SB代码",
+      "url": "https://www.moe.gov.cn/jyb_xwfb/s271/201612/t20161213_291721.html",
+      "source_sha256": null,
+      "review_scope": "定向行走、综合康复、社会适应、沟通与交往、律动、生活语文、生活数学、生活适应、劳动技能、运动与保健、艺术休闲"
+    }
+  ],
+  "official_subject_codes": {
+    "语文": "SB0101",
+    "英语": "SB0102",
+    "俄语": "SB0103",
+    "日语": "SB0104",
+    "德语": "SB0105",
+    "法语": "SB0106",
+    "西班牙语": "SB0107",
+    "数学": "SB0201",
+    "思想品德": "SB0302",
+    "品德与社会": "SB0304",
+    "历史与社会": "SB0306",
+    "历史": "SB0307",
+    "地理": "SB0308",
+    "道德与法治": "SB0309",
+    "思想政治": "SB0310",
+    "物理": "SB0401",
+    "化学": "SB0402",
+    "生物学": "SB0403",
+    "科学": "SB0404",
+    "信息技术": "SB0502",
+    "通用技术": "SB0504",
+    "劳动": "SB0505",
+    "信息科技": "SB0506",
+    "艺术": "SB0601",
+    "音乐": "SB0602",
+    "美术": "SB0603",
+    "体育与健康": "SB0702",
+    "综合实践活动": "SB0801"
+  },
+  "official_code_notes": {
+    "西班牙语": "Mapped to JY/T 0644—2022 SB0107 其他外国语; preserves 西班牙语 as the source/canonical project label.",
+    "SB0501": "JY/T 0644—2022 names 劳动与技术; no current exact source label is force-mapped to this code."
+  },
+  "special_education_2016_reviewed_extensions": ["定向行走", "综合康复", "社会适应", "沟通与交往", "律动", "生活语文", "生活数学", "生活适应", "劳动技能", "运动与保健", "艺术休闲"],
+  "taxonomy_decision_rules": [
+    "课程方案、考试评价、考试大纲、跨学科政策、汇编卷和来源目录不是学科 facet。",
+    "课程方案与学科课程标准在教育部发布体系中分列；不得把课程方案映射为学科。",
+    "综合实践活动是 JY/T 0644—2022 的 SB0801 学科分类；source_label=综合 的政策、方案或集合不得据此改名为综合实践活动。",
+    "特殊教育特色课程是教育部确认的课程标准实体，保留为 subject 且 classification=special_education_curriculum_subject；official_code 保持 null。",
+    "初中科学映射到稳定学科科学并保留 stage=初中；文科数学、理科数学映射到数学并保留 course_variant。",
+    "生物与生物学共享 stable_subject_id=subject:biology，保留 source_label 和历史命名分类。",
+    "信息技术与信息科技共享 lineage_family=information_technology_education，但在缺少改名连续性编辑证据前使用不同 stable_subject_id。",
+    "汉语不并入语文；思想品德、思想政治、道德与法治等阶段名称不在无证据时静默合并。"
+  ],
+  "subject_taxonomy": {
+    "体育与健康": { "canonical": "体育与健康", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "俄语": { "canonical": "俄语", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "信息技术": { "canonical": "信息技术", "stable_subject_id": "subject:information-technology", "lineage_family": "information_technology_education", "entity_kind": "subject", "classification": "historical_or_period_curriculum_subject", "facet_eligible": true },
+    "信息科技": { "canonical": "信息科技", "stable_subject_id": "subject:information-science-and-technology", "lineage_family": "information_technology_education", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "初中科学": { "canonical": "科学", "entity_kind": "subject", "classification": "stage_specific_subject_alias", "facet_eligible": true },
+    "劳动": { "canonical": "劳动", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "劳动技能": { "canonical": "劳动技能", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "化学": { "canonical": "化学", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "历史": { "canonical": "历史", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "历史与社会": { "canonical": "历史与社会", "entity_kind": "subject", "classification": "historical_or_period_curriculum_subject", "facet_eligible": true },
+    "品德与生活": { "canonical": "品德与生活", "entity_kind": "subject", "classification": "historical_or_period_curriculum_subject", "facet_eligible": true },
+    "品德与社会": { "canonical": "品德与社会", "entity_kind": "subject", "classification": "historical_or_period_curriculum_subject", "facet_eligible": true },
+    "唱游与律动": { "canonical": "唱游与律动", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "地理": { "canonical": "地理", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "定向行走": { "canonical": "定向行走", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "康复训练": { "canonical": "康复训练", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "律动": { "canonical": "律动", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "德语": { "canonical": "德语", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "思想品德": { "canonical": "思想品德", "entity_kind": "subject", "classification": "historical_or_period_curriculum_subject", "facet_eligible": true },
+    "思想政治": { "canonical": "思想政治", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "技术": { "canonical": "技术", "entity_kind": "subject", "classification": "historical_or_period_curriculum_subject", "facet_eligible": true },
+    "数学": { "canonical": "数学", "stable_subject_id": "subject:mathematics", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "文科数学": { "canonical": "数学", "stable_subject_id": "subject:mathematics", "course_variant": "humanities_track", "entity_kind": "subject", "classification": "track_specific_subject_alias", "facet_eligible": true },
+    "日语": { "canonical": "日语", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "普通高级中学 体育体育与健康": { "canonical": "体育与健康", "entity_kind": "subject", "classification": "compound_source_label_alias", "facet_eligible": true },
+    "汉语": { "canonical": "汉语", "entity_kind": "subject", "classification": "assessment_subject", "facet_eligible": true },
+    "沟通与交往": { "canonical": "沟通与交往", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "法语": { "canonical": "法语", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "物理": { "canonical": "物理", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "理科数学": { "canonical": "数学", "stable_subject_id": "subject:mathematics", "course_variant": "science_track", "entity_kind": "subject", "classification": "track_specific_subject_alias", "facet_eligible": true },
+    "生活数学": { "canonical": "生活数学", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "生活语文": { "canonical": "生活语文", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "生活适应": { "canonical": "生活适应", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "生物": { "canonical": "生物学", "stable_subject_id": "subject:biology", "entity_kind": "subject", "classification": "historical_subject_name", "facet_eligible": true },
+    "生物学": { "canonical": "生物学", "stable_subject_id": "subject:biology", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "社会适应": { "canonical": "社会适应", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "科学": { "canonical": "科学", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "绘画与手工": { "canonical": "绘画与手工", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "综合": { "canonical": "综合课程文件", "entity_kind": "cross_cutting_framework", "classification": "mixed_legacy_source_label_requires_document_override", "facet_eligible": false },
+    "综合实践活动": { "canonical": "综合实践活动", "stable_subject_id": "subject:comprehensive-practical-activity", "lineage_family": "综合实践活动", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "综合康复": { "canonical": "综合康复", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "美工": { "canonical": "美工", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "美术": { "canonical": "美术", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "考试大纲": { "canonical": "考试大纲", "entity_kind": "assessment_domain", "classification": "cross_subject_assessment_document", "facet_eligible": false },
+    "考试评价": { "canonical": "考试评价", "entity_kind": "assessment_domain", "classification": "cross_subject_assessment_policy", "facet_eligible": false },
+    "艺术": { "canonical": "艺术", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "艺术与劳动": { "canonical": "音乐美术劳技汇编", "entity_kind": "source_collection", "classification": "multi_subject_compendium", "facet_eligible": false },
+    "艺术休闲": { "canonical": "艺术休闲", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "英语": { "canonical": "英语", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "西班牙语": { "canonical": "西班牙语", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "语文": { "canonical": "语文", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "课程方案": { "canonical": "课程方案", "entity_kind": "cross_cutting_framework", "classification": "cross_subject_curriculum_framework", "facet_eligible": false },
+    "运动与保健": { "canonical": "运动与保健", "entity_kind": "subject", "classification": "special_education_curriculum_subject", "facet_eligible": true },
+    "通用技术": { "canonical": "通用技术", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "道德与法治": { "canonical": "道德与法治", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true },
+    "音乐": { "canonical": "音乐", "entity_kind": "subject", "classification": "general_curriculum_subject", "facet_eligible": true }
+  },
+  "document_entity_overrides": {
+    "ictr-d692b0ff2e6c": { "canonical": "思想品德", "entity_kind": "subject", "classification": "corrected_catalog_source_label", "facet_eligible": true },
+    "ictr-197f8a2e1cca": { "canonical": "音乐", "entity_kind": "subject", "classification": "corrected_catalog_source_label", "facet_eligible": true },
+    "policy-1950-1993-overview": { "canonical": "课程沿革政策", "entity_kind": "cross_cutting_framework", "classification": "cross_subject_policy_overview", "facet_eligible": false },
+    "policy-2001-reform-outline": { "canonical": "课程改革纲要", "entity_kind": "cross_cutting_framework", "classification": "cross_subject_policy_framework", "facet_eligible": false },
+    "policy-2003-hs-standards": { "canonical": "高中课标发布通知", "entity_kind": "cross_cutting_framework", "classification": "cross_subject_release_notice", "facet_eligible": false },
+    "policy-2000-hs-syllabi": { "canonical": "高中大纲修订背景", "entity_kind": "cross_cutting_framework", "classification": "cross_subject_revision_background", "facet_eligible": false },
+    "catalog-legacy-originals": { "canonical": "历史原件待补目录", "entity_kind": "source_collection", "classification": "source_inventory", "facet_eligible": false },
+    "catalog-revision-watch": { "canonical": "课标修订观察", "entity_kind": "source_collection", "classification": "revision_watch_inventory", "facet_eligible": false },
+    "ictr-cfb2a39a2016": { "canonical": "聋校课程设置方案", "entity_kind": "cross_cutting_framework", "classification": "special_education_curriculum_line", "facet_eligible": false },
+    "ictr-8f02447b66ca": { "canonical": "盲校课程设置方案", "entity_kind": "cross_cutting_framework", "classification": "special_education_curriculum_line", "facet_eligible": false },
+    "ictr-f74769862cc6": { "canonical": "培智学校课程设置方案", "entity_kind": "cross_cutting_framework", "classification": "special_education_curriculum_line", "facet_eligible": false },
+    "ictr-f4258201b960": { "canonical": "普通高中课程方案", "entity_kind": "cross_cutting_framework", "classification": "cross_subject_curriculum_framework", "facet_eligible": false },
+    "ictr-6aed243f91fa": { "canonical": "普通高中课程方案", "entity_kind": "cross_cutting_framework", "classification": "cross_subject_curriculum_framework", "facet_eligible": false },
+    "ictr-07a04c6c51fd": { "canonical": "义务教育课程设置方案", "entity_kind": "cross_cutting_framework", "classification": "cross_subject_curriculum_framework", "facet_eligible": false },
+    "legacy-compendium-general-primary": { "canonical": "自然社会常识卫生汇编", "entity_kind": "source_collection", "classification": "multi_subject_compendium", "facet_eligible": false }
+  },
+  "subject_families": {
+    "语文": ["语文", "生活语文", "汉语"],
+    "数学": ["数学", "生活数学", "文科数学", "理科数学"],
+    "外语": ["英语", "日语", "俄语", "德语", "法语", "西班牙语"],
+    "科学": ["科学", "初中科学", "物理", "化学", "生物", "生物学"],
+    "历史与社会": ["历史", "历史与社会", "地理"],
+    "思想政治与道德法治": ["思想政治", "思想品德", "道德与法治", "品德与生活", "品德与社会"],
+    "艺术": ["艺术", "音乐", "美术", "美工", "绘画与手工", "唱游与律动", "律动", "艺术休闲", "艺术与劳动"],
+    "体育与健康": ["体育与健康", "普通高级中学 体育体育与健康", "运动与保健"],
+    "劳动与技术": ["劳动", "劳动技能", "技术", "通用技术", "信息技术", "信息科技"],
+    "特殊教育综合": ["定向行走", "康复训练", "综合康复", "生活适应", "社会适应", "沟通与交往"],
+    "课程与评价": ["课程方案", "考试大纲", "考试评价", "综合"]
+  },
+  "surface_form_overrides": {
+    "teaching-learning-assessment::教-学-评一致性": {
+      "form_type": "orthographic_variant",
+      "automatic_match_allowed": true,
+      "review_status": "rule_reviewed"
+    },
+    "teaching-learning-assessment::教学评一致性": {
+      "form_type": "lexical_abbreviation",
+      "automatic_match_allowed": true,
+      "review_status": "editor_seed_reviewed"
+    },
+    "instrumentality-humanity::工具性和人文性": {
+      "form_type": "orthographic_variant",
+      "automatic_match_allowed": true,
+      "review_status": "rule_reviewed"
+    },
+    "learning-task-group::语文学习任务群": {
+      "form_type": "expanded_lexical_form",
+      "automatic_match_allowed": true,
+      "review_status": "editor_seed_reviewed"
+    },
+    "guowen-subject::国文课程": {
+      "form_type": "historically_related_form",
+      "automatic_match_allowed": false,
+      "review_status": "semantic_review_required"
+    },
+    "guoyu-subject::国语课程": {
+      "form_type": "historically_related_form",
+      "automatic_match_allowed": false,
+      "review_status": "semantic_review_required"
+    },
+    "data-analysis::数据分析能力": {
+      "form_type": "semantically_related_form",
+      "automatic_match_allowed": false,
+      "review_status": "semantic_review_required"
+    }
+  },
+  "relation_policy": {
+    "automatic_nonsemantic_types": ["next_observed", "co_observed"],
+    "semantic_types_require_editor_review": ["renamed_to", "split_into", "merged_into", "influenced", "replaced_by"],
+    "endpoint_evidence_required": true,
+    "automatic_influence_claim_allowed": false
+  },
+  "coverage_policy": {
+    "negative_claim_eligible": false,
+    "first_appearance_claim_allowed": false,
+    "disappearance_claim_allowed": false,
+    "historical_superlative_allowed": false
+  }
+}

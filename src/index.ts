@@ -5,7 +5,7 @@ import { retrieve } from './retrieval';
 import { enforceRateLimit, verifyTurnstile } from './security';
 import type { Env, Session } from './types';
 
-const VERSION = '2026.07.15-v4';
+const VERSION = '2026.07.15-v5';
 
 interface CommentInput {
   documentId?: string;
@@ -26,13 +26,41 @@ function cacheJson(data: unknown, seconds = 300): Response {
 }
 
 async function health(env: Env): Promise<Response> {
-  const row = await env.DB.prepare("SELECT value FROM site_meta WHERE key = 'schema_version'").first<{ value: string }>();
+  const metaRows = await env.DB.prepare(
+    "SELECT key,value FROM site_meta WHERE key IN ('schema_version','document_classification_schema_version')",
+  ).all<{ key: string; value: string }>();
+  const schemaMeta = new Map(metaRows.results.map((row) => [row.key, row.value]));
+  let classifications: { documents: number; classified: number; subject_documents: number; scope_documents: number; unclassified_documents: number } | null = null;
+  try {
+    classifications = await env.DB.prepare(`SELECT COUNT(d.id) AS documents, COUNT(dc.document_id) AS classified,
+      SUM(CASE WHEN dc.entity_kind = 'subject' AND dc.canonical_subject IS NOT NULL THEN 1 ELSE 0 END) AS subject_documents,
+      SUM(CASE WHEN dc.entity_kind != 'subject' AND dc.canonical_subject IS NULL THEN 1 ELSE 0 END) AS scope_documents,
+      SUM(CASE WHEN dc.scope_kind = 'unclassified' THEN 1 ELSE 0 END) AS unclassified_documents
+      FROM documents d LEFT JOIN document_classifications dc ON dc.document_id = d.id`)
+      .first<{ documents: number; classified: number; subject_documents: number; scope_documents: number; unclassified_documents: number }>();
+  } catch {
+    classifications = null;
+  }
+  const schemaReady = schemaMeta.get('schema_version') === '3'
+    && schemaMeta.get('document_classification_schema_version') === '1';
+  const classificationReady = classifications !== null
+    && Number(classifications.documents || 0) === Number(classifications.classified || 0)
+    && Number(classifications.unclassified_documents || 0) === 0;
   return json({
-    ok: row?.value === '3',
+    ok: schemaReady && classificationReady,
     service: 'bdfz-curriculum-atlas',
     version: VERSION,
     environment: env.ENVIRONMENT,
-    schemaVersion: row?.value || null,
+    schemaVersion: schemaMeta.get('schema_version') || null,
+    classificationSchemaVersion: schemaMeta.get('document_classification_schema_version') || null,
+    classification: {
+      complete: classificationReady,
+      documents: Number(classifications?.documents || 0),
+      classified: Number(classifications?.classified || 0),
+      subjectDocuments: Number(classifications?.subject_documents || 0),
+      scopeDocuments: Number(classifications?.scope_documents || 0),
+      unclassifiedDocuments: Number(classifications?.unclassified_documents || 0),
+    },
     bindings: {
       d1: Boolean(env.DB),
       r2: Boolean(env.SOURCES),
@@ -40,7 +68,14 @@ async function health(env: Env): Promise<Response> {
       userCenter: Boolean(env.USER_CENTER),
       assets: Boolean(env.ASSETS),
     },
-  }, row?.value === '3' ? 200 : 503);
+  }, schemaReady && classificationReady ? 200 : 503);
+}
+
+async function requireCanonicalSubject(env: Env, subject: string): Promise<void> {
+  if (!subject) return;
+  const match = await env.DB.prepare(`SELECT canonical_subject FROM document_classifications
+    WHERE entity_kind = 'subject' AND canonical_subject = ? LIMIT 1`).bind(subject).first();
+  if (!match) throw new HttpError(400, '学科筛选不存在或不是学科实体');
 }
 
 async function meta(env: Env): Promise<Response> {
@@ -50,8 +85,11 @@ async function meta(env: Env): Promise<Response> {
     env.DB.prepare("SELECT COUNT(*) AS count FROM comments WHERE status = 'approved'").first<{ count: number }>(),
     env.DB.prepare('SELECT COUNT(*) AS count FROM documents WHERE citation_allowed = 1').first<{ count: number }>(),
     env.DB.prepare("SELECT COUNT(*) AS count FROM online_verifications WHERE verification_status IN ('verified_exact','verified_stable_fact_only')").first<{ count: number }>(),
-    env.DB.prepare(`SELECT subject AS name, COUNT(*) AS documentCount, MIN(sort_year) AS firstYear, MAX(sort_year) AS lastYear
-      FROM documents WHERE subject NOT IN ('课程方案','考试大纲') GROUP BY subject ORDER BY documentCount DESC, subject`).all(),
+    env.DB.prepare(`SELECT dc.canonical_subject AS name, COUNT(*) AS documentCount,
+      MIN(d.sort_year) AS firstYear, MAX(d.sort_year) AS lastYear
+      FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
+      WHERE dc.entity_kind = 'subject' AND dc.canonical_subject IS NOT NULL
+      GROUP BY dc.canonical_subject ORDER BY documentCount DESC, dc.canonical_subject`).all(),
     env.DB.prepare('SELECT * FROM periods ORDER BY sort_order').all(),
   ]);
   return cacheJson({
@@ -79,19 +117,26 @@ async function listDocuments(url: URL, env: Env): Promise<Response> {
   const status = textParam(url.searchParams.get('status'), 40);
   const type = textParam(url.searchParams.get('type'), 40);
   const limit = clampInt(url.searchParams.get('limit'), 100, 1, 200);
+  await requireCanonicalSubject(env, subject);
   const result = await env.DB.prepare(
-    `SELECT id,title,subject,stage,document_type,version_label,issued_by,issued_date,published_date,current_status,
-            source_tier,access_status,source_page_url,source_url,file_format,redistribution,checksum_sha256,note,period_id,sort_year,
-            text_quality_status,ocr_engine,ocr_audit_ref,citation_allowed,page_count
-     FROM documents
-     WHERE (? = '' OR subject = ?) AND (? = '' OR stage = ?) AND (? = '' OR current_status = ?) AND (? = '' OR document_type = ?)
-     ORDER BY COALESCE(sort_year, 0) DESC, subject, title LIMIT ?`,
+    `SELECT d.id,d.title,d.subject,d.stage,d.document_type,d.version_label,d.issued_by,d.issued_date,d.published_date,d.current_status,
+            d.source_tier,d.access_status,d.source_page_url,d.source_url,d.file_format,d.redistribution,d.checksum_sha256,d.note,d.period_id,d.sort_year,
+            d.text_quality_status,d.ocr_engine,d.ocr_audit_ref,d.citation_allowed,d.page_count,
+            dc.entity_kind,dc.canonical_subject,dc.subject_family,dc.scope_kind,dc.scope_label,dc.source_subject_label,
+            COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label
+     FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
+     WHERE (? = '' OR (dc.entity_kind = 'subject' AND dc.canonical_subject = ?))
+       AND (? = '' OR d.stage = ?) AND (? = '' OR d.current_status = ?) AND (? = '' OR d.document_type = ?)
+     ORDER BY COALESCE(d.sort_year, 0) DESC, entity_label, d.title LIMIT ?`,
   ).bind(subject, subject, stage, stage, status, status, type, type, limit).all();
   return cacheJson({ documents: result.results }, 600);
 }
 
 async function documentDetail(id: string, url: URL, env: Env): Promise<Response> {
-  const document = await env.DB.prepare('SELECT * FROM documents WHERE id = ?').bind(id).first();
+  const document = await env.DB.prepare(`SELECT d.*, dc.entity_kind,dc.canonical_subject,dc.subject_family,
+    dc.scope_kind,dc.scope_label,dc.source_subject_label,
+    COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label
+    FROM documents d JOIN document_classifications dc ON dc.document_id = d.id WHERE d.id = ?`).bind(id).first();
   if (!document) throw new HttpError(404, '未找到该资料');
   const offset = clampInt(url.searchParams.get('offset'), 0, 0, 100_000);
   const limit = clampInt(url.searchParams.get('limit'), 80, 1, 200);
@@ -99,8 +144,11 @@ async function documentDetail(id: string, url: URL, env: Env): Promise<Response>
     env.DB.prepare(`SELECT id,ordinal,page_number,heading,body,source_locator,text_quality_status,ocr_quality_score,citation_allowed,
       online_verification_status,evidence_triad_status,uncertainty_note FROM paragraphs
       WHERE document_id = ? ORDER BY ordinal LIMIT ? OFFSET ?`).bind(id, limit, offset).all(),
-    env.DB.prepare(`SELECT dr.relation_type, dr.note, d.id, d.title, d.subject, d.version_label
-      FROM document_relations dr JOIN documents d ON d.id = dr.target_document_id WHERE dr.source_document_id = ?`).bind(id).all(),
+    env.DB.prepare(`SELECT dr.relation_type, dr.note, d.id, d.title, d.subject, d.version_label,
+      dc.entity_kind,dc.canonical_subject,dc.scope_kind,dc.scope_label,
+      COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label
+      FROM document_relations dr JOIN documents d ON d.id = dr.target_document_id
+      JOIN document_classifications dc ON dc.document_id = d.id WHERE dr.source_document_id = ?`).bind(id).all(),
     env.DB.prepare(`SELECT * FROM subject_insights WHERE evidence_document_ids LIKE ? ORDER BY sort_order`).bind(`%"${id}"%`).all(),
     env.DB.prepare(`SELECT v.*, e.id AS evidence_id, e.role AS evidence_role, e.publisher AS evidence_publisher,
         e.source_type AS evidence_source_type, e.source_title AS evidence_source_title, e.source_url AS evidence_source_url,
@@ -146,9 +194,11 @@ async function documentDetail(id: string, url: URL, env: Env): Promise<Response>
 async function search(url: URL, env: Env): Promise<Response> {
   const query = textParam(url.searchParams.get('q'), 240);
   if (query.length < 2) throw new HttpError(400, '请输入至少两个字符');
+  const subject = textParam(url.searchParams.get('subject'), 40);
+  await requireCanonicalSubject(env, subject);
   const passages = await retrieve(env, {
     query,
-    subject: textParam(url.searchParams.get('subject'), 40),
+    subject,
     stage: textParam(url.searchParams.get('stage'), 40),
     limit: clampInt(url.searchParams.get('limit'), 12, 1, 20),
   });
@@ -157,6 +207,7 @@ async function search(url: URL, env: Env): Promise<Response> {
 
 async function insights(url: URL, env: Env): Promise<Response> {
   const subject = textParam(url.searchParams.get('subject'), 40);
+  await requireCanonicalSubject(env, subject);
   const result = await env.DB.prepare(`SELECT * FROM subject_insights WHERE (? = '' OR subject IN (?, '综合')) ORDER BY sort_order`)
     .bind(subject, subject).all();
   return cacheJson({ insights: result.results }, 600);
@@ -175,9 +226,12 @@ async function terminology(env: Env): Promise<Response> {
 async function compare(url: URL, env: Env): Promise<Response> {
   const subject = textParam(url.searchParams.get('subject'), 40);
   if (!subject) throw new HttpError(400, '请选择学科');
+  await requireCanonicalSubject(env, subject);
   const [documents, insights] = await Promise.all([
-    env.DB.prepare(`SELECT id,title,version_label,stage,sort_year,current_status,source_url FROM documents
-      WHERE subject = ? ORDER BY sort_year`).bind(subject).all(),
+    env.DB.prepare(`SELECT d.id,d.title,d.version_label,d.stage,d.sort_year,d.current_status,d.source_url,
+      dc.entity_kind,dc.canonical_subject,dc.subject_family
+      FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
+      WHERE dc.entity_kind = 'subject' AND dc.canonical_subject = ? ORDER BY d.sort_year`).bind(subject).all(),
     env.DB.prepare(`SELECT * FROM subject_insights WHERE subject IN (?, '综合') ORDER BY sort_order`).bind(subject).all(),
   ]);
   return cacheJson({ subject, documents: documents.results, insights: insights.results }, 600);
@@ -287,6 +341,7 @@ async function aiChat(request: Request, env: Env, session: Session): Promise<Res
   const query = textParam(input.query || '', 1_200);
   const subject = textParam(input.subject || '', 40);
   if (query.length < 8) throw new HttpError(400, '问题至少需要 8 个字符');
+  await requireCanonicalSubject(env, subject);
   return json(await answerWithEvidence(env, session, query, subject));
 }
 

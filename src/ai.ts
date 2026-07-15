@@ -56,6 +56,8 @@ export async function answerWithEvidence(
       documentId: passage.document_id,
       title: passage.title,
       subject: passage.subject,
+      entityLabel: passage.entity_label,
+      entityKind: passage.entity_kind,
       locator: passage.source_locator,
       sourceUrl: passage.source_url,
       excerpt: passage.body.slice(0, 240),

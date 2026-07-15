@@ -8,6 +8,7 @@ import platform
 import shutil
 import tempfile
 import time
+import uuid
 from pathlib import Path
 
 import paddle
@@ -56,6 +57,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int)
     parser.add_argument("--dpi", type=int, default=240)
     parser.add_argument("--save-visuals", action="store_true")
+    parser.add_argument("--force-reprocess", action="store_true", help="Rebuild selected pages even when state marks them complete.")
     args = parser.parse_args()
 
     input_pdf = Path(args.input_pdf).resolve()
@@ -117,10 +119,16 @@ def main() -> None:
         for page_number in selected:
             page_key = str(page_number)
             page_dir = pages_dir / f"{page_number:04d}"
-            if page_number in state["completed_pages"] and (page_dir / "content.md").is_file() and (page_dir / "result.json").is_file():
+            if not args.force_reprocess and page_number in state["completed_pages"] and (page_dir / "content.md").is_file() and (page_dir / "result.json").is_file():
                 print(f"skip {args.document_id} page {page_number}/{page_count}", flush=True)
                 continue
-            page_dir.mkdir(parents=True, exist_ok=True)
+            if args.force_reprocess:
+                state["completed_pages"] = [page for page in state["completed_pages"] if page != page_number]
+                state["pages"].pop(page_key, None)
+                atomic_json(state_path, state)
+            staging_dir = pages_dir / f".{page_number:04d}-staging-{uuid.uuid4().hex}"
+            backup_dir = pages_dir / f".{page_number:04d}-backup-{uuid.uuid4().hex}"
+            staging_dir.mkdir(parents=True, exist_ok=False)
             image_path = temporary_dir / f"page-{page_number:04d}.png"
             started = time.monotonic()
             try:
@@ -132,18 +140,26 @@ def main() -> None:
                 if len(results) != 1:
                     raise RuntimeError(f"Expected one page result, received {len(results)}")
                 result = results[0]
-                result.save_to_json(save_path=str(page_dir / "result.json"))
-                markdown_temp = page_dir / "markdown"
-                if markdown_temp.exists():
-                    shutil.rmtree(markdown_temp)
+                result.save_to_json(save_path=str(staging_dir / "result.json"))
+                markdown_temp = staging_dir / "markdown"
                 result.save_to_markdown(save_path=str(markdown_temp))
                 markdown_files = sorted(markdown_temp.glob("*.md"))
                 if len(markdown_files) != 1:
                     raise RuntimeError(f"Expected one Markdown result, received {len(markdown_files)}")
-                shutil.copy2(markdown_files[0], page_dir / "content.md")
+                shutil.copy2(markdown_files[0], staging_dir / "content.md")
                 if args.save_visuals:
-                    result.save_to_img(save_path=str(page_dir / "visual"))
+                    result.save_to_img(save_path=str(staging_dir / "visual"))
                 elapsed = round(time.monotonic() - started, 3)
+                if page_dir.exists():
+                    page_dir.replace(backup_dir)
+                try:
+                    staging_dir.replace(page_dir)
+                except Exception:
+                    if backup_dir.exists() and not page_dir.exists():
+                        backup_dir.replace(page_dir)
+                    raise
+                if backup_dir.exists():
+                    shutil.rmtree(backup_dir)
                 state["pages"][page_key] = {
                     "status": "ocr_complete_pending_audit",
                     "physical_pdf_page": page_number,
@@ -159,6 +175,8 @@ def main() -> None:
                 atomic_json(state_path, state)
                 print(f"done {args.document_id} page {page_number}/{page_count} {elapsed}s", flush=True)
             except Exception as error:
+                if staging_dir.exists():
+                    shutil.rmtree(staging_dir)
                 state["failed_pages"][page_key] = {
                     "error": f"{type(error).__name__}: {error}",
                     "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

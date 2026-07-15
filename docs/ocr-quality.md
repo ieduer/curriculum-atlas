@@ -140,6 +140,24 @@ node scripts/audit-ocr-benchmark.mjs \
 
 All page jobs are resumable and refuse to mix results if the PDF checksum changes. OCR completion alone never sets `citation_eligible` to true.
 
+## Supervisor fault tolerance and health contract
+
+Use the supervisor instead of invoking a long unbounded document job:
+
+```bash
+npm run ocr:check
+npm run ocr:once -- --batch-pages 4
+npm run ocr:recover
+```
+
+`ocr:check` is machine-readable and exits with `0` healthy, `2` retry/backoff pending, `10` unresolved run/page/witness failure, `11` stalled lock, `12` checksum/disk/quarantine hard stop, or `75` an actively owned run. A healthy code means the OCR runtime is internally consistent; it does not mean every audited page is citation-ready.
+
+Apple Vision first receives the whole bounded batch. A failed page is then retried in a fresh Swift process after 2 seconds and 10 seconds, without rerendering or exposing Paddle text to the witness. Exhausted failures are recorded by `document + physical page + stage`; another page remains schedulable, and a single transient failure cannot quarantine the whole document. Five exhausted page-level attempts quarantine only that page-stage pair. `ocr:recover` runs one page as a bounded canary.
+
+Paddle's state is reread even when its process reports partial failure. Completed page artifacts are retained and audited; failed pages receive independent retry records. Audits run one physical page at a time, so a missing page cannot discard other successful pages. Signals do not count as OCR failures, task-owned children and llama-server are stopped, and the lock is released only by its recorded owner.
+
+Every Vision sidecar must match its filename, document id, physical page, source-PDF SHA-256 and rendered-image SHA-256. Old or mismatched sidecars are treated as missing evidence and regenerated. Candidate concept graphs are built in a run-specific directory, validated against a matching build revision, and only then atomically promoted to the local last-good candidate. At most two candidate run directories are retained. None of these steps changes the published graph or citation status.
+
 Run the independent witness comparison for a bounded page range:
 
 ```bash
@@ -150,4 +168,4 @@ node scripts/audit-ocr-witnesses.mjs \
   <START> <END>
 ```
 
-The current Chinese-compendium 10–20 result is retained locally as `.cache/ocr-production/legacy-compendium-chinese/audit-0010-0020.json`; reviewed high-risk pages 17–20 are represented by `data/ocr-review-legacy-chinese-0017-0020.json`.
+The Chinese-compendium pages are now also retained as page-level audits under `.cache/ocr-witness/legacy-compendium-chinese/audits/`; reviewed high-risk pages 17–20 are represented by `data/ocr-review-legacy-chinese-0017-0020.json`.

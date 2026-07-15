@@ -6,7 +6,7 @@
 
 ## 2. Health probe
 
-`GET /api/health` 必须为 200、`ok=true`、`schemaVersion=3`，且 D1、R2、APIS、Assets 四项绑定均为 true。
+`GET /api/health` 必须为 200、`ok=true`、`schemaVersion=3`、`classificationSchemaVersion=1`，分类覆盖须为 195/195、`unclassifiedDocuments=0`，且 D1、R2、APIS、User Center、Assets 五项绑定均为 true。分类表采用加法子 schema，不提升全局 schema；因此发布后仍可直接回滚到 v4 Worker，而无需为代码回滚同步恢复 D1。
 
 ## 3. Contract check
 
@@ -44,7 +44,13 @@ Worker、D1、R2 和五个公共注册表面的回滚方法见 `docs/deployment.
 
 最近一次验证为 2026-07-15：生产 Worker `2c576476-b5fa-4789-a18e-7510b3fa3744`，立即回滚锚点 `7709c041-c541-4baa-babb-3c7f29b18a30`；`/api/health` 返回 `2026.07.15-v4`、schema 3 与五项绑定全真。D1/R2 未变更，发布前 D1 Time Travel bookmark 为 `0000001d-00000000-000050a9-681d1945fdef8d2ab5746e1ef6faef7f`。正式图数据为 399 个概念观察点、427 条仅表示相邻观察/共同观察的关系、1,054 条证据，其中 396 个节点达到段落引文门槛、3 个历史节点只能显示人工复核警示。桌面与 390×844 浏览器验收、概念搜索、年代截断、学科显隐、谱系/跨学科切换、候选证据禁链、15 项测试和预览/生产控制台零错误均通过。
 
-OCR 长任务由 `scripts/ocr-supervisor.mjs` 监管；`npm run ocr:status` 查看锁、心跳、磁盘、见证、审计、复核和概念图覆盖。Codex automation `Curriculum OCR quality supervisor` 每 30 分钟最多处理一个 4 页批次，低于 50 GiB 告警、低于 25 GiB 停止；未知进程不清理，失败页不放行。OCR 完成后只在 `.cache/ocr-supervisor/` 原子重建并验证候选概念图，保持已发布图和 Git 工作树不变；禁止自动部署、导入 D1、写 R2、提交或推送。只有人工证据复核和正式 `npm run concepts:build` 才能更新可发布图。
+OCR 长任务由 `scripts/ocr-supervisor.mjs` 监管；`npm run ocr:check` 提供机器健康码，`npm run ocr:status` 查看锁、心跳、磁盘、见证、审计、复核和概念图覆盖。退出码合同为：`0` 健康、`2` 退避/局部隔离、`10` 运行或页/见证失败、`11` 停滞、`12` 全局硬停止、`75` 正在运行且锁归属有效。`npm run ocr:recover` 是显式绕过非隔离退避的单页恢复探针；它绝不绕过 quarantine。
+
+Codex automation `Curriculum OCR quality supervisor` 每 10 分钟巡检；健康时最多处理一个 4 页批次，失败时先处理 1 页恢复探针，并最多补齐同一 4 页故障批次。批次内部 Apple Vision 会在 2 秒、10 秒后用全新进程重试失败页；之后才写入页级退避。低于 50 GiB 告警、低于 25 GiB 停止；未知进程不清理，失败页不放行。单页/单文档隔离不会阻断其他合格任务；共享 runtime、模型校验和、磁盘才是全局阻断。质量优先模式绝不复用已有 8112 服务，因为 llama `/props` 不能证明 mmproj 指纹；端口已占用时 fail-closed，由当前 run 启动并回收自己的精确 runtime。
+
+Paddle 异常退出后仍重读 state，保留部分成功页，并为每个未完成页补齐 retry。Apple Vision sidecar 必须具备文档、页码、PDF 和图像 SHA；主 OCR 内容与 result 文件在进入审计前重新核对 state SHA。概念候选写入版本化 run 目录，只有 graph/quality revision 匹配且验证通过后才原子切换单一 manifest；保留当前和前一 last-good。保持已发布图和 Git 工作树不变；禁止自动部署、导入 D1、写 R2、提交或推送。只有人工证据复核和正式 `npm run concepts:build` 才能更新可发布图。
+
+2026-07-15 故障恢复验证：`legacy-compendium-chinese` 1–4 页原 Apple Vision `nilError` 已分别通过 Vision、Paddle、页级审计恢复；10–20 页 11 份缺身份哈希的旧见证已重建。最终 `ocr:check` 为 0，25 个完成页对应 25 个有效见证，错误 sidecar、完成页缺见证、Paddle 失败页和隔离均为 0。15 页仍为 `unresolved_fail_closed`，属于内容质量门而非运行故障，不进入引文。
 
 ## 日常检查
 

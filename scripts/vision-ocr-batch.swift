@@ -11,6 +11,9 @@ struct OCRPage: Codable {
     let file: String
     let lines: [OCRLine]
     let error: String?
+    let errorDomain: String?
+    let errorCode: Int?
+    let errorDescription: String?
 }
 
 let encoder = JSONEncoder()
@@ -48,12 +51,34 @@ for argument in arguments {
                 guard let candidate = observation.topCandidates(1).first else { return nil }
                 return OCRLine(confidence: candidate.confidence, text: candidate.string)
             }
-            result = OCRPage(file: imageURL.lastPathComponent, lines: lines, error: nil)
+            result = OCRPage(
+                file: imageURL.lastPathComponent,
+                lines: lines,
+                error: nil,
+                errorDomain: nil,
+                errorCode: nil,
+                errorDescription: nil
+            )
         } catch {
-            result = OCRPage(file: imageURL.lastPathComponent, lines: [], error: String(describing: error))
+            let nsError = error as NSError
+            result = OCRPage(
+                file: imageURL.lastPathComponent,
+                lines: [],
+                error: String(describing: error),
+                errorDomain: nsError.domain,
+                errorCode: nsError.code,
+                errorDescription: nsError.localizedDescription
+            )
         }
     } else {
-        result = OCRPage(file: imageURL.lastPathComponent, lines: [], error: "unreadable_image")
+        result = OCRPage(
+            file: imageURL.lastPathComponent,
+            lines: [],
+            error: "unreadable_image",
+            errorDomain: "curriculum.ocr.image",
+            errorCode: 1,
+            errorDescription: "NSImage or CGImage could not be created"
+        )
     }
 
     if let data = try? encoder.encode(result), let line = String(data: data, encoding: .utf8) {

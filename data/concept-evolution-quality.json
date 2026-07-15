@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
-  "build_revision": "11e991f926e4b39a298285ca1dce25f30a22b01bce8adadc7c76b86f40f37411",
+  "academic_schema_version": 2,
+  "build_revision": "624450fef284e54c400b75e7ef97ecd10a4121af7a628fa358dffc4f0c823eb1",
   "passed": true,
   "checks": [
     {
@@ -12,6 +13,22 @@
       "passed": true
     },
     {
+      "id": "unique_occurrence_ids",
+      "passed": true
+    },
+    {
+      "id": "subject_taxonomy_complete",
+      "passed": true
+    },
+    {
+      "id": "subject_facet_is_clean",
+      "passed": true
+    },
+    {
+      "id": "core_payload_under_4mb",
+      "passed": true
+    },
+    {
       "id": "solid_has_citation_ready_evidence",
       "passed": true
     },
@@ -20,7 +37,11 @@
       "passed": true
     },
     {
-      "id": "all_edges_resolve",
+      "id": "relations_have_dual_evidence",
+      "passed": true
+    },
+    {
+      "id": "automatic_relations_nonsemantic",
       "passed": true
     },
     {
@@ -28,10 +49,14 @@
       "passed": true
     }
   ],
-  "release_boundary": "基于当前已核语料的概念观察图；不是完整课程史，不宣称绝对首次、消失、取代或因果演进。",
+  "core_bytes": 2774210,
+  "academic_bytes": 25586323,
+  "academic_sha256": "005bf911dd2b6ed2e30994ce437d041d9792ceadca11e2e0e3007f24d2060992",
+  "release_boundary": "基于当前可用语料的词面概念观察图；不是完整课程史，不宣称概念义项连续、绝对首次、消失、取代、影响或因果演进。",
   "unresolved": [
-    "8215 OCR pages remain",
-    "Semantic rename, split, merge and influence edges require editor-reviewed dual-ended evidence.",
-    "Source-text candidates remain hollow until paragraph-level citation gates pass."
+    "8207 OCR pages remain",
+    "Concept-sense definitions and semantic rename, split, merge, replacement, and influence relations require editor-reviewed dual-ended evidence.",
+    "Exact repeated-text clusters are marked rather than silently discarded; their editorial classification remains pending.",
+    "Source-text candidates remain non-quotable until paragraph-level citation gates pass."
   ]
 }

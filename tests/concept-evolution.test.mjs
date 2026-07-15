@@ -11,7 +11,7 @@ const evidence = new Map(graph.evidence.map((item) => [item.id, item]));
 
 test('every star is a concept episode rather than a document record', () => {
   assert.ok(graph.episodes.length > 0);
-  assert.ok(graph.episodes.every((episode) => episode.concept_id && episode.subject.canonical && episode.curriculum_line.id && episode.time.year));
+  assert.ok(graph.episodes.every((episode) => episode.concept_id && (episode.subject.canonical || episode.scope_entity?.canonical) && episode.curriculum_line.id && episode.time.year));
   assert.match(app, /setData\(state\.conceptGraph\)/);
   assert.doesNotMatch(atlas, /kind:\s*'document'|node\.doc|this\.documents/);
 });

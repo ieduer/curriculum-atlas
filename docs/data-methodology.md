@@ -37,3 +37,19 @@
 - 在线文本可能来自后续修订版，必须显式标注版次关系。
 - 当前历史扫描正文未批量开放；已核验的单项事实可独立展示证据链。
 - 教育部修订动态不等于新标准已经发布。
+
+## 概念演进分析边界
+
+星点表示“一个受控概念词形在一个明确课程线和版次中的观察”，不表示课标文件本身。构建顺序是 `surface_form → occurrence → evidence → episode`；在取得定义证据或人工分义前，每个 concept 只有一个 `undifferentiated_unresolved` sense，学科/版本语境只存在 occurrence/episode 中，因此不会把空白学科占位伪装成语义义项。
+
+精确重复段落不再被删除。跨达到阈值的多份文档出现的完全相同段落进入 `text_reuse_cluster`，命中仍保留在总次数和证据中，但从 `local_unique_mention_count` 与频率分子、分母中单独排除。`normalized_per_10k` 仅供同一概念的界面尺度展示；频率对象固定声明 `within_edition_descriptive_only`，不得据此生成跨版本“增强/减弱”结论。
+
+自动关系只表示当前语料中的下一次词面观察或同年跨学科共现。关系必须保存 source/target 两端独立证据；共现是对称关系，显示链不是传播方向。改名、拆分、合并、取代、影响和因果关系必须由编辑以双端版本证据另行审核。
+
+“未命中”不能证明概念尚未出现或已经消失。所有 coverage cell、episode 和总图均关闭首次出现、消失、历史最高/最低和负面历史主张。
+
+## 学科 facet
+
+目录的原始 `subject` 是来源标签，不是受控筛选值。构建器先应用 `data/concept-model-v2.json` 的来源标签映射与文档级 override。`entity_kind=subject` 且 `facet_eligible=true` 才进入学科筛选；课程方案、考试评价、考试大纲、跨学科政策、汇编卷和来源目录保留为 scope work/edition/coverage，也可形成上下文 episode，但其 `subject.canonical=null`，不会污染学科 facet。
+
+一般学科命名和已核代码以教育部行业标准 JY/T 0644—2022《教育基础数据》表 8 为锚点；特殊教育特色课程以教育部 2016 年三类特殊教育学校课程标准答问作为受控扩展，保留课程实体身份但不伪造 SB code。详细映射、版本散列与决定依据见 `docs/concept-evolution-academic-model.md`。

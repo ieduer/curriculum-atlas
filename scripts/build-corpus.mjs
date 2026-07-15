@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { loadDocumentClassificationResolver } from './document-classification.mjs';
 
 const projectRoot = new URL('../', import.meta.url);
 const catalog = JSON.parse(await readFile(new URL('data/catalog.json', projectRoot), 'utf8'));
@@ -9,6 +10,12 @@ const ingest = JSON.parse(await readFile(new URL('data/ingest-manifest.json', pr
 const documentedSources = JSON.parse(await readFile(new URL('data/document-sources.json', projectRoot), 'utf8')).sources;
 const onlineVerificationSamples = JSON.parse(await readFile(new URL('data/online-verification-samples.json', projectRoot), 'utf8')).samples;
 const checksumById = new Map(ingest.entries.map((entry) => [entry.id, entry.source_sha256]));
+const classifyDocument = await loadDocumentClassificationResolver(projectRoot);
+const classifications = new Map(catalog.documents.map((record) => [record.id, classifyDocument(record)]));
+const unclassified = [...classifications.values()].filter((item) => item.scope_kind === 'unclassified');
+if (unclassified.length) {
+  throw new Error(`Unclassified document subjects: ${unclassified.map((item) => `${item.document_id}:${item.source_subject_label}`).join(', ')}`);
+}
 const outputDir = new URL('data/corpus-chunks/', projectRoot);
 await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
@@ -82,6 +89,12 @@ for (const record of catalog.documents) {
     checksumById.get(record.id) || record.checksum_sha256, record.note, periodFor(year), year,
     textQualityFor(record), record.ocr_engine, record.ocr_audit_ref, citationAllowedFor(record), record.page_count,
   ].map(sql).join(',')}) ON CONFLICT(id) DO UPDATE SET title=excluded.title,subject=excluded.subject,stage=excluded.stage,document_type=excluded.document_type,version_label=excluded.version_label,issued_by=excluded.issued_by,issued_date=excluded.issued_date,published_date=excluded.published_date,current_status=excluded.current_status,source_tier=excluded.source_tier,access_status=excluded.access_status,source_page_url=excluded.source_page_url,source_url=excluded.source_url,file_format=excluded.file_format,redistribution=excluded.redistribution,checksum_sha256=excluded.checksum_sha256,note=excluded.note,period_id=excluded.period_id,sort_year=excluded.sort_year,text_quality_status=excluded.text_quality_status,ocr_engine=excluded.ocr_engine,ocr_audit_ref=excluded.ocr_audit_ref,citation_allowed=excluded.citation_allowed,page_count=excluded.page_count;`);
+  const classification = classifications.get(record.id);
+  statements.push(`INSERT INTO document_classifications(document_id,entity_kind,canonical_subject,subject_family,scope_kind,scope_label,source_subject_label,decision_basis,reviewed_at) VALUES(${[
+    classification.document_id, classification.entity_kind, classification.canonical_subject, classification.subject_family,
+    classification.scope_kind, classification.scope_label, classification.source_subject_label,
+    classification.decision_basis, classification.reviewed_at,
+  ].map(sql).join(',')}) ON CONFLICT(document_id) DO UPDATE SET entity_kind=excluded.entity_kind,canonical_subject=excluded.canonical_subject,subject_family=excluded.subject_family,scope_kind=excluded.scope_kind,scope_label=excluded.scope_label,source_subject_label=excluded.source_subject_label,decision_basis=excluded.decision_basis,reviewed_at=excluded.reviewed_at;`);
 }
 
 const sourceRows = new Map();
@@ -140,6 +153,9 @@ for (const verification of onlineVerificationSamples) {
 }
 statements.push(`INSERT OR REPLACE INTO site_meta(key,value) VALUES('catalog_document_count', ${sql(String(catalog.documents.length))});`);
 statements.push(`INSERT OR REPLACE INTO site_meta(key,value) VALUES('citation_ready_document_count', ${sql(String(catalog.documents.filter((record) => citationAllowedFor(record)).length))});`);
+statements.push(`INSERT OR REPLACE INTO site_meta(key,value) VALUES('classified_document_count', ${sql(String(classifications.size))});`);
+statements.push(`INSERT OR REPLACE INTO site_meta(key,value) VALUES('unclassified_document_count', ${sql(String(unclassified.length))});`);
+statements.push(`INSERT OR REPLACE INTO site_meta(key,value) VALUES('document_classification_schema_version', '1');`);
 await writeFile(join(outputDir.pathname, '000-core.sql'), `${statements.join('\n')}\n`);
 
 let paragraphStatements = [];

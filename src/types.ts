@@ -34,7 +34,12 @@ export interface Passage {
   id: number;
   document_id: string;
   title: string;
-  subject: string;
+  entity_kind: string;
+  subject: string | null;
+  entity_label: string;
+  subject_family: string | null;
+  scope_kind: string | null;
+  scope_label: string | null;
   version_label: string;
   page_number: number | null;
   source_locator: string;
@@ -47,7 +52,9 @@ export interface AiCitation {
   paragraphId: number;
   documentId: string;
   title: string;
-  subject: string;
+  subject: string | null;
+  entityLabel: string;
+  entityKind: string;
   locator: string;
   sourceUrl: string;
   excerpt: string;
