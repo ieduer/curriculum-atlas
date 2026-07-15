@@ -5,5 +5,10 @@ node_modules/
 dist/
 data/corpus-chunks/
 output/
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
 *.log
 .DS_Store
