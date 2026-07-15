@@ -155,25 +155,36 @@ test('OCR page fragments remain incomplete and non-quotable', () => {
   }
 });
 
-test('subject facet is controlled and excludes frameworks, assessment, and collections', () => {
+test('subject facet is controlled while courses, frameworks, domains, and collections stay separate', () => {
   for (const episode of graph.episodes) {
-    if (episode.subject.entity_kind === 'subject') {
+    if (episode.subject.facet_eligible === true) {
+      assert.ok(['subject', 'assessment_subject'].includes(episode.subject.entity_kind));
       assert.equal(episode.subject.facet_eligible, true);
       assert.ok(graph.subject_facets.includes(episode.subject.canonical));
+      assert.equal(episode.course_entity, null);
     } else {
       assert.equal(episode.subject.canonical, null);
       assert.equal(episode.subject.facet_eligible, false);
       assert.ok(episode.scope_entity.canonical);
+      if (episode.scope_entity.entity_kind === 'curriculum_course') {
+        assert.equal(episode.course_entity.entity_kind, 'curriculum_course');
+        assert.equal(episode.course_entity.canonical, episode.scope_entity.canonical);
+      } else assert.equal(episode.course_entity, null);
     }
   }
+  assert.equal(graph.subject_facets.length, 29);
   assert.ok(graph.episodes.some((episode) => episode.scope_entity.entity_kind === 'cross_cutting_framework'));
   for (const value of ['课程方案', '考试大纲', '考试评价', '综合', '艺术与劳动']) {
     assert.notEqual(taxonomy.get(value).entity_kind, 'subject');
     assert.equal(taxonomy.get(value).facet_eligible, false);
   }
+  assert.equal(taxonomy.get('综合实践活动').entity_kind, 'curriculum_course');
+  assert.equal(taxonomy.get('综合实践活动').facet_eligible, false);
   assert.equal(taxonomy.get('综合实践活动').official_code, 'SB0801');
-  assert.equal(taxonomy.get('综合实践活动').lineage_family, '综合实践活动');
+  assert.equal(taxonomy.get('综合实践活动').course_family, '综合实践课程');
   assert.equal(taxonomy.get('综合实践活动').family, null);
+  assert.equal(taxonomy.get('汉语').entity_kind, 'assessment_subject');
+  assert.equal(taxonomy.get('汉语').facet_eligible, true);
   assert.equal(taxonomy.get('汉语').classification, 'assessment_subject');
   assert.equal(taxonomy.get('汉语').canonical, '汉语');
   assert.equal(taxonomy.get('普通高级中学 体育体育与健康').canonical, '体育与健康');
@@ -185,4 +196,21 @@ test('subject facet is controlled and excludes frameworks, assessment, and colle
   assert.notEqual(taxonomy.get('信息技术').stable_subject_id, taxonomy.get('信息科技').stable_subject_id);
   assert.equal(subjectAudit.get('ictr-d692b0ff2e6c').canonical, '思想品德');
   assert.equal(subjectAudit.get('ictr-197f8a2e1cca').canonical, '音乐');
+  const courseLabels = [
+    '定向行走', '综合康复', '社会适应', '沟通与交往', '律动', '康复训练', '生活适应', '劳动技能',
+    '运动与保健', '艺术休闲', '美工', '绘画与手工', '唱游与律动', '生活语文', '生活数学', '技术',
+  ];
+  for (const label of courseLabels) {
+    assert.equal(taxonomy.get(label).entity_kind, 'curriculum_course', label);
+    assert.equal(taxonomy.get(label).facet_eligible, false, label);
+    assert.ok(taxonomy.get(label).stable_course_id, label);
+    assert.ok(taxonomy.get(label).course_family, label);
+    assert.ok(Array.isArray(graph.course_to_subject_links[label]), label);
+  }
+  const counts = {
+    subject: graph.subject_entity_audit.filter((item) => item.facet_eligible).length,
+    course: graph.subject_entity_audit.filter((item) => item.entity_kind === 'curriculum_course').length,
+    scope: graph.subject_entity_audit.filter((item) => !item.facet_eligible && item.entity_kind !== 'curriculum_course').length,
+  };
+  assert.deepEqual(counts, { subject: 160, course: 16, scope: 20 });
 });

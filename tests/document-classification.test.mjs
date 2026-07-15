@@ -89,17 +89,30 @@ test('missing labels and invalid entity kinds cannot silently become subject fac
   );
 });
 
-test('explicit taxonomy covers the catalog and preserves special-education subject entities', async () => {
+test('explicit taxonomy covers the catalog with separate subject, course, and scope semantics', async () => {
   const catalog = JSON.parse(await readFile(new URL('data/catalog.json', root), 'utf8'));
   const rows = catalog.documents.map(classify);
   assert.equal(rows.filter((item) => item.scope_kind === 'unclassified').length, 0);
-  for (const subject of [
-    '汉语', '思想品德', '品德与生活', '品德与社会', '定向行走', '综合康复',
-    '社会适应', '沟通与交往', '律动', '生活语文', '生活数学', '生活适应',
-    '劳动技能', '运动与保健', '艺术休闲',
-  ]) {
-    const matches = rows.filter((item) => item.source_subject_label === subject);
-    assert.ok(matches.length > 0, subject);
-    assert.ok(matches.every((item) => item.entity_kind === 'subject'), subject);
+  const courses = [
+    '定向行走', '综合康复', '社会适应', '沟通与交往', '律动', '康复训练', '生活适应', '劳动技能',
+    '运动与保健', '艺术休闲', '美工', '绘画与手工', '唱游与律动', '生活语文', '生活数学', '技术',
+  ];
+  for (const course of courses) {
+    const matches = rows.filter((item) => item.source_subject_label === course);
+    assert.equal(matches.length, 1, course);
+    assert.equal(matches[0].entity_kind, 'scope', course);
+    assert.equal(matches[0].taxonomy_entity_kind, 'curriculum_course', course);
+    assert.equal(matches[0].scope_kind, 'curriculum_course', course);
   }
+  const assessmentSubject = rows.find((item) => item.source_subject_label === '汉语');
+  assert.equal(assessmentSubject.entity_kind, 'subject');
+  assert.equal(assessmentSubject.taxonomy_entity_kind, 'assessment_subject');
+  assert.equal(assessmentSubject.canonical_subject, '汉语');
+  const counts = {
+    subject: rows.filter((item) => item.entity_kind === 'subject').length,
+    course: rows.filter((item) => item.scope_kind === 'curriculum_course').length,
+    scope: rows.filter((item) => item.entity_kind === 'scope' && item.scope_kind !== 'curriculum_course').length,
+    unclassified: rows.filter((item) => item.scope_kind === 'unclassified').length,
+  };
+  assert.deepEqual(counts, { subject: 160, course: 16, scope: 20, unclassified: 0 });
 });

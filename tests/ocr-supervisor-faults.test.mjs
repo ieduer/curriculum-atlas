@@ -4,11 +4,18 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { selectPrimaryRecoveryPages } from '../scripts/ocr-supervisor.mjs';
+import {
+  conceptCandidateCompatible,
+  prepareAuditBackfillWitness,
+  selectAuditBackfillPages,
+  selectPrimaryRecoveryPages,
+} from '../scripts/ocr-supervisor.mjs';
 import {
   classifyHealth,
+  continuousDrainDecision,
   missingCompletedWitnessPages,
   nextPageRetry,
+  ocrExecutionPolicy,
   pageRetryKey,
   retryBlocksPage,
   selectPendingPages,
@@ -42,6 +49,55 @@ async function primaryFixture(t) {
       },
     },
   };
+}
+
+async function auditFixture(t, { audit = 'valid' } = {}) {
+  const fixture = await primaryFixture(t);
+  fixture.document.source_sha256 = 'a'.repeat(64);
+  const witnessBaseRoot = await mkdtemp(path.join(os.tmpdir(), 'ocr-audit-backfill-'));
+  t.after(() => rm(witnessBaseRoot, { recursive: true, force: true }));
+  const imageDir = path.join(witnessBaseRoot, 'doc', 'images');
+  const visionDir = path.join(witnessBaseRoot, 'doc', 'vision');
+  const auditDir = path.join(witnessBaseRoot, 'doc', 'audits');
+  await Promise.all([
+    mkdir(imageDir, { recursive: true }),
+    mkdir(visionDir, { recursive: true }),
+    mkdir(auditDir, { recursive: true }),
+  ]);
+  const image = Buffer.from('rendered-page-1');
+  const witnessText = 'Original OCR';
+  const imagePath = path.join(imageDir, 'page-001.png');
+  const witnessPath = path.join(visionDir, 'page-001.json');
+  await Promise.all([
+    writeFile(imagePath, image),
+    writeFile(witnessPath, `${JSON.stringify({
+      schema_version: 2,
+      file: 'page-001.png',
+      lines: [{ text: witnessText, confidence: 0.99 }],
+      document_id: 'doc',
+      physical_pdf_page: 1,
+      source_pdf_sha256: fixture.document.source_sha256,
+      rendered_image_sha256: sha256(image),
+      engine: 'Apple Vision',
+      citation_allowed: false,
+    })}\n`),
+  ]);
+  const auditPath = path.join(auditDir, 'audit-0001-0001.json');
+  if (audit !== 'missing') {
+    const primarySha = audit === 'stale' ? 'b'.repeat(64) : fixture.state.pages[1].content_markdown_sha256;
+    const witnessSha = audit === 'stale-witness' ? 'c'.repeat(64) : sha256(witnessText);
+    await writeFile(auditPath, `${JSON.stringify({
+      schema_version: 1,
+      page_range: [1, 1],
+      pages: [{
+        page: 1,
+        primary_sha256: primarySha,
+        witness_sha256: witnessSha,
+        gate: 'manual_image_review_required',
+      }],
+    })}\n`);
+  }
+  return { ...fixture, witnessBaseRoot, imagePath, witnessPath, auditPath };
 }
 
 test('one failed page does not block later eligible pages', () => {
@@ -101,6 +157,49 @@ test('missing completed witness pages are a set difference, not a count subtract
   assert.deepEqual(missingCompletedWitnessPages([1, 3, 4], [2, 3, 4]), [1]);
 });
 
+test('continuous drain completes only with healthy full evidence parity', () => {
+  const complete = {
+    health: { exit_code: 0 },
+    scheduler_state: 'queue_complete',
+    queue: { completed_pages: 10, pending_pages: 0, failed_pages: 0 },
+    evidence: {
+      witness_pages: 10,
+      audited_pages: 10,
+      witness_error_sidecars: 0,
+      witness_missing_for_completed: 0,
+      stale_audit_pages: 0,
+    },
+    disk: { free_gib: 60, warning: false },
+  };
+  assert.equal(continuousDrainDecision(complete).action, 'complete');
+  assert.equal(continuousDrainDecision({
+    ...complete,
+    evidence: { ...complete.evidence, audited_pages: 9 },
+  }).code, 'DRAIN_INCOMPLETE_EVIDENCE');
+  assert.equal(continuousDrainDecision({
+    ...complete,
+    health: { exit_code: 10 },
+  }).code, 'DRAIN_HEALTH_STOP');
+});
+
+test('continuous drain stops at the disk warning boundary before another batch', () => {
+  const status = {
+    health: { exit_code: 0 },
+    scheduler_state: 'ready',
+    queue: { completed_pages: 10, pending_pages: 5, failed_pages: 0 },
+    evidence: {
+      witness_pages: 10,
+      audited_pages: 10,
+      witness_error_sidecars: 0,
+      witness_missing_for_completed: 0,
+      stale_audit_pages: 0,
+    },
+    disk: { free_gib: 49.9, warning: true },
+  };
+  assert.equal(continuousDrainDecision(status).code, 'DRAIN_DISK_WARNING');
+  assert.equal(continuousDrainDecision({ ...status, disk: { free_gib: 60, warning: false } }).action, 'continue');
+});
+
 test('completed page with drifted content.md is selected for primary recovery', async (t) => {
   const fixture = await primaryFixture(t);
   assert.deepEqual(await selectPrimaryRecoveryPages(fixture.document, fixture.state, { primaryRoot: fixture.primaryRoot }), []);
@@ -115,6 +214,95 @@ test('completed page with drifted result.json is selected for primary recovery',
   assert.deepEqual(await selectPrimaryRecoveryPages(fixture.document, fixture.state, { primaryRoot: fixture.primaryRoot }), [1]);
 });
 
+test('audit backfill selects only completed pages with valid primary and Vision inputs but missing or stale exact audits', async (t) => {
+  const current = await auditFixture(t);
+  assert.deepEqual(await selectAuditBackfillPages(current.document, current.state, {
+    primaryRoot: current.primaryRoot,
+    witnessBaseRoot: current.witnessBaseRoot,
+  }), []);
+
+  const missing = await auditFixture(t, { audit: 'missing' });
+  assert.deepEqual(await selectAuditBackfillPages(missing.document, missing.state, {
+    primaryRoot: missing.primaryRoot,
+    witnessBaseRoot: missing.witnessBaseRoot,
+  }), [1]);
+
+  const stale = await auditFixture(t, { audit: 'stale' });
+  assert.deepEqual(await selectAuditBackfillPages(stale.document, stale.state, {
+    primaryRoot: stale.primaryRoot,
+    witnessBaseRoot: stale.witnessBaseRoot,
+  }), [1]);
+
+  const staleWitness = await auditFixture(t, { audit: 'stale-witness' });
+  assert.deepEqual(await selectAuditBackfillPages(staleWitness.document, staleWitness.state, {
+    primaryRoot: staleWitness.primaryRoot,
+    witnessBaseRoot: staleWitness.witnessBaseRoot,
+  }), [1]);
+});
+
+test('current audit fast path avoids deep primary rehash while primary recovery keeps the integrity gate', async (t) => {
+  const fixture = await auditFixture(t);
+  await rm(path.join(fixture.pageRoot, 'result.json'));
+  assert.deepEqual(await selectAuditBackfillPages(fixture.document, fixture.state, {
+    primaryRoot: fixture.primaryRoot,
+    witnessBaseRoot: fixture.witnessBaseRoot,
+  }), []);
+  assert.deepEqual(await selectPrimaryRecoveryPages(fixture.document, fixture.state, {
+    primaryRoot: fixture.primaryRoot,
+  }), [1]);
+});
+
+test('audit backfill never substitutes for primary or Vision recovery', async (t) => {
+  const primaryDrift = await auditFixture(t, { audit: 'missing' });
+  await writeFile(path.join(primaryDrift.pageRoot, 'content.md'), '# Corrupted OCR\n');
+  assert.deepEqual(await selectAuditBackfillPages(primaryDrift.document, primaryDrift.state, {
+    primaryRoot: primaryDrift.primaryRoot,
+    witnessBaseRoot: primaryDrift.witnessBaseRoot,
+  }), []);
+
+  const witnessDrift = await auditFixture(t, { audit: 'missing' });
+  await writeFile(witnessDrift.witnessPath, `${JSON.stringify({ error: 'Vision failed' })}\n`);
+  assert.deepEqual(await selectAuditBackfillPages(witnessDrift.document, witnessDrift.state, {
+    primaryRoot: witnessDrift.primaryRoot,
+    witnessBaseRoot: witnessDrift.witnessBaseRoot,
+  }), []);
+
+  const imageDrift = await auditFixture(t, { audit: 'missing' });
+  await writeFile(imageDrift.imagePath, 'different rendered image');
+  assert.deepEqual(await selectAuditBackfillPages(imageDrift.document, imageDrift.state, {
+    primaryRoot: imageDrift.primaryRoot,
+    witnessBaseRoot: imageDrift.witnessBaseRoot,
+  }), []);
+});
+
+test('audit backfill execution reuses validated inputs and disables Vision and primary OCR stages', async (t) => {
+  const fixture = await auditFixture(t, { audit: 'missing' });
+  assert.deepEqual(ocrExecutionPolicy('audit_backfill'), { renderVision: false, runPrimaryOcr: false });
+  assert.deepEqual(ocrExecutionPolicy('new_ocr'), { renderVision: true, runPrimaryOcr: true });
+  const prepared = await prepareAuditBackfillWitness(fixture.document, [1], fixture.state, {
+    primaryRoot: fixture.primaryRoot,
+    witnessBaseRoot: fixture.witnessBaseRoot,
+  });
+  assert.deepEqual(prepared.successPages, [1]);
+  assert.deepEqual(prepared.failures, []);
+  assert.equal(prepared.visionDir, path.join(fixture.witnessBaseRoot, 'doc', 'vision'));
+});
+
+test('audit backfill input drift remains a page-scoped audit retry', async (t) => {
+  const fixture = await auditFixture(t, { audit: 'missing' });
+  await writeFile(path.join(fixture.pageRoot, 'content.md'), '# Corrupted OCR\n');
+  const prepared = await prepareAuditBackfillWitness(fixture.document, [1], fixture.state, {
+    primaryRoot: fixture.primaryRoot,
+    witnessBaseRoot: fixture.witnessBaseRoot,
+  });
+  assert.equal(prepared.failures[0].stage, 'audit');
+  assert.equal(prepared.failures[0].code, 'AUDIT_BACKFILL_PRIMARY_STALE');
+  const retry = nextPageRetry(null, prepared.failures[0], { now: Date.parse('2026-07-15T08:00:00Z') });
+  assert.equal(pageRetryKey('doc', 1, prepared.failures[0].stage), 'doc:1:audit');
+  assert.equal(retry.quarantined, false);
+  assert.equal(retry.attempts, 1);
+});
+
 test('health exit code contract distinguishes active, degraded, failed, stalled, and blocked', () => {
   const base = { lockActive: false, stalled: false, diskHardStop: false, witnessErrors: 0, currentRun: { status: 'completed' }, documentRetries: {}, pageRetries: {} };
   assert.deepEqual(classifyHealth(base).overall, 'healthy');
@@ -127,4 +315,64 @@ test('health exit code contract distinguishes active, degraded, failed, stalled,
   assert.equal(classifyHealth({ ...base, pageRetries: { x: { quarantined: true } } }).exit_code, 12);
   assert.equal(classifyHealth({ ...base, pageRetries: { x: { quarantined: true } }, hasEligibleWork: true }).exit_code, 2);
   assert.equal(classifyHealth({ ...base, currentRun: { status: 'failed', error_code: 'MODEL_CHECKSUM_MISMATCH' } }).exit_code, 12);
+});
+
+test('concept candidate gate requires current fingerprints and matching academic provenance', () => {
+  const revision = 'a'.repeat(64);
+  const academicSha = 'b'.repeat(64);
+  const inputFingerprints = {
+    catalog_sha256: '1'.repeat(64),
+    queue_sha256: '2'.repeat(64),
+    concept_model_sha256: '3'.repeat(64),
+    lexicon_sha256: '4'.repeat(64),
+    builder_sha256: '5'.repeat(64),
+    validator_sha256: '6'.repeat(64),
+  };
+  const graph = {
+    schema_version: 1,
+    academic_schema_version: 2,
+    artifact_profile: 'curriculum-concept-evolution-core-v1',
+    academic_schema: 'curriculum-concept-evolution-academic-v2',
+    model_kind: 'curriculum_concept_academic_model_v2',
+    build_revision: revision,
+    input_fingerprints: inputFingerprints,
+    academic_model_ref: { path: '/data/concept-evolution-academic.json', build_revision: revision, sha256: academicSha },
+  };
+  const quality = {
+    schema_version: 1,
+    passed: true,
+    academic_schema_version: 2,
+    artifact_profile: 'curriculum-concept-evolution-quality-v1',
+    academic_schema: graph.academic_schema,
+    model_kind: graph.model_kind,
+    build_revision: revision,
+    input_fingerprints: inputFingerprints,
+    academic_sha256: academicSha,
+  };
+  const manifest = {
+    schema_version: 2,
+    academic_schema_version: 2,
+    artifact_profile: graph.artifact_profile,
+    academic_schema: graph.academic_schema,
+    model_kind: graph.model_kind,
+    build_revision: revision,
+    input_fingerprints: inputFingerprints,
+    academic_model_ref: graph.academic_model_ref,
+  };
+  const compatible = (overrides = {}) => conceptCandidateCompatible({
+    graph: overrides.graph || graph,
+    quality: overrides.quality || quality,
+    manifest: overrides.manifest || manifest,
+    currentFingerprints: overrides.currentFingerprints || inputFingerprints,
+  });
+
+  assert.equal(compatible(), true);
+  assert.equal(compatible({ quality: { ...quality, passed: false } }), false);
+  assert.equal(compatible({ quality: { ...quality, artifact_profile: undefined } }), false);
+  assert.equal(compatible({ manifest: { ...manifest, schema_version: 1 } }), false);
+  assert.equal(compatible({ manifest: { ...manifest, build_revision: 'c'.repeat(64) } }), false);
+  assert.equal(compatible({ graph: { ...graph, academic_model_ref: null } }), false);
+  assert.equal(compatible({ graph: { ...graph, academic_schema: 'legacy' } }), false);
+  assert.equal(compatible({ currentFingerprints: { ...inputFingerprints, queue_sha256: 'd'.repeat(64) } }), false);
+  assert.equal(compatible({ quality: { ...quality, input_fingerprints: { ...inputFingerprints, validator_sha256: 'e'.repeat(64) } } }), false);
 });

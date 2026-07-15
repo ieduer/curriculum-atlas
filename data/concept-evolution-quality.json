@@ -1,7 +1,18 @@
 {
   "schema_version": 1,
   "academic_schema_version": 2,
-  "build_revision": "624450fef284e54c400b75e7ef97ecd10a4121af7a628fa358dffc4f0c823eb1",
+  "artifact_profile": "curriculum-concept-evolution-quality-v1",
+  "academic_schema": "curriculum-concept-evolution-academic-v2",
+  "model_kind": "curriculum-concept-observation-model",
+  "build_revision": "a88de4059a02b9d1ccdad0dacfc7c633bdfd55e9b2685267f7151d93b12b9411",
+  "input_fingerprints": {
+    "catalog_sha256": "3f72d2cccc31468132ba5eb5aecc416f1ea95d2f0c4014158437b6254ce31f08",
+    "queue_sha256": "20ce93616473c0f1229c17373ff6fe3d075402a6bfa7c6615edc1a8898793659",
+    "concept_model_sha256": "2d04ac54aa7bd6a937725bc0ed6ce067a7857313ad988093e3df445731023d0f",
+    "lexicon_sha256": "0d7681210c7ec7335d6e8d28726f0395553e024a1f57606749db39682fae1e49",
+    "builder_sha256": "8bd4aec1c7372f111a9681030cf239e8bf5f073a9c5cacff8ac9b5b027fec8ff",
+    "validator_sha256": "6d250295a428eef8ff8535b3ffd869f58a1dfead33bf06e8cd80a96856c52f91"
+  },
   "passed": true,
   "checks": [
     {
@@ -49,12 +60,12 @@
       "passed": true
     }
   ],
-  "core_bytes": 2774210,
-  "academic_bytes": 25586323,
-  "academic_sha256": "005bf911dd2b6ed2e30994ce437d041d9792ceadca11e2e0e3007f24d2060992",
+  "core_bytes": 2910909,
+  "academic_bytes": 25948060,
+  "academic_sha256": "d7e49495683253356a513d413fffa7aac0f0930bf68dd659a525f27bedd738db",
   "release_boundary": "基于当前可用语料的词面概念观察图；不是完整课程史，不宣称概念义项连续、绝对首次、消失、取代、影响或因果演进。",
   "unresolved": [
-    "8207 OCR pages remain",
+    "8456 OCR pages remain",
     "Concept-sense definitions and semantic rename, split, merge, replacement, and influence relations require editor-reviewed dual-ended evidence.",
     "Exact repeated-text clusters are marked rather than silently discarded; their editorial classification remains pending.",
     "Source-text candidates remain non-quotable until paragraph-level citation gates pass."

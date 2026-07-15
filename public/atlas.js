@@ -1,4 +1,7 @@
 const TAU = Math.PI * 2;
+const MIN_ZOOM = .2;
+const MAX_ZOOM = 2.3;
+const DEFAULT_CAMERA = Object.freeze({ yaw: -.12, pitch: -.11, zoom: 1, panX: 0, panY: 0 });
 const CORE_COLORS = {
   '语文': '#ff7878', '数学': '#63d9ff', '英语': '#ad8cff', '物理': '#6ae7cf',
   '化学': '#ffd166', '生物学': '#75e38f', '生物': '#75e38f', '历史': '#ef9f62',
@@ -36,19 +39,34 @@ function randomFrom(seed) {
   };
 }
 
+function clamp(value, minimum, maximum) {
+  return Math.max(minimum, Math.min(maximum, value));
+}
+
+function boxesOverlap(left, right) {
+  return left.x < right.x + right.width && left.x + left.width > right.x
+    && left.y < right.y + right.height && left.y + left.height > right.y;
+}
+
 export function subjectColor(subject) {
   return CORE_COLORS[subject] || FALLBACK_COLORS[hash(subject) % FALLBACK_COLORS.length];
 }
 
 export function episodeSubjectFacet(episode) {
   const subject = episode?.subject;
-  return subject?.entity_kind === 'subject' && subject?.facet_eligible === true && typeof subject?.canonical === 'string' && subject.canonical.trim()
+  return ['subject', 'assessment_subject'].includes(subject?.entity_kind) && subject?.facet_eligible === true && typeof subject?.canonical === 'string' && subject.canonical.trim()
     ? subject.canonical.trim()
     : null;
 }
 
+function episodeCourseEntity(episode) {
+  const course = episode?.course_entity || (episode?.scope_entity?.entity_kind === 'curriculum_course' ? episode.scope_entity : null);
+  return course?.entity_kind === 'curriculum_course' ? course : null;
+}
+
 export function episodeEntityLabel(episode) {
   return episodeSubjectFacet(episode)
+    || (typeof episodeCourseEntity(episode)?.canonical === 'string' && episodeCourseEntity(episode).canonical.trim())
     || (typeof episode?.scope_entity?.label === 'string' && episode.scope_entity.label.trim())
     || (typeof episode?.scope_entity?.canonical === 'string' && episode.scope_entity.canonical.trim())
     || (typeof episode?.subject?.source_label === 'string' && episode.subject.source_label.trim())
@@ -150,9 +168,11 @@ export class CurriculumCosmos {
     this.dpr = 1;
     this.frame = 0;
     this.raf = 0;
-    this.stable = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    this.camera = { yaw: -.12, pitch: -.11, zoom: 1, panX: 0, panY: 8 };
+    this.motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
+    this.stable = this.motionQuery.matches;
+    this.camera = { ...DEFAULT_CAMERA };
     this.target = { ...this.camera };
+    this.hasUserCamera = false;
     this.pointer = null;
     this.pointers = new Map();
     this.lastPinch = null;
@@ -167,13 +187,14 @@ export class CurriculumCosmos {
     this.graph = graph;
     const episodes = (graph?.episodes || []).filter((episode) => Number(episode.time?.year) >= 1800);
     this.subjects = [...new Set(episodes.map(episodeSubjectFacet).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
-    this.tracks = [...new Set(episodes.map((episode) => `${episodeSubjectFacet(episode) ? 'subject' : 'scope'}:${episodeEntityLabel(episode)}`))]
+    this.tracks = [...new Set(episodes.map((episode) => `${episodeSubjectFacet(episode) ? 'subject' : episodeCourseEntity(episode) ? 'course' : 'scope'}:${episodeEntityLabel(episode)}`))]
       .sort((a, b) => a.localeCompare(b, 'zh-CN'));
     const trackIndex = new Map(this.tracks.map((track, index) => [track, index]));
     this.nodes = episodes.map((episode) => {
       const subject = episodeSubjectFacet(episode);
+      const course = episodeCourseEntity(episode);
       const entityLabel = episodeEntityLabel(episode);
-      const track = `${subject ? 'subject' : 'scope'}:${entityLabel}`;
+      const track = `${subject ? 'subject' : course ? 'course' : 'scope'}:${entityLabel}`;
       const slot = trackIndex.get(track) || 0;
       const angle = (slot / Math.max(1, this.tracks.length)) * TAU + .58;
       const conceptDrift = randomFrom(hash(episode.concept_id));
@@ -181,8 +202,8 @@ export class CurriculumCosmos {
       const radius = 255 + (slot % 5) * 15 + (conceptDrift() - .5) * 54;
       const display = episode.claim_policy?.display_level || 'candidate_dashed';
       return {
-        kind: 'concept', episode, id: episode.id, subject, entityLabel, facetEligible: Boolean(subject), year: Number(episode.time.year),
-        conceptId: episode.concept_id, color: subject ? subjectColor(subject) : '#e7bd61',
+        kind: 'concept', episode, id: episode.id, subject, course: course?.canonical || null, entityLabel, facetEligible: Boolean(subject), year: Number(episode.time.year),
+        conceptId: episode.concept_id, color: subject ? subjectColor(subject) : course ? '#67d7b1' : '#e7bd61',
         x: yearX(Math.max(1902, Math.min(2022, Number(episode.time.year)))),
         y: Math.sin(angle) * radius + (conceptDrift() - .5) * 68 + (lineDrift() - .5) * 24,
         z: Math.cos(angle) * radius * .8 + (conceptDrift() - .5) * 52 + (lineDrift() - .5) * 24,
@@ -191,7 +212,7 @@ export class CurriculumCosmos {
       };
     });
     this.buildEdges(graph?.edges || []);
-    this.draw();
+    this.fitToGraph({ immediate: true });
   }
 
   buildEdges(edges) {
@@ -221,15 +242,9 @@ export class CurriculumCosmos {
     this.draw();
   }
 
-  setStable(stable) {
-    this.stable = Boolean(stable);
-    if (!this.raf) this.loop();
-    this.draw();
-  }
-
   reset() {
-    Object.assign(this.target, { yaw: -.12, pitch: -.11, zoom: 1, panX: 0, panY: 8 });
-    this.draw();
+    this.hasUserCamera = false;
+    this.fitToGraph({ immediate: this.stable });
   }
 
   visible(node) {
@@ -240,25 +255,71 @@ export class CurriculumCosmos {
       .toLocaleLowerCase('zh-CN').includes(this.filters.query);
   }
 
-  project(node) {
-    const cosY = Math.cos(this.camera.yaw);
-    const sinY = Math.sin(this.camera.yaw);
+  transformed(node, camera = this.camera) {
+    const cosY = Math.cos(camera.yaw);
+    const sinY = Math.sin(camera.yaw);
     const x1 = node.x * cosY - node.z * sinY;
     const z1 = node.x * sinY + node.z * cosY;
-    const cosX = Math.cos(this.camera.pitch);
-    const sinX = Math.sin(this.camera.pitch);
+    const cosX = Math.cos(camera.pitch);
+    const sinX = Math.sin(camera.pitch);
     const y1 = node.y * cosX - z1 * sinX;
     const z2 = node.y * sinX + z1 * cosX;
     const perspective = 930 / Math.max(360, 930 + z2);
-    const scale = this.camera.zoom * perspective;
+    return { x: x1 * perspective, y: y1 * perspective, z: z2, perspective };
+  }
+
+  project(node) {
+    const transformed = this.transformed(node);
+    const scale = this.camera.zoom * transformed.perspective;
     return {
-      x: this.width / 2 + x1 * scale + this.camera.panX,
-      y: this.height / 2 + y1 * scale + this.camera.panY,
-      z: z2, scale,
+      x: this.width / 2 + transformed.x * this.camera.zoom + this.camera.panX,
+      y: this.height / 2 + transformed.y * this.camera.zoom + this.camera.panY,
+      z: transformed.z, scale,
     };
   }
 
+  safeViewport() {
+    if (this.width <= 640) {
+      return { left: Math.min(72, this.width * .18), top: 124, right: this.width - 12, bottom: this.height - 150 };
+    }
+    if (this.width <= 980) {
+      return { left: 132, top: 138, right: this.width - 34, bottom: this.height - 156 };
+    }
+    return { left: 184, top: 142, right: this.width - 72, bottom: this.height - 166 };
+  }
+
+  fitToGraph({ immediate = false } = {}) {
+    if (!this.nodes.length || this.width < 2 || this.height < 2) return;
+    const orientation = { ...DEFAULT_CAMERA };
+    const points = this.nodes.map((node) => this.transformed(node, orientation));
+    const bounds = points.reduce((result, point) => ({
+      minX: Math.min(result.minX, point.x), maxX: Math.max(result.maxX, point.x),
+      minY: Math.min(result.minY, point.y), maxY: Math.max(result.maxY, point.y),
+    }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+    const safe = this.safeViewport();
+    const availableWidth = Math.max(80, safe.right - safe.left);
+    const availableHeight = Math.max(120, safe.bottom - safe.top);
+    const graphWidth = Math.max(1, bounds.maxX - bounds.minX + 120);
+    const graphHeight = Math.max(1, bounds.maxY - bounds.minY + 90);
+    const zoom = clamp(Math.min(availableWidth / graphWidth, availableHeight / graphHeight) * .96, MIN_ZOOM, 1);
+    const graphCenterX = (bounds.minX + bounds.maxX) / 2;
+    const graphCenterY = (bounds.minY + bounds.maxY) / 2;
+    const viewportCenterX = (safe.left + safe.right) / 2;
+    const viewportCenterY = (safe.top + safe.bottom) / 2;
+    const fitted = {
+      ...DEFAULT_CAMERA,
+      zoom,
+      panX: viewportCenterX - this.width / 2 - graphCenterX * zoom,
+      panY: viewportCenterY - this.height / 2 - graphCenterY * zoom,
+    };
+    Object.assign(this.target, fitted);
+    if (immediate) Object.assign(this.camera, fitted);
+    if (!this.raf) this.loop();
+    else this.draw();
+  }
+
   resize() {
+    const previousWidth = this.width;
     const rect = this.canvas.getBoundingClientRect();
     this.width = Math.max(1, rect.width);
     this.height = Math.max(1, rect.height);
@@ -267,7 +328,9 @@ export class CurriculumCosmos {
     this.canvas.height = Math.round(this.height * this.dpr);
     this.context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.background = makeMilkyWay(this.width, this.height);
-    this.draw();
+    const crossedMobileBreakpoint = Boolean(previousWidth) && (previousWidth <= 640) !== (this.width <= 640);
+    if (this.nodes.length && (!this.hasUserCamera || crossedMobileBreakpoint)) this.fitToGraph({ immediate: true });
+    else this.draw();
   }
 
   drawBackground(time) {
@@ -304,19 +367,25 @@ export class CurriculumCosmos {
   drawEraGates() {
     const context = this.context;
     context.save();
-    context.font = '9px ui-sans-serif, system-ui, sans-serif';
+    context.font = '600 11px ui-sans-serif, system-ui, sans-serif';
     for (const gate of ERA_GATES) {
       const top = this.project({ x: yearX(gate.year), y: -450, z: 0 });
       const bottom = this.project({ x: yearX(gate.year), y: 450, z: 0 });
       context.beginPath();
       context.moveTo(top.x, top.y);
       context.lineTo(bottom.x, bottom.y);
-      context.strokeStyle = gate.year === 2022 ? 'rgba(231,189,97,.18)' : 'rgba(155,178,222,.07)';
+      context.strokeStyle = gate.year === 2022 ? 'rgba(231,189,97,.27)' : 'rgba(155,178,222,.12)';
       context.lineWidth = 1;
       context.stroke();
       if (top.x > 90 && top.x < this.width - 90) {
-        context.fillStyle = gate.year === 2022 ? 'rgba(231,189,97,.58)' : 'rgba(170,187,221,.35)';
-        context.fillText(`${gate.year}  ${gate.label}`, top.x + 6, Math.max(150, top.y + 16));
+        const label = `${gate.year}  ${gate.label}`;
+        const labelX = top.x + 7;
+        const labelY = Math.max(151, top.y + 17);
+        const labelWidth = context.measureText(label).width;
+        context.fillStyle = 'rgba(3,6,16,.58)';
+        context.fillRect(labelX - 4, labelY - 13, labelWidth + 8, 18);
+        context.fillStyle = gate.year === 2022 ? 'rgba(242,205,124,.9)' : 'rgba(200,215,242,.76)';
+        context.fillText(label, labelX, labelY);
       }
     }
     context.restore();
@@ -343,18 +412,33 @@ export class CurriculumCosmos {
     const context = this.context;
     const selected = node.id === this.selectedId;
     const hovered = node.id === this.hovered?.id;
-    const base = 2.25 + node.strength * 3.35;
-    const radius = Math.max(1.6, base * Math.min(1.65, projected.scale)) + (selected ? 2.2 : hovered ? 1.4 : 0);
-    const pulse = this.stable ? 0 : Math.sin(time * .0017 + node.phase) * .6;
-    const halo = radius * 4.5 + pulse;
+    const depthScale = clamp(projected.scale, .42, 1.55);
+    const radius = Math.max(1.05, (1.45 + node.strength * 3.15) * depthScale) + (selected ? 2.35 : hovered ? 1.45 : 0);
+    const pulse = this.stable ? 0 : Math.sin(time * .0017 + node.phase) * .72;
+    const depthAlpha = clamp(.48 + projected.scale * .38, .5, 1);
+    const halo = radius * (selected ? 6.2 : hovered ? 5.4 : 4.4) + pulse;
     const gradient = context.createRadialGradient(projected.x, projected.y, 0, projected.x, projected.y, halo);
-    gradient.addColorStop(0, rgba(node.color, selected ? .48 : .29));
-    gradient.addColorStop(.22, rgba(node.color, .14));
+    gradient.addColorStop(0, rgba(node.color, selected ? .66 : .32 * depthAlpha));
+    gradient.addColorStop(.22, rgba(node.color, selected ? .22 : .13 * depthAlpha));
     gradient.addColorStop(1, rgba(node.color, 0));
     context.fillStyle = gradient;
     context.beginPath();
     context.arc(projected.x, projected.y, halo, 0, TAU);
     context.fill();
+
+    const spikeLength = selected ? radius * 5.2 : hovered ? radius * 3.8 : node.strength >= .72 ? radius * 2.25 : 0;
+    if (spikeLength) {
+      context.save();
+      context.strokeStyle = rgba(node.color, selected ? .62 : hovered ? .45 : .2 * depthAlpha);
+      context.lineWidth = selected ? 1.1 : .65;
+      context.beginPath();
+      context.moveTo(projected.x - spikeLength, projected.y);
+      context.lineTo(projected.x + spikeLength, projected.y);
+      context.moveTo(projected.x, projected.y - spikeLength * .7);
+      context.lineTo(projected.x, projected.y + spikeLength * .7);
+      context.stroke();
+      context.restore();
+    }
 
     if (node.display === 'reviewed_ring') {
       context.strokeStyle = rgba(node.color, selected || hovered ? .9 : .55);
@@ -374,20 +458,62 @@ export class CurriculumCosmos {
 
     context.beginPath();
     context.arc(projected.x, projected.y, radius, 0, TAU);
-    context.fillStyle = node.display === 'solid' ? node.color : rgba(node.color, node.display === 'reviewed_ring' ? .68 : .38);
+    context.fillStyle = node.display === 'solid' ? rgba(node.color, depthAlpha) : rgba(node.color, node.display === 'reviewed_ring' ? .72 * depthAlpha : .42 * depthAlpha);
     context.fill();
     context.beginPath();
     context.arc(projected.x - radius * .28, projected.y - radius * .28, Math.max(.55, radius * .27), 0, TAU);
-    context.fillStyle = 'rgba(255,255,255,.84)';
+    context.fillStyle = `rgba(255,255,255,${.68 + depthAlpha * .26})`;
     context.fill();
 
-    const showLabel = selected || hovered || node.display === 'reviewed_ring';
-    if (showLabel) {
-      const label = `${node.episode.label} · ${node.year}`;
-      context.font = `${selected ? '600' : '500'} 10px ui-sans-serif, system-ui, sans-serif`;
-      context.fillStyle = node.display === 'solid' ? 'rgba(238,241,249,.86)' : 'rgba(244,225,174,.78)';
-      context.fillText(label, projected.x + radius + 7, projected.y - radius - 2);
+    if (selected) {
+      context.save();
+      context.setLineDash([8, 5]);
+      context.lineDashOffset = this.stable ? 0 : -(time * .018 % 13);
+      context.strokeStyle = rgba(node.color, .82);
+      context.lineWidth = 1.15;
+      context.beginPath();
+      context.arc(projected.x, projected.y, radius + 8 + pulse * .4, 0, TAU);
+      context.stroke();
+      context.restore();
     }
+    return radius;
+  }
+
+  drawNodeLabel(item, occupied) {
+    const { node, projected, radius } = item;
+    const selected = node.id === this.selectedId;
+    const hovered = node.id === this.hovered?.id;
+    const label = `${node.episode.label} · ${node.year}`;
+    const context = this.context;
+    context.save();
+    context.font = `${selected || hovered ? '650' : '550'} 11px ui-sans-serif, system-ui, sans-serif`;
+    const textWidth = context.measureText(label).width;
+    const width = textWidth + 14;
+    const height = 23;
+    let x = projected.x + radius + 8;
+    if (x + width > this.width - 12) x = projected.x - radius - 8 - width;
+    x = clamp(x, 10, Math.max(10, this.width - width - 10));
+    const y = clamp(projected.y - radius - height + 4, 116, Math.max(116, this.height - height - 90));
+    const box = { x: x - 3, y: y - 3, width: width + 6, height: height + 6 };
+    if (!selected && !hovered && occupied.some((candidate) => boxesOverlap(box, candidate))) {
+      context.restore();
+      return;
+    }
+    occupied.push(box);
+    context.fillStyle = selected ? 'rgba(7,10,22,.94)' : 'rgba(3,6,16,.8)';
+    context.fillRect(x, y, width, height);
+    if (selected || hovered) {
+      context.strokeStyle = rgba(node.color, selected ? .72 : .45);
+      context.lineWidth = 1;
+      context.strokeRect(x + .5, y + .5, width - 1, height - 1);
+    }
+    context.textBaseline = 'middle';
+    context.lineWidth = 3;
+    context.strokeStyle = 'rgba(0,2,8,.95)';
+    context.strokeText(label, x + 7, y + height / 2 + .5);
+    context.fillStyle = node.display === 'solid' ? 'rgba(244,247,255,.96)' : 'rgba(250,224,164,.94)';
+    context.fillText(label, x + 7, y + height / 2 + .5);
+    context.restore();
   }
 
   draw(time = performance.now()) {
@@ -408,11 +534,20 @@ export class CurriculumCosmos {
     this.screenNodes = this.nodes.filter((node) => this.visible(node)).map((node) => ({ node, projected: this.project(node) }))
       .filter(({ projected }) => projected.x > -50 && projected.x < this.width + 50 && projected.y > -50 && projected.y < this.height + 50)
       .sort((left, right) => left.projected.z - right.projected.z);
-    for (const { node, projected } of this.screenNodes) this.drawNode(node, projected, time);
+    const drawn = this.screenNodes.map((item) => ({ ...item, radius: this.drawNode(item.node, item.projected, time) }));
+    const labels = drawn.filter(({ node }) => node.id === this.selectedId || node.id === this.hovered?.id
+      || node.display === 'reviewed_ring' || (node.display === 'solid' && node.strength >= .55));
+    labels.sort((left, right) => {
+      const priority = ({ node }) => (node.id === this.selectedId ? 100 : node.id === this.hovered?.id ? 90 : node.display === 'solid' ? 30 + node.strength : 20 + node.strength);
+      return priority(right) - priority(left);
+    });
+    const occupied = [];
+    for (const item of labels) this.drawNodeLabel(item, occupied);
   }
 
   loop(time = performance.now()) {
     this.raf = 0;
+    if (document.hidden) return;
     const easing = this.stable ? 1 : .085;
     let moving = false;
     for (const key of ['yaw', 'pitch', 'zoom', 'panX', 'panY']) {
@@ -441,6 +576,19 @@ export class CurriculumCosmos {
   bind() {
     const { signal } = this.abort;
     window.addEventListener('resize', () => this.resize(), { signal });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        cancelAnimationFrame(this.raf);
+        this.raf = 0;
+        return;
+      }
+      this.draw();
+      if (!this.raf) this.loop();
+    }, { signal });
+    this.motionQuery.addEventListener('change', (event) => {
+      this.stable = event.matches;
+      if (!this.raf) this.loop();
+    }, { signal });
     this.canvas.addEventListener('pointerdown', (event) => {
       this.canvas.setPointerCapture(event.pointerId);
       this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -452,7 +600,10 @@ export class CurriculumCosmos {
       if (this.pointers.size >= 2) {
         const [a, b] = [...this.pointers.values()];
         const distance = Math.hypot(a.x - b.x, a.y - b.y);
-        if (this.lastPinch) this.target.zoom = Math.max(.48, Math.min(2.3, this.target.zoom * (distance / this.lastPinch)));
+        if (this.lastPinch) {
+          this.hasUserCamera = true;
+          this.target.zoom = clamp(this.target.zoom * (distance / this.lastPinch), MIN_ZOOM, MAX_ZOOM);
+        }
         this.lastPinch = distance;
         if (!this.raf) this.loop();
         return;
@@ -460,7 +611,10 @@ export class CurriculumCosmos {
       if (this.pointer?.id === event.pointerId) {
         const dx = event.clientX - this.pointer.x;
         const dy = event.clientY - this.pointer.y;
-        if (Math.abs(dx) + Math.abs(dy) > 4) this.pointer.moved = true;
+        if (Math.abs(dx) + Math.abs(dy) > 4) {
+          this.pointer.moved = true;
+          this.hasUserCamera = true;
+        }
         if (this.pointer.button === 2 || event.shiftKey) {
           this.target.panX = this.pointer.panX + dx;
           this.target.panY = this.pointer.panY + dy;
@@ -504,7 +658,8 @@ export class CurriculumCosmos {
     }, { signal });
     this.canvas.addEventListener('wheel', (event) => {
       event.preventDefault();
-      this.target.zoom = Math.max(.48, Math.min(2.3, this.target.zoom * Math.exp(-event.deltaY * .0011)));
+      this.hasUserCamera = true;
+      this.target.zoom = clamp(this.target.zoom * Math.exp(-event.deltaY * .0011), MIN_ZOOM, MAX_ZOOM);
       if (!this.raf) this.loop();
     }, { passive: false, signal });
     this.canvas.addEventListener('dblclick', () => this.reset(), { signal });

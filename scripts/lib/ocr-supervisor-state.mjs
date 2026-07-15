@@ -69,6 +69,71 @@ export function missingCompletedWitnessPages(completedPages, validWitnessPages) 
   return completedPages.map(Number).filter((page) => !valid.has(page));
 }
 
+export function ocrExecutionPolicy(mode) {
+  const auditBackfillOnly = mode === 'audit_backfill';
+  return {
+    renderVision: !auditBackfillOnly,
+    runPrimaryOcr: !auditBackfillOnly,
+  };
+}
+
+export function continuousDrainDecision(status) {
+  const queue = status?.queue || {};
+  const evidence = status?.evidence || {};
+  const healthCode = Number(status?.health?.exit_code);
+  const pendingPages = Number(queue.pending_pages);
+  const completedPages = Number(queue.completed_pages);
+  const witnessPages = Number(evidence.witness_pages);
+  const auditedPages = Number(evidence.audited_pages);
+
+  if (healthCode !== 0) {
+    return {
+      action: 'stop',
+      code: 'DRAIN_HEALTH_STOP',
+      exitCode: Number.isInteger(healthCode) && healthCode > 0 ? healthCode : 2,
+      reason: `health=${status?.health?.exit_code}`,
+    };
+  }
+
+  if (pendingPages === 0) {
+    const complete = status?.scheduler_state === 'queue_complete'
+      && Number(queue.failed_pages) === 0
+      && Number(evidence.witness_error_sidecars) === 0
+      && Number(evidence.witness_missing_for_completed) === 0
+      && Number(evidence.stale_audit_pages) === 0
+      && witnessPages === completedPages
+      && auditedPages === completedPages;
+    return complete
+      ? { action: 'complete' }
+      : {
+          action: 'stop',
+          code: 'DRAIN_INCOMPLETE_EVIDENCE',
+          exitCode: 10,
+          reason: `queue_complete_without_evidence_parity completed=${completedPages} witness=${witnessPages} audited=${auditedPages}`,
+        };
+  }
+
+  if (status?.disk?.warning) {
+    return {
+      action: 'stop',
+      code: 'DRAIN_DISK_WARNING',
+      exitCode: 2,
+      reason: `disk_free_gib=${status?.disk?.free_gib}`,
+    };
+  }
+
+  if (status?.scheduler_state !== 'ready') {
+    return {
+      action: 'stop',
+      code: 'DRAIN_SCHEDULER_STOP',
+      exitCode: 2,
+      reason: `scheduler=${status?.scheduler_state}`,
+    };
+  }
+
+  return { action: 'continue' };
+}
+
 export function incidentId({ scope, documentId = '', pages = [], stage = '', code = '' }) {
   return createHash('sha256').update(JSON.stringify([scope, documentId, [...pages].map(Number).sort((a, b) => a - b), stage, code])).digest('hex').slice(0, 20);
 }

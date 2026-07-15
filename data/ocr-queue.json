@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-15T03:59:02.645Z",
+  "generated_at": "2026-07-15T10:17:41.375Z",
   "counts": {
-    "documents": 49,
-    "pages": 8232,
-    "priority_1_documents": 11,
+    "documents": 50,
+    "pages": 8690,
+    "priority_1_documents": 12,
     "blocked_documents": 2
   },
   "documents": [
@@ -28,6 +28,18 @@
       "source_sha256": "87d59af673e2dcf380c0ac28be18ab1ef1d999fd22888c2178d3e5602f886083",
       "page_count": 462,
       "local_cache_path": ".cache/sources/local-compendia/biology-a.pdf",
+      "input_quality_status": "ocr_in_quality_review",
+      "priority": 1,
+      "policy": "PaddleOCR-VL structured primary; Apple Vision independent audit; PP-StructureV3 adjudication; fail closed before citation."
+    },
+    {
+      "id": "legacy-compendium-chemistry",
+      "title": "20世纪中国中小学课程标准·教学大纲汇编：化学卷",
+      "subject": "化学",
+      "source_tier": "curated_official_institute_compendium",
+      "source_sha256": "0ec72a59fab2e648f5bf5d41aab41a94b2303e30f6e4c8aae052bec2ee45c514",
+      "page_count": 458,
+      "local_cache_path": ".cache/sources/local-compendia/chemistry.pdf",
       "input_quality_status": "ocr_in_quality_review",
       "priority": 1,
       "policy": "PaddleOCR-VL structured primary; Apple Vision independent audit; PP-StructureV3 adjudication; fail closed before citation."

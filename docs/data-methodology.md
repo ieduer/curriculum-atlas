@@ -50,6 +50,6 @@
 
 ## 学科 facet
 
-目录的原始 `subject` 是来源标签，不是受控筛选值。构建器先应用 `data/concept-model-v2.json` 的来源标签映射与文档级 override。`entity_kind=subject` 且 `facet_eligible=true` 才进入学科筛选；课程方案、考试评价、考试大纲、跨学科政策、汇编卷和来源目录保留为 scope work/edition/coverage，也可形成上下文 episode，但其 `subject.canonical=null`，不会污染学科 facet。
+目录的原始 `subject` 是来源标签，不是受控筛选值。构建器先应用 `data/concept-model-v2.json` 的来源标签映射与文档级 override。只有受控 `subject` 或 `assessment_subject` 且 `facet_eligible=true` 才进入学科筛选。特色课程、历史“技术”课程与综合实践活动采用 `entity_kind=curriculum_course`、`facet_eligible=false`，由 `course_families` 和 `course_to_subject_links` 保存课程族及关联学科，并在 episode 中显式写入 `course_entity`。课程方案、考试评价、考试大纲、跨学科政策、汇编卷和来源目录则继续作为非课程 scope；两类都不会污染学科 facet。
 
-一般学科命名和已核代码以教育部行业标准 JY/T 0644—2022《教育基础数据》表 8 为锚点；特殊教育特色课程以教育部 2016 年三类特殊教育学校课程标准答问作为受控扩展，保留课程实体身份但不伪造 SB code。详细映射、版本散列与决定依据见 `docs/concept-evolution-academic-model.md`。
+一般学科命名和已核代码以教育部行业标准 JY/T 0644—2022《教育基础数据》表 8 为锚点；特殊教育特色课程以教育部 2016 年三类特殊教育学校课程标准答问作为受控扩展，保留课程实体身份但不伪造 SB code。D1 v1 分类表为保持向后兼容，将 `curriculum_course` 物理存为 `entity_kind=scope, scope_kind=curriculum_course`；这是存储映射，不改变学术模型中的三层语义。详细映射、版本散列与决定依据见 `docs/concept-evolution-academic-model.md`。

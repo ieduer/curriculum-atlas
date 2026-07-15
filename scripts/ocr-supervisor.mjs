@@ -8,8 +8,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   classifyHealth,
+  continuousDrainDecision,
   missingCompletedWitnessPages,
   nextPageRetry,
+  ocrExecutionPolicy,
   pageRetryKey,
   retryBlocksPage,
   retriesForPage,
@@ -23,14 +25,15 @@ const supervisorRoot = path.join(root, '.cache/ocr-supervisor');
 const productionRoot = path.join(root, '.cache/ocr-production');
 const witnessRoot = path.join(root, '.cache/ocr-witness');
 const lockDir = path.join(supervisorRoot, 'lock');
+const drainLockDir = path.join(supervisorRoot, 'drain-lock');
 const statusPath = path.join(supervisorRoot, 'status.json');
 const currentRunPath = path.join(supervisorRoot, 'current-run.json');
 const cursorPath = path.join(supervisorRoot, 'cursor.json');
 const retriesPath = path.join(supervisorRoot, 'retries.json');
 const pageRetriesPath = path.join(supervisorRoot, 'page-retries.json');
 const historyPath = path.join(supervisorRoot, 'history.jsonl');
-const candidateGraphPath = path.join(supervisorRoot, 'concept-candidate.json');
-const candidateQualityPath = path.join(supervisorRoot, 'concept-candidate-quality.json');
+const runtimeIntegrityPath = path.join(supervisorRoot, 'runtime-integrity.json');
+const drainStatePath = path.join(supervisorRoot, 'drain-state.json');
 const candidateManifestPath = path.join(supervisorRoot, 'concept-candidate-manifest.json');
 const candidateRunsRoot = path.join(supervisorRoot, 'concept-runs');
 const llamaBinary = path.join(root, '.cache/tools/llama.cpp/build/bin/llama-server');
@@ -43,13 +46,26 @@ const expected = {
   model_sha256: 'f3ae46ec885050acf4b3d31944431e1fd90d50664fb09126af4a3c050ba14ee8',
   mmproj_sha256: '204d757d7610d9b3faab10d506d69e5b244e32bf765e2bab2d0167e65e0a058a',
 };
+const visionRenderDpi = 240;
+const maxBatchPages = 64;
+const conceptFingerprintFiles = Object.freeze({
+  catalog_sha256: 'data/catalog.json',
+  queue_sha256: 'data/ocr-queue.json',
+  concept_model_sha256: 'data/concept-model-v2.json',
+  lexicon_sha256: 'data/concept-lexicon.json',
+  builder_sha256: 'scripts/build-concept-evolution.mjs',
+  validator_sha256: 'scripts/validate-concept-evolution.mjs',
+});
+const conceptCoreArtifactProfile = 'curriculum-concept-evolution-core-v1';
+const conceptQualityArtifactProfile = 'curriculum-concept-evolution-quality-v1';
+const conceptAcademicSchema = 'curriculum-concept-evolution-academic-v2';
 
 const [command = 'status', ...rawArgs] = process.argv.slice(2);
 const option = (name, fallback = null) => {
   const index = rawArgs.indexOf(name);
   return index >= 0 && rawArgs[index + 1] ? rawArgs[index + 1] : fallback;
 };
-const batchPages = Math.max(1, Math.min(16, Number(option('--batch-pages', '4')) || 4));
+const batchPages = Math.max(1, Math.min(maxBatchPages, Number(option('--batch-pages', String(maxBatchPages))) || maxBatchPages));
 const requestedDocument = option('--document');
 const retryFailed = rawArgs.includes('--retry-failed');
 const forceImmediateRecovery = rawArgs.includes('--force-immediate');
@@ -58,6 +74,7 @@ const nowIso = () => new Date().toISOString();
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 let activeStageChild = null;
 let activeOwnedLlamaChild = null;
+let activeOwnedDrainId = null;
 let shutdownRequested = false;
 
 function interruptedError() {
@@ -88,37 +105,87 @@ async function readJson(value, fallback = null) {
   try { return JSON.parse(await readFile(value, 'utf8')); } catch { return fallback; }
 }
 
+function fingerprintsMatch(left, right) {
+  if (!left || !right) return false;
+  return Object.keys(conceptFingerprintFiles).every((key) => /^[a-f0-9]{64}$/i.test(String(left[key] || ''))
+    && left[key] === right[key]);
+}
+
+export function conceptCandidateCompatible({ graph, quality, manifest, currentFingerprints }) {
+  if (!graph || !quality || !manifest || quality.passed !== true) return false;
+  const revision = graph.build_revision;
+  if (!/^[a-f0-9]{64}$/i.test(String(revision || ''))
+    || quality.build_revision !== revision
+    || manifest.build_revision !== revision) return false;
+  if (graph.schema_version !== 1
+    || quality.schema_version !== 1
+    || manifest.schema_version !== 2
+    || graph.academic_schema_version !== 2
+    || quality.academic_schema_version !== 2
+    || manifest.academic_schema_version !== 2
+    || graph.artifact_profile !== conceptCoreArtifactProfile
+    || quality.artifact_profile !== conceptQualityArtifactProfile
+    || manifest.artifact_profile !== conceptCoreArtifactProfile
+    || graph.academic_schema !== conceptAcademicSchema
+    || quality.academic_schema !== conceptAcademicSchema
+    || manifest.academic_schema !== conceptAcademicSchema
+    || typeof graph.model_kind !== 'string'
+    || !graph.model_kind
+    || quality.model_kind !== graph.model_kind
+    || manifest.model_kind !== graph.model_kind) return false;
+  const academicRef = graph.academic_model_ref;
+  if (!academicRef
+    || academicRef.build_revision !== revision
+    || typeof academicRef.path !== 'string'
+    || !academicRef.path
+    || !/^[a-f0-9]{64}$/i.test(String(academicRef.sha256 || ''))
+    || quality.academic_sha256 !== academicRef.sha256
+    || manifest.academic_model_ref?.build_revision !== revision
+    || manifest.academic_model_ref?.path !== academicRef.path
+    || manifest.academic_model_ref?.sha256 !== academicRef.sha256) return false;
+  return fingerprintsMatch(graph.input_fingerprints, currentFingerprints)
+    && fingerprintsMatch(quality.input_fingerprints, currentFingerprints)
+    && fingerprintsMatch(manifest.input_fingerprints, currentFingerprints);
+}
+
+export async function currentConceptInputFingerprints(projectRoot = root) {
+  return Object.fromEntries(await Promise.all(Object.entries(conceptFingerprintFiles)
+    .map(async ([key, relativePath]) => [key, await sha256File(path.join(projectRoot, relativePath))])));
+}
+
 async function readConceptGraph() {
+  const formalGraph = await readJson(path.join(root, 'public/data/concept-evolution.json'), {});
   const manifest = await readJson(candidateManifestPath, null);
-  if (manifest?.graph_path && manifest?.quality_path) {
-    const [versionedGraph, versionedQuality] = await Promise.all([
-      readJson(path.resolve(root, manifest.graph_path), null),
-      readJson(path.resolve(root, manifest.quality_path), null),
-    ]);
-    if (versionedGraph && versionedQuality?.passed === true
-      && versionedGraph.build_revision === versionedQuality.build_revision
-      && versionedGraph.build_revision === manifest.build_revision) return versionedGraph;
-  }
-  const [candidate, quality] = await Promise.all([
-    readJson(candidateGraphPath, null),
-    readJson(candidateQualityPath, null),
+  if (!manifest?.graph_path || !manifest?.quality_path) return formalGraph;
+  const graphPath = path.resolve(root, manifest.graph_path);
+  const qualityPath = path.resolve(root, manifest.quality_path);
+  const candidateRootPrefix = `${path.resolve(candidateRunsRoot)}${path.sep}`;
+  if (!graphPath.startsWith(candidateRootPrefix) || !qualityPath.startsWith(candidateRootPrefix)) return formalGraph;
+  const [graph, quality, currentFingerprints] = await Promise.all([
+    readJson(graphPath, null),
+    readJson(qualityPath, null),
+    currentConceptInputFingerprints().catch(() => null),
   ]);
-  if (candidate && quality?.passed === true && candidate.build_revision === quality.build_revision) return candidate;
-  return await readJson(path.join(root, 'public/data/concept-evolution.json'), {});
+  return conceptCandidateCompatible({ graph, quality, manifest, currentFingerprints }) ? graph : formalGraph;
+}
+
+async function readValidWitnessSidecar(value, expectedIdentity = {}) {
+  const record = await readJson(value, null);
+  if (!witnessRecordValid(record, expectedIdentity)) return null;
+  if (!expectedIdentity.imagePath) return record;
+  const imageInfo = await stat(expectedIdentity.imagePath).catch(() => null);
+  if (!imageInfo?.isFile()) return null;
+  const imageMtimeMs = Math.trunc(imageInfo.mtimeMs);
+  if (Number(record.rendered_image_bytes) === imageInfo.size && Number(record.rendered_image_mtime_ms) === imageMtimeMs) return record;
+  const actualSha = await sha256File(expectedIdentity.imagePath);
+  if (record.rendered_image_sha256 !== actualSha) return null;
+  const refreshed = { ...record, rendered_image_bytes: imageInfo.size, rendered_image_mtime_ms: imageMtimeMs };
+  await atomicJson(value, refreshed);
+  return refreshed;
 }
 
 async function validWitnessSidecar(value, expectedIdentity = {}) {
-  const record = await readJson(value, null);
-  if (!witnessRecordValid(record, expectedIdentity)) return false;
-  if (!expectedIdentity.imagePath) return true;
-  const imageInfo = await stat(expectedIdentity.imagePath).catch(() => null);
-  if (!imageInfo?.isFile()) return false;
-  const imageMtimeMs = Math.trunc(imageInfo.mtimeMs);
-  if (Number(record.rendered_image_bytes) === imageInfo.size && Number(record.rendered_image_mtime_ms) === imageMtimeMs) return true;
-  const actualSha = await sha256File(expectedIdentity.imagePath);
-  if (record.rendered_image_sha256 !== actualSha) return false;
-  await atomicJson(value, { ...record, rendered_image_bytes: imageInfo.size, rendered_image_mtime_ms: imageMtimeMs });
-  return true;
+  return Boolean(await readValidWitnessSidecar(value, expectedIdentity));
 }
 
 async function atomicJson(value, body) {
@@ -170,6 +237,125 @@ export async function selectPrimaryRecoveryPages(document, state, {
   return selected;
 }
 
+const auditGates = new Set([
+  'automatic_witness_pass',
+  'manual_image_review_required',
+  'blank_page_visual_confirmation_required',
+  'unresolved_fail_closed',
+]);
+
+function primaryStateHashesValid(state, page) {
+  const pageState = state?.pages?.[String(page)];
+  return Boolean(pageState
+    && /^[a-f0-9]{64}$/i.test(String(pageState.content_markdown_sha256 || ''))
+    && /^[a-f0-9]{64}$/i.test(String(pageState.result_json_sha256 || '')));
+}
+
+async function readFastAuditInputs(document, state, page, {
+  witnessBaseRoot = witnessRoot,
+} = {}) {
+  if (!primaryStateHashesValid(state, page)) return { valid: false, reason: 'primary' };
+  const visionDir = path.join(witnessBaseRoot, document.id, 'vision');
+  const witnessPath = path.join(visionDir, `page-${String(page).padStart(3, '0')}.json`);
+  const witnessRecord = await readJson(witnessPath, null);
+  const { imagePath: _imagePath, ...identity } = await witnessIdentity(document, page, witnessBaseRoot);
+  if (!witnessRecordValid(witnessRecord, identity)) return { valid: false, reason: 'witness', visionDir };
+  const witnessText = witnessRecord.lines.map((line) => line.text).join('\n');
+  return {
+    valid: true,
+    visionDir,
+    primarySha: state.pages[String(page)].content_markdown_sha256,
+    witnessSha: createHash('sha256').update(witnessText).digest('hex'),
+  };
+}
+
+async function readAuditInputs(document, state, page, {
+  primaryRoot = productionRoot,
+  witnessBaseRoot = witnessRoot,
+} = {}) {
+  if (!(await primaryPageValid(state, document.id, page, true, primaryRoot))) {
+    return { valid: false, reason: 'primary' };
+  }
+  const visionDir = path.join(witnessBaseRoot, document.id, 'vision');
+  const witnessPath = path.join(visionDir, `page-${String(page).padStart(3, '0')}.json`);
+  const witnessRecord = await readValidWitnessSidecar(witnessPath, await witnessIdentity(document, page, witnessBaseRoot));
+  if (!witnessRecord) return { valid: false, reason: 'witness', visionDir };
+  const witnessText = witnessRecord.lines.map((line) => line.text).join('\n');
+  return {
+    valid: true,
+    visionDir,
+    primarySha: state.pages[String(page)].content_markdown_sha256,
+    witnessSha: createHash('sha256').update(witnessText).digest('hex'),
+  };
+}
+
+async function inspectAuditPage(document, state, page, options = {}) {
+  const primaryRoot = options.primaryRoot || productionRoot;
+  const witnessBaseRoot = options.witnessBaseRoot || witnessRoot;
+  const inputs = await readFastAuditInputs(document, state, page, { witnessBaseRoot });
+  const auditName = `audit-${String(page).padStart(4, '0')}-${String(page).padStart(4, '0')}.json`;
+  const auditPaths = [
+    path.join(witnessBaseRoot, document.id, 'audits', auditName),
+    path.join(primaryRoot, document.id, auditName),
+  ];
+  const reports = await Promise.all(auditPaths.map((auditPath) => readJson(auditPath, null)));
+  const records = reports.flatMap((report) => report?.schema_version === 1 && Array.isArray(report.pages)
+    ? report.pages.filter((record) => Number(record?.page) === Number(page))
+    : []);
+  const current = inputs.valid
+    ? records.find((record) => auditGates.has(record.gate)
+      && record.primary_sha256 === inputs.primarySha
+      && record.witness_sha256 === inputs.witnessSha)
+    : null;
+  return {
+    ...inputs,
+    auditPresent: records.length > 0,
+    current: Boolean(current),
+    gate: current?.gate || 'unresolved_fail_closed',
+  };
+}
+
+export async function selectAuditBackfillPages(document, state, {
+  limit = Number.POSITIVE_INFINITY,
+  primaryRoot = productionRoot,
+  witnessBaseRoot = witnessRoot,
+  eligible = () => true,
+} = {}) {
+  const completedPages = [...new Set((state?.completed_pages || []).map(Number))]
+    .filter((page) => Number.isInteger(page) && page >= 1 && page <= document.page_count)
+    .sort((left, right) => left - right);
+  const selected = [];
+  for (const page of completedPages) {
+    if (selected.length >= limit) break;
+    if (!(await eligible(page))) continue;
+    const audit = await inspectAuditPage(document, state, page, { primaryRoot, witnessBaseRoot });
+    if (audit.current) continue;
+    const inputs = await readAuditInputs(document, state, page, { primaryRoot, witnessBaseRoot });
+    if (inputs.valid) selected.push(page);
+  }
+  return selected;
+}
+
+export async function prepareAuditBackfillWitness(document, pages, state, {
+  primaryRoot = productionRoot,
+  witnessBaseRoot = witnessRoot,
+} = {}) {
+  const successPages = [];
+  const failures = [];
+  const visionDir = path.join(witnessBaseRoot, document.id, 'vision');
+  for (const page of pages) {
+    const inputs = await readAuditInputs(document, state, page, { primaryRoot, witnessBaseRoot });
+    if (inputs.valid) {
+      successPages.push(page);
+      continue;
+    }
+    failures.push(inputs.reason === 'primary'
+      ? { page, stage: 'audit', code: 'AUDIT_BACKFILL_PRIMARY_STALE', name: 'AuditBackfillInputError', message: 'Primary OCR artifacts changed after audit backfill scheduling' }
+      : { page, stage: 'audit', code: 'AUDIT_BACKFILL_WITNESS_STALE', name: 'AuditBackfillInputError', message: 'Independent Vision witness changed after audit backfill scheduling' });
+  }
+  return { visionDir, successPages, failures };
+}
+
 async function runCapture(executable, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(executable, args, { cwd: root, env: { ...process.env, ...(options.env || {}) }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -210,13 +396,13 @@ async function portOpen() {
   });
 }
 
-async function witnessIdentity(document, page) {
+async function witnessIdentity(document, page, baseRoot = witnessRoot) {
   return {
     documentId: document.id,
     page,
     pdfSha: document.source_sha256,
     file: `page-${String(page).padStart(3, '0')}.png`,
-    imagePath: path.join(witnessRoot, document.id, 'images', `page-${String(page).padStart(3, '0')}.png`),
+    imagePath: path.join(baseRoot, document.id, 'images', `page-${String(page).padStart(3, '0')}.png`),
   };
 }
 
@@ -231,18 +417,21 @@ async function nextRecovery(limit = batchPages) {
   for (const document of orderedDocuments) {
     if (requestedDocument && document.id !== requestedDocument) continue;
     const state = await readJson(path.join(productionRoot, document.id, 'state.json'), {});
+    const eligible = (page) => {
+      const records = retriesForPage(pageRetries, document.id, page);
+      if (records.some((record) => record?.quarantined) && !retryFailed) return false;
+      return retryFailed || forceImmediateRecovery
+        || !records.some((record) => record?.next_retry_at && Date.parse(record.next_retry_at) > Date.now());
+    };
     const primaryRecovery = await selectPrimaryRecoveryPages(document, state, {
       limit,
-      eligible: (page) => {
-        const records = retriesForPage(pageRetries, document.id, page);
-        if (records.some((record) => record?.quarantined) && !retryFailed) return false;
-        return retryFailed || forceImmediateRecovery
-          || !records.some((record) => record?.next_retry_at && Date.parse(record.next_retry_at) > Date.now());
-      },
+      eligible,
     });
     const primaryRecoverySet = new Set(primaryRecovery);
     const candidates = [...primaryRecovery];
-    const pageFailureStage = /vision|paddle|audit/i.test(String(current?.stage || '')) || current?.error_scope === 'page';
+    const currentStage = String(current?.stage || '');
+    const pageFailureStage = !/audit/i.test(currentStage)
+      && (/vision|paddle/i.test(currentStage) || current?.error_scope === 'page');
     if ((current?.status === 'failed' || current?.status === 'partial_failed') && pageFailureStage && current.document_id === document.id) candidates.push(...(current.pages || []));
     const visionDir = path.join(witnessRoot, document.id, 'vision');
     if (await exists(visionDir)) {
@@ -254,7 +443,7 @@ async function nextRecovery(limit = batchPages) {
     }
     for (const [key, retry] of Object.entries(pageRetries)) {
       const match = key.match(/^(.+):(\d+):([^:]+)$/);
-      if (match?.[1] !== document.id || (retry?.quarantined && !retryFailed)) continue;
+      if (match?.[1] !== document.id || match?.[3] === 'audit' || (retry?.quarantined && !retryFailed)) continue;
       candidates.push(Number(match[2]));
     }
     const pages = [...new Set(candidates.map(Number).filter((page) => Number.isInteger(page) && page >= 1 && page <= document.page_count))]
@@ -265,14 +454,17 @@ async function nextRecovery(limit = batchPages) {
         return true;
       })
       .slice(0, limit);
-    if (!pages.length) continue;
-    const completed = new Set((state.completed_pages || []).map(Number));
-    const mode = pages.every((page) => primaryRecoverySet.has(page))
-      ? 'primary_recovery'
-      : pages.every((page) => completed.has(page))
-        ? 'witness_recovery'
-        : 'full_recovery';
-    return { document, pages, state, mode };
+    if (pages.length) {
+      const completed = new Set((state.completed_pages || []).map(Number));
+      const mode = pages.every((page) => primaryRecoverySet.has(page))
+        ? 'primary_recovery'
+        : pages.every((page) => completed.has(page))
+          ? 'witness_recovery'
+          : 'full_recovery';
+      return { document, pages, state, mode };
+    }
+    const auditBackfill = await selectAuditBackfillPages(document, state, { limit, eligible });
+    if (auditBackfill.length) return { document, pages: auditBackfill, state, mode: 'audit_backfill' };
   }
   return null;
 }
@@ -299,6 +491,11 @@ async function nextBatch(limit = batchPages) {
       if (missingWitness.length >= limit) break;
     }
     if (missingWitness.length) return { document, pages: missingWitness, state, mode: 'witness_backfill' };
+    const auditBackfill = await selectAuditBackfillPages(document, state, {
+      limit,
+      eligible: (page) => !retryBlocksPage(pageRetries, document.id, page, Date.now(), retryFailed),
+    });
+    if (auditBackfill.length) return { document, pages: auditBackfill, state, mode: 'audit_backfill' };
   }
   const candidates = [];
   for (const document of queue.documents) {
@@ -330,30 +527,13 @@ async function collectAuditMetrics() {
   const staleAuditPages = new Set();
   for (const document of queue.documents) {
     const state = await readJson(path.join(productionRoot, document.id, 'state.json'), {});
-    const locations = [path.join(productionRoot, document.id), path.join(witnessRoot, document.id, 'audits')];
-    for (const location of locations) {
-      if (!(await exists(location))) continue;
-      for (const file of await readdir(location)) {
-        if (!/^audit-\d+-\d+\.json$/.test(file)) continue;
-        const report = await readJson(path.join(location, file), {});
-        for (const page of report.pages || []) {
-          const key = `${document.id}:${page.page}`;
-          const primaryPath = path.join(productionRoot, document.id, 'pages', String(page.page).padStart(4, '0'), 'content.md');
-          const witnessPath = path.join(witnessRoot, document.id, 'vision', `page-${String(page.page).padStart(3, '0')}.json`);
-          const [primary, witnessRecord, primaryValid, witnessValid] = await Promise.all([
-            readFile(primaryPath, 'utf8').catch(() => null),
-            readJson(witnessPath, null),
-            primaryPageValid(state, document.id, page.page, false),
-            validWitnessSidecar(witnessPath, await witnessIdentity(document, page.page)),
-          ]);
-          const witnessText = Array.isArray(witnessRecord?.lines) ? witnessRecord.lines.map((line) => line.text).join('\n') : null;
-          const currentMatches = primaryValid && witnessValid && primary !== null && witnessText !== null
-            && createHash('sha256').update(primary).digest('hex') === page.primary_sha256
-            && createHash('sha256').update(witnessText).digest('hex') === page.witness_sha256;
-          if (!currentMatches) staleAuditPages.add(key);
-          pageGates.set(key, currentMatches ? page.gate : 'unresolved_fail_closed');
-        }
-      }
+    const completedPages = [...new Set((state.completed_pages || []).map(Number))]
+      .filter((page) => Number.isInteger(page) && page >= 1 && page <= document.page_count);
+    for (const page of completedPages) {
+      const key = `${document.id}:${page}`;
+      const audit = await inspectAuditPage(document, state, page);
+      if (audit.current) pageGates.set(key, audit.gate);
+      else if (audit.auditPresent) staleAuditPages.add(key);
     }
   }
   const gates = { automatic_witness_pass: 0, manual_image_review_required: 0, blank_page_visual_confirmation_required: 0, unresolved_fail_closed: 0 };
@@ -429,16 +609,23 @@ async function collectStatus(write = true) {
       });
     }
   }
-  const [audit, review, disk, graph, next, owner, current] = await Promise.all([
+  const [audit, review, disk, graph, next, owner, current, drainOwner, drainState] = await Promise.all([
     collectAuditMetrics(), collectReviewMetrics(), statfs(root), readConceptGraph(), nextBatch(),
     readJson(path.join(lockDir, 'owner.json'), null), readJson(currentRunPath, null),
+    readJson(path.join(drainLockDir, 'owner.json'), null), readJson(drainStatePath, null),
   ]);
   const freeGiB = Number(disk.bavail * disk.bsize) / 1024 ** 3;
-  const heartbeatAge = current?.heartbeat_at ? (Date.now() - Date.parse(current.heartbeat_at)) / 60000 : null;
+  const currentHeartbeatAge = current?.heartbeat_at ? (Date.now() - Date.parse(current.heartbeat_at)) / 60000 : null;
+  const drainHeartbeatAge = drainState?.heartbeat_at ? (Date.now() - Date.parse(drainState.heartbeat_at)) / 60000 : null;
   const lockActive = Boolean(owner && await processAlive(owner.pid));
-  const stalled = Boolean(lockActive && heartbeatAge !== null && heartbeatAge > 20);
+  const drainActive = Boolean(drainOwner && await processAlive(drainOwner.pid));
+  const externalDrainActive = drainActive
+    && !(drainOwner.pid === process.pid && drainOwner.drain_id === activeOwnedDrainId);
+  const healthLockActive = lockActive || externalDrainActive;
+  const heartbeatAge = lockActive ? currentHeartbeatAge : externalDrainActive ? drainHeartbeatAge : null;
+  const stalled = Boolean(healthLockActive && heartbeatAge !== null && heartbeatAge > 20);
   const health = classifyHealth({
-    lockActive,
+    lockActive: healthLockActive,
     stalled,
     diskHardStop: freeGiB < 25,
     witnessErrors,
@@ -459,13 +646,23 @@ async function collectStatus(write = true) {
           : 'no_eligible_pages';
   const status = {
     schema_version: 2, generated_at: nowIso(),
-    policy: { batch_pages: batchPages, vision_immediate_retries_seconds: [2, 10], page_retry_quarantine_after: 5, disk_warning_gib: 50, disk_hard_stop_gib: 25, stall_minutes: 20, candidates_never_citation_eligible: true, automatic_deploy: false },
+    policy: { batch_pages: batchPages, max_batch_pages: maxBatchPages, vision_render_dpi: visionRenderDpi, vision_render_settle_seconds: 1.5, vision_immediate_retries_seconds: [2, 10, 30], page_retry_quarantine_after: 5, disk_warning_gib: 50, disk_hard_stop_gib: 25, stall_minutes: 20, candidates_never_citation_eligible: true, automatic_deploy: false },
     health,
     scheduler_state: schedulerState,
     queue: { documents: queue.counts.documents, pages: queue.counts.pages, completed_pages: completed, pending_pages: pendingPages, failed_pages: failures },
     evidence: { witness_pages: witnessPages, witness_error_sidecars: witnessErrors, witness_missing_for_completed: missingCompletedWitnesses, ...audit, ...review },
     retries: { documents: documentRetries, pages: pageRetries },
-    runtime: { lock_active: lockActive, lock_owner: owner, current_run: current, stalled, heartbeat_age_minutes: heartbeatAge === null ? null : Number(heartbeatAge.toFixed(2)), server_healthy: await serverHealthy() },
+    runtime: {
+      lock_active: lockActive,
+      lock_owner: owner,
+      drain_active: drainActive,
+      drain_owner: drainOwner,
+      drain_state: drainState,
+      current_run: current,
+      stalled,
+      heartbeat_age_minutes: heartbeatAge === null ? null : Number(heartbeatAge.toFixed(2)),
+      server_healthy: await serverHealthy(),
+    },
     disk: { free_gib: Number(freeGiB.toFixed(2)), warning: freeGiB < 50, hard_stop: freeGiB < 25 },
     concept_graph: graph.coverage || null,
     next_batch: next ? { mode: next.mode, document_id: next.document.id, title: next.document.title, subject: next.document.subject, priority: next.document.priority, pages: next.pages } : null,
@@ -473,6 +670,74 @@ async function collectStatus(write = true) {
   };
   if (write) await atomicJson(statusPath, status);
   return status;
+}
+
+async function assertNoExternalDrain() {
+  const owner = await readJson(path.join(drainLockDir, 'owner.json'), null);
+  if (!owner || owner.pid === process.pid) return;
+  if (await processAlive(owner.pid)) {
+    throw Object.assign(new Error(`Continuous OCR drain is already active under PID ${owner.pid}`), {
+      exitCode: 75,
+      code: 'DRAIN_ACTIVE',
+    });
+  }
+}
+
+async function acquireDrainLock(drainId) {
+  await mkdir(supervisorRoot, { recursive: true });
+  let ownsDirectory = false;
+  try {
+    await mkdir(drainLockDir);
+    ownsDirectory = true;
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+    const owner = await readJson(path.join(drainLockDir, 'owner.json'), {});
+    if (await processAlive(owner.pid)) {
+      throw Object.assign(new Error(`Continuous OCR drain is already active under PID ${owner.pid}`), {
+        exitCode: 75,
+        code: 'DRAIN_ACTIVE',
+      });
+    }
+    if (!Number.isInteger(owner.pid) || !owner.drain_id) {
+      const lockInfo = await stat(drainLockDir).catch(() => null);
+      const ageMinutes = lockInfo ? (Date.now() - lockInfo.mtimeMs) / 60000 : 0;
+      if (ageMinutes < 20) {
+        throw Object.assign(new Error('Continuous drain lock owner is incomplete; treating it as busy'), {
+          exitCode: 75,
+          code: 'DRAIN_LOCK_OWNER_PENDING',
+        });
+      }
+    }
+    const stale = path.join(supervisorRoot, `drain-lock-stale-${Date.now()}`);
+    try {
+      await rename(drainLockDir, stale);
+      await mkdir(drainLockDir);
+      ownsDirectory = true;
+    } catch {
+      throw Object.assign(new Error('Continuous drain lock changed during stale-lock recovery; treating it as busy'), {
+        exitCode: 75,
+        code: 'DRAIN_LOCK_RACE',
+      });
+    }
+  }
+  try {
+    await atomicJson(path.join(drainLockDir, 'owner.json'), {
+      pid: process.pid,
+      drain_id: drainId,
+      started_at: nowIso(),
+      argv: process.argv.slice(2),
+    });
+  } catch (error) {
+    if (ownsDirectory) await rm(drainLockDir, { recursive: true, force: true }).catch(() => {});
+    throw error;
+  }
+}
+
+async function releaseDrainLock(drainId) {
+  const owner = await readJson(path.join(drainLockDir, 'owner.json'), null);
+  if (owner?.drain_id === drainId && owner?.pid === process.pid) {
+    await rm(drainLockDir, { recursive: true, force: true });
+  }
 }
 
 async function acquireLock(runId) {
@@ -605,10 +870,14 @@ async function renderVision(document, pages, pdfSha, logPath, run) {
     const stem = `page-${String(page).padStart(3, '0')}`;
     const prefix = path.join(imageDir, stem);
     const imagePath = `${prefix}.png`;
-    await runCapture('/opt/homebrew/bin/pdftoppm', ['-f', String(page), '-l', String(page), '-r', '300', '-png', '-singlefile', path.join(root, document.local_cache_path), prefix]);
+    await runCapture('/opt/homebrew/bin/pdftoppm', ['-f', String(page), '-l', String(page), '-r', String(visionRenderDpi), '-png', '-singlefile', path.join(root, document.local_cache_path), prefix]);
     throwIfInterrupted();
     images.push(imagePath);
   }
+  // Vision intermittently returns Foundation._GenericObjCError when invoked in
+  // the same instant that Poppler closes a newly rendered PNG. A short bounded
+  // settle keeps the independent witness deterministic without weakening it.
+  await interruptibleSleep(1500);
   const attempts = new Map(pages.map((page) => [page, 1]));
   await runLogged('/usr/bin/swift', [path.join(root, 'scripts/vision-ocr-batch.swift'), '--output-dir', visionDir, ...images], logPath, run, 'independent_apple_vision');
   throwIfInterrupted();
@@ -625,7 +894,7 @@ async function renderVision(document, pages, pdfSha, logPath, run) {
   };
 
   let failed = await failedIndexes();
-  for (const delay of [2000, 10000]) {
+  for (const delay of [2000, 10000, 30000]) {
     if (!failed.length) break;
     await interruptibleSleep(delay);
     for (const index of failed) {
@@ -670,7 +939,7 @@ async function renderVision(document, pages, pdfSha, logPath, run) {
       attempt_count: attempts.get(page),
       recovered_after_retry: attempts.get(page) > 1,
       engine: 'Apple Vision VNRecognizeTextRequest accurate zh-Hans+en-US',
-      engine_configuration: { recognition_level: 'accurate', languages: ['zh-Hans', 'en-US'], language_correction: true, minimum_text_height: 0.008 },
+      engine_configuration: { recognition_level: 'accurate', languages: ['zh-Hans', 'en-US'], language_correction: true, minimum_text_height: 0.008, render_dpi: visionRenderDpi },
       critical_fields: [],
       citation_allowed: false,
     };
@@ -684,23 +953,52 @@ async function renderVision(document, pages, pdfSha, logPath, run) {
   return { imageDir, visionDir, successPages, failures };
 }
 
-async function preflight(document) {
+async function preflight(document, { requirePrimaryRuntime = true } = {}) {
   const disk = await statfs(root);
   const freeGiB = Number(disk.bavail * disk.bsize) / 1024 ** 3;
   if (freeGiB < 25) throw Object.assign(new Error(`Disk hard stop: ${freeGiB.toFixed(2)} GiB free`), { permanent: false, scope: 'global', code: 'DISK_HARD_STOP' });
-  const sharedRuntime = [llamaBinary, modelPath, mmprojPath, pythonPath];
-  for (const value of sharedRuntime) if (!(await exists(value))) throw Object.assign(new Error(`Missing shared OCR runtime file: ${value}`), { permanent: true, scope: 'global', code: 'RUNTIME_SHARED_MISSING' });
+  if (requirePrimaryRuntime) {
+    const sharedRuntime = [llamaBinary, modelPath, mmprojPath, pythonPath];
+    for (const value of sharedRuntime) if (!(await exists(value))) throw Object.assign(new Error(`Missing shared OCR runtime file: ${value}`), { permanent: true, scope: 'global', code: 'RUNTIME_SHARED_MISSING' });
+  }
   const sourcePath = path.join(root, document.local_cache_path);
   if (!(await exists(sourcePath))) throw Object.assign(new Error(`Missing source PDF: ${sourcePath}`), { permanent: true, scope: 'document', code: 'SOURCE_FILE_MISSING' });
-  const [modelSha, mmprojSha, pdfSha, commit] = await Promise.all([
-    sha256File(modelPath), sha256File(mmprojPath), sha256File(sourcePath),
-    runCapture('git', ['-C', llamaRepository, 'rev-parse', 'HEAD']).then((result) => result.stdout.trim()),
-  ]);
-  if (modelSha !== expected.model_sha256) throw Object.assign(new Error('PaddleOCR-VL model checksum mismatch'), { permanent: true, scope: 'global', code: 'MODEL_CHECKSUM_MISMATCH' });
-  if (mmprojSha !== expected.mmproj_sha256) throw Object.assign(new Error('PaddleOCR-VL mmproj checksum mismatch'), { permanent: true, scope: 'global', code: 'MMPROJ_CHECKSUM_MISMATCH' });
-  if (commit !== expected.llama_commit) throw Object.assign(new Error(`llama.cpp revision mismatch: ${commit}`), { permanent: true, scope: 'global', code: 'LLAMA_REVISION_MISMATCH' });
+  const pdfSha = await sha256File(sourcePath);
+  const commit = requirePrimaryRuntime
+    ? await runCapture('git', ['-C', llamaRepository, 'rev-parse', 'HEAD']).then((result) => result.stdout.trim())
+    : null;
+  if (requirePrimaryRuntime && commit !== expected.llama_commit) throw Object.assign(new Error(`llama.cpp revision mismatch: ${commit}`), { permanent: true, scope: 'global', code: 'LLAMA_REVISION_MISMATCH' });
   if (pdfSha !== document.source_sha256) throw Object.assign(new Error(`Source PDF checksum mismatch for ${document.id}`), { permanent: true, scope: 'document', code: 'SOURCE_CHECKSUM_MISMATCH' });
-  return { free_gib: freeGiB, model_sha256: modelSha, mmproj_sha256: mmprojSha, source_pdf_sha256: pdfSha, llama_commit: commit };
+  return {
+    free_gib: freeGiB,
+    model_sha256: null,
+    mmproj_sha256: null,
+    source_pdf_sha256: pdfSha,
+    llama_commit: commit,
+    runtime_model_integrity: requirePrimaryRuntime ? 'pending_until_witness_passes' : 'not_required_for_audit_backfill',
+  };
+}
+
+async function validatePaddleRuntime() {
+  const cache = await readJson(runtimeIntegrityPath, {});
+  const verify = async (filePath, expectedSha, code, label) => {
+    const info = await stat(filePath);
+    const key = path.basename(filePath);
+    const cached = cache[key];
+    const mtimeMs = Math.trunc(info.mtimeMs);
+    let actualSha = cached?.size === info.size && cached?.mtime_ms === mtimeMs && cached?.sha256 === expectedSha
+      ? cached.sha256
+      : await sha256File(filePath);
+    if (actualSha !== expectedSha) throw Object.assign(new Error(`${label} checksum mismatch`), { permanent: true, scope: 'global', code });
+    cache[key] = { size: info.size, mtime_ms: mtimeMs, sha256: actualSha, verified_at: nowIso() };
+    return actualSha;
+  };
+  const [modelSha, mmprojSha] = await Promise.all([
+    verify(modelPath, expected.model_sha256, 'MODEL_CHECKSUM_MISMATCH', 'PaddleOCR-VL model'),
+    verify(mmprojPath, expected.mmproj_sha256, 'MMPROJ_CHECKSUM_MISMATCH', 'PaddleOCR-VL mmproj'),
+  ]);
+  await atomicJson(runtimeIntegrityPath, cache);
+  return { model_sha256: modelSha, mmproj_sha256: mmprojSha, runtime_model_integrity: 'verified' };
 }
 
 async function recordFailure(documentId, error) {
@@ -745,17 +1043,25 @@ async function promoteConceptCandidate(runDirectory) {
   const graphPath = path.join(runDirectory, 'concept-evolution.json');
   const qualityPath = path.join(runDirectory, 'concept-evolution-quality.json');
   const [graph, quality] = await Promise.all([readJson(graphPath, null), readJson(qualityPath, null)]);
-  if (!graph || quality?.passed !== true || graph.build_revision !== quality.build_revision) {
-    throw Object.assign(new Error('Concept candidate validation did not produce a matching passing graph and quality report'), { scope: 'derived', code: 'CONCEPT_CANDIDATE_INVALID' });
-  }
-  await atomicJson(candidateManifestPath, {
-    schema_version: 1,
+  const manifest = {
+    schema_version: 2,
     promoted_at: nowIso(),
     run_directory: path.relative(root, runDirectory),
-    build_revision: graph.build_revision,
+    build_revision: graph?.build_revision,
+    artifact_profile: graph?.artifact_profile,
+    academic_schema_version: graph?.academic_schema_version,
+    academic_schema: graph?.academic_schema,
+    model_kind: graph?.model_kind,
+    input_fingerprints: graph?.input_fingerprints,
+    academic_model_ref: graph?.academic_model_ref || null,
     graph_path: path.relative(root, graphPath),
     quality_path: path.relative(root, qualityPath),
-  });
+  };
+  const currentFingerprints = await currentConceptInputFingerprints();
+  if (!conceptCandidateCompatible({ graph, quality, manifest, currentFingerprints })) {
+    throw Object.assign(new Error('Concept candidate validation did not produce a matching passing graph and quality report'), { scope: 'derived', code: 'CONCEPT_CANDIDATE_INVALID' });
+  }
+  await atomicJson(candidateManifestPath, manifest);
   const currentName = path.basename(runDirectory);
   const previousNames = (await readdir(candidateRunsRoot, { withFileTypes: true }))
     .filter((entry) => entry.isDirectory() && entry.name !== currentName)
@@ -785,6 +1091,7 @@ async function once() {
   process.once('SIGINT', stop);
   process.once('SIGTERM', stop);
   try {
+    await assertNoExternalDrain();
     await acquireLock(runId);
     lockAcquired = true;
     throwIfInterrupted();
@@ -813,10 +1120,19 @@ async function once() {
       audited_pages: [],
     };
     await updateRun(run);
-    const checks = await preflight(document);
+    const executionPolicy = ocrExecutionPolicy(mode);
+    const checks = await preflight(document, { requirePrimaryRuntime: executionPolicy.runPrimaryOcr });
     throwIfInterrupted();
     run.preflight = checks;
-    const witness = await renderVision(document, pages, checks.source_pdf_sha256, path.join(logDir, 'vision.log'), run);
+    let witness;
+    if (executionPolicy.renderVision) {
+      witness = await renderVision(document, pages, checks.source_pdf_sha256, path.join(logDir, 'vision.log'), run);
+    } else {
+      run.stage = 'audit_backfill_input_validation';
+      await updateRun(run);
+      const currentState = await readJson(path.join(productionRoot, document.id, 'state.json'), {});
+      witness = await prepareAuditBackfillWitness(document, pages, currentState);
+    }
     throwIfInterrupted();
     for (const failure of witness.failures) {
       await recordPageFailure(document.id, failure);
@@ -825,12 +1141,17 @@ async function once() {
 
     const beforePaddle = await readJson(path.join(productionRoot, document.id, 'state.json'), {});
     const paddlePages = [];
-    for (const page of witness.successPages) {
-      if (!(await primaryPageValid(beforePaddle, document.id, page, true))) paddlePages.push(page);
+    if (executionPolicy.runPrimaryOcr) {
+      for (const page of witness.successPages) {
+        if (!(await primaryPageValid(beforePaddle, document.id, page, true))) paddlePages.push(page);
+      }
     }
     let paddleExecutionError = null;
     if (paddlePages.length) {
       throwIfInterrupted();
+      Object.assign(checks, await validatePaddleRuntime());
+      run.preflight = checks;
+      await updateRun(run);
       run.stage = 'start_llama';
       await updateRun(run);
       server = await startLlama(path.join(logDir, 'llama.log'));
@@ -943,6 +1264,109 @@ async function once() {
   }
 }
 
+async function drain() {
+  shutdownRequested = false;
+  const drainId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
+  const stop = () => {
+    shutdownRequested = true;
+    if (activeStageChild?.exitCode === null) activeStageChild.kill('SIGTERM');
+    if (activeOwnedLlamaChild?.exitCode === null) activeOwnedLlamaChild.kill('SIGTERM');
+  };
+  process.once('SIGINT', stop);
+  process.once('SIGTERM', stop);
+  const state = {
+    schema_version: 1,
+    drain_id: drainId,
+    pid: process.pid,
+    batch_pages: batchPages,
+    status: 'running',
+    stage: 'starting',
+    started_at: nowIso(),
+    heartbeat_at: nowIso(),
+  };
+  const updateDrainState = async (changes = {}) => {
+    Object.assign(state, changes, { heartbeat_at: nowIso() });
+    await atomicJson(drainStatePath, state);
+  };
+  let drainLockAcquired = false;
+  try {
+    await acquireDrainLock(drainId);
+    drainLockAcquired = true;
+    activeOwnedDrainId = drainId;
+    await updateDrainState();
+    while (true) {
+      await updateDrainState({ stage: 'acquiring_batch' });
+      try {
+        await once();
+      } catch (error) {
+        if (error.exitCode === 75) {
+          const activeStatus = await collectStatus();
+          await updateDrainState({
+            stage: 'waiting_for_active_owner',
+            queue: activeStatus.queue,
+            health: activeStatus.health,
+            disk: activeStatus.disk,
+          });
+          if (activeStatus.runtime.stalled) {
+            throw Object.assign(new Error('Continuous drain found an active owner with a stale heartbeat'), {
+              code: 'DRAIN_ACTIVE_OWNER_STALLED',
+              exitCode: 11,
+            });
+          }
+          if (activeStatus.disk.warning) {
+            throw Object.assign(new Error(`Continuous drain stopped at the 50 GiB warning boundary: ${activeStatus.disk.free_gib} GiB free`), {
+              code: 'DRAIN_DISK_WARNING',
+              exitCode: 2,
+            });
+          }
+          await interruptibleSleep(5000);
+          continue;
+        }
+        throw error;
+      }
+      const status = await collectStatus();
+      await updateDrainState({ stage: 'between_batches', queue: status.queue, health: status.health, disk: status.disk });
+      console.log(JSON.stringify({
+        status: 'drain_progress',
+        generated_at: status.generated_at,
+        queue: status.queue,
+        health: status.health,
+        disk: status.disk,
+        next_batch: status.next_batch,
+      }));
+      const decision = continuousDrainDecision(status);
+      if (decision.action === 'complete') {
+        await updateDrainState({ status: 'completed', stage: 'complete', completed_at: nowIso() });
+        console.log(JSON.stringify({ status: 'drain_complete', generated_at: status.generated_at, queue: status.queue }));
+        return;
+      }
+      if (decision.action === 'stop') {
+        throw Object.assign(new Error(`Continuous drain stopped: ${decision.reason}`), {
+          code: decision.code,
+          exitCode: decision.exitCode,
+        });
+      }
+      await interruptibleSleep(1000);
+    }
+  } catch (error) {
+    if (drainLockAcquired) {
+      await updateDrainState({
+        status: error.exitCode === 130 ? 'interrupted' : 'failed',
+        stage: 'stopped',
+        stopped_at: nowIso(),
+        error_code: error.code || 'DRAIN_FAILED',
+        error: error.message,
+      }).catch(() => {});
+    }
+    throw error;
+  } finally {
+    if (drainLockAcquired) await releaseDrainLock(drainId).catch(() => {});
+    if (activeOwnedDrainId === drainId) activeOwnedDrainId = null;
+    process.removeListener('SIGINT', stop);
+    process.removeListener('SIGTERM', stop);
+  }
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   await mkdir(supervisorRoot, { recursive: true });
   try {
@@ -972,8 +1396,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       process.exitCode = status.health.exit_code;
     } else if (command === 'once' || command === 'recover') {
       await once();
+    } else if (command === 'drain') {
+      await drain();
     } else {
-      console.error('usage: node scripts/ocr-supervisor.mjs <status|check|once|recover> [--batch-pages 4] [--document ID] [--retry-failed]');
+      console.error(`usage: node scripts/ocr-supervisor.mjs <status|check|once|recover|drain> [--batch-pages 1-${maxBatchPages}] [--document ID] [--retry-failed]`);
       process.exitCode = 64;
     }
   } catch (error) {

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-15T03:10:00.000Z",
+  "generated_at": "2026-07-15T10:16:00.000Z",
   "collection": {
     "title": "20世纪中国中小学课程标准·教学大纲汇编",
     "compiled_by": "课程教材研究所",
@@ -221,6 +221,31 @@
       "local_cache_path": ".cache/sources/local-compendia/physics.pdf",
       "text_quality_status": "ocr_in_quality_review",
       "citation_allowed": false
+    },
+    {
+      "id": "legacy-compendium-chemistry",
+      "country": "中国",
+      "language": "zh-CN",
+      "title": "20世纪中国中小学课程标准·教学大纲汇编：化学卷",
+      "subject": "化学",
+      "stage": "基础教育",
+      "document_type": "历史文献汇编",
+      "version_label": "1902—2000",
+      "issued_by": "课程教材研究所（编）",
+      "published_date": "2001-02",
+      "current_status": "historical_reference",
+      "source_tier": "curated_official_institute_compendium",
+      "access_status": "local_verified_scan",
+      "source_page_url": "https://www.ictr.edu.cn/download_center/ywjy.html",
+      "source_url": "https://www.ictr.edu.cn/download_center/ywjy.html",
+      "file_format": "pdf_local_research",
+      "redistribution": "metadata_and_qa_index_only",
+      "checksum_sha256": "0ec72a59fab2e648f5bf5d41aab41a94b2303e30f6e4c8aae052bec2ee45c514",
+      "page_count": 458,
+      "local_cache_path": ".cache/sources/local-compendia/chemistry.pdf",
+      "text_quality_status": "ocr_in_quality_review",
+      "citation_allowed": false,
+      "note": "封面、书名页与CIP/版权页已逐页目视核对：ISBN 7-107-13070-6，人民教育出版社，2001年2月第1版第1次印刷；OCR通过页级质量门前不开放正文引文。"
     },
     {
       "id": "legacy-compendium-biology",

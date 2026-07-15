@@ -5,7 +5,14 @@ import { retrieve } from './retrieval';
 import { enforceRateLimit, verifyTurnstile } from './security';
 import type { Env, Session } from './types';
 
-const VERSION = '2026.07.15-v5';
+const VERSION = '2026.07.15-v6';
+const REQUIRED_CLASSIFICATION_COUNTS = {
+  documents: 196,
+  subjects: 160,
+  courses: 16,
+  scopes: 20,
+  unclassified: 0,
+} as const;
 
 interface CommentInput {
   documentId?: string;
@@ -30,22 +37,35 @@ async function health(env: Env): Promise<Response> {
     "SELECT key,value FROM site_meta WHERE key IN ('schema_version','document_classification_schema_version')",
   ).all<{ key: string; value: string }>();
   const schemaMeta = new Map(metaRows.results.map((row) => [row.key, row.value]));
-  let classifications: { documents: number; classified: number; subject_documents: number; scope_documents: number; unclassified_documents: number } | null = null;
+  let classifications: { documents: number; classified: number; subject_documents: number; course_documents: number; scope_documents: number; unclassified_documents: number } | null = null;
   try {
     classifications = await env.DB.prepare(`SELECT COUNT(d.id) AS documents, COUNT(dc.document_id) AS classified,
       SUM(CASE WHEN dc.entity_kind = 'subject' AND dc.canonical_subject IS NOT NULL THEN 1 ELSE 0 END) AS subject_documents,
-      SUM(CASE WHEN dc.entity_kind != 'subject' AND dc.canonical_subject IS NULL THEN 1 ELSE 0 END) AS scope_documents,
+      SUM(CASE WHEN dc.entity_kind = 'scope' AND dc.scope_kind = 'curriculum_course' THEN 1 ELSE 0 END) AS course_documents,
+      SUM(CASE WHEN dc.entity_kind = 'scope' AND dc.scope_kind != 'curriculum_course' THEN 1 ELSE 0 END) AS scope_documents,
       SUM(CASE WHEN dc.scope_kind = 'unclassified' THEN 1 ELSE 0 END) AS unclassified_documents
       FROM documents d LEFT JOIN document_classifications dc ON dc.document_id = d.id`)
-      .first<{ documents: number; classified: number; subject_documents: number; scope_documents: number; unclassified_documents: number }>();
+      .first<{ documents: number; classified: number; subject_documents: number; course_documents: number; scope_documents: number; unclassified_documents: number }>();
   } catch {
     classifications = null;
   }
   const schemaReady = schemaMeta.get('schema_version') === '3'
     && schemaMeta.get('document_classification_schema_version') === '1';
+  const classificationCounts = {
+    documents: Number(classifications?.documents || 0),
+    classified: Number(classifications?.classified || 0),
+    subjects: Number(classifications?.subject_documents || 0),
+    courses: Number(classifications?.course_documents || 0),
+    scopes: Number(classifications?.scope_documents || 0),
+    unclassified: Number(classifications?.unclassified_documents || 0),
+  };
   const classificationReady = classifications !== null
-    && Number(classifications.documents || 0) === Number(classifications.classified || 0)
-    && Number(classifications.unclassified_documents || 0) === 0;
+    && classificationCounts.documents === REQUIRED_CLASSIFICATION_COUNTS.documents
+    && classificationCounts.classified === REQUIRED_CLASSIFICATION_COUNTS.documents
+    && classificationCounts.subjects === REQUIRED_CLASSIFICATION_COUNTS.subjects
+    && classificationCounts.courses === REQUIRED_CLASSIFICATION_COUNTS.courses
+    && classificationCounts.scopes === REQUIRED_CLASSIFICATION_COUNTS.scopes
+    && classificationCounts.unclassified === REQUIRED_CLASSIFICATION_COUNTS.unclassified;
   return json({
     ok: schemaReady && classificationReady,
     service: 'bdfz-curriculum-atlas',
@@ -55,11 +75,12 @@ async function health(env: Env): Promise<Response> {
     classificationSchemaVersion: schemaMeta.get('document_classification_schema_version') || null,
     classification: {
       complete: classificationReady,
-      documents: Number(classifications?.documents || 0),
-      classified: Number(classifications?.classified || 0),
-      subjectDocuments: Number(classifications?.subject_documents || 0),
-      scopeDocuments: Number(classifications?.scope_documents || 0),
-      unclassifiedDocuments: Number(classifications?.unclassified_documents || 0),
+      documents: classificationCounts.documents,
+      classified: classificationCounts.classified,
+      subjectDocuments: classificationCounts.subjects,
+      courseDocuments: classificationCounts.courses,
+      scopeDocuments: classificationCounts.scopes,
+      unclassifiedDocuments: classificationCounts.unclassified,
     },
     bindings: {
       d1: Boolean(env.DB),
@@ -79,7 +100,7 @@ async function requireCanonicalSubject(env: Env, subject: string): Promise<void>
 }
 
 async function meta(env: Env): Promise<Response> {
-  const [documents, paragraphs, comments, citationReady, onlineVerified, subjects, periods] = await Promise.all([
+  const [documents, paragraphs, comments, citationReady, onlineVerified, subjects, courses, periods] = await Promise.all([
     env.DB.prepare('SELECT COUNT(*) AS count FROM documents').first<{ count: number }>(),
     env.DB.prepare('SELECT COUNT(*) AS count FROM paragraphs').first<{ count: number }>(),
     env.DB.prepare("SELECT COUNT(*) AS count FROM comments WHERE status = 'approved'").first<{ count: number }>(),
@@ -90,6 +111,11 @@ async function meta(env: Env): Promise<Response> {
       FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
       WHERE dc.entity_kind = 'subject' AND dc.canonical_subject IS NOT NULL
       GROUP BY dc.canonical_subject ORDER BY documentCount DESC, dc.canonical_subject`).all(),
+    env.DB.prepare(`SELECT dc.scope_label AS name, COUNT(*) AS documentCount,
+      MIN(d.sort_year) AS firstYear, MAX(d.sort_year) AS lastYear
+      FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
+      WHERE dc.entity_kind = 'scope' AND dc.scope_kind = 'curriculum_course' AND dc.scope_label IS NOT NULL
+      GROUP BY dc.scope_label ORDER BY documentCount DESC, dc.scope_label`).all(),
     env.DB.prepare('SELECT * FROM periods ORDER BY sort_order').all(),
   ]);
   return cacheJson({
@@ -106,6 +132,7 @@ async function meta(env: Env): Promise<Response> {
       onlineVerifications: onlineVerified?.count || 0,
     },
     subjects: subjects.results,
+    courses: courses.results,
     periods: periods.results,
     turnstileSiteKey: env.TURNSTILE_SITE_KEY,
   }, 300);

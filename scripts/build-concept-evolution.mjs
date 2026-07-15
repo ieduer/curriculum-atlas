@@ -35,7 +35,17 @@ const [catalog, lexicon, queue, model, ingestManifest] = await Promise.all([
 if (model.schema_version !== 2) throw new Error('data/concept-model-v2.json must use schema_version 2');
 
 const sha256 = (value) => createHash('sha256').update(String(value)).digest('hex');
+const sha256Bytes = (value) => createHash('sha256').update(value).digest('hex');
 const compactId = (prefix, value, length = 16) => `${prefix}:${sha256(value).slice(0, length)}`;
+const inputFingerprints = Object.fromEntries(await Promise.all([
+  ['catalog_sha256', 'data/catalog.json'],
+  ['queue_sha256', 'data/ocr-queue.json'],
+  ['concept_model_sha256', 'data/concept-model-v2.json'],
+  ['lexicon_sha256', 'data/concept-lexicon.json'],
+  ['builder_sha256', 'scripts/build-concept-evolution.mjs'],
+  ['validator_sha256', 'scripts/validate-concept-evolution.mjs'],
+].map(async ([key, relativePath]) => [key, sha256Bytes(await readFile(path.join(root, relativePath)))])));
+const academicSchema = 'curriculum-concept-evolution-academic-v2';
 const catalogById = new Map(catalog.documents.map((record) => [record.id, record]));
 const queueById = new Map(queue.documents.map((record) => [record.id, record]));
 const ingestById = new Map((ingestManifest.entries || []).map((entry) => [entry.id, entry]));
@@ -121,6 +131,9 @@ function schoolTypeDetails(record, historical = false) {
   return { school_type: 'general_education', school_subtype: null };
 }
 
+const facetEntityKinds = new Set(['subject', 'assessment_subject']);
+const isFacetEntity = (entity) => facetEntityKinds.has(entity?.entity_kind) && entity?.facet_eligible === true;
+
 function subjectEntity(record) {
   const sourceLabel = record.subject || 'unknown';
   const entry = model.document_entity_overrides?.[record.id] || model.subject_taxonomy?.[sourceLabel];
@@ -141,28 +154,37 @@ function subjectEntity(record) {
   for (const [candidate, members] of Object.entries(model.subject_families || {})) {
     if (members.includes(entry.canonical) || members.includes(sourceLabel)) { family = candidate; break; }
   }
-  const officialCode = entry.entity_kind === 'subject' ? model.official_subject_codes?.[entry.canonical] || null : null;
+  let courseFamily = null;
+  for (const [candidate, members] of Object.entries(model.course_families || {})) {
+    if (members.includes(entry.canonical) || members.includes(sourceLabel)) { courseFamily = candidate; break; }
+  }
+  const officialCode = ['subject', 'curriculum_course'].includes(entry.entity_kind)
+    ? model.official_subject_codes?.[entry.canonical] || null : null;
   const specialExtension = model.special_education_2016_reviewed_extensions?.includes(entry.canonical);
   return {
     ...entry,
     source_label: sourceLabel,
     family,
-    stable_subject_id: entry.stable_subject_id || (entry.entity_kind === 'subject' ? compactId('subject', entry.canonical) : null),
+    course_family: courseFamily,
+    related_subjects: model.course_to_subject_links?.[entry.canonical] || model.course_to_subject_links?.[sourceLabel] || [],
+    stable_subject_id: entry.stable_subject_id || (isFacetEntity(entry) ? compactId('subject', entry.canonical) : null),
+    stable_course_id: entry.stable_course_id || (entry.entity_kind === 'curriculum_course' ? compactId('course', entry.canonical) : null),
     official_code: officialCode,
-    authority: officialCode ? 'JY/T 0644—2022' : specialExtension ? '教育部2016三类特殊教育学校义务教育课程标准答问受控扩展' : entry.classification === 'special_education_curriculum_subject' ? '课程教材研究所官方目录受控扩展' : 'project_controlled_taxonomy_pending_code_alignment',
+    authority: officialCode ? 'JY/T 0644—2022' : specialExtension ? '教育部2016三类特殊教育学校义务教育课程标准答问受控扩展' : entry.classification === 'special_education_curriculum_course' ? '课程教材研究所官方目录受控扩展' : 'project_controlled_taxonomy_pending_code_alignment',
     course_variant: entry.course_variant || null,
-    lineage_family: entry.lineage_family || family,
+    lineage_family: entry.lineage_family || family || courseFamily,
   };
 }
 
 function subjectsFor(concept, entity) {
   return concept.subjects.includes('*')
     || concept.subjects.includes(entity.canonical)
-    || concept.subjects.includes(entity.source_label);
+    || concept.subjects.includes(entity.source_label)
+    || entity.related_subjects?.some((subject) => concept.subjects.includes(subject));
 }
 
 function episodeSubject(entity) {
-  if (entity.entity_kind === 'subject' && entity.facet_eligible) return entity;
+  if (isFacetEntity(entity)) return entity;
   return {
     canonical: null,
     source_label: entity.source_label,
@@ -242,12 +264,15 @@ const subjectTaxonomy = rawSubjectLabels.map((sourceLabel) => {
     source_label: sourceLabel,
     canonical: classified.canonical,
     stable_subject_id: classified.stable_subject_id,
+    stable_course_id: classified.stable_course_id,
     entity_kind: classified.entity_kind,
     classification: classified.classification,
     facet_eligible: classified.facet_eligible,
     official_code: classified.official_code,
     authority: classified.authority,
     family: classified.family,
+    course_family: classified.course_family,
+    related_subjects: classified.related_subjects,
     course_variant: classified.course_variant,
     lineage_family: classified.lineage_family,
     source_document_count: catalog.documents.filter((record) => record.subject === sourceLabel).length,
@@ -262,19 +287,22 @@ const subjectEntityAudit = catalog.documents.map((record) => {
     source_label: entity.source_label,
     canonical: entity.canonical,
     stable_subject_id: entity.stable_subject_id,
+    stable_course_id: entity.stable_course_id,
     entity_kind: entity.entity_kind,
     classification: entity.classification,
     facet_eligible: entity.facet_eligible,
     official_code: entity.official_code,
     authority: entity.authority,
     course_variant: entity.course_variant,
+    course_family: entity.course_family,
+    related_subjects: entity.related_subjects,
     lineage_family: entity.lineage_family,
     mapping_basis: model.document_entity_overrides?.[record.id] ? 'document_entity_override' : 'source_label_taxonomy',
   };
 }).sort((left, right) => left.document_id.localeCompare(right.document_id));
 
 const canonicalSubjects = [...new Set(catalog.documents.map(subjectEntity)
-  .filter((entity) => entity.entity_kind === 'subject' && entity.facet_eligible)
+  .filter(isFacetEntity)
   .map((entity) => entity.canonical))].sort((left, right) => left.localeCompare(right, 'zh-CN'));
 
 const conceptSenses = [];
@@ -305,7 +333,8 @@ function curriculumLineFor(record, entity, historical = false, stageOverride = n
   const school = schoolTypeDetails(record, historical);
   const line = {
     id: '',
-    subject: entity.entity_kind === 'subject' ? entity.canonical : null,
+    subject: isFacetEntity(entity) ? entity.canonical : null,
+    course: entity.entity_kind === 'curriculum_course' ? entity.canonical : null,
     scope_entity_label: entity.canonical,
     subject_entity_kind: entity.entity_kind,
     subject_classification: entity.classification,
@@ -338,6 +367,7 @@ for (const record of catalog.documents) {
     id: workId,
     canonical_title: record.title,
     subject: entity,
+    course_entity: entity.entity_kind === 'curriculum_course' ? entity : null,
     curriculum_line_id: line.id,
     issuer: record.issued_by || null,
     jurisdiction: record.country || '中国',
@@ -455,8 +485,14 @@ for (const record of catalog.documents) {
   const cell = {
     id: `coverage:${edition.id}`,
     entity_kind: entity.entity_kind,
-    subject_id: entity.entity_kind === 'subject' ? entity.stable_subject_id : null,
-    canonical_subject: entity.entity_kind === 'subject' ? entity.canonical : null,
+    subject_id: isFacetEntity(entity) ? entity.stable_subject_id : null,
+    canonical_subject: isFacetEntity(entity) ? entity.canonical : null,
+    course_entity: entity.entity_kind === 'curriculum_course' ? {
+      course_id: entity.stable_course_id,
+      canonical_course: entity.canonical,
+      course_family: entity.course_family,
+      related_subjects: entity.related_subjects,
+    } : null,
     scope_entity: {
       entity_kind: entity.entity_kind,
       canonical_label: entity.canonical,
@@ -676,6 +712,7 @@ for (const [documentId, queueRecord] of queueById) {
       id: workId,
       canonical_title: title,
       subject: entity,
+      course_entity: entity.entity_kind === 'curriculum_course' ? entity : null,
       curriculum_line_id: line.id,
       issuer: null,
       jurisdiction: parentRecord.country || '中国',
@@ -706,8 +743,14 @@ for (const [documentId, queueRecord] of queueById) {
     const coverageCell = {
       id: `coverage:${editionId}`,
       entity_kind: entity.entity_kind,
-      subject_id: entity.entity_kind === 'subject' ? entity.stable_subject_id : null,
-      canonical_subject: entity.entity_kind === 'subject' ? entity.canonical : null,
+      subject_id: isFacetEntity(entity) ? entity.stable_subject_id : null,
+      canonical_subject: isFacetEntity(entity) ? entity.canonical : null,
+      course_entity: entity.entity_kind === 'curriculum_course' ? {
+        course_id: entity.stable_course_id,
+        canonical_course: entity.canonical,
+        course_family: entity.course_family,
+        related_subjects: entity.related_subjects,
+      } : null,
       scope_entity: {
         entity_kind: entity.entity_kind,
         canonical_label: entity.canonical,
@@ -829,6 +872,7 @@ const episodes = [...observationGroups.values()].map((item) => {
     category: item.concept.category,
     subject: item.subject,
     scope_entity: item.scope_entity,
+    course_entity: item.scope_entity.entity_kind === 'curriculum_course' ? item.scope_entity : null,
     curriculum_line: item.line,
     work_id: item.work.id,
     edition_id: item.edition.id,
@@ -959,7 +1003,7 @@ for (const group of lineageGroups.values()) {
   }
 }
 
-const coObservedGroups = Map.groupBy(citationEpisodes.filter((episode) => episode.subject.entity_kind === 'subject'), (episode) => `${episode.concept_id}|${episode.time.year}`);
+const coObservedGroups = Map.groupBy(citationEpisodes.filter((episode) => episode.subject.facet_eligible === true), (episode) => `${episode.concept_id}|${episode.time.year}`);
 for (const group of coObservedGroups.values()) {
   const bySubject = Map.groupBy(group, (episode) => episode.subject.canonical);
   const representatives = [...bySubject.values()].filter((subjectGroup) => subjectGroup.length === 1)
@@ -1038,15 +1082,18 @@ const editorialAudit = [
     actor: 'data/concept-model-v2.json',
     performed_at: null,
     status: 'enforced',
-    assertion_boundary: 'Only controlled taxonomy entries with entity_kind=subject and facet_eligible=true may enter the subject facet; other controlled entities remain scope context.',
+    assertion_boundary: 'Only controlled subject or assessment-subject entries with facet_eligible=true may enter the subject facet; curriculum courses remain separately identified course entities.',
   },
 ];
 
 const academicGraph = {
   schema_version: 2,
   academic_schema_version: 2,
+  artifact_profile: 'curriculum-concept-evolution-academic-v2',
+  academic_schema: academicSchema,
   model_kind: model.model_name,
   build_revision: inputRevision,
+  input_fingerprints: inputFingerprints,
   assertion_boundary: '基于当前可用语料的词面概念观察图；不是完整课程史，不宣称概念义项连续、绝对首次、消失、取代、影响或因果演进。',
   coverage: {
     catalog_documents: catalog.documents.length,
@@ -1074,6 +1121,8 @@ const academicGraph = {
   subject_entity_audit: subjectEntityAudit,
   taxonomy_provenance: model.taxonomy_provenance,
   taxonomy_decision_rules: model.taxonomy_decision_rules,
+  course_families: model.course_families,
+  course_to_subject_links: model.course_to_subject_links,
   subject_facets: canonicalSubjects,
   concepts,
   concept_senses: conceptSenses,
@@ -1129,8 +1178,11 @@ const coreEdges = relations.map((relation) => ({
 const graph = {
   schema_version: 1,
   academic_schema_version: 2,
+  artifact_profile: 'curriculum-concept-evolution-core-v1',
+  academic_schema: academicSchema,
   model_kind: model.model_name,
   build_revision: inputRevision,
+  input_fingerprints: inputFingerprints,
   assertion_boundary: academicGraph.assertion_boundary,
   academic_model_ref: {
     path: `/data/${path.basename(academicOutputPath)}`,
@@ -1154,15 +1206,20 @@ const graph = {
   },
   coverage: academicGraph.coverage,
   subject_facets: canonicalSubjects,
+  course_families: model.course_families,
+  course_to_subject_links: model.course_to_subject_links,
   subject_taxonomy: subjectTaxonomy.map((item) => ({
     source_label: item.source_label,
     canonical: item.canonical,
     stable_subject_id: item.stable_subject_id,
+    stable_course_id: item.stable_course_id,
     entity_kind: item.entity_kind,
     classification: item.classification,
     facet_eligible: item.facet_eligible,
     official_code: item.official_code,
     family: item.family,
+    course_family: item.course_family,
+    related_subjects: item.related_subjects,
     course_variant: item.course_variant,
     lineage_family: item.lineage_family,
   })),
@@ -1179,9 +1236,10 @@ const checks = [
   { id: 'unique_evidence_ids', passed: new Set(evidence.map((item) => item.id)).size === evidence.length },
   { id: 'unique_occurrence_ids', passed: new Set(occurrences.map((item) => item.id)).size === occurrences.length },
   { id: 'subject_taxonomy_complete', passed: subjectTaxonomy.every((item) => item.entity_kind !== 'unclassified') },
-  { id: 'subject_facet_is_clean', passed: episodes.every((item) => item.subject.entity_kind === 'subject'
-    ? item.subject.facet_eligible === true && Boolean(item.subject.canonical) && canonicalSubjects.includes(item.subject.canonical)
-    : item.subject.facet_eligible === false && item.subject.canonical === null && Boolean(item.scope_entity?.canonical)) },
+  { id: 'subject_facet_is_clean', passed: episodes.every((item) => item.subject.facet_eligible === true
+    ? facetEntityKinds.has(item.subject.entity_kind) && Boolean(item.subject.canonical) && canonicalSubjects.includes(item.subject.canonical)
+    : item.subject.canonical === null && Boolean(item.scope_entity?.canonical)
+      && (item.scope_entity.entity_kind !== 'curriculum_course' || item.course_entity?.canonical === item.scope_entity.canonical)) },
   { id: 'core_payload_under_4mb', passed: Buffer.byteLength(corePayload) < 4 * 1024 * 1024 },
   { id: 'solid_has_citation_ready_evidence', passed: episodes.filter((item) => item.claim_policy.display_level === 'solid').every((item) => item.evidence_ids.some((id) => citationReadyEvidence.has(id))) },
   { id: 'non_solid_not_quotable', passed: episodes.filter((item) => item.claim_policy.display_level !== 'solid').every((item) => !item.claim_policy.quotation_allowed) },
@@ -1192,7 +1250,11 @@ const checks = [
 const quality = {
   schema_version: 1,
   academic_schema_version: 2,
+  artifact_profile: 'curriculum-concept-evolution-quality-v1',
+  academic_schema: academicSchema,
+  model_kind: model.model_name,
   build_revision: inputRevision,
+  input_fingerprints: inputFingerprints,
   passed: checks.every((item) => item.passed),
   checks,
   core_bytes: Buffer.byteLength(corePayload),

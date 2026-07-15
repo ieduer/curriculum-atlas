@@ -9,7 +9,7 @@
 ## 实体链
 
 ```text
-subject taxonomy ─┐
+subject/course taxonomy ─┐
 concept sense ────┼─> occurrence ─> evidence ─> episode ─> relation/review
 surface form ─────┤       │                        │
 curriculum line ──┤       └─ text reuse cluster   └─ coverage cell
@@ -27,7 +27,7 @@ work/edition ─────┘
 
 1. 教育部 JY/T 0644—2022《教育基础数据》表 8 是基础教育学科名称与已核 SB code 的权威锚点：<https://www.moe.gov.cn/srcsite/A16/s3342/202302/W020230214589106063444.pdf>。本次核对文件 SHA-256 为 `fa5fcd758e434353c1d9625968f125d9d1b2a69820a0e364ee48cd4e03d95aa5`。
 2. 教育部《三类特殊教育学校义务教育课程标准答问》确认特色课程标准的课程实体身份：<https://www.moe.gov.cn/jyb_xwfb/s271/201612/t20161213_291721.html>。这些项目作为 reviewed extension 保留，`official_code=null`，不得伪造 SB code。
-3. 教育部发布体系把课程方案与各门学科课程标准分列；因此“课程方案”是跨学科框架，不是学科。JY/T 表 8 含 `综合实践活动=SB0801`，但不含“课程方案、考试评价、考试大纲、综合、艺术与劳动”。来源标签 `综合` 不得被偷换为学科“综合实践活动”。
+3. 教育部发布体系把课程方案与各门学科课程标准分列；因此“课程方案”是跨学科框架，不是学科。JY/T 表 8 含 `综合实践活动=SB0801`，但本项目面向教师的筛选语义将它保留为 `curriculum_course`，不把它混入“全部学科”。JY/T 表 8 不含“课程方案、考试评价、考试大纲、综合、艺术与劳动”；来源标签 `综合` 也不得被偷换为“综合实践活动”。
 
 权威 URL、文件散列、核对范围、决定规则和代码映射均存入 `data/concept-model-v2.json`，并复制到构建产物的 `taxonomy_provenance`/`taxonomy_decision_rules`。
 
@@ -42,6 +42,9 @@ work/edition ─────┘
 | `考试评价` | `assessment_domain` | 评价政策/体系，不作为课程学科 |
 | `艺术与劳动` | `source_collection` | 音乐·美术·劳技历史汇编卷集合，不是单一学科 |
 | `综合` | 默认 `cross_cutting_framework` | 必须按文档标题 override；不允许一刀切映射为综合实践活动 |
+| `定向行走`、`综合康复`、`社会适应`、`沟通与交往`、`律动`、`康复训练`、`生活适应`、`劳动技能`、`运动与保健`、`艺术休闲`、`美工`、`绘画与手工`、`唱游与律动`、`生活语文`、`生活数学` | `curriculum_course` | 保留课程实体、课程族与关联学科，但 `facet_eligible=false` |
+| `技术` | `curriculum_course` | 保留历史课程名称及与通用技术、信息技术的关联，不作为当前学科 facet |
+| `综合实践活动` | `curriculum_course` | taxonomy-only 课程实体；保留 `SB0801` 锚点但不进入学科 facet |
 
 `综合` 来源值的文档级审核结果：
 
@@ -71,9 +74,9 @@ work/edition ─────┘
 | `生物`, `生物学` | 生物学 | 共享 `stable_subject_id=subject:biology`，保留历史 source label |
 | `信息技术`, `信息科技` | 各自名称 | 共享 `lineage_family=information_technology_education`；未完成改名连续性审核前使用不同 stable ID |
 
-汉语不并入语文；思想品德、思想政治、道德与法治、品德与生活、品德与社会等阶段名称也不在无双端证据时静默合并。
+汉语不并入语文；它以 `entity_kind=assessment_subject` 保留独立身份，但因目录中的全国考试大纲确实以汉语为评价对象，仍具有 `facet_eligible=true`。思想品德、思想政治、道德与法治、品德与生活、品德与社会等阶段名称也不在无双端证据时静默合并。
 
-特殊教育课程中的定向行走、综合康复、社会适应、沟通与交往、律动、生活语文、生活数学、生活适应、劳动技能、运动与保健和艺术休闲保留为 `special_education_curriculum_subject`。学校类型/子类另存在 curriculum line，不拿学科名称替代学校类型。
+特色课程全部使用 `entity_kind=curriculum_course`，通过 `course_families` 归入语言与沟通、数量与生活、艺术与律动、康复与适应、劳动技能等课程族；`course_to_subject_links` 只表达可审核的关联入口，不把课程等同或并入关联学科。episode 同时保留兼容字段 `scope_entity` 与显式 `course_entity`，因此课程不会冒充 scope 或 subject。学校类型/子类另存在 curriculum line，不拿课程名称替代学校类型。
 
 ## 频率、文本复用与覆盖度
 
@@ -94,4 +97,4 @@ node scripts/validate-concept-evolution.mjs
 node --test tests/concept-evolution-academic-schema.test.mjs
 ```
 
-校验器检查实体 ID/FK、盲校与聋校课程线隔离、2017/2020 版次修订、逐次词面偏移、未知字段不推断、关系双端证据、非语义关系禁止影响主张、OCR 禁止引文、coverage 负面结论关闭，以及非学科来源值不得进入 subject facet。
+校验器检查实体 ID/FK、29 个受控学科 facet、目录分类精确计数、课程族/关联学科、显式 `course_entity`、盲校与聋校课程线隔离、2017/2020 版次修订、逐次词面偏移、未知字段不推断、关系双端证据、非语义关系禁止影响主张、OCR 禁止引文、coverage 负面结论关闭，以及非学科来源值不得进入 subject facet。

@@ -70,7 +70,7 @@ Search snippets are discovery aids, never final evidence. A newer standard may c
 
 ### Numeric page thresholds
 
-Apple Vision is rerun on every page in the adjudication range from a fresh 300 DPI PNG. It receives no Paddle text, correction list or Paddle-derived dictionary. After NFKC and removal of layout markup, an automatic page pass requires all of the following:
+Apple Vision is rerun on every production page from a fresh 240 DPI PNG. A 300 DPI render is reserved for PP-Structure or human adjudication of disputed regions: the larger 8.41-megapixel page repeatedly destabilized Apple Vision, while the 240 DPI 5.38-megapixel page passed the bounded production canaries. Apple Vision receives no Paddle text, correction list or Paddle-derived dictionary. After NFKC and removal of layout markup, an automatic page pass requires all of the following:
 
 - normalized character agreement at least 99.5%;
 - Apple Vision mean line confidence at least 0.80;
@@ -146,17 +146,26 @@ Use the supervisor instead of invoking a long unbounded document job:
 
 ```bash
 npm run ocr:check
-npm run ocr:once -- --batch-pages 4
+npm run ocr:once -- --batch-pages 32
+npm run ocr:drain -- --batch-pages 64
 npm run ocr:recover
 ```
 
 `ocr:check` is machine-readable and exits with `0` healthy, `2` retry/backoff pending, `10` unresolved run/page/witness failure, `11` stalled lock, `12` checksum/disk/quarantine hard stop, or `75` an actively owned run. A healthy code means the OCR runtime is internally consistent; it does not mean every audited page is citation-ready.
 
-Apple Vision first receives the whole bounded batch. A failed page is then retried in a fresh Swift process after 2 seconds and 10 seconds, without rerendering or exposing Paddle text to the witness. Exhausted failures are recorded by `document + physical page + stage`; another page remains schedulable, and a single transient failure cannot quarantine the whole document. Five exhausted page-level attempts quarantine only that page-stage pair. `ocr:recover` runs one page as a bounded canary.
+`ocr:drain` is the production fast path. One drain owner serially starts bounded batches and, while the queue remains healthy, begins the next batch after one second instead of waiting for another automation handoff. A separate drain lock prevents two drain processes from alternating ownership in the per-batch lock gap. Every batch rechecks queue health, scheduler state and disk; below 50 GiB it stops before another batch, below 25 GiB remains a global hard stop, and a stale active owner stops with exit `11`. Queue completion is recorded only when health is `0`, scheduler state is `queue_complete`, failures/errors/missing/stale evidence are all zero, and primary OCR, valid Vision witnesses and audits have exact page-count parity.
+
+The production automation polls every minute but remains read-only while either a fresh per-batch owner or continuous drain is active. It becomes a recovery fallback only when the drain owner is absent or dead. The 32-page baseline was measured on 32 previously unprocessed geography pages: all 32 pages completed Apple Vision, PaddleOCR-VL, witness identity checks and page audits in 492.194 seconds, with no missing/stale evidence, page failure or quarantine. The 64-page ceiling changes only the scheduling window; it does not relax 240-dpi rendering, either OCR engine, source/image/result hashes, per-page audit, online-version boundaries or citation gates.
+
+The 64-page acceptance canary `2026-07-15T11-18-42-775Z-1a206bf2` processed `legacy-compendium-plans` physical pages 1–64 in 1,238.156 seconds. Primary OCR, valid Vision JSON/TXT witnesses and page audits were all 64/64; page failures, retries, quarantine, error sidecars, missing artifacts, hash mismatches and stale audits were all zero. Its gates remained fail-closed: 35 manual image reviews, 28 unresolved pages, one blank-page confirmation and zero automatic citation passes. The singleton drain acquired the next 64-page batch about 0.8 seconds after the canary completed.
+
+Apple Vision first receives the whole bounded batch. A failed page is then retried in a fresh Swift process after 2, 10 and 30 seconds, without rerendering or exposing Paddle text to the witness. Exhausted failures are recorded by `document + physical page + stage`; another page remains schedulable, and a single transient failure cannot quarantine the whole document. Five exhausted page-level attempts quarantine only that page-stage pair. `ocr:recover` runs one page as a bounded canary.
 
 Paddle's state is reread even when its process reports partial failure. Completed page artifacts are retained and audited; failed pages receive independent retry records. Audits run one physical page at a time, so a missing page cannot discard other successful pages. Signals do not count as OCR failures, task-owned children and llama-server are stopped, and the lock is released only by its recorded owner.
 
 Every Vision sidecar must match its filename, document id, physical page, source-PDF SHA-256 and rendered-image SHA-256. Old or mismatched sidecars are treated as missing evidence and regenerated. Candidate concept graphs are built in a run-specific directory, validated against a matching build revision, and only then atomically promoted to the local last-good candidate. At most two candidate run directories are retained. None of these steps changes the published graph or citation status.
+
+Missing or stale exact-page audits are a separate `audit_backfill` mode. It selects only completed pages whose primary `content.md` / `result.json` and Vision sidecar still pass their recorded identity and SHA checks, then reruns only the comparison ledger; rendering, Apple Vision and PaddleOCR are hard-disabled for that mode. If either input drifts between scheduling and execution, only that page receives an audit-stage retry and no old audit is accepted as current.
 
 Run the independent witness comparison for a bounded page range:
 

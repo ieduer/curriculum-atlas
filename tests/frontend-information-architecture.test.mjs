@@ -5,6 +5,8 @@ import test from 'node:test';
 const root = new URL('../', import.meta.url);
 const html = await readFile(new URL('public/index.html', root), 'utf8');
 const app = await readFile(new URL('public/app.js', root), 'utf8');
+const atlas = await readFile(new URL('public/atlas.js', root), 'utf8');
+const styles = await readFile(new URL('public/styles.css', root), 'utf8');
 
 test('the primary viewport is the curriculum cosmos rather than a marketing page', () => {
   assert.match(html, /class="cosmos-stage"/);
@@ -33,4 +35,20 @@ test('legacy pages are merged into two bottom workspaces', () => {
   assert.match(app, /path === '\/sources' \|\| path === '\/search'/);
   assert.match(app, /path === '\/ai'/);
   assert.match(app, /path === '\/discussions'/);
+});
+
+test('camera motion follows system preference and no redundant header controls remain', () => {
+  assert.doesNotMatch(html, /motion-toggle|reset-view|>静<|>◎</);
+  assert.doesNotMatch(app, /localStorage|motionToggle|resetView|curriculum:stable/);
+  assert.doesNotMatch(styles, /body\.stable/);
+  assert.match(atlas, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
+});
+
+test('the graph fits its data bounds inside responsive safe areas', () => {
+  assert.match(atlas, /fitToGraph\(\{ immediate = false \} = \{\}\)/);
+  assert.match(atlas, /safeViewport\(\)/);
+  assert.match(atlas, /const MIN_ZOOM = \.2/);
+  assert.match(atlas, /boxesOverlap\(box, candidate\)/);
+  assert.match(atlas, /visibilitychange/);
+  assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?\.search-orbit \{[^}]*right: 136px;[^}]*width: auto;/);
 });

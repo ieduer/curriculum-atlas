@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeEntityLabel, episodeSubjectFacet, subjectColor } from './atlas.js?v=20260715v6';
+import { CurriculumCosmos, episodeEntityLabel, episodeSubjectFacet, subjectColor } from './atlas.js?v=20260715v7';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -42,8 +42,6 @@ const workbenchTitle = document.querySelector('#workbench-title');
 const workbenchTabs = document.querySelector('#workbench-tabs');
 const workbenchBody = document.querySelector('#workbench-body');
 const scrim = document.querySelector('#scrim');
-const motionToggle = document.querySelector('#motion-toggle');
-const resetView = document.querySelector('#reset-view');
 const toastNode = document.querySelector('#toast');
 
 const state = {
@@ -93,7 +91,7 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const conceptGraph = await api('/data/concept-evolution.json?v=20260715v6');
+  const conceptGraph = await api('/data/concept-evolution.json?v=20260715v7');
   const [meta, documents, insights] = await Promise.all([
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
@@ -102,7 +100,11 @@ async function loadBase() {
   state.meta = meta;
   state.documents = documents.documents || [];
   state.insights = insights.insights || [];
-  if (conceptGraph.schema_version !== 1 || !Array.isArray(conceptGraph.episodes) || !Array.isArray(conceptGraph.evidence)) {
+  if (conceptGraph.schema_version !== 1
+    || !Array.isArray(conceptGraph.episodes)
+    || !Array.isArray(conceptGraph.evidence)
+    || !Array.isArray(conceptGraph.subject_facets)
+    || !Array.isArray(conceptGraph.subject_taxonomy)) {
     throw new Error('概念星图数据未通过结构校验');
   }
   state.conceptGraph = conceptGraph;
@@ -274,11 +276,24 @@ function subjectButton(subject, count, panel = false) {
   return `<button class="subject-button ${visible ? 'active' : ''}" type="button" data-subject="${escapeHtml(subject)}" aria-pressed="${visible}" style="--subject-color:${subjectColor(subject)}" title="${visible ? '隐藏' : '显示'}${escapeHtml(subject)}">${escapeHtml(subject)}${panel ? ` · ${count}` : ''}</button>`;
 }
 
+function controlledSubjectFacetCounts(conceptGraph) {
+  const eligibleSubjects = new Set((conceptGraph.subject_taxonomy || [])
+    .filter((item) => item?.facet_eligible === true && ['subject', 'assessment_subject'].includes(item.entity_kind))
+    .map((item) => typeof item.canonical === 'string' ? item.canonical.trim() : '')
+    .filter(Boolean));
+  const subjects = [...new Set((conceptGraph.subject_facets || [])
+    .map((subject) => typeof subject === 'string' ? subject.trim() : '')
+    .filter((subject) => subject && eligibleSubjects.has(subject)))];
+  const counts = new Map(subjects.map((subject) => [subject, 0]));
+  for (const episode of conceptGraph.episodes || []) {
+    const subject = episodeSubjectFacet(episode);
+    if (subject && counts.has(subject)) counts.set(subject, counts.get(subject) + 1);
+  }
+  return { subjects, counts };
+}
+
 function renderSubjectControls() {
-  const subjectEpisodes = state.conceptGraph.episodes.map((episode) => ({ episode, subject: episodeSubjectFacet(episode) })).filter((item) => item.subject);
-  const counts = new Map(subjectEpisodes.map((item) => [item.subject, 0]));
-  for (const { subject } of subjectEpisodes) counts.set(subject, (counts.get(subject) || 0) + 1);
-  const subjects = [...counts.keys()].sort((a, b) => (counts.get(b) - counts.get(a)) || a.localeCompare(b, 'zh-CN'));
+  const { subjects, counts } = controlledSubjectFacetCounts(state.conceptGraph);
   const core = CORE_SUBJECTS.filter((subject) => counts.has(subject)).slice(0, 12);
   subjectOrbit.innerHTML = `${core.map((subject) => subjectButton(subject, counts.get(subject))).join('')}<button class="subject-more" type="button" id="subject-more">全部学科 · ${subjects.length}</button>`;
   subjectPanel.innerHTML = `<header><div><small>点击星色控制显隐</small><h2>全部学科</h2></div><button type="button" id="subject-panel-close" aria-label="关闭">×</button></header><div class="inspector-actions"><button class="action-button" type="button" id="show-all-subjects">全部显示</button><button class="action-button" type="button" id="hide-all-subjects">全部隐藏</button></div><div class="subject-grid">${subjects.map((subject) => subjectButton(subject, counts.get(subject), true)).join('')}</div>`;
@@ -592,9 +607,6 @@ async function route() {
 }
 
 function initializeCosmos() {
-  const stable = localStorage.getItem('curriculum:stable') === '1' || matchMedia('(prefers-reduced-motion: reduce)').matches;
-  document.body.classList.toggle('stable', stable);
-  motionToggle.setAttribute('aria-pressed', String(stable));
   state.cosmos = new CurriculumCosmos(mount, {
     onSelect: (episode) => {
       showConceptInspector(episode);
@@ -602,7 +614,6 @@ function initializeCosmos() {
     },
     onHover: showTooltip,
   });
-  state.cosmos.setStable(stable);
   state.cosmos.setData(state.conceptGraph);
   renderSubjectControls();
   renderEraControls();
@@ -638,14 +649,6 @@ clearQuery.addEventListener('click', () => {
   clearQuery.hidden = true;
   updateMapStatus();
 });
-motionToggle.addEventListener('click', () => {
-  const stable = !document.body.classList.contains('stable');
-  document.body.classList.toggle('stable', stable);
-  motionToggle.setAttribute('aria-pressed', String(stable));
-  localStorage.setItem('curriculum:stable', stable ? '1' : '0');
-  state.cosmos?.setStable(stable);
-});
-resetView.addEventListener('click', () => state.cosmos?.reset());
 document.querySelector('#workbench-close').addEventListener('click', () => closeWorkbench());
 scrim.addEventListener('click', () => closeWorkbench());
 window.addEventListener('popstate', route);

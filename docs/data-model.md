@@ -28,7 +28,8 @@ D1 的规范结构由 `migrations/0001_initial.sql`、`0002_source_provenance_an
 
 | 实体 | 粒度 | 主要边界 |
 |---|---|---|
-| `subject_taxonomy`, `subject_entity_audit` | 来源标签、目录文件 | 原始 `subject` 不直接成为筛选项；只有 `entity_kind=subject` 且 `facet_eligible=true` 可生成 episode |
+| `subject_taxonomy`, `subject_entity_audit` | 来源标签、目录文件 | 原始 `subject` 不直接成为筛选项；只有受控 `subject`/`assessment_subject` 且 `facet_eligible=true` 可进入 29 个学科 facet；`curriculum_course` 另存课程实体 |
+| `course_families`, `course_to_subject_links`, `course_entity` | 课程族、课程与学科关联、episode 课程身份 | 关联不等于合并；课程保持 `facet_eligible=false`，兼容 `scope_entity` 时仍须有显式 `course_entity` |
 | `concept_senses` | 一个尚未分义的概念种子 | 编辑分义前每个 concept 仅有一个 `undifferentiated_unresolved` sense；学科/版本语境留在 occurrence/episode |
 | `surface_forms` | 一个可检索词形 | 正字/词汇变体可自动匹配；历史相关或语义相关形式默认关闭自动匹配 |
 | `curriculum_lines` | 学科、学段、学校类型/子类、文件类型、发布机构 | 盲校、聋校、培智与普通教育不得合并 |

@@ -5,12 +5,24 @@ import { episodeEntityLabel, episodeSubjectFacet } from '../public/atlas.js';
 
 const root = new URL('../', import.meta.url);
 
-test('star-map facet helper admits only explicit subject entities', () => {
+test('star-map facet helper admits controlled subject and assessment-subject entities only', () => {
   const subject = {
     subject: { entity_kind: 'subject', facet_eligible: true, canonical: '语文', source_label: '语文' },
   };
   assert.equal(episodeSubjectFacet(subject), '语文');
   assert.equal(episodeEntityLabel(subject), '语文');
+  const assessmentSubject = {
+    subject: { entity_kind: 'assessment_subject', facet_eligible: true, canonical: '汉语', source_label: '汉语' },
+  };
+  assert.equal(episodeSubjectFacet(assessmentSubject), '汉语');
+
+  const course = {
+    subject: { entity_kind: 'curriculum_course', facet_eligible: false, canonical: null },
+    course_entity: { entity_kind: 'curriculum_course', canonical: '定向行走' },
+    scope_entity: { entity_kind: 'curriculum_course', canonical: '定向行走' },
+  };
+  assert.equal(episodeSubjectFacet(course), null);
+  assert.equal(episodeEntityLabel(course), '定向行走');
 
   for (const episode of [
     { subject: { entity_kind: 'scope', facet_eligible: false, canonical: null }, scope_entity: { kind: 'curriculum_framework', label: '课程方案' } },
@@ -54,10 +66,11 @@ test('frontend subject controls consume strict facets and keep scopes visible', 
     readFile(new URL('public/atlas.js', root), 'utf8'),
     readFile(new URL('public/index.html', root), 'utf8'),
   ]);
-  assert.match(app, /map\(episodeSubjectFacet\)\.filter\(Boolean\)/);
+  assert.match(app, /controlledSubjectFacetCounts\(state\.conceptGraph\)/);
+  assert.match(app, /item\?\.facet_eligible === true && \['subject', 'assessment_subject'\]\.includes\(item\.entity_kind\)/);
   assert.match(app, /document\?\.entity_kind === 'subject'/);
   assert.match(atlas, /\(node\.subject && this\.filters\.hiddenSubjects\.has\(node\.subject\)\)/);
-  assert.match(atlas, /color: subject \? subjectColor\(subject\) : '#e7bd61'/);
+  assert.match(atlas, /color: subject \? subjectColor\(subject\) : course \? '#67d7b1' : '#e7bd61'/);
   assert.match(app, /location\.hostname !== 'curriculum\.bdfz\.net'/);
   assert.match(app, /https:\/\/my\.bdfz\.net\/site-auth\.js/);
   assert.match(app, /https:\/\/pulse\.bdfz\.net\/beacon\.js/);
@@ -65,9 +78,43 @@ test('frontend subject controls consume strict facets and keep scopes visible', 
   assert.doesNotMatch(index, /src="https:\/\/pulse\.bdfz\.net\/beacon\.js"/);
 
   const appEntryVersion = index.match(/\/app\.js\?v=([^"']+)/)?.[1];
+  const stylesheetVersion = index.match(/\/styles\.css\?v=([^"']+)/)?.[1];
   const atlasModuleVersion = app.match(/\.\/atlas\.js\?v=([^'";]+)/)?.[1];
   const graphVersion = app.match(/concept-evolution\.json\?v=([^'";]+)/)?.[1];
   assert.ok(appEntryVersion, 'index app cache version missing');
+  assert.equal(stylesheetVersion, appEntryVersion, 'stylesheet cache version drifted');
   assert.equal(atlasModuleVersion, appEntryVersion, 'atlas module cache version drifted');
   assert.equal(graphVersion, appEntryVersion, 'concept graph cache version drifted');
+});
+
+test('all 29 controlled graph facets remain stable controls even without episodes', async () => {
+  const [app, graphSource] = await Promise.all([
+    readFile(new URL('public/app.js', root), 'utf8'),
+    readFile(new URL('public/data/concept-evolution.json', root), 'utf8'),
+  ]);
+  const graph = JSON.parse(graphSource);
+  const helperStart = app.indexOf('function controlledSubjectFacetCounts(');
+  const helperEnd = app.indexOf('\n}\n\nfunction renderSubjectControls', helperStart) + 2;
+  assert.ok(helperStart >= 0 && helperEnd > helperStart, 'controlled subject helper missing');
+  const controlledSubjectFacetCounts = Function(
+    'episodeSubjectFacet',
+    `"use strict"; ${app.slice(helperStart, helperEnd)}; return controlledSubjectFacetCounts;`,
+  )(episodeSubjectFacet);
+
+  const { subjects, counts } = controlledSubjectFacetCounts(graph);
+  assert.equal(subjects.length, 29);
+  assert.deepEqual(subjects, graph.subject_facets, 'graph-defined facet order must remain stable');
+  const zeroEpisodeSubjects = subjects.filter((subject) => counts.get(subject) === 0);
+  assert.deepEqual(zeroEpisodeSubjects, ['道德与法治', '汉语', '科学', '劳动', '历史与社会', '品德与生活', '信息科技']);
+
+  const contaminatedGraph = structuredClone(graph);
+  contaminatedGraph.subject_facets.push('定向行走', '美工', '课程方案', '考试评价');
+  assert.deepEqual(controlledSubjectFacetCounts(contaminatedGraph).subjects, subjects, 'course and scope labels must remain outside subject controls');
+
+  const hiddenSubjects = new Set();
+  hiddenSubjects.add(zeroEpisodeSubjects[0]);
+  assert.equal(hiddenSubjects.has(zeroEpisodeSubjects[0]), true);
+  hiddenSubjects.delete(zeroEpisodeSubjects[0]);
+  assert.equal(hiddenSubjects.has(zeroEpisodeSubjects[0]), false);
+  assert.deepEqual(controlledSubjectFacetCounts(graph).subjects, subjects, 'zero-episode toggles must not reorder controls');
 });
