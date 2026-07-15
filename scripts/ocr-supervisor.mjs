@@ -17,6 +17,8 @@ const currentRunPath = path.join(supervisorRoot, 'current-run.json');
 const cursorPath = path.join(supervisorRoot, 'cursor.json');
 const retriesPath = path.join(supervisorRoot, 'retries.json');
 const historyPath = path.join(supervisorRoot, 'history.jsonl');
+const candidateGraphPath = path.join(supervisorRoot, 'concept-candidate.json');
+const candidateQualityPath = path.join(supervisorRoot, 'concept-candidate-quality.json');
 const llamaBinary = path.join(root, '.cache/tools/llama.cpp/build/bin/llama-server');
 const llamaRepository = path.join(root, '.cache/tools/llama.cpp');
 const modelPath = path.join(root, '.cache/ocr-runtime/PaddleOCR-VL-1.6-GGUF.gguf');
@@ -45,6 +47,11 @@ async function exists(value) {
 
 async function readJson(value, fallback = null) {
   try { return JSON.parse(await readFile(value, 'utf8')); } catch { return fallback; }
+}
+
+async function readConceptGraph() {
+  return await readJson(candidateGraphPath, null)
+    || await readJson(path.join(root, 'public/data/concept-evolution.json'), {});
 }
 
 async function validWitnessSidecar(value) {
@@ -214,7 +221,7 @@ async function collectStatus(write = true) {
     }
   }
   const [audit, review, disk, graph, next, owner, current] = await Promise.all([
-    collectAuditMetrics(), collectReviewMetrics(), statfs(root), readJson(path.join(root, 'public/data/concept-evolution.json'), {}), nextBatch(),
+    collectAuditMetrics(), collectReviewMetrics(), statfs(root), readConceptGraph(), nextBatch(),
     readJson(path.join(lockDir, 'owner.json'), null), readJson(currentRunPath, null),
   ]);
   const freeGiB = Number(disk.bavail * disk.bsize) / 1024 ** 3;
@@ -418,8 +425,12 @@ async function once() {
       await runLogged('node', [path.join(root, 'scripts/audit-ocr-witnesses.mjs'), path.join(productionRoot, document.id, 'pages'), witness.visionDir, auditPath, String(start), String(end)], path.join(logDir, 'audit.log'), run, 'witness_audit');
       await copyFile(auditPath, path.join(productionRoot, document.id, auditName));
     }
-    await runLogged('node', [path.join(root, 'scripts/build-concept-evolution.mjs')], path.join(logDir, 'concept-build.log'), run, 'concept_graph_build');
-    await runLogged('node', [path.join(root, 'scripts/validate-concept-evolution.mjs')], path.join(logDir, 'concept-validate.log'), run, 'concept_graph_validate');
+    const conceptCandidateEnv = {
+      CONCEPT_GRAPH_OUTPUT_PATH: candidateGraphPath,
+      CONCEPT_QUALITY_OUTPUT_PATH: candidateQualityPath,
+    };
+    await runLogged('node', [path.join(root, 'scripts/build-concept-evolution.mjs')], path.join(logDir, 'concept-build.log'), run, 'concept_graph_build', conceptCandidateEnv);
+    await runLogged('node', [path.join(root, 'scripts/validate-concept-evolution.mjs')], path.join(logDir, 'concept-validate.log'), run, 'concept_graph_validate', conceptCandidateEnv);
     if (mode === 'new_ocr') await atomicJson(cursorPath, { last_document_id: document.id, completed_at: nowIso(), pages });
     await clearFailure(document.id);
     run.status = 'completed';

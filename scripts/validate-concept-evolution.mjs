@@ -1,8 +1,16 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 
-const graph = JSON.parse(await readFile(new URL('../public/data/concept-evolution.json', import.meta.url), 'utf8'));
-const quality = JSON.parse(await readFile(new URL('../data/concept-evolution-quality.json', import.meta.url), 'utf8'));
+const root = path.resolve(new URL('../', import.meta.url).pathname);
+const graphPath = process.env.CONCEPT_GRAPH_OUTPUT_PATH
+  ? path.resolve(root, process.env.CONCEPT_GRAPH_OUTPUT_PATH)
+  : path.join(root, 'public/data/concept-evolution.json');
+const qualityPath = process.env.CONCEPT_QUALITY_OUTPUT_PATH
+  ? path.resolve(root, process.env.CONCEPT_QUALITY_OUTPUT_PATH)
+  : path.join(root, 'data/concept-evolution-quality.json');
+const graph = JSON.parse(await readFile(graphPath, 'utf8'));
+const quality = JSON.parse(await readFile(qualityPath, 'utf8'));
 const episodes = new Map(graph.episodes.map((item) => [item.id, item]));
 const evidence = new Map(graph.evidence.map((item) => [item.id, item]));
 const failures = [];

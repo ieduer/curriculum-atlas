@@ -6,8 +6,12 @@ import path from 'node:path';
 const root = path.resolve(new URL('../', import.meta.url).pathname);
 const textRoot = path.join(root, '.cache/text');
 const ocrRoot = path.join(root, '.cache/ocr-production');
-const outputPath = path.join(root, 'public/data/concept-evolution.json');
-const qualityPath = path.join(root, 'data/concept-evolution-quality.json');
+const outputPath = process.env.CONCEPT_GRAPH_OUTPUT_PATH
+  ? path.resolve(root, process.env.CONCEPT_GRAPH_OUTPUT_PATH)
+  : path.join(root, 'public/data/concept-evolution.json');
+const qualityPath = process.env.CONCEPT_QUALITY_OUTPUT_PATH
+  ? path.resolve(root, process.env.CONCEPT_QUALITY_OUTPUT_PATH)
+  : path.join(root, 'data/concept-evolution-quality.json');
 
 const readJson = async (relative) => JSON.parse(await readFile(path.join(root, relative), 'utf8'));
 const [catalog, lexicon, queue] = await Promise.all([

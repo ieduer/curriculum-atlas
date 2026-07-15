@@ -44,7 +44,7 @@ Worker、D1、R2 和五个公共注册表面的回滚方法见 `docs/deployment.
 
 最近一次验证为 2026-07-15：生产 Worker `2c576476-b5fa-4789-a18e-7510b3fa3744`，立即回滚锚点 `7709c041-c541-4baa-babb-3c7f29b18a30`；`/api/health` 返回 `2026.07.15-v4`、schema 3 与五项绑定全真。D1/R2 未变更，发布前 D1 Time Travel bookmark 为 `0000001d-00000000-000050a9-681d1945fdef8d2ab5746e1ef6faef7f`。正式图数据为 399 个概念观察点、427 条仅表示相邻观察/共同观察的关系、1,054 条证据，其中 396 个节点达到段落引文门槛、3 个历史节点只能显示人工复核警示。桌面与 390×844 浏览器验收、概念搜索、年代截断、学科显隐、谱系/跨学科切换、候选证据禁链、15 项测试和预览/生产控制台零错误均通过。
 
-OCR 长任务由 `scripts/ocr-supervisor.mjs` 监管；`npm run ocr:status` 查看锁、心跳、磁盘、见证、审计、复核和概念图覆盖。Codex automation `Curriculum OCR quality supervisor` 每 30 分钟最多处理一个 4 页批次，低于 50 GiB 告警、低于 25 GiB 停止；未知进程不清理，失败页不放行，OCR 完成后只原子重建并验证本地概念图，禁止自动部署、导入 D1、写 R2、提交或推送。
+OCR 长任务由 `scripts/ocr-supervisor.mjs` 监管；`npm run ocr:status` 查看锁、心跳、磁盘、见证、审计、复核和概念图覆盖。Codex automation `Curriculum OCR quality supervisor` 每 30 分钟最多处理一个 4 页批次，低于 50 GiB 告警、低于 25 GiB 停止；未知进程不清理，失败页不放行。OCR 完成后只在 `.cache/ocr-supervisor/` 原子重建并验证候选概念图，保持已发布图和 Git 工作树不变；禁止自动部署、导入 D1、写 R2、提交或推送。只有人工证据复核和正式 `npm run concepts:build` 才能更新可发布图。
 
 ## 日常检查
 
