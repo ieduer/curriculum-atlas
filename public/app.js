@@ -1,4 +1,26 @@
-import { CurriculumCosmos, episodeEntityLabel, episodeSubjectFacet, subjectColor } from './atlas.js?v=20260715v5';
+import { CurriculumCosmos, episodeEntityLabel, episodeSubjectFacet, subjectColor } from './atlas.js?v=20260715v6';
+
+function loadProductionIntegrations() {
+  if (location.hostname !== 'curriculum.bdfz.net') return;
+  for (const integration of [
+    {
+      src: 'https://my.bdfz.net/site-auth.js',
+      data: { siteKey: 'curriculum', mobileInsetBottom: '130' },
+    },
+    {
+      src: 'https://pulse.bdfz.net/beacon.js',
+      data: { site: 'curriculum.bdfz.net' },
+    },
+  ]) {
+    const script = document.createElement('script');
+    script.src = integration.src;
+    script.async = true;
+    Object.assign(script.dataset, integration.data);
+    document.head.append(script);
+  }
+}
+
+loadProductionIntegrations();
 
 const loading = document.querySelector('#cosmos-loading');
 const mount = document.querySelector('#cosmos-mount');
@@ -71,7 +93,7 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const conceptGraph = await api('/data/concept-evolution.json?v=20260715v5');
+  const conceptGraph = await api('/data/concept-evolution.json?v=20260715v6');
   const [meta, documents, insights] = await Promise.all([
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),

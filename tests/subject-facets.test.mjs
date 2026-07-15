@@ -58,6 +58,11 @@ test('frontend subject controls consume strict facets and keep scopes visible', 
   assert.match(app, /document\?\.entity_kind === 'subject'/);
   assert.match(atlas, /\(node\.subject && this\.filters\.hiddenSubjects\.has\(node\.subject\)\)/);
   assert.match(atlas, /color: subject \? subjectColor\(subject\) : '#e7bd61'/);
+  assert.match(app, /location\.hostname !== 'curriculum\.bdfz\.net'/);
+  assert.match(app, /https:\/\/my\.bdfz\.net\/site-auth\.js/);
+  assert.match(app, /https:\/\/pulse\.bdfz\.net\/beacon\.js/);
+  assert.doesNotMatch(index, /src="https:\/\/my\.bdfz\.net\/site-auth\.js"/);
+  assert.doesNotMatch(index, /src="https:\/\/pulse\.bdfz\.net\/beacon\.js"/);
 
   const appEntryVersion = index.match(/\/app\.js\?v=([^"']+)/)?.[1];
   const atlasModuleVersion = app.match(/\.\/atlas\.js\?v=([^'";]+)/)?.[1];
