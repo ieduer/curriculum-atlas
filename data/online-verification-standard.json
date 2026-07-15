@@ -46,5 +46,26 @@
       "marking a whole document verified because a sample page passed",
       "discarding a minority OCR reading before visual review"
     ]
+  },
+  "ocr_witness_thresholds": {
+    "independence": "Apple Vision receives only a freshly rendered scan image and never receives primary OCR text, corrections, or dictionaries derived from the primary result.",
+    "automatic_page_pass": {
+      "normalized_character_agreement_min": 0.995,
+      "vision_average_confidence_min": 0.8,
+      "title_and_version_exact": true,
+      "names_dates_numerals_exact": true,
+      "table_cell_order_exact_when_applicable": true
+    },
+    "manual_image_review": {
+      "normalized_character_agreement_min": 0.985,
+      "requirements": [
+        "inspect every engine conflict against the rendered scan",
+        "record the accepted reading and rejected alternatives",
+        "reconstruct tables cell by cell rather than accepting flattened reading order",
+        "keep citation_allowed false when exact-edition online corroboration is unavailable"
+      ]
+    },
+    "document_release": "A sampled page never promotes a document. Every published page needs its own gate; any unresolved page remains unavailable to citation-locked AI.",
+    "blank_pages": "Both OCR engines returning empty is not enough. A human must confirm the rendered page is blank or a divider."
   }
 }

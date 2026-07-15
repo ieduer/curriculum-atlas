@@ -1,165 +1,550 @@
-const palette = ['#78d8ff', '#e7b75f', '#bb8cff', '#7de1b5', '#f18a82'];
+const TAU = Math.PI * 2;
+const CORE_COLORS = {
+  '语文': '#ff7878', '数学': '#63d9ff', '英语': '#ad8cff', '物理': '#6ae7cf',
+  '化学': '#ffd166', '生物学': '#75e38f', '生物': '#75e38f', '历史': '#ef9f62',
+  '地理': '#68b7ff', '道德与法治': '#ee7fb4', '思想政治': '#ee7fb4',
+  '科学': '#70e0bc', '信息科技': '#73c8ff', '信息技术': '#73c8ff',
+  '艺术': '#e69cff', '音乐': '#d59aff', '美术': '#ff9cb3', '体育与健康': '#90df83',
+  '劳动': '#e5b66f', '综合实践活动': '#a9c876', '课程方案': '#f2c86a',
+  '考试评价': '#f4d17a', '考试大纲': '#f4d17a', '综合': '#e8d6a2',
+};
 
-function subjectBand(subject) {
-  let hash = 0;
-  for (const char of subject || '') hash = (hash * 31 + char.codePointAt(0)) >>> 0;
-  return hash % 11;
+const FALLBACK_COLORS = ['#79d6ff', '#d990ff', '#78e0b0', '#ff9a80', '#e9c768', '#98a8ff', '#7ae4e5'];
+const ERA_GATES = [
+  { year: 1950, label: '国家课程起点' },
+  { year: 1978, label: '恢复与重建' },
+  { year: 2001, label: '课程标准转型' },
+  { year: 2017, label: '核心素养' },
+  { year: 2022, label: '素养导向重构' },
+];
+const CROSS_COHORTS = [2001, 2011, 2017, 2020, 2022];
+
+function hash(value) {
+  let result = 2166136261;
+  for (const char of String(value || '')) {
+    result ^= char.codePointAt(0);
+    result = Math.imul(result, 16777619);
+  }
+  return result >>> 0;
 }
 
-export function mountAtlas(canvas, documents, onSelect) {
-  if (!canvas) return () => {};
-  const context = canvas.getContext('2d');
-  const tip = canvas.parentElement.querySelector('.atlas-tip');
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || document.body.classList.contains('stable');
-  let width = 0;
-  let height = 0;
-  let dpr = 1;
-  let panX = 0;
-  let panY = 0;
-  let zoom = 1;
-  let dragging = false;
-  let pointer = null;
-  let hover = null;
-  let frame = 0;
-  let raf = 0;
-  const docs = documents.filter((doc) => doc.sort_year).map((doc, index) => ({
-    ...doc,
-    year: doc.sort_year,
-    band: subjectBand(doc.subject),
-    color: palette[subjectBand(doc.subject) % palette.length],
-    phase: (index * 2.399) % (Math.PI * 2),
-  }));
+function randomFrom(seed) {
+  let value = seed || 1;
+  return () => {
+    value = Math.imul(value ^ (value >>> 15), 1 | value);
+    value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
-  function resize() {
-    const rect = canvas.getBoundingClientRect();
-    dpr = Math.min(2, devicePixelRatio || 1);
-    width = rect.width;
-    height = rect.height;
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    draw();
+export function subjectColor(subject) {
+  return CORE_COLORS[subject] || FALLBACK_COLORS[hash(subject) % FALLBACK_COLORS.length];
+}
+
+function rgba(hex, alpha) {
+  const value = hex.replace('#', '');
+  const number = Number.parseInt(value.length === 3 ? value.split('').map((part) => part + part).join('') : value, 16);
+  return `rgba(${(number >> 16) & 255},${(number >> 8) & 255},${number & 255},${alpha})`;
+}
+
+function isEvaluation(doc) {
+  return /考试|评价|高考|命题/.test(`${doc.subject || ''}${doc.document_type || ''}${doc.title || ''}`);
+}
+
+function isUnverified(doc) {
+  return Number(doc.citation_allowed) !== 1;
+}
+
+function stageKey(stage) {
+  const value = String(stage || '未分学段');
+  if (/小学/.test(value)) return '小学';
+  if (/初中|义务教育/.test(value)) return '义务教育';
+  if (/高中/.test(value)) return '高中';
+  return value;
+}
+
+function yearX(year) {
+  // Equal visual breathing room is assigned to reform eras so the dense
+  // post-2001 corpus does not collapse into the right edge of the universe.
+  const anchors = [[1902, -820], [1950, -650], [1978, -390], [2001, -110], [2011, 160], [2017, 410], [2022, 680]];
+  const value = Number(year);
+  if (value <= anchors[0][0]) return anchors[0][1];
+  if (value >= anchors.at(-1)[0]) return anchors.at(-1)[1];
+  for (let index = 1; index < anchors.length; index += 1) {
+    const [rightYear, rightX] = anchors[index];
+    const [leftYear, leftX] = anchors[index - 1];
+    if (value <= rightYear) return leftX + ((value - leftYear) / (rightYear - leftYear)) * (rightX - leftX);
+  }
+  return 0;
+}
+
+function nearestCohort(year) {
+  return CROSS_COHORTS.find((cohort) => Math.abs(cohort - year) <= (cohort === 2020 ? 1 : 0)) || null;
+}
+
+function makeMilkyWay(width, height) {
+  const layer = document.createElement('canvas');
+  const ratio = Math.min(2, window.devicePixelRatio || 1);
+  layer.width = Math.max(1, Math.round(width * ratio));
+  layer.height = Math.max(1, Math.round(height * ratio));
+  const context = layer.getContext('2d');
+  context.scale(ratio, ratio);
+  const random = randomFrom(90210 + Math.round(width) * 7 + Math.round(height));
+  context.clearRect(0, 0, width, height);
+
+  const haze = context.createLinearGradient(0, height * .84, width, height * .14);
+  haze.addColorStop(0, 'rgba(34,61,126,0)');
+  haze.addColorStop(.32, 'rgba(50,78,145,.08)');
+  haze.addColorStop(.55, 'rgba(157,122,186,.09)');
+  haze.addColorStop(.72, 'rgba(59,117,158,.07)');
+  haze.addColorStop(1, 'rgba(15,35,85,0)');
+  context.save();
+  context.translate(width / 2, height / 2);
+  context.rotate(-.34);
+  context.fillStyle = haze;
+  context.filter = 'blur(28px)';
+  context.fillRect(-width * .7, -height * .18, width * 1.4, height * .36);
+  context.restore();
+  context.filter = 'none';
+
+  const nebulae = [
+    [.24, .62, '#39286b', .20], [.67, .34, '#204e72', .18], [.79, .67, '#603456', .12], [.48, .45, '#415f9c', .13],
+  ];
+  for (const [x, y, color, opacity] of nebulae) {
+    const radius = Math.max(width, height) * (.18 + random() * .13);
+    const gradient = context.createRadialGradient(width * x, height * y, 0, width * x, height * y, radius);
+    gradient.addColorStop(0, rgba(color, opacity));
+    gradient.addColorStop(.38, rgba(color, opacity * .45));
+    gradient.addColorStop(1, rgba(color, 0));
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, width, height);
   }
 
-  function position(doc) {
-    const x = ((doc.year - 1945) / (2030 - 1945)) * width * .82 + width * .09;
-    const y = height * .18 + (doc.band / 10) * height * .7 + Math.sin(doc.phase) * 18;
-    return { x: (x - width / 2) * zoom + width / 2 + panX, y: (y - height / 2) * zoom + height / 2 + panY };
+  for (let index = 0; index < Math.min(1100, Math.round(width * height / 900)); index += 1) {
+    const x = random() * width;
+    const y = random() * height;
+    const size = random() > .986 ? 1.8 : random() * 1.05 + .2;
+    const alpha = .13 + random() * .58;
+    context.fillStyle = random() > .82 ? `rgba(157,205,255,${alpha})` : `rgba(255,250,230,${alpha})`;
+    context.fillRect(x, y, size, size);
+  }
+  return layer;
+}
+
+export class CurriculumCosmos {
+  constructor(mount, callbacks = {}) {
+    this.mount = mount;
+    this.callbacks = callbacks;
+    this.canvas = document.createElement('canvas');
+    this.canvas.setAttribute('aria-label', '历代课程标准星图，可拖动旋转、滚轮缩放并点击星体');
+    this.mount.replaceChildren(this.canvas);
+    this.context = this.canvas.getContext('2d');
+    this.abort = new AbortController();
+    this.documents = [];
+    this.nodes = [];
+    this.termNodes = [];
+    this.lineageEdges = [];
+    this.crossEdges = [];
+    this.termEdges = [];
+    this.screenNodes = [];
+    this.subjects = [];
+    this.filters = { hiddenSubjects: new Set(), maxYear: 2022, query: '' };
+    this.mode = 'lineage';
+    this.selectedId = null;
+    this.hovered = null;
+    this.width = 0;
+    this.height = 0;
+    this.dpr = 1;
+    this.frame = 0;
+    this.raf = 0;
+    this.stable = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.camera = { yaw: -.12, pitch: -.11, zoom: 1, panX: 0, panY: 8 };
+    this.target = { ...this.camera };
+    this.pointer = null;
+    this.pointers = new Map();
+    this.lastPinch = null;
+    this.meteor = { t: -1, x: 0, y: 0, length: 0 };
+    this.background = null;
+    this.bind();
+    this.resize();
+    this.loop();
   }
 
-  function draw() {
-    context.clearRect(0, 0, width, height);
-    const time = reduced ? 0 : frame * .008;
-    context.save();
-    for (let i = 0; i < 90; i += 1) {
-      const x = ((i * 83.17) % width + Math.sin(time + i) * 3 + width) % width;
-      const y = (i * 47.63) % height;
-      const alpha = .12 + (i % 7) * .025;
-      context.fillStyle = `rgba(255,255,255,${alpha})`;
-      context.fillRect(x, y, i % 9 === 0 ? 1.8 : 1, i % 9 === 0 ? 1.8 : 1);
-    }
-    const groups = new Map();
-    docs.forEach((doc) => {
-      if (!groups.has(doc.subject)) groups.set(doc.subject, []);
-      groups.get(doc.subject).push(doc);
+  setData(documents, terms = [], relations = []) {
+    this.documents = documents.filter((doc) => Number(doc.sort_year) >= 1900);
+    this.subjects = [...new Set(this.documents.map((doc) => doc.subject || '未分类'))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    const subjectIndex = new Map(this.subjects.map((subject, index) => [subject, index]));
+    this.nodes = this.documents.map((doc, index) => {
+      const slot = subjectIndex.get(doc.subject || '未分类') || 0;
+      const angle = (slot / Math.max(1, this.subjects.length)) * TAU + .58;
+      const jitter = randomFrom(hash(doc.id));
+      const radius = 270 + (slot % 5) * 13 + (jitter() - .5) * 42;
+      return {
+        kind: 'document', doc, id: doc.id, subject: doc.subject || '未分类', year: Number(doc.sort_year),
+        color: isEvaluation(doc) ? '#f2cb6c' : subjectColor(doc.subject),
+        x: yearX(Math.max(1902, Math.min(2022, Number(doc.sort_year)))),
+        y: Math.sin(angle) * radius + (jitter() - .5) * 52,
+        z: Math.cos(angle) * radius * .78 + (jitter() - .5) * 40,
+        phase: jitter() * TAU,
+        evaluation: isEvaluation(doc), unverified: isUnverified(doc),
+      };
     });
-    context.lineWidth = 1;
-    for (const group of groups.values()) {
-      group.sort((a, b) => a.year - b.year);
-      context.beginPath();
-      group.forEach((doc, index) => {
-        const p = position(doc);
-        if (index === 0) context.moveTo(p.x, p.y);
-        else context.lineTo(p.x, p.y);
-      });
-      context.strokeStyle = 'rgba(120,216,255,.12)';
-      context.stroke();
+    this.termNodes = terms.map((term, index) => {
+      const year = Math.max(1950, Math.min(2022, Number(term.first_seen_year) || 2001));
+      const angle = (index / Math.max(1, terms.length)) * TAU + .2;
+      return {
+        kind: 'term', term, id: `term:${term.id}`, year, color: '#f3dfaa',
+        x: yearX(year), y: Math.sin(angle) * 420, z: Math.cos(angle) * 350,
+        phase: index * 1.7,
+      };
+    });
+    this.buildEdges(relations);
+    this.draw();
+  }
+
+  buildEdges(relations) {
+    const groups = new Map();
+    for (const node of this.nodes) {
+      const key = `${node.subject}|${stageKey(node.doc.stage)}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(node);
     }
-    for (const doc of docs) {
-      const p = position(doc);
-      const current = hover?.id === doc.id;
-      const radius = (doc.document_type === '课程方案' ? 5 : 3.2) * Math.min(1.5, zoom) + (current ? 3 : 0);
+    this.lineageEdges = [];
+    for (const group of groups.values()) {
+      group.sort((a, b) => a.year - b.year || a.doc.title.localeCompare(b.doc.title, 'zh-CN'));
+      for (let index = 1; index < group.length; index += 1) {
+        if (group[index].year - group[index - 1].year <= 35) this.lineageEdges.push([group[index - 1], group[index]]);
+      }
+    }
+    this.crossEdges = [];
+    for (const cohort of CROSS_COHORTS) {
+      const cohortNodes = this.nodes
+        .filter((node) => nearestCohort(node.year) === cohort)
+        .sort((a, b) => a.subject.localeCompare(b.subject, 'zh-CN'));
+      const representatives = [];
+      for (const node of cohortNodes) if (!representatives.some((item) => item.subject === node.subject)) representatives.push(node);
+      for (let index = 1; index < Math.min(18, representatives.length); index += 1) {
+        this.crossEdges.push([representatives[index - 1], representatives[index], cohort]);
+      }
+      if (representatives.length > 2) this.crossEdges.push([representatives[0], representatives[Math.min(17, representatives.length - 1)], cohort]);
+    }
+    const termsById = new Map(this.termNodes.map((node) => [String(node.term.id), node]));
+    this.termEdges = relations.map((relation) => [
+      termsById.get(String(relation.source_term_id)),
+      termsById.get(String(relation.target_term_id)),
+      Number(relation.weight) || 1,
+    ]).filter(([source, target]) => source && target);
+  }
+
+  setFilters(next) {
+    this.filters = {
+      hiddenSubjects: next.hiddenSubjects || this.filters.hiddenSubjects,
+      maxYear: Number(next.maxYear ?? this.filters.maxYear),
+      query: String(next.query ?? this.filters.query).trim().toLocaleLowerCase('zh-CN'),
+    };
+    this.draw();
+  }
+
+  setMode(mode) {
+    this.mode = mode === 'cross' ? 'cross' : 'lineage';
+    this.draw();
+  }
+
+  setSelected(id) {
+    this.selectedId = id || null;
+    this.draw();
+  }
+
+  setStable(stable) {
+    this.stable = Boolean(stable);
+    if (!this.raf) this.loop();
+    this.draw();
+  }
+
+  reset() {
+    Object.assign(this.target, { yaw: -.12, pitch: -.11, zoom: 1, panX: 0, panY: 8 });
+    this.draw();
+  }
+
+  visible(node) {
+    if (node.kind === 'term') return this.mode === 'cross' && node.year <= this.filters.maxYear;
+    if (node.year > this.filters.maxYear || this.filters.hiddenSubjects.has(node.subject)) return false;
+    if (!this.filters.query) return true;
+    return `${node.doc.title} ${node.doc.subject} ${node.doc.stage} ${node.doc.version_label} ${node.doc.issued_by}`
+      .toLocaleLowerCase('zh-CN').includes(this.filters.query);
+  }
+
+  project(node) {
+    const cosY = Math.cos(this.camera.yaw);
+    const sinY = Math.sin(this.camera.yaw);
+    const x1 = node.x * cosY - node.z * sinY;
+    const z1 = node.x * sinY + node.z * cosY;
+    const cosX = Math.cos(this.camera.pitch);
+    const sinX = Math.sin(this.camera.pitch);
+    const y1 = node.y * cosX - z1 * sinX;
+    const z2 = node.y * sinX + z1 * cosX;
+    const perspective = 930 / Math.max(360, 930 + z2);
+    const scale = this.camera.zoom * perspective;
+    return {
+      x: this.width / 2 + x1 * scale + this.camera.panX,
+      y: this.height / 2 + y1 * scale + this.camera.panY,
+      z: z2, scale,
+    };
+  }
+
+  resize() {
+    const rect = this.canvas.getBoundingClientRect();
+    this.width = Math.max(1, rect.width);
+    this.height = Math.max(1, rect.height);
+    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.canvas.width = Math.round(this.width * this.dpr);
+    this.canvas.height = Math.round(this.height * this.dpr);
+    this.context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.background = makeMilkyWay(this.width, this.height);
+    this.draw();
+  }
+
+  drawBackground(time) {
+    const context = this.context;
+    context.fillStyle = '#03050e';
+    context.fillRect(0, 0, this.width, this.height);
+    if (this.background) context.drawImage(this.background, 0, 0, this.width, this.height);
+    const vignette = context.createRadialGradient(this.width * .5, this.height * .48, 0, this.width * .5, this.height * .48, Math.max(this.width, this.height) * .69);
+    vignette.addColorStop(.2, 'rgba(5,10,24,0)');
+    vignette.addColorStop(1, 'rgba(0,1,7,.72)');
+    context.fillStyle = vignette;
+    context.fillRect(0, 0, this.width, this.height);
+
+    if (!this.stable && Math.sin(time * .00019) > .997 && this.meteor.t < 0) {
+      this.meteor = { t: 0, x: this.width * (.45 + Math.random() * .4), y: this.height * (.08 + Math.random() * .25), length: 90 + Math.random() * 90 };
+    }
+    if (this.meteor.t >= 0) {
+      const progress = this.meteor.t;
+      const x = this.meteor.x - progress * 240;
+      const y = this.meteor.y + progress * 100;
+      const gradient = context.createLinearGradient(x, y, x + this.meteor.length, y - this.meteor.length * .42);
+      gradient.addColorStop(0, 'rgba(255,255,255,0)');
+      gradient.addColorStop(1, `rgba(190,224,255,${Math.max(0, .65 - progress * .65)})`);
+      context.strokeStyle = gradient;
+      context.lineWidth = 1.2;
       context.beginPath();
-      context.arc(p.x, p.y, radius * 3.4, 0, Math.PI * 2);
-      context.fillStyle = current ? `${doc.color}35` : `${doc.color}12`;
-      context.fill();
+      context.moveTo(x, y);
+      context.lineTo(x + this.meteor.length, y - this.meteor.length * .42);
+      context.stroke();
+      this.meteor.t = progress > 1 ? -1 : progress + .018;
+    }
+  }
+
+  drawEraGates() {
+    const context = this.context;
+    context.save();
+    context.font = '9px ui-sans-serif, system-ui, sans-serif';
+    for (const gate of ERA_GATES) {
+      const top = this.project({ x: yearX(gate.year), y: -450, z: 0 });
+      const bottom = this.project({ x: yearX(gate.year), y: 450, z: 0 });
       context.beginPath();
-      context.arc(p.x, p.y, radius + Math.sin(time + doc.phase) * .35, 0, Math.PI * 2);
-      context.fillStyle = doc.color;
-      context.fill();
-      if (current) {
-        context.fillStyle = '#fffdf8';
-        context.font = '600 12px ui-sans-serif, sans-serif';
-        context.fillText(`${doc.year} · ${doc.subject}`, p.x + 14, p.y - 8);
+      context.moveTo(top.x, top.y);
+      context.lineTo(bottom.x, bottom.y);
+      context.strokeStyle = gate.year === 2022 ? 'rgba(231,189,97,.18)' : 'rgba(155,178,222,.07)';
+      context.lineWidth = 1;
+      context.stroke();
+      if (top.x > 90 && top.x < this.width - 90) {
+        context.fillStyle = gate.year === 2022 ? 'rgba(231,189,97,.58)' : 'rgba(170,187,221,.35)';
+        context.fillText(`${gate.year}  ${gate.label}`, top.x + 6, Math.max(150, top.y + 16));
       }
     }
     context.restore();
-    if (!reduced) {
-      frame += 1;
-      raf = requestAnimationFrame(draw);
+  }
+
+  drawEdge(source, target, color, width = 1, dash = []) {
+    if (!source || !target || !this.visible(source) || !this.visible(target)) return;
+    const a = this.project(source);
+    const b = this.project(target);
+    if ((a.x < -40 && b.x < -40) || (a.x > this.width + 40 && b.x > this.width + 40)) return;
+    const context = this.context;
+    context.beginPath();
+    context.moveTo(a.x, a.y);
+    const curve = Math.min(90, Math.abs(b.x - a.x) * .18);
+    context.bezierCurveTo(a.x + curve, a.y, b.x - curve, b.y, b.x, b.y);
+    context.setLineDash(dash);
+    context.lineWidth = width;
+    context.strokeStyle = color;
+    context.stroke();
+    context.setLineDash([]);
+  }
+
+  drawNode(node, projected, time) {
+    const context = this.context;
+    const selected = node.id === this.selectedId;
+    const hovered = node.id === this.hovered?.id;
+    const base = node.kind === 'term' ? 4.8 : node.evaluation ? 4.2 : /课程方案/.test(node.doc.document_type || '') ? 4.8 : 2.65;
+    const radius = Math.max(1.6, base * Math.min(1.65, projected.scale)) + (selected ? 2.2 : hovered ? 1.4 : 0);
+    const pulse = this.stable ? 0 : Math.sin(time * .0017 + node.phase) * .6;
+    const halo = radius * (node.kind === 'term' ? 5 : 4.2) + pulse;
+    const gradient = context.createRadialGradient(projected.x, projected.y, 0, projected.x, projected.y, halo);
+    gradient.addColorStop(0, rgba(node.color, selected ? .48 : .29));
+    gradient.addColorStop(.22, rgba(node.color, .14));
+    gradient.addColorStop(1, rgba(node.color, 0));
+    context.fillStyle = gradient;
+    context.beginPath();
+    context.arc(projected.x, projected.y, halo, 0, TAU);
+    context.fill();
+
+    if (node.kind === 'term') {
+      context.strokeStyle = rgba(node.color, selected || hovered ? .9 : .55);
+      context.lineWidth = selected ? 1.5 : 1;
+      context.beginPath();
+      context.arc(projected.x, projected.y, radius + 3 + pulse * .25, 0, TAU);
+      context.stroke();
+    } else if (node.unverified) {
+      context.setLineDash([2.5, 2.5]);
+      context.strokeStyle = rgba(node.color, selected || hovered ? .9 : .5);
+      context.lineWidth = 1;
+      context.beginPath();
+      context.arc(projected.x, projected.y, radius + 2.6, 0, TAU);
+      context.stroke();
+      context.setLineDash([]);
+    }
+
+    context.beginPath();
+    context.arc(projected.x, projected.y, radius, 0, TAU);
+    context.fillStyle = node.unverified && node.kind !== 'term' ? rgba(node.color, .46) : node.color;
+    context.fill();
+    context.beginPath();
+    context.arc(projected.x - radius * .28, projected.y - radius * .28, Math.max(.55, radius * .27), 0, TAU);
+    context.fillStyle = 'rgba(255,255,255,.84)';
+    context.fill();
+
+    const showLabel = node.kind === 'term' || selected || hovered || (node.year === 2022 && radius > 3.2);
+    if (showLabel) {
+      const label = node.kind === 'term' ? node.term.label : `${node.year} · ${node.subject}`;
+      context.font = `${selected ? '600' : '500'} ${node.kind === 'term' ? 11 : 10}px ui-sans-serif, system-ui, sans-serif`;
+      context.fillStyle = node.kind === 'term' ? 'rgba(244,225,174,.88)' : 'rgba(238,241,249,.8)';
+      context.fillText(label, projected.x + radius + 7, projected.y - radius - 2);
     }
   }
 
-  function hitTest(x, y) {
-    let nearest = null;
-    let distance = 18;
-    for (const doc of docs) {
-      const p = position(doc);
-      const value = Math.hypot(p.x - x, p.y - y);
-      if (value < distance) { nearest = doc; distance = value; }
+  draw(time = performance.now()) {
+    if (!this.width || !this.height) return;
+    this.drawBackground(time);
+    this.drawEraGates();
+    if (this.mode === 'lineage') {
+      for (const [source, target] of this.lineageEdges) this.drawEdge(source, target, rgba(source.color, .14), .8);
+    } else {
+      for (const [source, target] of this.crossEdges) this.drawEdge(source, target, 'rgba(229,195,119,.19)', .9, [3, 5]);
+      for (const [source, target, weight] of this.termEdges) this.drawEdge(source, target, 'rgba(243,223,170,.25)', Math.min(1.8, .6 + weight * .2));
     }
-    return nearest;
+    const allNodes = this.mode === 'cross' ? [...this.nodes, ...this.termNodes] : this.nodes;
+    this.screenNodes = allNodes.filter((node) => this.visible(node)).map((node) => ({ node, projected: this.project(node) }))
+      .filter(({ projected }) => projected.x > -50 && projected.x < this.width + 50 && projected.y > -50 && projected.y < this.height + 50)
+      .sort((left, right) => left.projected.z - right.projected.z);
+    for (const { node, projected } of this.screenNodes) this.drawNode(node, projected, time);
   }
 
-  function showTip(event, doc) {
-    if (!tip) return;
-    if (!doc) { tip.classList.remove('show'); return; }
-    tip.replaceChildren();
-    const title = document.createElement('b');
-    title.textContent = doc.title;
-    const meta = document.createElement('small');
-    meta.textContent = `${doc.year} · ${doc.stage} · 点击阅读`;
-    tip.append(title, meta);
-    tip.style.left = `${Math.min(width - 330, event.offsetX + 8)}px`;
-    tip.style.top = `${Math.min(height - 100, event.offsetY + 8)}px`;
-    tip.classList.add('show');
+  loop(time = performance.now()) {
+    this.raf = 0;
+    const easing = this.stable ? 1 : .085;
+    let moving = false;
+    for (const key of ['yaw', 'pitch', 'zoom', 'panX', 'panY']) {
+      const delta = this.target[key] - this.camera[key];
+      if (Math.abs(delta) > .0001) moving = true;
+      this.camera[key] += delta * easing;
+    }
+    this.draw(time);
+    if (!this.stable || moving) this.raf = requestAnimationFrame((next) => this.loop(next));
   }
 
-  canvas.addEventListener('pointerdown', (event) => {
-    dragging = false;
-    pointer = { x: event.clientX, y: event.clientY, panX, panY };
-    canvas.setPointerCapture(event.pointerId);
-  });
-  canvas.addEventListener('pointermove', (event) => {
-    if (pointer) {
-      const dx = event.clientX - pointer.x;
-      const dy = event.clientY - pointer.y;
-      if (Math.abs(dx) + Math.abs(dy) > 4) dragging = true;
-      panX = pointer.panX + dx;
-      panY = pointer.panY + dy;
-      if (reduced) draw();
-      return;
+  hitTest(clientX, clientY) {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    let found = null;
+    let distance = 20;
+    for (let index = this.screenNodes.length - 1; index >= 0; index -= 1) {
+      const item = this.screenNodes[index];
+      const current = Math.hypot(item.projected.x - x, item.projected.y - y);
+      if (current < distance) { found = item.node; distance = current; }
     }
-    hover = hitTest(event.offsetX, event.offsetY);
-    canvas.style.cursor = hover ? 'pointer' : 'grab';
-    showTip(event, hover);
-    if (reduced) draw();
-  });
-  canvas.addEventListener('pointerup', (event) => {
-    if (!dragging) {
-      const doc = hitTest(event.offsetX, event.offsetY);
-      if (doc) onSelect(doc);
-    }
-    pointer = null;
-  });
-  canvas.addEventListener('pointerleave', () => { pointer = null; hover = null; showTip({}, null); if (reduced) draw(); });
-  canvas.addEventListener('wheel', (event) => {
-    event.preventDefault();
-    zoom = Math.min(2.2, Math.max(.72, zoom * (event.deltaY > 0 ? .92 : 1.08)));
-    if (reduced) draw();
-  }, { passive: false });
-  addEventListener('resize', resize);
-  resize();
-  if (!reduced) raf = requestAnimationFrame(draw);
-  return () => { cancelAnimationFrame(raf); removeEventListener('resize', resize); };
+    return found;
+  }
+
+  bind() {
+    const { signal } = this.abort;
+    window.addEventListener('resize', () => this.resize(), { signal });
+    this.canvas.addEventListener('pointerdown', (event) => {
+      this.canvas.setPointerCapture(event.pointerId);
+      this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      this.pointer = { id: event.pointerId, x: event.clientX, y: event.clientY, yaw: this.target.yaw, pitch: this.target.pitch, panX: this.target.panX, panY: this.target.panY, moved: false, button: event.button };
+      this.canvas.classList.add('dragging');
+    }, { signal });
+    this.canvas.addEventListener('pointermove', (event) => {
+      if (this.pointers.has(event.pointerId)) this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (this.pointers.size >= 2) {
+        const [a, b] = [...this.pointers.values()];
+        const distance = Math.hypot(a.x - b.x, a.y - b.y);
+        if (this.lastPinch) this.target.zoom = Math.max(.48, Math.min(2.3, this.target.zoom * (distance / this.lastPinch)));
+        this.lastPinch = distance;
+        if (!this.raf) this.loop();
+        return;
+      }
+      if (this.pointer?.id === event.pointerId) {
+        const dx = event.clientX - this.pointer.x;
+        const dy = event.clientY - this.pointer.y;
+        if (Math.abs(dx) + Math.abs(dy) > 4) this.pointer.moved = true;
+        if (this.pointer.button === 2 || event.shiftKey) {
+          this.target.panX = this.pointer.panX + dx;
+          this.target.panY = this.pointer.panY + dy;
+        } else {
+          this.target.yaw = this.pointer.yaw + dx * .0042;
+          this.target.pitch = Math.max(-.72, Math.min(.72, this.pointer.pitch + dy * .0034));
+        }
+        if (!this.raf) this.loop();
+        return;
+      }
+      const next = this.hitTest(event.clientX, event.clientY);
+      if (next?.id !== this.hovered?.id) {
+        this.hovered = next;
+        this.canvas.classList.toggle('pointing', Boolean(next));
+        this.callbacks.onHover?.(next, event);
+        this.draw();
+      } else if (next) this.callbacks.onHover?.(next, event);
+    }, { signal });
+    const release = (event) => {
+      this.pointers.delete(event.pointerId);
+      this.lastPinch = null;
+      if (this.pointer?.id === event.pointerId && !this.pointer.moved) {
+        const node = this.hitTest(event.clientX, event.clientY);
+        if (node) {
+          this.selectedId = node.id;
+          if (node.kind === 'term') this.callbacks.onTerm?.(node.term);
+          else this.callbacks.onSelect?.(node.doc);
+        }
+      }
+      this.pointer = null;
+      this.canvas.classList.remove('dragging');
+      this.draw();
+    };
+    this.canvas.addEventListener('pointerup', release, { signal });
+    this.canvas.addEventListener('pointercancel', release, { signal });
+    this.canvas.addEventListener('pointerleave', (event) => {
+      if (!this.pointer) {
+        this.hovered = null;
+        this.canvas.classList.remove('pointing');
+        this.callbacks.onHover?.(null, event);
+      }
+    }, { signal });
+    this.canvas.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      this.target.zoom = Math.max(.48, Math.min(2.3, this.target.zoom * Math.exp(-event.deltaY * .0011)));
+      if (!this.raf) this.loop();
+    }, { passive: false, signal });
+    this.canvas.addEventListener('dblclick', () => this.reset(), { signal });
+    this.canvas.addEventListener('contextmenu', (event) => event.preventDefault(), { signal });
+  }
+
+  destroy() {
+    this.abort.abort();
+    cancelAnimationFrame(this.raf);
+    this.mount.replaceChildren();
+  }
 }

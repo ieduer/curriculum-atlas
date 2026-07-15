@@ -42,6 +42,8 @@ Worker、D1、R2 和五个公共注册表面的回滚方法见 `docs/deployment.
 
 每次发布在 canonical Cloudflare report 和 `agent_action_log.jsonl` 记录：时间、Worker 版本、D1 schema/counts、R2 ETag、API/浏览器证据、User Center 写入回查、Pulse 覆盖、回滚锚点与未解决风险。
 
+最近一次验证为 2026-07-15：生产 Worker `7709c041-c541-4baa-babb-3c7f29b18a30`，立即回滚锚点 `d5435585-a107-494a-8d93-2fde6f381026`；`/api/health` 返回 `2026.07.15-v3`、schema 3 与五项绑定全真，来源清单 ETag 为 `"324a45598be61c79bd080d4d5c69740d"`。D1/R2 未变更，发布前 D1 Time Travel bookmark 为 `00000007-00000004-000050a9-897ea492577a43896b957ff58fb78de6`。桌面与 390×844 浏览器验收、星图筛选、跨学科关系、合并工作区、10 项测试和 Pulse 覆盖均通过；OCR 页 10–20 的独立 Apple Vision 见证审计没有自动放行任何页面，未决页继续 fail-closed。
+
 ## 日常检查
 
 - 每周：失败 OCR 队列、未核验冲突、匿名讨论待审核、AI 引文失败、Worker 错误率。

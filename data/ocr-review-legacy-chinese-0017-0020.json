@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "document_id": "legacy-compendium-chinese",
+  "source_pdf_sha256": "4b4ffd1b45017e437c478ec6dc3419e607621681bb15e9ae7945a5a42200d7f3",
+  "physical_pages": [17, 18, 19, 20],
+  "reviewed_at": "2026-07-15T06:15:00Z",
+  "engines": {
+    "primary": "PaddleOCR-VL 1.6 full layout pipeline",
+    "independent_witness": "Apple Vision accurate zh-Hans on fresh 300 DPI PNG"
+  },
+  "online_version_boundary": "No exact online copy of this 2001 compilation edition was established. Academic and official sources below corroborate document identity and stable facts only; they do not replace wording in the scan.",
+  "pages": [
+    {
+      "physical_page": 17,
+      "printed_page": "3",
+      "entity": "钦定蒙学堂章程（摘录）",
+      "rendered_image_sha256": "9e86fc59c21c1b1bf5992c169a4402f679e239db4d6b3517b03f8b0941f13242",
+      "primary_ocr_sha256": "ca2c28fe188bceffe740ca3997e49fc59ab73845cee877eb9943ea4b5f6e07b2",
+      "vision_text_sha256": "dea15ea5fb76b1ad9450161bb46566a0b8aa536250fb5657309c40ec602a4d6a",
+      "decision": "human_image_review_pass_non_citation",
+      "citation_allowed": false,
+      "resolution": "The scan confirms the 1902 display year, title, four-year 字课 sequence, teaching-method paragraphs and printed page 3. Vision's extra display-year/footer tokens explain most alignment difference; no substantive primary-text correction was accepted.",
+      "uncertainty_note": "Exact-edition online transcription not found; text may be displayed with scan provenance but remains unavailable to citation-locked AI."
+    },
+    {
+      "physical_page": 18,
+      "printed_page": "4",
+      "entity": "钦定小学堂章程（摘录）",
+      "rendered_image_sha256": "6a9db23a6752ad4848feecb2dcdffa6aad3315e54d20b7cdbb8e548220b057b6",
+      "primary_ocr_sha256": "43db26cab19c149c6fad61656d89beab18e05fc7627bc0b339032a5fc9e8f5ce",
+      "vision_text_sha256": "bd5d0eea4fad0cb22bcebebb0faed688cab6c17036455764b1e655d2bcfaa8ba",
+      "decision": "human_image_review_pass_non_citation",
+      "citation_allowed": false,
+      "resolution": "The scan confirms the 1902 title, 寻常小学堂 and 高等小学堂 course sequences and printed page 4. Punctuation and interpunct spacing are layout variants, not content corrections.",
+      "uncertainty_note": "Exact-edition online transcription not found."
+    },
+    {
+      "physical_page": 19,
+      "printed_page": "5",
+      "entity": "奏定初等小学堂章程（摘录）",
+      "rendered_image_sha256": "32caed37497ece2b906aa590cf9740cbad3c6e857963465b4230ed7028bc2ace",
+      "primary_ocr_sha256": "e6bf5c6de99b73abe4ba64d86ea07fffe80100a746dc3301d1a0b6a4efa29e0b",
+      "vision_text_sha256": "8d39921790b3e372ab8b57433212b5d3487ad7d4b2b19030e0be3a61d9843bcb",
+      "decision": "human_image_review_pass_non_citation",
+      "citation_allowed": false,
+      "resolution": "The scan resolves Vision's 俟人大学堂 as 俟入大学堂 and confirms the title's display year 1904, the Chinese-character subject statement and printed page 5.",
+      "uncertainty_note": "Sources variously describe the 癸卯章程 by drafting/reign year or Gregorian promulgation year; this record preserves the scan's 1904 display label."
+    },
+    {
+      "physical_page": 20,
+      "printed_page": "6",
+      "entity": "奏定初等小学堂章程（摘录）—第五节课程表",
+      "rendered_image_sha256": "bfad9e2d24579b0b364345c8296548d2f3b3fb80b774e251256c2881225100ae",
+      "primary_ocr_sha256": "b07f3ac0d1a8700961b7c96b169125b5495642d2c300bb8355eee5e4a374f92b",
+      "vision_text_sha256": "46af2ee97265df0f30421e4b55db981df2f759121dadbdf97fb485cc7c2903ee",
+      "decision": "human_judgment_with_warning",
+      "citation_allowed": false,
+      "resolution": "The primary HTML table lost cell order. The scan establishes weekly hours as 读经讲经 12 and 中国文字 4 for each of five years; it also confirms 兼授以虚字与实字联缀之法, 按诸实事, and 能感发人者. These readings must be applied only to a separate adjudicated transcript, never by silently overwriting the raw OCR witness.",
+      "uncertainty_note": "Table requires cell-by-cell adjudicated reconstruction before public full-text release."
+    }
+  ],
+  "online_evidence": [
+    {
+      "publisher": "中国社会科学院大学学报",
+      "url": "https://xbbjb.ucass.edu.cn/system/_content/download.jsp?owner=1688733355&urltype=news.DownloadAttachUrl&wbfileid=6452766",
+      "version_match": "same_work_different_edition",
+      "role": "stable_content_fact",
+      "fact_summary": "Corroborates the four-year 字课 sequence in 钦定蒙学堂章程 and the 中国文字 subject statement in 奏定初等小学堂章程."
+    },
+    {
+      "publisher": "北京师范大学校史研究室",
+      "url": "https://sdxs.bnu.edu.cn/xsyj/223109.html",
+      "version_match": "stable_fact_only",
+      "role": "stable_identity_fact",
+      "fact_summary": "Corroborates the 1902 钦定学堂章程 context and the 1904 promulgation identity of 奏定学堂章程."
+    },
+    {
+      "publisher": "中华人民共和国教育部",
+      "url": "https://www.moe.gov.cn/jyb_xwfb/s5147/201209/t20120910_142013.html",
+      "version_match": "stable_fact_only",
+      "role": "stable_identity_fact",
+      "fact_summary": "Corroborates the 1904 奏定初等小学堂章程 identity and its place in the history of compulsory education."
+    },
+    {
+      "publisher": "陕西省地方志办公室",
+      "url": "https://dfz.shaanxi.gov.cn/zslm/fzzlk/xbsxsz/szdylpdf/201404/P020240923608865461897.pdf",
+      "version_match": "same_work_different_edition",
+      "role": "stable_table_fact",
+      "fact_summary": "Corroborates the weekly 12-hour 读经讲经 and 4-hour 国文/中国文字 pattern in the historical primary-school curriculum table."
+    }
+  ]
+}

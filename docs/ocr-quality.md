@@ -68,6 +68,20 @@ Search snippets are discovery aids, never final evidence. A newer standard may c
 
 ## Release gates
 
+### Numeric page thresholds
+
+Apple Vision is rerun on every page in the adjudication range from a fresh 300 DPI PNG. It receives no Paddle text, correction list or Paddle-derived dictionary. After NFKC and removal of layout markup, an automatic page pass requires all of the following:
+
+- normalized character agreement at least 99.5%;
+- Apple Vision mean line confidence at least 0.80;
+- title, document year/version, personal names, dates and all numerals agree exactly;
+- a table preserves row/column pairing and cell order, not merely the same bag of words;
+- the scan shows no cropped, obscured or unreadable region.
+
+The comparison script cannot infer historical personal names reliably from character agreement alone. Automatic release therefore also requires the Apple Vision sidecar to declare every high-risk token in `critical_fields` with independently entered primary/witness readings. Missing declarations are fail-closed. Pages containing HTML table markup never pass automatically; they always enter cell-by-cell image adjudication.
+
+Agreement from 98.5% to 99.5% may only enter manual image review. Every differing character is resolved against the scan and retained in a decision ledger. Below 98.5%, or whenever a title/version/table cannot be aligned, the page is `unresolved_fail_closed`. Empty output from both engines is only a blank-page candidate until a human checks the rendered page. No sampled page promotes an entire document.
+
 `verified_exact` requires all of the following:
 
 - source and rendered-page checksums exist;
@@ -125,3 +139,15 @@ node scripts/audit-ocr-benchmark.mjs \
 ```
 
 All page jobs are resumable and refuse to mix results if the PDF checksum changes. OCR completion alone never sets `citation_eligible` to true.
+
+Run the independent witness comparison for a bounded page range:
+
+```bash
+node scripts/audit-ocr-witnesses.mjs \
+  .cache/ocr-production/<DOCUMENT_ID>/pages \
+  <APPLE_VISION_OUTPUT_DIR> \
+  .cache/ocr-production/<DOCUMENT_ID>/audit-<START>-<END>.json \
+  <START> <END>
+```
+
+The current Chinese-compendium 10–20 result is retained locally as `.cache/ocr-production/legacy-compendium-chinese/audit-0010-0020.json`; reviewed high-risk pages 17–20 are represented by `data/ocr-review-legacy-chinese-0017-0020.json`.
