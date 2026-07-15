@@ -19,6 +19,13 @@ test('subjects and concepts are controlled inside the star map', () => {
   assert.match(app, /path === '\/terms'[\s\S]*setMapMode\('cross'\)/);
 });
 
+test('the map loads validated concept episodes and fails closed instead of drawing document stars', () => {
+  assert.match(app, /data\/concept-evolution\.json/);
+  assert.match(app, /概念星图数据未通过结构校验/);
+  assert.match(app, /setData\(state\.conceptGraph\)/);
+  assert.doesNotMatch(app, /setData\(state\.documents/);
+});
+
 test('legacy pages are merged into two bottom workspaces', () => {
   assert.match(html, /版本 · 资料/);
   assert.match(html, /研究 · 讨论/);

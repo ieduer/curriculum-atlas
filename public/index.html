@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>课程标准演变｜历代学科星图</title>
-  <meta name="description" content="在一张可核查的课程宇宙中观察1950年以来各学科课程标准、考试评价、核心概念与版本谱系。">
+  <meta name="description" content="在一张可核查的课程宇宙中观察20世纪以来各学科关键概念在课程标准中的历次出现与变化。">
   <meta name="theme-color" content="#050814">
   <link rel="canonical" href="https://curriculum.bdfz.net/">
   <meta property="og:type" content="website">
@@ -14,17 +14,17 @@
   <meta property="og:image" content="https://img.bdfz.net/20250503004.webp">
   <link rel="icon" href="https://img.bdfz.net/20250503004.webp" type="image/webp">
   <link rel="apple-touch-icon" href="https://img.bdfz.net/20250503004.webp">
-  <link rel="stylesheet" href="/styles.css?v=20260715v3">
+  <link rel="stylesheet" href="/styles.css?v=20260715v4">
   <script defer src="https://my.bdfz.net/site-auth.js" data-site-key="curriculum" data-mobile-inset-bottom="130"></script>
   <script defer src="https://pulse.bdfz.net/beacon.js" data-site="curriculum.bdfz.net"></script>
-  <script type="module" src="/app.js?v=20260715v3"></script>
+  <script type="module" src="/app.js?v=20260715v4"></script>
 </head>
 <body>
   <a class="skip-link" href="#cosmos-stage">跳到课程星图</a>
   <header class="site-header">
     <a class="brand" href="/" data-link aria-label="返回课程标准演变星图">
       <span class="brand-seal" aria-hidden="true">纬</span>
-      <span><b>课程标准演变</b><small>1950—今天</small></span>
+      <span><b>课程标准演变</b><small>20世纪—今天</small></span>
     </a>
     <div class="header-actions">
       <button class="icon-button" id="motion-toggle" type="button" aria-pressed="false" title="关闭动态效果">静</button>
@@ -33,14 +33,14 @@
   </header>
 
   <main id="app">
-    <section class="cosmos-stage" id="cosmos-stage" aria-label="中国历代课程标准与考试评价星图">
-      <div class="cosmos-loading" id="cosmos-loading"><span></span><p>正在生成历代课程宇宙</p></div>
+    <section class="cosmos-stage" id="cosmos-stage" aria-label="中国历代课程标准关键概念演进星图">
+      <div class="cosmos-loading" id="cosmos-loading"><span></span><p>正在生成概念演进星图</p></div>
       <div class="cosmos-mount" id="cosmos-mount"></div>
 
       <form class="search-orbit" id="cosmos-search" role="search">
-        <label class="sr-only" for="cosmos-query">在星图中搜索资料</label>
+        <label class="sr-only" for="cosmos-query">在星图中搜索概念</label>
         <span aria-hidden="true">⌕</span>
-        <input id="cosmos-query" name="query" type="search" autocomplete="off" placeholder="篇名、学科、年代、概念">
+        <input id="cosmos-query" name="query" type="search" autocomplete="off" placeholder="概念、学科、年代">
         <button type="button" id="clear-query" aria-label="清除搜索" hidden>×</button>
       </form>
 
@@ -52,7 +52,7 @@
       <div class="subject-orbit" id="subject-orbit" aria-label="学科显隐"></div>
       <div class="subject-panel" id="subject-panel" hidden></div>
 
-      <aside class="star-inspector" id="star-inspector" aria-live="polite" aria-label="星体资料详情" hidden></aside>
+      <aside class="star-inspector" id="star-inspector" aria-live="polite" aria-label="概念演进详情" hidden></aside>
       <div class="atlas-tooltip" id="atlas-tooltip" hidden></div>
 
       <div class="era-rail" aria-label="年代筛选">
@@ -66,13 +66,13 @@
       </div>
 
       <div class="map-key" id="map-key">
-        <span><i class="key-standard"></i>课程标准</span>
-        <span><i class="key-evaluation"></i>考试评价</span>
-        <span><i class="key-unverified"></i>待核 OCR</span>
+        <span><i class="key-standard"></i>引文级概念</span>
+        <span><i class="key-evaluation"></i>观察关系</span>
+        <span><i class="key-unverified"></i>待核 OCR 候选</span>
       </div>
 
       <nav class="research-dock" aria-label="资料与研究工作台">
-        <p id="dock-status">正在读取资料序列</p>
+        <p id="dock-status">正在读取概念观察序列</p>
         <div>
           <a href="/compare" data-link data-workspace="library"><b>版本 · 资料</b><small>比较与全文检索</small></a>
           <a href="/ai" data-link data-workspace="research"><b>研究 · 讨论</b><small>证据 AI 与教师讨论</small></a>

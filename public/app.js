@@ -1,4 +1,4 @@
-import { CurriculumCosmos, subjectColor } from './atlas.js?v=20260715v3';
+import { CurriculumCosmos, subjectColor } from './atlas.js?v=20260715v4';
 
 const loading = document.querySelector('#cosmos-loading');
 const mount = document.querySelector('#cosmos-mount');
@@ -28,8 +28,8 @@ const state = {
   meta: null,
   documents: [],
   insights: [],
-  terms: [],
-  termRelations: [],
+  conceptGraph: null,
+  evidenceById: new Map(),
   me: null,
   cosmos: null,
   hiddenSubjects: new Set(),
@@ -37,11 +37,12 @@ const state = {
   query: '',
   mode: 'lineage',
   selectedDocument: null,
-  selectedTerm: null,
+  selectedEpisode: null,
 };
 
 const CORE_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物学', '历史', '地理', '道德与法治', '思想政治', '科学', '信息科技', '艺术', '体育与健康', '劳动'];
 const ERAS = [
+  { label: '近代学制初建', start: 1902, end: 1949 },
   { label: '国家课程起点', start: 1950, end: 1977 },
   { label: '恢复与重建', start: 1978, end: 2000 },
   { label: '新课程改革', start: 2001, end: 2010 },
@@ -70,20 +71,24 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const [meta, documents, insights, terminology] = await Promise.all([
-    api('/api/meta'),
-    api('/api/documents?limit=200'),
-    api('/api/insights'),
-    api('/api/terms').catch(() => ({ terms: [], relations: [] })),
+  const conceptGraph = await api('/data/concept-evolution.json?v=20260715v4');
+  const [meta, documents, insights] = await Promise.all([
+    api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
+    api('/api/documents?limit=200').catch(() => ({ documents: [] })),
+    api('/api/insights').catch(() => ({ insights: [] })),
   ]);
   state.meta = meta;
   state.documents = documents.documents || [];
   state.insights = insights.insights || [];
-  state.terms = terminology.terms || [];
-  state.termRelations = terminology.relations || [];
-  const years = state.documents.map((doc) => Number(doc.sort_year)).filter((year) => Number.isFinite(year) && year >= 1902);
-  const minYear = Math.min(...years, 1950);
-  const maxYear = Math.max(...years, 2022);
+  if (conceptGraph.schema_version !== 1 || !Array.isArray(conceptGraph.episodes) || !Array.isArray(conceptGraph.evidence)) {
+    throw new Error('概念星图数据未通过结构校验');
+  }
+  state.conceptGraph = conceptGraph;
+  state.evidenceById = new Map(conceptGraph.evidence.map((item) => [item.id, item]));
+  const years = conceptGraph.episodes.map((episode) => Number(episode.time?.year)).filter((year) => Number.isFinite(year) && year >= 1800);
+  if (!years.length) throw new Error('概念星图没有可显示的年代节点');
+  const minYear = Math.min(...years);
+  const maxYear = Math.max(...years);
   state.maxYear = maxYear;
   yearRange.min = String(minYear);
   yearRange.max = String(maxYear);
@@ -133,48 +138,62 @@ function verificationLabel(status) {
   return labels[status] || status || '待核';
 }
 
-function insightsFor(doc) {
-  return state.insights.filter((item) => {
-    if (item.subject === doc.subject) return true;
-    try { return JSON.parse(item.evidence_document_ids || '[]').includes(doc.id); }
-    catch { return String(item.evidence_document_ids || '').includes(doc.id); }
-  }).slice(0, 3);
+function conceptStatusLabel(status) {
+  const labels = {
+    citation_ready: '段落与来源已过引文门槛',
+    verified_non_citation: '图文人工复核 · 禁止逐字引用',
+    source_text_candidate: '来源文本候选 · 段落门槛未过',
+    ocr_candidate: '双引擎 OCR 候选 · 待人工核对',
+    conflict: '识别冲突 · 保留疑点',
+  };
+  return labels[status] || '质量状态待核';
 }
 
-function showDocumentInspector(doc) {
-  state.selectedDocument = doc;
-  state.selectedTerm = null;
-  state.cosmos?.setSelected(doc.id);
-  const findings = insightsFor(doc);
+function observationLabel(episode) {
+  const incoming = state.conceptGraph.edges.find((edge) => edge.type === 'next_observed' && edge.target === episode.id);
+  const labels = {
+    observed_more_frequently: '当前可比语料中规范化提及增多',
+    observed_less_frequently: '当前可比语料中规范化提及减少',
+    frequency_not_materially_changed: '当前可比语料中提及强度接近',
+  };
+  return incoming?.metric?.interpretation ? labels[incoming.metric.interpretation] : '当前语料中的概念观察点';
+}
+
+function clearConceptInspector(resetRoute = true) {
+  state.selectedEpisode = null;
+  inspector.hidden = true;
+  state.cosmos?.setSelected(null);
+  if (resetRoute && location.pathname.replace(/\/+$/, '') === '/terms') history.replaceState({}, '', '/');
+}
+
+function showConceptInspector(episode) {
+  state.selectedEpisode = episode;
+  state.cosmos?.setSelected(episode.id);
+  const records = episode.evidence_ids.map((id) => state.evidenceById.get(id)).filter(Boolean).slice(0, 4);
+  const status = episode.observation.status;
+  const evidenceHtml = records.map((item) => `<article class="concept-evidence ${item.citation_allowed ? '' : 'candidate'}">
+    ${item.citation_allowed ? `<a href="/document/${encodeURIComponent(item.document_id)}" data-link>${escapeHtml(item.document_title)}</a>` : `<b>${escapeHtml(item.document_title)}</b>`}
+    <small>${escapeHtml(item.source_locator)} · ${escapeHtml(item.matched_surface)}${item.citation_allowed ? '' : ' · 不进入引文 AI'}</small>
+    <p>${escapeHtml(item.snippet)}</p>
+  </article>`).join('');
   inspector.innerHTML = `
-    <p class="inspector-kicker">${escapeHtml(doc.sort_year)} · ${escapeHtml(doc.subject)}</p>
-    <h2>${escapeHtml(doc.title)}</h2>
-    <p>${escapeHtml(doc.issued_by || '发布机构待核')}${doc.issued_date ? ` · ${escapeHtml(doc.issued_date)}` : ''}</p>
+    <button class="inspector-close" type="button" aria-label="关闭">×</button>
+    <p class="inspector-kicker">${escapeHtml(episode.time.year)} · ${escapeHtml(episode.subject.canonical)} · ${escapeHtml(episode.curriculum_line.stage)}</p>
+    <h2>${escapeHtml(episode.label)}</h2>
+    <p>${escapeHtml(observationLabel(episode))}。自动词频只用于发现候选，不单独证明课程理念发生实质变化。</p>
     <div class="inspector-meta">
-      <span>${escapeHtml(doc.stage)}</span><span>${escapeHtml(doc.document_type)}</span><span>${escapeHtml(statusLabel(doc.current_status))}</span>
-      <span>${escapeHtml(qualityLabel(doc))}</span>
+      <span>${escapeHtml(episode.category)}</span><span>${escapeHtml(episode.curriculum_line.school_type)}</span>
+      <span>命中 ${escapeHtml(episode.observation.mention_count)} 次</span><span>${escapeHtml(conceptStatusLabel(status))}</span>
     </div>
     <div class="inspector-insights">
-      <h3>这一节点改变了什么</h3>
-      ${findings.length ? findings.map((item) => `<article><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.summary)}</small></article>`).join('') : '<small>尚无经编辑核验的变化摘要；星图当前只呈现可确认的年代、学科与版本序列。</small>'}
+      <h3>原文证据</h3>
+      ${evidenceHtml || '<small>证据定位缺失；该节点不应显示，请报告数据问题。</small>'}
     </div>
     <div class="inspector-actions">
-      <a class="action-button primary" href="/document/${encodeURIComponent(doc.id)}" data-link>查看证据</a>
-      <a class="action-button" href="/compare?subject=${encodeURIComponent(doc.subject)}" data-link>比较版本</a>
+      <a class="action-button primary" href="/sources?q=${encodeURIComponent(episode.label)}" data-link>检索全部原文</a>
+      <a class="action-button" href="/compare?subject=${encodeURIComponent(episode.subject.canonical)}" data-link>比较版本</a>
     </div>`;
-  inspector.hidden = false;
-}
-
-function showTermInspector(term) {
-  state.selectedTerm = term;
-  state.selectedDocument = null;
-  state.cosmos?.setSelected(`term:${term.id}`);
-  inspector.innerHTML = `
-    <p class="inspector-kicker">概念关系 · ${escapeHtml(term.first_seen_year || '年代待核')}</p>
-    <h2>${escapeHtml(term.label)}</h2>
-    <p>${escapeHtml(term.definition || term.description || '该概念节点只显示已入库的可核关系；尚未核验的关系不绘制。')}</p>
-    <div class="inspector-meta"><span>概念星体</span><span>跨学科模式</span></div>
-    <div class="inspector-actions"><a class="action-button primary" href="/sources?q=${encodeURIComponent(term.label)}" data-link>检索原文</a></div>`;
+  inspector.querySelector('.inspector-close').addEventListener('click', () => clearConceptInspector());
   inspector.hidden = false;
 }
 
@@ -183,10 +202,8 @@ function showTooltip(node, event) {
     tooltip.hidden = true;
     return;
   }
-  const title = node.kind === 'term' ? node.term.label : node.doc.title;
-  const meta = node.kind === 'term'
-    ? `${node.term.first_seen_year || '年代待核'} · 概念关系 · 点击查看`
-    : `${node.year} · ${node.subject} · ${qualityLabel(node.doc)}`;
+  const title = node.episode.label;
+  const meta = `${node.year} · ${node.subject} · ${conceptStatusLabel(node.episode.observation.status)}`;
   tooltip.innerHTML = `<b>${escapeHtml(title)}</b><span>${escapeHtml(meta)}</span>`;
   tooltip.style.left = `${Math.min(innerWidth - 326, Math.max(14, event.clientX + 14))}px`;
   tooltip.style.top = `${Math.min(innerHeight - 94, Math.max(14, event.clientY + 14))}px`;
@@ -194,11 +211,15 @@ function showTooltip(node, event) {
 }
 
 function updateMapStatus() {
-  const visible = state.documents.filter((doc) => Number(doc.sort_year) <= state.maxYear
-    && !state.hiddenSubjects.has(doc.subject)
-    && (!state.query || `${doc.title}${doc.subject}${doc.stage}${doc.version_label}`.toLocaleLowerCase('zh-CN').includes(state.query))).length;
+  const visibleEpisodes = state.conceptGraph.episodes.filter((episode) => Number(episode.time.year) <= state.maxYear
+    && !state.hiddenSubjects.has(episode.subject.canonical)
+    && (!state.query || `${episode.label}${(episode.aliases || []).join('')}${episode.subject.canonical}${episode.time.year}${episode.category}`.toLocaleLowerCase('zh-CN').includes(state.query)));
+  const visibleIds = new Set(visibleEpisodes.map((episode) => episode.id));
+  if (state.selectedEpisode && !visibleIds.has(state.selectedEpisode.id)) clearConceptInspector();
+  const visibleEdges = state.conceptGraph.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target)).length;
+  const candidates = visibleEpisodes.filter((episode) => episode.observation.status !== 'citation_ready').length;
   const hidden = state.hiddenSubjects.size;
-  dockStatus.textContent = `${visible} 颗资料星 · ${state.terms.length} 个核验概念${hidden ? ` · 隐藏 ${hidden} 学科` : ''}`;
+  dockStatus.textContent = `${visibleEpisodes.length} 颗概念星 · ${visibleEdges} 条观察关系 · ${candidates} 个待核节点${hidden ? ` · 隐藏 ${hidden} 学科` : ''}`;
   state.cosmos?.setFilters({ hiddenSubjects: state.hiddenSubjects, maxYear: state.maxYear, query: state.query });
 }
 
@@ -208,8 +229,8 @@ function subjectButton(subject, count, panel = false) {
 }
 
 function renderSubjectControls() {
-  const counts = new Map(state.documents.map((doc) => doc.subject).map((subject) => [subject, 0]));
-  for (const doc of state.documents) counts.set(doc.subject, (counts.get(doc.subject) || 0) + 1);
+  const counts = new Map(state.conceptGraph.episodes.map((episode) => episode.subject.canonical).map((subject) => [subject, 0]));
+  for (const episode of state.conceptGraph.episodes) counts.set(episode.subject.canonical, (counts.get(episode.subject.canonical) || 0) + 1);
   const subjects = [...counts.keys()].sort((a, b) => (counts.get(b) - counts.get(a)) || a.localeCompare(b, 'zh-CN'));
   const core = CORE_SUBJECTS.filter((subject) => counts.has(subject)).slice(0, 12);
   subjectOrbit.innerHTML = `${core.map((subject) => subjectButton(subject, counts.get(subject))).join('')}<button class="subject-more" type="button" id="subject-more">全部学科 · ${subjects.length}</button>`;
@@ -317,7 +338,6 @@ async function renderDocument(id) {
   try {
     const data = await api(`/api/documents/${encodeURIComponent(id)}?limit=200`);
     const doc = data.document;
-    showDocumentInspector(doc);
     const source = doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener">发布页 / 原件 ↗</a>` : '原件链接待补';
     const paragraphs = data.paragraphs.length ? data.paragraphs.map((paragraph) => `<section class="paragraph ${paragraph.uncertainty_note ? 'uncertain' : ''}" id="p-${paragraph.id}"><span class="paragraph-number">P:${paragraph.id}<br>${escapeHtml(paragraph.source_locator)}</span>${escapeHtml(paragraph.body)}${paragraph.uncertainty_note ? `<small class="uncertainty-note">可能有问题：${escapeHtml(paragraph.uncertainty_note)}</small>` : ''}</section>`).join('') : '<div class="empty-state">该记录目前只有已核元数据，正文尚未达到上线门槛。</div>';
     const verification = data.verifications.length ? data.verifications.map((item) => `<article class="verification-row"><b>${escapeHtml(item.entity_label)} · ${escapeHtml(verificationLabel(item.verification_status))}</b><p>${escapeHtml(item.resolution)}</p>${item.uncertainty_note ? `<small class="uncertainty-note">可能有问题：${escapeHtml(item.uncertainty_note)}</small>` : ''}${(item.evidence || []).map((evidence) => `<p><a href="${escapeHtml(evidence.sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(evidence.publisher)}</a> · ${escapeHtml(verificationLabel(evidence.versionMatch))} · ${escapeHtml(evidence.factSummary)}</p>`).join('')}</article>`).join('') : '<div class="empty-state">尚无在线同版核查记录。</div>';
@@ -449,15 +469,17 @@ async function route() {
     if (path === '/terms') {
       closeWorkbench(false);
       setMapMode('cross');
-      const term = state.terms.find((item) => String(item.id) === url.searchParams.get('term'));
-      if (term) showTermInspector(term);
+      const conceptId = url.searchParams.get('term');
+      const episode = state.conceptGraph.episodes.filter((item) => item.concept_id === conceptId && item.time.year <= state.maxYear)
+        .sort((left, right) => right.time.year - left.time.year)[0];
+      if (episode) showConceptInspector(episode);
       return;
     }
     if (path === '/subjects') {
       closeWorkbench(false);
       const subject = url.searchParams.get('subject');
       if (subject) {
-        new Set(state.documents.map((doc) => doc.subject)).forEach((name) => { if (name !== subject) state.hiddenSubjects.add(name); });
+        new Set(state.conceptGraph.episodes.map((episode) => episode.subject.canonical)).forEach((name) => { if (name !== subject) state.hiddenSubjects.add(name); });
         state.hiddenSubjects.delete(subject);
         renderSubjectControls();
         updateMapStatus();
@@ -519,15 +541,14 @@ function initializeCosmos() {
   document.body.classList.toggle('stable', stable);
   motionToggle.setAttribute('aria-pressed', String(stable));
   state.cosmos = new CurriculumCosmos(mount, {
-    onSelect: (doc) => showDocumentInspector(doc),
-    onTerm: (term) => {
-      showTermInspector(term);
-      history.replaceState({}, '', `/terms?term=${encodeURIComponent(term.id)}`);
+    onSelect: (episode) => {
+      showConceptInspector(episode);
+      history.replaceState({}, '', `/terms?term=${encodeURIComponent(episode.concept_id)}`);
     },
     onHover: showTooltip,
   });
   state.cosmos.setStable(stable);
-  state.cosmos.setData(state.documents, state.terms, state.termRelations);
+  state.cosmos.setData(state.conceptGraph);
   renderSubjectControls();
   renderEraControls();
   updateMapStatus();
@@ -577,7 +598,7 @@ window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if (!subjectPanel.hidden) subjectPanel.hidden = true;
     else if (!workbench.hidden) closeWorkbench();
-    else if (!inspector.hidden) { inspector.hidden = true; state.cosmos?.setSelected(null); }
+    else if (!inspector.hidden) clearConceptInspector();
   }
 });
 

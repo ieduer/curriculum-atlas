@@ -5,7 +5,7 @@ import { retrieve } from './retrieval';
 import { enforceRateLimit, verifyTurnstile } from './security';
 import type { Env, Session } from './types';
 
-const VERSION = '2026.07.15-v3';
+const VERSION = '2026.07.15-v4';
 
 interface CommentInput {
   documentId?: string;

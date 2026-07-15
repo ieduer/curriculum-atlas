@@ -42,11 +42,14 @@ Worker、D1、R2 和五个公共注册表面的回滚方法见 `docs/deployment.
 
 每次发布在 canonical Cloudflare report 和 `agent_action_log.jsonl` 记录：时间、Worker 版本、D1 schema/counts、R2 ETag、API/浏览器证据、User Center 写入回查、Pulse 覆盖、回滚锚点与未解决风险。
 
-最近一次验证为 2026-07-15：生产 Worker `7709c041-c541-4baa-babb-3c7f29b18a30`，立即回滚锚点 `d5435585-a107-494a-8d93-2fde6f381026`；`/api/health` 返回 `2026.07.15-v3`、schema 3 与五项绑定全真，来源清单 ETag 为 `"324a45598be61c79bd080d4d5c69740d"`。D1/R2 未变更，发布前 D1 Time Travel bookmark 为 `00000007-00000004-000050a9-897ea492577a43896b957ff58fb78de6`。桌面与 390×844 浏览器验收、星图筛选、跨学科关系、合并工作区、10 项测试和 Pulse 覆盖均通过；OCR 页 10–20 的独立 Apple Vision 见证审计没有自动放行任何页面，未决页继续 fail-closed。
+最近一次验证为 2026-07-15：生产 Worker `2c576476-b5fa-4789-a18e-7510b3fa3744`，立即回滚锚点 `7709c041-c541-4baa-babb-3c7f29b18a30`；`/api/health` 返回 `2026.07.15-v4`、schema 3 与五项绑定全真。D1/R2 未变更，发布前 D1 Time Travel bookmark 为 `0000001d-00000000-000050a9-681d1945fdef8d2ab5746e1ef6faef7f`。正式图数据为 399 个概念观察点、427 条仅表示相邻观察/共同观察的关系、1,054 条证据，其中 396 个节点达到段落引文门槛、3 个历史节点只能显示人工复核警示。桌面与 390×844 浏览器验收、概念搜索、年代截断、学科显隐、谱系/跨学科切换、候选证据禁链、15 项测试和预览/生产控制台零错误均通过。
+
+OCR 长任务由 `scripts/ocr-supervisor.mjs` 监管；`npm run ocr:status` 查看锁、心跳、磁盘、见证、审计、复核和概念图覆盖。Codex automation `Curriculum OCR quality supervisor` 每 30 分钟最多处理一个 4 页批次，低于 50 GiB 告警、低于 25 GiB 停止；未知进程不清理，失败页不放行，OCR 完成后只原子重建并验证本地概念图，禁止自动部署、导入 D1、写 R2、提交或推送。
 
 ## 日常检查
 
 - 每周：失败 OCR 队列、未核验冲突、匿名讨论待审核、AI 引文失败、Worker 错误率。
 - 每月：官方目录与修订动态复查、来源 URL 可用性、R2 清单与本地 SHA 对账。
 - 扫描件每次新增或更换：重算源 SHA、重新准备 OCR 队列，不继承旧页的通过状态。
+- 自动监控只推进 OCR 与本地概念图候选更新；任何节点升级为可引用、进入正式关系或上线仍须人工证据门与发布验证。
 - 日志只保留服务、版本、路径组、状态和错误类别；不写 cookies、session、原始研究问题或学生内容。

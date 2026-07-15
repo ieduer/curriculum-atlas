@@ -17,7 +17,6 @@ const ERA_GATES = [
   { year: 2017, label: '核心素养' },
   { year: 2022, label: '素养导向重构' },
 ];
-const CROSS_COHORTS = [2001, 2011, 2017, 2020, 2022];
 
 function hash(value) {
   let result = 2166136261;
@@ -47,22 +46,6 @@ function rgba(hex, alpha) {
   return `rgba(${(number >> 16) & 255},${(number >> 8) & 255},${number & 255},${alpha})`;
 }
 
-function isEvaluation(doc) {
-  return /考试|评价|高考|命题/.test(`${doc.subject || ''}${doc.document_type || ''}${doc.title || ''}`);
-}
-
-function isUnverified(doc) {
-  return Number(doc.citation_allowed) !== 1;
-}
-
-function stageKey(stage) {
-  const value = String(stage || '未分学段');
-  if (/小学/.test(value)) return '小学';
-  if (/初中|义务教育/.test(value)) return '义务教育';
-  if (/高中/.test(value)) return '高中';
-  return value;
-}
-
 function yearX(year) {
   // Equal visual breathing room is assigned to reform eras so the dense
   // post-2001 corpus does not collapse into the right edge of the universe.
@@ -76,10 +59,6 @@ function yearX(year) {
     if (value <= rightYear) return leftX + ((value - leftYear) / (rightYear - leftYear)) * (rightX - leftX);
   }
   return 0;
-}
-
-function nearestCohort(year) {
-  return CROSS_COHORTS.find((cohort) => Math.abs(cohort - year) <= (cohort === 2020 ? 1 : 0)) || null;
 }
 
 function makeMilkyWay(width, height) {
@@ -140,12 +119,10 @@ export class CurriculumCosmos {
     this.mount.replaceChildren(this.canvas);
     this.context = this.canvas.getContext('2d');
     this.abort = new AbortController();
-    this.documents = [];
+    this.graph = null;
     this.nodes = [];
-    this.termNodes = [];
     this.lineageEdges = [];
     this.crossEdges = [];
-    this.termEdges = [];
     this.screenNodes = [];
     this.subjects = [];
     this.filters = { hiddenSubjects: new Set(), maxYear: 2022, query: '' };
@@ -170,70 +147,39 @@ export class CurriculumCosmos {
     this.loop();
   }
 
-  setData(documents, terms = [], relations = []) {
-    this.documents = documents.filter((doc) => Number(doc.sort_year) >= 1900);
-    this.subjects = [...new Set(this.documents.map((doc) => doc.subject || '未分类'))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  setData(graph) {
+    this.graph = graph;
+    const episodes = (graph?.episodes || []).filter((episode) => Number(episode.time?.year) >= 1800);
+    this.subjects = [...new Set(episodes.map((episode) => episode.subject?.canonical || '未分类'))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
     const subjectIndex = new Map(this.subjects.map((subject, index) => [subject, index]));
-    this.nodes = this.documents.map((doc, index) => {
-      const slot = subjectIndex.get(doc.subject || '未分类') || 0;
+    this.nodes = episodes.map((episode) => {
+      const subject = episode.subject?.canonical || '未分类';
+      const slot = subjectIndex.get(subject) || 0;
       const angle = (slot / Math.max(1, this.subjects.length)) * TAU + .58;
-      const jitter = randomFrom(hash(doc.id));
-      const radius = 270 + (slot % 5) * 13 + (jitter() - .5) * 42;
+      const conceptDrift = randomFrom(hash(episode.concept_id));
+      const lineDrift = randomFrom(hash(episode.curriculum_line?.id));
+      const radius = 255 + (slot % 5) * 15 + (conceptDrift() - .5) * 54;
+      const display = episode.claim_policy?.display_level || 'candidate_dashed';
       return {
-        kind: 'document', doc, id: doc.id, subject: doc.subject || '未分类', year: Number(doc.sort_year),
-        color: isEvaluation(doc) ? '#f2cb6c' : subjectColor(doc.subject),
-        x: yearX(Math.max(1902, Math.min(2022, Number(doc.sort_year)))),
-        y: Math.sin(angle) * radius + (jitter() - .5) * 52,
-        z: Math.cos(angle) * radius * .78 + (jitter() - .5) * 40,
-        phase: jitter() * TAU,
-        evaluation: isEvaluation(doc), unverified: isUnverified(doc),
+        kind: 'concept', episode, id: episode.id, subject, year: Number(episode.time.year),
+        conceptId: episode.concept_id, color: subjectColor(subject),
+        x: yearX(Math.max(1902, Math.min(2022, Number(episode.time.year)))),
+        y: Math.sin(angle) * radius + (conceptDrift() - .5) * 68 + (lineDrift() - .5) * 24,
+        z: Math.cos(angle) * radius * .8 + (conceptDrift() - .5) * 52 + (lineDrift() - .5) * 24,
+        phase: conceptDrift() * TAU, display,
+        strength: Number(episode.observation?.visual_strength) || .35,
       };
     });
-    this.termNodes = terms.map((term, index) => {
-      const year = Math.max(1950, Math.min(2022, Number(term.first_seen_year) || 2001));
-      const angle = (index / Math.max(1, terms.length)) * TAU + .2;
-      return {
-        kind: 'term', term, id: `term:${term.id}`, year, color: '#f3dfaa',
-        x: yearX(year), y: Math.sin(angle) * 420, z: Math.cos(angle) * 350,
-        phase: index * 1.7,
-      };
-    });
-    this.buildEdges(relations);
+    this.buildEdges(graph?.edges || []);
     this.draw();
   }
 
-  buildEdges(relations) {
-    const groups = new Map();
-    for (const node of this.nodes) {
-      const key = `${node.subject}|${stageKey(node.doc.stage)}`;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(node);
-    }
-    this.lineageEdges = [];
-    for (const group of groups.values()) {
-      group.sort((a, b) => a.year - b.year || a.doc.title.localeCompare(b.doc.title, 'zh-CN'));
-      for (let index = 1; index < group.length; index += 1) {
-        if (group[index].year - group[index - 1].year <= 35) this.lineageEdges.push([group[index - 1], group[index]]);
-      }
-    }
-    this.crossEdges = [];
-    for (const cohort of CROSS_COHORTS) {
-      const cohortNodes = this.nodes
-        .filter((node) => nearestCohort(node.year) === cohort)
-        .sort((a, b) => a.subject.localeCompare(b.subject, 'zh-CN'));
-      const representatives = [];
-      for (const node of cohortNodes) if (!representatives.some((item) => item.subject === node.subject)) representatives.push(node);
-      for (let index = 1; index < Math.min(18, representatives.length); index += 1) {
-        this.crossEdges.push([representatives[index - 1], representatives[index], cohort]);
-      }
-      if (representatives.length > 2) this.crossEdges.push([representatives[0], representatives[Math.min(17, representatives.length - 1)], cohort]);
-    }
-    const termsById = new Map(this.termNodes.map((node) => [String(node.term.id), node]));
-    this.termEdges = relations.map((relation) => [
-      termsById.get(String(relation.source_term_id)),
-      termsById.get(String(relation.target_term_id)),
-      Number(relation.weight) || 1,
-    ]).filter(([source, target]) => source && target);
+  buildEdges(edges) {
+    const byId = new Map(this.nodes.map((node) => [node.id, node]));
+    const resolved = edges.map((edge) => ({ ...edge, sourceNode: byId.get(edge.source), targetNode: byId.get(edge.target) }))
+      .filter((edge) => edge.sourceNode && edge.targetNode);
+    this.lineageEdges = resolved.filter((edge) => edge.mode === 'lineage' && edge.type === 'next_observed');
+    this.crossEdges = resolved.filter((edge) => edge.mode === 'cross');
   }
 
   setFilters(next) {
@@ -267,10 +213,10 @@ export class CurriculumCosmos {
   }
 
   visible(node) {
-    if (node.kind === 'term') return this.mode === 'cross' && node.year <= this.filters.maxYear;
     if (node.year > this.filters.maxYear || this.filters.hiddenSubjects.has(node.subject)) return false;
     if (!this.filters.query) return true;
-    return `${node.doc.title} ${node.doc.subject} ${node.doc.stage} ${node.doc.version_label} ${node.doc.issued_by}`
+    const episode = node.episode;
+    return `${episode.label} ${(episode.aliases || []).join(' ')} ${node.subject} ${node.year} ${episode.category} ${episode.curriculum_line?.stage}`
       .toLocaleLowerCase('zh-CN').includes(this.filters.query);
   }
 
@@ -377,10 +323,10 @@ export class CurriculumCosmos {
     const context = this.context;
     const selected = node.id === this.selectedId;
     const hovered = node.id === this.hovered?.id;
-    const base = node.kind === 'term' ? 4.8 : node.evaluation ? 4.2 : /课程方案/.test(node.doc.document_type || '') ? 4.8 : 2.65;
+    const base = 2.25 + node.strength * 3.35;
     const radius = Math.max(1.6, base * Math.min(1.65, projected.scale)) + (selected ? 2.2 : hovered ? 1.4 : 0);
     const pulse = this.stable ? 0 : Math.sin(time * .0017 + node.phase) * .6;
-    const halo = radius * (node.kind === 'term' ? 5 : 4.2) + pulse;
+    const halo = radius * 4.5 + pulse;
     const gradient = context.createRadialGradient(projected.x, projected.y, 0, projected.x, projected.y, halo);
     gradient.addColorStop(0, rgba(node.color, selected ? .48 : .29));
     gradient.addColorStop(.22, rgba(node.color, .14));
@@ -390,15 +336,15 @@ export class CurriculumCosmos {
     context.arc(projected.x, projected.y, halo, 0, TAU);
     context.fill();
 
-    if (node.kind === 'term') {
+    if (node.display === 'reviewed_ring') {
       context.strokeStyle = rgba(node.color, selected || hovered ? .9 : .55);
       context.lineWidth = selected ? 1.5 : 1;
       context.beginPath();
       context.arc(projected.x, projected.y, radius + 3 + pulse * .25, 0, TAU);
       context.stroke();
-    } else if (node.unverified) {
+    } else if (node.display !== 'solid') {
       context.setLineDash([2.5, 2.5]);
-      context.strokeStyle = rgba(node.color, selected || hovered ? .9 : .5);
+      context.strokeStyle = node.display === 'warning_ring' ? 'rgba(255,178,102,.82)' : rgba(node.color, selected || hovered ? .9 : .5);
       context.lineWidth = 1;
       context.beginPath();
       context.arc(projected.x, projected.y, radius + 2.6, 0, TAU);
@@ -408,18 +354,18 @@ export class CurriculumCosmos {
 
     context.beginPath();
     context.arc(projected.x, projected.y, radius, 0, TAU);
-    context.fillStyle = node.unverified && node.kind !== 'term' ? rgba(node.color, .46) : node.color;
+    context.fillStyle = node.display === 'solid' ? node.color : rgba(node.color, node.display === 'reviewed_ring' ? .68 : .38);
     context.fill();
     context.beginPath();
     context.arc(projected.x - radius * .28, projected.y - radius * .28, Math.max(.55, radius * .27), 0, TAU);
     context.fillStyle = 'rgba(255,255,255,.84)';
     context.fill();
 
-    const showLabel = node.kind === 'term' || selected || hovered || (node.year === 2022 && radius > 3.2);
+    const showLabel = selected || hovered || node.display === 'reviewed_ring';
     if (showLabel) {
-      const label = node.kind === 'term' ? node.term.label : `${node.year} · ${node.subject}`;
-      context.font = `${selected ? '600' : '500'} ${node.kind === 'term' ? 11 : 10}px ui-sans-serif, system-ui, sans-serif`;
-      context.fillStyle = node.kind === 'term' ? 'rgba(244,225,174,.88)' : 'rgba(238,241,249,.8)';
+      const label = `${node.episode.label} · ${node.year}`;
+      context.font = `${selected ? '600' : '500'} 10px ui-sans-serif, system-ui, sans-serif`;
+      context.fillStyle = node.display === 'solid' ? 'rgba(238,241,249,.86)' : 'rgba(244,225,174,.78)';
       context.fillText(label, projected.x + radius + 7, projected.y - radius - 2);
     }
   }
@@ -429,13 +375,17 @@ export class CurriculumCosmos {
     this.drawBackground(time);
     this.drawEraGates();
     if (this.mode === 'lineage') {
-      for (const [source, target] of this.lineageEdges) this.drawEdge(source, target, rgba(source.color, .14), .8);
+      for (const edge of this.lineageEdges) {
+        const connected = this.selectedId && (edge.source === this.selectedId || edge.target === this.selectedId);
+        this.drawEdge(edge.sourceNode, edge.targetNode, rgba(edge.sourceNode.color, connected ? .56 : .14), connected ? 1.45 : .8);
+      }
     } else {
-      for (const [source, target] of this.crossEdges) this.drawEdge(source, target, 'rgba(229,195,119,.19)', .9, [3, 5]);
-      for (const [source, target, weight] of this.termEdges) this.drawEdge(source, target, 'rgba(243,223,170,.25)', Math.min(1.8, .6 + weight * .2));
+      for (const edge of this.crossEdges) {
+        const connected = this.selectedId && (edge.source === this.selectedId || edge.target === this.selectedId);
+        this.drawEdge(edge.sourceNode, edge.targetNode, connected ? 'rgba(239,204,126,.62)' : 'rgba(229,195,119,.18)', connected ? 1.5 : .85, [3, 5]);
+      }
     }
-    const allNodes = this.mode === 'cross' ? [...this.nodes, ...this.termNodes] : this.nodes;
-    this.screenNodes = allNodes.filter((node) => this.visible(node)).map((node) => ({ node, projected: this.project(node) }))
+    this.screenNodes = this.nodes.filter((node) => this.visible(node)).map((node) => ({ node, projected: this.project(node) }))
       .filter(({ projected }) => projected.x > -50 && projected.x < this.width + 50 && projected.y > -50 && projected.y < this.height + 50)
       .sort((left, right) => left.projected.z - right.projected.z);
     for (const { node, projected } of this.screenNodes) this.drawNode(node, projected, time);
@@ -516,8 +466,7 @@ export class CurriculumCosmos {
         const node = this.hitTest(event.clientX, event.clientY);
         if (node) {
           this.selectedId = node.id;
-          if (node.kind === 'term') this.callbacks.onTerm?.(node.term);
-          else this.callbacks.onSelect?.(node.doc);
+          this.callbacks.onSelect?.(node.episode);
         }
       }
       this.pointer = null;

@@ -178,6 +178,12 @@ button { color: inherit; }
 .inspector-insights article { margin: 12px 0; }
 .inspector-insights b { display: block; font: 600 12px/1.5 var(--serif); }
 .inspector-insights small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.concept-evidence { padding: 12px 0; border-top: 1px solid var(--faint); }
+.concept-evidence:first-of-type { border-top: 0; }
+.concept-evidence a, .concept-evidence b { color: var(--ink); text-decoration: none; font: 600 12px/1.5 var(--serif); }
+.concept-evidence a:hover { color: var(--gold); }
+.concept-evidence p { margin: 7px 0 0; color: rgba(196,205,228,.72); font-size: 10px; line-height: 1.65; }
+.concept-evidence.candidate { padding-left: 10px; border-left: 1px dashed rgba(231,189,97,.42); }
 .inspector-actions { display: flex; gap: 8px; margin-top: 18px; }
 .action-button {
   display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 13px; border: 1px solid var(--line);
@@ -308,7 +314,6 @@ body.stable .cosmos-mount { opacity: .88; }
   .search-orbit { top: 70px; left: 12px; width: calc(100% - 126px); height: 38px; }
   .mode-switch { top: 70px; right: 10px; }
   .mode-switch button { min-height: 30px; padding-inline: 8px; font-size: 10px; }
-  .mode-switch button:first-child { display: none; }
   .subject-orbit { top: 116px; left: 7px; gap: 3px; }
   .subject-button { min-height: 24px; padding-inline: 6px 8px; font-size: 9px; background: rgba(6,9,21,.24); }
   .subject-button:nth-of-type(n+8):not(.subject-more) { display: none; }
