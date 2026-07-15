@@ -3,13 +3,10 @@ const MIN_ZOOM = .2;
 const MAX_ZOOM = 2.3;
 const DEFAULT_CAMERA = Object.freeze({ yaw: -.12, pitch: -.11, zoom: 1, panX: 0, panY: 0 });
 const CORE_COLORS = {
-  '语文': '#ff7878', '数学': '#63d9ff', '英语': '#ad8cff', '物理': '#6ae7cf',
-  '化学': '#ffd166', '生物学': '#75e38f', '生物': '#75e38f', '历史': '#ef9f62',
-  '地理': '#68b7ff', '道德与法治': '#ee7fb4', '思想政治': '#ee7fb4',
-  '科学': '#70e0bc', '信息科技': '#73c8ff', '信息技术': '#73c8ff',
-  '艺术': '#e69cff', '音乐': '#d59aff', '美术': '#ff9cb3', '体育与健康': '#90df83',
-  '劳动': '#e5b66f', '综合实践活动': '#a9c876', '课程方案': '#f2c86a',
-  '考试评价': '#f4d17a', '考试大纲': '#f4d17a', '综合': '#e8d6a2',
+  '语文': '#ff828b', '数学': '#67dcff', '外语': '#b99bff',
+  '思想政治与道德法治': '#ff8fc4', '历史': '#f2a467', '历史与社会': '#e8bb72',
+  '地理': '#71beff', '科学类': '#69e3c4', '技术': '#7bcfff',
+  '劳动': '#e9bd72', '艺术': '#e8a4ff', '体育与健康': '#96e78c',
 };
 
 const FALLBACK_COLORS = ['#79d6ff', '#d990ff', '#78e0b0', '#ff9a80', '#e9c768', '#98a8ff', '#7ae4e5'];
@@ -54,6 +51,13 @@ export function subjectColor(subject) {
 
 export function episodeSubjectFacet(episode) {
   const subject = episode?.subject;
+  return ['subject', 'assessment_subject'].includes(subject?.entity_kind) && subject?.facet_eligible === true && typeof subject?.facet === 'string' && subject.facet.trim()
+    ? subject.facet.trim()
+    : null;
+}
+
+export function episodeCanonicalSubject(episode) {
+  const subject = episode?.subject;
   return ['subject', 'assessment_subject'].includes(subject?.entity_kind) && subject?.facet_eligible === true && typeof subject?.canonical === 'string' && subject.canonical.trim()
     ? subject.canonical.trim()
     : null;
@@ -65,7 +69,7 @@ function episodeCourseEntity(episode) {
 }
 
 export function episodeEntityLabel(episode) {
-  return episodeSubjectFacet(episode)
+  return episodeCanonicalSubject(episode)
     || (typeof episodeCourseEntity(episode)?.canonical === 'string' && episodeCourseEntity(episode).canonical.trim())
     || (typeof episode?.scope_entity?.label === 'string' && episode.scope_entity.label.trim())
     || (typeof episode?.scope_entity?.canonical === 'string' && episode.scope_entity.canonical.trim())
@@ -159,7 +163,7 @@ export class CurriculumCosmos {
     this.screenNodes = [];
     this.subjects = [];
     this.tracks = [];
-    this.filters = { hiddenSubjects: new Set(), maxYear: 2022, query: '' };
+    this.filters = { hiddenSubjects: new Set(), hideAll: false, maxYear: 2022, query: '' };
     this.mode = 'lineage';
     this.selectedId = null;
     this.hovered = null;
@@ -226,6 +230,7 @@ export class CurriculumCosmos {
   setFilters(next) {
     this.filters = {
       hiddenSubjects: next.hiddenSubjects || this.filters.hiddenSubjects,
+      hideAll: Boolean(next.hideAll),
       maxYear: Number(next.maxYear ?? this.filters.maxYear),
       query: String(next.query ?? this.filters.query).trim().toLocaleLowerCase('zh-CN'),
     };
@@ -248,7 +253,7 @@ export class CurriculumCosmos {
   }
 
   visible(node) {
-    if (node.year > this.filters.maxYear || (node.subject && this.filters.hiddenSubjects.has(node.subject))) return false;
+    if (this.filters.hideAll || node.year > this.filters.maxYear || (node.subject && this.filters.hiddenSubjects.has(node.subject))) return false;
     if (!this.filters.query) return true;
     const episode = node.episode;
     return `${episode.label} ${(episode.aliases || []).join(' ')} ${node.entityLabel} ${node.year} ${episode.category} ${episode.curriculum_line?.stage}`

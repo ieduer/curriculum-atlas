@@ -16,6 +16,8 @@
     "ocr:once": "node scripts/ocr-supervisor.mjs once",
     "ocr:recover": "node scripts/ocr-supervisor.mjs recover --batch-pages 1 --force-immediate",
     "ocr:drain": "node scripts/ocr-supervisor.mjs drain",
+    "ocr:watchdog": "node scripts/ocr-watchdog.mjs run",
+    "ocr:watchdog:status": "node scripts/ocr-watchdog.mjs status",
     "corpus:import:preview": "node scripts/import-corpus.mjs --database bdfz-curriculum-atlas-preview --env preview --remote",
     "corpus:import:production": "node scripts/import-corpus.mjs --database bdfz-curriculum-atlas --remote",
     "metadata:publish:preview": "node scripts/publish-metadata.mjs --bucket bdfz-curriculum-atlas-sources-preview --remote",

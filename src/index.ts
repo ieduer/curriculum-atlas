@@ -5,7 +5,7 @@ import { retrieve } from './retrieval';
 import { enforceRateLimit, verifyTurnstile } from './security';
 import type { Env, Session } from './types';
 
-const VERSION = '2026.07.15-v6';
+const VERSION = '2026.07.15-v7';
 const REQUIRED_CLASSIFICATION_COUNTS = {
   documents: 196,
   subjects: 160,

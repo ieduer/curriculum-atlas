@@ -21,6 +21,15 @@ test('subjects and concepts are controlled inside the star map', () => {
   assert.match(app, /path === '\/terms'[\s\S]*setMapMode\('cross'\)/);
 });
 
+test('subject hide-all clears every node and edge without a redundant count readout', () => {
+  assert.match(app, /hideAllSubjects: false/);
+  assert.match(app, /state\.hideAllSubjects = true/);
+  assert.match(atlas, /this\.filters\.hideAll/);
+  assert.match(atlas, /!source \|\| !target \|\| !this\.visible\(source\) \|\| !this\.visible\(target\)/);
+  assert.doesNotMatch(html, /dock-status|颗概念星|条观察关系|个待核节点/);
+  assert.doesNotMatch(app, /颗概念星|条观察关系|个待核节点/);
+});
+
 test('the map loads validated concept episodes and fails closed instead of drawing document stars', () => {
   assert.match(app, /data\/concept-evolution\.json/);
   assert.match(app, /概念星图数据未通过结构校验/);
@@ -51,4 +60,6 @@ test('the graph fits its data bounds inside responsive safe areas', () => {
   assert.match(atlas, /boxesOverlap\(box, candidate\)/);
   assert.match(atlas, /visibilitychange/);
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?\.search-orbit \{[^}]*right: 136px;[^}]*width: auto;/);
+  assert.match(styles, /\.subject-orbit > \.subject-button:nth-of-type\(n\+8\)/);
+  assert.doesNotMatch(styles, /\n\s*\.subject-button:nth-of-type\(n\+8\)/);
 });

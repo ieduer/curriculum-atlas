@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeEntityLabel, episodeSubjectFacet, subjectColor } from './atlas.js?v=20260715v7';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeEntityLabel, episodeSubjectFacet, subjectColor } from './atlas.js?v=20260715v8';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -35,7 +35,6 @@ const yearValue = document.querySelector('#year-value');
 const searchForm = document.querySelector('#cosmos-search');
 const searchInput = document.querySelector('#cosmos-query');
 const clearQuery = document.querySelector('#clear-query');
-const dockStatus = document.querySelector('#dock-status');
 const workbench = document.querySelector('#workbench');
 const workbenchKicker = document.querySelector('#workbench-kicker');
 const workbenchTitle = document.querySelector('#workbench-title');
@@ -53,6 +52,7 @@ const state = {
   me: null,
   cosmos: null,
   hiddenSubjects: new Set(),
+  hideAllSubjects: false,
   maxYear: 2022,
   query: '',
   mode: 'lineage',
@@ -60,7 +60,7 @@ const state = {
   selectedEpisode: null,
 };
 
-const CORE_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物学', '历史', '地理', '道德与法治', '思想政治', '科学', '信息科技', '艺术', '体育与健康', '劳动'];
+const CORE_SUBJECTS = ['语文', '数学', '外语', '思想政治与道德法治', '历史', '历史与社会', '地理', '科学类', '技术', '劳动', '艺术', '体育与健康'];
 const ERAS = [
   { label: '近代学制初建', start: 1902, end: 1949 },
   { label: '国家课程起点', start: 1950, end: 1977 },
@@ -91,7 +91,7 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const conceptGraph = await api('/data/concept-evolution.json?v=20260715v7');
+  const conceptGraph = await api('/data/concept-evolution.json?v=20260715v8');
   const [meta, documents, insights] = await Promise.all([
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
@@ -173,6 +173,12 @@ function subjectFacetNames() {
   return [...new Set(fromApi.length ? fromApi : fromGraph)].sort((a, b) => a.localeCompare(b, 'zh-CN'));
 }
 
+function displayFacetForSubject(subject) {
+  if (!subject) return null;
+  if (state.conceptGraph?.subject_facets?.includes(subject)) return subject;
+  return state.conceptGraph?.subject_taxonomy?.find((item) => item.source_label === subject || item.canonical === subject)?.facet || null;
+}
+
 function verificationLabel(status) {
   const labels = {
     verified_exact: '同版精确核验', verified_stable_fact_only: '稳定事实已核验',
@@ -217,7 +223,7 @@ function showConceptInspector(episode) {
   state.cosmos?.setSelected(episode.id);
   const records = episode.evidence_ids.map((id) => state.evidenceById.get(id)).filter(Boolean).slice(0, 4);
   const status = episode.observation.status;
-  const subject = episodeSubjectFacet(episode);
+  const subject = episodeCanonicalSubject(episode);
   const entityLabel = episodeEntityLabel(episode);
   const evidenceHtml = records.map((item) => `<article class="concept-evidence ${item.citation_allowed ? '' : 'candidate'}">
     ${item.citation_allowed ? `<a href="/document/${encodeURIComponent(item.document_id)}" data-link>${escapeHtml(item.document_title)}</a>` : `<b>${escapeHtml(item.document_title)}</b>`}
@@ -260,26 +266,23 @@ function showTooltip(node, event) {
 
 function updateMapStatus() {
   const visibleEpisodes = state.conceptGraph.episodes.filter((episode) => Number(episode.time.year) <= state.maxYear
+    && !state.hideAllSubjects
     && (!episodeSubjectFacet(episode) || !state.hiddenSubjects.has(episodeSubjectFacet(episode)))
     && (!state.query || `${episode.label}${(episode.aliases || []).join('')}${episodeEntityLabel(episode)}${episode.time.year}${episode.category}`.toLocaleLowerCase('zh-CN').includes(state.query)));
   const visibleIds = new Set(visibleEpisodes.map((episode) => episode.id));
   if (state.selectedEpisode && !visibleIds.has(state.selectedEpisode.id)) clearConceptInspector();
-  const visibleEdges = state.conceptGraph.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target)).length;
-  const candidates = visibleEpisodes.filter((episode) => episode.observation.status !== 'citation_ready').length;
-  const hidden = state.hiddenSubjects.size;
-  dockStatus.textContent = `${visibleEpisodes.length} 颗概念星 · ${visibleEdges} 条观察关系 · ${candidates} 个待核节点${hidden ? ` · 隐藏 ${hidden} 学科` : ''}`;
-  state.cosmos?.setFilters({ hiddenSubjects: state.hiddenSubjects, maxYear: state.maxYear, query: state.query });
+  state.cosmos?.setFilters({ hiddenSubjects: state.hiddenSubjects, hideAll: state.hideAllSubjects, maxYear: state.maxYear, query: state.query });
 }
 
 function subjectButton(subject, count, panel = false) {
-  const visible = !state.hiddenSubjects.has(subject);
+  const visible = !state.hideAllSubjects && !state.hiddenSubjects.has(subject);
   return `<button class="subject-button ${visible ? 'active' : ''}" type="button" data-subject="${escapeHtml(subject)}" aria-pressed="${visible}" style="--subject-color:${subjectColor(subject)}" title="${visible ? '隐藏' : '显示'}${escapeHtml(subject)}">${escapeHtml(subject)}${panel ? ` · ${count}` : ''}</button>`;
 }
 
 function controlledSubjectFacetCounts(conceptGraph) {
   const eligibleSubjects = new Set((conceptGraph.subject_taxonomy || [])
     .filter((item) => item?.facet_eligible === true && ['subject', 'assessment_subject'].includes(item.entity_kind))
-    .map((item) => typeof item.canonical === 'string' ? item.canonical.trim() : '')
+    .map((item) => typeof item.facet === 'string' ? item.facet.trim() : '')
     .filter(Boolean));
   const subjects = [...new Set((conceptGraph.subject_facets || [])
     .map((subject) => typeof subject === 'string' ? subject.trim() : '')
@@ -299,11 +302,15 @@ function renderSubjectControls() {
   subjectPanel.innerHTML = `<header><div><small>点击星色控制显隐</small><h2>全部学科</h2></div><button type="button" id="subject-panel-close" aria-label="关闭">×</button></header><div class="inspector-actions"><button class="action-button" type="button" id="show-all-subjects">全部显示</button><button class="action-button" type="button" id="hide-all-subjects">全部隐藏</button></div><div class="subject-grid">${subjects.map((subject) => subjectButton(subject, counts.get(subject), true)).join('')}</div>`;
   document.querySelector('#subject-more').addEventListener('click', () => { subjectPanel.hidden = false; });
   document.querySelector('#subject-panel-close').addEventListener('click', () => { subjectPanel.hidden = true; });
-  document.querySelector('#show-all-subjects').addEventListener('click', () => { state.hiddenSubjects.clear(); renderSubjectControls(); updateMapStatus(); subjectPanel.hidden = false; });
-  document.querySelector('#hide-all-subjects').addEventListener('click', () => { subjects.forEach((subject) => state.hiddenSubjects.add(subject)); renderSubjectControls(); updateMapStatus(); subjectPanel.hidden = false; });
+  document.querySelector('#show-all-subjects').addEventListener('click', () => { state.hideAllSubjects = false; state.hiddenSubjects.clear(); renderSubjectControls(); updateMapStatus(); subjectPanel.hidden = false; });
+  document.querySelector('#hide-all-subjects').addEventListener('click', () => { state.hideAllSubjects = true; subjects.forEach((subject) => state.hiddenSubjects.add(subject)); renderSubjectControls(); updateMapStatus(); subjectPanel.hidden = false; });
   document.querySelectorAll('[data-subject]').forEach((button) => button.addEventListener('click', () => {
     const subject = button.dataset.subject;
-    if (state.hiddenSubjects.has(subject)) state.hiddenSubjects.delete(subject);
+    if (state.hideAllSubjects) {
+      state.hideAllSubjects = false;
+      state.hiddenSubjects.clear();
+      subjects.forEach((name) => { if (name !== subject) state.hiddenSubjects.add(name); });
+    } else if (state.hiddenSubjects.has(subject)) state.hiddenSubjects.delete(subject);
     else state.hiddenSubjects.add(subject);
     const panelWasOpen = !subjectPanel.hidden;
     renderSubjectControls();
@@ -543,9 +550,11 @@ async function route() {
     }
     if (path === '/subjects') {
       closeWorkbench(false);
-      const subject = url.searchParams.get('subject');
-      const subjects = subjectFacetNames();
+      const subject = displayFacetForSubject(url.searchParams.get('subject'));
+      const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
       if (subject && subjects.includes(subject)) {
+        state.hideAllSubjects = false;
+        state.hiddenSubjects.clear();
         subjects.forEach((name) => { if (name !== subject) state.hiddenSubjects.add(name); });
         state.hiddenSubjects.delete(subject);
         renderSubjectControls();

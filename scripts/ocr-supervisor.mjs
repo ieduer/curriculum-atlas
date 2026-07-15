@@ -34,6 +34,8 @@ const pageRetriesPath = path.join(supervisorRoot, 'page-retries.json');
 const historyPath = path.join(supervisorRoot, 'history.jsonl');
 const runtimeIntegrityPath = path.join(supervisorRoot, 'runtime-integrity.json');
 const drainStatePath = path.join(supervisorRoot, 'drain-state.json');
+const watchdogStatePath = path.join(supervisorRoot, 'watchdog-state.json');
+const watchdogControlPath = path.join(supervisorRoot, 'watchdog-control.json');
 const candidateManifestPath = path.join(supervisorRoot, 'concept-candidate-manifest.json');
 const candidateRunsRoot = path.join(supervisorRoot, 'concept-runs');
 const llamaBinary = path.join(root, '.cache/tools/llama.cpp/build/bin/llama-server');
@@ -48,6 +50,16 @@ const expected = {
 };
 const visionRenderDpi = 240;
 const maxBatchPages = 64;
+const runtimeInteger = (name, fallback, minimum, maximum) => {
+  const value = Number(process.env[name]);
+  return Number.isInteger(value) ? Math.max(minimum, Math.min(maximum, value)) : fallback;
+};
+const runtimeIntegerFromValue = (value, fallback, minimum, maximum) => {
+  const number = Number(value);
+  return Number.isInteger(number) ? Math.max(minimum, Math.min(maximum, number)) : fallback;
+};
+const llamaParallel = runtimeInteger('OCR_LLAMA_PARALLEL', 1, 1, 4);
+const vlRecMaxConcurrency = runtimeInteger('OCR_VL_REC_MAX_CONCURRENCY', 1, 1, 8);
 const conceptFingerprintFiles = Object.freeze({
   catalog_sha256: 'data/catalog.json',
   queue_sha256: 'data/ocr-queue.json',
@@ -609,16 +621,25 @@ async function collectStatus(write = true) {
       });
     }
   }
-  const [audit, review, disk, graph, next, owner, current, drainOwner, drainState] = await Promise.all([
+  const [audit, review, disk, graph, next, owner, current, drainOwner, drainState, watchdogState, watchdogControl] = await Promise.all([
     collectAuditMetrics(), collectReviewMetrics(), statfs(root), readConceptGraph(), nextBatch(),
     readJson(path.join(lockDir, 'owner.json'), null), readJson(currentRunPath, null),
     readJson(path.join(drainLockDir, 'owner.json'), null), readJson(drainStatePath, null),
+    readJson(watchdogStatePath, null), readJson(watchdogControlPath, null),
   ]);
   const freeGiB = Number(disk.bavail * disk.bsize) / 1024 ** 3;
   const currentHeartbeatAge = current?.heartbeat_at ? (Date.now() - Date.parse(current.heartbeat_at)) / 60000 : null;
   const drainHeartbeatAge = drainState?.heartbeat_at ? (Date.now() - Date.parse(drainState.heartbeat_at)) / 60000 : null;
   const lockActive = Boolean(owner && await processAlive(owner.pid));
   const drainActive = Boolean(drainOwner && await processAlive(drainOwner.pid));
+  const watchdogActive = Boolean(watchdogState?.watchdog_pid && await processAlive(watchdogState.watchdog_pid));
+  const watchdogOwnsDrain = watchdogActive && drainActive && watchdogState?.child_pid === drainOwner.pid;
+  const activeRuntimePolicy = current?.runtime_policy || drainState?.runtime_policy || (watchdogOwnsDrain ? {
+    llama_parallel: runtimeIntegerFromValue(watchdogControl?.llama_parallel, 3, 1, 4),
+    llama_context_per_slot: 8192,
+    vl_rec_max_concurrency: runtimeIntegerFromValue(watchdogControl?.vl_rec_max_concurrency, 3, 1, 8),
+    source: 'watchdog_control',
+  } : null);
   const externalDrainActive = drainActive
     && !(drainOwner.pid === process.pid && drainOwner.drain_id === activeOwnedDrainId);
   const healthLockActive = lockActive || externalDrainActive;
@@ -646,7 +667,7 @@ async function collectStatus(write = true) {
           : 'no_eligible_pages';
   const status = {
     schema_version: 2, generated_at: nowIso(),
-    policy: { batch_pages: batchPages, max_batch_pages: maxBatchPages, vision_render_dpi: visionRenderDpi, vision_render_settle_seconds: 1.5, vision_immediate_retries_seconds: [2, 10, 30], page_retry_quarantine_after: 5, disk_warning_gib: 50, disk_hard_stop_gib: 25, stall_minutes: 20, candidates_never_citation_eligible: true, automatic_deploy: false },
+    policy: { batch_pages: batchPages, max_batch_pages: maxBatchPages, vision_render_dpi: visionRenderDpi, vision_render_settle_seconds: 1.5, vision_immediate_retries_seconds: [2, 10, 30], page_retry_quarantine_after: 5, disk_warning_gib: 50, disk_hard_stop_gib: 25, stall_minutes: 20, llama_parallel: activeRuntimePolicy?.llama_parallel ?? llamaParallel, llama_context_per_slot: activeRuntimePolicy?.llama_context_per_slot ?? 8192, vl_rec_max_concurrency: activeRuntimePolicy?.vl_rec_max_concurrency ?? vlRecMaxConcurrency, runtime_policy_source: activeRuntimePolicy?.source || (current?.runtime_policy ? 'current_run' : drainState?.runtime_policy ? 'drain_state' : 'process_environment'), candidates_never_citation_eligible: true, automatic_deploy: false },
     health,
     scheduler_state: schedulerState,
     queue: { documents: queue.counts.documents, pages: queue.counts.pages, completed_pages: completed, pending_pages: pendingPages, failed_pages: failures },
@@ -787,7 +808,7 @@ async function startLlama(logPath) {
   const log = await open(logPath, 'a');
   const child = spawn(llamaBinary, [
     '-m', modelPath, '--mmproj', mmprojPath, '--host', '127.0.0.1', '--port', '8112', '--temp', '0',
-    '--ctx-size', '8192', '--n-gpu-layers', 'all', '--parallel', '1', '--timeout', '3600', '--no-webui', '--metrics',
+    '--ctx-size', String(8192 * llamaParallel), '--n-gpu-layers', 'all', '--parallel', String(llamaParallel), '--timeout', '3600', '--no-webui', '--metrics',
   ], { cwd: root, stdio: ['ignore', log.fd, log.fd] });
   activeOwnedLlamaChild = child;
   try {
@@ -1118,6 +1139,12 @@ async function once() {
       owned_llama_pid: null,
       page_failures: [],
       audited_pages: [],
+      runtime_policy: {
+        llama_parallel: llamaParallel,
+        llama_context_per_slot: 8192,
+        vl_rec_max_concurrency: vlRecMaxConcurrency,
+        source: 'current_run',
+      },
     };
     await updateRun(run);
     const executionPolicy = ocrExecutionPolicy(mode);
@@ -1163,6 +1190,7 @@ async function once() {
         const paddleResult = await runLogged(pythonPath, [
           path.join(root, 'scripts/ocr-pdf-paddle.py'), document.id, path.join(root, document.local_cache_path), productionRoot,
           '--pages', paddlePages.join(','), '--save-visuals', '--force-reprocess',
+          '--vl-rec-max-concurrency', String(vlRecMaxConcurrency), '--server-parallel', String(llamaParallel),
         ], path.join(logDir, 'paddle.log'), run, 'paddle_ocr', {
           PADDLE_PDX_CACHE_HOME: path.join(root, '.cache/paddlex'), PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True',
         }, [0, 1]);
@@ -1283,6 +1311,12 @@ async function drain() {
     stage: 'starting',
     started_at: nowIso(),
     heartbeat_at: nowIso(),
+    runtime_policy: {
+      llama_parallel: llamaParallel,
+      llama_context_per_slot: 8192,
+      vl_rec_max_concurrency: vlRecMaxConcurrency,
+      source: 'drain_state',
+    },
   };
   const updateDrainState = async (changes = {}) => {
     Object.assign(state, changes, { heartbeat_at: nowIso() });

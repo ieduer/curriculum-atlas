@@ -58,6 +58,8 @@ def main() -> None:
     parser.add_argument("--dpi", type=int, default=240)
     parser.add_argument("--save-visuals", action="store_true")
     parser.add_argument("--force-reprocess", action="store_true", help="Rebuild selected pages even when state marks them complete.")
+    parser.add_argument("--vl-rec-max-concurrency", type=int, default=1)
+    parser.add_argument("--server-parallel", type=int, default=1)
     args = parser.parse_args()
 
     input_pdf = Path(args.input_pdf).resolve()
@@ -79,6 +81,9 @@ def main() -> None:
         state = json.loads(state_path.read_text(encoding="utf-8"))
         if state.get("source_sha256") != source_sha256:
             raise RuntimeError("Source checksum changed; refusing to mix OCR runs.")
+        state.setdefault("configuration", {})["vl_rec_max_concurrency"] = args.vl_rec_max_concurrency
+        state["configuration"]["server_parallel"] = args.server_parallel
+        atomic_json(state_path, state)
     else:
         state = {
             "schema_version": 1,
@@ -100,6 +105,8 @@ def main() -> None:
                 "paddlepaddle": paddle.__version__,
                 "paddleocr": importlib.metadata.version("paddleocr"),
                 "paddlex": importlib.metadata.version("paddlex"),
+                "vl_rec_max_concurrency": args.vl_rec_max_concurrency,
+                "server_parallel": args.server_parallel,
             },
             "completed_pages": [],
             "failed_pages": {},
@@ -111,6 +118,7 @@ def main() -> None:
         pipeline_version="v1.6",
         vl_rec_backend="llama-cpp-server",
         vl_rec_server_url=args.llama_url,
+        vl_rec_max_concurrency=max(1, args.vl_rec_max_concurrency),
         device="cpu",
     )
 

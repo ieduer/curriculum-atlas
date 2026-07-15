@@ -19,6 +19,7 @@ const academicText = await readFile(academicPath, 'utf8');
 const core = JSON.parse(coreText);
 const graph = JSON.parse(academicText);
 const quality = JSON.parse(await readFile(qualityPath, 'utf8'));
+const model = JSON.parse(await readFile(path.join(root, 'data/concept-model-v2.json'), 'utf8'));
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
 const failures = [];
@@ -76,16 +77,21 @@ for (const item of graph.subject_taxonomy) {
   fail(Boolean(item.source_label && item.canonical), `subject taxonomy ${item.source_label}: missing labels`);
   fail(item.entity_kind !== 'unclassified', `subject taxonomy ${item.source_label}: unclassified`);
   fail(item.facet_eligible === facetEntityKinds.has(item.entity_kind), `subject taxonomy ${item.source_label}: facet eligibility/entity kind mismatch`);
+  if (isFacetEntity(item)) {
+    const members = model.subject_facet_groups?.[item.facet];
+    fail(Array.isArray(members) && (members.includes(item.source_label) || members.includes(item.canonical)), `subject taxonomy ${item.source_label}: display facet missing or mismatched`);
+  } else fail(item.facet === null, `subject taxonomy ${item.source_label}: non-subject leaked into display facet`);
   if (item.entity_kind === 'curriculum_course') {
     fail(Boolean(item.stable_course_id && item.course_family) && item.stable_subject_id === null, `course taxonomy ${item.source_label}: course identity/family missing or subject identity leaked`);
     fail(Array.isArray(item.related_subjects), `course taxonomy ${item.source_label}: related subjects missing`);
   }
 }
 fail(new Set(graph.subject_facets).size === graph.subject_facets.length, 'subject_facets: duplicates');
-fail(graph.subject_facets.length === 29, `subject_facets: expected 29, got ${graph.subject_facets.length}`);
+const expectedSubjectFacets = Object.keys(model.subject_facet_groups || {});
+fail(JSON.stringify(graph.subject_facets) === JSON.stringify(expectedSubjectFacets), `subject_facets: expected controlled display groups ${expectedSubjectFacets.join(', ')}`);
 for (const facet of graph.subject_facets) {
-  const eligible = graph.subject_taxonomy.some((item) => item.canonical === facet && isFacetEntity(item))
-    || graph.works.some((work) => work.subject?.canonical === facet && isFacetEntity(work.subject));
+  const eligible = graph.subject_taxonomy.some((item) => item.facet === facet && isFacetEntity(item))
+    || graph.works.some((work) => work.subject?.facet === facet && isFacetEntity(work.subject));
   fail(eligible, `subject facet ${facet}: no controlled subject classification`);
 }
 const subjectAuditByDocument = new Map(graph.subject_entity_audit.map((item) => [item.document_id, item]));
@@ -93,6 +99,7 @@ fail(subjectAuditByDocument.size === graph.subject_entity_audit.length, 'subject
 for (const item of graph.subject_entity_audit) {
   fail(Boolean(item.document_id && item.source_label && item.canonical && item.entity_kind && item.classification && item.mapping_basis), `${item.document_id}: incomplete subject entity audit`);
   fail(item.facet_eligible === facetEntityKinds.has(item.entity_kind), `${item.document_id}: audit facet eligibility/entity kind mismatch`);
+  fail(isFacetEntity(item) ? graph.subject_facets.includes(item.facet) : item.facet === null, `${item.document_id}: audit display facet mismatch`);
   if (!isFacetEntity(item)) for (const episode of graph.episodes.filter((candidate) => editions.get(candidate.edition_id)?.document_id === item.document_id)) {
     fail(episode.subject?.canonical === null && episode.subject?.facet_eligible === false && episode.scope_entity?.entity_kind === item.entity_kind, `${item.document_id}: non-facet episode leaked into subject facet`);
     if (item.entity_kind === 'curriculum_course') {
@@ -125,7 +132,12 @@ fail(sourceValue('综合实践活动')?.entity_kind === 'curriculum_course' && s
   && sourceValue('综合实践活动')?.official_code === 'SB0801', '综合实践活动 SB0801 curriculum-course classification missing');
 fail(sourceValue('综合实践活动')?.course_family === '综合实践课程' && sourceValue('综合实践活动')?.family === null, '综合实践活动 was silently grouped into a subject family');
 fail(sourceValue('汉语')?.entity_kind === 'assessment_subject' && sourceValue('汉语')?.facet_eligible === true
-  && sourceValue('汉语')?.classification === 'assessment_subject' && sourceValue('汉语')?.canonical === '汉语', '汉语 assessment-subject facet classification missing or merged into 语文');
+  && sourceValue('汉语')?.classification === 'assessment_subject' && sourceValue('汉语')?.canonical === '汉语'
+  && sourceValue('汉语')?.facet === '语文', '汉语 exact identity or 语文 display grouping is invalid');
+for (const name of ['英语', '日语', '俄语', '德语', '法语', '西班牙语']) fail(sourceValue(name)?.facet === '外语', `${name}: foreign-language display grouping missing`);
+for (const name of ['思想政治', '思想品德', '道德与法治', '品德与生活', '品德与社会']) fail(sourceValue(name)?.facet === '思想政治与道德法治', `${name}: civics display grouping missing`);
+for (const name of ['信息技术', '信息科技', '通用技术']) fail(sourceValue(name)?.facet === '技术', `${name}: technology display grouping missing`);
+for (const name of ['科学', '初中科学', '物理', '化学', '生物', '生物学']) fail(sourceValue(name)?.facet === '科学类', `${name}: science display grouping missing`);
 for (const item of graph.subject_taxonomy.filter((entry) => entry.classification === 'special_education_curriculum_course')) {
   fail(item.official_code === null && Boolean(item.authority), `${item.source_label}: special-education extension has invented SB code or missing authority`);
 }
@@ -133,11 +145,12 @@ for (const name of ['定向行走', '综合康复', '社会适应', '沟通与�
   fail(/2016/.test(sourceValue(name)?.authority || ''), `${name}: 2016 MOE special-education provenance missing`);
 }
 const canonicalCourses = [...new Set(graph.subject_taxonomy.filter((item) => item.entity_kind === 'curriculum_course').map((item) => item.canonical))];
+const controlledCanonicalSubjects = new Set(graph.subject_taxonomy.filter(isFacetEntity).map((item) => item.canonical));
 fail(canonicalCourses.length === 17, `course taxonomy: expected 17 canonical courses, got ${canonicalCourses.length}`);
 for (const course of canonicalCourses) {
   const links = graph.course_to_subject_links?.[course];
   fail(Array.isArray(links), `${course}: course-to-subject links missing`);
-  for (const subject of links || []) fail(graph.subject_facets.includes(subject), `${course}: linked subject ${subject} is not a controlled facet`);
+  for (const subject of links || []) fail(controlledCanonicalSubjects.has(subject), `${course}: linked subject ${subject} is not a controlled subject identity`);
 }
 const requiredOfficialCodes = {
   语文: 'SB0101', 英语: 'SB0102', 俄语: 'SB0103', 日语: 'SB0104', 德语: 'SB0105', 法语: 'SB0106', 西班牙语: 'SB0107',
@@ -253,7 +266,7 @@ for (const episode of graph.episodes) {
   if (episode.subject?.facet_eligible === true) {
     fail(facetEntityKinds.has(episode.subject.entity_kind), `${episode.id}: invalid facet-bearing entity kind`);
     fail(episode.subject?.facet_eligible === true && Boolean(episode.subject.canonical), `${episode.id}: subject facet metadata invalid`);
-    fail(graph.subject_facets.includes(episode.subject.canonical), `${episode.id}: canonical subject absent from controlled facet`);
+    fail(graph.subject_facets.includes(episode.subject.facet), `${episode.id}: display facet absent from controlled groups`);
     fail(episode.course_entity === null, `${episode.id}: facet episode has course entity`);
   } else {
     fail(episode.subject?.facet_eligible === false && episode.subject?.canonical === null, `${episode.id}: scope entered subject facet`);

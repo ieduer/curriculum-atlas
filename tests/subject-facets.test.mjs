@@ -1,20 +1,22 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { episodeEntityLabel, episodeSubjectFacet } from '../public/atlas.js';
+import { episodeCanonicalSubject, episodeEntityLabel, episodeSubjectFacet } from '../public/atlas.js';
 
 const root = new URL('../', import.meta.url);
 
 test('star-map facet helper admits controlled subject and assessment-subject entities only', () => {
   const subject = {
-    subject: { entity_kind: 'subject', facet_eligible: true, canonical: '语文', source_label: '语文' },
+    subject: { entity_kind: 'subject', facet_eligible: true, canonical: '语文', facet: '语文', source_label: '语文' },
   };
   assert.equal(episodeSubjectFacet(subject), '语文');
   assert.equal(episodeEntityLabel(subject), '语文');
   const assessmentSubject = {
-    subject: { entity_kind: 'assessment_subject', facet_eligible: true, canonical: '汉语', source_label: '汉语' },
+    subject: { entity_kind: 'assessment_subject', facet_eligible: true, canonical: '汉语', facet: '语文', source_label: '汉语' },
   };
-  assert.equal(episodeSubjectFacet(assessmentSubject), '汉语');
+  assert.equal(episodeSubjectFacet(assessmentSubject), '语文');
+  assert.equal(episodeCanonicalSubject(assessmentSubject), '汉语');
+  assert.equal(episodeEntityLabel(assessmentSubject), '汉语');
 
   const course = {
     subject: { entity_kind: 'curriculum_course', facet_eligible: false, canonical: null },
@@ -60,7 +62,7 @@ test('API, retrieval, and corpus persistence use document classifications rather
   assert.match(corpus, /classified_document_count/);
 });
 
-test('frontend subject controls consume strict facets and keep scopes visible', async () => {
+test('frontend subject controls consume strict display facets and hide all nodes atomically', async () => {
   const [app, atlas, index] = await Promise.all([
     readFile(new URL('public/app.js', root), 'utf8'),
     readFile(new URL('public/atlas.js', root), 'utf8'),
@@ -68,8 +70,10 @@ test('frontend subject controls consume strict facets and keep scopes visible', 
   ]);
   assert.match(app, /controlledSubjectFacetCounts\(state\.conceptGraph\)/);
   assert.match(app, /item\?\.facet_eligible === true && \['subject', 'assessment_subject'\]\.includes\(item\.entity_kind\)/);
+  assert.match(app, /typeof item\.facet === 'string'/);
   assert.match(app, /document\?\.entity_kind === 'subject'/);
-  assert.match(atlas, /\(node\.subject && this\.filters\.hiddenSubjects\.has\(node\.subject\)\)/);
+  assert.match(atlas, /this\.filters\.hideAll \|\| node\.year > this\.filters\.maxYear/);
+  assert.match(atlas, /!source \|\| !target \|\| !this\.visible\(source\) \|\| !this\.visible\(target\)/);
   assert.match(atlas, /color: subject \? subjectColor\(subject\) : course \? '#67d7b1' : '#e7bd61'/);
   assert.match(app, /location\.hostname !== 'curriculum\.bdfz\.net'/);
   assert.match(app, /https:\/\/my\.bdfz\.net\/site-auth\.js/);
@@ -87,7 +91,7 @@ test('frontend subject controls consume strict facets and keep scopes visible', 
   assert.equal(graphVersion, appEntryVersion, 'concept graph cache version drifted');
 });
 
-test('all 29 controlled graph facets remain stable controls even without episodes', async () => {
+test('the 12 display groups preserve exact identities and remain stable controls', async () => {
   const [app, graphSource] = await Promise.all([
     readFile(new URL('public/app.js', root), 'utf8'),
     readFile(new URL('public/data/concept-evolution.json', root), 'utf8'),
@@ -102,10 +106,14 @@ test('all 29 controlled graph facets remain stable controls even without episode
   )(episodeSubjectFacet);
 
   const { subjects, counts } = controlledSubjectFacetCounts(graph);
-  assert.equal(subjects.length, 29);
+  assert.equal(subjects.length, 12);
   assert.deepEqual(subjects, graph.subject_facets, 'graph-defined facet order must remain stable');
+  assert.deepEqual(subjects, ['语文', '数学', '外语', '思想政治与道德法治', '历史', '历史与社会', '地理', '科学类', '技术', '劳动', '艺术', '体育与健康']);
   const zeroEpisodeSubjects = subjects.filter((subject) => counts.get(subject) === 0);
-  assert.deepEqual(zeroEpisodeSubjects, ['道德与法治', '汉语', '科学', '劳动', '历史与社会', '品德与生活', '信息科技']);
+  assert.deepEqual(zeroEpisodeSubjects, ['历史与社会', '劳动']);
+  for (const forbidden of ['汉语', '日语', '西班牙语', '思想品德', '道德与法治', '信息技术', '信息科技', '通用技术', '科学', '物理', '化学', '生物学']) {
+    assert.equal(subjects.includes(forbidden), false, `${forbidden} must not be a standalone display facet`);
+  }
 
   const contaminatedGraph = structuredClone(graph);
   contaminatedGraph.subject_facets.push('定向行走', '美工', '课程方案', '考试评价');
@@ -117,4 +125,23 @@ test('all 29 controlled graph facets remain stable controls even without episode
   hiddenSubjects.delete(zeroEpisodeSubjects[0]);
   assert.equal(hiddenSubjects.has(zeroEpisodeSubjects[0]), false);
   assert.deepEqual(controlledSubjectFacetCounts(graph).subjects, subjects, 'zero-episode toggles must not reorder controls');
+});
+
+test('every controlled academic identity resolves to exactly one display group', async () => {
+  const model = JSON.parse(await readFile(new URL('data/concept-model-v2.json', root), 'utf8'));
+  const groups = Object.entries(model.subject_facet_groups);
+  const mappedMembers = new Set(groups.flatMap(([, members]) => members));
+  for (const [sourceLabel, entry] of Object.entries(model.subject_taxonomy)) {
+    const matches = groups.filter(([, members]) => members.includes(sourceLabel) || members.includes(entry.canonical));
+    if (entry.facet_eligible) {
+      assert.equal(matches.length, 1, `${sourceLabel} must resolve to exactly one display group`);
+      assert.ok(['subject', 'assessment_subject'].includes(entry.entity_kind), `${sourceLabel} has an invalid academic entity kind`);
+    } else {
+      assert.equal(matches.length, 0, `${sourceLabel} is not a subject but leaked into ${matches.map(([name]) => name).join(', ')}`);
+    }
+  }
+  for (const member of mappedMembers) {
+    assert.ok(model.subject_taxonomy[member]
+      || Object.values(model.subject_taxonomy).some((entry) => entry.canonical === member), `${member} has no exact taxonomy identity`);
+  }
 });

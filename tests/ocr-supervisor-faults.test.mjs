@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -198,6 +198,20 @@ test('continuous drain stops at the disk warning boundary before another batch',
   };
   assert.equal(continuousDrainDecision(status).code, 'DRAIN_DISK_WARNING');
   assert.equal(continuousDrainDecision({ ...status, disk: { free_gib: 60, warning: false } }).action, 'continue');
+});
+
+test('watchdog keeps polling a drain it spawned instead of waiting blindly for exit', async () => {
+  const source = await readFile(new URL('../scripts/ocr-watchdog.mjs', import.meta.url), 'utf8');
+  assert.match(source, /llama_parallel: 3,/);
+  assert.match(source, /vl_rec_max_concurrency: 3,/);
+  assert.match(source, /while \(!result\) \{/);
+  assert.match(source, /sleep\(settings\.poll_seconds \* 1000\)/);
+  assert.match(source, /terminateVerifiedStalledOwner\(owners, settings\)/);
+  assert.match(source, /processIdentity\(observation\.owner\.pid, 'drain'\)/);
+  const supervisor = await readFile(new URL('../scripts/ocr-supervisor.mjs', import.meta.url), 'utf8');
+  assert.match(supervisor, /runtime_policy_source:/);
+  assert.match(supervisor, /watchdogOwnsDrain \? \{/);
+  assert.match(supervisor, /source: 'watchdog_control'/);
 });
 
 test('completed page with drifted content.md is selected for primary recovery', async (t) => {

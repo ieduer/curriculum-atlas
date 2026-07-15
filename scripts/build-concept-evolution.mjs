@@ -134,6 +134,17 @@ function schoolTypeDetails(record, historical = false) {
 const facetEntityKinds = new Set(['subject', 'assessment_subject']);
 const isFacetEntity = (entity) => facetEntityKinds.has(entity?.entity_kind) && entity?.facet_eligible === true;
 
+function facetGroupFor(entry, sourceLabel) {
+  if (!isFacetEntity(entry)) return null;
+  const matches = Object.entries(model.subject_facet_groups || {})
+    .filter(([, members]) => members.includes(sourceLabel) || members.includes(entry.canonical))
+    .map(([facet]) => facet);
+  if (matches.length !== 1) {
+    throw new Error(`Subject facet group must resolve exactly once: ${sourceLabel} -> ${entry.canonical} (${matches.join(', ') || 'none'})`);
+  }
+  return matches[0];
+}
+
 function subjectEntity(record) {
   const sourceLabel = record.subject || 'unknown';
   const entry = model.document_entity_overrides?.[record.id] || model.subject_taxonomy?.[sourceLabel];
@@ -144,6 +155,7 @@ function subjectEntity(record) {
       entity_kind: 'unclassified',
       classification: 'taxonomy_mapping_missing',
       facet_eligible: false,
+      facet: null,
       family: null,
       stable_subject_id: null,
       official_code: null,
@@ -164,6 +176,7 @@ function subjectEntity(record) {
   return {
     ...entry,
     source_label: sourceLabel,
+    facet: facetGroupFor(entry, sourceLabel),
     family,
     course_family: courseFamily,
     related_subjects: model.course_to_subject_links?.[entry.canonical] || model.course_to_subject_links?.[sourceLabel] || [],
@@ -192,6 +205,7 @@ function episodeSubject(entity) {
     entity_kind: entity.entity_kind,
     classification: entity.classification,
     facet_eligible: false,
+    facet: null,
     official_code: null,
     authority: entity.authority,
     family: null,
@@ -268,6 +282,7 @@ const subjectTaxonomy = rawSubjectLabels.map((sourceLabel) => {
     entity_kind: classified.entity_kind,
     classification: classified.classification,
     facet_eligible: classified.facet_eligible,
+    facet: classified.facet,
     official_code: classified.official_code,
     authority: classified.authority,
     family: classified.family,
@@ -291,6 +306,7 @@ const subjectEntityAudit = catalog.documents.map((record) => {
     entity_kind: entity.entity_kind,
     classification: entity.classification,
     facet_eligible: entity.facet_eligible,
+    facet: entity.facet,
     official_code: entity.official_code,
     authority: entity.authority,
     course_variant: entity.course_variant,
@@ -304,6 +320,7 @@ const subjectEntityAudit = catalog.documents.map((record) => {
 const canonicalSubjects = [...new Set(catalog.documents.map(subjectEntity)
   .filter(isFacetEntity)
   .map((entity) => entity.canonical))].sort((left, right) => left.localeCompare(right, 'zh-CN'));
+const subjectFacets = Object.keys(model.subject_facet_groups || {});
 
 const conceptSenses = [];
 const senseByConcept = new Map();
@@ -1111,6 +1128,7 @@ const academicGraph = {
     ocr_candidate_episodes: episodes.filter((item) => ['ocr_candidate', 'conflict'].includes(item.observation.status)).length,
     concept_count: new Set(episodes.map((item) => item.concept_id)).size,
     subject_count: new Set(episodes.map((item) => item.subject.canonical).filter(Boolean)).size,
+    subject_facet_count: new Set(episodes.map((item) => item.subject.facet).filter(Boolean)).size,
     min_year: years.length ? Math.min(...years) : null,
     max_year: years.length ? Math.max(...years) : null,
     common_boilerplate_matches_marked: occurrences.filter((item) => item.text_reuse_cluster_id).length,
@@ -1123,7 +1141,7 @@ const academicGraph = {
   taxonomy_decision_rules: model.taxonomy_decision_rules,
   course_families: model.course_families,
   course_to_subject_links: model.course_to_subject_links,
-  subject_facets: canonicalSubjects,
+  subject_facets: subjectFacets,
   concepts,
   concept_senses: conceptSenses,
   surface_forms: surfaceForms,
@@ -1205,7 +1223,7 @@ const graph = {
     },
   },
   coverage: academicGraph.coverage,
-  subject_facets: canonicalSubjects,
+  subject_facets: subjectFacets,
   course_families: model.course_families,
   course_to_subject_links: model.course_to_subject_links,
   subject_taxonomy: subjectTaxonomy.map((item) => ({
@@ -1216,6 +1234,7 @@ const graph = {
     entity_kind: item.entity_kind,
     classification: item.classification,
     facet_eligible: item.facet_eligible,
+    facet: item.facet,
     official_code: item.official_code,
     family: item.family,
     course_family: item.course_family,
@@ -1237,7 +1256,7 @@ const checks = [
   { id: 'unique_occurrence_ids', passed: new Set(occurrences.map((item) => item.id)).size === occurrences.length },
   { id: 'subject_taxonomy_complete', passed: subjectTaxonomy.every((item) => item.entity_kind !== 'unclassified') },
   { id: 'subject_facet_is_clean', passed: episodes.every((item) => item.subject.facet_eligible === true
-    ? facetEntityKinds.has(item.subject.entity_kind) && Boolean(item.subject.canonical) && canonicalSubjects.includes(item.subject.canonical)
+    ? facetEntityKinds.has(item.subject.entity_kind) && Boolean(item.subject.canonical) && subjectFacets.includes(item.subject.facet)
     : item.subject.canonical === null && Boolean(item.scope_entity?.canonical)
       && (item.scope_entity.entity_kind !== 'curriculum_course' || item.course_entity?.canonical === item.scope_entity.canonical)) },
   { id: 'core_payload_under_4mb', passed: Buffer.byteLength(corePayload) < 4 * 1024 * 1024 },

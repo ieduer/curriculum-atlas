@@ -3,7 +3,12 @@ import { basename, extname, join } from 'node:path';
 
 const projectRoot = new URL('../', import.meta.url);
 const groundTruth = JSON.parse(await readFile(new URL('data/ocr-benchmark-ground-truth.json', projectRoot), 'utf8'));
-const engineSpecs = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const outputIndex = argv.indexOf('--output-report');
+const outputReport = outputIndex >= 0 ? argv[outputIndex + 1] : 'data/ocr-benchmark-results.json';
+if (outputIndex >= 0 && !outputReport) throw new Error('--output-report requires a project-relative path.');
+if (outputIndex >= 0) argv.splice(outputIndex, 2);
+const engineSpecs = argv;
 if (engineSpecs.length === 0) {
   throw new Error('Pass engine directories as <label>=<directory>.');
 }
@@ -88,7 +93,7 @@ const report = {
   metric: 'Visually reviewed critical-anchor recall after NFKC and punctuation/whitespace normalization; not a substitute for full CER.',
   engines,
 };
-await writeFile(new URL('data/ocr-benchmark-results.json', projectRoot), `${JSON.stringify(report, null, 2)}\n`);
+await writeFile(new URL(outputReport, projectRoot), `${JSON.stringify(report, null, 2)}\n`);
 for (const engine of engines) {
   console.log(`${engine.label}: ${engine.matched_anchors}/${engine.total_anchors} (${engine.anchor_recall})`);
   for (const sample of engine.samples) {

@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-15T13:20:54.454Z",
+  "metric": "Wall-clock time for the same five manually reviewed pages; critical-anchor recall is measured after NFKC and punctuation/whitespace normalization.",
+  "sample_set": {
+    "pages": 5,
+    "critical_anchors": 70,
+    "matched_anchors": 68,
+    "anchor_recall": 0.9714
+  },
+  "profiles": [
+    {
+      "llama_parallel": 1,
+      "elapsed_seconds": 45.982,
+      "anchor_recall": 0.9714
+    },
+    {
+      "llama_parallel": 2,
+      "elapsed_seconds": 37.29,
+      "anchor_recall": 0.9714
+    },
+    {
+      "llama_parallel": 3,
+      "elapsed_seconds": 35.061,
+      "anchor_recall": 0.9714,
+      "byte_identical_to_parallel_1": true
+    },
+    {
+      "llama_parallel": 4,
+      "elapsed_seconds": 46.389,
+      "anchor_recall": 0.9714
+    }
+  ],
+  "selection": {
+    "llama_parallel": 3,
+    "vl_rec_max_concurrency": 3,
+    "per_slot_context_tokens": 8192,
+    "reason": "Fastest reviewed profile with unchanged anchor recall; parallel-3 output was byte-identical to parallel-1 on the sample set."
+  },
+  "production_validation": {
+    "canary_pages": 16,
+    "canary_failures": 0,
+    "completed_batches": [
+      {
+        "pages": 64,
+        "elapsed_seconds": 783.252,
+        "failures": 0,
+        "exact_audits": 64
+      },
+      {
+        "pages": 64,
+        "elapsed_seconds": 844.918,
+        "failures": 0,
+        "exact_audits": 64
+      }
+    ],
+    "combined_pages": 128,
+    "batch_processing_seconds": 1628.17,
+    "inter_batch_handoff_seconds": 2.586,
+    "combined_elapsed_seconds": 1630.756,
+    "pages_per_minute": 4.70947,
+    "pages_per_10_minutes": 47.0947
+  }
+}

@@ -74,7 +74,7 @@ work/edition ─────┘
 | `生物`, `生物学` | 生物学 | 共享 `stable_subject_id=subject:biology`，保留历史 source label |
 | `信息技术`, `信息科技` | 各自名称 | 共享 `lineage_family=information_technology_education`；未完成改名连续性审核前使用不同 stable ID |
 
-汉语不并入语文；它以 `entity_kind=assessment_subject` 保留独立身份，但因目录中的全国考试大纲确实以汉语为评价对象，仍具有 `facet_eligible=true`。思想品德、思想政治、道德与法治、品德与生活、品德与社会等阶段名称也不在无双端证据时静默合并。
+精确身份与星图展示分层处理。汉语仍以 `entity_kind=assessment_subject`、`canonical=汉语` 保留来源身份，但其 `facet=语文`，不再成为独立星图开关。英语、日语、俄语、德语、法语、西班牙语统一显示为“外语”；思想品德、思想政治、道德与法治、品德与生活、品德与社会统一显示为“思想政治与道德法治”；科学、物理、化学、生物/生物学统一显示为“科学类”；信息技术、信息科技、通用技术统一显示为“技术”。这些 `facet` 只控制配色与显隐，canonical、stable ID、官方代码、curriculum line、版本比较和引文检索仍保持精确，不把展示归并解释为历史改名、制度合并或学科等同。
 
 特色课程全部使用 `entity_kind=curriculum_course`，通过 `course_families` 归入语言与沟通、数量与生活、艺术与律动、康复与适应、劳动技能等课程族；`course_to_subject_links` 只表达可审核的关联入口，不把课程等同或并入关联学科。episode 同时保留兼容字段 `scope_entity` 与显式 `course_entity`，因此课程不会冒充 scope 或 subject。学校类型/子类另存在 curriculum line，不拿课程名称替代学校类型。
 
@@ -97,4 +97,4 @@ node scripts/validate-concept-evolution.mjs
 node --test tests/concept-evolution-academic-schema.test.mjs
 ```
 
-校验器检查实体 ID/FK、29 个受控学科 facet、目录分类精确计数、课程族/关联学科、显式 `course_entity`、盲校与聋校课程线隔离、2017/2020 版次修订、逐次词面偏移、未知字段不推断、关系双端证据、非语义关系禁止影响主张、OCR 禁止引文、coverage 负面结论关闭，以及非学科来源值不得进入 subject facet。
+校验器检查实体 ID/FK、12 个展示 facet 与全部精确学科身份的唯一映射、目录分类精确计数、课程族/关联学科、显式 `course_entity`、盲校与聋校课程线隔离、2017/2020 版次修订、逐次词面偏移、未知字段不推断、关系双端证据、非语义关系禁止影响主张、OCR 禁止引文、coverage 负面结论关闭，以及非学科来源值不得进入 subject facet。

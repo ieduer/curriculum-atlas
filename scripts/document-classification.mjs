@@ -66,7 +66,7 @@ export function fallbackDocumentClassification(record) {
 
 export async function loadDocumentClassificationResolver(projectRoot) {
   const model = JSON.parse(await readFile(new URL('data/concept-model-v2.json', projectRoot), 'utf8'));
-  if (!model.subject_taxonomy || !model.document_entity_overrides || !model.subject_families
+  if (!model.subject_taxonomy || !model.document_entity_overrides || !model.subject_families || !model.subject_facet_groups
     || !model.course_families || !model.course_to_subject_links) {
     throw new Error('concept-model-v2 taxonomy is incomplete');
   }

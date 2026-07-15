@@ -160,7 +160,7 @@ test('subject facet is controlled while courses, frameworks, domains, and collec
     if (episode.subject.facet_eligible === true) {
       assert.ok(['subject', 'assessment_subject'].includes(episode.subject.entity_kind));
       assert.equal(episode.subject.facet_eligible, true);
-      assert.ok(graph.subject_facets.includes(episode.subject.canonical));
+      assert.ok(graph.subject_facets.includes(episode.subject.facet));
       assert.equal(episode.course_entity, null);
     } else {
       assert.equal(episode.subject.canonical, null);
@@ -172,7 +172,7 @@ test('subject facet is controlled while courses, frameworks, domains, and collec
       } else assert.equal(episode.course_entity, null);
     }
   }
-  assert.equal(graph.subject_facets.length, 29);
+  assert.deepEqual(graph.subject_facets, ['语文', '数学', '外语', '思想政治与道德法治', '历史', '历史与社会', '地理', '科学类', '技术', '劳动', '艺术', '体育与健康']);
   assert.ok(graph.episodes.some((episode) => episode.scope_entity.entity_kind === 'cross_cutting_framework'));
   for (const value of ['课程方案', '考试大纲', '考试评价', '综合', '艺术与劳动']) {
     assert.notEqual(taxonomy.get(value).entity_kind, 'subject');
@@ -187,6 +187,7 @@ test('subject facet is controlled while courses, frameworks, domains, and collec
   assert.equal(taxonomy.get('汉语').facet_eligible, true);
   assert.equal(taxonomy.get('汉语').classification, 'assessment_subject');
   assert.equal(taxonomy.get('汉语').canonical, '汉语');
+  assert.equal(taxonomy.get('汉语').facet, '语文');
   assert.equal(taxonomy.get('普通高级中学 体育体育与健康').canonical, '体育与健康');
   assert.equal(taxonomy.get('初中科学').canonical, '科学');
   assert.equal(taxonomy.get('文科数学').course_variant, 'humanities_track');
@@ -194,6 +195,10 @@ test('subject facet is controlled while courses, frameworks, domains, and collec
   assert.equal(taxonomy.get('生物').stable_subject_id, taxonomy.get('生物学').stable_subject_id);
   assert.equal(taxonomy.get('信息技术').lineage_family, taxonomy.get('信息科技').lineage_family);
   assert.notEqual(taxonomy.get('信息技术').stable_subject_id, taxonomy.get('信息科技').stable_subject_id);
+  for (const name of ['英语', '日语', '俄语', '德语', '法语', '西班牙语']) assert.equal(taxonomy.get(name).facet, '外语', name);
+  for (const name of ['思想政治', '思想品德', '道德与法治', '品德与生活', '品德与社会']) assert.equal(taxonomy.get(name).facet, '思想政治与道德法治', name);
+  for (const name of ['信息技术', '信息科技', '通用技术']) assert.equal(taxonomy.get(name).facet, '技术', name);
+  for (const name of ['科学', '初中科学', '物理', '化学', '生物', '生物学']) assert.equal(taxonomy.get(name).facet, '科学类', name);
   assert.equal(subjectAudit.get('ictr-d692b0ff2e6c').canonical, '思想品德');
   assert.equal(subjectAudit.get('ictr-197f8a2e1cca').canonical, '音乐');
   const courseLabels = [

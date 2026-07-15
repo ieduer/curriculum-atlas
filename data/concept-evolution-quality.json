@@ -4,14 +4,14 @@
   "artifact_profile": "curriculum-concept-evolution-quality-v1",
   "academic_schema": "curriculum-concept-evolution-academic-v2",
   "model_kind": "curriculum-concept-observation-model",
-  "build_revision": "a88de4059a02b9d1ccdad0dacfc7c633bdfd55e9b2685267f7151d93b12b9411",
+  "build_revision": "ab30d3e09c9cf6706b7a3957e97925f66354d869dd840e8e9218401935288577",
   "input_fingerprints": {
-    "catalog_sha256": "3f72d2cccc31468132ba5eb5aecc416f1ea95d2f0c4014158437b6254ce31f08",
+    "catalog_sha256": "4c16b14c13c0a11bff88d424b5d72a87538a5e1350885ce8a040ff96a41792e0",
     "queue_sha256": "20ce93616473c0f1229c17373ff6fe3d075402a6bfa7c6615edc1a8898793659",
-    "concept_model_sha256": "2d04ac54aa7bd6a937725bc0ed6ce067a7857313ad988093e3df445731023d0f",
+    "concept_model_sha256": "98d8b3b8c9f4ad1e7f02410c2470fa8b34820996e380d39230a763fd49b3356e",
     "lexicon_sha256": "0d7681210c7ec7335d6e8d28726f0395553e024a1f57606749db39682fae1e49",
-    "builder_sha256": "8bd4aec1c7372f111a9681030cf239e8bf5f073a9c5cacff8ac9b5b027fec8ff",
-    "validator_sha256": "6d250295a428eef8ff8535b3ffd869f58a1dfead33bf06e8cd80a96856c52f91"
+    "builder_sha256": "f76f837d14e39158a7afe51e888bcc122312e29c22897237d04275012780a09d",
+    "validator_sha256": "1362fc8345fb8e54391f0bb4ad0766b5b196e9e07c204f4393dd639f68e73f40"
   },
   "passed": true,
   "checks": [
@@ -60,12 +60,12 @@
       "passed": true
     }
   ],
-  "core_bytes": 2910909,
-  "academic_bytes": 25948060,
-  "academic_sha256": "d7e49495683253356a513d413fffa7aac0f0930bf68dd659a525f27bedd738db",
+  "core_bytes": 2961343,
+  "academic_bytes": 26124389,
+  "academic_sha256": "9b1f63eb6963152dcac24233f71b0adc518386802dd497809e8e26f80ecd8733",
   "release_boundary": "基于当前可用语料的词面概念观察图；不是完整课程史，不宣称概念义项连续、绝对首次、消失、取代、影响或因果演进。",
   "unresolved": [
-    "8456 OCR pages remain",
+    "8138 OCR pages remain",
     "Concept-sense definitions and semantic rename, split, merge, replacement, and influence relations require editor-reviewed dual-ended evidence.",
     "Exact repeated-text clusters are marked rather than silently discarded; their editorial classification remains pending.",
     "Source-text candidates remain non-quotable until paragraph-level citation gates pass."

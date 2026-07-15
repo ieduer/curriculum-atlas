@@ -62,6 +62,7 @@ def main():
     parser = argparse.ArgumentParser(description="Benchmark the fail-closed curriculum OCR stack.")
     parser.add_argument("--output", default=".cache/ocr-benchmark")
     parser.add_argument("--llama-url", default="http://127.0.0.1:8112/v1")
+    parser.add_argument("--vl-rec-max-concurrency", type=int, default=1)
     parser.add_argument(
         "--only",
         choices=("all", "paddleocr-vl", "pp-structure"),
@@ -91,6 +92,7 @@ def main():
             "paddleocr_vl_pipeline_version": "v1.6",
             "vl_rec_backend": "llama-cpp-server",
             "vl_rec_server_url": args.llama_url,
+            "vl_rec_max_concurrency": args.vl_rec_max_concurrency,
             "device": "cpu",
             "pp_structure_v3": (
                 "official orientation/unwarping/layout/PP-OCRv5 models; "
@@ -106,6 +108,7 @@ def main():
             pipeline_version="v1.6",
             vl_rec_backend="llama-cpp-server",
             vl_rec_server_url=args.llama_url,
+            vl_rec_max_concurrency=max(1, args.vl_rec_max_concurrency),
             device="cpu",
         )
         manifest["pipelines"]["paddleocr_vl_1_6"] = run_pipeline(
