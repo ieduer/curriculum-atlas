@@ -51,6 +51,29 @@ export function nextPageRetry(previous, error, { now = Date.now(), maxAttempts =
   };
 }
 
+export function paddleRuntimeFailure(error, { now = Date.now(), retryDelayMs = 5 * 60_000 } = {}) {
+  const causeCode = error?.code ?? error?.signal ?? 'PADDLE_PROCESS_EXIT';
+  return {
+    code: 'PADDLE_RUNTIME_UNAVAILABLE',
+    scope: 'runtime',
+    cause_code: String(causeCode),
+    retry_at: new Date(now + retryDelayMs).toISOString(),
+    message: String(error?.message || 'Paddle OCR process did not complete').slice(0, 600),
+  };
+}
+
+export function paddleLogIndicatesRuntimeFailure(value) {
+  const text = String(value || '');
+  return [
+    /library load denied by system policy/i,
+    /ImportError:\s*dlopen\(/i,
+    /NameError:\s*name ['"]libpaddle['"] is not defined/i,
+    /Too many open files/i,
+    /UNIX error 24/i,
+    /\b(?:EMFILE|ENFILE)\b/,
+  ].some((pattern) => pattern.test(text));
+}
+
 export function witnessRecordValid(record, expected = {}) {
   if (!record || record.error || !Array.isArray(record.lines)) return false;
   if (!/^[a-f0-9]{64}$/i.test(String(record.source_pdf_sha256 || ''))) return false;
@@ -85,8 +108,14 @@ export function continuousDrainDecision(status) {
   const completedPages = Number(queue.completed_pages);
   const witnessPages = Number(evidence.witness_pages);
   const auditedPages = Number(evidence.audited_pages);
+  const healthReasons = Array.isArray(status?.health?.reasons) ? status.health.reasons : [];
+  const resumablePageQuarantine = healthCode === 2
+    && pendingPages > 0
+    && status?.scheduler_state === 'ready'
+    && healthReasons.length > 0
+    && healthReasons.every((reason) => reason === 'PAGE_QUARANTINED');
 
-  if (healthCode !== 0) {
+  if (healthCode !== 0 && !resumablePageQuarantine) {
     return {
       action: 'stop',
       code: 'DRAIN_HEALTH_STOP',
@@ -144,7 +173,7 @@ export function classifyHealth({ lockActive, stalled, diskHardStop, witnessError
   const retryTimes = [...Object.values(documentRetries), ...Object.values(pageRetries)]
     .map((record) => record?.next_retry_at).filter(Boolean).sort();
   const reasons = [];
-  const hardRunCodes = new Set(['MODEL_CHECKSUM_MISMATCH', 'MMPROJ_CHECKSUM_MISMATCH', 'LLAMA_REVISION_MISMATCH', 'RUNTIME_SHARED_MISSING']);
+  const hardRunCodes = new Set(['MODEL_CHECKSUM_MISMATCH', 'MMPROJ_CHECKSUM_MISMATCH', 'RENDERER_CHECKSUM_MISMATCH', 'LLAMA_REVISION_MISMATCH', 'RUNTIME_SHARED_MISSING']);
   const hardRunFailure = currentRun?.status === 'failed' && hardRunCodes.has(currentRun?.error_code);
   if (diskHardStop) reasons.push('DISK_HARD_STOP');
   if (hardRunFailure) reasons.push(currentRun.error_code);

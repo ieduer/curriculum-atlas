@@ -1,11 +1,11 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeEntityLabel, episodeSubjectFacet, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260715v10';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeEntityLabel, episodeSubjectFacet, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260715v11';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
   for (const integration of [
     {
       src: 'https://my.bdfz.net/site-auth.js',
-      data: { siteKey: 'curriculum', mobileInsetBottom: '130' },
+      data: { siteKey: 'curriculum', mobileInsetBottom: '16' },
     },
     {
       src: 'https://pulse.bdfz.net/beacon.js',
@@ -95,7 +95,7 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const conceptGraph = await api('/data/concept-evolution.json?v=20260715v10');
+  const conceptGraph = await api('/data/concept-evolution.json?v=20260715v11');
   const [meta, documents, insights] = await Promise.all([
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
@@ -273,6 +273,7 @@ const ONTOLOGY_TYPE_LABELS = {
   historical_goal_framework: '历史目标框架', historical_goal_dimension: '三维目标',
   competency_framework: '核心素养框架', core_competency: '核心素养', course_goal: '课程目标',
   practice_framework: '实践框架', practice_domain: '实践领域', student_ability: '学生能力',
+  official_term: '官方术语', ability_descriptor: '能力描述', task_requirement: '任务要求',
   content_organizer: '内容组织', task_group: '学习任务群', quality_framework: '质量框架',
   quality_level: '质量水平', quality_dimension: '质量维度',
 };
@@ -367,19 +368,61 @@ function ontologyPositions(count) {
   });
 }
 
+function ontologySearchText(node) {
+  const scope = state.ontologyScopeById.get(node.scope_id);
+  return `${node.label} ${node.definition} ${(node.source_terms || []).join(' ')} ${ONTOLOGY_TYPE_LABELS[node.node_type] || node.node_type} ${scope?.version_scope || ''}`
+    .toLocaleLowerCase('zh-CN');
+}
+
+function activeOntologyContext() {
+  const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
+  const visibleSubjects = state.hideAllSubjects ? [] : subjects.filter((subject) => !state.hiddenSubjects.has(subject));
+  const activeSubject = visibleSubjects.length === 1 ? visibleSubjects[0] : null;
+  const root = activeSubject
+    ? state.conceptGraph.ontology_nodes.find((node) => !node.parent_id && ontologyNodeSubject(node) === activeSubject) || null
+    : null;
+  return { activeSubject, root };
+}
+
 function renderConceptLayers() {
-  if (state.mode !== 'structure') {
+  const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
+  const visibleSubjects = state.hideAllSubjects ? [] : subjects.filter((subject) => !state.hiddenSubjects.has(subject));
+  const searchableSubjects = new Set(visibleSubjects);
+  const queryMatches = state.query ? state.conceptGraph.ontology_nodes
+    .filter((node) => searchableSubjects.has(ontologyNodeSubject(node)) && ontologySearchText(node).includes(state.query))
+    .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
+    .slice(0, 24) : [];
+  if (state.mode !== 'structure' && !queryMatches.length) {
     conceptLayers.hidden = true;
     mount.classList.remove('structure-muted');
     return;
   }
-  const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
-  const visibleSubjects = state.hideAllSubjects ? [] : subjects.filter((subject) => !state.hiddenSubjects.has(subject));
-  const activeSubject = visibleSubjects.length === 1 ? visibleSubjects[0] : null;
-  const roots = state.conceptGraph.ontology_nodes.filter((node) => !node.parent_id);
-  const root = roots.find((node) => ontologyNodeSubject(node) === activeSubject);
   conceptLayers.hidden = false;
   mount.classList.add('structure-muted');
+  if (queryMatches.length) {
+    const positions = ontologyPositions(queryMatches.length);
+    const lines = positions.map((position) => `<line x1="50" y1="50" x2="${position.x.toFixed(2)}" y2="${position.y.toFixed(2)}"></line>`).join('');
+    const stars = queryMatches.map((node, index) => {
+      const position = positions[index];
+      return `<button class="ontology-star ${position.outer ? 'outer' : ''}" type="button" data-ontology-search-result="${escapeHtml(node.id)}" style="--star-x:${position.x.toFixed(2)}%;--star-y:${position.y.toFixed(2)}%;--star-delay:${index * 24}ms">
+        <i aria-hidden="true"></i><b>${escapeHtml(node.label)}</b><small>${escapeHtml(ontologyNodeSubject(node) || '')} · ${escapeHtml(ONTOLOGY_TYPE_LABELS[node.node_type] || node.node_type)}</small>
+      </button>`;
+    }).join('');
+    conceptLayers.innerHTML = `<nav class="ontology-breadcrumb" aria-label="概念检索路径"><span>星图检索</span><span>›</span><button type="button" aria-current="page">${escapeHtml(state.query)}</button></nav>
+      <div class="ontology-stage ${queryMatches.length > 10 ? 'dense' : ''}">
+        <svg class="ontology-edges" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
+        <div class="ontology-center ontology-search-center"><i aria-hidden="true"></i><b>${escapeHtml(state.query)}</b><small>官方概念、术语与能力描述</small></div>
+        ${stars}
+      </div>`;
+    conceptLayers.querySelectorAll('[data-ontology-search-result]').forEach((button) => button.addEventListener('click', () => {
+      const next = state.ontologyNodeById.get(button.dataset.ontologySearchResult);
+      if (!next) return;
+      state.ontologyFocusId = next.id;
+      showOntologyInspector(next);
+    }));
+    return;
+  }
+  const { activeSubject, root } = activeOntologyContext();
   if (!root) {
     conceptLayers.innerHTML = `<div class="ontology-empty"><b>${escapeHtml(activeSubject || '当前组合')}的深层模型尚未达到发布门槛</b><span>只有版本身份、原文段落和概念关系同时核验后才会进入星图。</span></div>`;
     return;
@@ -428,14 +471,18 @@ function showTooltip(node, event) {
   tooltip.hidden = false;
 }
 
-function updateMapStatus() {
+function updateMapStatus({ fitVisible = false } = {}) {
   const visibleEpisodes = state.conceptGraph.episodes.filter((episode) => Number(episode.time.year) <= state.maxYear
     && episodeVisibleForSubjectFilter(episode, state.hiddenSubjects, state.hideAllSubjects, state.conceptGraph.subject_facets)
     && (!state.query || `${episode.label}${(episode.aliases || []).join('')}${episodeEntityLabel(episode)}${episode.time.year}${episode.category}`.toLocaleLowerCase('zh-CN').includes(state.query)));
   const visibleIds = new Set(visibleEpisodes.map((episode) => episode.id));
   if (state.selectedEpisode && !visibleIds.has(state.selectedEpisode.id)) clearConceptInspector();
-  state.cosmos?.setFilters({ hiddenSubjects: state.hiddenSubjects, hideAll: state.hideAllSubjects, maxYear: state.maxYear, query: state.query });
-  if (state.mode === 'structure') renderConceptLayers();
+  const visibleSubjectCount = state.hideAllSubjects ? 0 : state.conceptGraph.subject_facets.filter((subject) => !state.hiddenSubjects.has(subject)).length;
+  state.cosmos?.setFilters(
+    { hiddenSubjects: state.hiddenSubjects, hideAll: state.hideAllSubjects, maxYear: state.maxYear, query: state.query },
+    { fitVisible, maxZoom: visibleSubjectCount === 1 ? 1.32 : 1 },
+  );
+  renderConceptLayers();
 }
 
 function subjectButton(subject, count, panel = false) {
@@ -481,7 +528,7 @@ function renderSubjectControls() {
       subjects.forEach((name) => { if (name !== subject) state.hiddenSubjects.add(name); });
     }
     renderSubjectControls();
-    updateMapStatus();
+    updateMapStatus({ fitVisible: !event.shiftKey });
   }));
 }
 
@@ -500,20 +547,11 @@ function setMapMode(mode) {
   state.mode = ['lineage', 'cross', 'structure'].includes(mode) ? mode : 'lineage';
   if (!state.conceptGraph) return;
   if (state.mode === 'structure') {
-    const firstRoot = state.conceptGraph.ontology_nodes.find((node) => !node.parent_id);
-    const subject = ontologyNodeSubject(firstRoot);
-    const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
-    if (subject && subjects.includes(subject)) {
-      state.hideAllSubjects = false;
-      state.hiddenSubjects.clear();
-      subjects.forEach((name) => { if (name !== subject) state.hiddenSubjects.add(name); });
-      renderSubjectControls();
-    }
-    state.ontologyFocusId ||= firstRoot?.id || null;
+    const { root } = activeOntologyContext();
+    state.ontologyFocusId = root?.id || null;
   }
   state.cosmos?.setMode(state.mode === 'cross' ? 'cross' : 'lineage');
   document.querySelectorAll('[data-map-mode]').forEach((button) => button.classList.toggle('active', button.dataset.mapMode === state.mode));
-  renderConceptLayers();
   updateMapStatus();
 }
 
@@ -739,7 +777,7 @@ async function route() {
         subjects.forEach((name) => { if (name !== subject) state.hiddenSubjects.add(name); });
         state.hiddenSubjects.delete(subject);
         renderSubjectControls();
-        updateMapStatus();
+        updateMapStatus({ fitVisible: true });
       }
       history.replaceState({}, '', '/');
       return;

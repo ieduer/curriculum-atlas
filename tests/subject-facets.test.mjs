@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
+  CurriculumCosmos,
   episodeCanonicalSubject,
   episodeEntityLabel,
   episodeSubjectFacet,
@@ -97,6 +98,60 @@ test('frontend subject controls consume strict display facets and hide all nodes
   assert.equal(stylesheetVersion, appEntryVersion, 'stylesheet cache version drifted');
   assert.equal(atlasModuleVersion, appEntryVersion, 'atlas module cache version drifted');
   assert.equal(graphVersion, appEntryVersion, 'concept graph cache version drifted');
+});
+
+test('subject focus fits visible nodes, restores the full map, preserves Shift camera, and fits legacy routes', async () => {
+  const app = await readFile(new URL('public/app.js', root), 'utf8');
+  const controlsStart = app.indexOf('function renderSubjectControls(');
+  const controlsEnd = app.indexOf('\n}\n\nfunction renderEraControls', controlsStart) + 2;
+  assert.ok(controlsStart >= 0 && controlsEnd > controlsStart, 'subject control handler missing');
+  const controls = app.slice(controlsStart, controlsEnd);
+  assert.match(controls, /if \(event\.shiftKey\)/);
+  assert.match(controls, /visibleSubjects\.length === 1 && visibleSubjects\[0\] === subject[\s\S]*state\.hiddenSubjects\.clear\(\)/);
+  assert.match(controls, /updateMapStatus\(\{ fitVisible: !event\.shiftKey \}\)/,
+    'ordinary isolate and restore-all clicks must fit, while Shift multi-select must not');
+  assert.match(app, /visibleSubjectCount === 1 \? 1\.32 : 1/,
+    'single-subject fit must use 1.32 while restore-all returns to the full-map cap');
+  assert.match(app, /path === '\/subjects'[\s\S]*updateMapStatus\(\{ fitVisible: true \}\)/,
+    'legacy subject routes must fit the isolated subject');
+});
+
+test('the cosmos fit API receives only visible nodes and honors the requested zoom cap', () => {
+  const nodes = [{ id: 'visible' }, { id: 'hidden' }];
+  let fitOptions = null;
+  const focused = CurriculumCosmos.prototype.fitToVisibleGraph.call({
+    nodes,
+    visible: (node) => node.id === 'visible',
+    fitToGraph: (options) => {
+      fitOptions = options;
+      return true;
+    },
+  }, { maxZoom: 1.32, preserveOrientation: true });
+  assert.equal(focused, true);
+  assert.deepEqual(fitOptions.nodes, [nodes[0]]);
+  assert.equal(fitOptions.maxZoom, 1.32);
+  assert.equal(fitOptions.preserveOrientation, true);
+
+  let drawCount = 0;
+  let filterFit = null;
+  const filtered = {
+    filters: { hiddenSubjects: new Set(), hideAll: false, maxYear: 2022, query: '' },
+    fitToVisibleGraph: (options) => {
+      filterFit = options;
+      return true;
+    },
+    draw: () => { drawCount += 1; },
+  };
+  CurriculumCosmos.prototype.setFilters.call(filtered, {
+    hiddenSubjects: new Set(['数学']), hideAll: false, maxYear: 2022, query: '',
+  }, { fitVisible: true, maxZoom: 1.32 });
+  assert.deepEqual(filterFit, { maxZoom: 1.32, preserveOrientation: true });
+  assert.equal(drawCount, 0, 'successful focus fitting must not issue a redundant draw');
+
+  CurriculumCosmos.prototype.setFilters.call(filtered, {
+    hiddenSubjects: new Set(), hideAll: false, maxYear: 2022, query: '',
+  });
+  assert.equal(drawCount, 1, 'non-fitting filter changes must preserve the current camera and redraw only');
 });
 
 test('each subject isolate is fail-closed and Chinese cannot inherit sports-course concepts', async () => {

@@ -481,6 +481,7 @@ for (const scope of ontology.scopes || []) {
 
 const eligibleDocumentById = new Map(eligibleDocuments.map((document) => [document.record.id, document]));
 const compactEvidenceText = (value) => String(value || '').replace(/\s+/g, '');
+const ontologyEvidenceSourceTextById = new Map();
 const ontologyEvidence = (ontology.evidence_anchors || []).map((anchor) => {
   const document = eligibleDocumentById.get(anchor.document_id);
   if (!document || !effectiveCitationAllowed(document.record)) {
@@ -492,6 +493,7 @@ const ontologyEvidence = (ontology.evidence_anchors || []).map((anchor) => {
   for (const term of anchor.required_terms || []) {
     if (!compactBody.includes(compactEvidenceText(term))) throw new Error(`Ontology anchor ${anchor.id} is missing required term: ${term}`);
   }
+  ontologyEvidenceSourceTextById.set(anchor.id, compactBody);
   const edition = editionByDocumentId.get(anchor.document_id);
   return {
     id: anchor.id,
@@ -516,7 +518,9 @@ const ontologyNodeTypes = new Set([
   'subject_model', 'curriculum_construct', 'language_activity', 'historical_goal_framework', 'historical_goal_dimension',
   'competency_framework', 'core_competency_dimension', 'course_goal', 'practice_framework', 'practice_domain',
   'student_ability', 'content_organizer', 'task_group', 'quality_framework', 'quality_level', 'quality_dimension',
+  'official_term', 'ability_descriptor', 'task_requirement',
 ]);
+const sourceBoundOntologyNodeTypes = new Set(['official_term', 'ability_descriptor', 'task_requirement']);
 const ontologyRelationTypes = new Set(['component_of', 'operationalizes', 'assesses', 'foundational_for', 'reframed_by', 'develops', 'realized_through']);
 const ontologyNodes = (ontology.nodes || []).map((node) => {
   if (!ontologyNodeTypes.has(node.node_type)) throw new Error(`Ontology node ${node.id} has invalid type ${node.node_type}`);
@@ -524,6 +528,17 @@ const ontologyNodes = (ontology.nodes || []).map((node) => {
   if (!['editor_reviewed', 'reviewed_inference'].includes(node.review_status)) throw new Error(`Ontology node ${node.id} has invalid review status`);
   if (!node.evidence_anchor_ids?.length || !node.evidence_anchor_ids.every((id) => ontologyEvidenceById.has(id))) {
     throw new Error(`Ontology node ${node.id} lacks resolved citation-ready evidence`);
+  }
+  if (sourceBoundOntologyNodeTypes.has(node.node_type)) {
+    if (!Array.isArray(node.source_terms) || !node.source_terms.length || new Set(node.source_terms).size !== node.source_terms.length) {
+      throw new Error(`Ontology node ${node.id} must declare unique source_terms`);
+    }
+    for (const term of node.source_terms) {
+      const compactTerm = compactEvidenceText(term);
+      if (!compactTerm || !node.evidence_anchor_ids.some((id) => ontologyEvidenceSourceTextById.get(id)?.includes(compactTerm))) {
+        throw new Error(`Ontology node ${node.id} source term is absent from its evidence: ${term}`);
+      }
+    }
   }
   if (node.lexical_concept_id !== null && !conceptById.has(node.lexical_concept_id)) throw new Error(`Ontology node ${node.id} references missing concept ${node.lexical_concept_id}`);
   if (node.parent_relation !== null && !ontologyRelationTypes.has(node.parent_relation)) throw new Error(`Ontology node ${node.id} has invalid parent relation`);

@@ -5,38 +5,38 @@
   "artifact_profile": "curriculum-concept-evolution-core-v1",
   "academic_schema": "curriculum-concept-evolution-academic-v2",
   "model_kind": "curriculum-concept-observation-model",
-  "build_revision": "028200e24fa87e835f0f8a9ba91aeae8d0e5edf9a668c3198e84b2c3deaf9436",
+  "build_revision": "7d06a9b48a12a23b67ede054ddafb5da9208f50d3a6d9cab64df6752c6d39f64",
   "input_fingerprints": {
     "catalog_sha256": "c1d67cbe987e6b9966a9b00302113e992750717e2e27553232948deba9da76c5",
     "queue_sha256": "0cf6c2f8b21737c165287e9ae894bc93fc6e49ebd623c2463df296bc43fb73c5",
     "concept_model_sha256": "98d8b3b8c9f4ad1e7f02410c2470fa8b34820996e380d39230a763fd49b3356e",
     "lexicon_sha256": "d8b792139ff4d28afff5cd685ce8b73174435353dd9343430ade26e8e763608b",
-    "ontology_sha256": "d157c838a785bf3f22fa9b26ca9cf1566e82e34b63be10a506191cea7abbfc6d",
-    "builder_sha256": "7e7c117abf75c29f41c88e92d94d0c716256305423d31df86b7cba960b315e2b",
-    "validator_sha256": "e5ea6cd2d2ef69852f841173bb695a046496f9c2352a6f5d791277ac6f408d88"
+    "ontology_sha256": "98b185f71afe4c70f880cd42725f16450e2df4b720bf6d47b221b91f7a04c687",
+    "builder_sha256": "42aade544a91900a54c5f6462ba52989a182edef409df29a96d9dd0e6b9f674c",
+    "validator_sha256": "53a0e7339c7e0bf58f2fad4f4e3c41ac1df75f6486182726dcd580b787c5b1b8"
   },
   "assertion_boundary": "基于当前可用语料的词面概念观察图；不是完整课程史，不宣称概念义项连续、绝对首次、消失、取代、影响或因果演进。",
   "academic_model_ref": {
     "path": "/data/concept-evolution-academic.json",
-    "build_revision": "028200e24fa87e835f0f8a9ba91aeae8d0e5edf9a668c3198e84b2c3deaf9436",
-    "sha256": "c2cccb603ca8d13c6c2cb86ba80da53e14c8a81aa199c563d50c739ee29d8dd0",
+    "build_revision": "7d06a9b48a12a23b67ede054ddafb5da9208f50d3a6d9cab64df6752c6d39f64",
+    "sha256": "1e95a2ca181b0fe2071cfb90483af146e2de7e72fc096e5a805fe23d82b1eb93",
     "counts": {
       "concepts": 122,
       "concept_senses": 122,
       "surface_forms": 130,
-      "curriculum_lines": 159,
-      "works": 302,
-      "editions": 302,
+      "curriculum_lines": 160,
+      "works": 314,
+      "editions": 314,
       "revisions": 21,
-      "embedded_items": 106,
+      "embedded_items": 118,
       "occurrences": 7836,
       "episodes": 560,
       "relations": 475,
       "evidence": 5235,
-      "coverage_cells": 302,
-      "ontology_nodes": 76,
-      "ontology_relations": 82,
-      "ontology_evidence": 14
+      "coverage_cells": 314,
+      "ontology_nodes": 169,
+      "ontology_relations": 175,
+      "ontology_evidence": 21
     }
   },
   "coverage": {
@@ -48,7 +48,7 @@
     "verified_meaningful_characters": 2745495,
     "ocr_queue_documents": 86,
     "ocr_queue_pages": 11847,
-    "ocr_completed_pages": 1142,
+    "ocr_completed_pages": 1464,
     "citation_ready_episodes": 553,
     "verified_non_citation_episodes": 3,
     "source_text_candidate_episodes": 0,
@@ -225,6 +225,186 @@
       "review_status": "editor_reviewed"
     },
     {
+      "id": "zh-term-real-language-context",
+      "label": "真实的语言运用情境",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-language-use",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "学生开展自主语言实践、形成语言能力的真实情境。",
+      "normative_role": "learning_context",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "source_terms": [
+        "真实的语言运用情境"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-ability-autonomous-language-practice",
+      "label": "自主语言实践",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-language-use",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在真实语言运用情境中自主开展语言实践活动。",
+      "normative_role": "learning_process",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "source_terms": [
+        "自主的语言实践活动"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-ability-accumulate-language-experience",
+      "label": "积累言语经验",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-language-use",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在自主语言实践中积累个体言语经验。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "source_terms": [
+        "积累言语经验"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-ability-grasp-language-patterns",
+      "label": "把握语言文字特点与运用规律",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-language-use",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "把握祖国语言文字的特点及其运用规律。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "source_terms": [
+        "把握祖国语言文字的特点和运用规律"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-ability-use-chinese-language",
+      "label": "运用祖国语言文字",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-language-use",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "形成运用祖国语言文字完成理解、表达与交流的能力。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "source_terms": [
+        "培养运用祖国语言文字的能力"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-ability-develop-critical-thinking",
+      "label": "发展思辨能力",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-language-use",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在语言文字运用过程中发展思辨能力。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "source_terms": [
+        "发展思辨能力"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-thinking-quality",
+      "label": "思维品质",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-language-use",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "语言文字运用所要提升的思维品质。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "source_terms": [
+        "提升思维品质"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-aesthetic-taste",
+      "label": "审美情趣",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-language-use",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "语言文字运用所要培养的高尚审美情趣。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "source_terms": [
+        "高尚的审美情趣"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-cultural-heritage",
+      "label": "文化底蕴",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-language-use",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "语言文字运用所要积累的丰厚文化底蕴。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "source_terms": [
+        "丰厚的文化底蕴"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-ability-understand-cultural-diversity",
+      "label": "理解文化多样性",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-language-use",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在语言文字学习和实践中理解文化多样性。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "source_terms": [
+        "理解文化多样性"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
       "id": "zh-three-dimensional-goals",
       "label": "三维目标（历史框架）",
       "node_type": "historical_goal_framework",
@@ -282,6 +462,187 @@
       "normative_role": "course_goal_dimension",
       "evidence_anchor_ids": [
         "anchor:zh-three-dimensional-2016"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-2016-goal-values-character",
+      "label": "思想情感、法治意识与品格价值观",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-2016-blind",
+      "parent_id": "zh-three-dimensional-goals",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "培养爱国爱民爱党的思想感情、法治意识、创新合作精神和诚信友善品质，逐步形成健康审美情趣及正确世界观、人生观、价值观。",
+      "normative_role": "integrated_course_goal",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-2016"
+      ],
+      "source_terms": [
+        "培养学生热爱祖国、热爱人民、热爱中国共产党的思想感情"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-2016-goal-culture",
+      "label": "文化认识、尊重与品位",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-2016-blind",
+      "parent_id": "zh-three-dimensional-goals",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "认识中华文化、关心当代文化生活、尊重多样文化并提高文化品位。",
+      "normative_role": "integrated_course_goal",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-2016"
+      ],
+      "source_terms": [
+        "认识中华文化的丰厚博大"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-2016-goal-language-affection-method",
+      "label": "语言文字情感、信心、习惯与方法",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-2016-blind",
+      "parent_id": "zh-three-dimensional-goals",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "培育祖国语言文字情感，增强学习信心，形成学习习惯并掌握基本方法。",
+      "normative_role": "integrated_course_goal",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-2016"
+      ],
+      "source_terms": [
+        "培育热爱祖国语言文字的情感"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-2016-goal-language-thinking",
+      "label": "语言能力、思维能力与科学态度",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-2016-blind",
+      "parent_id": "zh-three-dimensional-goals",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在发展语言能力的同时发展思维能力，学习科学思想方法并形成求真态度。",
+      "normative_role": "integrated_course_goal",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-2016"
+      ],
+      "source_terms": [
+        "在发展语言能力的同时，发展思维能力"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-2016-goal-inquiry-creativity",
+      "label": "探究学习、想象力与创造潜能",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-2016-blind",
+      "parent_id": "zh-three-dimensional-goals",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "主动开展探究性学习，激发想象力与创造潜能，并在实践中学习和运用语文。",
+      "normative_role": "integrated_course_goal",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-2016"
+      ],
+      "source_terms": [
+        "能主动进行探究性学习"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-2016-goal-language-system",
+      "label": "拼音、普通话、盲文与汉字",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-2016-blind",
+      "parent_id": "zh-three-dimensional-goals",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "掌握汉语拼音和普通话，并按学习特点达到盲文或汉字识写要求。",
+      "normative_role": "integrated_course_goal",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-2016"
+      ],
+      "source_terms": [
+        "学会汉语拼音，能说普通话"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-2016-goal-independent-reading",
+      "label": "独立阅读、方法、鉴赏与积累",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-2016-blind",
+      "parent_id": "zh-three-dimensional-goals",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "形成独立阅读能力，运用多种阅读方法，发展感受理解与文学鉴赏，并完成规定积累。",
+      "normative_role": "integrated_course_goal",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-2016",
+        "anchor:zh-three-dimensional-goals-continuation-2016"
+      ],
+      "source_terms": [
+        "具有独立阅读的能力"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-2016-goal-written-expression",
+      "label": "书面表达",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-2016-blind",
+      "parent_id": "zh-three-dimensional-goals",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "具体明确、文从字顺地表达见闻、体验和想法，按需要运用常见表达方式写作。",
+      "normative_role": "integrated_course_goal",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-goals-continuation-2016"
+      ],
+      "source_terms": [
+        "能具体明确、文从字顺地表达自己的见闻、体验和想法"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-2016-goal-oral-communication",
+      "label": "倾听、表达与口语交际",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-2016-blind",
+      "parent_id": "zh-three-dimensional-goals",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "形成日常口语交际能力，学会倾听、表达与交流并文明开展人际沟通和社会交往。",
+      "normative_role": "integrated_course_goal",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-goals-continuation-2016"
+      ],
+      "source_terms": [
+        "具有日常口语交际的基本能力"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-2016-goal-information-tools",
+      "label": "工具书、信息处理与辅助技术",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-2016-blind",
+      "parent_id": "zh-three-dimensional-goals",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "使用常用语文工具书，初步搜集处理信息，并运用辅助技术和多种媒体学习语文。",
+      "normative_role": "integrated_course_goal",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-goals-continuation-2016"
+      ],
+      "source_terms": [
+        "初步具备搜集和处理信息的能力"
       ],
       "review_status": "editor_reviewed"
     },
@@ -358,6 +719,546 @@
       "normative_role": "student_outcome",
       "evidence_anchor_ids": [
         "anchor:zh-core-aesthetic-culture"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-rich-language-practice",
+      "label": "丰富的语言实践",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-language",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "语言建构与运用得以形成的实践基础。",
+      "normative_role": "learning_process",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "丰富的语言实践"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-active-accumulation",
+      "label": "主动的积累",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-language",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "学生主动积累语言材料和语言经验的过程。",
+      "normative_role": "learning_process",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "主动的积累"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-sorting-integration",
+      "label": "梳理和整合",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-language",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "对语言材料和言语经验进行梳理与整合的过程。",
+      "normative_role": "learning_process",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "梳理和整合"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-individual-language-experience",
+      "label": "个体言语经验",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-language",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "学生在语言实践中逐步形成的个体言语经验。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "个体言语经验"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-communication",
+      "label": "交流沟通",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-language",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在具体语言情境中正确有效地运用祖国语言文字进行交流沟通。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "交流沟通的能力"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-intuitive-thinking",
+      "label": "直觉思维",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-thinking",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "语文学习通过语言运用所发展的思维类型之一。",
+      "normative_role": "thinking_mode",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "直觉思维"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-image-thinking",
+      "label": "形象思维",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-thinking",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "语文学习通过语言运用所发展的思维类型之一。",
+      "normative_role": "thinking_mode",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "形象思维"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-logical-thinking",
+      "label": "逻辑思维",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-thinking",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "语文学习通过语言运用所发展的思维类型之一。",
+      "normative_role": "thinking_mode",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "逻辑思维"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-dialectical-thinking",
+      "label": "辩证思维",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-thinking",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "语文学习通过语言运用所发展的思维类型之一。",
+      "normative_role": "thinking_mode",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "辩证思维"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-creative-thinking",
+      "label": "创造思维",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-thinking",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "语文学习通过语言运用所发展的思维类型之一。",
+      "normative_role": "thinking_mode",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "创造思维"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-thinking-depth",
+      "label": "深刻性",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-thinking",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "思维发展与提升所指向的思维品质之一。",
+      "normative_role": "thinking_quality",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "深刻性"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-thinking-agility",
+      "label": "敏捷性",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-thinking",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "思维发展与提升所指向的思维品质之一。",
+      "normative_role": "thinking_quality",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "敏捷性"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-thinking-flexibility",
+      "label": "灵活性",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-thinking",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "思维发展与提升所指向的思维品质之一。",
+      "normative_role": "thinking_quality",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "灵活性"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-thinking-criticality",
+      "label": "批判性",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-thinking",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "思维发展与提升所指向的思维品质之一。",
+      "normative_role": "thinking_quality",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "批判性"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-thinking-originality",
+      "label": "独创性",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-thinking",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "思维发展与提升所指向的思维品质之一。",
+      "normative_role": "thinking_quality",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "source_terms": [
+        "独创性"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-aesthetic-experience",
+      "label": "审美体验",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-aesthetic",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "审美鉴赏与创造形成过程中开展的体验活动。",
+      "normative_role": "aesthetic_process",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "审美体验"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-aesthetic-evaluation",
+      "label": "审美评价",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-aesthetic",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "审美鉴赏与创造形成过程中开展的评价活动。",
+      "normative_role": "aesthetic_process",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "评价等活动"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-aesthetic-consciousness",
+      "label": "审美意识",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-aesthetic",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "学生在审美体验与评价中形成的正确审美意识。",
+      "normative_role": "aesthetic_disposition",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "正确的审美意识"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-healthy-aesthetic-taste",
+      "label": "健康向上的审美情趣",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-aesthetic",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "学生在审美体验与评价中形成的健康向上的审美情趣。",
+      "normative_role": "aesthetic_disposition",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "健康向上的审美情趣"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-appreciation-taste",
+      "label": "鉴赏品位",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-aesthetic",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "学生在审美体验与评价中形成的鉴赏品位。",
+      "normative_role": "aesthetic_disposition",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "鉴赏品位"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-express-beauty",
+      "label": "表现美",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-aesthetic",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "审美鉴赏与创造要求逐步掌握的表现美的方法。",
+      "normative_role": "aesthetic_method",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "表现美"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-create-beauty",
+      "label": "创造美",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-aesthetic",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "审美鉴赏与创造要求逐步掌握的创造美的方法。",
+      "normative_role": "aesthetic_method",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "创造美"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-traditional-culture",
+      "label": "中华优秀传统文化",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-culture",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "文化传承与理解要求继承和弘扬的文化内容。",
+      "normative_role": "cultural_content",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "中华优秀传统文化"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-revolutionary-culture",
+      "label": "革命文化",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-culture",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "文化传承与理解要求继承和弘扬的文化内容。",
+      "normative_role": "cultural_content",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "革命文化"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-advanced-socialist-culture",
+      "label": "社会主义先进文化",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-culture",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "文化传承与理解要求继承和弘扬的文化内容。",
+      "normative_role": "cultural_content",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "社会主义先进文化"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-cultural-vision",
+      "label": "文化视野",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-culture",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "通过理解和借鉴不同民族与地区文化而拓展的文化视野。",
+      "normative_role": "cultural_disposition",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "拓展文化视野"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-cultural-awareness",
+      "label": "文化自觉",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-culture",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "文化传承与理解所要增强的文化自觉。",
+      "normative_role": "cultural_disposition",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "增强文化自觉"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-socialist-cultural-confidence",
+      "label": "中国特色社会主义文化自信",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-culture",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "文化传承与理解所要提升的中国特色社会主义文化自信。",
+      "normative_role": "cultural_disposition",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "中国特色社会主义文化自信"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-love-chinese-language",
+      "label": "热爱祖国语言文字",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-culture",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "文化传承与理解所包含的祖国语言文字情感。",
+      "normative_role": "cultural_disposition",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "热爱祖国语言文字"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-term-love-chinese-culture",
+      "label": "热爱中华文化",
+      "node_type": "official_term",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-competency-culture",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "文化传承与理解所包含的中华文化情感。",
+      "normative_role": "cultural_disposition",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "source_terms": [
+        "热爱中华文化"
       ],
       "review_status": "editor_reviewed"
     },
@@ -479,6 +1380,96 @@
       "normative_role": "student_outcome",
       "evidence_anchor_ids": [
         "anchor:zh-course-goals-2-9"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-ability-literature-language-beauty",
+      "label": "感受文学语言之美",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-target-literature-appreciation",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在文学鉴赏中感受和体验作品的语言之美。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-goals-2-9"
+      ],
+      "source_terms": [
+        "感受和体验文学作品的语言、形象和情感之美"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-ability-literature-image-beauty",
+      "label": "感受文学形象之美",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-target-literature-appreciation",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在文学鉴赏中感受和体验作品的形象之美。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-goals-2-9"
+      ],
+      "source_terms": [
+        "感受和体验文学作品的语言、形象和情感之美"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-ability-literature-emotional-beauty",
+      "label": "感受文学情感之美",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-target-literature-appreciation",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在文学鉴赏中感受和体验作品的情感之美。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-goals-2-9"
+      ],
+      "source_terms": [
+        "感受和体验文学作品的语言、形象和情感之美"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-ability-literature-appraise-works",
+      "label": "欣赏、鉴别和评价文学作品",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-target-literature-appreciation",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "欣赏、鉴别和评价不同时代、不同风格的文学作品。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-goals-2-9"
+      ],
+      "source_terms": [
+        "欣赏、鉴别和评价不同时代、不同风格的作品"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-ability-literature-aesthetic-values",
+      "label": "价值观、审美情趣与审美品位",
+      "node_type": "ability_descriptor",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-target-literature-appreciation",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在文学鉴赏中形成正确价值观、高尚审美情趣和审美品位。",
+      "normative_role": "student_outcome",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-goals-2-9"
+      ],
+      "source_terms": [
+        "正确的价值观、高尚的审美情趣和审美品位"
       ],
       "review_status": "editor_reviewed"
     },
@@ -866,6 +1857,186 @@
       "review_status": "editor_reviewed"
     },
     {
+      "id": "zh-taskreq-whole-book-reading-methods",
+      "label": "综合运用精读、略读与浏览",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-whole-book",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "依据不同阅读目的综合运用精读、略读与浏览的方法阅读整本书。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-1"
+      ],
+      "source_terms": [
+        "综合运用精读、略读与浏览的方法"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-whole-book-read-text",
+      "label": "读懂文本",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-whole-book",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "通过整本书阅读形成读懂文本的基础能力。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-1"
+      ],
+      "source_terms": [
+        "读懂文本"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-whole-book-connotation",
+      "label": "把握文本内涵和精髓",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-whole-book",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "把握整本书文本丰富的内涵和精髓。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-1"
+      ],
+      "source_terms": [
+        "把握文本丰富的内涵和精髓"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-whole-book-overall",
+      "label": "整体把握思想内容和艺术特点",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-whole-book",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "通读长篇小说并整体把握其思想内容和艺术特点。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-1"
+      ],
+      "source_terms": [
+        "整体把握其思想内容和艺术特点"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-whole-book-characters",
+      "label": "理清人物关系",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-whole-book",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在长篇小说阅读中理清人物之间的关系。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-1"
+      ],
+      "source_terms": [
+        "理清人物关系"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-whole-book-character-world",
+      "label": "探究人物精神世界",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-whole-book",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在人物形象鉴赏基础上探究人物的精神世界。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-2"
+      ],
+      "source_terms": [
+        "探究人物的精神世界"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-whole-book-theme",
+      "label": "体会小说主旨",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-whole-book",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在通读、品味和探究中体会小说的主旨。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-2"
+      ],
+      "source_terms": [
+        "体会小说的主旨"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-whole-book-artistic-value",
+      "label": "研究小说艺术价值",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-whole-book",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "研究长篇小说的艺术价值。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-2"
+      ],
+      "source_terms": [
+        "研究小说的艺术价值"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-whole-book-academic-summary",
+      "label": "形成学术著作内容提要",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-whole-book",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "梳理学术著作的大纲小目及关联，并做出全书内容提要。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-2"
+      ],
+      "source_terms": [
+        "做出全书内容提要"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-whole-book-argument-logic",
+      "label": "探究语言特点和论述逻辑",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-whole-book",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "通过反复阅读和思考探究学术著作的语言特点和论述逻辑。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-2"
+      ],
+      "source_terms": [
+        "探究本书的语言特点和论述逻辑"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
       "id": "zh-task-contemporary-culture",
       "label": "当代文化参与",
       "node_type": "task_group",
@@ -943,6 +2114,186 @@
       "review_status": "editor_reviewed"
     },
     {
+      "id": "zh-taskreq-literary-close-reading",
+      "label": "精读优秀文学作品",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-literary-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "精读古今中外优秀文学作品，形成深入阅读经验。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "source_terms": [
+        "精读古今中外优秀的文学作品"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-literary-artistic-image",
+      "label": "感受艺术形象",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-literary-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在文学作品精读中感受作品所塑造的艺术形象。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "source_terms": [
+        "感受作品中的艺术形象"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-literary-language-expression",
+      "label": "理解欣赏语言表达",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-literary-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "理解并欣赏文学作品的语言表达。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "source_terms": [
+        "理解欣赏作品的语言表达"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-literary-connotation",
+      "label": "把握作品内涵",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-literary-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在作品精读中把握作品的内涵。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "source_terms": [
+        "把握作品的内涵"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-literary-author-intent",
+      "label": "理解创作意图",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-literary-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "结合文本理解作者的创作意图。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "source_terms": [
+        "理解作者的创作意图"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-literary-imagination",
+      "label": "发挥想象深化理解",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-literary-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "联系生活和读写经验发挥想象，加深对作品的理解并形成发现。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "source_terms": [
+        "发挥想象，加深对作品的理解"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-literary-multiple-angles",
+      "label": "多角度欣赏作品",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-literary-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "从语言、构思、形象、意蕴、情感等多个角度欣赏文学作品。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "source_terms": [
+        "语言、构思、形象、意蕴、情感等多个角度欣赏作品"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-literary-aesthetic-experience",
+      "label": "获得审美体验",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-literary-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在多角度欣赏作品的过程中获得审美体验。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "source_terms": [
+        "获得审美体验"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-literary-rewrite",
+      "label": "续写或改写文学作品",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-literary-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在理解文学写作规律基础上尝试续写或改写作品。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-2"
+      ],
+      "source_terms": [
+        "尝试续写或改写文学作品"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-literary-reading-response",
+      "label": "表达阅读感受和见解",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-literary-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "以杂感、随笔、评论或研究论文等方式表达阅读感受和见解。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-2"
+      ],
+      "source_terms": [
+        "写出自己的阅读感受和见解"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
       "id": "zh-task-speculative-reading",
       "label": "思辨性阅读与表达",
       "node_type": "task_group",
@@ -961,6 +2312,150 @@
       "review_status": "editor_reviewed"
     },
     {
+      "id": "zh-taskreq-speculative-author-position",
+      "label": "把握观点、态度和语言特点",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-speculative-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "阅读论说名篇时把握作者的观点、态度和语言特点。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "source_terms": [
+        "把握作者的观点、态度和语言特点"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-speculative-method-logic",
+      "label": "理解阐述方法和逻辑",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-speculative-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "理解作者阐述观点所使用的方法和逻辑。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "source_terms": [
+        "理解作者阐述观点的方法和逻辑"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-speculative-analysis-questioning",
+      "label": "分析质疑",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-speculative-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "阅读各类文本时对内容、观点与论证开展分析和质疑。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "source_terms": [
+        "分析质疑"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-speculative-multiple-interpretations",
+      "label": "多元解读",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-speculative-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在思辨性阅读中对文本开展有依据的多元解读。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "source_terms": [
+        "多元解读"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-speculative-argument",
+      "label": "立论、语言、论据与逻辑",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-speculative-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "表达观点时力求立论正确、语言准确、论据恰当并讲究逻辑。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "source_terms": [
+        "立论正确，语言准确，论据恰当，讲究逻辑"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-speculative-multiple-angles",
+      "label": "多角度思考",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-speculative-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "围绕问题学习从多个角度开展思考。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "source_terms": [
+        "多角度思考问题"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-speculative-refutation",
+      "label": "有理有据地反驳",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-speculative-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "学习反驳并做到有理有据、以理服人。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "source_terms": [
+        "学习反驳"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-speculative-discussion-debate",
+      "label": "讨论与辩论",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-speculative-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "围绕感兴趣的话题理性、有条理、有针对性地开展讨论和辩论。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "source_terms": [
+        "讨论和辩论"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
       "id": "zh-task-practical-reading",
       "label": "实用性阅读与交流",
       "node_type": "task_group",
@@ -975,6 +2470,186 @@
       "normative_role": "course_content",
       "evidence_anchor_ids": [
         "anchor:zh-task-group-list"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-practical-independent-reading",
+      "label": "实用性文本独立阅读与理解",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-practical-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "独立阅读并理解当代社会生活中的实用性文本。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "source_terms": [
+        "实用性文本的独立阅读与理解"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-practical-observe-society",
+      "label": "多角度观察社会生活",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-practical-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "学习从多个角度观察当代社会生活。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "source_terms": [
+        "多角度观察社会生活"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-practical-common-texts",
+      "label": "掌握常用实用文本",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-practical-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "掌握当代社会常用的实用文本及其用途。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "source_terms": [
+        "掌握当代社会常用的实用文本"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-practical-new-expression",
+      "label": "运用新的表达方式",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-practical-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在实用性语文实践中学习并运用新的表达方式。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "source_terms": [
+        "运用新的表达方式"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-practical-concise-vivid-language",
+      "label": "简明生动的语言",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-practical-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "在介绍事物和说明事理时学习运用简明生动的语言。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "source_terms": [
+        "简明生动的语言"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-practical-introduce-things",
+      "label": "介绍复杂事物",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-practical-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "运用简明生动的语言介绍比较复杂的事物。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "source_terms": [
+        "介绍比较复杂的事物"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-practical-explain-principles",
+      "label": "说明复杂事理",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-practical-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "运用简明生动的语言说明比较复杂的事理。",
+      "normative_role": "learning_requirement",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "source_terms": [
+        "说明比较复杂的事理"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-practical-social-communication",
+      "label": "社会交往类文本",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-practical-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "学习会谈、谈判、讨论、策划、计划、制度、演讲、陈述等社会交往类文本与活动。",
+      "normative_role": "content_type",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "source_terms": [
+        "社会交往类"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-practical-news-media",
+      "label": "新闻传媒与非连续性文本",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-practical-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "学习新闻、通讯、调查、访谈、述评及较复杂的非连续性文本等新闻传媒内容。",
+      "normative_role": "content_type",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "source_terms": [
+        "比较复杂的非连续性文本"
+      ],
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "zh-taskreq-practical-knowledge-reading",
+      "label": "知识性读物",
+      "node_type": "task_requirement",
+      "scope_id": "scope:zh-hs-2020",
+      "parent_id": "zh-task-practical-reading",
+      "parent_relation": "component_of",
+      "lexical_concept_id": null,
+      "definition": "阅读复杂说明文、科普读物和社会科学类通俗读物等知识性读物。",
+      "normative_role": "content_type",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "source_terms": [
+        "知识性读物类"
       ],
       "review_status": "editor_reviewed"
     },
@@ -1409,6 +3084,126 @@
       "review_status": "editor_reviewed"
     },
     {
+      "id": "ontology-parent:zh-term-real-language-context",
+      "type": "component_of",
+      "source": "zh-term-real-language-context",
+      "target": "zh-language-use",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-ability-autonomous-language-practice",
+      "type": "component_of",
+      "source": "zh-ability-autonomous-language-practice",
+      "target": "zh-language-use",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-ability-accumulate-language-experience",
+      "type": "component_of",
+      "source": "zh-ability-accumulate-language-experience",
+      "target": "zh-language-use",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-ability-grasp-language-patterns",
+      "type": "component_of",
+      "source": "zh-ability-grasp-language-patterns",
+      "target": "zh-language-use",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-ability-use-chinese-language",
+      "type": "component_of",
+      "source": "zh-ability-use-chinese-language",
+      "target": "zh-language-use",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-ability-develop-critical-thinking",
+      "type": "component_of",
+      "source": "zh-ability-develop-critical-thinking",
+      "target": "zh-language-use",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-thinking-quality",
+      "type": "component_of",
+      "source": "zh-term-thinking-quality",
+      "target": "zh-language-use",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-aesthetic-taste",
+      "type": "component_of",
+      "source": "zh-term-aesthetic-taste",
+      "target": "zh-language-use",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-cultural-heritage",
+      "type": "component_of",
+      "source": "zh-term-cultural-heritage",
+      "target": "zh-language-use",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-ability-understand-cultural-diversity",
+      "type": "component_of",
+      "source": "zh-ability-understand-cultural-diversity",
+      "target": "zh-language-use",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-nature"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
       "id": "ontology-parent:zh-three-dimensional-goals",
       "type": "component_of",
       "source": "zh-three-dimensional-goals",
@@ -1453,6 +3248,127 @@
       "scope_id": "scope:zh-2016-blind",
       "evidence_anchor_ids": [
         "anchor:zh-three-dimensional-2016"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-2016-goal-values-character",
+      "type": "component_of",
+      "source": "zh-2016-goal-values-character",
+      "target": "zh-three-dimensional-goals",
+      "scope_id": "scope:zh-2016-blind",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-2016"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-2016-goal-culture",
+      "type": "component_of",
+      "source": "zh-2016-goal-culture",
+      "target": "zh-three-dimensional-goals",
+      "scope_id": "scope:zh-2016-blind",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-2016"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-2016-goal-language-affection-method",
+      "type": "component_of",
+      "source": "zh-2016-goal-language-affection-method",
+      "target": "zh-three-dimensional-goals",
+      "scope_id": "scope:zh-2016-blind",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-2016"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-2016-goal-language-thinking",
+      "type": "component_of",
+      "source": "zh-2016-goal-language-thinking",
+      "target": "zh-three-dimensional-goals",
+      "scope_id": "scope:zh-2016-blind",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-2016"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-2016-goal-inquiry-creativity",
+      "type": "component_of",
+      "source": "zh-2016-goal-inquiry-creativity",
+      "target": "zh-three-dimensional-goals",
+      "scope_id": "scope:zh-2016-blind",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-2016"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-2016-goal-language-system",
+      "type": "component_of",
+      "source": "zh-2016-goal-language-system",
+      "target": "zh-three-dimensional-goals",
+      "scope_id": "scope:zh-2016-blind",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-2016"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-2016-goal-independent-reading",
+      "type": "component_of",
+      "source": "zh-2016-goal-independent-reading",
+      "target": "zh-three-dimensional-goals",
+      "scope_id": "scope:zh-2016-blind",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-2016",
+        "anchor:zh-three-dimensional-goals-continuation-2016"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-2016-goal-written-expression",
+      "type": "component_of",
+      "source": "zh-2016-goal-written-expression",
+      "target": "zh-three-dimensional-goals",
+      "scope_id": "scope:zh-2016-blind",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-goals-continuation-2016"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-2016-goal-oral-communication",
+      "type": "component_of",
+      "source": "zh-2016-goal-oral-communication",
+      "target": "zh-three-dimensional-goals",
+      "scope_id": "scope:zh-2016-blind",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-goals-continuation-2016"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-2016-goal-information-tools",
+      "type": "component_of",
+      "source": "zh-2016-goal-information-tools",
+      "target": "zh-three-dimensional-goals",
+      "scope_id": "scope:zh-2016-blind",
+      "evidence_anchor_ids": [
+        "anchor:zh-three-dimensional-goals-continuation-2016"
       ],
       "assertion_status": "official_structure",
       "review_status": "editor_reviewed"
@@ -1511,6 +3427,366 @@
       "type": "component_of",
       "source": "zh-competency-culture",
       "target": "zh-core-competencies",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-rich-language-practice",
+      "type": "component_of",
+      "source": "zh-term-rich-language-practice",
+      "target": "zh-competency-language",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-active-accumulation",
+      "type": "component_of",
+      "source": "zh-term-active-accumulation",
+      "target": "zh-competency-language",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-sorting-integration",
+      "type": "component_of",
+      "source": "zh-term-sorting-integration",
+      "target": "zh-competency-language",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-individual-language-experience",
+      "type": "component_of",
+      "source": "zh-term-individual-language-experience",
+      "target": "zh-competency-language",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-communication",
+      "type": "component_of",
+      "source": "zh-term-communication",
+      "target": "zh-competency-language",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-intuitive-thinking",
+      "type": "component_of",
+      "source": "zh-term-intuitive-thinking",
+      "target": "zh-competency-thinking",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-image-thinking",
+      "type": "component_of",
+      "source": "zh-term-image-thinking",
+      "target": "zh-competency-thinking",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-logical-thinking",
+      "type": "component_of",
+      "source": "zh-term-logical-thinking",
+      "target": "zh-competency-thinking",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-dialectical-thinking",
+      "type": "component_of",
+      "source": "zh-term-dialectical-thinking",
+      "target": "zh-competency-thinking",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-creative-thinking",
+      "type": "component_of",
+      "source": "zh-term-creative-thinking",
+      "target": "zh-competency-thinking",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-thinking-depth",
+      "type": "component_of",
+      "source": "zh-term-thinking-depth",
+      "target": "zh-competency-thinking",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-thinking-agility",
+      "type": "component_of",
+      "source": "zh-term-thinking-agility",
+      "target": "zh-competency-thinking",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-thinking-flexibility",
+      "type": "component_of",
+      "source": "zh-term-thinking-flexibility",
+      "target": "zh-competency-thinking",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-thinking-criticality",
+      "type": "component_of",
+      "source": "zh-term-thinking-criticality",
+      "target": "zh-competency-thinking",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-thinking-originality",
+      "type": "component_of",
+      "source": "zh-term-thinking-originality",
+      "target": "zh-competency-thinking",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-language-thinking"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-aesthetic-experience",
+      "type": "component_of",
+      "source": "zh-term-aesthetic-experience",
+      "target": "zh-competency-aesthetic",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-aesthetic-evaluation",
+      "type": "component_of",
+      "source": "zh-term-aesthetic-evaluation",
+      "target": "zh-competency-aesthetic",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-aesthetic-consciousness",
+      "type": "component_of",
+      "source": "zh-term-aesthetic-consciousness",
+      "target": "zh-competency-aesthetic",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-healthy-aesthetic-taste",
+      "type": "component_of",
+      "source": "zh-term-healthy-aesthetic-taste",
+      "target": "zh-competency-aesthetic",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-appreciation-taste",
+      "type": "component_of",
+      "source": "zh-term-appreciation-taste",
+      "target": "zh-competency-aesthetic",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-express-beauty",
+      "type": "component_of",
+      "source": "zh-term-express-beauty",
+      "target": "zh-competency-aesthetic",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-create-beauty",
+      "type": "component_of",
+      "source": "zh-term-create-beauty",
+      "target": "zh-competency-aesthetic",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-traditional-culture",
+      "type": "component_of",
+      "source": "zh-term-traditional-culture",
+      "target": "zh-competency-culture",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-revolutionary-culture",
+      "type": "component_of",
+      "source": "zh-term-revolutionary-culture",
+      "target": "zh-competency-culture",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-advanced-socialist-culture",
+      "type": "component_of",
+      "source": "zh-term-advanced-socialist-culture",
+      "target": "zh-competency-culture",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-cultural-vision",
+      "type": "component_of",
+      "source": "zh-term-cultural-vision",
+      "target": "zh-competency-culture",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-cultural-awareness",
+      "type": "component_of",
+      "source": "zh-term-cultural-awareness",
+      "target": "zh-competency-culture",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-socialist-cultural-confidence",
+      "type": "component_of",
+      "source": "zh-term-socialist-cultural-confidence",
+      "target": "zh-competency-culture",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-love-chinese-language",
+      "type": "component_of",
+      "source": "zh-term-love-chinese-language",
+      "target": "zh-competency-culture",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-core-aesthetic-culture"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-term-love-chinese-culture",
+      "type": "component_of",
+      "source": "zh-term-love-chinese-culture",
+      "target": "zh-competency-culture",
       "scope_id": "scope:zh-hs-2020",
       "evidence_anchor_ids": [
         "anchor:zh-core-aesthetic-culture"
@@ -1608,6 +3884,66 @@
       "type": "operationalizes",
       "source": "zh-target-literature-appreciation",
       "target": "zh-competency-aesthetic",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-goals-2-9"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-ability-literature-language-beauty",
+      "type": "component_of",
+      "source": "zh-ability-literature-language-beauty",
+      "target": "zh-target-literature-appreciation",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-goals-2-9"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-ability-literature-image-beauty",
+      "type": "component_of",
+      "source": "zh-ability-literature-image-beauty",
+      "target": "zh-target-literature-appreciation",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-goals-2-9"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-ability-literature-emotional-beauty",
+      "type": "component_of",
+      "source": "zh-ability-literature-emotional-beauty",
+      "target": "zh-target-literature-appreciation",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-goals-2-9"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-ability-literature-appraise-works",
+      "type": "component_of",
+      "source": "zh-ability-literature-appraise-works",
+      "target": "zh-target-literature-appreciation",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-course-goals-2-9"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-ability-literature-aesthetic-values",
+      "type": "component_of",
+      "source": "zh-ability-literature-aesthetic-values",
+      "target": "zh-target-literature-appreciation",
       "scope_id": "scope:zh-hs-2020",
       "evidence_anchor_ids": [
         "anchor:zh-course-goals-2-9"
@@ -1919,6 +4255,126 @@
       "review_status": "editor_reviewed"
     },
     {
+      "id": "ontology-parent:zh-taskreq-whole-book-reading-methods",
+      "type": "component_of",
+      "source": "zh-taskreq-whole-book-reading-methods",
+      "target": "zh-task-whole-book",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-1"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-whole-book-read-text",
+      "type": "component_of",
+      "source": "zh-taskreq-whole-book-read-text",
+      "target": "zh-task-whole-book",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-1"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-whole-book-connotation",
+      "type": "component_of",
+      "source": "zh-taskreq-whole-book-connotation",
+      "target": "zh-task-whole-book",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-1"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-whole-book-overall",
+      "type": "component_of",
+      "source": "zh-taskreq-whole-book-overall",
+      "target": "zh-task-whole-book",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-1"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-whole-book-characters",
+      "type": "component_of",
+      "source": "zh-taskreq-whole-book-characters",
+      "target": "zh-task-whole-book",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-1"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-whole-book-character-world",
+      "type": "component_of",
+      "source": "zh-taskreq-whole-book-character-world",
+      "target": "zh-task-whole-book",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-2"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-whole-book-theme",
+      "type": "component_of",
+      "source": "zh-taskreq-whole-book-theme",
+      "target": "zh-task-whole-book",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-2"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-whole-book-artistic-value",
+      "type": "component_of",
+      "source": "zh-taskreq-whole-book-artistic-value",
+      "target": "zh-task-whole-book",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-2"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-whole-book-academic-summary",
+      "type": "component_of",
+      "source": "zh-taskreq-whole-book-academic-summary",
+      "target": "zh-task-whole-book",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-2"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-whole-book-argument-logic",
+      "type": "component_of",
+      "source": "zh-taskreq-whole-book-argument-logic",
+      "target": "zh-task-whole-book",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-whole-book-goals-2"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
       "id": "ontology-parent:zh-task-contemporary-culture",
       "type": "component_of",
       "source": "zh-task-contemporary-culture",
@@ -1967,6 +4423,126 @@
       "review_status": "editor_reviewed"
     },
     {
+      "id": "ontology-parent:zh-taskreq-literary-close-reading",
+      "type": "component_of",
+      "source": "zh-taskreq-literary-close-reading",
+      "target": "zh-task-literary-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-literary-artistic-image",
+      "type": "component_of",
+      "source": "zh-taskreq-literary-artistic-image",
+      "target": "zh-task-literary-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-literary-language-expression",
+      "type": "component_of",
+      "source": "zh-taskreq-literary-language-expression",
+      "target": "zh-task-literary-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-literary-connotation",
+      "type": "component_of",
+      "source": "zh-taskreq-literary-connotation",
+      "target": "zh-task-literary-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-literary-author-intent",
+      "type": "component_of",
+      "source": "zh-taskreq-literary-author-intent",
+      "target": "zh-task-literary-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-literary-imagination",
+      "type": "component_of",
+      "source": "zh-taskreq-literary-imagination",
+      "target": "zh-task-literary-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-literary-multiple-angles",
+      "type": "component_of",
+      "source": "zh-taskreq-literary-multiple-angles",
+      "target": "zh-task-literary-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-literary-aesthetic-experience",
+      "type": "component_of",
+      "source": "zh-taskreq-literary-aesthetic-experience",
+      "target": "zh-task-literary-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-1"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-literary-rewrite",
+      "type": "component_of",
+      "source": "zh-taskreq-literary-rewrite",
+      "target": "zh-task-literary-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-2"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-literary-reading-response",
+      "type": "component_of",
+      "source": "zh-taskreq-literary-reading-response",
+      "target": "zh-task-literary-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-literary-reading-goals-2"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
       "id": "ontology-parent:zh-task-speculative-reading",
       "type": "component_of",
       "source": "zh-task-speculative-reading",
@@ -1979,6 +4555,102 @@
       "review_status": "editor_reviewed"
     },
     {
+      "id": "ontology-parent:zh-taskreq-speculative-author-position",
+      "type": "component_of",
+      "source": "zh-taskreq-speculative-author-position",
+      "target": "zh-task-speculative-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-speculative-method-logic",
+      "type": "component_of",
+      "source": "zh-taskreq-speculative-method-logic",
+      "target": "zh-task-speculative-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-speculative-analysis-questioning",
+      "type": "component_of",
+      "source": "zh-taskreq-speculative-analysis-questioning",
+      "target": "zh-task-speculative-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-speculative-multiple-interpretations",
+      "type": "component_of",
+      "source": "zh-taskreq-speculative-multiple-interpretations",
+      "target": "zh-task-speculative-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-speculative-argument",
+      "type": "component_of",
+      "source": "zh-taskreq-speculative-argument",
+      "target": "zh-task-speculative-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-speculative-multiple-angles",
+      "type": "component_of",
+      "source": "zh-taskreq-speculative-multiple-angles",
+      "target": "zh-task-speculative-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-speculative-refutation",
+      "type": "component_of",
+      "source": "zh-taskreq-speculative-refutation",
+      "target": "zh-task-speculative-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-speculative-discussion-debate",
+      "type": "component_of",
+      "source": "zh-taskreq-speculative-discussion-debate",
+      "target": "zh-task-speculative-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-speculative-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
       "id": "ontology-parent:zh-task-practical-reading",
       "type": "component_of",
       "source": "zh-task-practical-reading",
@@ -1986,6 +4658,126 @@
       "scope_id": "scope:zh-hs-2020",
       "evidence_anchor_ids": [
         "anchor:zh-task-group-list"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-practical-independent-reading",
+      "type": "component_of",
+      "source": "zh-taskreq-practical-independent-reading",
+      "target": "zh-task-practical-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-practical-observe-society",
+      "type": "component_of",
+      "source": "zh-taskreq-practical-observe-society",
+      "target": "zh-task-practical-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-practical-common-texts",
+      "type": "component_of",
+      "source": "zh-taskreq-practical-common-texts",
+      "target": "zh-task-practical-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-practical-new-expression",
+      "type": "component_of",
+      "source": "zh-taskreq-practical-new-expression",
+      "target": "zh-task-practical-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-practical-concise-vivid-language",
+      "type": "component_of",
+      "source": "zh-taskreq-practical-concise-vivid-language",
+      "target": "zh-task-practical-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-practical-introduce-things",
+      "type": "component_of",
+      "source": "zh-taskreq-practical-introduce-things",
+      "target": "zh-task-practical-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-practical-explain-principles",
+      "type": "component_of",
+      "source": "zh-taskreq-practical-explain-principles",
+      "target": "zh-task-practical-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-practical-social-communication",
+      "type": "component_of",
+      "source": "zh-taskreq-practical-social-communication",
+      "target": "zh-task-practical-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-practical-news-media",
+      "type": "component_of",
+      "source": "zh-taskreq-practical-news-media",
+      "target": "zh-task-practical-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
+      ],
+      "assertion_status": "official_structure",
+      "review_status": "editor_reviewed"
+    },
+    {
+      "id": "ontology-parent:zh-taskreq-practical-knowledge-reading",
+      "type": "component_of",
+      "source": "zh-taskreq-practical-knowledge-reading",
+      "target": "zh-task-practical-reading",
+      "scope_id": "scope:zh-hs-2020",
+      "evidence_anchor_ids": [
+        "anchor:zh-practical-reading-goals"
       ],
       "assertion_status": "official_structure",
       "review_status": "editor_reviewed"
@@ -2385,6 +5177,29 @@
       "citation_allowed": true
     },
     {
+      "id": "anchor:zh-three-dimensional-goals-continuation-2016",
+      "document_id": "ictr-42b373aa14b0",
+      "document_title": "盲校义务教育语文课程标准（2016年版）",
+      "edition_id": "edition:ictr-42b373aa14b0",
+      "paragraph_ordinal": 13,
+      "physical_pdf_page": 7,
+      "source_locator": "第7页·段13",
+      "section_path": [
+        "二、课程目标与内容",
+        "一、总体目标与内容"
+      ],
+      "body_sha256": "74014d83c5179c1ecd36e2af5b4ca95cdace783b4cb1ba5150b550d412bb3a5a",
+      "source_artifact_sha256": "66ff70ed86238c90c9f452ffdd19f65165cb281651a734b0fb931337143c5939",
+      "required_terms": [
+        "发展书面语言运用能力",
+        "倾听、表达与交流",
+        "搜集和处理信息的能力",
+        "辅助技术和多种媒体"
+      ],
+      "evidence_status": "citation_ready",
+      "citation_allowed": true
+    },
+    {
       "id": "anchor:zh-three-dimensional-integration-2020",
       "document_id": "moe-hs-2020-02",
       "document_title": "普通高中语文课程标准（2017年版2020年修订）",
@@ -2564,6 +5379,156 @@
         "选修课程9个",
         "整本书阅读与研讨",
         "学术论著专题研讨"
+      ],
+      "evidence_status": "citation_ready",
+      "citation_allowed": true
+    },
+    {
+      "id": "anchor:zh-whole-book-goals-1",
+      "document_id": "moe-hs-2020-02",
+      "document_title": "普通高中语文课程标准（2017年版2020年修订）",
+      "edition_id": "edition:moe-hs-2020-02",
+      "paragraph_ordinal": 27,
+      "physical_pdf_page": 19,
+      "source_locator": "第19页·段27",
+      "section_path": [
+        "四、课程内容",
+        "（一）学习任务群",
+        "学习任务群1 整本书阅读与研讨",
+        "1.学习目标与内容"
+      ],
+      "body_sha256": "92a40e0f9e2559279bf45e1a5c0b83ba137070711f8404908a71c445832340fe",
+      "source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+      "required_terms": [
+        "精读、略读与浏览",
+        "把握文本丰富的内涵和精髓",
+        "整体把握其思想内容和艺术特点",
+        "理清人物关系"
+      ],
+      "evidence_status": "citation_ready",
+      "citation_allowed": true
+    },
+    {
+      "id": "anchor:zh-whole-book-goals-2",
+      "document_id": "moe-hs-2020-02",
+      "document_title": "普通高中语文课程标准（2017年版2020年修订）",
+      "edition_id": "edition:moe-hs-2020-02",
+      "paragraph_ordinal": 28,
+      "physical_pdf_page": 20,
+      "source_locator": "第20页·段28",
+      "section_path": [
+        "四、课程内容",
+        "（一）学习任务群",
+        "学习任务群1 整本书阅读与研讨",
+        "1.学习目标与内容"
+      ],
+      "body_sha256": "d3e777d702bb516c6ebb0dfef7f49cb7a00ccfef0870e221f7203139ba0faa45",
+      "source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+      "required_terms": [
+        "探究人物的精神世界",
+        "研究小说的艺术价值",
+        "做出全书内容提要",
+        "探究本书的语言特点和论述逻辑"
+      ],
+      "evidence_status": "citation_ready",
+      "citation_allowed": true
+    },
+    {
+      "id": "anchor:zh-literary-reading-goals-1",
+      "document_id": "moe-hs-2020-02",
+      "document_title": "普通高中语文课程标准（2017年版2020年修订）",
+      "edition_id": "edition:moe-hs-2020-02",
+      "paragraph_ordinal": 35,
+      "physical_pdf_page": 25,
+      "source_locator": "第25页·段35",
+      "section_path": [
+        "四、课程内容",
+        "（一）学习任务群",
+        "学习任务群5 文学阅读与写作",
+        "1.学习目标与内容"
+      ],
+      "body_sha256": "fb711cff2a60e0fc337ce70e5d26f37394018cc37f71933655ffddd2c8c18743",
+      "source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+      "required_terms": [
+        "诗歌、散文、小说、剧本",
+        "感受作品中的艺术形象",
+        "理解作者的创作意图",
+        "发挥想象"
+      ],
+      "evidence_status": "citation_ready",
+      "citation_allowed": true
+    },
+    {
+      "id": "anchor:zh-literary-reading-goals-2",
+      "document_id": "moe-hs-2020-02",
+      "document_title": "普通高中语文课程标准（2017年版2020年修订）",
+      "edition_id": "edition:moe-hs-2020-02",
+      "paragraph_ordinal": 36,
+      "physical_pdf_page": 26,
+      "source_locator": "第26页·段36",
+      "section_path": [
+        "四、课程内容",
+        "（一）学习任务群",
+        "学习任务群5 文学阅读与写作",
+        "1.学习目标与内容"
+      ],
+      "body_sha256": "4c983f05a3a6d557b023b9a65a9208b9ab7777803f4edace9cbe44a9634e5fc6",
+      "source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+      "required_terms": [
+        "认识作品的美学价值",
+        "捕捉创作灵感",
+        "尝试续写或改写文学作品",
+        "文学鉴赏经验"
+      ],
+      "evidence_status": "citation_ready",
+      "citation_allowed": true
+    },
+    {
+      "id": "anchor:zh-speculative-reading-goals",
+      "document_id": "moe-hs-2020-02",
+      "document_title": "普通高中语文课程标准（2017年版2020年修订）",
+      "edition_id": "edition:moe-hs-2020-02",
+      "paragraph_ordinal": 38,
+      "physical_pdf_page": 27,
+      "source_locator": "第27页·段38",
+      "section_path": [
+        "四、课程内容",
+        "（一）学习任务群",
+        "学习任务群6 思辨性阅读与表达",
+        "1.学习目标与内容"
+      ],
+      "body_sha256": "64367353085601060451503513fd502dcd1ec2a5c732471c7fa80174ab6e1ea7",
+      "source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+      "required_terms": [
+        "分析质疑，多元解读",
+        "立论正确",
+        "学习反驳",
+        "讨论和辩论"
+      ],
+      "evidence_status": "citation_ready",
+      "citation_allowed": true
+    },
+    {
+      "id": "anchor:zh-practical-reading-goals",
+      "document_id": "moe-hs-2020-02",
+      "document_title": "普通高中语文课程标准（2017年版2020年修订）",
+      "edition_id": "edition:moe-hs-2020-02",
+      "paragraph_ordinal": 40,
+      "physical_pdf_page": 28,
+      "source_locator": "第28页·段40",
+      "section_path": [
+        "四、课程内容",
+        "（一）学习任务群",
+        "学习任务群7 实用性阅读与交流",
+        "1.学习目标与内容"
+      ],
+      "body_sha256": "ffb72211f37375b1ecaecf43155409ae5eaffab01fc6f1b093cde011c8bd2448",
+      "source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+      "required_terms": [
+        "实用性文本的独立阅读与理解",
+        "多角度观察社会生活",
+        "介绍比较复杂的事物",
+        "比较复杂的非连续性文本"
       ],
       "evidence_status": "citation_ready",
       "citation_allowed": true

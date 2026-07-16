@@ -327,7 +327,9 @@ const ontologyNodeTypes = new Set([
   'subject_model', 'curriculum_construct', 'language_activity', 'historical_goal_framework', 'historical_goal_dimension',
   'competency_framework', 'core_competency_dimension', 'course_goal', 'practice_framework', 'practice_domain',
   'student_ability', 'content_organizer', 'task_group', 'quality_framework', 'quality_level', 'quality_dimension',
+  'official_term', 'ability_descriptor', 'task_requirement',
 ]);
+const sourceBoundOntologyNodeTypes = new Set(['official_term', 'ability_descriptor', 'task_requirement']);
 const ontologyRelationTypes = new Set(['component_of', 'operationalizes', 'assesses', 'foundational_for', 'reframed_by', 'develops', 'realized_through']);
 for (const scope of graph.ontology_scopes) {
   fail(graph.subject_facets.includes(scope.subject_facet), `${scope.id}: uncontrolled ontology subject facet`);
@@ -346,6 +348,10 @@ for (const node of graph.ontology_nodes) {
   fail(Boolean(node.label && node.definition && node.normative_role), `${node.id}: incomplete ontology semantics`);
   fail(['editor_reviewed', 'reviewed_inference'].includes(node.review_status), `${node.id}: invalid ontology review status`);
   fail(node.evidence_anchor_ids.length > 0 && node.evidence_anchor_ids.every((id) => ontologyEvidence.has(id)), `${node.id}: ontology evidence missing`);
+  if (sourceBoundOntologyNodeTypes.has(node.node_type)) {
+    fail(Array.isArray(node.source_terms) && node.source_terms.length > 0 && new Set(node.source_terms).size === node.source_terms.length, `${node.id}: source terms missing or duplicated`);
+    fail(node.definition.length >= 12, `${node.id}: evidence-scoped definition is too shallow`);
+  }
   if (node.lexical_concept_id !== null) fail(concepts.has(node.lexical_concept_id), `${node.id}: linked lexical concept missing`);
   if (node.parent_id !== null) fail(ontologyNodes.has(node.parent_id) && ontologyRelationTypes.has(node.parent_relation), `${node.id}: parent or parent relation missing`);
 }
@@ -362,18 +368,29 @@ fail(graph.ontology_nodes.filter((node) => node.node_type === 'course_goal').len
 fail(graph.ontology_nodes.filter((node) => node.node_type === 'student_ability').length === 15, 'Chinese ontology must expose 15 practice abilities');
 fail(graph.ontology_nodes.filter((node) => node.node_type === 'task_group').length === 18, 'Chinese ontology must expose 18 unique task groups');
 fail(graph.ontology_nodes.filter((node) => node.node_type === 'quality_level').length === 5, 'Chinese ontology must expose 5 quality levels');
+fail(graph.ontology_nodes.filter((node) => node.node_type === 'official_term').length === 34, 'Chinese ontology must expose 34 source-bound official terms');
+fail(graph.ontology_nodes.filter((node) => node.node_type === 'ability_descriptor').length === 21, 'Chinese ontology must expose 21 source-bound ability descriptors');
+fail(graph.ontology_nodes.filter((node) => node.node_type === 'task_requirement').length === 38, 'Chinese ontology must expose 38 source-bound task requirements');
+const blindIntegratedGoals = graph.ontology_nodes.filter((node) => node.normative_role === 'integrated_course_goal');
+fail(blindIntegratedGoals.length === 10, '2016 Blind Chinese must expose 10 integrated overall goals');
+fail(blindIntegratedGoals.every((node) => node.scope_id === 'scope:zh-2016-blind' && node.parent_id === 'zh-three-dimensional-goals'), '2016 Blind integrated goals must remain direct, edition-scoped children of the three-dimensional framework');
 fail(graph.ontology_nodes.filter((node) => node.node_type === 'quality_dimension').every((node) => node.review_status === 'reviewed_inference'), 'quality dimension alignment must remain an explicit reviewed inference');
 fail(!graph.ontology_nodes.some((node) => node.node_type === 'performance_indicator'), 'quality table indicators must remain fail-closed until visual row reconstruction');
+let maximumOntologyDepth = 0;
 for (const start of graph.ontology_nodes) {
   const visited = new Set();
   let cursor = start;
+  let depth = 0;
   while (cursor?.parent_id !== null) {
     fail(!visited.has(cursor.id), `${start.id}: ontology parent cycle`);
     if (visited.has(cursor.id)) break;
     visited.add(cursor.id);
     cursor = ontologyNodes.get(cursor.parent_id);
+    depth += 1;
   }
+  maximumOntologyDepth = Math.max(maximumOntologyDepth, depth);
 }
+fail(maximumOntologyDepth >= 4, 'Chinese ontology must expose evidence-scoped paths at least four levels deep');
 
 for (const cell of graph.coverage_cells) {
   fail(lines.has(cell.curriculum_line_id) && works.has(cell.work_id) && editions.has(cell.edition_id), `${cell.id}: identity references missing`);

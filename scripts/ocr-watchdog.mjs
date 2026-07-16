@@ -184,18 +184,42 @@ async function captureSupervisor(subcommand) {
   });
 }
 
+async function terminateTaskOwnedChild(child, exitPromise) {
+  if (!child || !exitPromise) return null;
+  if (child.exitCode !== null || child.signalCode !== null) return exitPromise;
+  child.kill('SIGTERM');
+  const termOutcome = await Promise.race([
+    exitPromise.then((result) => ({ exited: true, result })),
+    sleep(5000).then(() => ({ exited: false, result: null })),
+  ]);
+  if (termOutcome.exited) return termOutcome.result;
+  if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  return exitPromise;
+}
+
 async function spawnSupervisor(subcommand, subcommandArgs, settings) {
   const logFd = openSync(logPath, 'a', 0o600);
+  let child = null;
+  let exitPromise = null;
   const env = {
     ...process.env,
     OCR_LLAMA_PARALLEL: String(settings.llama_parallel),
     OCR_VL_REC_MAX_CONCURRENCY: String(settings.vl_rec_max_concurrency),
   };
   try {
-    const child = spawn(process.execPath, [supervisorPath, subcommand, ...subcommandArgs], {
+    child = spawn(process.execPath, [supervisorPath, subcommand, ...subcommandArgs], {
       cwd: root,
       env,
       stdio: ['ignore', logFd, logFd],
+    });
+    exitPromise = new Promise((resolve) => {
+      child.once('error', (error) => resolve({
+        code: 128,
+        signal: null,
+        error_code: error.code || 'SPAWN_FAILED',
+        error_message: error.message,
+      }));
+      child.once('exit', (code, signal) => resolve({ code: code ?? 128, signal }));
     });
     activeChild = child;
     await writeState(`starting_${subcommand}`, {
@@ -203,10 +227,6 @@ async function spawnSupervisor(subcommand, subcommandArgs, settings) {
       batch_pages: settings.batch_pages,
       llama_parallel: settings.llama_parallel,
       vl_rec_max_concurrency: settings.vl_rec_max_concurrency,
-    });
-    const exitPromise = new Promise((resolve, reject) => {
-      child.once('error', reject);
-      child.once('exit', (code, signal) => resolve({ code: code ?? 128, signal }));
     });
     let result;
     if (subcommand !== 'drain') {
@@ -245,8 +265,11 @@ async function spawnSupervisor(subcommand, subcommandArgs, settings) {
       }
     }
     return result;
+  } catch (error) {
+    await terminateTaskOwnedChild(child, exitPromise).catch(() => {});
+    throw error;
   } finally {
-    if (activeChild === child) activeChild = null;
+    if (child && activeChild === child) activeChild = null;
     closeSync(logFd);
   }
 }
@@ -341,11 +364,30 @@ async function oneCycle(settings, allowMutation = true) {
     });
     return { action: 'hard_stop', seconds: 300 };
   }
-  if (status.health?.exit_code === 2) {
+  const resumablePageQuarantine = status.health?.exit_code === 2
+    && status.next_batch
+    && status.health.reasons?.length
+    && status.health.reasons.every((reason) => reason === 'PAGE_QUARANTINED');
+  if (status.health?.exit_code === 2 && !resumablePageQuarantine) {
     const retryAt = Date.parse(status.health.earliest_retry_at || '');
     const seconds = Number.isFinite(retryAt) ? Math.max(15, Math.ceil((retryAt - Date.now()) / 1000)) : 60;
     await writeState('retry_backoff', { seconds, health: status.health, queue: status.queue });
     return { action: 'backoff', seconds };
+  }
+  const runtimeRun = status.runtime?.current_run;
+  if (status.health?.exit_code === 10 && runtimeRun?.error_code === 'PADDLE_RUNTIME_UNAVAILABLE') {
+    const retryAt = Date.parse(runtimeRun.runtime_retry_at || '');
+    if (Number.isFinite(retryAt) && retryAt > Date.now()) {
+      const seconds = Math.max(15, Math.ceil((retryAt - Date.now()) / 1000));
+      await writeState('runtime_backoff', {
+        seconds,
+        error_code: runtimeRun.error_code,
+        cause_code: runtimeRun.paddle_runtime_cause || null,
+        retry_at: runtimeRun.runtime_retry_at,
+        queue: status.queue,
+      });
+      return { action: 'backoff', seconds };
+    }
   }
   if (status.health?.exit_code === 10 && settings.auto_recover_single_page) {
     const recovery = await spawnSupervisor('recover', ['--batch-pages', '1', '--force-immediate'], settings);

@@ -4,15 +4,15 @@
   "artifact_profile": "curriculum-concept-evolution-quality-v1",
   "academic_schema": "curriculum-concept-evolution-academic-v2",
   "model_kind": "curriculum-concept-observation-model",
-  "build_revision": "028200e24fa87e835f0f8a9ba91aeae8d0e5edf9a668c3198e84b2c3deaf9436",
+  "build_revision": "7d06a9b48a12a23b67ede054ddafb5da9208f50d3a6d9cab64df6752c6d39f64",
   "input_fingerprints": {
     "catalog_sha256": "c1d67cbe987e6b9966a9b00302113e992750717e2e27553232948deba9da76c5",
     "queue_sha256": "0cf6c2f8b21737c165287e9ae894bc93fc6e49ebd623c2463df296bc43fb73c5",
     "concept_model_sha256": "98d8b3b8c9f4ad1e7f02410c2470fa8b34820996e380d39230a763fd49b3356e",
     "lexicon_sha256": "d8b792139ff4d28afff5cd685ce8b73174435353dd9343430ade26e8e763608b",
-    "ontology_sha256": "d157c838a785bf3f22fa9b26ca9cf1566e82e34b63be10a506191cea7abbfc6d",
-    "builder_sha256": "7e7c117abf75c29f41c88e92d94d0c716256305423d31df86b7cba960b315e2b",
-    "validator_sha256": "e5ea6cd2d2ef69852f841173bb695a046496f9c2352a6f5d791277ac6f408d88"
+    "ontology_sha256": "98b185f71afe4c70f880cd42725f16450e2df4b720bf6d47b221b91f7a04c687",
+    "builder_sha256": "42aade544a91900a54c5f6462ba52989a182edef409df29a96d9dd0e6b9f674c",
+    "validator_sha256": "53a0e7339c7e0bf58f2fad4f4e3c41ac1df75f6486182726dcd580b787c5b1b8"
   },
   "passed": true,
   "checks": [
@@ -81,12 +81,12 @@
       "passed": true
     }
   ],
-  "core_bytes": 3756102,
-  "academic_bytes": 21896790,
-  "academic_sha256": "c2cccb603ca8d13c6c2cb86ba80da53e14c8a81aa199c563d50c739ee29d8dd0",
+  "core_bytes": 3860085,
+  "academic_bytes": 22013686,
+  "academic_sha256": "1e95a2ca181b0fe2071cfb90483af146e2de7e72fc096e5a805fe23d82b1eb93",
   "release_boundary": "基于当前可用语料的词面概念观察图；不是完整课程史，不宣称概念义项连续、绝对首次、消失、取代、影响或因果演进。",
   "unresolved": [
-    "10705 OCR pages remain",
+    "10383 OCR pages remain",
     "Concept-sense definitions and semantic rename, split, merge, replacement, and influence relations require editor-reviewed dual-ended evidence.",
     "Exact repeated-text clusters are marked rather than silently discarded; their editorial classification remains pending.",
     "Source-text candidates remain non-quotable until paragraph-level citation gates pass."

@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const run = promisify(execFile);
 const projectRoot = fileURLToPath(new URL('../', import.meta.url));
+const rendererBinary = '/opt/homebrew/bin/mutool';
 const readJson = (relativePath) => readFile(path.join(projectRoot, relativePath), 'utf8').then(JSON.parse);
 const expectedIds = [
   ...Array.from({ length: 19 }, (_, index) => `moe-2011-${String(index + 1).padStart(2, '0')}`),
@@ -73,7 +74,7 @@ test('checked-in MOE scan metadata matches local PDF page counts and SHA-256 whe
     const record = metadata.documents[index];
     const filePath = paths[index];
     const [{ stdout }, checksum] = await Promise.all([
-      run('pdfinfo', [filePath], { maxBuffer: 4 * 1024 * 1024 }),
+      run(rendererBinary, ['info', filePath], { maxBuffer: 4 * 1024 * 1024 }),
       sha256(filePath),
     ]);
     const actualPages = Number(stdout.match(/^Pages:\s+(\d+)$/m)?.[1]);

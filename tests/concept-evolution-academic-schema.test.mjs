@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
-const core = JSON.parse(await readFile(new URL('public/data/concept-evolution.json', root), 'utf8'));
-const graph = JSON.parse(await readFile(new URL('public/data/concept-evolution-academic.json', root), 'utf8'));
+const artifactPath = (environmentName, fallback) => process.env[environmentName]
+  ? path.resolve(fileURLToPath(root), process.env[environmentName])
+  : new URL(fallback, root);
+const core = JSON.parse(await readFile(artifactPath('CONCEPT_GRAPH_OUTPUT_PATH', 'public/data/concept-evolution.json'), 'utf8'));
+const graph = JSON.parse(await readFile(artifactPath('CONCEPT_ACADEMIC_OUTPUT_PATH', 'public/data/concept-evolution-academic.json'), 'utf8'));
 const byId = (name) => new Map(graph[name].map((item) => [item.id, item]));
 const concepts = byId('concepts');
 const senses = byId('concept_senses');
@@ -60,12 +65,15 @@ test('entity IDs are unique and occurrence evidence is referentially complete', 
 
 test('Chinese deep ontology is edition-scoped, evidence-resolved, and fail-closed', () => {
   assert.equal(graph.ontology_schema_version, 1);
-  assert.equal(graph.ontology_nodes.length, 76);
-  assert.equal(graph.ontology_evidence.length, 14);
+  assert.equal(graph.ontology_nodes.length, 169);
+  assert.equal(graph.ontology_evidence.length, 21);
   assert.equal(graph.ontology_nodes.filter((node) => node.node_type === 'course_goal').length, 12);
   assert.equal(graph.ontology_nodes.filter((node) => node.node_type === 'student_ability').length, 15);
   assert.equal(graph.ontology_nodes.filter((node) => node.node_type === 'task_group').length, 18);
   assert.equal(graph.ontology_nodes.filter((node) => node.node_type === 'quality_level').length, 5);
+  assert.equal(graph.ontology_nodes.filter((node) => node.node_type === 'official_term').length, 34);
+  assert.equal(graph.ontology_nodes.filter((node) => node.node_type === 'ability_descriptor').length, 21);
+  assert.equal(graph.ontology_nodes.filter((node) => node.node_type === 'task_requirement').length, 38);
   assert.equal(graph.ontology_nodes.some((node) => node.node_type === 'performance_indicator'), false);
 
   for (const anchor of graph.ontology_evidence) {
@@ -77,14 +85,35 @@ test('Chinese deep ontology is edition-scoped, evidence-resolved, and fail-close
     assert.ok(ontologyScopes.has(node.scope_id));
     assert.ok((node.evidence_anchor_ids || []).every((id) => ontologyEvidence.has(id)));
     if (node.parent_id) assert.ok(ontologyNodes.has(node.parent_id));
+    if (['official_term', 'ability_descriptor', 'task_requirement'].includes(node.node_type)) {
+      assert.ok(Array.isArray(node.source_terms) && node.source_terms.length > 0);
+      assert.equal(new Set(node.source_terms).size, node.source_terms.length);
+      assert.ok(node.definition.length >= 12);
+    }
   }
   const historical = ontologyNodes.get('zh-three-dimensional-goals');
   assert.equal(ontologyScopes.get(historical.scope_id).school_type, 'special_education_school_for_the_blind');
+  const blindIntegratedGoals = graph.ontology_nodes.filter((node) => node.normative_role === 'integrated_course_goal');
+  assert.equal(blindIntegratedGoals.length, 10);
+  assert.ok(blindIntegratedGoals.every((node) => node.scope_id === historical.scope_id && node.parent_id === historical.id));
+  assert.ok(blindIntegratedGoals.every((node) => !['zh-goal-knowledge-ability', 'zh-goal-process-method', 'zh-goal-emotion-attitude-values'].includes(node.parent_id)));
   const crossVersion = graph.ontology_relations.find((relation) => relation.id === 'zh-rel-three-goals-reframed');
   assert.equal(crossVersion.assertion_status, 'cross_version_reviewed_relation');
   assert.equal(crossVersion.evidence_anchor_ids.length, 2);
   assert.ok(graph.ontology_nodes.filter((node) => node.node_type === 'quality_dimension')
     .every((node) => node.review_status === 'reviewed_inference'));
+
+  let maximumDepth = 0;
+  for (const node of graph.ontology_nodes) {
+    let depth = 0;
+    let cursor = node;
+    while (cursor.parent_id) {
+      depth += 1;
+      cursor = ontologyNodes.get(cursor.parent_id);
+    }
+    maximumDepth = Math.max(maximumDepth, depth);
+  }
+  assert.ok(maximumDepth >= 4);
 });
 
 test('unresolved lexical concepts are not split into empty subject pseudo-senses', () => {

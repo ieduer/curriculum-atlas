@@ -12,6 +12,8 @@ import {
   missingCompletedWitnessPages,
   nextPageRetry,
   ocrExecutionPolicy,
+  paddleLogIndicatesRuntimeFailure,
+  paddleRuntimeFailure,
   pageRetryKey,
   retryBlocksPage,
   retriesForPage,
@@ -43,12 +45,24 @@ const llamaRepository = path.join(root, '.cache/tools/llama.cpp');
 const modelPath = path.join(root, '.cache/ocr-runtime/PaddleOCR-VL-1.6-GGUF.gguf');
 const mmprojPath = path.join(root, '.cache/ocr-runtime/PaddleOCR-VL-1.6-GGUF-mmproj.gguf');
 const pythonPath = path.join(root, '.cache/venv-paddleocr/bin/python');
+const rendererBinary = '/opt/homebrew/bin/mutool';
 const expected = {
   llama_commit: '12127defda4f41b7679cb2477a4b0d65ee6a0c8f',
   model_sha256: 'f3ae46ec885050acf4b3d31944431e1fd90d50664fb09126af4a3c050ba14ee8',
   mmproj_sha256: '204d757d7610d9b3faab10d506d69e5b244e32bf765e2bab2d0167e65e0a058a',
+  renderer_sha256: 'b7ee6e71e5453afd4d730bcc8ba38128a89a9b550f2e7dab8effacd46634e9c6',
 };
 const visionRenderDpi = 240;
+const visionBatchLimits = Object.freeze({
+  startupTimeoutMs: 180000,
+  idleTimeoutMs: 300000,
+  wallTimeoutMs: 3600000,
+});
+const visionPageRetryLimits = Object.freeze({
+  startupTimeoutMs: 120000,
+  idleTimeoutMs: 180000,
+  wallTimeoutMs: 600000,
+});
 const maxBatchPages = 64;
 const runtimeInteger = (name, fallback, minimum, maximum) => {
   const value = Number(process.env[name]);
@@ -116,6 +130,61 @@ async function exists(value) {
 
 async function readJson(value, fallback = null) {
   try { return JSON.parse(await readFile(value, 'utf8')); } catch { return fallback; }
+}
+
+export async function discardVisionOutputs(sidecarPath) {
+  const textPath = sidecarPath.replace(/\.json$/i, '.txt');
+  await Promise.all([
+    rm(sidecarPath, { force: true }),
+    rm(textPath, { force: true }),
+  ]);
+}
+
+export async function readFreshVisionOutput(sidecarPath, expected = {}) {
+  const [record, sidecarInfo] = await Promise.all([
+    readJson(sidecarPath, null),
+    stat(sidecarPath).catch(() => null),
+  ]);
+  if (!sidecarInfo?.isFile() || !record || record.error || !Array.isArray(record.lines)) return null;
+  if (Number.isFinite(expected.notBeforeMs) && sidecarInfo.mtimeMs + 1000 < expected.notBeforeMs) return null;
+  if (expected.file && record.file !== expected.file) return null;
+  if (record.document_id != null && expected.documentId && record.document_id !== expected.documentId) return null;
+  if (record.physical_pdf_page != null && expected.page && Number(record.physical_pdf_page) !== Number(expected.page)) return null;
+  if (record.source_pdf_sha256 != null && expected.pdfSha && record.source_pdf_sha256 !== expected.pdfSha) return null;
+  if (record.rendered_image_sha256 != null && expected.imageSha && record.rendered_image_sha256 !== expected.imageSha) return null;
+  return record;
+}
+
+export function classifyPaddleExitOne({ exitCode, logText = '', pages = [], beforeState = {}, afterState = {} }) {
+  const beforeCompleted = new Set((beforeState.completed_pages || []).map(Number));
+  const afterCompleted = new Set((afterState.completed_pages || []).map(Number));
+  const newlyCompletedPages = [];
+  const structuredFailurePages = [];
+  for (const page of pages.map(Number)) {
+    const key = String(page);
+    const beforeFailure = beforeState.failed_pages?.[key] ?? null;
+    const afterFailure = afterState.failed_pages?.[key] ?? null;
+    if (!beforeCompleted.has(page) && afterCompleted.has(page) && primaryStateHashesValid(afterState, page)) {
+      newlyCompletedPages.push(page);
+    }
+    if (afterFailure && JSON.stringify(beforeFailure) !== JSON.stringify(afterFailure)) structuredFailurePages.push(page);
+  }
+  const pageProgressObserved = newlyCompletedPages.length > 0 || structuredFailurePages.length > 0;
+  return {
+    runtimeFailure: exitCode === 1 && (paddleLogIndicatesRuntimeFailure(logText) || !pageProgressObserved),
+    pageProgressObserved,
+    newlyCompletedPages,
+    structuredFailurePages,
+  };
+}
+
+export function retryReconcileBusyReasons(status, ownerPid = process.pid) {
+  const runtime = status?.runtime || {};
+  const reasons = [];
+  if (runtime.lock_active && runtime.lock_owner?.pid !== ownerPid) reasons.push('batch_owner_active');
+  if (runtime.drain_active) reasons.push('drain_owner_active');
+  if (runtime.watchdog_child_active) reasons.push('watchdog_child_active');
+  return reasons;
 }
 
 function fingerprintsMatch(left, right) {
@@ -372,12 +441,44 @@ export async function prepareAuditBackfillWitness(document, pages, state, {
 async function runCapture(executable, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(executable, args, { cwd: root, env: { ...process.env, ...(options.env || {}) }, stdio: ['ignore', 'pipe', 'pipe'] });
+    activeStageChild = child;
     let stdout = '';
     let stderr = '';
+    let timedOut = false;
+    let settled = false;
+    let killTimer = null;
+    const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.max(1000, options.timeoutMs) : 180000;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
+      killTimer = setTimeout(() => {
+        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+      }, 5000);
+    }, timeoutMs);
+    const heartbeat = typeof options.heartbeat === 'function'
+      ? setInterval(() => Promise.resolve(options.heartbeat()).catch(() => {}), 30000)
+      : null;
+    const finish = (callback) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      if (killTimer) clearTimeout(killTimer);
+      if (heartbeat) clearInterval(heartbeat);
+      if (activeStageChild === child) activeStageChild = null;
+      callback();
+    };
     child.stdout.on('data', (chunk) => { stdout += chunk; });
     child.stderr.on('data', (chunk) => { stderr += chunk; });
-    child.on('error', reject);
-    child.on('exit', (code, signal) => code === 0 ? resolve({ stdout, stderr }) : reject(new Error(`${executable} exited ${code ?? signal}: ${stderr.slice(-1200)}`)));
+    child.on('error', (error) => finish(() => reject(error)));
+    child.on('exit', (code, signal) => finish(() => {
+      if (timedOut) {
+        reject(Object.assign(new Error(`${executable} exceeded ${timeoutMs} ms`), { code: 'CAPTURE_TIMEOUT', exitCode: 10 }));
+      } else if (code === 0) {
+        resolve({ stdout, stderr });
+      } else {
+        reject(new Error(`${executable} exited ${code ?? signal}: ${stderr.slice(-1200)}`));
+      }
+    }));
   });
 }
 
@@ -634,6 +735,7 @@ async function collectStatus(write = true) {
   const lockActive = Boolean(owner && await processAlive(owner.pid));
   const drainActive = Boolean(drainOwner && await processAlive(drainOwner.pid));
   const watchdogActive = Boolean(watchdogState?.watchdog_pid && await processAlive(watchdogState.watchdog_pid));
+  const watchdogChildActive = Boolean(watchdogActive && watchdogState?.child_pid && await processAlive(watchdogState.child_pid));
   const watchdogOwnsDrain = watchdogActive && drainActive && watchdogState?.child_pid === drainOwner.pid;
   const activeRuntimePolicy = current?.runtime_policy || drainState?.runtime_policy || (watchdogOwnsDrain ? {
     llama_parallel: runtimeIntegerFromValue(watchdogControl?.llama_parallel, 3, 1, 4),
@@ -668,7 +770,7 @@ async function collectStatus(write = true) {
           : 'no_eligible_pages';
   const status = {
     schema_version: 2, generated_at: nowIso(),
-    policy: { batch_pages: batchPages, max_batch_pages: maxBatchPages, vision_render_dpi: visionRenderDpi, vision_render_settle_seconds: 1.5, vision_immediate_retries_seconds: [2, 10, 30], page_retry_quarantine_after: 5, disk_warning_gib: 50, disk_hard_stop_gib: 25, stall_minutes: 20, llama_parallel: activeRuntimePolicy?.llama_parallel ?? llamaParallel, llama_context_per_slot: activeRuntimePolicy?.llama_context_per_slot ?? 8192, vl_rec_max_concurrency: activeRuntimePolicy?.vl_rec_max_concurrency ?? vlRecMaxConcurrency, runtime_policy_source: activeRuntimePolicy?.source || (current?.runtime_policy ? 'current_run' : drainState?.runtime_policy ? 'drain_state' : 'process_environment'), candidates_never_citation_eligible: true, automatic_deploy: false },
+    policy: { batch_pages: batchPages, max_batch_pages: maxBatchPages, vision_render_dpi: visionRenderDpi, vision_renderer: 'MuPDF mutool 1.28.0 pinned by SHA-256', vision_render_settle_seconds: 1.5, vision_immediate_retries_seconds: [2, 10, 30], page_retry_quarantine_after: 5, disk_warning_gib: 50, disk_hard_stop_gib: 25, stall_minutes: 20, llama_parallel: activeRuntimePolicy?.llama_parallel ?? llamaParallel, llama_context_per_slot: activeRuntimePolicy?.llama_context_per_slot ?? 8192, vl_rec_max_concurrency: activeRuntimePolicy?.vl_rec_max_concurrency ?? vlRecMaxConcurrency, runtime_policy_source: activeRuntimePolicy?.source || (current?.runtime_policy ? 'current_run' : drainState?.runtime_policy ? 'drain_state' : 'process_environment'), candidates_never_citation_eligible: true, automatic_deploy: false },
     health,
     scheduler_state: schedulerState,
     queue: { documents: queue.counts.documents, pages: queue.counts.pages, completed_pages: completed, pending_pages: pendingPages, failed_pages: failures },
@@ -680,6 +782,9 @@ async function collectStatus(write = true) {
       drain_active: drainActive,
       drain_owner: drainOwner,
       drain_state: drainState,
+      watchdog_active: watchdogActive,
+      watchdog_child_active: watchdogChildActive,
+      watchdog_child_pid: watchdogChildActive ? watchdogState.child_pid : null,
       current_run: current,
       stalled,
       heartbeat_age_minutes: heartbeatAge === null ? null : Number(heartbeatAge.toFixed(2)),
@@ -852,27 +957,68 @@ async function stopOwnedServer(server) {
   await server.log?.close().catch(() => {});
 }
 
-async function runLogged(executable, args, logPath, run, stage, env = {}, acceptedExitCodes = [0]) {
+async function runLogged(executable, args, logPath, run, stage, env = {}, acceptedExitCodes = [0], limits = {}) {
   throwIfInterrupted();
   run.stage = stage;
   await updateRun(run);
   const log = await open(logPath, 'a');
+  let timedOutError = null;
   const child = spawn(executable, args, { cwd: root, env: { ...process.env, ...env }, stdio: ['ignore', log.fd, log.fd] });
+  const exitPromise = new Promise((resolve) => {
+    child.once('error', (error) => resolve({ error }));
+    child.once('exit', (code, signal) => resolve(timedOutError
+      ? { error: timedOutError }
+      : acceptedExitCodes.includes(code)
+        ? { result: { code, signal } }
+        : { error: Object.assign(new Error(`${stage} exited ${code ?? signal}`), { stage, code, signal }) }));
+  });
   activeStageChild = child;
   run.active_child_pid = child.pid || null;
   await updateRun(run);
   const heartbeat = setInterval(() => updateRun(run).catch(() => {}), 30000);
-  const result = await new Promise((resolve, reject) => {
-    child.on('error', reject);
-    child.on('exit', (code, signal) => acceptedExitCodes.includes(code)
-      ? resolve({ code, signal })
-      : reject(Object.assign(new Error(`${stage} exited ${code ?? signal}`), { stage, code, signal })));
-  }).finally(async () => {
+  const watchPaths = [logPath, ...(limits.activityPaths || [])];
+  const activitySignature = async () => Promise.all(watchPaths.map(async (target) => {
+    const value = await stat(target).catch(() => null);
+    return value ? `${target}:${value.size}:${value.mtimeMs}` : `${target}:missing`;
+  })).then((parts) => parts.join('|'));
+  let signature = await activitySignature();
+  let lastActivityAt = Date.now();
+  let activityObserved = false;
+  let killTimer = null;
+  const startedAt = Date.now();
+  const startupTimeoutMs = Number.isFinite(limits.startupTimeoutMs) ? Math.max(30000, limits.startupTimeoutMs) : null;
+  const idleTimeoutMs = Number.isFinite(limits.idleTimeoutMs) ? Math.max(60000, limits.idleTimeoutMs) : null;
+  const wallTimeoutMs = Number.isFinite(limits.wallTimeoutMs) ? Math.max(60000, limits.wallTimeoutMs) : null;
+  const activityMonitor = startupTimeoutMs || idleTimeoutMs || wallTimeoutMs ? setInterval(async () => {
+    if (timedOutError || child.exitCode !== null) return;
+    const now = Date.now();
+    const nextSignature = await activitySignature();
+    if (nextSignature !== signature) {
+      signature = nextSignature;
+      lastActivityAt = now;
+      activityObserved = true;
+    }
+    const timeoutKind = wallTimeoutMs && now - startedAt > wallTimeoutMs ? 'wall'
+      : !activityObserved && startupTimeoutMs && now - startedAt > startupTimeoutMs ? 'startup'
+        : activityObserved && idleTimeoutMs && now - lastActivityAt > idleTimeoutMs ? 'idle'
+          : null;
+    if (!timeoutKind) return;
+    timedOutError = Object.assign(new Error(`${stage} ${timeoutKind} timeout`), {
+      code: `${stage.toUpperCase()}_${timeoutKind.toUpperCase()}_TIMEOUT`, exitCode: 10, stage,
+    });
+    if (child.exitCode === null) child.kill('SIGTERM');
+    killTimer = setTimeout(() => { if (child.exitCode === null) child.kill('SIGKILL'); }, 5000);
+  }, 5000) : null;
+  const outcome = await exitPromise.finally(async () => {
     clearInterval(heartbeat);
+    if (activityMonitor) clearInterval(activityMonitor);
+    if (killTimer) clearTimeout(killTimer);
     if (activeStageChild === child) activeStageChild = null;
     run.active_child_pid = null;
     await log.close().catch(() => {});
   });
+  if (outcome.error) throw outcome.error;
+  const result = outcome.result;
   await updateRun(run);
   throwIfInterrupted();
   return result;
@@ -884,33 +1030,96 @@ async function renderVision(document, pages, pdfSha, logPath, run) {
   const imageDir = path.join(base, 'images');
   const visionDir = path.join(base, 'vision');
   await Promise.all([mkdir(imageDir, { recursive: true }), mkdir(visionDir, { recursive: true })]);
-  const images = [];
+  const rendered = [];
+  const successPages = [];
+  const failures = [];
   run.stage = 'render_and_independent_vision';
   await updateRun(run);
   for (const page of pages) {
     throwIfInterrupted();
     const stem = `page-${String(page).padStart(3, '0')}`;
-    const prefix = path.join(imageDir, stem);
-    const imagePath = `${prefix}.png`;
-    await runCapture('/opt/homebrew/bin/pdftoppm', ['-f', String(page), '-l', String(page), '-r', String(visionRenderDpi), '-png', '-singlefile', path.join(root, document.local_cache_path), prefix]);
+    const imagePath = path.join(imageDir, `${stem}.png`);
+    const sidecarPath = path.join(visionDir, `${stem}.json`);
+    const existing = await readJson(sidecarPath, null);
+    if (existing && await exists(imagePath)) {
+      const imageSha = await sha256File(imagePath);
+      if (witnessRecordValid(existing, { ...await witnessIdentity(document, page), imageSha })) {
+        successPages.push(page);
+        continue;
+      }
+    }
+    await discardVisionOutputs(sidecarPath);
+    try {
+      await runCapture(rendererBinary, ['draw', '-q', '-F', 'png', '-r', String(visionRenderDpi), '-o', imagePath, path.join(root, document.local_cache_path), String(page)], {
+        timeoutMs: 30000,
+        heartbeat: () => updateRun(run),
+      });
+    } catch (error) {
+      if (shutdownRequested) throw interruptedError();
+      if (paddleLogIndicatesRuntimeFailure(`${error.code || ''} ${error.message || ''}`)) {
+        error.scope = 'runtime';
+        throw error;
+      }
+      failures.push({
+        page,
+        stage: 'vision_render',
+        code: error.code || 'VISION_RENDER_FAILED',
+        name: error.name || 'VisionRenderError',
+        message: error.message || 'MuPDF did not produce the page image',
+        attempts: 1,
+      });
+      continue;
+    }
     throwIfInterrupted();
-    images.push(imagePath);
+    rendered.push({ page, imagePath });
   }
   // Vision intermittently returns Foundation._GenericObjCError when invoked in
   // the same instant that Poppler closes a newly rendered PNG. A short bounded
   // settle keeps the independent witness deterministic without weakening it.
-  await interruptibleSleep(1500);
-  const attempts = new Map(pages.map((page) => [page, 1]));
-  await runLogged('/usr/bin/swift', [path.join(root, 'scripts/vision-ocr-batch.swift'), '--output-dir', visionDir, ...images], logPath, run, 'independent_apple_vision');
-  throwIfInterrupted();
+  const attempts = new Map(rendered.map(({ page }) => [page, 1]));
+  const executionFailures = new Map();
+  const outputNotBefore = new Map();
+  const renderedIdentities = new Map(await Promise.all(rendered.map(async ({ page, imagePath }) => {
+    const [imageSha, imageInfo] = await Promise.all([sha256File(imagePath), stat(imagePath)]);
+    return [page, { imageSha, imageBytes: imageInfo.size, imageMtimeMs: Math.trunc(imageInfo.mtimeMs) }];
+  })));
+  if (rendered.length) {
+    await interruptibleSleep(1500);
+    const batchStartedAt = Date.now();
+    for (const { page } of rendered) outputNotBefore.set(page, batchStartedAt);
+    try {
+      await runLogged(
+        '/usr/bin/swift',
+        [path.join(root, 'scripts/vision-ocr-batch.swift'), '--output-dir', visionDir, ...rendered.map(({ imagePath }) => imagePath)],
+        logPath,
+        run,
+        'independent_apple_vision',
+        {},
+        [0],
+        { ...visionBatchLimits, activityPaths: [visionDir] },
+      );
+    } catch (error) {
+      if (shutdownRequested) throw interruptedError();
+      for (const { page } of rendered) executionFailures.set(page, error);
+    }
+    throwIfInterrupted();
+  }
 
   const failedIndexes = async () => {
     const failed = [];
-    for (let index = 0; index < images.length; index += 1) {
-      const page = pages[index];
+    for (let index = 0; index < rendered.length; index += 1) {
+      const page = rendered[index].page;
       const sidecarPath = path.join(visionDir, `page-${String(page).padStart(3, '0')}.json`);
-      const record = await readJson(sidecarPath, null);
-      if (!record || record.error || !Array.isArray(record.lines)) failed.push(index);
+      const identity = renderedIdentities.get(page);
+      const record = await readFreshVisionOutput(sidecarPath, {
+        notBeforeMs: outputNotBefore.get(page),
+        file: `page-${String(page).padStart(3, '0')}.png`,
+        documentId: document.id,
+        page,
+        pdfSha,
+        imageSha: identity?.imageSha,
+      });
+      if (!record) failed.push(index);
     }
     return failed;
   };
@@ -921,29 +1130,63 @@ async function renderVision(document, pages, pdfSha, logPath, run) {
     await interruptibleSleep(delay);
     for (const index of failed) {
       throwIfInterrupted();
-      const page = pages[index];
+      const { page, imagePath } = rendered[index];
       attempts.set(page, (attempts.get(page) || 1) + 1);
-      await runLogged('/usr/bin/swift', [path.join(root, 'scripts/vision-ocr-batch.swift'), '--output-dir', visionDir, images[index]], logPath, run, 'independent_apple_vision_page_retry');
+      const sidecarPath = path.join(visionDir, `page-${String(page).padStart(3, '0')}.json`);
+      await discardVisionOutputs(sidecarPath);
+      outputNotBefore.set(page, Date.now());
+      try {
+        await runLogged(
+          '/usr/bin/swift',
+          [path.join(root, 'scripts/vision-ocr-batch.swift'), '--output-dir', visionDir, imagePath],
+          logPath,
+          run,
+          'independent_apple_vision_page_retry',
+          {},
+          [0],
+          { ...visionPageRetryLimits, activityPaths: [visionDir] },
+        );
+        executionFailures.delete(page);
+      } catch (error) {
+        if (shutdownRequested) throw interruptedError();
+        executionFailures.set(page, error);
+      }
     }
     failed = await failedIndexes();
   }
 
-  const successPages = [];
-  const failures = [];
-  for (let index = 0; index < images.length; index += 1) {
-    const page = pages[index];
-    const image = images[index];
+  for (const { page, imagePath: image } of rendered) {
     const sidecarPath = path.join(visionDir, `page-${String(page).padStart(3, '0')}.json`);
-    const record = await readJson(sidecarPath, null);
+    const renderedIdentity = renderedIdentities.get(page);
+    const record = await readFreshVisionOutput(sidecarPath, {
+      notBeforeMs: outputNotBefore.get(page),
+      file: `page-${String(page).padStart(3, '0')}.png`,
+      documentId: document.id,
+      page,
+      pdfSha,
+      imageSha: renderedIdentity?.imageSha,
+    });
     const imageSha = await sha256File(image);
     const imageInfo = await stat(image);
-    if (!record || record.error || !Array.isArray(record.lines)) {
+    if (renderedIdentity?.imageSha !== imageSha) {
       failures.push({
         page,
         stage: 'vision',
-        code: record?.errorCode ? `${record.errorDomain || 'Vision'}:${record.errorCode}` : 'VISION_WITNESS_FAILED',
+        code: 'VISION_IMAGE_CHANGED_DURING_RUN',
         name: 'VisionWitnessError',
-        message: record?.errorDescription || record?.error || 'missing sidecar',
+        message: 'rendered image identity changed after Apple Vision invocation',
+        attempts: attempts.get(page),
+      });
+      continue;
+    }
+    if (!record) {
+      const executionFailure = executionFailures.get(page);
+      failures.push({
+        page,
+        stage: 'vision',
+        code: executionFailure?.code || 'VISION_WITNESS_FAILED',
+        name: executionFailure?.name || 'VisionWitnessError',
+        message: executionFailure?.message || 'missing, stale, or mismatched sidecar from the current Vision attempt',
         attempts: attempts.get(page),
       });
       continue;
@@ -961,7 +1204,7 @@ async function renderVision(document, pages, pdfSha, logPath, run) {
       attempt_count: attempts.get(page),
       recovered_after_retry: attempts.get(page) > 1,
       engine: 'Apple Vision VNRecognizeTextRequest accurate zh-Hans+en-US',
-      engine_configuration: { recognition_level: 'accurate', languages: ['zh-Hans', 'en-US'], language_correction: true, minimum_text_height: 0.008, render_dpi: visionRenderDpi },
+      engine_configuration: { recognition_level: 'accurate', languages: ['zh-Hans', 'en-US'], language_correction: true, minimum_text_height: 0.008, render_dpi: visionRenderDpi, renderer: 'MuPDF mutool 1.28.0' },
       critical_fields: [],
       citation_allowed: false,
     };
@@ -1015,12 +1258,13 @@ async function validatePaddleRuntime() {
     cache[key] = { size: info.size, mtime_ms: mtimeMs, sha256: actualSha, verified_at: nowIso() };
     return actualSha;
   };
-  const [modelSha, mmprojSha] = await Promise.all([
+  const [modelSha, mmprojSha, rendererSha] = await Promise.all([
     verify(modelPath, expected.model_sha256, 'MODEL_CHECKSUM_MISMATCH', 'PaddleOCR-VL model'),
     verify(mmprojPath, expected.mmproj_sha256, 'MMPROJ_CHECKSUM_MISMATCH', 'PaddleOCR-VL mmproj'),
+    verify(rendererBinary, expected.renderer_sha256, 'RENDERER_CHECKSUM_MISMATCH', 'MuPDF renderer'),
   ]);
   await atomicJson(runtimeIntegrityPath, cache);
-  return { model_sha256: modelSha, mmproj_sha256: mmprojSha, runtime_model_integrity: 'verified' };
+  return { model_sha256: modelSha, mmproj_sha256: mmprojSha, renderer_sha256: rendererSha, runtime_model_integrity: 'verified' };
 }
 
 async function recordFailure(documentId, error) {
@@ -1059,6 +1303,87 @@ async function clearPageFailures(documentId, page) {
     }
   }
   if (changed) await atomicJson(pageRetriesPath, records);
+}
+
+async function reconcileRuntimePageRetries({ apply = false } = {}) {
+  let reconciliationLockId = null;
+  let reconciliationLockAcquired = false;
+  try {
+    if (apply) {
+      const initialStatus = await collectStatus();
+      const initialBusyReasons = retryReconcileBusyReasons(initialStatus);
+      if (initialBusyReasons.length) {
+        throw Object.assign(new Error(`Refusing retry reconciliation while OCR ownership is active: ${initialBusyReasons.join(',')}`), {
+          code: 'OCR_OWNER_ACTIVE', exitCode: 75, busy_reasons: initialBusyReasons,
+        });
+      }
+      reconciliationLockId = `retry-reconcile-${randomUUID()}`;
+      await acquireLock(reconciliationLockId);
+      reconciliationLockAcquired = true;
+      const guardedStatus = await collectStatus(false);
+      const guardedBusyReasons = retryReconcileBusyReasons(guardedStatus, process.pid);
+      if (guardedBusyReasons.length) {
+        throw Object.assign(new Error(`Refusing retry reconciliation after owner recheck: ${guardedBusyReasons.join(',')}`), {
+          code: 'OCR_OWNER_ACTIVE', exitCode: 75, busy_reasons: guardedBusyReasons,
+        });
+      }
+    }
+
+    const [historyText, records] = await Promise.all([
+      readFile(historyPath, 'utf8').catch(() => ''),
+      readJson(pageRetriesPath, {}),
+    ]);
+    const latestRuntimeFailure = new Map();
+    for (const line of historyText.split('\n').filter(Boolean)) {
+      let run;
+      try { run = JSON.parse(line); } catch { continue; }
+      if (!run?.document_id || !Array.isArray(run.page_failures) || !run.page_failures.length) continue;
+      const logText = await readFile(path.join(supervisorRoot, 'logs', String(run.run_id), 'paddle.log'), 'utf8').catch(() => '');
+      const runtimeFailure = Boolean(run.paddle_execution_error)
+        || (run.paddle_exit_code !== undefined && ![null, 0, 1].includes(run.paddle_exit_code))
+        || paddleLogIndicatesRuntimeFailure(logText);
+      if (!runtimeFailure) continue;
+      const failedAt = Date.parse(run.completed_at || run.failed_at || run.heartbeat_at || run.started_at || '');
+      for (const failure of run.page_failures) {
+        const runtimeDerivedPageFailure = failure?.stage === 'paddle' && (
+          failure?.message === 'Paddle OCR did not produce complete page artifacts'
+          || failure?.code === 'PRIMARY_ARTIFACT_HASH_MISMATCH'
+        );
+        if (!runtimeDerivedPageFailure) continue;
+        const key = pageRetryKey(run.document_id, failure.page, 'paddle');
+        latestRuntimeFailure.set(key, Math.max(latestRuntimeFailure.get(key) || 0, Number.isFinite(failedAt) ? failedAt : 0));
+      }
+    }
+    const removable = Object.entries(records).filter(([key, record]) => {
+      const runtimeFailedAt = latestRuntimeFailure.get(key);
+      const retryFailedAt = Date.parse(record?.last_failed_at || '');
+      const runtimeDerivedRecord = (
+        record?.error_code === 'PADDLE_PAGE_FAILED'
+        && record?.last_error === 'PaddlePageError: Paddle OCR did not produce complete page artifacts'
+      ) || (
+        record?.error_code === 'PRIMARY_ARTIFACT_HASH_MISMATCH'
+        && record?.last_error === 'PrimaryArtifactIntegrityError: Primary OCR page files do not match state hashes'
+      );
+      return runtimeFailedAt !== undefined
+        && runtimeDerivedRecord
+        && (!Number.isFinite(retryFailedAt) || retryFailedAt <= runtimeFailedAt + 1000);
+    }).map(([key]) => key).sort();
+    let backupPath = null;
+    if (apply && removable.length) {
+      backupPath = `${pageRetriesPath}.pre-runtime-reconcile-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+      await copyFile(pageRetriesPath, backupPath);
+      for (const key of removable) delete records[key];
+      await atomicJson(pageRetriesPath, records);
+    }
+    return {
+      apply,
+      removed_count: apply ? removable.length : 0,
+      candidates: removable,
+      backup_path: backupPath ? path.relative(root, backupPath) : null,
+    };
+  } finally {
+    if (reconciliationLockAcquired) await releaseLock(reconciliationLockId).catch(() => {});
+  }
 }
 
 async function promoteConceptCandidate(runDirectory) {
@@ -1175,6 +1500,7 @@ async function once() {
       }
     }
     let paddleExecutionError = null;
+    const paddleLogPath = path.join(logDir, 'paddle.log');
     if (paddlePages.length) {
       throwIfInterrupted();
       Object.assign(checks, await validatePaddleRuntime());
@@ -1192,9 +1518,15 @@ async function once() {
           path.join(root, 'scripts/ocr-pdf-paddle.py'), document.id, path.join(root, document.local_cache_path), productionRoot,
           '--pages', paddlePages.join(','), '--save-visuals', '--force-reprocess',
           '--vl-rec-max-concurrency', String(vlRecMaxConcurrency), '--server-parallel', String(llamaParallel),
-        ], path.join(logDir, 'paddle.log'), run, 'paddle_ocr', {
+        ], paddleLogPath, run, 'paddle_ocr', {
           PADDLE_PDX_CACHE_HOME: path.join(root, '.cache/paddlex'), PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True',
-        }, [0, 1]);
+          PYTHONUNBUFFERED: '1',
+        }, [0, 1], {
+          startupTimeoutMs: 180000,
+          idleTimeoutMs: 300000,
+          wallTimeoutMs: Math.max(1200000, paddlePages.length * 25000),
+          activityPaths: [path.join(productionRoot, document.id, 'state.json')],
+        });
         run.paddle_exit_code = paddleResult.code;
       } catch (error) {
         paddleExecutionError = error;
@@ -1204,10 +1536,30 @@ async function once() {
     }
 
     const afterPaddle = await readJson(path.join(productionRoot, document.id, 'state.json'), {});
+    const paddleLog = await readFile(paddleLogPath, 'utf8').catch(() => '');
+    const paddleClassification = classifyPaddleExitOne({
+      exitCode: run.paddle_exit_code,
+      logText: paddleLog,
+      pages: paddlePages,
+      beforeState: beforePaddle,
+      afterState: afterPaddle,
+    });
+    const structuredPaddleFailures = new Set(paddleClassification.structuredFailurePages);
+    if (!paddleExecutionError && paddleClassification.runtimeFailure) {
+      paddleExecutionError = Object.assign(new Error(paddleLogIndicatesRuntimeFailure(paddleLog)
+        ? 'Paddle runtime failed while loading native dependencies'
+        : 'Paddle exited before recording any page-level state change'), {
+        code: paddleLogIndicatesRuntimeFailure(paddleLog) ? 'PADDLE_RUNTIME_LOG_FAILURE' : 'PADDLE_RUNTIME_NO_PAGE_PROGRESS',
+        stage: 'paddle_ocr',
+      });
+      run.paddle_execution_error = paddleExecutionError.message;
+    }
     const completedAfterPaddle = new Set((afterPaddle.completed_pages || []).map(Number));
     for (const page of paddlePages) {
       if (completedAfterPaddle.has(page) && await primaryPageValid(afterPaddle, document.id, page, true)) continue;
-      const stateError = afterPaddle.failed_pages?.[String(page)]?.error || 'Paddle OCR did not produce complete page artifacts';
+      const stateFailure = afterPaddle.failed_pages?.[String(page)] || null;
+      if (paddleExecutionError && !structuredPaddleFailures.has(page)) continue;
+      const stateError = stateFailure?.error || 'Paddle OCR did not produce complete page artifacts';
       const failure = { page, stage: 'paddle', code: 'PADDLE_PAGE_FAILED', name: 'PaddlePageError', message: stateError };
       await recordPageFailure(document.id, failure);
       run.page_failures.push(failure);
@@ -1219,7 +1571,7 @@ async function once() {
     const auditablePages = [];
     for (const page of witness.successPages) {
       if (await primaryPageValid(afterPaddle, document.id, page, true)) auditablePages.push(page);
-      else if (!run.page_failures.some((failure) => failure.page === page && failure.stage === 'paddle')) {
+      else if ((!paddleExecutionError || structuredPaddleFailures.has(page)) && !run.page_failures.some((failure) => failure.page === page && failure.stage === 'paddle')) {
         const failure = { page, stage: 'paddle', code: 'PRIMARY_ARTIFACT_HASH_MISMATCH', name: 'PrimaryArtifactIntegrityError', message: 'Primary OCR page files do not match state hashes' };
         await recordPageFailure(document.id, failure);
         run.page_failures.push(failure);
@@ -1240,6 +1592,18 @@ async function once() {
         await recordPageFailure(document.id, failure);
         run.page_failures.push(failure);
       }
+    }
+
+    if (paddleExecutionError) {
+      const runtimeFailure = paddleRuntimeFailure(paddleExecutionError);
+      run.paddle_runtime_cause = runtimeFailure.cause_code;
+      run.runtime_retry_at = runtimeFailure.retry_at;
+      Object.assign(paddleExecutionError, {
+        code: runtimeFailure.code,
+        scope: runtimeFailure.scope,
+        exitCode: 10,
+      });
+      throw paddleExecutionError;
     }
 
     if (run.audited_pages.length) {
@@ -1433,8 +1797,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       await once();
     } else if (command === 'drain') {
       await drain();
+    } else if (command === 'reconcile-runtime-retries') {
+      console.log(JSON.stringify(await reconcileRuntimePageRetries({ apply: rawArgs.includes('--apply') }), null, 2));
     } else {
-      console.error(`usage: node scripts/ocr-supervisor.mjs <status|check|once|recover|drain> [--batch-pages 1-${maxBatchPages}] [--document ID] [--retry-failed]`);
+      console.error(`usage: node scripts/ocr-supervisor.mjs <status|check|once|recover|drain|reconcile-runtime-retries> [--batch-pages 1-${maxBatchPages}] [--document ID] [--retry-failed] [--apply]`);
       process.exitCode = 64;
     }
   } catch (error) {

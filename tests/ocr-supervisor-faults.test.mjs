@@ -5,8 +5,12 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
+  classifyPaddleExitOne,
   conceptCandidateCompatible,
+  discardVisionOutputs,
   prepareAuditBackfillWitness,
+  readFreshVisionOutput,
+  retryReconcileBusyReasons,
   selectAuditBackfillPages,
   selectPrimaryRecoveryPages,
 } from '../scripts/ocr-supervisor.mjs';
@@ -16,6 +20,8 @@ import {
   missingCompletedWitnessPages,
   nextPageRetry,
   ocrExecutionPolicy,
+  paddleLogIndicatesRuntimeFailure,
+  paddleRuntimeFailure,
   pageRetryKey,
   retryBlocksPage,
   selectPendingPages,
@@ -133,6 +139,100 @@ test('page retry escalates independently and quarantines only that page-stage ke
   assert.equal(retryBlocksPage({ [pageRetryKey('doc', 1, 'vision')]: record }, 'doc', 2, now), false);
 });
 
+test('a failed Paddle process is a runtime incident and never consumes a page retry', () => {
+  const now = Date.parse('2026-07-16T01:00:00Z');
+  const runtime = paddleRuntimeFailure({ signal: 'SIGKILL', message: 'paddle_ocr exited SIGKILL' }, { now });
+  assert.deepEqual(runtime, {
+    code: 'PADDLE_RUNTIME_UNAVAILABLE',
+    scope: 'runtime',
+    cause_code: 'SIGKILL',
+    retry_at: '2026-07-16T01:05:00.000Z',
+    message: 'paddle_ocr exited SIGKILL',
+  });
+  assert.equal(runtime.code === 'PADDLE_PAGE_FAILED', false);
+  assert.equal(paddleLogIndicatesRuntimeFailure('ImportError: dlopen(/tmp/math.so): library load denied by system policy'), true);
+  assert.equal(paddleLogIndicatesRuntimeFailure("NameError: name 'libpaddle' is not defined"), true);
+  assert.equal(paddleLogIndicatesRuntimeFailure('PaddlePageError: model output did not match peg-native format'), false);
+});
+
+test('Paddle exit one is runtime without page state progress but preserves structured page failures', () => {
+  const noProgress = classifyPaddleExitOne({
+    exitCode: 1,
+    logText: 'ModuleNotFoundError: No module named paddleocr',
+    pages: [1],
+    beforeState: {},
+    afterState: {},
+  });
+  assert.equal(noProgress.runtimeFailure, true);
+  assert.equal(noProgress.pageProgressObserved, false);
+  assert.deepEqual(noProgress.newlyCompletedPages, []);
+  assert.deepEqual(noProgress.structuredFailurePages, []);
+
+  const completedPage = {
+    physical_pdf_page: 1,
+    content_markdown_sha256: 'a'.repeat(64),
+    result_json_sha256: 'b'.repeat(64),
+  };
+  const transitionOnly = classifyPaddleExitOne({
+    exitCode: 1,
+    pages: [1],
+    beforeState: { completed_pages: [1], pages: { 1: completedPage } },
+    afterState: { completed_pages: [], pages: {} },
+  });
+  assert.equal(transitionOnly.runtimeFailure, true);
+  assert.equal(transitionOnly.pageProgressObserved, false);
+  assert.deepEqual(transitionOnly.newlyCompletedPages, []);
+
+  const validCompletion = classifyPaddleExitOne({
+    exitCode: 1,
+    pages: [1],
+    beforeState: { completed_pages: [], pages: {} },
+    afterState: { completed_pages: [1], pages: { 1: completedPage } },
+  });
+  assert.equal(validCompletion.runtimeFailure, false);
+  assert.equal(validCompletion.pageProgressObserved, true);
+  assert.deepEqual(validCompletion.newlyCompletedPages, [1]);
+
+  const invalidCompletion = classifyPaddleExitOne({
+    exitCode: 1,
+    pages: [1],
+    beforeState: { completed_pages: [], pages: {} },
+    afterState: { completed_pages: [1], pages: { 1: { physical_pdf_page: 1 } } },
+  });
+  assert.equal(invalidCompletion.runtimeFailure, true);
+  assert.equal(invalidCompletion.pageProgressObserved, false);
+  assert.deepEqual(invalidCompletion.newlyCompletedPages, []);
+
+  const pageFailure = classifyPaddleExitOne({
+    exitCode: 1,
+    pages: [1, 2],
+    beforeState: { failed_pages: {} },
+    afterState: { failed_pages: { 1: { error: 'model output did not match peg-native format' } } },
+  });
+  assert.equal(pageFailure.runtimeFailure, false);
+  assert.equal(pageFailure.pageProgressObserved, true);
+  assert.deepEqual(pageFailure.structuredFailurePages, [1]);
+
+  const mixedRuntime = classifyPaddleExitOne({
+    exitCode: 1,
+    logText: 'ImportError: dlopen(/tmp/math.so): library load denied by system policy',
+    pages: [1],
+    beforeState: {},
+    afterState: { failed_pages: { 1: { error: 'real page error' } } },
+  });
+  assert.equal(mixedRuntime.runtimeFailure, true);
+  assert.deepEqual(mixedRuntime.structuredFailurePages, [1]);
+});
+
+test('retry reconciliation refuses external batch, drain, and watchdog child ownership', () => {
+  assert.deepEqual(retryReconcileBusyReasons({ runtime: { lock_active: true, lock_owner: { pid: 20 } } }, 10), ['batch_owner_active']);
+  assert.deepEqual(retryReconcileBusyReasons({ runtime: { drain_active: true } }, 10), ['drain_owner_active']);
+  assert.deepEqual(retryReconcileBusyReasons({ runtime: { watchdog_child_active: true } }, 10), ['watchdog_child_active']);
+  assert.deepEqual(retryReconcileBusyReasons({
+    runtime: { lock_active: true, lock_owner: { pid: 10 }, drain_active: false, watchdog_child_active: false },
+  }, 10), []);
+});
+
 test('witness sidecar is rejected when document, page, PDF, image, or file identity drifts', () => {
   const record = {
     file: 'page-001.png',
@@ -151,6 +251,36 @@ test('witness sidecar is rejected when document, page, PDF, image, or file ident
   assert.equal(witnessRecordValid({ ...record, rendered_image_sha256: 'other' }, expected), false);
   assert.equal(witnessRecordValid({ ...record, rendered_image_sha256: null }, {}), false);
   assert.equal(witnessRecordValid({ ...record, error: 'nilError' }, expected), false);
+});
+
+test('an invalid old Vision sidecar cannot survive failed batch and page retries', async (t) => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'ocr-stale-vision-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const sidecarPath = path.join(directory, 'page-001.json');
+  const textPath = path.join(directory, 'page-001.txt');
+  await Promise.all([
+    writeFile(sidecarPath, `${JSON.stringify({ file: 'page-001.png', lines: [{ text: 'stale OCR', confidence: 0.99 }] })}\n`),
+    writeFile(textPath, 'stale OCR\n'),
+  ]);
+
+  assert.equal(await readFreshVisionOutput(sidecarPath, {
+    notBeforeMs: Date.now() + 5000,
+    file: 'page-001.png',
+    documentId: 'doc',
+    page: 1,
+    pdfSha: 'a'.repeat(64),
+    imageSha: 'b'.repeat(64),
+  }), null, 'a pre-run sidecar must fail the freshness gate');
+
+  await discardVisionOutputs(sidecarPath);
+  // Simulate the initial batch and every page retry failing without producing
+  // new output: stale JSON/TXT must remain absent and unpublishable.
+  assert.equal(await readFreshVisionOutput(sidecarPath, {
+    notBeforeMs: Date.now(),
+    file: 'page-001.png',
+  }), null);
+  await assert.rejects(readFile(sidecarPath), { code: 'ENOENT' });
+  await assert.rejects(readFile(textPath), { code: 'ENOENT' });
 });
 
 test('missing completed witness pages are a set difference, not a count subtraction', () => {
@@ -200,6 +330,25 @@ test('continuous drain stops at the disk warning boundary before another batch',
   assert.equal(continuousDrainDecision({ ...status, disk: { free_gib: 60, warning: false } }).action, 'continue');
 });
 
+test('a quarantined page stays fail-closed without stopping other eligible pages', () => {
+  const status = {
+    health: { exit_code: 2, reasons: ['PAGE_QUARANTINED'] },
+    scheduler_state: 'ready',
+    queue: { completed_pages: 10, pending_pages: 5, failed_pages: 1 },
+    evidence: {
+      witness_pages: 11,
+      audited_pages: 10,
+      witness_error_sidecars: 0,
+      witness_missing_for_completed: 0,
+      stale_audit_pages: 0,
+    },
+    disk: { free_gib: 60, warning: false },
+  };
+  assert.equal(continuousDrainDecision(status).action, 'continue');
+  assert.equal(continuousDrainDecision({ ...status, health: { exit_code: 2, reasons: ['DOCUMENT_QUARANTINED'] } }).action, 'stop');
+  assert.equal(continuousDrainDecision({ ...status, scheduler_state: 'blocked' }).action, 'stop');
+});
+
 test('watchdog keeps polling a drain it spawned instead of waiting blindly for exit', async () => {
   const source = await readFile(new URL('../scripts/ocr-watchdog.mjs', import.meta.url), 'utf8');
   assert.match(source, /llama_parallel: 3,/);
@@ -207,11 +356,53 @@ test('watchdog keeps polling a drain it spawned instead of waiting blindly for e
   assert.match(source, /while \(!result\) \{/);
   assert.match(source, /sleep\(settings\.poll_seconds \* 1000\)/);
   assert.match(source, /terminateVerifiedStalledOwner\(owners, settings\)/);
+  assert.match(source, /async function terminateTaskOwnedChild\(child, exitPromise\)/);
+  assert.match(source, /child\.kill\('SIGTERM'\);[\s\S]*sleep\(5000\)[\s\S]*child\.kill\('SIGKILL'\);[\s\S]*return exitPromise;/);
+  assert.match(source, /catch \(error\) \{[\s\S]*await terminateTaskOwnedChild\(child, exitPromise\)[\s\S]*throw error;/);
   assert.match(source, /processIdentity\(observation\.owner\.pid, 'drain'\)/);
+  assert.match(source, /let child = null;/);
+  assert.match(source, /resumablePageQuarantine/);
+  assert.match(source, /runtimeRun\?\.error_code === 'PADDLE_RUNTIME_UNAVAILABLE'/);
+  assert.match(source, /writeState\('runtime_backoff'/);
+  const watchdogSpawn = source.indexOf('child = spawn(process.execPath');
+  const watchdogExitPromise = source.indexOf('exitPromise = new Promise', watchdogSpawn);
+  const watchdogFirstAwait = source.indexOf('await writeState(`starting_', watchdogSpawn);
+  assert.ok(watchdogSpawn >= 0 && watchdogExitPromise > watchdogSpawn && watchdogExitPromise < watchdogFirstAwait,
+    'watchdog must register child lifecycle listeners before the first post-spawn await');
   const supervisor = await readFile(new URL('../scripts/ocr-supervisor.mjs', import.meta.url), 'utf8');
   assert.match(supervisor, /runtime_policy_source:/);
   assert.match(supervisor, /watchdogOwnsDrain \? \{/);
   assert.match(supervisor, /source: 'watchdog_control'/);
+  assert.match(supervisor, /CAPTURE_TIMEOUT/);
+  assert.match(supervisor, /heartbeat: \(\) => updateRun\(run\)/);
+  assert.match(supervisor, /startupTimeoutMs: 180000/);
+  assert.match(supervisor, /idleTimeoutMs: 300000/);
+  assert.match(supervisor, /PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: 'True',[\s\S]*PYTHONUNBUFFERED: '1'/);
+  assert.match(supervisor, /child\.kill\('SIGKILL'\)/);
+  assert.match(supervisor, /MuPDF mutool 1\.28\.0/);
+  assert.match(supervisor, /witnessRecordValid\(existing/);
+  assert.match(supervisor, /stage: 'vision_render'/);
+  assert.match(supervisor, /visionBatchLimits = Object\.freeze\(\{[\s\S]*startupTimeoutMs:[\s\S]*idleTimeoutMs:[\s\S]*wallTimeoutMs:/);
+  assert.match(supervisor, /visionPageRetryLimits = Object\.freeze\(\{[\s\S]*startupTimeoutMs:[\s\S]*idleTimeoutMs:[\s\S]*wallTimeoutMs:/);
+  assert.match(supervisor, /executionFailures\.set\(page, error\);/);
+  assert.match(supervisor, /await discardVisionOutputs\(sidecarPath\);/);
+  assert.match(supervisor, /readFreshVisionOutput\(sidecarPath,[\s\S]*notBeforeMs: outputNotBefore\.get\(page\)/);
+  assert.match(supervisor, /VISION_IMAGE_CHANGED_DURING_RUN/);
+  assert.match(supervisor, /independent_apple_vision_page_retry[\s\S]*visionPageRetryLimits[\s\S]*catch \(error\)[\s\S]*executionFailures\.set\(page, error\)/);
+  assert.match(supervisor, /if \(paddleExecutionError && !structuredPaddleFailures\.has\(page\)\) continue;/);
+  assert.match(supervisor, /PADDLE_RUNTIME_NO_PAGE_PROGRESS/);
+  assert.match(supervisor, /paddleRuntimeFailure\(paddleExecutionError\)/);
+  assert.match(supervisor, /paddleLogIndicatesRuntimeFailure\(paddleLog\)/);
+  assert.match(supervisor, /reconcile-runtime-retries/);
+  assert.match(supervisor, /retryReconcileBusyReasons\(guardedStatus, process\.pid\)/);
+  assert.match(supervisor, /await acquireLock\(reconciliationLockId\)/);
+  assert.match(supervisor, /await releaseLock\(reconciliationLockId\)/);
+  const runLoggedStart = supervisor.indexOf('async function runLogged');
+  const runLoggedSpawn = supervisor.indexOf('const child = spawn(executable, args', runLoggedStart);
+  const runLoggedExitPromise = supervisor.indexOf('const exitPromise = new Promise', runLoggedSpawn);
+  const runLoggedFirstAwait = supervisor.indexOf('await updateRun(run)', runLoggedSpawn);
+  assert.ok(runLoggedSpawn >= 0 && runLoggedExitPromise > runLoggedSpawn && runLoggedExitPromise < runLoggedFirstAwait,
+    'runLogged must register child lifecycle listeners before the first post-spawn await');
 });
 
 test('completed page with drifted content.md is selected for primary recovery', async (t) => {

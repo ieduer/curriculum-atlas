@@ -232,7 +232,7 @@ export class CurriculumCosmos {
       };
     });
     this.buildEdges(graph?.edges || []);
-    this.fitToGraph({ immediate: true });
+    this.fitToGraph({ immediate: true, maxZoom: 1 });
   }
 
   buildEdges(edges) {
@@ -243,14 +243,14 @@ export class CurriculumCosmos {
     this.crossEdges = resolved.filter((edge) => edge.mode === 'cross');
   }
 
-  setFilters(next) {
+  setFilters(next, { fitVisible = false, maxZoom = 1.32 } = {}) {
     this.filters = {
       hiddenSubjects: next.hiddenSubjects || this.filters.hiddenSubjects,
       hideAll: Boolean(next.hideAll),
       maxYear: Number(next.maxYear ?? this.filters.maxYear),
       query: String(next.query ?? this.filters.query).trim().toLocaleLowerCase('zh-CN'),
     };
-    this.draw();
+    if (!fitVisible || !this.fitToVisibleGraph({ maxZoom, preserveOrientation: true })) this.draw();
   }
 
   setMode(mode) {
@@ -265,7 +265,7 @@ export class CurriculumCosmos {
 
   reset() {
     this.hasUserCamera = false;
-    this.fitToGraph({ immediate: this.stable });
+    this.fitToVisibleGraph({ immediate: this.stable, maxZoom: this.visibleSubjectCount() === 1 ? 1.32 : 1 });
   }
 
   visible(node) {
@@ -301,18 +301,21 @@ export class CurriculumCosmos {
 
   safeViewport() {
     if (this.width <= 640) {
-      return { left: Math.min(72, this.width * .18), top: 124, right: this.width - 12, bottom: this.height - 150 };
+      return { left: Math.min(106, this.width * .28), top: 78, right: this.width - Math.min(88, this.width * .23), bottom: this.height - 10 };
     }
     if (this.width <= 980) {
-      return { left: 132, top: 138, right: this.width - 34, bottom: this.height - 156 };
+      return { left: 154, top: 96, right: this.width - 154, bottom: this.height - 18 };
     }
-    return { left: 184, top: 142, right: this.width - 72, bottom: this.height - 166 };
+    return { left: 228, top: 108, right: this.width - 228, bottom: this.height - 24 };
   }
 
-  fitToGraph({ immediate = false } = {}) {
-    if (!this.nodes.length || this.width < 2 || this.height < 2) return;
-    const orientation = { ...DEFAULT_CAMERA };
-    const points = this.nodes.map((node) => this.transformed(node, orientation));
+  fitToGraph({ immediate = false, nodes = this.nodes, maxZoom = 1, preserveOrientation = false } = {}) {
+    const candidates = Array.isArray(nodes) ? nodes.filter(Boolean) : [];
+    if (!candidates.length || this.width < 2 || this.height < 2) return false;
+    const orientation = preserveOrientation
+      ? { ...DEFAULT_CAMERA, yaw: this.target.yaw, pitch: this.target.pitch }
+      : { ...DEFAULT_CAMERA };
+    const points = candidates.map((node) => this.transformed(node, orientation));
     const bounds = points.reduce((result, point) => ({
       minX: Math.min(result.minX, point.x), maxX: Math.max(result.maxX, point.x),
       minY: Math.min(result.minY, point.y), maxY: Math.max(result.maxY, point.y),
@@ -322,13 +325,13 @@ export class CurriculumCosmos {
     const availableHeight = Math.max(120, safe.bottom - safe.top);
     const graphWidth = Math.max(1, bounds.maxX - bounds.minX + 120);
     const graphHeight = Math.max(1, bounds.maxY - bounds.minY + 90);
-    const zoom = clamp(Math.min(availableWidth / graphWidth, availableHeight / graphHeight) * .96, MIN_ZOOM, 1);
+    const zoom = clamp(Math.min(availableWidth / graphWidth, availableHeight / graphHeight) * .96, MIN_ZOOM, Math.min(MAX_ZOOM, maxZoom));
     const graphCenterX = (bounds.minX + bounds.maxX) / 2;
     const graphCenterY = (bounds.minY + bounds.maxY) / 2;
     const viewportCenterX = (safe.left + safe.right) / 2;
     const viewportCenterY = (safe.top + safe.bottom) / 2;
     const fitted = {
-      ...DEFAULT_CAMERA,
+      ...orientation,
       zoom,
       panX: viewportCenterX - this.width / 2 - graphCenterX * zoom,
       panY: viewportCenterY - this.height / 2 - graphCenterY * zoom,
@@ -337,6 +340,15 @@ export class CurriculumCosmos {
     if (immediate) Object.assign(this.camera, fitted);
     if (!this.raf) this.loop();
     else this.draw();
+    return true;
+  }
+
+  fitToVisibleGraph(options = {}) {
+    return this.fitToGraph({ ...options, nodes: this.nodes.filter((node) => this.visible(node)) });
+  }
+
+  visibleSubjectCount() {
+    return new Set(this.nodes.filter((node) => this.visible(node)).map((node) => node.subject).filter(Boolean)).size;
   }
 
   resize() {
@@ -350,7 +362,11 @@ export class CurriculumCosmos {
     this.context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.background = makeMilkyWay(this.width, this.height);
     const crossedMobileBreakpoint = Boolean(previousWidth) && (previousWidth <= 640) !== (this.width <= 640);
-    if (this.nodes.length && (!this.hasUserCamera || crossedMobileBreakpoint)) this.fitToGraph({ immediate: true });
+    if (this.nodes.length && (!this.hasUserCamera || crossedMobileBreakpoint)) this.fitToVisibleGraph({
+      immediate: true,
+      maxZoom: this.visibleSubjectCount() === 1 ? 1.32 : 1,
+      preserveOrientation: this.hasUserCamera,
+    });
     else this.draw();
   }
 
@@ -398,10 +414,11 @@ export class CurriculumCosmos {
       context.strokeStyle = gate.year === 2022 ? 'rgba(231,189,97,.27)' : 'rgba(155,178,222,.12)';
       context.lineWidth = 1;
       context.stroke();
-      if (top.x > 90 && top.x < this.width - 90) {
+      const safe = this.safeViewport();
+      if (top.x > safe.left && top.x < safe.right) {
         const label = `${gate.year}  ${gate.label}`;
         const labelX = top.x + 7;
-        const labelY = Math.max(151, top.y + 17);
+        const labelY = Math.max(safe.top + 13, top.y + 17);
         const labelWidth = context.measureText(label).width;
         context.fillStyle = 'rgba(3,6,16,.58)';
         context.fillRect(labelX - 4, labelY - 13, labelWidth + 8, 18);
@@ -511,10 +528,11 @@ export class CurriculumCosmos {
     const textWidth = context.measureText(label).width;
     const width = textWidth + 14;
     const height = 23;
+    const safe = this.safeViewport();
     let x = projected.x + radius + 8;
-    if (x + width > this.width - 12) x = projected.x - radius - 8 - width;
-    x = clamp(x, 10, Math.max(10, this.width - width - 10));
-    const y = clamp(projected.y - radius - height + 4, 116, Math.max(116, this.height - height - 90));
+    if (x + width > safe.right) x = projected.x - radius - 8 - width;
+    x = clamp(x, safe.left, Math.max(safe.left, safe.right - width));
+    const y = clamp(projected.y - radius - height + 4, safe.top, Math.max(safe.top, safe.bottom - height));
     const box = { x: x - 3, y: y - 3, width: width + 6, height: height + 6 };
     if (!selected && !hovered && occupied.some((candidate) => boxesOverlap(box, candidate))) {
       context.restore();
