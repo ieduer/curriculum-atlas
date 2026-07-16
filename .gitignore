@@ -11,4 +11,6 @@ output/
 .dev.vars
 .dev.vars.*
 *.log
+__pycache__/
+*.pyc
 .DS_Store
