@@ -21,6 +21,7 @@ import {
 const root = fileURLToPath(new URL('../', import.meta.url));
 
 test('release manifest binds the complete data, graph, static, Git, and environment state', async () => {
+  const environmentEvidence = JSON.parse(await readFile(new URL('../data/release-environment-evidence.json', import.meta.url), 'utf8'));
   const manifest = await buildReleaseManifest({
     root,
     generatedAt: '2026-07-17T00:00:00.000Z',
@@ -116,15 +117,27 @@ test('release manifest binds the complete data, graph, static, Git, and environm
   );
   for (const environment of ['preview', 'production']) {
     const state = manifest.environment_snapshot.environments[environment];
+    const observed = environmentEvidence.environments[environment];
+    const expectedPendingMigrations = state.available_migrations
+      .filter((migration) => !observed.applied_migrations.includes(migration));
     assert.match(state.asset_git_commit, /^[0-9a-f]{40}$/);
     assert.equal(state.asset_git_commit_object_exists, true);
     assert.equal(state.asset_git_commit_deployment_parity, true);
-    assert.equal(state.release_ready, false);
-    assert.ok(state.pending_migrations.includes('0005_page_publication_gate.sql'));
-    assert.ok(state.pending_migrations.includes('0006_corpus_import_release.sql'));
-    assert.ok(state.release_blockers.some((blocker) => blocker.migration === '0005_page_publication_gate.sql'));
-    assert.ok(state.release_blockers.some((blocker) => blocker.migration === '0006_corpus_import_release.sql'));
-    assert.ok(state.release_blockers.some((blocker) => blocker.code === 'versioned_r2_reader_required'));
+    assert.deepEqual(state.applied_migrations, [...observed.applied_migrations].sort());
+    assert.deepEqual(observed.pending_migrations, expectedPendingMigrations);
+    assert.deepEqual(state.pending_migrations, expectedPendingMigrations);
+    assert.deepEqual(
+      state.release_blockers
+        .filter((blocker) => blocker.code === 'pending_d1_migration')
+        .map((blocker) => blocker.migration),
+      expectedPendingMigrations,
+    );
+    assert.equal(
+      state.release_blockers.some((blocker) => blocker.code === 'versioned_r2_reader_required'),
+      observed.r2_release_reader !== state.required_r2_release_reader,
+    );
+    assert.equal(state.release_ready, state.release_blockers.length === 0);
+    assert.equal(state.readiness_status, state.release_ready ? 'ready' : 'blocked');
   }
 });
 
