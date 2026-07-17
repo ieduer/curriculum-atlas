@@ -309,10 +309,14 @@ export function buildCorpusImportFailureSql(manifestInput, reason = 'corpus_impo
   const safeReason = String(reason).slice(0, 240);
   return `UPDATE corpus_import_releases
 SET state='failed',failure_reason=${sql(safeReason)},updated_at=CURRENT_TIMESTAMP
-WHERE release_id=${sql(manifest.release_id)};
+WHERE release_id=${sql(manifest.release_id)} AND state!='ready';
 UPDATE site_meta SET value='failed',updated_at=CURRENT_TIMESTAMP
 WHERE key='corpus_import_state'
-  AND (SELECT value FROM site_meta WHERE key='current_corpus_release_id')=${sql(manifest.release_id)};`;
+  AND (SELECT value FROM site_meta WHERE key='current_corpus_release_id')=${sql(manifest.release_id)}
+  AND EXISTS(
+    SELECT 1 FROM corpus_import_releases
+    WHERE release_id=${sql(manifest.release_id)} AND state='failed'
+  );`;
 }
 
 export function buildCorpusImportFinalizeSql(manifestInput) {
@@ -408,14 +412,16 @@ ${coreChecks}
   )
   AND NOT EXISTS(
     SELECT 1 FROM paragraphs p
-    LEFT JOIN paragraph_fts f ON f.paragraph_id=p.id
-    WHERE p.corpus_release_id=${releaseId}
-    GROUP BY p.id HAVING COUNT(f.paragraph_id)!=1
+    LEFT JOIN paragraph_fts f ON f.rowid=p.id
+    WHERE p.corpus_release_id=${releaseId} AND f.rowid IS NULL
   )
   AND NOT EXISTS(
     SELECT 1 FROM paragraph_fts f
-    LEFT JOIN paragraphs p ON p.id=f.paragraph_id AND p.corpus_release_id=${releaseId}
+    LEFT JOIN paragraphs p ON p.id=f.rowid AND p.corpus_release_id=${releaseId}
     WHERE p.id IS NULL
+  )
+  AND NOT EXISTS(
+    SELECT 1 FROM paragraph_fts WHERE paragraph_id IS NOT rowid
   )
 THEN 1 ELSE 0 END;
 
@@ -441,7 +447,7 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (!key.startsWith('--')) throw new Error(`unexpected argument: ${key}`);
-    if (key === '--remote' || key === '--core-only') {
+    if (key === '--remote' || key === '--core-only' || key === '--finalize-only') {
       args.set(key.slice(2), true);
       continue;
     }
@@ -458,6 +464,33 @@ function runWrangler(root, database, environment, commandArgs, stdio = 'inherit'
   if (environment) command.push('--env', environment);
   command.push('--remote', ...commandArgs);
   return spawnSync('npx', command, { cwd: root.pathname, stdio });
+}
+
+export function runCorpusFinalization({
+  root,
+  database,
+  environment,
+  manifest,
+  resume = false,
+  runCommand = runWrangler,
+} = {}) {
+  if (resume) {
+    const resumed = runCommand(root, database, environment, [
+      '--command', buildCorpusImportStartSql(manifest, { resume: true }),
+    ]);
+    if (resumed.status !== 0) return { status: resumed.status || 1, phase: 'resume' };
+  }
+
+  const finalized = runCommand(root, database, environment, [
+    '--command', buildCorpusImportFinalizeSql(manifest),
+  ]);
+  if (finalized.status !== 0) {
+    runCommand(root, database, environment, [
+      '--command', buildCorpusImportFailureSql(manifest, 'finalize_invariant_failed'),
+    ]);
+    return { status: finalized.status || 1, phase: 'finalize' };
+  }
+  return { status: 0, phase: 'ready' };
 }
 
 async function main() {
@@ -480,6 +513,17 @@ async function main() {
     ),
     directory,
   );
+  if (args.get('finalize-only')) {
+    if (args.get('core-only') || args.has('from') || args.has('to')) {
+      throw new Error('--finalize-only cannot be combined with --core-only, --from, or --to');
+    }
+    const outcome = runCorpusFinalization({
+      root, database, environment, manifest, resume: true,
+    });
+    if (outcome.status !== 0) process.exit(outcome.status);
+    process.stdout.write(`release ${manifest.release_id} ready\n`);
+    return;
+  }
   let files = args.get('core-only') ? allFiles.filter((name) => name.startsWith('000-')) : allFiles;
   files = files.filter((name) => {
     const index = Number(name.slice(0, 3));
@@ -521,15 +565,8 @@ async function main() {
     return;
   }
 
-  const finalized = runWrangler(root, database, environment, [
-    '--command', buildCorpusImportFinalizeSql(manifest),
-  ]);
-  if (finalized.status !== 0) {
-    runWrangler(root, database, environment, [
-      '--command', buildCorpusImportFailureSql(manifest, 'finalize_invariant_failed'),
-    ]);
-    process.exit(finalized.status || 1);
-  }
+  const outcome = runCorpusFinalization({ root, database, environment, manifest });
+  if (outcome.status !== 0) process.exit(outcome.status);
   process.stdout.write(`release ${manifest.release_id} ready\n`);
 }
 

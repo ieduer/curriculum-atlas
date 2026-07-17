@@ -10,6 +10,7 @@ import {
   buildCorpusImportStartSql,
   buildCorpusChunkReceiptSql,
   CORE_TABLE_COUNT_KEYS,
+  runCorpusFinalization,
   validateCorpusManifest,
 } from '../scripts/import-corpus.mjs';
 
@@ -256,6 +257,54 @@ test('Wrangler D1 commands rely on its atomic SQL batch and never nest explicit 
   ]) {
     assert.doesNotMatch(command, /\b(?:BEGIN|COMMIT|SAVEPOINT|ROLLBACK)\b/i);
   }
+});
+
+test('FTS release invariants use indexed rowid identity instead of the UNINDEXED paragraph_id column', () => {
+  const finalize = buildCorpusImportFinalizeSql(manifest());
+  assert.match(finalize, /LEFT JOIN paragraph_fts f ON f\.rowid=p\.id/);
+  assert.match(finalize, /LEFT JOIN paragraphs p ON p\.id=f\.rowid/);
+  assert.match(finalize, /SELECT 1 FROM paragraph_fts WHERE paragraph_id IS NOT rowid/);
+  assert.doesNotMatch(finalize, /JOIN paragraph_fts f ON f\.paragraph_id=p\.id/);
+  assert.doesNotMatch(finalize, /JOIN paragraphs p ON p\.id=f\.paragraph_id/);
+});
+
+test('finalize-only recovery reopens the exact failed release without replaying chunks and fails closed', () => {
+  const calls = [];
+  const runCommand = (_root, _database, _environment, args) => {
+    calls.push(args);
+    return { status: calls.length === 2 ? 74 : 0 };
+  };
+  const outcome = runCorpusFinalization({
+    root,
+    database: 'fixture',
+    environment: 'preview',
+    manifest: manifest(),
+    resume: true,
+    runCommand,
+  });
+
+  assert.deepEqual(outcome, { status: 74, phase: 'finalize' });
+  assert.equal(calls.length, 3);
+  assert.match(calls[0][1], /state IN \('in_progress','failed'\)/);
+  assert.doesNotMatch(calls[0][1], /DELETE FROM corpus_import_chunks/);
+  assert.equal(calls[1][0], '--command');
+  assert.match(calls[1][1], /UPDATE corpus_import_releases SET\s+state='ready'/);
+  assert.match(calls[2][1], /SET state='failed'/);
+  assert.equal(calls.some((args) => args[0] === '--file'), false);
+});
+
+test('a transport-level failure report cannot downgrade an already activated release', async () => {
+  const db = await database();
+  seedOldCorpus(db);
+  const next = manifest();
+  db.exec(buildCorpusImportStartSql(next));
+  importCurrentOneParagraph(db, next.release_id);
+  recordAllChunks(db, next);
+  db.exec(buildCorpusImportFinalizeSql(next));
+  db.exec(buildCorpusImportFailureSql(next, 'ambiguous_client_failure'));
+
+  assert.equal(db.prepare('SELECT state FROM corpus_import_releases WHERE release_id=?').get(next.release_id).state, 'ready');
+  assert.equal(db.prepare("SELECT value FROM site_meta WHERE key='corpus_import_state'").get().value, 'ready');
 });
 
 test('shortened corpus removes unreferenced stale rows, preserves discussion rows closed, and preserves stable row ids', async () => {
