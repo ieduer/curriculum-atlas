@@ -1,6 +1,6 @@
 # 数据模型
 
-D1 的规范结构由 `migrations/0001_initial.sql`、`0002_source_provenance_and_ocr_quality.sql` 与 `0003_online_verification.sql` 定义。
+D1 的规范结构由 `migrations/0001_initial.sql` 至 `0006_corpus_import_release.sql` 顺序定义。生产与预览在 0005、0006 实际应用并核对前，不能运行当前 v9 数据路径。
 
 ## 主要实体
 
@@ -11,6 +11,8 @@ D1 的规范结构由 `migrations/0001_initial.sql`、`0002_source_provenance_an
 | 分析结构 | `concepts`, `document_concepts`, `cross_subject_relations` | 术语、理念和跨学科证据关系 |
 | OCR 溯源 | `source_artifacts`, `ocr_runs`, `ocr_page_reviews` | 源哈希、引擎版本、页级结果和复核状态 |
 | 在线核查 | `online_verifications`, `online_evidence` | 篇目身份、版次、权威在线证据、冲突与裁决 |
+| 页级发布 | `page_publication_gates` | 源页、最终文本、证据 bundle、显示与引文的独立门 |
+| Corpus release | `corpus_import_releases`, `corpus_import_chunks`, `corpus_import_guards` | 整批状态、预期/实际计数、SQL 分块哈希与回执 |
 | 讨论 | `comments`, `comment_reports` | 版本绑定评论、回复、举报和审核状态 |
 | AI 审计 | `ai_citation_logs` | 模型标签、检索段落、引文状态与生成时间 |
 
@@ -21,6 +23,18 @@ D1 的规范结构由 `migrations/0001_initial.sql`、`0002_source_provenance_an
 ## 标识稳定性
 
 文件 slug、版本关系、段落 ID 和评论目标是外部引用的一部分。更新内容时使用 upsert，禁止会导致评论级联丢失的 `INSERT OR REPLACE INTO documents`。源文件变更后必须重算 SHA-256，旧页的通过状态不得继承。
+
+## Corpus release 一致性
+
+每次 `npm run corpus:build` 生成一个由 catalog、ingest、来源、分类、在线核验、语义策略和实际正文资产共同决定的 release fingerprint。当前 manifest 逐一登记正文 SHA-256/bytes 及所有 SQL chunk 的名称、SHA-256/bytes。
+
+导入时先写 `in_progress`，逐 chunk 写 receipt；只有 documents、paragraphs、FTS、page gates、displayed rows、accepted OCR documents 和 receipt 全部精确匹配才可写 `ready`。Worker 在 release 缺失、非 ready 或实时计数漂移时，对 D1 业务路由返回 503。
+
+新 release 缩短文档时，未被引用的旧段落可删除；被讨论或在线核验引用的旧段落保留稳定 ID，但关闭 display/citation。这样既清除 stale search rows，又避免评论级联删除。
+
+## R2 release identity
+
+R2 不是 D1 的来源真相，只保存可公开重建的质量元数据。每个对象发布到 `releases/<release_id>/...`，完整 manifest 与对象 hash/bytes readback 通过后，才原子更新 `release/current.json`。Worker 若看到 pointer，就必须完整验证 pointer、manifest 与目标对象；pointer 损坏时不允许回退旧 fixed key。
 
 ## 公共概念图 v2
 

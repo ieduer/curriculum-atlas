@@ -1,4 +1,12 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeEntityLabel, episodeSubjectFacet, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260715v11';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260716v14';
+import {
+  DISPLAY_SUBJECT_FACETS,
+  buildSubjectFacetIndex,
+  controlledSubjectFacetCounts as countControlledSubjectFacets,
+  filterDocumentsBySubjectFacet,
+  normalizeSubjectFacet,
+  planSubjectFacetQueries,
+} from './subject-facets.js?v=20260716v14';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -64,7 +72,7 @@ const state = {
   selectedEpisode: null,
 };
 
-const CORE_SUBJECTS = ['语文', '数学', '外语', '思想政治与道德法治', '历史', '历史与社会', '地理', '科学类', '技术', '劳动', '艺术', '体育与健康'];
+const CORE_SUBJECTS = DISPLAY_SUBJECT_FACETS;
 const ERAS = [
   { label: '近代学制初建', start: 1902, end: 1949 },
   { label: '国家课程起点', start: 1950, end: 1977 },
@@ -95,7 +103,7 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const conceptGraph = await api('/data/concept-evolution.json?v=20260715v11');
+  const conceptGraph = await api('/data/concept-evolution.json?v=20260716v14');
   const [meta, documents, insights] = await Promise.all([
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
@@ -178,16 +186,45 @@ function documentSourceVariant(document) {
   return subject && sourceLabel && sourceLabel !== subject ? sourceLabel : null;
 }
 
+function availableCanonicalSubjects() {
+  const names = new Set((state.meta?.subjects || [])
+    .map((item) => typeof item?.name === 'string' ? item.name.trim() : '')
+    .filter(Boolean));
+  for (const document of state.documents) {
+    const subject = documentSubjectFacet(document);
+    if (subject) names.add(subject);
+  }
+  return [...names];
+}
+
+function subjectFacetIndex() {
+  return buildSubjectFacetIndex(state.conceptGraph, availableCanonicalSubjects());
+}
+
 function subjectFacetNames() {
-  const fromApi = (state.meta?.subjects || []).map((item) => item.name).filter((name) => typeof name === 'string' && name.trim());
-  const fromGraph = (state.conceptGraph?.episodes || []).map(episodeSubjectFacet).filter(Boolean);
-  return [...new Set(fromApi.length ? fromApi : fromGraph)].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  return subjectFacetIndex().facets;
 }
 
 function displayFacetForSubject(subject) {
-  if (!subject) return null;
-  if (state.conceptGraph?.subject_facets?.includes(subject)) return subject;
-  return state.conceptGraph?.subject_taxonomy?.find((item) => item.source_label === subject || item.canonical === subject)?.facet || null;
+  return normalizeSubjectFacet(subject, subjectFacetIndex());
+}
+
+function subjectQueryPlan(subjectOrFacet) {
+  return planSubjectFacetQueries(subjectOrFacet, subjectFacetIndex());
+}
+
+function documentDisplayFacet(document) {
+  return displayFacetForSubject(documentSubjectFacet(document));
+}
+
+function uniqueRows(rows, keyOf) {
+  const seen = new Set();
+  return rows.filter((row) => {
+    const key = keyOf(row);
+    if (key === null || key === undefined || key === '' || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function verificationLabel(status) {
@@ -235,7 +272,9 @@ function showConceptInspector(episode) {
   const records = episode.evidence_ids.map((id) => state.evidenceById.get(id)).filter(Boolean).slice(0, 4);
   const status = episode.observation.status;
   const subject = episodeCanonicalSubject(episode);
+  const subjectFacet = displayFacetForSubject(subject);
   const entityLabel = episodeEntityLabel(episode);
+  const entityKind = episodeCourseEntity(episode) ? '课程节点' : '学科概念';
   const evidenceHtml = records.map((item) => `<article class="concept-evidence ${item.citation_allowed ? '' : 'candidate'}">
     ${item.citation_allowed ? `<a href="/document/${encodeURIComponent(item.document_id)}" data-link>${escapeHtml(item.document_title)}</a>` : `<b>${escapeHtml(item.document_title)}</b>`}
     <small>${escapeHtml(item.source_locator)} · ${escapeHtml(item.matched_surface)}${item.citation_allowed ? '' : ' · 不进入引文 AI'}</small>
@@ -243,7 +282,7 @@ function showConceptInspector(episode) {
   </article>`).join('');
   inspector.innerHTML = `
     <button class="inspector-close" type="button" aria-label="关闭">×</button>
-    <p class="inspector-kicker">${escapeHtml(episode.time.year)} · ${escapeHtml(entityLabel)} · ${escapeHtml(episode.curriculum_line.stage)}</p>
+    <p class="inspector-kicker">${escapeHtml(episode.time.year)} · ${escapeHtml(entityKind)} · ${escapeHtml(entityLabel)} · ${escapeHtml(episode.curriculum_line.stage)}</p>
     <h2>${escapeHtml(episode.label)}</h2>
     <p>${escapeHtml(observationLabel(episode))}。自动词频只用于发现候选，不单独证明课程理念发生实质变化。</p>
     <div class="inspector-meta">
@@ -257,7 +296,7 @@ function showConceptInspector(episode) {
     <div class="inspector-actions">
       ${episode.ontology_node_id ? `<button class="action-button primary" type="button" data-open-ontology="${escapeHtml(episode.ontology_node_id)}">展开概念层级</button>` : ''}
       <a class="action-button primary" href="/sources?q=${encodeURIComponent(episode.label)}" data-link>检索全部原文</a>
-      ${subject ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(subject)}" data-link>比较版本</a>` : ''}
+      ${subjectFacet ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(subjectFacet)}" data-link>比较版本</a>` : ''}
     </div>`;
   inspector.querySelector('.inspector-close').addEventListener('click', () => clearConceptInspector());
   inspector.querySelector('[data-open-ontology]')?.addEventListener('click', (event) => {
@@ -464,7 +503,8 @@ function showTooltip(node, event) {
     return;
   }
   const title = node.episode.label;
-  const meta = `${node.year} · ${node.entityLabel} · ${conceptStatusLabel(node.episode.observation.status)}`;
+  const entityKind = episodeCourseEntity(node.episode) ? '课程节点' : '学科概念';
+  const meta = `${node.year} · ${entityKind} · ${node.entityLabel} · ${conceptStatusLabel(node.episode.observation.status)}`;
   tooltip.innerHTML = `<b>${escapeHtml(title)}</b><span>${escapeHtml(meta)}</span>`;
   tooltip.style.left = `${Math.min(innerWidth - 326, Math.max(14, event.clientX + 14))}px`;
   tooltip.style.top = `${Math.min(innerHeight - 94, Math.max(14, event.clientY + 14))}px`;
@@ -472,12 +512,13 @@ function showTooltip(node, event) {
 }
 
 function updateMapStatus({ fitVisible = false } = {}) {
+  const controlledSubjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
   const visibleEpisodes = state.conceptGraph.episodes.filter((episode) => Number(episode.time.year) <= state.maxYear
-    && episodeVisibleForSubjectFilter(episode, state.hiddenSubjects, state.hideAllSubjects, state.conceptGraph.subject_facets)
+    && episodeVisibleForSubjectFilter(episode, state.hiddenSubjects, state.hideAllSubjects, controlledSubjects)
     && (!state.query || `${episode.label}${(episode.aliases || []).join('')}${episodeEntityLabel(episode)}${episode.time.year}${episode.category}`.toLocaleLowerCase('zh-CN').includes(state.query)));
   const visibleIds = new Set(visibleEpisodes.map((episode) => episode.id));
   if (state.selectedEpisode && !visibleIds.has(state.selectedEpisode.id)) clearConceptInspector();
-  const visibleSubjectCount = state.hideAllSubjects ? 0 : state.conceptGraph.subject_facets.filter((subject) => !state.hiddenSubjects.has(subject)).length;
+  const visibleSubjectCount = state.hideAllSubjects ? 0 : controlledSubjects.filter((subject) => !state.hiddenSubjects.has(subject)).length;
   state.cosmos?.setFilters(
     { hiddenSubjects: state.hiddenSubjects, hideAll: state.hideAllSubjects, maxYear: state.maxYear, query: state.query },
     { fitVisible, maxZoom: visibleSubjectCount === 1 ? 1.32 : 1 },
@@ -487,25 +528,14 @@ function updateMapStatus({ fitVisible = false } = {}) {
 
 function subjectButton(subject, count, panel = false) {
   const visible = !state.hideAllSubjects && !state.hiddenSubjects.has(subject);
-  const onlyVisible = visible && state.conceptGraph.subject_facets.filter((name) => !state.hiddenSubjects.has(name)).length === 1;
-  const action = onlyVisible ? '恢复全部学科' : `只看${subject}；Shift 点击可多选`;
+  const controlledSubjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
+  const onlyVisible = visible && controlledSubjects.filter((name) => !state.hiddenSubjects.has(name)).length === 1;
+  const action = onlyVisible ? '恢复全部分面' : `只看${subject}；Shift 点击可多选`;
   return `<button class="subject-button ${visible ? 'active' : ''}" type="button" data-subject="${escapeHtml(subject)}" aria-pressed="${visible}" style="--subject-color:${subjectColor(subject)}" title="${escapeHtml(action)}">${escapeHtml(subject)}${panel ? ` · ${count}` : ''}</button>`;
 }
 
 function controlledSubjectFacetCounts(conceptGraph) {
-  const eligibleSubjects = new Set((conceptGraph.subject_taxonomy || [])
-    .filter((item) => item?.facet_eligible === true && ['subject', 'assessment_subject'].includes(item.entity_kind))
-    .map((item) => typeof item.facet === 'string' ? item.facet.trim() : '')
-    .filter(Boolean));
-  const subjects = [...new Set((conceptGraph.subject_facets || [])
-    .map((subject) => typeof subject === 'string' ? subject.trim() : '')
-    .filter((subject) => subject && eligibleSubjects.has(subject)))];
-  const counts = new Map(subjects.map((subject) => [subject, 0]));
-  for (const episode of conceptGraph.episodes || []) {
-    const subject = episodeSubjectFacet(episode);
-    if (subject && counts.has(subject)) counts.set(subject, counts.get(subject) + 1);
-  }
-  return { subjects, counts };
+  return countControlledSubjectFacets(conceptGraph);
 }
 
 function renderSubjectControls() {
@@ -514,11 +544,15 @@ function renderSubjectControls() {
   subjectOrbit.innerHTML = core.map((subject) => subjectButton(subject, counts.get(subject))).join('');
   subjectOrbit.querySelectorAll('[data-subject]').forEach((button) => button.addEventListener('click', (event) => {
     const subject = button.dataset.subject;
-    const visibleSubjects = subjects.filter((name) => !state.hiddenSubjects.has(name));
+    const visibleSubjects = state.hideAllSubjects ? [] : subjects.filter((name) => !state.hiddenSubjects.has(name));
     if (event.shiftKey) {
-      state.hideAllSubjects = false;
-      if (state.hiddenSubjects.has(subject)) state.hiddenSubjects.delete(subject);
-      else state.hiddenSubjects.add(subject);
+      if (state.hiddenSubjects.has(subject)) {
+        state.hiddenSubjects.delete(subject);
+        state.hideAllSubjects = false;
+      } else {
+        state.hiddenSubjects.add(subject);
+        state.hideAllSubjects = subjects.every((name) => state.hiddenSubjects.has(name));
+      }
     } else if (visibleSubjects.length === 1 && visibleSubjects[0] === subject) {
       state.hideAllSubjects = false;
       state.hiddenSubjects.clear();
@@ -579,21 +613,65 @@ function documentRows(documents) {
   return `<div class="result-list">${documents.map((doc) => `<article class="result-row"><a href="/document/${encodeURIComponent(doc.id)}" data-link>${escapeHtml(doc.title)}</a><small>${escapeHtml(doc.sort_year)} · ${escapeHtml(documentEntityLabel(doc))} · ${escapeHtml(doc.stage)} · ${escapeHtml(qualityLabel(doc))}</small><p>${escapeHtml(doc.issued_by || '')}${doc.version_label ? ` · ${escapeHtml(doc.version_label)}` : ''}</p></article>`).join('')}</div>`;
 }
 
+async function compareSubjectFacet(facet) {
+  const plan = subjectQueryPlan(facet);
+  if (!plan.length) throw new Error('该分面当前没有可核验的学科版本');
+  const payloads = await Promise.all(plan.map(async ({ canonicalSubject }) => ({
+    canonicalSubject,
+    data: await api(`/api/compare?subject=${encodeURIComponent(canonicalSubject)}`),
+  })));
+  const documents = uniqueRows(payloads.flatMap(({ canonicalSubject, data }) =>
+    (data.documents || []).map((document) => ({
+      ...document,
+      canonical_subject: document.canonical_subject || canonicalSubject,
+    }))), (document) => document.id)
+    .sort((left, right) => Number(left.sort_year || 0) - Number(right.sort_year || 0)
+      || String(left.canonical_subject).localeCompare(String(right.canonical_subject), 'zh-CN')
+      || String(left.title).localeCompare(String(right.title), 'zh-CN'));
+  const insights = uniqueRows(payloads.flatMap(({ canonicalSubject, data }) =>
+    (data.insights || []).map((insight) => ({
+      ...insight,
+      canonical_subject: insight.subject || canonicalSubject,
+    }))), (insight) => insight.id || `${insight.subject}|${insight.era}|${insight.dimension}|${insight.title}`);
+  return { plan, documents, insights };
+}
+
+async function searchSubjectFacet(query, facet) {
+  if (!facet) return api(`/api/search?q=${encodeURIComponent(query)}&subject=`);
+  const plan = subjectQueryPlan(facet);
+  if (!plan.length) throw new Error('该分面当前没有可检索的学科正文');
+  const payloads = await Promise.all(plan.map(async ({ canonicalSubject }) => ({
+    canonicalSubject,
+    data: await api(`/api/search?q=${encodeURIComponent(query)}&subject=${encodeURIComponent(canonicalSubject)}`),
+  })));
+  const passages = uniqueRows(payloads.flatMap(({ canonicalSubject, data }) =>
+    (data.passages || []).map((passage) => ({
+      ...passage,
+      subject: passage.subject || canonicalSubject,
+      entity_label: passage.entity_label || passage.subject || canonicalSubject,
+    }))), (passage) => passage.id)
+    .sort((left, right) => Number(left.score || 0) - Number(right.score || 0)
+      || String(left.subject).localeCompare(String(right.subject), 'zh-CN'))
+    .slice(0, 30);
+  return { query, passages };
+}
+
 async function renderCompare(url) {
   const subjects = subjectFacetNames();
-  const fallback = documentSubjectFacet(state.selectedDocument) || subjects.find((subject) => subject === '语文') || subjects[0] || '';
+  const fallback = documentDisplayFacet(state.selectedDocument) || subjects.find((subject) => subject === '语文') || subjects[0] || '';
   const requestedSubject = url.searchParams.get('subject') || '';
-  const subject = subjects.includes(requestedSubject) ? requestedSubject : fallback;
+  const subject = displayFacetForSubject(requestedSubject) || fallback;
   workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>沿版本看变化</h2><p>连线表示同学科、同学段的年代相邻序列，不自动宣称法律上的替代关系。编辑结论必须回到证据文献。</p><form class="work-form" id="compare-form"><label for="compare-subject">学科</label><select id="compare-subject" name="subject">${subjects.map((name) => `<option ${name === subject ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select><button class="work-button" type="submit">更新版本河流</button></form></aside><main class="workspace-main" id="compare-results"><div class="empty-state">正在整理 ${escapeHtml(subject)} 的版本序列…</div></main></div>`;
   document.querySelector('#compare-form').addEventListener('submit', (event) => {
     event.preventDefault();
     navigate(`/compare?subject=${encodeURIComponent(new FormData(event.currentTarget).get('subject'))}`);
   });
   try {
-    const data = await api(`/api/compare?subject=${encodeURIComponent(subject)}`);
-    const entries = data.documents.map((doc) => `<article class="version-entry"><time>${escapeHtml(doc.sort_year || '年代待核')}</time><h3>${escapeHtml(doc.title)}</h3><p>${escapeHtml(doc.stage)} · ${escapeHtml(statusLabel(doc.current_status))}</p><a href="/document/${encodeURIComponent(doc.id)}" data-link>查看证据 →</a></article>`).join('');
-    const findings = data.insights.length ? data.insights.map((item) => `<article class="insight-line"><time>${escapeHtml(item.era)} · ${escapeHtml(item.dimension)}</time><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.summary)}</p></article>`).join('') : '<div class="empty-state">尚无经编辑核验的变化摘要；版本文献仍可逐份查看。</div>';
-    document.querySelector('#compare-results').innerHTML = `<h2>${escapeHtml(subject)}版本河流</h2><div class="version-river">${entries}</div><h2>经核验的变化判断</h2>${findings}`;
+    const data = await compareSubjectFacet(subject);
+    const entries = data.documents.map((doc) => `<article class="version-entry"><time>${escapeHtml(doc.sort_year || '年代待核')}</time><h3>${escapeHtml(doc.title)}</h3><p>${escapeHtml(doc.canonical_subject)} · ${escapeHtml(doc.stage)} · ${escapeHtml(statusLabel(doc.current_status))}</p><a href="/document/${encodeURIComponent(doc.id)}" data-link>查看证据 →</a></article>`).join('');
+    const findings = data.insights.length ? data.insights.map((item) => `<article class="insight-line"><time>${escapeHtml(item.canonical_subject)} · ${escapeHtml(item.era)} · ${escapeHtml(item.dimension)}</time><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.summary)}</p></article>`).join('') : '<div class="empty-state">尚无经编辑核验的变化摘要；版本文献仍可逐份查看。</div>';
+    const members = data.plan.map((item) => item.canonicalSubject).join('、');
+    document.querySelector('#compare-results').innerHTML = `<h2>${escapeHtml(subject)}版本河流</h2><p>按 ${escapeHtml(members)} 的学科身份分别查询；版本标签不合并。</p><div class="version-river">${entries}</div><h2>经核验的变化判断</h2>${findings}`;
   } catch (error) {
     document.querySelector('#compare-results').innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
   }
@@ -603,10 +681,11 @@ async function renderSources(url) {
   const query = (url.searchParams.get('q') || '').trim();
   const subjects = subjectFacetNames();
   const requestedSubject = url.searchParams.get('subject') || '';
-  const subject = subjects.includes(requestedSubject) ? requestedSubject : '';
-  let docs = state.documents.filter((doc) => (!subject || documentSubjectFacet(doc) === subject)
-    && (!query || `${doc.title}${documentEntityLabel(doc)}${doc.issued_by}${doc.version_label}`.includes(query)));
-  workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>资料与全文</h2><p>元数据用于定位版本；只有通过图像、OCR 与在线同版核查门槛的正文才进入全文结果和 AI 引文。</p><form class="work-form" id="source-form"><label for="source-query">篇名、机构或正文关键词</label><input id="source-query" name="q" value="${escapeHtml(query)}" placeholder="例如：学业质量"><label for="source-subject">学科</label><select id="source-subject" name="subject"><option value="">全部学科</option>${subjects.map((name) => `<option ${name === subject ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select><button class="work-button" type="submit">检索资料</button></form></aside><main class="workspace-main" id="source-results"><h2>${query ? `“${escapeHtml(query)}”的结果` : '已编目资料'}</h2>${documentRows(docs.slice(0, 80))}</main></div>`;
+  const subject = displayFacetForSubject(requestedSubject) || '';
+  const facetIndex = subjectFacetIndex();
+  let docs = (subject ? filterDocumentsBySubjectFacet(state.documents, subject, facetIndex) : state.documents)
+    .filter((doc) => !query || `${doc.title}${documentEntityLabel(doc)}${doc.issued_by}${doc.version_label}`.includes(query));
+  workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>资料与全文</h2><p>元数据用于定位版本；只有通过图像、OCR 与在线同版核查门槛的正文才进入全文结果和 AI 引文。</p><form class="work-form" id="source-form"><label for="source-query">篇名、机构或正文关键词</label><input id="source-query" name="q" value="${escapeHtml(query)}" placeholder="例如：学业质量"><label for="source-subject">学科分面</label><select id="source-subject" name="subject"><option value="">不限分面</option>${subjects.map((name) => `<option ${name === subject ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select><button class="work-button" type="submit">检索资料</button></form></aside><main class="workspace-main" id="source-results"><h2>${query ? `“${escapeHtml(query)}”的结果` : '已编目资料'}</h2>${documentRows(docs.slice(0, 80))}</main></div>`;
   document.querySelector('#source-form').addEventListener('submit', (event) => {
     event.preventDefault();
     const values = new URLSearchParams(new FormData(event.currentTarget));
@@ -614,7 +693,7 @@ async function renderSources(url) {
   });
   if (query.length >= 2) {
     try {
-      const data = await api(`/api/search?q=${encodeURIComponent(query)}&subject=${encodeURIComponent(subject)}`);
+      const data = await searchSubjectFacet(query, subject);
       if (data.passages.length) {
         document.querySelector('#source-results').innerHTML = `<h2>可引文正文</h2><div class="result-list">${data.passages.map((passage) => `<article class="result-row"><a href="/document/${encodeURIComponent(passage.document_id)}#p-${passage.id}" data-link>${escapeHtml(passage.title)}</a><small>${escapeHtml(passage.entity_label || passage.subject)} · ${escapeHtml(passage.version_label)} · ${escapeHtml(passage.source_locator)}</small><p>${escapeHtml(passage.body)}</p></article>`).join('')}</div><h2>元数据匹配</h2>${documentRows(docs.slice(0, 40))}`;
       }
@@ -628,16 +707,61 @@ async function renderDocument(id) {
   try {
     const data = await api(`/api/documents/${encodeURIComponent(id)}?limit=200`);
     const doc = data.document;
+    state.selectedDocument = doc;
     const source = doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener">发布页 / 原件 ↗</a>` : '原件链接待补';
     const paragraphs = data.paragraphs.length ? data.paragraphs.map((paragraph) => `<section class="paragraph ${paragraph.uncertainty_note ? 'uncertain' : ''}" id="p-${paragraph.id}"><span class="paragraph-number">P:${paragraph.id}<br>${escapeHtml(paragraph.source_locator)}</span>${escapeHtml(paragraph.body)}${paragraph.uncertainty_note ? `<small class="uncertainty-note">可能有问题：${escapeHtml(paragraph.uncertainty_note)}</small>` : ''}</section>`).join('') : '<div class="empty-state">该记录目前只有已核元数据，正文尚未达到上线门槛。</div>';
     const verification = data.verifications.length ? data.verifications.map((item) => `<article class="verification-row"><b>${escapeHtml(item.entity_label)} · ${escapeHtml(verificationLabel(item.verification_status))}</b><p>${escapeHtml(item.resolution)}</p>${item.uncertainty_note ? `<small class="uncertainty-note">可能有问题：${escapeHtml(item.uncertainty_note)}</small>` : ''}${(item.evidence || []).map((evidence) => `<p><a href="${escapeHtml(evidence.sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(evidence.publisher)}</a> · ${escapeHtml(verificationLabel(evidence.versionMatch))} · ${escapeHtml(evidence.factSummary)}</p>`).join('')}</article>`).join('') : '<div class="empty-state">尚无在线同版核查记录。</div>';
     const documentSubject = documentSubjectFacet(doc);
+    const documentFacet = documentDisplayFacet(doc);
     const sourceVariant = documentSourceVariant(doc);
-    workbenchBody.innerHTML = `<div class="reader-grid"><article class="reader-document"><h2>${escapeHtml(doc.title)}</h2><p>${escapeHtml(doc.issued_by)}${doc.issued_date ? ` · ${escapeHtml(doc.issued_date)}` : ''} · ${escapeHtml(qualityLabel(doc))}</p>${paragraphs}<h2>在线三证核查</h2><p>只有同文同版来源可校正文句；同篇异版仅旁证稳定事实。</p>${verification}</article><aside class="reader-facts"><h3>资料身份</h3><p>编号：${escapeHtml(doc.id)}<br>${documentSubject ? '学科' : '范围'}：${escapeHtml(documentEntityLabel(doc))}${sourceVariant ? `<br>来源标注：${escapeHtml(sourceVariant)}` : ''}<br>学段：${escapeHtml(doc.stage)}<br>版本：${escapeHtml(doc.version_label)}<br>状态：${escapeHtml(statusLabel(doc.current_status))}<br>文本质量：${escapeHtml(doc.text_quality_status || '待评估')}<br>页数：${doc.page_count || '待核'}</p><p>${source}</p><div class="inspector-actions">${documentSubject ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(documentSubject)}" data-link>版本比较</a>` : ''}<a class="action-button" href="/discussions?documentId=${encodeURIComponent(doc.id)}" data-link>教师讨论</a></div></aside></div>`;
+    workbenchBody.innerHTML = `<div class="reader-grid"><article class="reader-document"><h2>${escapeHtml(doc.title)}</h2><p>${escapeHtml(doc.issued_by)}${doc.issued_date ? ` · ${escapeHtml(doc.issued_date)}` : ''} · ${escapeHtml(qualityLabel(doc))}</p>${paragraphs}<h2>在线三证核查</h2><p>只有同文同版来源可校正文句；同篇异版仅旁证稳定事实。</p>${verification}</article><aside class="reader-facts"><h3>资料身份</h3><p>编号：${escapeHtml(doc.id)}<br>${documentSubject ? '学科' : '范围'}：${escapeHtml(documentEntityLabel(doc))}${sourceVariant ? `<br>来源标注：${escapeHtml(sourceVariant)}` : ''}<br>学段：${escapeHtml(doc.stage)}<br>版本：${escapeHtml(doc.version_label)}<br>状态：${escapeHtml(statusLabel(doc.current_status))}<br>文本质量：${escapeHtml(doc.text_quality_status || '待评估')}<br>页数：${doc.page_count || '待核'}</p><p>${source}</p><div class="inspector-actions">${documentFacet ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(documentFacet)}" data-link>版本比较</a>` : ''}<a class="action-button" href="/discussions?documentId=${encodeURIComponent(doc.id)}" data-link>教师讨论</a></div></aside></div>`;
     if (location.hash) requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView({ block: 'center' }));
   } catch (error) {
     workbenchBody.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
   }
+}
+
+async function researchSubjectFacet(query, facet) {
+  if (!facet) {
+    const data = await api('/api/ai/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query, subject: '' }),
+    });
+    return { ...data, canonicalSubjects: [], omittedSubjects: [] };
+  }
+
+  const plan = subjectQueryPlan(facet);
+  if (!plan.length) throw new Error('该分面当前没有可研究的学科正文');
+  const evidenceChecks = await Promise.all(plan.map(async ({ canonicalSubject }) => ({
+    canonicalSubject,
+    data: await api(`/api/search?q=${encodeURIComponent(query)}&subject=${encodeURIComponent(canonicalSubject)}`),
+  })));
+  const evidenced = evidenceChecks.filter(({ data }) => (data.passages || []).length > 0);
+  const omittedSubjects = evidenceChecks.filter(({ data }) => !(data.passages || []).length)
+    .map(({ canonicalSubject }) => canonicalSubject);
+  if (!evidenced.length) throw new Error('该分面的各学科身份均未找到可引证据，请调整关键词');
+
+  const answers = await Promise.all(evidenced.map(async ({ canonicalSubject }) => ({
+    canonicalSubject,
+    data: await api('/api/ai/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ query, subject: canonicalSubject }),
+    }),
+  })));
+  const canonicalSubjects = answers.map(({ canonicalSubject }) => canonicalSubject);
+  const answer = answers.map(({ canonicalSubject, data }) => `【${canonicalSubject}】\n${data.answer}`).join('\n\n');
+  const boundary = omittedSubjects.length
+    ? `\n\n分面证据边界：已分别查询 ${canonicalSubjects.join('、')}；${omittedSubjects.join('、')} 当前无可引正文，未生成结论。`
+    : `\n\n分面证据边界：已按 ${canonicalSubjects.join('、')} 的学科身份分别检索与回答，未合并版本身份。`;
+  return {
+    answer: `${answer}${boundary}`,
+    citations: uniqueRows(answers.flatMap(({ data }) => data.citations || []), (citation) => citation.paragraphId),
+    retrievalCount: answers.reduce((total, { data }) => total + Number(data.retrievalCount || 0), 0),
+    canonicalSubjects,
+    omittedSubjects,
+  };
 }
 
 async function renderAi() {
@@ -647,7 +771,7 @@ async function renderAi() {
     workbenchBody.innerHTML = `<div class="login-note"><h2>登录后建立可追踪的证据研究会话</h2><p>AI 只能引用本站本轮检索返回且已通过核查门槛的段落；检索失败时不会用模型常识补齐。</p><a class="work-button" href="https://my.bdfz.net/?returnTo=${encodeURIComponent(location.href)}">前往统一用户中心登录</a></div>`;
     return;
   }
-  workbenchBody.innerHTML = `<div class="ai-grid"><form class="work-form" id="ai-form"><h2>证据限定研究</h2><label for="ai-query">教师研究问题</label><textarea id="ai-query" name="query" rows="7" minlength="8" required placeholder="例如：义务教育语文从2011版到2022版，课程内容组织方式发生了哪些可核验变化？"></textarea><label for="ai-subject">学科边界</label><select id="ai-subject" name="subject"><option value="">跨学科</option>${subjects.map((name) => `<option>${escapeHtml(name)}</option>`).join('')}</select><button class="work-button" type="submit">检索并回答</button></form><div><h2>回答与引文</h2><div class="ai-answer" id="ai-answer">尚未提问。每个事实必须回到 [P:编号]。</div><div class="citation-list" id="ai-citations"></div></div></div>`;
+  workbenchBody.innerHTML = `<div class="ai-grid"><form class="work-form" id="ai-form"><h2>证据限定研究</h2><label for="ai-query">教师研究问题</label><textarea id="ai-query" name="query" rows="7" minlength="8" required placeholder="例如：义务教育语文从2011版到2022版，课程内容组织方式发生了哪些可核验变化？"></textarea><label for="ai-subject">学科分面</label><select id="ai-subject" name="subject"><option value="">跨学科</option>${subjects.map((name) => `<option>${escapeHtml(name)}</option>`).join('')}</select><button class="work-button" type="submit">检索并回答</button></form><div><h2>回答与引文</h2><div class="ai-answer" id="ai-answer">尚未提问。每个事实必须回到 [P:编号]。</div><div class="citation-list" id="ai-citations"></div></div></div>`;
   document.querySelector('#ai-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -657,10 +781,11 @@ async function renderAi() {
     answer.textContent = '正在检索已核正文并校验引文编号…';
     try {
       const payload = Object.fromEntries(new FormData(form));
-      const data = await api('/api/ai/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
+      const facet = displayFacetForSubject(payload.subject) || '';
+      const data = await researchSubjectFacet(payload.query, facet);
       answer.textContent = data.answer;
       document.querySelector('#ai-citations').innerHTML = data.citations.map((citation) => `<article class="citation-row"><a href="/document/${encodeURIComponent(citation.documentId)}#p-${citation.paragraphId}" data-link>[P:${citation.paragraphId}] ${escapeHtml(citation.title)}</a><small>${escapeHtml(citation.entityLabel || citation.subject)} · ${escapeHtml(citation.locator)}</small><p>${escapeHtml(citation.excerpt)}</p></article>`).join('');
-      window.BdfzIdentity?.recordEvent?.({ siteKey: 'curriculum', recordKey: `ai-research:${Date.now()}`, title: '课程标准证据研究', summary: '完成一次带引文的课程标准研究', itemGroup: 'teacher-research', itemType: 'rag-query', contentFormat: 'curriculum-atlas-rag-v1', sourceUrl: location.href, payload: { eventName: 'ai_evidence_research', subject: payload.subject || 'cross-subject', retrievalCount: data.retrievalCount } }).catch(() => {});
+      window.BdfzIdentity?.recordEvent?.({ siteKey: 'curriculum', recordKey: `ai-research:${Date.now()}`, title: '课程标准证据研究', summary: '完成一次带引文的课程标准研究', itemGroup: 'teacher-research', itemType: 'rag-query', contentFormat: 'curriculum-atlas-rag-v1', sourceUrl: location.href, payload: { eventName: 'ai_evidence_research', subject: facet || 'cross-subject', canonicalSubjectCount: data.canonicalSubjects.length, retrievalCount: data.retrievalCount } }).catch(() => {});
     } catch (error) {
       answer.textContent = error.message;
       toast(error.message);
@@ -803,9 +928,9 @@ async function route() {
     }
     if (path.startsWith('/document/')) {
       const id = decodeURIComponent(path.slice('/document/'.length));
-      const documentSubject = documentSubjectFacet(state.documents.find((doc) => doc.id === id));
+      const documentFacet = documentDisplayFacet(state.documents.find((doc) => doc.id === id));
       const tabs = [{ id: 'reader', label: '正文与核查', href: `${path}${url.hash}` }];
-      if (documentSubject) tabs.push({ id: 'compare', label: '同学科版本', href: `/compare?subject=${encodeURIComponent(documentSubject)}` });
+      if (documentFacet) tabs.push({ id: 'compare', label: '同分面版本', href: `/compare?subject=${encodeURIComponent(documentFacet)}` });
       openWorkbench({ kicker: '资料原文', title: '证据明细', tabs, active: 'reader' });
       await renderDocument(id);
       return;

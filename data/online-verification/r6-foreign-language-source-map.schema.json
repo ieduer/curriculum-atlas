@@ -1,0 +1,381 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/r6-foreign-language-source-map.schema.json",
+  "title": "R6 foreign-language same-edition online source map",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mapping_policy",
+    "reviewed_by",
+    "reviewed_at",
+    "scope_document_ids",
+    "publication_gate_changed",
+    "can_unlock",
+    "policy_snapshot",
+    "rules",
+    "documents"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "mapping_policy": {
+      "const": "same_edition_online_verification_fail_closed_v1"
+    },
+    "reviewed_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "scope_document_ids": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "publication_gate_changed": {
+      "const": false
+    },
+    "can_unlock": {
+      "const": false
+    },
+    "policy_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "use"
+      ],
+      "properties": {
+        "path": {
+          "const": "../semantic-publication-policy.json"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "use": {
+          "const": "read_only_input"
+        }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exact_artifact",
+        "same_edition_different_artifact",
+        "same_edition_translation",
+        "different_edition",
+        "unconfirmed"
+      ],
+      "properties": {
+        "exact_artifact": {
+          "type": "string"
+        },
+        "same_edition_different_artifact": {
+          "type": "string"
+        },
+        "same_edition_translation": {
+          "type": "string"
+        },
+        "different_edition": {
+          "type": "string"
+        },
+        "unconfirmed": {
+          "type": "string"
+        }
+      }
+    },
+    "documents": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/$defs/document"
+      }
+    }
+  },
+  "$defs": {
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_id",
+        "identity",
+        "controlled_pages",
+        "online_sources",
+        "conclusion"
+      ],
+      "properties": {
+        "document_id": {
+          "type": "string"
+        },
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "title",
+            "subject",
+            "stage",
+            "version_label",
+            "issued_by",
+            "publication_statement",
+            "source_url",
+            "source_artifact_sha256",
+            "pdf_page_count"
+          ],
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "stage": {
+              "type": "string"
+            },
+            "version_label": {
+              "type": "string"
+            },
+            "issued_by": {
+              "type": "string"
+            },
+            "publication_statement": {
+              "type": "string"
+            },
+            "source_url": {
+              "type": "string",
+              "format": "uri"
+            },
+            "source_artifact_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "pdf_page_count": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "controlled_pages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "page_start",
+              "page_end",
+              "quality_profile"
+            ],
+            "properties": {
+              "page_start": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "page_end": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "quality_profile": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "online_sources": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/source"
+          }
+        },
+        "page_mapping": {
+          "type": "object"
+        },
+        "conclusion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "best_online_status",
+            "independent_text_corroboration",
+            "usable_for",
+            "remaining_risks",
+            "publication_gate_changed",
+            "can_unlock"
+          ],
+          "properties": {
+            "best_online_status": {
+              "enum": [
+                "exact_artifact_only",
+                "same_edition_text_independence_unconfirmed",
+                "same_edition_translation_text_available"
+              ]
+            },
+            "independent_text_corroboration": {
+              "enum": [
+                "unconfirmed",
+                "translation_only"
+              ]
+            },
+            "usable_for": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "remaining_risks": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "publication_gate_changed": {
+              "const": false
+            },
+            "can_unlock": {
+              "const": false
+            }
+          }
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "provider",
+        "authority_class",
+        "source_kind",
+        "url",
+        "title_match",
+        "edition_match",
+        "artifact_sha256",
+        "pdf_page_count",
+        "hash_matches_local",
+        "text_status",
+        "independent_text_corroboration",
+        "usable_for",
+        "not_usable_for",
+        "risk_notes"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string"
+        },
+        "authority_class": {
+          "enum": [
+            "official",
+            "academic",
+            "bibliographic"
+          ]
+        },
+        "source_kind": {
+          "enum": [
+            "official_pdf",
+            "official_listing",
+            "official_notice",
+            "official_translation_pdf",
+            "academic_profile",
+            "academic_article",
+            "bibliographic_record"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "title_match": {
+          "enum": [
+            "exact",
+            "translated_exact",
+            "different"
+          ]
+        },
+        "edition_match": {
+          "enum": [
+            "exact_artifact",
+            "same_edition_different_artifact",
+            "same_edition_translation",
+            "bibliographic_only_same_edition",
+            "different_edition",
+            "unconfirmed"
+          ]
+        },
+        "artifact_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "pdf_page_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "hash_matches_local": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "text_status": {
+          "enum": [
+            "image_only",
+            "same_artifact_search_extraction",
+            "searchable_same_edition_secondary_artifact",
+            "searchable_same_edition_translation",
+            "bibliographic_only",
+            "metadata_only",
+            "different_edition_text"
+          ]
+        },
+        "independent_text_corroboration": {
+          "enum": [
+            "none",
+            "unconfirmed",
+            "translation_only"
+          ]
+        },
+        "usable_for": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "not_usable_for": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "risk_notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

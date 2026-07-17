@@ -1,0 +1,2481 @@
+#!/usr/bin/env node
+import { createHash, randomUUID } from 'node:crypto';
+import { constants as fsConstants } from 'node:fs';
+import {
+  access,
+  copyFile,
+  lstat,
+  mkdir,
+  open,
+  readFile,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  preflightDocument,
+  validateOcrDocumentOutput,
+  validateRemoteOcrManifest,
+} from './run-remote-ocr-offload.mjs';
+import { validateRepairManifest as validateRemoteRepairManifest } from './apply-remote-ocr-repair.mjs';
+import {
+  captureLocalReprocessSnapshot,
+  LOCAL_REPROCESS_SNAPSHOT_MODE,
+} from './lib/remote-ocr-local-snapshot.mjs';
+
+const scriptPath = fileURLToPath(import.meta.url);
+const defaultProjectRoot = path.resolve(path.dirname(scriptPath), '..');
+const sha256Pattern = /^[a-f0-9]{64}$/;
+const documentIdPattern = /^[A-Za-z0-9][A-Za-z0-9._:-]*$/;
+const repairReceiptType = 'curriculum_remote_ocr_page_repair_receipt';
+const paddleMarkdownAssetPattern = /^img_in_(header_image_box|image_box|footer_image_box|chart_box)_(\d+)_(\d+)_(\d+)_(\d+)\.jpg$/u;
+const paddleAssetLabels = Object.freeze({
+  header_image_box: 'header_image',
+  image_box: 'image',
+  footer_image_box: 'footer_image',
+  chart_box: 'chart',
+});
+const documentStatuses = Object.freeze([
+  'complete',
+  'failed',
+  'interrupted',
+  'pending',
+  'quarantined',
+  'retry_wait',
+  'running',
+]);
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+async function sha256File(pathname) {
+  return sha256(await readFile(pathname));
+}
+
+async function exists(pathname) {
+  try {
+    await access(pathname);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function lstatIfPresent(pathname) {
+  try {
+    return await lstat(pathname);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+function requireObject(value, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  return value;
+}
+
+function requireSha256(value, label) {
+  if (!sha256Pattern.test(String(value || ''))) {
+    throw new Error(`${label} must be a lowercase SHA-256`);
+  }
+  return value;
+}
+
+function sameJson(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function isWithin(parent, candidate) {
+  const relative = path.relative(parent, candidate);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+async function resolveWithNearestExistingParent(pathname) {
+  let cursor = path.resolve(pathname);
+  const missingSegments = [];
+  for (;;) {
+    try {
+      const resolved = await realpath(cursor);
+      return path.resolve(resolved, ...missingSegments.reverse());
+    } catch (error) {
+      if (error?.code !== 'ENOENT' && error?.code !== 'ENOTDIR') throw error;
+      let unresolvedEntryExists = false;
+      try {
+        await lstat(cursor);
+        unresolvedEntryExists = true;
+      } catch (entryError) {
+        if (entryError?.code !== 'ENOENT' && entryError?.code !== 'ENOTDIR') throw entryError;
+      }
+      if (unresolvedEntryExists) {
+        throw new Error(`${cursor} exists but cannot be resolved (dangling or invalid symlink)`);
+      }
+      const parent = path.dirname(cursor);
+      if (parent === cursor) throw error;
+      missingSegments.push(path.basename(cursor));
+      cursor = parent;
+    }
+  }
+}
+
+function baseFailureValid(value) {
+  return Boolean(
+    value
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && typeof value.error === 'string'
+    && /PEG-native/iu.test(value.error)
+    && /(?:^|\D)500(?:\D|$)/u.test(value.error),
+  );
+}
+
+async function readJsonWithRaw(pathname, label = pathname) {
+  const raw = await readFile(pathname);
+  let value;
+  try {
+    value = JSON.parse(raw.toString('utf8'));
+  } catch (error) {
+    throw new Error(`${label} is not valid JSON: ${error.message}`);
+  }
+  return { raw, value };
+}
+
+async function requireRegularNonSymlink(pathname, label) {
+  const info = await lstat(pathname).catch((error) => {
+    if (error?.code === 'ENOENT') throw new Error(`${label} is missing`);
+    throw error;
+  });
+  if (!info.isFile() || info.isSymbolicLink()) {
+    throw new Error(`${label} must be a regular non-symlink file`);
+  }
+  return info;
+}
+
+async function verifySha256Sidecar(pathname, label) {
+  const sidecarPath = `${pathname}.sha256`;
+  await Promise.all([
+    requireRegularNonSymlink(pathname, label),
+    requireRegularNonSymlink(sidecarPath, `${label} SHA-256 sidecar`),
+  ]);
+  const sidecar = await readFile(sidecarPath, 'utf8').catch((error) => {
+    if (error?.code === 'ENOENT') throw new Error(`${label} SHA-256 sidecar is missing`);
+    throw error;
+  });
+  const match = /^([a-f0-9]{64})  ([^\r\n]+)\n$/u.exec(sidecar);
+  if (!match || match[2] !== path.basename(pathname)) {
+    throw new Error(`${label} SHA-256 sidecar has an invalid format`);
+  }
+  const actual = await sha256File(pathname);
+  if (actual !== match[1]) throw new Error(`${label} SHA-256 sidecar mismatch`);
+  return actual;
+}
+
+async function atomicWrite(pathname, contents, mode = 0o600) {
+  await mkdir(path.dirname(pathname), { recursive: true });
+  const temporary = path.join(path.dirname(pathname), `.${path.basename(pathname)}.${randomUUID()}.tmp`);
+  try {
+    await writeFile(temporary, contents, { mode, flag: 'wx' });
+    await rename(temporary, pathname);
+  } catch (error) {
+    await rm(temporary, { force: true }).catch(() => {});
+    throw error;
+  }
+}
+
+async function writeReceipt(pathname, receipt) {
+  const contents = `${JSON.stringify(receipt, null, 2)}\n`;
+  await atomicWrite(pathname, contents);
+  await atomicWrite(`${pathname}.sha256`, `${sha256(contents)}  ${path.basename(pathname)}\n`);
+}
+
+async function inspectTree(root) {
+  const rootInfo = await lstat(root);
+  if (!rootInfo.isDirectory() || rootInfo.isSymbolicLink()) {
+    throw new Error(`tree root is not a real directory: ${root}`);
+  }
+  const entries = [];
+  let files = 0;
+  let bytes = 0;
+
+  async function walk(directory, relativeDirectory) {
+    const children = await readdir(directory, { withFileTypes: true });
+    children.sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
+    if (relativeDirectory && children.length === 0) entries.push(`D\0${relativeDirectory}\n`);
+    for (const child of children) {
+      const source = path.join(directory, child.name);
+      const relative = relativeDirectory ? path.join(relativeDirectory, child.name) : child.name;
+      const info = await lstat(source);
+      if (info.isSymbolicLink()) throw new Error(`staging tree contains a symbolic link: ${source}`);
+      if (info.isDirectory()) {
+        entries.push(`D\0${relative}\n`);
+        await walk(source, relative);
+        continue;
+      }
+      if (!info.isFile()) throw new Error(`staging tree contains a non-regular file: ${source}`);
+      const digest = await sha256File(source);
+      entries.push(`F\0${relative}\0${info.size}\0${digest}\n`);
+      files += 1;
+      bytes += info.size;
+    }
+  }
+
+  await walk(root, '');
+  return {
+    tree_sha256: sha256(entries.join('')),
+    files,
+    bytes,
+  };
+}
+
+async function copyTreeStrict(source, destination) {
+  const info = await lstat(source);
+  if (!info.isDirectory() || info.isSymbolicLink()) {
+    throw new Error(`copy source is not a real directory: ${source}`);
+  }
+  await mkdir(destination, { mode: 0o700 });
+  const children = await readdir(source, { withFileTypes: true });
+  children.sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
+  for (const child of children) {
+    const sourcePath = path.join(source, child.name);
+    const destinationPath = path.join(destination, child.name);
+    const childInfo = await lstat(sourcePath);
+    if (childInfo.isSymbolicLink()) throw new Error(`copy source contains a symbolic link: ${sourcePath}`);
+    if (childInfo.isDirectory()) {
+      await copyTreeStrict(sourcePath, destinationPath);
+    } else if (childInfo.isFile()) {
+      await copyFile(sourcePath, destinationPath, fsConstants.COPYFILE_EXCL);
+    } else {
+      throw new Error(`copy source contains a non-regular file: ${sourcePath}`);
+    }
+  }
+}
+
+async function validateDocumentTreeShape(documentRoot, pageCount) {
+  const rootEntries = (await readdir(documentRoot)).sort();
+  if (!sameJson(rootEntries, ['pages', 'state.json'])) {
+    throw new Error(`document tree contains unexpected root entries: ${documentRoot}`);
+  }
+  const stateInfo = await lstat(path.join(documentRoot, 'state.json'));
+  const pagesInfo = await lstat(path.join(documentRoot, 'pages'));
+  if (!stateInfo.isFile() || stateInfo.isSymbolicLink() || !pagesInfo.isDirectory() || pagesInfo.isSymbolicLink()) {
+    throw new Error(`document tree state/pages shape is invalid: ${documentRoot}`);
+  }
+  const expectedPages = Array.from({ length: pageCount }, (_, index) => String(index + 1).padStart(4, '0'));
+  const actualPages = (await readdir(path.join(documentRoot, 'pages'))).sort();
+  if (!sameJson(actualPages, expectedPages)) {
+    throw new Error(`document tree physical page directory set is not exactly 1..${pageCount}: ${documentRoot}`);
+  }
+  const shapes = new Map();
+  for (const page of expectedPages) {
+    const pageRoot = path.join(documentRoot, 'pages', page);
+    const pageInfo = await lstat(pageRoot);
+    if (!pageInfo.isDirectory() || pageInfo.isSymbolicLink()) {
+      throw new Error(`document tree page is not a real directory: ${pageRoot}`);
+    }
+    const entries = (await readdir(pageRoot)).sort();
+    if (!sameJson(entries, ['content.md', 'markdown', 'result.json'])) {
+      throw new Error(`document tree page contains unexpected artifacts: ${pageRoot}`);
+    }
+    for (const name of ['content.md', 'result.json']) {
+      const info = await lstat(path.join(pageRoot, name));
+      if (!info.isFile() || info.isSymbolicLink()) {
+        throw new Error(`document page artifact is not a regular file: ${path.join(pageRoot, name)}`);
+      }
+    }
+    const markdownRoot = path.join(pageRoot, 'markdown');
+    const markdownInfo = await lstat(markdownRoot);
+    if (!markdownInfo.isDirectory() || markdownInfo.isSymbolicLink()) {
+      throw new Error(`document page Markdown mirror is not a real directory: ${markdownRoot}`);
+    }
+    const expectedMarkdownName = `page-${page}.md`;
+    const markdownEntries = (await readdir(markdownRoot)).sort();
+    const hasImages = markdownEntries.includes('imgs');
+    const expectedMarkdownEntries = hasImages
+      ? ['imgs', expectedMarkdownName]
+      : [expectedMarkdownName];
+    if (!sameJson(markdownEntries, expectedMarkdownEntries)) {
+      throw new Error(`document page Markdown mirror contains unexpected artifacts: ${markdownRoot}`);
+    }
+    const markdownPath = path.join(markdownRoot, expectedMarkdownName);
+    const markdownFileInfo = await lstat(markdownPath);
+    if (!markdownFileInfo.isFile() || markdownFileInfo.isSymbolicLink()) {
+      throw new Error(`document page Markdown mirror is not a regular file: ${markdownPath}`);
+    }
+    const markdownSha256 = await sha256File(markdownPath);
+    const treeEntries = [`F\0${expectedMarkdownName}\0${markdownFileInfo.size}\0${markdownSha256}\n`];
+    const assets = [];
+    let treeFiles = 1;
+    let treeBytes = markdownFileInfo.size;
+    if (hasImages) {
+      const imagesRoot = path.join(markdownRoot, 'imgs');
+      const imagesInfo = await lstat(imagesRoot);
+      if (!imagesInfo.isDirectory() || imagesInfo.isSymbolicLink()) {
+        throw new Error(`document page Markdown image root is not a real directory: ${imagesRoot}`);
+      }
+      const imageEntries = (await readdir(imagesRoot)).sort();
+      if (imageEntries.length === 0) {
+        throw new Error(`document page Markdown image root is empty: ${imagesRoot}`);
+      }
+      treeEntries.push('D\0imgs\n');
+      for (const name of imageEntries) {
+        const match = paddleMarkdownAssetPattern.exec(name);
+        if (!match) throw new Error(`document page Markdown asset name is not a pinned Paddle filename: ${name}`);
+        const pathname = path.join(imagesRoot, name);
+        const info = await lstat(pathname);
+        if (!info.isFile() || info.isSymbolicLink()) {
+          throw new Error(`document page Markdown asset is not a regular file: ${pathname}`);
+        }
+        if (info.size === 0) throw new Error(`document page Markdown asset is empty: ${pathname}`);
+        const digest = await sha256File(pathname);
+        const bbox = match.slice(2).map(Number);
+        if (!(bbox[0] < bbox[2] && bbox[1] < bbox[3])) {
+          throw new Error(`document page Markdown asset has an invalid bounding box: ${name}`);
+        }
+        const relativePath = `imgs/${name}`;
+        treeEntries.push(`F\0${relativePath}\0${info.size}\0${digest}\n`);
+        treeFiles += 1;
+        treeBytes += info.size;
+        assets.push({
+          name,
+          path: pathname,
+          relativePath,
+          sha256: digest,
+          bytes: info.size,
+          blockType: match[1],
+          blockLabel: paddleAssetLabels[match[1]],
+          bbox,
+        });
+      }
+    }
+    shapes.set(Number(page), {
+      markdownPath,
+      markdownSha256,
+      assets,
+      markdownTree: {
+        tree_sha256: sha256(treeEntries.join('')),
+        files: treeFiles,
+        bytes: treeBytes,
+      },
+    });
+  }
+  return shapes;
+}
+
+function validateRunIdentity(identity, shardManifest, manifestSha256) {
+  requireObject(identity, 'run identity');
+  if (identity.schema_version !== 1) throw new Error('run identity schema_version must equal 1');
+  if (identity.manifest_sha256 !== manifestSha256) throw new Error('run identity manifest fingerprint mismatch');
+  if (!sameJson(identity.runtime, shardManifest.runtime)) throw new Error('run identity runtime differs from shard manifest');
+  requireObject(identity.runtime_fingerprint, 'run identity runtime_fingerprint');
+  for (const [key, value] of Object.entries(shardManifest.runtime)) {
+    if (identity.runtime_fingerprint[key] !== value) {
+      throw new Error(`run identity runtime fingerprint differs for ${key}`);
+    }
+  }
+  const runtimeFingerprintSha256 = sha256(`${JSON.stringify(identity.runtime_fingerprint)}\n`);
+  if (identity.runtime_fingerprint_sha256 !== runtimeFingerprintSha256) {
+    throw new Error('run identity runtime fingerprint SHA-256 mismatch');
+  }
+  requireObject(identity.llama_server_attestation, 'run identity llama_server_attestation');
+  const attestationSha256 = sha256(`${JSON.stringify(identity.llama_server_attestation)}\n`);
+  if (identity.llama_server_attestation_sha256 !== attestationSha256) {
+    throw new Error('run identity llama-server attestation SHA-256 mismatch');
+  }
+  requireSha256(identity.runner_script_sha256, 'run identity runner_script_sha256');
+  requireSha256(identity.ocr_script_sha256, 'run identity ocr_script_sha256');
+  requireObject(identity.worker_configuration, 'run identity worker_configuration');
+  requireObject(identity.document_recovery, 'run identity document_recovery');
+  if (identity.whole_document_atomic !== true) throw new Error('run identity whole_document_atomic must equal true');
+  if (identity.citation_allowed !== false) throw new Error('run identity citation_allowed must equal false');
+  return identity;
+}
+
+function validateRunStatus(runStatus, identity, shardManifest) {
+  requireObject(runStatus, 'run status');
+  if (runStatus.schema_version !== 1) throw new Error('run status schema_version must equal 1');
+  if (runStatus.manifest_sha256 !== identity.manifest_sha256) throw new Error('run status manifest fingerprint mismatch');
+  if (runStatus.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256) {
+    throw new Error('run status runtime fingerprint mismatch');
+  }
+  if (!sameJson(runStatus.document_recovery, identity.document_recovery)) {
+    throw new Error('run status recovery policy differs from run identity');
+  }
+  if (runStatus.citation_allowed !== false) throw new Error('run status citation_allowed must equal false');
+  if (runStatus.settled !== true) throw new Error('run status is not settled');
+  const documents = requireObject(runStatus.documents, 'run status documents');
+  const expectedIds = shardManifest.documents.map((document) => document.id).sort();
+  if (!sameJson(Object.keys(documents).sort(), expectedIds)) {
+    throw new Error('run status document set differs from shard manifest');
+  }
+  const counts = Object.fromEntries(documentStatuses.map((status) => [status, 0]));
+  for (const document of shardManifest.documents) {
+    const progress = requireObject(documents[document.id], `${document.id} run status`);
+    if (!documentStatuses.includes(progress.status)) throw new Error(`${document.id}: invalid run status`);
+    if (!['complete', 'quarantined'].includes(progress.status)) {
+      throw new Error(`${document.id}: run status ${progress.status} is not receivable`);
+    }
+    if (progress.page_count !== document.page_count) throw new Error(`${document.id}: run status page count mismatch`);
+    requireSha256(progress.status_json_sha256, `${document.id} status_json_sha256`);
+    counts[progress.status] += 1;
+  }
+  const expectedCounts = {
+    total: shardManifest.documents.length,
+    complete: counts.complete,
+    failed: counts.failed,
+    interrupted: counts.interrupted,
+    pending: counts.pending,
+    running: counts.running,
+    retry_wait: counts.retry_wait,
+    quarantined: counts.quarantined,
+  };
+  if (!sameJson(runStatus.counts, expectedCounts)) throw new Error('run status counts do not match document statuses');
+  if (runStatus.finished !== (counts.quarantined === 0)) {
+    throw new Error('run status finished flag does not match terminal document states');
+  }
+  return runStatus;
+}
+
+async function loadRepairManifest(manifestPath, shardRoot) {
+  if (!manifestPath) return null;
+  const requestedPath = path.resolve(manifestPath);
+  await requireRegularNonSymlink(requestedPath, 'repair manifest');
+  const resolvedPath = await realpath(requestedPath);
+  const manifestSha256 = await verifySha256Sidecar(resolvedPath, 'repair manifest');
+  const { value } = await readJsonWithRaw(resolvedPath, 'repair manifest');
+  const manifest = validateRemoteRepairManifest(value);
+  const manifestDirectory = path.dirname(resolvedPath);
+  const pages = new Map();
+  const evidenceByPath = new Map();
+
+  for (const document of manifest.documents) {
+    for (const page of document.pages) {
+      const key = `${document.document_id}:${page.physical_pdf_page}`;
+      const evidence = [];
+      for (const item of page.evidence) {
+        const pathname = path.resolve(manifestDirectory, path.normalize(item.path));
+        if (!isWithin(manifestDirectory, pathname)) {
+          throw new Error(`${key}: repair evidence escapes the manifest directory`);
+        }
+        await requireRegularNonSymlink(pathname, `${key} repair evidence ${item.path}`);
+        const resolvedEvidencePath = await realpath(pathname);
+        if (resolvedEvidencePath !== pathname || !isWithin(manifestDirectory, resolvedEvidencePath)) {
+          throw new Error(`${key}: repair evidence must not traverse a symbolic link`);
+        }
+        const actualSha256 = await sha256File(pathname);
+        if (actualSha256 !== item.sha256) {
+          throw new Error(`${key}: repair evidence hash mismatch for ${item.path}`);
+        }
+        const previous = evidenceByPath.get(item.path);
+        if (previous && previous.sha256 !== item.sha256) {
+          throw new Error(`repair evidence path is reused with conflicting hashes: ${item.path}`);
+        }
+        const record = {
+          kind: item.kind,
+          relative_path: item.path,
+          source_path: pathname,
+          sha256: item.sha256,
+        };
+        evidence.push(record);
+        if (!previous) evidenceByPath.set(item.path, record);
+      }
+      pages.set(key, { document, page, evidence });
+    }
+  }
+
+  const receiptPath = path.join(shardRoot, 'repair-receipts', `${manifest.repair_id}.json`);
+  const receiptSha256 = await verifySha256Sidecar(receiptPath, 'repair receipt');
+  const { value: receipt } = await readJsonWithRaw(receiptPath, 'repair receipt');
+  return {
+    manifestPath: resolvedPath,
+    manifest,
+    manifestSha256,
+    manifestDirectory,
+    pages,
+    evidence: [...evidenceByPath.values()].sort((left, right) => (
+      left.relative_path < right.relative_path ? -1 : left.relative_path > right.relative_path ? 1 : 0
+    )),
+    receiptPath,
+    receipt,
+    receiptSha256,
+  };
+}
+
+async function loadShard({ manifestPath, root, repairManifestPath }) {
+  const resolvedManifestPath = path.resolve(manifestPath);
+  const requestedRoot = path.resolve(root);
+  const rootInfo = await lstat(requestedRoot).catch((error) => {
+    if (error?.code === 'ENOENT') throw new Error(`shard root is missing: ${requestedRoot}`);
+    throw error;
+  });
+  if (!rootInfo.isDirectory() || rootInfo.isSymbolicLink()) {
+    throw new Error(`shard root must be a real directory: ${requestedRoot}`);
+  }
+  const resolvedRoot = await realpath(requestedRoot);
+  await requireRegularNonSymlink(resolvedManifestPath, 'shard manifest');
+  const { raw: manifestRaw, value: manifest } = await readJsonWithRaw(resolvedManifestPath, 'shard manifest');
+  validateRemoteOcrManifest(manifest);
+  const manifestSha256 = sha256(manifestRaw);
+  const identityPath = path.join(resolvedRoot, 'run-identity.json');
+  const runStatusPath = path.join(resolvedRoot, 'run-status.json');
+  await requireRegularNonSymlink(identityPath, 'run identity');
+  const [{ raw: identityRaw, value: identity }, runStatusSha256, repair] = await Promise.all([
+    readJsonWithRaw(identityPath, 'run identity'),
+    verifySha256Sidecar(runStatusPath, 'run status'),
+    loadRepairManifest(repairManifestPath, resolvedRoot),
+  ]);
+  validateRunIdentity(identity, manifest, manifestSha256);
+  const { value: runStatus } = await readJsonWithRaw(runStatusPath, 'run status');
+  validateRunStatus(runStatus, identity, manifest);
+  return {
+    manifestPath: resolvedManifestPath,
+    manifest,
+    manifestSha256,
+    root: resolvedRoot,
+    identity,
+    identitySha256: sha256(identityRaw),
+    runStatus,
+    runStatusSha256,
+    repair,
+  };
+}
+
+function validateShardUnion(parentManifest, shards) {
+  const parentDocuments = new Map(parentManifest.documents.map((document) => [document.id, document]));
+  const seenDocuments = new Map();
+  const seenSourcePaths = new Set();
+  const seenRoots = new Set();
+  let selectedPages = 0;
+  let selectedBytes = 0;
+  let runtimeFingerprintSha256 = null;
+
+  for (const shard of shards) {
+    if (seenRoots.has(shard.root)) throw new Error(`duplicate shard root: ${shard.root}`);
+    seenRoots.add(shard.root);
+    if (!sameJson(shard.manifest.runtime, parentManifest.runtime)) throw new Error('shard runtime differs from parent manifest');
+    if (!sameJson(shard.manifest.quality_policy, parentManifest.quality_policy)) {
+      throw new Error('shard quality policy differs from parent manifest');
+    }
+    if (!sameJson(shard.manifest.import_hard_gates, parentManifest.import_hard_gates)) {
+      throw new Error('shard import gates differ from parent manifest');
+    }
+    if (runtimeFingerprintSha256 === null) {
+      runtimeFingerprintSha256 = shard.identity.runtime_fingerprint_sha256;
+    } else if (runtimeFingerprintSha256 !== shard.identity.runtime_fingerprint_sha256) {
+      throw new Error('shard runtime fingerprints differ');
+    }
+    for (const document of shard.manifest.documents) {
+      if (seenDocuments.has(document.id)) throw new Error(`document appears in more than one shard: ${document.id}`);
+      const parentDocument = parentDocuments.get(document.id);
+      if (!parentDocument) throw new Error(`shard contains a document absent from parent manifest: ${document.id}`);
+      if (!sameJson(document, parentDocument)) throw new Error(`${document.id}: shard document differs from parent manifest`);
+      if (seenSourcePaths.has(document.source_path)) {
+        throw new Error(`source path appears in more than one shard: ${document.source_path}`);
+      }
+      seenSourcePaths.add(document.source_path);
+      seenDocuments.set(document.id, shard);
+      selectedPages += document.page_count;
+      selectedBytes += document.source_bytes;
+    }
+  }
+
+  const parentIds = [...parentDocuments.keys()].sort();
+  const unionIds = [...seenDocuments.keys()].sort();
+  if (!sameJson(unionIds, parentIds)) throw new Error('shard union does not exactly equal the parent manifest');
+  if (parentManifest.counts.selected_documents !== unionIds.length
+    || parentManifest.counts.selected_pages !== selectedPages
+    || parentManifest.counts.selected_source_bytes !== selectedBytes) {
+    throw new Error('parent manifest counts do not match the shard union');
+  }
+  return seenDocuments;
+}
+
+async function validateDocumentStatus(shard, document, validation) {
+  const progress = shard.runStatus.documents[document.id];
+  const statusPath = path.join(shard.root, 'status', `${document.id}.json`);
+  const statusSha256 = await verifySha256Sidecar(statusPath, `${document.id} status`);
+  if (progress.status_json_sha256 !== statusSha256) {
+    throw new Error(`${document.id}: run status does not reference the current document status`);
+  }
+  const { value: status } = await readJsonWithRaw(statusPath, `${document.id} status`);
+  requireObject(status, `${document.id} status`);
+  if (status.schema_version !== 1
+    || status.document_id !== document.id
+    || status.page_count !== document.page_count
+    || status.runtime_fingerprint_sha256 !== shard.identity.runtime_fingerprint_sha256) {
+    throw new Error(`${document.id}: document status identity mismatch`);
+  }
+  if (status.citation_allowed !== false) throw new Error(`${document.id}: document status citation_allowed must equal false`);
+  if (status.status !== progress.status) throw new Error(`${document.id}: document and run status disagree`);
+  if (status.status === 'complete') {
+    if (status.source_sha256 !== document.source_sha256 || status.whole_document_atomic !== true) {
+      throw new Error(`${document.id}: complete status source or atomicity mismatch`);
+    }
+    const artifacts = requireObject(status.artifacts, `${document.id} status artifacts`);
+    if (artifacts.state_sha256 !== validation.state_sha256
+      || artifacts.page_artifacts_sha256 !== validation.page_artifacts_sha256
+      || !sameJson(artifacts.page_artifacts, validation.page_artifacts)) {
+      throw new Error(`${document.id}: complete status artifacts differ from revalidated output`);
+    }
+  }
+  return { status, statusSha256 };
+}
+
+function repairProvenance(repair, baseFailure) {
+  return {
+    schema_version: 1,
+    repair_manifest_sha256: repair.manifestSha256,
+    repair_id: repair.manifest.repair_id,
+    method: repair.manifest.method,
+    base_failure: baseFailure,
+    citation_eligible: false,
+  };
+}
+
+function sameCoordinates(value, expected) {
+  return Array.isArray(value)
+    && value.length === expected.length
+    && value.every((coordinate, index) => coordinate === expected[index]);
+}
+
+async function validateNativePaddlePage({
+  document,
+  page,
+  statePage,
+  pageShape,
+  documentRoot,
+}) {
+  if (!pageShape?.markdownPath) {
+    throw new Error(`${document.id} page ${page}: native Paddle Markdown tree is missing`);
+  }
+  const pageRoot = path.join(documentRoot, 'pages', String(page).padStart(4, '0'));
+  const [{ raw: resultRaw, value: result }, contentText, markdownText] = await Promise.all([
+    readJsonWithRaw(path.join(pageRoot, 'result.json'), `${document.id} page ${page} Paddle result`),
+    readFile(path.join(pageRoot, 'content.md'), 'utf8'),
+    readFile(pageShape.markdownPath, 'utf8'),
+  ]);
+  requireObject(result, `${document.id} page ${page} Paddle result`);
+  if (Object.hasOwn(result, 'result_type') || Object.hasOwn(result, 'repair_provenance')) {
+    throw new Error(`${document.id} page ${page}: native Paddle result contains repair-only identity`);
+  }
+  requireObject(result.model_settings, `${document.id} page ${page} Paddle model_settings`);
+  if (!Array.isArray(result.parsing_res_list)) {
+    throw new Error(`${document.id} page ${page}: Paddle parsing_res_list must be an array`);
+  }
+  const layout = requireObject(result.layout_det_res, `${document.id} page ${page} Paddle layout_det_res`);
+  if (!Array.isArray(layout.boxes)) {
+    throw new Error(`${document.id} page ${page}: Paddle layout boxes must be an array`);
+  }
+  const contentSha256 = sha256(contentText);
+  if (markdownText !== contentText
+    || pageShape.markdownSha256 !== contentSha256
+    || statePage.content_markdown_sha256 !== contentSha256
+    || statePage.result_json_sha256 !== sha256(resultRaw)
+    || statePage.citation_eligible !== false) {
+    throw new Error(`${document.id} page ${page}: native Paddle Markdown mirror or state hash mismatch`);
+  }
+
+  const assetsByRelativePath = new Map(pageShape.assets.map((asset) => [asset.relativePath, asset]));
+  const referencedAssets = new Set();
+  const imageTagPattern = /<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/giu;
+  for (const match of markdownText.matchAll(imageTagPattern)) {
+    const relativePath = match[1];
+    if (!/^imgs\/[^/]+\.jpg$/u.test(relativePath) || !assetsByRelativePath.has(relativePath)) {
+      throw new Error(`${document.id} page ${page}: Markdown image reference is not a local validated Paddle asset`);
+    }
+    if (referencedAssets.has(relativePath)) {
+      throw new Error(`${document.id} page ${page}: Markdown references the same Paddle asset more than once`);
+    }
+    referencedAssets.add(relativePath);
+  }
+
+  for (const asset of pageShape.assets) {
+    const parsingBound = result.parsing_res_list.some((block) => (
+      block
+      && block.block_label === asset.blockLabel
+      && sameCoordinates(block.block_bbox, asset.bbox)
+    ));
+    const layoutBound = layout.boxes.some((box) => (
+      box
+      && box.label === asset.blockLabel
+      && sameCoordinates(box.coordinate, asset.bbox)
+    ));
+    if (!parsingBound && !layoutBound) {
+      throw new Error(`${document.id} page ${page}: Paddle Markdown asset is not bound to result geometry: ${asset.name}`);
+    }
+  }
+  return {
+    assetCount: pageShape.assets.length,
+    assetBytes: pageShape.assets.reduce((sum, asset) => sum + asset.bytes, 0),
+    markdownTreeSha256: pageShape.markdownTree.tree_sha256,
+  };
+}
+
+async function validateRepairPage({
+  shard,
+  document,
+  page,
+  statePage,
+  pageShape,
+  documentRoot,
+}) {
+  const provenance = requireObject(statePage.repair_provenance, `${document.id} page ${page} repair_provenance`);
+  if (!shard.repair) throw new Error(`${document.id} page ${page}: explicit --repair-manifest is missing`);
+  if (!baseFailureValid(provenance.base_failure)
+    || !sameJson(provenance, repairProvenance(shard.repair, provenance.base_failure))) {
+    throw new Error(`${document.id} page ${page}: repair provenance contract mismatch`);
+  }
+  const key = `${document.id}:${page}`;
+  const manifestRecord = shard.repair.pages.get(key);
+  if (!manifestRecord) throw new Error(`${document.id} page ${page}: repair manifest page entry is missing`);
+  const { document: repairDocument, page: repairPage } = manifestRecord;
+  if (repairDocument.source_sha256 !== document.source_sha256
+    || repairDocument.page_count !== document.page_count
+    || repairDocument.citation_allowed !== false
+    || repairPage.citation_eligible !== false
+    || repairPage.rendered_image_sha256 !== statePage.rendered_image_sha256) {
+    throw new Error(`${document.id} page ${page}: repair document, image, or citation identity mismatch`);
+  }
+  if (!pageShape?.markdownPath) {
+    throw new Error(`${document.id} page ${page}: repaired page Markdown mirror is missing`);
+  }
+  if (pageShape.assets.length !== 0 || pageShape.markdownTree.files !== 1) {
+    throw new Error(`${document.id} page ${page}: repaired page must not contain unbound Paddle Markdown assets`);
+  }
+  const pageRoot = path.join(documentRoot, 'pages', String(page).padStart(4, '0'));
+  const resultPath = path.join(pageRoot, 'result.json');
+  const contentPath = path.join(pageRoot, 'content.md');
+  const [{ raw: resultRaw, value: result }, contentText, markdownText] = await Promise.all([
+    readJsonWithRaw(resultPath, `${document.id} page ${page} repair result`),
+    readFile(contentPath, 'utf8'),
+    readFile(pageShape.markdownPath, 'utf8'),
+  ]);
+  const expectedResult = {
+    schema_version: 1,
+    result_type: 'curriculum_remote_ocr_page_repair',
+    document_id: document.id,
+    physical_pdf_page: page,
+    text: repairPage.final_text,
+    final_text_sha256: repairPage.final_text_sha256,
+    citation_eligible: false,
+    repair_provenance: provenance,
+  };
+  const resultSha256 = sha256(resultRaw);
+  const contentSha256 = sha256(contentText);
+  if (!sameJson(result, expectedResult)
+    || contentText !== repairPage.final_text
+    || markdownText !== repairPage.final_text
+    || contentSha256 !== repairPage.final_text_sha256
+    || statePage.result_json_sha256 !== resultSha256
+    || statePage.content_markdown_sha256 !== contentSha256
+    || statePage.citation_eligible !== false) {
+    throw new Error(`${document.id} page ${page}: repaired artifacts conflict with the repair manifest`);
+  }
+  return {
+    key,
+    documentId: document.id,
+    page,
+    renderedImageSha256: repairPage.rendered_image_sha256,
+    finalTextSha256: repairPage.final_text_sha256,
+    resultJsonSha256: resultSha256,
+    contentMarkdownSha256: contentSha256,
+  };
+}
+
+function validateRepairReceipt(shard, documents, repairReferences) {
+  if (!shard.repair) {
+    if (repairReferences.size !== 0) throw new Error('repaired state pages exist without an explicit repair manifest');
+    return;
+  }
+  const { manifest, manifestSha256, receipt } = shard.repair;
+  requireObject(receipt, 'repair receipt');
+  if (receipt.schema_version !== 1
+    || receipt.receipt_type !== repairReceiptType
+    || receipt.repair_id !== manifest.repair_id
+    || receipt.repair_manifest_sha256 !== manifestSha256
+    || receipt.method !== manifest.method
+    || receipt.citation_allowed !== false
+    || receipt.status !== 'applied'
+    || typeof receipt.applied_at !== 'string'
+    || !Number.isFinite(Date.parse(receipt.applied_at))
+    || !Array.isArray(receipt.documents)) {
+    throw new Error('repair receipt identity conflicts with the explicit repair manifest');
+  }
+  const documentItems = new Map(documents.map((item) => [item.document.id, item]));
+  const expectedDocumentIds = manifest.documents.map((document) => document.document_id).sort();
+  const receiptDocumentIds = receipt.documents.map((document) => document?.document_id).sort();
+  if (new Set(receiptDocumentIds).size !== receiptDocumentIds.length
+    || !sameJson(receiptDocumentIds, expectedDocumentIds)) {
+    throw new Error('repair receipt document set differs from the repair manifest');
+  }
+  for (const repairDocument of manifest.documents) {
+    const item = documentItems.get(repairDocument.document_id);
+    const receiptDocument = receipt.documents.find((entry) => entry.document_id === repairDocument.document_id);
+    if (!item
+      || !receiptDocument
+      || receiptDocument.source_sha256 !== repairDocument.source_sha256
+      || receiptDocument.page_count !== repairDocument.page_count
+      || receiptDocument.state_after_sha256 !== item.validation.state_sha256
+      || !sha256Pattern.test(String(receiptDocument.state_before_sha256 || ''))
+      || !Array.isArray(receiptDocument.pages)) {
+      throw new Error(`${repairDocument.document_id}: repair receipt state or document identity mismatch`);
+    }
+    const expectedPageNumbers = repairDocument.pages.map((page) => page.physical_pdf_page).sort((left, right) => left - right);
+    const receiptPageNumbers = receiptDocument.pages.map((page) => page?.physical_pdf_page).sort((left, right) => left - right);
+    if (new Set(receiptPageNumbers).size !== receiptPageNumbers.length
+      || !sameJson(receiptPageNumbers, expectedPageNumbers)) {
+      throw new Error(`${repairDocument.document_id}: repair receipt page set differs from the repair manifest`);
+    }
+    for (const repairPage of repairDocument.pages) {
+      const key = `${repairDocument.document_id}:${repairPage.physical_pdf_page}`;
+      const reference = repairReferences.get(key);
+      const receiptPage = receiptDocument.pages.find(
+        (entry) => entry.physical_pdf_page === repairPage.physical_pdf_page,
+      );
+      if (!reference
+        || !receiptPage
+        || receiptPage.rendered_image_sha256 !== reference.renderedImageSha256
+        || receiptPage.final_text_sha256 !== reference.finalTextSha256
+        || receiptPage.result_json_sha256 !== reference.resultJsonSha256
+        || receiptPage.content_markdown_sha256 !== reference.contentMarkdownSha256
+        || receiptPage.citation_eligible !== false) {
+        throw new Error(`${key}: repair receipt artifact checksum mismatch`);
+      }
+    }
+  }
+}
+
+async function joinedDocumentText(documentRoot, document) {
+  const parts = [];
+  for (let page = 1; page <= document.page_count; page += 1) {
+    if (page > 1) parts.push(Buffer.from('\f'));
+    parts.push(await readFile(path.join(documentRoot, 'pages', String(page).padStart(4, '0'), 'content.md')));
+  }
+  return Buffer.concat(parts);
+}
+
+async function validateShardDocuments(shard, projectRoot, python, dependencies) {
+  const documents = [];
+  const repairReferences = new Map();
+  for (const document of shard.manifest.documents) {
+    const source = await preflightDocument(document, {
+      inputRoot: projectRoot,
+      python,
+      ...(dependencies.pageCounter ? { pageCounter: dependencies.pageCounter } : {}),
+    });
+    const documentRoot = path.join(shard.root, 'documents', document.id);
+    const pageShapes = await validateDocumentTreeShape(documentRoot, document.page_count);
+    const validation = await validateOcrDocumentOutput(
+      document,
+      documentRoot,
+      shard.manifest.runtime,
+      {
+        requireComplete: true,
+        workerConfiguration: shard.identity.worker_configuration,
+      },
+    );
+    const { status, statusSha256 } = await validateDocumentStatus(shard, document, validation);
+    const { value: state } = await readJsonWithRaw(path.join(documentRoot, 'state.json'), `${document.id} OCR state`);
+    let repairPageCount = 0;
+    let nativeAssetCount = 0;
+    let nativeAssetBytes = 0;
+    const nativeMarkdownTrees = [];
+    for (let page = 1; page <= document.page_count; page += 1) {
+      const statePage = state.pages[String(page)];
+      const pageShape = pageShapes.get(page);
+      if (!statePage?.repair_provenance) {
+        const native = await validateNativePaddlePage({
+          document,
+          page,
+          statePage,
+          pageShape,
+          documentRoot,
+        });
+        nativeAssetCount += native.assetCount;
+        nativeAssetBytes += native.assetBytes;
+        nativeMarkdownTrees.push({
+          physical_pdf_page: page,
+          markdown_tree_sha256: native.markdownTreeSha256,
+          asset_count: native.assetCount,
+          asset_bytes: native.assetBytes,
+        });
+        continue;
+      }
+      const reference = await validateRepairPage({
+        shard,
+        document,
+        page,
+        statePage,
+        pageShape,
+        documentRoot,
+      });
+      repairReferences.set(reference.key, reference);
+      repairPageCount += 1;
+    }
+    if (status.status === 'quarantined' && repairPageCount === 0) {
+      throw new Error(`${document.id}: quarantined document has no independently adjudicated repair pages`);
+    }
+    const [sourceTree, text] = await Promise.all([
+      inspectTree(documentRoot),
+      joinedDocumentText(documentRoot, document),
+    ]);
+    documents.push({
+      document,
+      shard,
+      documentRoot,
+      source,
+      validation,
+      status: status.status,
+      statusSha256,
+      sourceTree,
+      text,
+      textSha256: sha256(text),
+      repairPageCount,
+      nativeAssetCount,
+      nativeAssetBytes,
+      nativeMarkdownTreesSha256: sha256(`${JSON.stringify(nativeMarkdownTrees)}\n`),
+    });
+  }
+  const manifestRepairPages = new Set(shard.repair ? shard.repair.pages.keys() : []);
+  if (!sameJson([...repairReferences.keys()].sort(), [...manifestRepairPages].sort())) {
+    throw new Error(`repair manifest page set does not exactly match repaired state pages in ${shard.root}`);
+  }
+  validateRepairReceipt(shard, documents, repairReferences);
+  return documents;
+}
+
+function sourceShardFingerprint(shard) {
+  return {
+    root: shard.root,
+    manifest_sha256: shard.manifestSha256,
+    run_identity_sha256: shard.identitySha256,
+    run_status_sha256: shard.runStatusSha256,
+    runtime_fingerprint_sha256: shard.identity.runtime_fingerprint_sha256,
+    repair_manifest_sha256: shard.repair?.manifestSha256 || null,
+    repair_receipt_sha256: shard.repair?.receiptSha256 || null,
+  };
+}
+
+async function findIdempotentReceipt(normalized, parentManifestSha256, shards, documents) {
+  const receiptRootInfo = await lstatIfPresent(normalized.receiptRoot);
+  if (!receiptRootInfo) return null;
+  if (!receiptRootInfo.isDirectory() || receiptRootInfo.isSymbolicLink()) {
+    throw new Error(`remote OCR receipt root is not a real directory: ${normalized.receiptRoot}`);
+  }
+  const expectedShardFingerprints = shards
+    .map(sourceShardFingerprint)
+    .sort((left, right) => left.root < right.root ? -1 : left.root > right.root ? 1 : 0);
+  const candidates = [];
+  const entries = await readdir(normalized.receiptRoot, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+    const receiptPath = path.join(normalized.receiptRoot, entry.name, 'receipt.json');
+    if (!(await exists(receiptPath))) continue;
+    let receipt;
+    try {
+      ({ value: receipt } = await readJsonWithRaw(receiptPath, 'receiver receipt'));
+    } catch {
+      continue;
+    }
+    if (receipt?.parent_manifest_sha256 !== parentManifestSha256 || receipt.status !== 'applied') continue;
+    await verifySha256Sidecar(receiptPath, 'receiver receipt');
+    if (receipt.destination?.production_root !== normalized.productionRoot
+      || receipt.destination?.text_root !== normalized.textRoot
+      || receipt.destination?.supervisor_root !== normalized.supervisorRoot
+      || receipt.destination?.receipt_root !== normalized.receiptRoot) {
+      continue;
+    }
+    if (receipt.schema_version !== 1
+      || receipt.receipt_type !== 'curriculum_remote_ocr_whole_document_atomic_receive'
+      || receipt.citation_allowed !== false
+      || receipt.dry_run !== false
+      || !Array.isArray(receipt.source_shards)
+      || !Array.isArray(receipt.documents)) {
+      throw new Error(`matching receiver receipt is invalid: ${receiptPath}`);
+    }
+    await verifyRetryLedgerReceiptState(receipt);
+    const actualShardFingerprints = receipt.source_shards
+      .map((shard) => ({
+        root: shard.root,
+        manifest_sha256: shard.manifest_sha256,
+        run_identity_sha256: shard.run_identity_sha256,
+        run_status_sha256: shard.run_status_sha256,
+        runtime_fingerprint_sha256: shard.runtime_fingerprint_sha256,
+        repair_manifest_sha256: shard.repair_manifest_sha256 || null,
+        repair_receipt_sha256: shard.repair_receipt_sha256 || null,
+      }))
+      .sort((left, right) => left.root < right.root ? -1 : left.root > right.root ? 1 : 0);
+    if (!sameJson(actualShardFingerprints, expectedShardFingerprints)) {
+      throw new Error('matching receiver receipt source shard fingerprints differ from current staging');
+    }
+    const expectedDocumentIds = documents.map((item) => item.document.id).sort();
+    const receiptDocumentIds = receipt.documents.map((item) => item?.document_id).sort();
+    if (new Set(receiptDocumentIds).size !== receiptDocumentIds.length
+      || !sameJson(receiptDocumentIds, expectedDocumentIds)) {
+      throw new Error('matching receiver receipt document set differs from current staging');
+    }
+    for (const item of documents) {
+      const receiptDocument = receipt.documents.find((entryValue) => entryValue.document_id === item.document.id);
+      const replacingExistingDocument = item.document.planning_snapshot?.mode === LOCAL_REPROCESS_SNAPSHOT_MODE;
+      const targetDocumentPath = path.join(normalized.productionRoot, item.document.id);
+      const targetTextPath = path.join(normalized.textRoot, `${item.document.id}.txt`);
+      if (!receiptDocument
+        || receiptDocument.source_document_tree_sha256 !== item.sourceTree.tree_sha256
+        || receiptDocument.source_state_sha256 !== item.validation.state_sha256
+        || receiptDocument.source_page_artifacts_sha256 !== item.validation.page_artifacts_sha256
+        || receiptDocument.source_native_markdown_trees_sha256 !== item.nativeMarkdownTreesSha256
+        || receiptDocument.source_native_markdown_asset_count !== item.nativeAssetCount
+        || receiptDocument.source_native_markdown_asset_bytes !== item.nativeAssetBytes
+        || receiptDocument.target_document_path !== targetDocumentPath
+        || receiptDocument.target_document_tree_sha256 !== item.sourceTree.tree_sha256
+        || receiptDocument.target_text_path !== targetTextPath
+        || receiptDocument.target_text_sha256 !== item.textSha256
+        || receiptDocument.repair_pages !== item.repairPageCount
+        || receiptDocument.citation_allowed !== false
+        || receiptDocument.replacement_mode !== (
+          replacingExistingDocument
+            ? LOCAL_REPROCESS_SNAPSHOT_MODE
+            : 'install_into_absent_destination'
+        )
+        || receiptDocument.planned_local_snapshot_sha256 !== (
+          replacingExistingDocument
+            ? item.document.planning_snapshot.snapshot_sha256
+            : null
+        )) {
+        throw new Error(`${item.document.id}: matching receiver receipt differs from current staging`);
+      }
+      if (replacingExistingDocument) {
+        const previousDocument = requireObject(
+          receiptDocument.previous_document,
+          `${item.document.id} receipt previous_document`,
+        );
+        if (previousDocument.existed !== true
+          || previousDocument.tree_sha256 !== item.document.planning_snapshot.document_tree.tree_sha256
+          || previousDocument.files !== item.document.planning_snapshot.document_tree.files
+          || previousDocument.bytes !== item.document.planning_snapshot.document_tree.bytes
+          || typeof previousDocument.backup_path !== 'string') {
+          throw new Error(`${item.document.id}: matching receiver receipt original document snapshot differs`);
+        }
+        const backupTree = await inspectTree(previousDocument.backup_path);
+        if (!sameJson(backupTree, item.document.planning_snapshot.document_tree)) {
+          throw new Error(`${item.document.id}: preserved original document backup differs from the planning snapshot`);
+        }
+      } else if (receiptDocument.previous_document?.existed !== false) {
+        throw new Error(`${item.document.id}: matching receiver receipt unexpectedly records an original document`);
+      }
+      const expectedPreviousText = replacingExistingDocument
+        ? {
+            existed: item.document.planning_snapshot.text.exists,
+            sha256: item.document.planning_snapshot.text.sha256,
+            bytes: item.document.planning_snapshot.text.bytes,
+          }
+        : receiptDocument.previous_text;
+      if (receiptDocument.previous_text?.existed !== expectedPreviousText.existed
+        || receiptDocument.previous_text?.sha256 !== expectedPreviousText.sha256
+        || receiptDocument.previous_text?.bytes !== expectedPreviousText.bytes) {
+        throw new Error(`${item.document.id}: matching receiver receipt original text snapshot differs`);
+      }
+      if (receiptDocument.previous_text.existed) {
+        const backupInfo = await lstatIfPresent(receiptDocument.previous_text.backup_path);
+        if (!backupInfo || !backupInfo.isFile() || backupInfo.isSymbolicLink()
+          || backupInfo.size !== receiptDocument.previous_text.bytes
+          || await sha256File(receiptDocument.previous_text.backup_path) !== receiptDocument.previous_text.sha256) {
+          throw new Error(`${item.document.id}: preserved original text backup differs from the planning snapshot`);
+        }
+      }
+      const textInfo = await lstatIfPresent(targetTextPath);
+      if (!textInfo || !textInfo.isFile() || textInfo.isSymbolicLink()) {
+        throw new Error(`${item.document.id}: idempotent target text is missing or invalid`);
+      }
+      const [targetTree, targetTextSha256] = await Promise.all([
+        inspectTree(targetDocumentPath),
+        sha256File(targetTextPath),
+      ]);
+      if (targetTree.tree_sha256 !== item.sourceTree.tree_sha256 || targetTextSha256 !== item.textSha256) {
+        throw new Error(`${item.document.id}: idempotent target hashes differ from the applied receipt`);
+      }
+    }
+    candidates.push({ ...receipt, receipt_path: receiptPath });
+  }
+  if (candidates.length > 1) {
+    throw new Error('multiple applied receiver receipts match the same parent manifest and destination');
+  }
+  return candidates[0] || null;
+}
+
+async function readJsonIfPresent(pathname) {
+  if (!(await exists(pathname))) return {};
+  const { value } = await readJsonWithRaw(pathname);
+  return requireObject(value, pathname);
+}
+
+async function inspectLocalPreconditions(documents, roots, expectedSnapshots = null) {
+  for (const lockName of ['lock', 'drain-lock']) {
+    if (await lstatIfPresent(path.join(roots.supervisorRoot, lockName))) {
+      throw new Error(`local OCR ${lockName} is active; remote receipt cannot race an OCR owner`);
+    }
+  }
+  const watchdogControlPath = path.join(roots.supervisorRoot, 'watchdog-control.json');
+  const watchdogControl = await readJsonIfPresent(watchdogControlPath);
+  const supervisorSnapshot = {
+    ocr_lock_absent: true,
+    drain_lock_absent: true,
+    watchdog_mode: Object.keys(watchdogControl).length ? watchdogControl.mode : 'absent',
+  };
+  if (!['absent', 'hold'].includes(supervisorSnapshot.watchdog_mode)) {
+    throw new Error(`local OCR watchdog must be held before remote receipt; current mode=${supervisorSnapshot.watchdog_mode}`);
+  }
+  if (expectedSnapshots?.supervisor && !sameJson(supervisorSnapshot, expectedSnapshots.supervisor)) {
+    throw new Error('local OCR ownership state changed after receipt planning');
+  }
+  const [documentRetries, pageRetries] = await Promise.all([
+    readJsonIfPresent(path.join(roots.supervisorRoot, 'retries.json')),
+    readJsonIfPresent(path.join(roots.supervisorRoot, 'page-retries.json')),
+  ]);
+  const snapshots = new Map();
+  for (const item of documents) {
+    const { id } = item.document;
+    const replacementMode = item.document.planning_snapshot?.mode === LOCAL_REPROCESS_SNAPSHOT_MODE;
+    const productionPath = path.join(roots.productionRoot, id);
+    const productionInfo = await lstatIfPresent(productionPath);
+    const textPath = path.join(roots.textRoot, `${id}.txt`);
+    if (replacementMode) {
+      if (!productionInfo || !productionInfo.isDirectory() || productionInfo.isSymbolicLink()) {
+        throw new Error(`${id}: snapshotted local production document is missing or is not a real directory`);
+      }
+      const current = await captureLocalReprocessSnapshot({
+        document: item.document,
+        documentRoot: productionPath,
+        textPath,
+        documentRetries,
+        pageRetries,
+      });
+      if (!sameJson(current, item.document.planning_snapshot)) {
+        throw new Error(`${id}: local reprocess snapshot changed after planning`);
+      }
+      const snapshot = {
+        mode: LOCAL_REPROCESS_SNAPSHOT_MODE,
+        production_absent: false,
+        retries_absent: current.retry_ledger.document.present === false
+          && current.retry_ledger.pages.count === 0,
+        planning_snapshot: current,
+        production: {
+          path: productionPath,
+          ...current.document_tree,
+        },
+        text: {
+          path: textPath,
+          ...current.text,
+        },
+      };
+      const expected = expectedSnapshots?.get(id);
+      if (expected && !sameJson(snapshot, expected)) {
+        throw new Error(`${id}: local destination changed after receipt planning`);
+      }
+      snapshots.set(id, snapshot);
+      continue;
+    }
+
+    if (productionInfo) {
+      if (productionInfo.isSymbolicLink()) throw new Error(`${id}: local production destination is a symbolic link`);
+      let completedPages = null;
+      const statePath = path.join(productionPath, 'state.json');
+      if (await exists(statePath)) {
+        const { value: state } = await readJsonWithRaw(statePath, `${id} local OCR state`);
+        completedPages = Array.isArray(state.completed_pages) ? state.completed_pages.length : null;
+      }
+      throw new Error(`${id}: local production destination already exists${completedPages === null ? '' : ` with ${completedPages} completed pages`}`);
+    }
+    if (documentRetries[id]) throw new Error(`${id}: local document retry record conflicts with remote receipt`);
+    const pageRetryKeys = Object.keys(pageRetries).filter((key) => key.startsWith(`${id}:`));
+    if (pageRetryKeys.length) throw new Error(`${id}: local page retry records conflict with remote receipt`);
+
+    let text = { exists: false, path: textPath, bytes: 0, sha256: null };
+    const info = await lstatIfPresent(textPath);
+    if (info) {
+      if (!info.isFile() || info.isSymbolicLink()) throw new Error(`${id}: local text destination is not a regular file`);
+      text = { exists: true, path: textPath, bytes: info.size, sha256: await sha256File(textPath) };
+    }
+    const snapshot = {
+      mode: 'require_absent',
+      production_absent: true,
+      retries_absent: true,
+      production: null,
+      text,
+    };
+    const expected = expectedSnapshots?.get(id);
+    if (expected && !sameJson(snapshot, expected)) throw new Error(`${id}: local destination changed after receipt planning`);
+    snapshots.set(id, snapshot);
+  }
+  const [currentDocumentRetries, currentPageRetries] = await Promise.all([
+    readJsonIfPresent(path.join(roots.supervisorRoot, 'retries.json')),
+    readJsonIfPresent(path.join(roots.supervisorRoot, 'page-retries.json')),
+  ]);
+  if (!sameJson(currentDocumentRetries, documentRetries) || !sameJson(currentPageRetries, pageRetries)) {
+    throw new Error('local OCR retry ledger changed while receipt preconditions were inspected');
+  }
+  snapshots.supervisor = supervisorSnapshot;
+  return snapshots;
+}
+
+async function normalizeOptions(options) {
+  const projectRoot = await realpath(path.resolve(options.projectRoot || defaultProjectRoot));
+  const projectInfo = await stat(projectRoot);
+  if (!projectInfo.isDirectory()) throw new Error('--project-root must be a directory');
+  const resolveRoot = (value, fallback) => resolveWithNearestExistingParent(
+    path.resolve(projectRoot, value || fallback),
+  );
+  const [productionRoot, textRoot, supervisorRoot, receiptRoot] = await Promise.all([
+    resolveRoot(options.productionRoot, '.cache/ocr-production'),
+    resolveRoot(options.textRoot, '.cache/text'),
+    resolveRoot(options.supervisorRoot, '.cache/ocr-supervisor'),
+    resolveRoot(options.receiptRoot, '.cache/ocr-receipts'),
+  ]);
+  if (!options.manifest) throw new Error('--manifest is required');
+  if (!Array.isArray(options.shards) || options.shards.length === 0) {
+    throw new Error('at least one --shard-manifest/--shard-root pair is required');
+  }
+  const normalized = {
+    manifest: path.resolve(options.manifest),
+    shards: options.shards.map((shard) => ({
+      manifestPath: path.resolve(shard.manifestPath),
+      root: path.resolve(shard.root),
+      repairManifestPath: shard.repairManifestPath ? path.resolve(shard.repairManifestPath) : null,
+    })),
+    projectRoot,
+    productionRoot,
+    textRoot,
+    supervisorRoot,
+    receiptRoot,
+    python: path.resolve(options.python || '/Users/ylsuen/.venv/bin/python'),
+    apply: options.apply === true,
+  };
+  const destinationRoots = [
+    ['productionRoot', normalized.productionRoot],
+    ['textRoot', normalized.textRoot],
+    ['supervisorRoot', normalized.supervisorRoot],
+    ['receiptRoot', normalized.receiptRoot],
+  ];
+  for (const [name, root] of destinationRoots) {
+    if (!isWithin(projectRoot, root)) throw new Error(`${name} must remain inside --project-root`);
+  }
+  for (let leftIndex = 0; leftIndex < destinationRoots.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < destinationRoots.length; rightIndex += 1) {
+      const [leftName, leftRoot] = destinationRoots[leftIndex];
+      const [rightName, rightRoot] = destinationRoots[rightIndex];
+      if (isWithin(leftRoot, rightRoot) || isWithin(rightRoot, leftRoot)) {
+        throw new Error(`${leftName} and ${rightName} must not overlap`);
+      }
+    }
+  }
+  return normalized;
+}
+
+async function prepareReceiptPlan(options, dependencies = {}) {
+  const normalized = await normalizeOptions(options);
+  await requireRegularNonSymlink(normalized.manifest, 'parent manifest');
+  const { raw: parentRaw, value: parentManifest } = await readJsonWithRaw(normalized.manifest, 'parent manifest');
+  validateRemoteOcrManifest(parentManifest);
+  const parentManifestSha256 = sha256(parentRaw);
+  const shards = [];
+  for (const shardOption of normalized.shards) shards.push(await loadShard(shardOption));
+  validateShardUnion(parentManifest, shards);
+
+  const documents = [];
+  for (const shard of shards) {
+    documents.push(...await validateShardDocuments(
+      shard,
+      normalized.projectRoot,
+      normalized.python,
+      dependencies,
+    ));
+  }
+  documents.sort((left, right) => left.document.id < right.document.id ? -1 : left.document.id > right.document.id ? 1 : 0);
+  const idempotentReceipt = await findIdempotentReceipt(
+    normalized,
+    parentManifestSha256,
+    shards,
+    documents,
+  );
+  if (idempotentReceipt) {
+    return {
+      normalized,
+      parentManifest,
+      parentManifestSha256,
+      shards,
+      documents,
+      idempotentReceipt,
+      localSnapshots: null,
+    };
+  }
+  const localSnapshots = await inspectLocalPreconditions(documents, normalized);
+  return {
+    normalized,
+    parentManifest,
+    parentManifestSha256,
+    shards,
+    documents,
+    idempotentReceipt: null,
+    localSnapshots,
+  };
+}
+
+function receiptDocument(item, localSnapshot, roots, receiptDirectory) {
+  const destinationDocument = path.join(roots.productionRoot, item.document.id);
+  const destinationText = path.join(roots.textRoot, `${item.document.id}.txt`);
+  const replacingExistingDocument = localSnapshot.mode === LOCAL_REPROCESS_SNAPSHOT_MODE;
+  const previousDocumentBackup = replacingExistingDocument
+    ? path.join(receiptDirectory, 'backups', 'production', item.document.id)
+    : null;
+  const previousTextBackup = localSnapshot.text.exists
+    ? path.join(receiptDirectory, 'backups', 'text', `${item.document.id}.txt`)
+    : null;
+  return {
+    document_id: item.document.id,
+    page_count: item.document.page_count,
+    source_shard_root: item.shard.root,
+    source_shard_manifest_sha256: item.shard.manifestSha256,
+    source_run_identity_sha256: item.shard.identitySha256,
+    source_run_status_sha256: item.shard.runStatusSha256,
+    source_document_status: item.status,
+    source_document_status_sha256: item.statusSha256,
+    source_pdf_sha256: item.document.source_sha256,
+    source_document_tree_sha256: item.sourceTree.tree_sha256,
+    source_document_tree_files: item.sourceTree.files,
+    source_document_tree_bytes: item.sourceTree.bytes,
+    source_state_sha256: item.validation.state_sha256,
+    source_page_artifacts_sha256: item.validation.page_artifacts_sha256,
+    source_native_markdown_trees_sha256: item.nativeMarkdownTreesSha256,
+    source_native_markdown_asset_count: item.nativeAssetCount,
+    source_native_markdown_asset_bytes: item.nativeAssetBytes,
+    repair_pages: item.repairPageCount,
+    citation_allowed: false,
+    target_document_path: destinationDocument,
+    target_document_tree_sha256: item.sourceTree.tree_sha256,
+    target_text_path: destinationText,
+    target_text_sha256: item.textSha256,
+    target_text_bytes: item.text.length,
+    replacement_mode: replacingExistingDocument
+      ? LOCAL_REPROCESS_SNAPSHOT_MODE
+      : 'install_into_absent_destination',
+    planned_local_snapshot_sha256: replacingExistingDocument
+      ? localSnapshot.planning_snapshot.snapshot_sha256
+      : null,
+    previous_document: {
+      existed: replacingExistingDocument,
+      tree_sha256: localSnapshot.production?.tree_sha256 || null,
+      files: localSnapshot.production?.files || 0,
+      bytes: localSnapshot.production?.bytes || 0,
+      backup_path: previousDocumentBackup,
+    },
+    previous_text: {
+      existed: localSnapshot.text.exists,
+      sha256: localSnapshot.text.sha256,
+      bytes: localSnapshot.text.bytes,
+      backup_path: previousTextBackup,
+    },
+    rollback: {
+      verify_target_document_tree_sha256: item.sourceTree.tree_sha256,
+      document_action: replacingExistingDocument ? 'restore_verified_backup' : 'remove_new_tree',
+      restore_document_from: previousDocumentBackup,
+      restore_document_tree_sha256: localSnapshot.production?.tree_sha256 || null,
+      target_document_path: destinationDocument,
+      verify_target_text_sha256: item.textSha256,
+      text_action: localSnapshot.text.exists ? 'restore_verified_backup' : 'remove_new_file',
+      restore_text_from: previousTextBackup,
+      restore_text_sha256: localSnapshot.text.sha256,
+    },
+  };
+}
+
+async function acquireReceiverLock(receiptRoot, token) {
+  await mkdir(receiptRoot, { recursive: true, mode: 0o700 });
+  const lockPath = path.join(receiptRoot, '.receiver.lock');
+  const handle = await open(lockPath, 'wx', 0o600).catch((error) => {
+    if (error?.code === 'EEXIST') throw new Error(`remote OCR receiver lock already exists: ${lockPath}`);
+    throw error;
+  });
+  try {
+    await handle.writeFile(`${JSON.stringify({ pid: process.pid, token, started_at: new Date().toISOString() })}\n`);
+    await handle.sync();
+  } catch (error) {
+    await handle.close().catch(() => {});
+    await rm(lockPath, { force: true }).catch(() => {});
+    throw error;
+  }
+  return async () => {
+    let owned = false;
+    try {
+      const current = JSON.parse(await readFile(lockPath, 'utf8'));
+      owned = current.token === token;
+    } catch {}
+    await handle.close().catch(() => {});
+    if (owned) await rm(lockPath, { force: true }).catch(() => {});
+  };
+}
+
+async function copyVerifiedEvidence(source, destination, expectedSha256, label) {
+  await mkdir(path.dirname(destination), { recursive: true, mode: 0o700 });
+  await copyFile(source, destination, fsConstants.COPYFILE_EXCL);
+  const copiedSha256 = await sha256File(destination);
+  if (copiedSha256 !== expectedSha256) throw new Error(`${label} changed while receipt evidence was copied`);
+  return { path: destination, sha256: copiedSha256 };
+}
+
+async function archiveSourceEvidence(plan, receiptDirectory) {
+  const evidenceRoot = path.join(receiptDirectory, 'source-evidence');
+  const parent = await copyVerifiedEvidence(
+    plan.normalized.manifest,
+    path.join(evidenceRoot, 'parent-manifest.json'),
+    plan.parentManifestSha256,
+    'parent manifest',
+  );
+  const shards = [];
+  for (let index = 0; index < plan.shards.length; index += 1) {
+    const shard = plan.shards[index];
+    const shardRoot = path.join(evidenceRoot, `shard-${String(index + 1).padStart(2, '0')}`);
+    const manifest = await copyVerifiedEvidence(
+      shard.manifestPath,
+      path.join(shardRoot, 'manifest.json'),
+      shard.manifestSha256,
+      `shard ${index + 1} manifest`,
+    );
+    const identity = await copyVerifiedEvidence(
+      path.join(shard.root, 'run-identity.json'),
+      path.join(shardRoot, 'run-identity.json'),
+      shard.identitySha256,
+      `shard ${index + 1} run identity`,
+    );
+    const runStatus = await copyVerifiedEvidence(
+      path.join(shard.root, 'run-status.json'),
+      path.join(shardRoot, 'run-status.json'),
+      shard.runStatusSha256,
+      `shard ${index + 1} run status`,
+    );
+    await copyFile(
+      path.join(shard.root, 'run-status.json.sha256'),
+      path.join(shardRoot, 'run-status.json.sha256'),
+      fsConstants.COPYFILE_EXCL,
+    );
+    await verifySha256Sidecar(path.join(shardRoot, 'run-status.json'), `archived shard ${index + 1} run status`);
+    let repairEvidence = null;
+    if (shard.repair) {
+      const repairRoot = path.join(shardRoot, 'repair-source');
+      const repairManifest = await copyVerifiedEvidence(
+        shard.repair.manifestPath,
+        path.join(repairRoot, 'repair-manifest.json'),
+        shard.repair.manifestSha256,
+        `shard ${index + 1} repair manifest`,
+      );
+      await atomicWrite(
+        `${repairManifest.path}.sha256`,
+        `${repairManifest.sha256}  ${path.basename(repairManifest.path)}\n`,
+      );
+      await verifySha256Sidecar(repairManifest.path, `archived shard ${index + 1} repair manifest`);
+      const evidence = [];
+      for (const item of shard.repair.evidence) {
+        const archived = await copyVerifiedEvidence(
+          item.source_path,
+          path.join(repairRoot, 'evidence', item.relative_path),
+          item.sha256,
+          `shard ${index + 1} repair evidence ${item.relative_path}`,
+        );
+        evidence.push({
+          kind: item.kind,
+          source_relative_path: item.relative_path,
+          ...archived,
+        });
+      }
+      const repairReceipt = await copyVerifiedEvidence(
+        shard.repair.receiptPath,
+        path.join(repairRoot, 'repair-receipt.json'),
+        shard.repair.receiptSha256,
+        `shard ${index + 1} repair receipt`,
+      );
+      await atomicWrite(
+        `${repairReceipt.path}.sha256`,
+        `${repairReceipt.sha256}  ${path.basename(repairReceipt.path)}\n`,
+      );
+      await verifySha256Sidecar(repairReceipt.path, `archived shard ${index + 1} repair receipt`);
+      repairEvidence = {
+        manifest: repairManifest,
+        receipt: repairReceipt,
+        evidence,
+      };
+    }
+    const statuses = [];
+    for (const item of plan.documents.filter((document) => document.shard === shard)) {
+      const sourceStatus = path.join(shard.root, 'status', `${item.document.id}.json`);
+      const destinationStatus = path.join(shardRoot, 'status', `${item.document.id}.json`);
+      statuses.push({
+        document_id: item.document.id,
+        ...await copyVerifiedEvidence(
+          sourceStatus,
+          destinationStatus,
+          item.statusSha256,
+          `${item.document.id} document status`,
+        ),
+      });
+      await copyFile(
+        `${sourceStatus}.sha256`,
+        `${destinationStatus}.sha256`,
+        fsConstants.COPYFILE_EXCL,
+      );
+      await verifySha256Sidecar(destinationStatus, `archived ${item.document.id} document status`);
+    }
+    shards.push({
+      source_root: shard.root,
+      manifest,
+      run_identity: identity,
+      run_status: runStatus,
+      repair: repairEvidence,
+      statuses,
+    });
+  }
+  return { parent_manifest: parent, shards };
+}
+
+async function readLedgerSnapshot(pathname, label) {
+  const info = await lstatIfPresent(pathname);
+  if (!info) {
+    return {
+      path: pathname,
+      exists: false,
+      bytes: 0,
+      sha256: null,
+      raw: null,
+      value: {},
+    };
+  }
+  if (!info.isFile() || info.isSymbolicLink()) {
+    throw new Error(`${label} must be a regular non-symlink file`);
+  }
+  const { raw, value } = await readJsonWithRaw(pathname, label);
+  requireObject(value, label);
+  return {
+    path: pathname,
+    exists: true,
+    bytes: info.size,
+    sha256: sha256(raw),
+    raw,
+    value,
+  };
+}
+
+async function prepareRetryLedgerTransaction(plan, receiptDirectory, token) {
+  const replacementIds = new Set(
+    plan.documents
+      .filter((item) => item.document.planning_snapshot?.mode === LOCAL_REPROCESS_SNAPSHOT_MODE)
+      .map((item) => item.document.id),
+  );
+  if (replacementIds.size === 0) return null;
+  await mkdir(plan.normalized.supervisorRoot, { recursive: true, mode: 0o700 });
+  const specifications = [
+    {
+      name: 'document_retries',
+      fileName: 'retries.json',
+      filter: (key) => !replacementIds.has(key),
+    },
+    {
+      name: 'page_retries',
+      fileName: 'page-retries.json',
+      filter: (key) => ![...replacementIds].some((documentId) => key.startsWith(`${documentId}:`)),
+    },
+  ];
+  const ledgers = [];
+  for (const specification of specifications) {
+    const pathname = path.join(plan.normalized.supervisorRoot, specification.fileName);
+    const before = await readLedgerSnapshot(pathname, specification.name);
+    const afterValue = Object.fromEntries(
+      Object.entries(before.value).filter(([key]) => specification.filter(key)),
+    );
+    const changed = !sameJson(afterValue, before.value);
+    const afterRaw = changed
+      ? Buffer.from(`${JSON.stringify(afterValue, null, 2)}\n`)
+      : before.raw;
+    const stagePath = changed
+      ? path.join(plan.normalized.supervisorRoot, `.receive-${specification.fileName}-${token}`)
+      : null;
+    const backupPath = changed && before.exists
+      ? path.join(receiptDirectory, 'backups', 'supervisor', specification.fileName)
+      : null;
+    if (changed) {
+      await writeFile(stagePath, afterRaw, { flag: 'wx', mode: 0o600 });
+      if (backupPath) {
+        await mkdir(path.dirname(backupPath), { recursive: true, mode: 0o700 });
+        await copyFile(pathname, backupPath, fsConstants.COPYFILE_EXCL);
+        if (await sha256File(backupPath) !== before.sha256) {
+          throw new Error(`${specification.name} backup hash mismatch`);
+        }
+      }
+    }
+    ledgers.push({
+      name: specification.name,
+      path: pathname,
+      changed,
+      stagePath,
+      committed: false,
+      before: {
+        exists: before.exists,
+        bytes: before.bytes,
+        sha256: before.sha256,
+        backup_path: backupPath,
+      },
+      after: {
+        exists: changed ? true : before.exists,
+        bytes: afterRaw?.length || 0,
+        sha256: afterRaw ? sha256(afterRaw) : null,
+      },
+    });
+  }
+  return { replacement_document_ids: [...replacementIds].sort(), ledgers };
+}
+
+async function commitRetryLedgerTransaction(transaction) {
+  if (!transaction) return;
+  for (const ledger of transaction.ledgers) {
+    if (!ledger.changed) continue;
+    await rename(ledger.stagePath, ledger.path);
+    ledger.committed = true;
+    const after = await readLedgerSnapshot(ledger.path, ledger.name);
+    if (after.exists !== ledger.after.exists
+      || after.bytes !== ledger.after.bytes
+      || after.sha256 !== ledger.after.sha256) {
+      throw new Error(`${ledger.name} committed hash mismatch`);
+    }
+  }
+}
+
+async function verifyRetryLedgerTransactionPreconditions(transaction) {
+  if (!transaction) return;
+  for (const ledger of transaction.ledgers) {
+    const current = await readLedgerSnapshot(ledger.path, ledger.name);
+    if (current.exists !== ledger.before.exists
+      || current.bytes !== ledger.before.bytes
+      || current.sha256 !== ledger.before.sha256) {
+      throw new Error(`${ledger.name} changed after the receipt transaction was staged`);
+    }
+  }
+}
+
+async function restoreRetryLedgerTransaction(transaction, token) {
+  if (!transaction) return [];
+  const errors = [];
+  for (const ledger of [...transaction.ledgers].reverse()) {
+    if (!ledger.committed) continue;
+    try {
+      if (ledger.before.exists) {
+        const temporary = `${ledger.path}.rollback-${token}`;
+        await rm(temporary, { force: true });
+        await copyFile(ledger.before.backup_path, temporary, fsConstants.COPYFILE_EXCL);
+        if (await sha256File(temporary) !== ledger.before.sha256) {
+          throw new Error(`${ledger.name} rollback backup hash mismatch`);
+        }
+        await rename(temporary, ledger.path);
+      } else {
+        await rm(ledger.path, { force: true });
+      }
+      ledger.committed = false;
+    } catch (error) {
+      errors.push(`${ledger.name}: ${error.message}`);
+    }
+  }
+  return errors;
+}
+
+function retryLedgerReceipt(transaction) {
+  if (!transaction) return null;
+  return {
+    replacement_document_ids: transaction.replacement_document_ids,
+    ledgers: transaction.ledgers.map((ledger) => ({
+      name: ledger.name,
+      path: ledger.path,
+      changed: ledger.changed,
+      before: ledger.before,
+      after: ledger.after,
+    })),
+  };
+}
+
+async function verifyRetryLedgerReceiptState(receipt) {
+  if (!receipt.supervisor_retry_ledgers) return;
+  const transaction = requireObject(receipt.supervisor_retry_ledgers, 'receipt supervisor_retry_ledgers');
+  if (!Array.isArray(transaction.replacement_document_ids)
+    || !Array.isArray(transaction.ledgers)
+    || transaction.ledgers.length !== 2) {
+    throw new Error('receipt supervisor retry ledger transaction is invalid');
+  }
+  for (const ledger of transaction.ledgers) {
+    requireObject(ledger, 'receipt retry ledger');
+    const after = requireObject(ledger.after, `receipt ${ledger.name} after`);
+    const current = await readLedgerSnapshot(ledger.path, `receipt ${ledger.name}`);
+    if (current.exists !== after.exists
+      || current.bytes !== after.bytes
+      || current.sha256 !== after.sha256) {
+      throw new Error(`receipt ${ledger.name} current state differs from the applied transaction`);
+    }
+    if (ledger.changed && ledger.before?.exists) {
+      const backup = await readLedgerSnapshot(
+        ledger.before.backup_path,
+        `receipt ${ledger.name} backup`,
+      );
+      if (!backup.exists
+        || backup.bytes !== ledger.before.bytes
+        || backup.sha256 !== ledger.before.sha256) {
+        throw new Error(`receipt ${ledger.name} preserved backup differs from the pre-apply state`);
+      }
+    }
+  }
+}
+
+async function verifyRetryLedgerReceiptBeforeState(receipt) {
+  if (!receipt.supervisor_retry_ledgers) return;
+  for (const ledger of receipt.supervisor_retry_ledgers.ledgers) {
+    const current = await readLedgerSnapshot(ledger.path, `rolled back ${ledger.name}`);
+    if (current.exists !== ledger.before.exists
+      || current.bytes !== ledger.before.bytes
+      || current.sha256 !== ledger.before.sha256) {
+      throw new Error(`rolled back ${ledger.name} differs from the pre-apply state`);
+    }
+  }
+}
+
+async function restoreText(entry, token) {
+  const temporary = `${entry.targetTextPath}.rollback-${token}`;
+  await rm(temporary, { force: true });
+  if (entry.previousText.existed) {
+    await copyFile(entry.previousText.backupPath, temporary, fsConstants.COPYFILE_EXCL);
+    if (await sha256File(temporary) !== entry.previousText.sha256) {
+      throw new Error(`${entry.id}: rollback text backup hash mismatch`);
+    }
+    await rename(temporary, entry.targetTextPath);
+  } else {
+    await rm(entry.targetTextPath, { force: true });
+  }
+}
+
+async function restoreDocument(entry) {
+  if (entry.documentCommitted) {
+    await rm(entry.targetDocumentPath, { recursive: true, force: true });
+    entry.documentCommitted = false;
+  }
+  if (entry.previousDocument.existed && entry.documentBackupCommitted) {
+    await rename(entry.previousDocument.backupPath, entry.targetDocumentPath);
+    entry.documentBackupCommitted = false;
+  }
+}
+
+async function rollbackCommitted(entries, token) {
+  const errors = [];
+  for (const entry of [...entries].reverse()) {
+    try {
+      await restoreDocument(entry);
+      if (entry.textCommitted) await restoreText(entry, token);
+    } catch (error) {
+      errors.push(`${entry.id}: ${error.message}`);
+    }
+  }
+  return errors;
+}
+
+async function applyReceiptPlan(plan, dependencies = {}) {
+  const token = randomUUID();
+  const releaseLock = await acquireReceiverLock(plan.normalized.receiptRoot, token);
+  const generatedAt = new Date().toISOString();
+  const receiptId = `${generatedAt.replace(/[:.]/g, '-')}-${plan.parentManifestSha256.slice(0, 12)}-${token.slice(0, 8)}`;
+  const receiptDirectory = path.join(plan.normalized.receiptRoot, receiptId);
+  const receiptPath = path.join(receiptDirectory, 'receipt.json');
+  const staged = [];
+  let receipt = null;
+  let retryLedgerTransaction = null;
+  try {
+    await inspectLocalPreconditions(plan.documents, plan.normalized, plan.localSnapshots);
+    await Promise.all([
+      mkdir(plan.normalized.productionRoot, { recursive: true }),
+      mkdir(plan.normalized.textRoot, { recursive: true }),
+      mkdir(path.join(receiptDirectory, 'backups', 'production'), { recursive: true, mode: 0o700 }),
+      mkdir(path.join(receiptDirectory, 'backups', 'text'), { recursive: true, mode: 0o700 }),
+    ]);
+    const sourceEvidence = await archiveSourceEvidence(plan, receiptDirectory);
+    retryLedgerTransaction = await prepareRetryLedgerTransaction(plan, receiptDirectory, token);
+
+    for (const item of plan.documents) {
+      const localSnapshot = plan.localSnapshots.get(item.document.id);
+      const targetDocumentPath = path.join(plan.normalized.productionRoot, item.document.id);
+      const targetTextPath = path.join(plan.normalized.textRoot, `${item.document.id}.txt`);
+      const stagedDocumentPath = path.join(plan.normalized.productionRoot, `.receive-${item.document.id}-${token}`);
+      const stagedTextPath = path.join(plan.normalized.textRoot, `.receive-${item.document.id}-${token}.txt`);
+      const replacingExistingDocument = localSnapshot.mode === LOCAL_REPROCESS_SNAPSHOT_MODE;
+      const backupDocumentPath = replacingExistingDocument
+        ? path.join(receiptDirectory, 'backups', 'production', item.document.id)
+        : null;
+      const backupPath = localSnapshot.text.exists
+        ? path.join(receiptDirectory, 'backups', 'text', `${item.document.id}.txt`)
+        : null;
+      await rm(stagedDocumentPath, { recursive: true, force: true });
+      await rm(stagedTextPath, { force: true });
+      await copyTreeStrict(item.documentRoot, stagedDocumentPath);
+      await validateDocumentTreeShape(stagedDocumentPath, item.document.page_count);
+      const copiedTree = await inspectTree(stagedDocumentPath);
+      if (!sameJson(copiedTree, item.sourceTree)) {
+        throw new Error(`${item.document.id}: copied document tree differs from source staging`);
+      }
+      await validateOcrDocumentOutput(
+        item.document,
+        stagedDocumentPath,
+        item.shard.manifest.runtime,
+        {
+          requireComplete: true,
+          workerConfiguration: item.shard.identity.worker_configuration,
+        },
+      );
+      await writeFile(stagedTextPath, item.text, { flag: 'wx', mode: 0o600 });
+      if (await sha256File(stagedTextPath) !== item.textSha256) {
+        throw new Error(`${item.document.id}: staged joined text hash mismatch`);
+      }
+      if (backupPath) {
+        await copyFile(targetTextPath, backupPath, fsConstants.COPYFILE_EXCL);
+        if (await sha256File(backupPath) !== localSnapshot.text.sha256) {
+          throw new Error(`${item.document.id}: previous text backup hash mismatch`);
+        }
+      }
+      staged.push({
+        id: item.document.id,
+        item,
+        targetDocumentPath,
+        targetTextPath,
+        stagedDocumentPath,
+        stagedTextPath,
+        previousText: {
+          existed: localSnapshot.text.exists,
+          sha256: localSnapshot.text.sha256,
+          backupPath,
+        },
+        previousDocument: {
+          existed: replacingExistingDocument,
+          treeSha256: localSnapshot.production?.tree_sha256 || null,
+          backupPath: backupDocumentPath,
+        },
+        documentBackupCommitted: false,
+        documentCommitted: false,
+        textCommitted: false,
+      });
+    }
+
+    const [productionDevice, receiptDevice] = await Promise.all([
+      stat(plan.normalized.productionRoot).then((info) => info.dev),
+      stat(path.join(receiptDirectory, 'backups', 'production')).then((info) => info.dev),
+    ]);
+    if (productionDevice !== receiptDevice) {
+      throw new Error('original local OCR document backups must be on the same filesystem for atomic rename');
+    }
+
+    await dependencies.beforeApplyRecheck?.(plan);
+    await inspectLocalPreconditions(plan.documents, plan.normalized, plan.localSnapshots);
+    await verifyRetryLedgerTransactionPreconditions(retryLedgerTransaction);
+    const receiptDocuments = plan.documents.map((item) => receiptDocument(
+      item,
+      plan.localSnapshots.get(item.document.id),
+      plan.normalized,
+      receiptDirectory,
+    ));
+    receipt = {
+      schema_version: 1,
+      receipt_type: 'curriculum_remote_ocr_whole_document_atomic_receive',
+      receipt_id: receiptId,
+      status: 'prepared',
+      generated_at: generatedAt,
+      applied_at: null,
+      failed_at: null,
+      rolled_back_at: null,
+      dry_run: false,
+      parent_manifest_path: plan.normalized.manifest,
+      parent_manifest_sha256: plan.parentManifestSha256,
+      counts: {
+        documents: plan.documents.length,
+        pages: plan.documents.reduce((sum, item) => sum + item.document.page_count, 0),
+        repair_pages: plan.documents.reduce((sum, item) => sum + item.repairPageCount, 0),
+        replaced_local_documents: [...plan.localSnapshots.values()]
+          .filter((snapshot) => snapshot.mode === LOCAL_REPROCESS_SNAPSHOT_MODE).length,
+      },
+      source_shards: plan.shards.map((shard) => ({
+        root: shard.root,
+        manifest_path: shard.manifestPath,
+        manifest_sha256: shard.manifestSha256,
+        run_identity_sha256: shard.identitySha256,
+        run_status_sha256: shard.runStatusSha256,
+        runtime_fingerprint_sha256: shard.identity.runtime_fingerprint_sha256,
+        repair_manifest_path: shard.repair?.manifestPath || null,
+        repair_manifest_sha256: shard.repair?.manifestSha256 || null,
+        repair_receipt_sha256: shard.repair?.receiptSha256 || null,
+      })),
+      source_evidence: sourceEvidence,
+      supervisor_retry_ledgers: retryLedgerReceipt(retryLedgerTransaction),
+      destination: {
+        production_root: plan.normalized.productionRoot,
+        text_root: plan.normalized.textRoot,
+        supervisor_root: plan.normalized.supervisorRoot,
+        receipt_root: plan.normalized.receiptRoot,
+      },
+      citation_allowed: false,
+      documents: receiptDocuments,
+      rollback_policy: {
+        precondition: 'verify every current target hash before deleting or restoring',
+        order: 'reverse document order',
+        scope: 'only paths and backups recorded in this receipt',
+      },
+    };
+    await writeReceipt(receiptPath, receipt);
+
+    for (const entry of staged) {
+      await dependencies.beforeCommitDocument?.(entry.id, receipt);
+      if (entry.previousDocument.existed) {
+        await rename(entry.targetDocumentPath, entry.previousDocument.backupPath);
+        entry.documentBackupCommitted = true;
+        const backupTree = await inspectTree(entry.previousDocument.backupPath);
+        if (backupTree.tree_sha256 !== entry.previousDocument.treeSha256) {
+          throw new Error(`${entry.id}: atomically preserved original document backup hash mismatch`);
+        }
+      }
+      await rename(entry.stagedDocumentPath, entry.targetDocumentPath);
+      entry.documentCommitted = true;
+      await dependencies.afterDocumentCommit?.(entry.id, receipt);
+      await rename(entry.stagedTextPath, entry.targetTextPath);
+      entry.textCommitted = true;
+      await dependencies.afterTextCommit?.(entry.id, receipt);
+    }
+    await verifyRetryLedgerTransactionPreconditions(retryLedgerTransaction);
+    await commitRetryLedgerTransaction(retryLedgerTransaction);
+
+    for (const entry of staged) {
+      const [targetTree, targetTextSha256] = await Promise.all([
+        inspectTree(entry.targetDocumentPath),
+        sha256File(entry.targetTextPath),
+      ]);
+      if (targetTree.tree_sha256 !== entry.item.sourceTree.tree_sha256
+        || targetTextSha256 !== entry.item.textSha256) {
+        throw new Error(`${entry.id}: committed target hash mismatch`);
+      }
+    }
+
+    receipt.status = 'applied';
+    receipt.applied_at = new Date().toISOString();
+    await writeReceipt(receiptPath, receipt);
+    return { ...receipt, receipt_path: receiptPath };
+  } catch (error) {
+    const rollbackErrors = [
+      ...await restoreRetryLedgerTransaction(retryLedgerTransaction, token),
+      ...await rollbackCommitted(staged, token),
+    ];
+    if (receipt) {
+      receipt.status = rollbackErrors.length ? 'rollback_failed' : 'rolled_back_after_apply_failure';
+      receipt.failed_at = new Date().toISOString();
+      receipt.rolled_back_at = rollbackErrors.length ? null : new Date().toISOString();
+      receipt.error = error.message;
+      receipt.rollback_errors = rollbackErrors;
+      await writeReceipt(receiptPath, receipt).catch(() => {});
+    } else {
+      await rm(receiptDirectory, { recursive: true, force: true }).catch(() => {});
+    }
+    if (rollbackErrors.length) {
+      throw new Error(`${error.message}; automatic rollback also failed: ${rollbackErrors.join('; ')}`);
+    }
+    throw error;
+  } finally {
+    for (const entry of staged) {
+      await rm(entry.stagedDocumentPath, { recursive: true, force: true }).catch(() => {});
+      await rm(entry.stagedTextPath, { force: true }).catch(() => {});
+    }
+    for (const ledger of retryLedgerTransaction?.ledgers || []) {
+      if (ledger.stagePath) await rm(ledger.stagePath, { force: true }).catch(() => {});
+    }
+    await releaseLock();
+  }
+}
+
+async function loadRollbackReceipt(receiptPath) {
+  const requestedPath = path.resolve(receiptPath);
+  if (path.basename(requestedPath) !== 'receipt.json') {
+    throw new Error('--rollback-receipt must point to an exact receipt.json file');
+  }
+  await requireRegularNonSymlink(requestedPath, 'receiver rollback receipt');
+  const resolvedPath = await realpath(requestedPath);
+  await verifySha256Sidecar(resolvedPath, 'receiver rollback receipt');
+  const { value: receipt } = await readJsonWithRaw(resolvedPath, 'receiver rollback receipt');
+  requireObject(receipt, 'receiver rollback receipt');
+  if (receipt.schema_version !== 1
+    || receipt.receipt_type !== 'curriculum_remote_ocr_whole_document_atomic_receive'
+    || receipt.dry_run !== false
+    || receipt.citation_allowed !== false
+    || !['applied', 'rolled_back'].includes(receipt.status)
+    || !Array.isArray(receipt.documents)
+    || receipt.documents.length === 0) {
+    throw new Error('receiver rollback receipt identity or status is invalid');
+  }
+  const receiptDirectory = path.dirname(requestedPath);
+  const receiptRoot = path.dirname(receiptDirectory);
+  const actualCanonicalReceiptRoot = await realpath(receiptRoot);
+  const destination = requireObject(receipt.destination, 'receiver rollback destination');
+  const canonicalReceiptRoot = typeof destination.receipt_root === 'string'
+    ? await realpath(destination.receipt_root).catch(() => null)
+    : null;
+  if (typeof destination.production_root !== 'string'
+    || !path.isAbsolute(destination.production_root)
+    || typeof destination.text_root !== 'string'
+    || !path.isAbsolute(destination.text_root)
+    || typeof destination.supervisor_root !== 'string'
+    || !path.isAbsolute(destination.supervisor_root)
+    || typeof destination.receipt_root !== 'string'
+    || canonicalReceiptRoot !== actualCanonicalReceiptRoot
+    || isWithin(destination.production_root, destination.text_root)
+    || isWithin(destination.text_root, destination.production_root)) {
+    throw new Error('receiver rollback destination roots are invalid');
+  }
+  if (receipt.supervisor_retry_ledgers) {
+    const retryTransaction = requireObject(
+      receipt.supervisor_retry_ledgers,
+      'receiver rollback supervisor_retry_ledgers',
+    );
+    if (!Array.isArray(retryTransaction.ledgers)
+      || retryTransaction.ledgers.length !== 2
+      || !sameJson(retryTransaction.ledgers.map((ledger) => ledger.name).sort(), ['document_retries', 'page_retries'])) {
+      throw new Error('receiver rollback retry ledger transaction is invalid');
+    }
+    for (const ledger of retryTransaction.ledgers) {
+      const expectedPath = path.join(
+        destination.supervisor_root,
+        ledger.name === 'document_retries' ? 'retries.json' : 'page-retries.json',
+      );
+      const expectedBackup = ledger.changed && ledger.before?.exists
+        ? path.join(
+            receiptDirectory,
+            'backups',
+            'supervisor',
+            ledger.name === 'document_retries' ? 'retries.json' : 'page-retries.json',
+          )
+        : null;
+      if (ledger.path !== expectedPath || ledger.before?.backup_path !== expectedBackup) {
+        throw new Error(`receiver rollback ${ledger.name} paths escape their expected roots`);
+      }
+    }
+  }
+  const documents = [];
+  const identifiers = new Set();
+  for (const item of receipt.documents) {
+    requireObject(item, 'receiver rollback document');
+    if (!documentIdPattern.test(String(item.document_id || ''))
+      || item.document_id === '.'
+      || item.document_id === '..'
+      || identifiers.has(item.document_id)) {
+      throw new Error(`receiver rollback document id is unsafe or duplicated: ${item.document_id}`);
+    }
+    identifiers.add(item.document_id);
+    const targetDocumentPath = path.join(destination.production_root, item.document_id);
+    const targetTextPath = path.join(destination.text_root, `${item.document_id}.txt`);
+    if (item.target_document_path !== targetDocumentPath || item.target_text_path !== targetTextPath) {
+      throw new Error(`${item.document_id}: receiver rollback target path differs from destination roots`);
+    }
+    requireSha256(item.target_document_tree_sha256, `${item.document_id} target document tree`);
+    requireSha256(item.target_text_sha256, `${item.document_id} target text`);
+    const previousDocument = requireObject(item.previous_document, `${item.document_id} previous_document`);
+    const previousText = requireObject(item.previous_text, `${item.document_id} previous_text`);
+    if (typeof previousDocument.existed !== 'boolean' || typeof previousText.existed !== 'boolean') {
+      throw new Error(`${item.document_id}: receiver rollback original-existence flags are invalid`);
+    }
+    const expectedDocumentBackup = previousDocument.existed
+      ? path.join(receiptDirectory, 'backups', 'production', item.document_id)
+      : null;
+    const expectedTextBackup = previousText.existed
+      ? path.join(receiptDirectory, 'backups', 'text', `${item.document_id}.txt`)
+      : null;
+    if (previousDocument.backup_path !== expectedDocumentBackup
+      || previousText.backup_path !== expectedTextBackup) {
+      throw new Error(`${item.document_id}: receiver rollback backup path escapes the receipt directory`);
+    }
+    if (previousDocument.existed) requireSha256(previousDocument.tree_sha256, `${item.document_id} previous document tree`);
+    if (previousText.existed) requireSha256(previousText.sha256, `${item.document_id} previous text`);
+    documents.push({
+      item,
+      targetDocumentPath,
+      targetTextPath,
+      previousDocument,
+      previousText,
+    });
+  }
+  return {
+    receiptPath: requestedPath,
+    receiptDirectory,
+    receiptRoot,
+    receipt,
+    documents,
+  };
+}
+
+async function verifyRollbackReceiptState(plan) {
+  if (plan.receipt.status === 'rolled_back') {
+    for (const entry of plan.documents) {
+      const currentDocument = await lstatIfPresent(entry.targetDocumentPath);
+      if (entry.previousDocument.existed) {
+        if (!currentDocument || !currentDocument.isDirectory() || currentDocument.isSymbolicLink()) {
+          throw new Error(`${entry.item.document_id}: rolled back original document is missing`);
+        }
+        const tree = await inspectTree(entry.targetDocumentPath);
+        if (tree.tree_sha256 !== entry.previousDocument.tree_sha256) {
+          throw new Error(`${entry.item.document_id}: rolled back original document hash mismatch`);
+        }
+      } else if (currentDocument) {
+        throw new Error(`${entry.item.document_id}: rolled back destination should be absent`);
+      }
+      const currentText = await lstatIfPresent(entry.targetTextPath);
+      if (entry.previousText.existed) {
+        if (!currentText || !currentText.isFile() || currentText.isSymbolicLink()
+          || currentText.size !== entry.previousText.bytes
+          || await sha256File(entry.targetTextPath) !== entry.previousText.sha256) {
+          throw new Error(`${entry.item.document_id}: rolled back original text hash mismatch`);
+        }
+      } else if (currentText) {
+        throw new Error(`${entry.item.document_id}: rolled back text destination should be absent`);
+      }
+    }
+    await verifyRetryLedgerReceiptBeforeState(plan.receipt);
+    return;
+  }
+
+  for (const entry of plan.documents) {
+    const [targetTree, targetTextInfo] = await Promise.all([
+      inspectTree(entry.targetDocumentPath),
+      lstatIfPresent(entry.targetTextPath),
+    ]);
+    if (targetTree.tree_sha256 !== entry.item.target_document_tree_sha256
+      || !targetTextInfo
+      || !targetTextInfo.isFile()
+      || targetTextInfo.isSymbolicLink()
+      || targetTextInfo.size !== entry.item.target_text_bytes
+      || await sha256File(entry.targetTextPath) !== entry.item.target_text_sha256) {
+      throw new Error(`${entry.item.document_id}: applied target differs from the rollback receipt`);
+    }
+    if (entry.previousDocument.existed) {
+      const backupTree = await inspectTree(entry.previousDocument.backup_path);
+      if (backupTree.tree_sha256 !== entry.previousDocument.tree_sha256) {
+        throw new Error(`${entry.item.document_id}: original document backup hash mismatch`);
+      }
+    }
+    if (entry.previousText.existed) {
+      const backupInfo = await lstatIfPresent(entry.previousText.backup_path);
+      if (!backupInfo || !backupInfo.isFile() || backupInfo.isSymbolicLink()
+        || backupInfo.size !== entry.previousText.bytes
+        || await sha256File(entry.previousText.backup_path) !== entry.previousText.sha256) {
+        throw new Error(`${entry.item.document_id}: original text backup hash mismatch`);
+      }
+    }
+  }
+  await verifyRetryLedgerReceiptState(plan.receipt);
+}
+
+async function applyRollbackReceipt(plan) {
+  const token = randomUUID();
+  const releaseLock = await acquireReceiverLock(plan.receiptRoot, token);
+  const moved = [];
+  const ledgerMoves = [];
+  try {
+    const currentPlan = await loadRollbackReceipt(plan.receiptPath);
+    await verifyRollbackReceiptState(currentPlan);
+    if (currentPlan.receipt.status === 'rolled_back') {
+      return {
+        ...currentPlan.receipt,
+        status: 'verified_idempotent',
+        rollback_dry_run: false,
+        verified_at: new Date().toISOString(),
+        receipt_path: currentPlan.receiptPath,
+      };
+    }
+    const [productionDevice, textDevice, receiptDevice] = await Promise.all([
+      stat(currentPlan.receipt.destination.production_root).then((info) => info.dev),
+      stat(currentPlan.receipt.destination.text_root).then((info) => info.dev),
+      stat(currentPlan.receiptDirectory).then((info) => info.dev),
+    ]);
+    if (productionDevice !== receiptDevice || textDevice !== receiptDevice) {
+      throw new Error('rollback requires production, text, and receipt backups on the same filesystem');
+    }
+
+    for (const entry of currentPlan.documents) {
+      const remoteDocumentPath = path.join(
+        currentPlan.receipt.destination.production_root,
+        `.rollback-remote-${entry.item.document_id}-${token}`,
+      );
+      const remoteTextPath = path.join(
+        currentPlan.receipt.destination.text_root,
+        `.rollback-remote-${entry.item.document_id}-${token}.txt`,
+      );
+      await rename(entry.targetDocumentPath, remoteDocumentPath);
+      const state = {
+        ...entry,
+        remoteDocumentPath,
+        remoteTextPath,
+        remoteDocumentMoved: true,
+        originalDocumentRestored: false,
+        remoteTextMoved: false,
+        originalTextRestored: false,
+      };
+      moved.push(state);
+      if (entry.previousDocument.existed) {
+        await rename(entry.previousDocument.backup_path, entry.targetDocumentPath);
+        state.originalDocumentRestored = true;
+      }
+      await rename(entry.targetTextPath, remoteTextPath);
+      state.remoteTextMoved = true;
+      if (entry.previousText.existed) {
+        await copyFile(entry.previousText.backup_path, entry.targetTextPath, fsConstants.COPYFILE_EXCL);
+        state.originalTextRestored = true;
+      }
+    }
+
+    for (const ledger of currentPlan.receipt.supervisor_retry_ledgers?.ledgers || []) {
+      if (!ledger.changed) continue;
+      const currentPath = `${ledger.path}.rollback-remote-${token}`;
+      await copyFile(ledger.path, currentPath, fsConstants.COPYFILE_EXCL);
+      const state = { ledger, currentPath, restored: false };
+      ledgerMoves.push(state);
+      if (ledger.before.exists) {
+        const temporary = `${ledger.path}.rollback-restore-${token}`;
+        await copyFile(ledger.before.backup_path, temporary, fsConstants.COPYFILE_EXCL);
+        if (await sha256File(temporary) !== ledger.before.sha256) {
+          throw new Error(`${ledger.name} rollback source hash mismatch`);
+        }
+        await rename(temporary, ledger.path);
+      } else {
+        await rm(ledger.path, { force: true });
+      }
+      state.restored = true;
+    }
+
+    for (const state of moved) {
+      if (state.originalDocumentRestored) {
+        const tree = await inspectTree(state.targetDocumentPath);
+        if (tree.tree_sha256 !== state.previousDocument.tree_sha256) {
+          throw new Error(`${state.item.document_id}: restored original document hash mismatch`);
+        }
+      } else if (await lstatIfPresent(state.targetDocumentPath)) {
+        throw new Error(`${state.item.document_id}: document destination was not removed by rollback`);
+      }
+      if (state.originalTextRestored) {
+        if (await sha256File(state.targetTextPath) !== state.previousText.sha256) {
+          throw new Error(`${state.item.document_id}: restored original text hash mismatch`);
+        }
+      } else if (await lstatIfPresent(state.targetTextPath)) {
+        throw new Error(`${state.item.document_id}: text destination was not removed by rollback`);
+      }
+    }
+    await verifyRetryLedgerReceiptBeforeState(currentPlan.receipt);
+
+    for (const state of moved) {
+      await rm(state.remoteDocumentPath, { recursive: true, force: true });
+      await rm(state.remoteTextPath, { force: true });
+    }
+    for (const state of ledgerMoves) await rm(state.currentPath, { force: true });
+    currentPlan.receipt.status = 'rolled_back';
+    currentPlan.receipt.rolled_back_at = new Date().toISOString();
+    currentPlan.receipt.rollback_applied = true;
+    await writeReceipt(currentPlan.receiptPath, currentPlan.receipt);
+    return { ...currentPlan.receipt, receipt_path: currentPlan.receiptPath };
+  } catch (error) {
+    const errors = [];
+    for (const state of [...ledgerMoves].reverse()) {
+      if (!state.restored) continue;
+      try {
+        await rename(state.currentPath, state.ledger.path);
+      } catch (rollbackError) {
+        errors.push(`${state.ledger.name}: ${rollbackError.message}`);
+      }
+    }
+    for (const state of [...moved].reverse()) {
+      try {
+        if (state.originalTextRestored) await rm(state.targetTextPath, { force: true });
+        if (state.remoteTextMoved) await rename(state.remoteTextPath, state.targetTextPath);
+        if (state.originalDocumentRestored) {
+          await rename(state.targetDocumentPath, state.previousDocument.backup_path);
+        }
+        if (state.remoteDocumentMoved) await rename(state.remoteDocumentPath, state.targetDocumentPath);
+      } catch (rollbackError) {
+        errors.push(`${state.item.document_id}: ${rollbackError.message}`);
+      }
+    }
+    if (errors.length) {
+      throw new Error(`${error.message}; rollback cancellation also failed: ${errors.join('; ')}`);
+    }
+    throw error;
+  } finally {
+    await releaseLock();
+  }
+}
+
+async function rollbackRemoteOcrReceipt(options) {
+  const plan = await loadRollbackReceipt(options.rollbackReceipt);
+  await verifyRollbackReceiptState(plan);
+  if (plan.receipt.status === 'rolled_back') {
+    return {
+      ...plan.receipt,
+      status: 'verified_idempotent',
+      rollback_dry_run: !options.apply,
+      verified_at: new Date().toISOString(),
+      receipt_path: plan.receiptPath,
+    };
+  }
+  if (options.apply) return applyRollbackReceipt(plan);
+  return {
+    schema_version: 1,
+    receipt_type: plan.receipt.receipt_type,
+    status: 'rollback_dry_run_validated',
+    rollback_dry_run: true,
+    receipt_path: plan.receiptPath,
+    receipt_id: plan.receipt.receipt_id,
+    counts: plan.receipt.counts,
+    citation_allowed: false,
+    documents: plan.documents.map((entry) => ({
+      document_id: entry.item.document_id,
+      document_action: entry.previousDocument.existed ? 'restore_verified_backup' : 'remove_received_tree',
+      text_action: entry.previousText.existed ? 'restore_verified_backup' : 'remove_received_text',
+    })),
+  };
+}
+
+export async function receiveRemoteOcrOffload(options, dependencies = {}) {
+  if (options.rollbackReceipt) return rollbackRemoteOcrReceipt(options);
+  const plan = await prepareReceiptPlan(options, dependencies);
+  if (plan.idempotentReceipt) {
+    return {
+      ...plan.idempotentReceipt,
+      status: 'verified_idempotent',
+      dry_run: !plan.normalized.apply,
+      verified_at: new Date().toISOString(),
+    };
+  }
+  if (plan.normalized.apply) return applyReceiptPlan(plan, dependencies);
+  return {
+    schema_version: 1,
+    receipt_type: 'curriculum_remote_ocr_whole_document_atomic_receive',
+    status: 'dry_run_validated',
+    dry_run: true,
+    parent_manifest_path: plan.normalized.manifest,
+    parent_manifest_sha256: plan.parentManifestSha256,
+    counts: {
+      documents: plan.documents.length,
+      pages: plan.documents.reduce((sum, item) => sum + item.document.page_count, 0),
+      repair_pages: plan.documents.reduce((sum, item) => sum + item.repairPageCount, 0),
+      existing_document_trees_to_backup: [...plan.localSnapshots.values()]
+        .filter((item) => item.mode === LOCAL_REPROCESS_SNAPSHOT_MODE).length,
+      existing_text_files_to_backup: [...plan.localSnapshots.values()].filter((item) => item.text.exists).length,
+    },
+    source_shards: plan.shards.map((shard) => ({
+      root: shard.root,
+      manifest_path: shard.manifestPath,
+      manifest_sha256: shard.manifestSha256,
+      run_identity_sha256: shard.identitySha256,
+      run_status_sha256: shard.runStatusSha256,
+      runtime_fingerprint_sha256: shard.identity.runtime_fingerprint_sha256,
+      repair_manifest_path: shard.repair?.manifestPath || null,
+      repair_manifest_sha256: shard.repair?.manifestSha256 || null,
+      repair_receipt_sha256: shard.repair?.receiptSha256 || null,
+    })),
+    destination: {
+      production_root: plan.normalized.productionRoot,
+      text_root: plan.normalized.textRoot,
+      receipt_root: plan.normalized.receiptRoot,
+    },
+    citation_allowed: false,
+    documents: plan.documents.map((item) => ({
+      document_id: item.document.id,
+      page_count: item.document.page_count,
+      source_document_status: item.status,
+      source_document_tree_sha256: item.sourceTree.tree_sha256,
+      source_state_sha256: item.validation.state_sha256,
+      source_page_artifacts_sha256: item.validation.page_artifacts_sha256,
+      native_markdown_trees_sha256: item.nativeMarkdownTreesSha256,
+      native_markdown_asset_count: item.nativeAssetCount,
+      native_markdown_asset_bytes: item.nativeAssetBytes,
+      joined_text_sha256: item.textSha256,
+      joined_text_bytes: item.text.length,
+      repair_pages: item.repairPageCount,
+      replacement_mode: plan.localSnapshots.get(item.document.id).mode === LOCAL_REPROCESS_SNAPSHOT_MODE
+        ? LOCAL_REPROCESS_SNAPSHOT_MODE
+        : 'install_into_absent_destination',
+      planned_local_snapshot_sha256: plan.localSnapshots.get(item.document.id).planning_snapshot?.snapshot_sha256 || null,
+      previous_document_tree_sha256: plan.localSnapshots.get(item.document.id).production?.tree_sha256 || null,
+      previous_text_sha256: plan.localSnapshots.get(item.document.id).text.sha256,
+    })),
+  };
+}
+
+export function parseReceiverArguments(argv) {
+  const options = { shards: [], apply: false };
+  const shardManifests = [];
+  const shardRoots = [];
+  const repairManifests = [];
+  const suppliedValueKeys = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const key = argv[index];
+    if (key === '--apply') {
+      options.apply = true;
+      continue;
+    }
+    if (!key.startsWith('--')) throw new Error(`unexpected argument: ${key}`);
+    const value = argv[index + 1];
+    if (!value || value.startsWith('--')) throw new Error(`missing value for ${key}`);
+    index += 1;
+    suppliedValueKeys.push(key);
+    if (key === '--shard-manifest') shardManifests.push(value);
+    else if (key === '--shard-root') shardRoots.push(value);
+    else if (key === '--repair-manifest') repairManifests.push(value);
+    else if (key === '--manifest') options.manifest = value;
+    else if (key === '--project-root') options.projectRoot = value;
+    else if (key === '--production-root') options.productionRoot = value;
+    else if (key === '--text-root') options.textRoot = value;
+    else if (key === '--supervisor-root') options.supervisorRoot = value;
+    else if (key === '--receipt-root') options.receiptRoot = value;
+    else if (key === '--python') options.python = value;
+    else if (key === '--rollback-receipt') options.rollbackReceipt = value;
+    else throw new Error(`unknown argument: ${key}`);
+  }
+  if (options.rollbackReceipt) {
+    const incompatible = suppliedValueKeys.filter((key) => key !== '--rollback-receipt');
+    if (incompatible.length > 0 || shardManifests.length > 0 || shardRoots.length > 0 || repairManifests.length > 0) {
+      throw new Error('--rollback-receipt cannot be combined with manifest, shard, root, or runtime options');
+    }
+    return options;
+  }
+  if (shardManifests.length !== shardRoots.length) {
+    throw new Error('--shard-manifest and --shard-root must be supplied in matching pairs');
+  }
+  if (repairManifests.length !== 0 && repairManifests.length !== shardManifests.length) {
+    throw new Error('--repair-manifest must be omitted entirely or supplied once per shard (use - for no repair)');
+  }
+  options.shards = shardManifests.map((manifestPath, index) => ({
+    manifestPath,
+    root: shardRoots[index],
+    ...(repairManifests[index] && !['-', 'none'].includes(repairManifests[index])
+      ? { repairManifestPath: repairManifests[index] }
+      : {}),
+  }));
+  return options;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === scriptPath) {
+  try {
+    const result = await receiveRemoteOcrOffload(parseReceiverArguments(process.argv.slice(2)));
+    console.log(JSON.stringify(result, null, 2));
+  } catch (error) {
+    console.error(JSON.stringify({
+      status: 'failed',
+      code: error.code || 'REMOTE_OCR_RECEIVE_FAILED',
+      message: error.message,
+    }));
+    process.exitCode = 1;
+  }
+}

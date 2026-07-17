@@ -1,0 +1,215 @@
+{
+  "schema_version": 1,
+  "contract": "curriculum_release_environment_evidence_v1",
+  "generated_by": "scripts/collect-release-environment-evidence.mjs",
+  "observed_at": "2026-07-17T01:55:07.026Z",
+  "environments": {
+    "preview": {
+      "environment": "preview",
+      "observed_at": "2026-07-17T01:54:44.882Z",
+      "worker_name": "bdfz-curriculum-atlas-preview",
+      "worker_version_id": "2459045b-9337-477e-af09-571bcd91dcab",
+      "deployment_id": "c39f6b6e-8604-427c-8b73-fce0441d437b",
+      "deployment_created_on": "2026-07-16T02:13:02.852849Z",
+      "asset_git_commit": "b8344a94140dc1466f7e02829541395c97971b59",
+      "asset_parity": {
+        "valid": true,
+        "method": "five_live_assets_byte_equal_git_commit",
+        "assets": [
+          {
+            "path": "app.js",
+            "sha256": "403ad9b147bbc250e8a9ed9fdb2fef4e49ef18bf2cd0d3d409b9b7a06382195c",
+            "bytes": 54826
+          },
+          {
+            "path": "atlas.js",
+            "sha256": "be144333f7ca1433f0f54481ce5fe2f6789199b059e5dd6ab007761bb3cdcb2b",
+            "bytes": 31927
+          },
+          {
+            "path": "styles.css",
+            "sha256": "dbaa16b89ebda734b9f1e2ac12d8ad08e6ff114919a59fdea903e7e8c80d3771",
+            "bytes": 29670
+          },
+          {
+            "path": "data/concept-evolution.json",
+            "sha256": "b5a17e291bc3a45f683bcd497ae4676709d6d6e4321188d31a8a6c378bef48e0",
+            "bytes": 3860085
+          },
+          {
+            "path": "data/concept-evolution-academic.json",
+            "sha256": "1e95a2ca181b0fe2071cfb90483af146e2de7e72fc096e5a805fe23d82b1eb93",
+            "bytes": 22013686
+          }
+        ]
+      },
+      "applied_migrations": [
+        "0001_initial.sql",
+        "0002_source_provenance_and_ocr_quality.sql",
+        "0003_online_verification.sql",
+        "0004_document_classifications.sql"
+      ],
+      "pending_migrations": [
+        "0005_page_publication_gate.sql",
+        "0006_corpus_import_release.sql"
+      ],
+      "r2_release_reader": "stable_keys_v0",
+      "health": {
+        "url": "https://bdfz-curriculum-atlas-preview.bdfz.workers.dev/api/health",
+        "http_status": 200,
+        "ok": true,
+        "version": "2026.07.15-v8",
+        "release_git_commit": null,
+        "body_sha256": "1154540dcdb482906d6195cce857698819d7a6359b7f086668853c2d6b337ba9",
+        "bytes": 384
+      },
+      "corpus": null,
+      "r2_current_pointer": {
+        "exists": false
+      },
+      "command_receipts": [
+        {
+          "id": "deployments_status",
+          "command": "npx --no-install wrangler deployments status --name bdfz-curriculum-atlas-preview --json",
+          "exit_code": 0,
+          "stdout_sha256": "20d3d5309bfe3f1b17234fa74c0d27f4062e093f0bd5db41a023eea829da725e",
+          "stdout_bytes": 373,
+          "stderr_sha256": "9b4531614ba1b6a790630f0e27bbaf9449853f60917b212c0be06b10b31e5294",
+          "stderr_bytes": 1100
+        },
+        {
+          "id": "version_view",
+          "command": "npx --no-install wrangler versions view 2459045b-9337-477e-af09-571bcd91dcab --name bdfz-curriculum-atlas-preview --json",
+          "exit_code": 0,
+          "stdout_sha256": "6dcce21c1e51f2dba10350877fc40cfe8a223cfc9b04bf5d09370cdb64621a2b",
+          "stdout_bytes": 5175,
+          "stderr_sha256": "39fa2092b588a6be9142cb9ccdf99e3bf20ec58a788c73ececdcc4fd2f6e1448",
+          "stderr_bytes": 1100
+        },
+        {
+          "id": "d1_migrations_list",
+          "command": "npx --no-install wrangler d1 migrations list bdfz-curriculum-atlas-preview --env preview --remote",
+          "exit_code": 0,
+          "stdout_sha256": "d52010336e392dcd7c2f0272ce80c614751865fbcbb28924f6251c9449209c40",
+          "stdout_bytes": 778,
+          "stderr_sha256": "c5d5df860858150856a4378e4d3ad94133e52beb2f33c49d3c0a979b68f44359",
+          "stderr_bytes": 1100
+        },
+        {
+          "id": "r2_current_pointer_absent",
+          "command": "npx --no-install wrangler r2 object get bdfz-curriculum-atlas-sources-preview/release/current.json --pipe --remote",
+          "exit_code": 0,
+          "stdout_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+          "stdout_bytes": 1,
+          "stderr_sha256": "75c46cdb0fdbc57a042d0a28e994b6b36ff653e68fbf97657f0fcfc2431eb6e6",
+          "stderr_bytes": 1189,
+          "observed_remote_absence": true
+        }
+      ]
+    },
+    "production": {
+      "environment": "production",
+      "observed_at": "2026-07-17T01:55:07.026Z",
+      "worker_name": "bdfz-curriculum-atlas",
+      "worker_version_id": "7d1766b2-32be-4ce1-9528-f6c69bb2a092",
+      "deployment_id": "4f2042f6-ce2c-40c0-a7a0-06f48188726b",
+      "deployment_created_on": "2026-07-15T15:18:54.763621Z",
+      "asset_git_commit": "ececd77f1955455c44018740f8cb29a706a2b476",
+      "asset_parity": {
+        "valid": true,
+        "method": "five_live_assets_byte_equal_git_commit",
+        "assets": [
+          {
+            "path": "app.js",
+            "sha256": "f1ed6e894820a5cbfa2a8999a1fee655ab403c1fdee47de7a436021d2843ed76",
+            "bytes": 52112
+          },
+          {
+            "path": "atlas.js",
+            "sha256": "a536cdbb03d41e93eba6080d8279506c0766c5cb3e89af0d8fb786550631deb9",
+            "bytes": 30897
+          },
+          {
+            "path": "styles.css",
+            "sha256": "bd0ba3f00e59b036be51b832bcfd866a5bf0b0eef33197a56bd54030bf05adda",
+            "bytes": 29243
+          },
+          {
+            "path": "data/concept-evolution.json",
+            "sha256": "c9510f653c75e9976fdb95ac8c7d0524dabd088466a3683ee10310b7c8f50dd5",
+            "bytes": 3756102
+          },
+          {
+            "path": "data/concept-evolution-academic.json",
+            "sha256": "c2cccb603ca8d13c6c2cb86ba80da53e14c8a81aa199c563d50c739ee29d8dd0",
+            "bytes": 21896790
+          }
+        ]
+      },
+      "applied_migrations": [
+        "0001_initial.sql",
+        "0002_source_provenance_and_ocr_quality.sql",
+        "0003_online_verification.sql",
+        "0004_document_classifications.sql"
+      ],
+      "pending_migrations": [
+        "0005_page_publication_gate.sql",
+        "0006_corpus_import_release.sql"
+      ],
+      "r2_release_reader": "stable_keys_v0",
+      "health": {
+        "url": "https://curriculum.bdfz.net/api/health",
+        "http_status": 200,
+        "ok": true,
+        "version": "2026.07.15-v7",
+        "release_git_commit": null,
+        "body_sha256": "cc7da87d7191e7bcf50b5f5dc4a1d1988eeef07ef1d054293104d29f93c21267",
+        "bytes": 387
+      },
+      "corpus": null,
+      "r2_current_pointer": {
+        "exists": false
+      },
+      "command_receipts": [
+        {
+          "id": "deployments_status",
+          "command": "npx --no-install wrangler deployments status --name bdfz-curriculum-atlas --json",
+          "exit_code": 0,
+          "stdout_sha256": "c9689c076ee942561ce1db304351779ef1b79918ce5c4de70e6146a71746abee",
+          "stdout_bytes": 373,
+          "stderr_sha256": "5f2205e6549f8201f9b8a783c05fc3c76ff4e62951848f0c499ceab978fd1095",
+          "stderr_bytes": 1100
+        },
+        {
+          "id": "version_view",
+          "command": "npx --no-install wrangler versions view 7d1766b2-32be-4ce1-9528-f6c69bb2a092 --name bdfz-curriculum-atlas --json",
+          "exit_code": 0,
+          "stdout_sha256": "22d36d24cabbb50abcb3057d52d04d7a9f5e54f960fadfd4fd545262093ac749",
+          "stdout_bytes": 5143,
+          "stderr_sha256": "998e17c3e9bf2e26f489bc426d1fd6e1484c952c782240bc0c62017df1d04ec0",
+          "stderr_bytes": 1100
+        },
+        {
+          "id": "d1_migrations_list",
+          "command": "npx --no-install wrangler d1 migrations list bdfz-curriculum-atlas --remote",
+          "exit_code": 0,
+          "stdout_sha256": "d52010336e392dcd7c2f0272ce80c614751865fbcbb28924f6251c9449209c40",
+          "stdout_bytes": 778,
+          "stderr_sha256": "3846626ac8d73ea1aeccdd20eef768b211953a06a3a28b85c74b48dadb219538",
+          "stderr_bytes": 1100
+        },
+        {
+          "id": "r2_current_pointer_absent",
+          "command": "npx --no-install wrangler r2 object get bdfz-curriculum-atlas-sources/release/current.json --pipe --remote",
+          "exit_code": 0,
+          "stdout_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+          "stdout_bytes": 1,
+          "stderr_sha256": "d690468e951a47fba5e83b362ba0d7bfb0e8e4c9b7438c9dcada181f512ceb94",
+          "stderr_bytes": 1189,
+          "observed_remote_absence": true
+        }
+      ]
+    }
+  },
+  "receipt_sha256": "094bfc229fe2bf32fc9f8e9f3de987e27cd979acbe3f4b8bc275f5897170a0fd"
+}

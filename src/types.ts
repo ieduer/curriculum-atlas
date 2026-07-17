@@ -5,6 +5,7 @@ export interface Env {
   APIS: Fetcher;
   USER_CENTER: Fetcher;
   ENVIRONMENT: string;
+  RELEASE_GIT_COMMIT?: string;
   SITE_ORIGIN: string;
   AI_ORIGIN: string;
   USER_CENTER_ORIGIN: string;

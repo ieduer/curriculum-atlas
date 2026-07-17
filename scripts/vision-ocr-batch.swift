@@ -17,15 +17,49 @@ struct OCRPage: Codable {
 }
 
 let encoder = JSONEncoder()
+encoder.outputFormatting = [.sortedKeys]
 var arguments = Array(CommandLine.arguments.dropFirst())
 var outputDirectory: URL?
-if arguments.count >= 2 && arguments[0] == "--output-dir" {
-    outputDirectory = URL(fileURLWithPath: arguments[1], isDirectory: true)
-    arguments.removeFirst(2)
-    try? FileManager.default.createDirectory(
-        at: outputDirectory!,
-        withIntermediateDirectories: true
-    )
+var recognitionLanguages = ["zh-Hans", "en-US"]
+
+while arguments.count >= 2 {
+    if arguments[0] == "--output-dir" {
+        outputDirectory = URL(fileURLWithPath: arguments[1], isDirectory: true)
+        arguments.removeFirst(2)
+        try? FileManager.default.createDirectory(
+            at: outputDirectory!,
+            withIntermediateDirectories: true
+        )
+        continue
+    }
+    if arguments[0] == "--languages" {
+        recognitionLanguages = arguments[1]
+            .split(separator: ",")
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        arguments.removeFirst(2)
+        continue
+    }
+    break
+}
+
+guard !recognitionLanguages.isEmpty else {
+    FileHandle.standardError.write(Data("at least one recognition language is required\n".utf8))
+    exit(64)
+}
+
+do {
+    let supportedLanguages = try VNRecognizeTextRequest().supportedRecognitionLanguages()
+    let unsupportedLanguages = recognitionLanguages.filter { !supportedLanguages.contains($0) }
+    guard unsupportedLanguages.isEmpty else {
+        FileHandle.standardError.write(
+            Data("unsupported recognition languages: \(unsupportedLanguages.joined(separator: ","))\n".utf8)
+        )
+        exit(64)
+    }
+} catch {
+    FileHandle.standardError.write(Data("cannot query supported recognition languages: \(error)\n".utf8))
+    exit(70)
 }
 
 for argument in arguments {
@@ -37,7 +71,7 @@ for argument in arguments {
     {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
-        request.recognitionLanguages = ["zh-Hans", "en-US"]
+        request.recognitionLanguages = recognitionLanguages
         request.usesLanguageCorrection = true
         request.minimumTextHeight = 0.008
         do {

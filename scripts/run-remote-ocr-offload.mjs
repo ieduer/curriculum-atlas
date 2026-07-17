@@ -19,6 +19,10 @@ import {
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
+import {
+  LOCAL_REPROCESS_SNAPSHOT_MODE,
+  validateLocalReprocessSnapshot,
+} from './lib/remote-ocr-local-snapshot.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const sha256Pattern = /^[a-f0-9]{64}$/;
@@ -329,13 +333,17 @@ export function validateRemoteOcrManifest(manifest) {
       throw new Error(`${document.id}: required page range is not the whole document`);
     }
     const snapshot = requireObject(document.planning_snapshot, `${document.id}.planning_snapshot`);
-    for (const key of [
-      'local_completed_pages',
-      'local_failed_pages',
-      'local_retry_conflicts',
-      'local_production_artifact_conflicts',
-    ]) {
-      if (snapshot[key] !== 0) throw new Error(`${document.id}: planning snapshot ${key} must equal 0`);
+    if (snapshot.mode === LOCAL_REPROCESS_SNAPSHOT_MODE) {
+      validateLocalReprocessSnapshot(document, snapshot);
+    } else {
+      for (const key of [
+        'local_completed_pages',
+        'local_failed_pages',
+        'local_retry_conflicts',
+        'local_production_artifact_conflicts',
+      ]) {
+        if (snapshot[key] !== 0) throw new Error(`${document.id}: planning snapshot ${key} must equal 0`);
+      }
     }
     if (document.citation_allowed !== false) throw new Error(`${document.id}: citation_allowed must equal false`);
     pages += document.page_count;

@@ -1,12 +1,22 @@
 # 运维与八点验证标准
 
+> 从立项到当前的完整时间线、状态分层、外部核验快照、Git 历史、任务索引，以及每条 action-log 的证据/回滚/未决项，统一见 [`project-operations-ledger.md`](project-operations-ledger.md)。该总账由 `npm run ops:ledger` 从 append-only 运维日志重建；本文件中的带时间进度只作为历史说明，不得覆盖总账中的更新快照。
+
+## 当前完整性检查点（2026-07-16 本地收口）
+
+- 资产审计：245 个 PDF 路径／209 个唯一实体；201 canonical、3 variant、2 derived、3 quarantine；Downloads 命中的 15 本汇编全部已登记。
+- Corpus：101 个正文资产、196 个目录身份、16,456 段、16,456 FTS、6,031 页门、91 个带 SHA/bytes/receipt 的 SQL chunk；accepted OCR documents 为 0。
+- OCR：名义 86／11,847，物理 85／11,779；本机 primary/audit 6,947、Vision 7,012、显示/引文放行 0；一页 quarantine。
+- 发布：本机 v9 支持 D1 corpus-ready gate 与 versioned R2 pointer；preview/production 仍是 D1 0004 + stable keys，因此不得部署或描述为已上线。
+- 本轮完整数据审计、发布顺序和剩余 blocker 见 [`project-data-integrity-audit-2026-07-16.md`](project-data-integrity-audit-2026-07-16.md)。
+
 ## 1. Source of truth
 
 代码与生成规则：`/Users/ylsuen/CF/curriculum-atlas`。官方目录与本地扫描库存只进入 `data/*.json` 和 `.cache/` 研究区；D1/R2 是部署产物，不反向覆盖来源。本机 `data/ocr-queue.json`、OCR state、witness 与 audit ledger 仍是导入权威；DMITPro2 内层 Kali 的 `/home/suen/curriculum-ocr-offload/runs/20260716T0250Z-paddleocrvl16-canary` 只保存隔离的主 OCR staging，不能反向成为本机完成或引文状态。
 
 ## 2. Health probe
 
-`GET /api/health` 必须为 200、`ok=true`、`schemaVersion=3`、`classificationSchemaVersion=1`，分类覆盖须为 196/196：160 份学科资料、16 份课程资料、20 份范围/框架资料、`unclassifiedDocuments=0`，且 D1、R2、APIS、User Center、Assets 五项绑定均为 true。分类表采用加法子 schema，不提升全局 schema；因此发布后仍可直接回滚到 v4 Worker，而无需为代码回滚同步恢复 D1。
+`GET /api/health` 必须为 200、`ok=true`、`schemaVersion=3`、`classificationSchemaVersion=1`，分类覆盖须为 196/196：160 份学科资料、16 份课程资料、20 份范围/框架资料、`unclassifiedDocuments=0`，且 D1、R2、APIS、User Center、Assets 五项绑定均为 true。还必须报告 current corpus release 为 `ready`，expected/actual/live documents、paragraphs、FTS、page gates、displayed paragraphs、accepted OCR documents 与 chunk receipts 全部一致；任何 drift 均应返回 503。
 
 远端 OCR 健康不能只看 systemd 为 active：llama 必须由 `--llama-systemd-unit` 指向的精确 user unit 在 loopback `/v1` 提供服务；`curriculum-ocr-offload@a` 与 `curriculum-ocr-offload@b` 各自的 `run-identity.json` 必须与父/分片 manifest、runner/OCR 脚本 SHA、模型、mmproj、llama commit、runtime device 和并发配置完全一致，`run-status.json` 及其 SHA sidecar 必须有效。任何 invocation error、monitor incident、signal 或非零 child exit 都必须先重新验签 llama unit/process/binary/model/flags/health、Python/Paddle 包和稳定模型缓存；共享身份漂移必须写 `shared_runtime_configuration` 并 exit 2，不能消耗文档重试或隔离预算。运行期允许 `running` / `retry_wait`；最终成功要求两个 shard 的全部文档均为 `complete`，不存在 `pending`、`running`、`retry_wait` 或 `quarantined`，且逐卷页集与哈希重新验签通过。本机 watchdog 在远端 staging 期间保持 `hold`，且不得存在本机 drain 或 Paddle owner。
 
@@ -15,7 +25,7 @@
 - `/api/meta`：文档、段落、可引文文档及在线核验数量与生成清单一致。
 - `/api/search`：仅返回文档和段落双重白名单内容。
 - 历史扫描详情：文档级保持 fail-closed，但已核验单项显示版次关系、证据 URL、图像/OCR 哈希与处理结论。
-- `/api/source-manifest`：R2 对象存在并带 ETag。
+- `/api/source-manifest`：若 `release/current.json` 存在，必须校验 pointer、versioned manifest 与 ingest object 的 hash/bytes 后返回；pointer 存在但漂移时返回 503，不得回退旧 stable key。bootstrap fallback 只允许在 pointer 尚不存在时使用。
 - 未登录 AI 返回 401；无 Turnstile secret 的匿名讨论返回 503，不可 fail-open。
 - 远端 manifest 已逐卷核验 72 份完全未开始文档、5,483 页、2,017,324,713 源字节；14 份存在本机完成、retry 或 state 冲突的文档被排除。
 - 父 manifest SHA-256 为 `3050f22e7bda3cb5aafb1817bc861b7f7b8d65e358dbbba3b5a0b35af4b27c8f`；shard `a` 为 36 卷/2,771 页/1,072,093,739 bytes、SHA-256 `a532240cf6d9deeec2843997156afa38fa2518f24d976d625769cec3765fcc9b`，shard `b` 为 36 卷/2,712 页/945,230,974 bytes、SHA-256 `744a50b84920dbed0d62d41318af71ca90a420f073c4322d04e501948eee075c`；两者文档集合必须不相交，合并后必须精确等于父 manifest。
@@ -24,7 +34,7 @@
 
 ## 4. Deploy and forbidden actions
 
-发布命令见 `docs/deployment.md`。禁止直接编辑 D1 生产文本、把扫描件整体放入公开 R2、用新版本覆盖历史措辞、绕过 `apis` 直连 Gemini、在共享枢纽脏工作树未核对时夹带部署。远端 OCR 不构成网站发布；禁止保存 SSH 密码、把 llama 暴露到非 loopback、导入部分卷、绕过 Mac 见证、复用身份不一致的 output root，或让 systemd 重启永久配置错误和 terminal quarantine。
+发布命令见 `docs/deployment.md`。标准顺序是 Time Travel／旧 pointer 备份 → 0005/0006 → 支持 corpus gate 与 versioned reader 的 Worker → corpus release → 环境证据刷新 → versioned R2 pointer → 全面验收。禁止直接编辑 D1 生产文本、把扫描件整体放入公开 R2、用新版本覆盖历史措辞、绕过 `apis` 直连 Gemini、在共享枢纽脏工作树未核对时夹带部署。远端 OCR 不构成网站发布；禁止保存 SSH 密码、把 llama 暴露到非 loopback、导入部分卷、绕过 Mac 见证、复用身份不一致的 output root，或让 systemd 重启永久配置错误和 terminal quarantine。
 
 ## 5. Dependency regression
 
@@ -39,11 +49,11 @@
 
 ## 6. Backup and restore
 
-D1 依赖 Time Travel；发布前记录书签。代码进入 Git，未公开 PDF 保留本地原文件与 SHA-256。R2 只保存可重建的 JSON 元数据。讨论是用户数据，任何重建都必须保留 `comments`、`comment_reports` 和审计表。远端 OCR 的恢复证据是 Git 备份分支、父/分片 offload manifests、源 bundle、模型/mmproj/llama commit、每个 shard 的 run identity、逐卷 status/hash sidecar 和隔离 run root；`r1` 至 `r5` 的完成/部分页状态均保留，pre-r5 远端备份为 `backups/pre-r5-provenance-lock-20260716T0635Z`。它们不能替代本机原 PDF 与既有 OCR/witness/audit ledger。
+D1 依赖 Time Travel；发布前记录书签。代码进入 Git，未公开 PDF 保留本地原文件与 SHA-256。R2 只保存可重建的 JSON 元数据；发布前保留旧 `release/current.json` 原始 bytes 和 hash，回滚只恢复 pointer，不删除不可变 release。讨论是用户数据，任何重建都必须保留 `comments`、`comment_reports` 和审计表。远端 OCR 的恢复证据是 Git 备份分支、父/分片 offload manifests、源 bundle、模型/mmproj/llama commit、每个 shard 的 run identity、逐卷 status/hash sidecar 和隔离 run root；`r1` 至 `r5` 的完成/部分页状态均保留，pre-r5 远端备份为 `backups/pre-r5-provenance-lock-20260716T0635Z`。它们不能替代本机原 PDF 与既有 OCR/witness/audit ledger。
 
 ## 7. Rollback
 
-Worker、D1、R2 和五个公共注册表面的回滚方法见 `docs/deployment.md`。语料增量导入使用 `ON CONFLICT ... DO UPDATE`，禁止使用会级联删除评论的 `INSERT OR REPLACE INTO documents`。远端回滚先依次 `systemctl --user stop curriculum-ocr-offload@a curriculum-ocr-offload@b` 与 `systemctl --user disable curriculum-ocr-offload@a curriculum-ocr-offload@b`，再停止/禁用 `curriculum-ocr-gpu-monitor` 和已核 owner 的 `curriculum-ocr-llama`；如需回退 r5，再从 `backups/pre-r5-provenance-lock-20260716T0635Z` 恢复精确 unit/scripts 并执行 `systemctl --user daemon-reload`。旧 singleton `curriculum-ocr-offload` 保持 disabled。不删除 r1–r5 已生成证据，不改本机 ledger。配置变化使用新 output root。每个 offload instance 必须配置有界 start limit 与 `RestartPreventExitStatus=2 12 75`：`2` 为永久启动/配置错误，`12` 为 terminal quarantine，`75` 为人工中断。
+Worker、D1、R2 和五个公共注册表面的回滚方法见 `docs/deployment.md`。语料导入使用 release-scoped upsert；未被引用的 stale paragraph 删除，被讨论或核验引用的 stale paragraph 保留稳定 ID 但关闭 display/citation。禁止使用会级联删除评论的 `INSERT OR REPLACE INTO documents`。远端回滚先依次 `systemctl --user stop curriculum-ocr-offload@a curriculum-ocr-offload@b` 与 `systemctl --user disable curriculum-ocr-offload@a curriculum-ocr-offload@b`，再停止/禁用 `curriculum-ocr-gpu-monitor` 和已核 owner 的 `curriculum-ocr-llama`；如需回退 r5，再从 `backups/pre-r5-provenance-lock-20260716T0635Z` 恢复精确 unit/scripts 并执行 `systemctl --user daemon-reload`。旧 singleton `curriculum-ocr-offload` 保持 disabled。不删除 r1–r5 已生成证据，不改本机 ledger。配置变化使用新 output root。每个 offload instance 必须配置有界 start limit 与 `RestartPreventExitStatus=2 12 75`：`2` 为永久启动/配置错误，`12` 为 terminal quarantine，`75` 为人工中断。
 
 ## 8. Last verified
 

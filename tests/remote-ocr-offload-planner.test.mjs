@@ -63,6 +63,59 @@ async function createFixture(t, specifications) {
   return { root, documents };
 }
 
+async function installLocalProgress(root, document, {
+  completedPages,
+  failedPages = {},
+  pageRetries = {},
+  text = null,
+}) {
+  const documentRoot = path.join(root, '.cache/ocr-production', document.id);
+  await mkdir(path.join(documentRoot, 'pages'), { recursive: true });
+  const pages = {};
+  for (const page of completedPages) {
+    const pageRoot = path.join(documentRoot, 'pages', String(page).padStart(4, '0'));
+    await mkdir(pageRoot, { recursive: true });
+    const result = `${JSON.stringify({ page })}\n`;
+    const content = `local page ${page}\n`;
+    await writeFile(path.join(pageRoot, 'result.json'), result);
+    await writeFile(path.join(pageRoot, 'content.md'), content);
+    pages[String(page)] = {
+      status: 'ocr_complete_pending_audit',
+      physical_pdf_page: page,
+      rendered_image_sha256: sha256(`rendered:${document.id}:${page}`),
+      result_json_sha256: sha256(result),
+      content_markdown_sha256: sha256(content),
+      citation_eligible: false,
+    };
+  }
+  await writeFile(path.join(documentRoot, 'state.json'), `${JSON.stringify({
+    schema_version: 1,
+    document_id: document.id,
+    source_sha256: document.source_sha256,
+    page_count: document.page_count,
+    completed_pages: completedPages,
+    failed_pages: failedPages,
+    pages,
+  }, null, 2)}\n`);
+  await writeFile(path.join(documentRoot, 'audit-local.json'), '{"status":"manual_review"}\n');
+  await writeFile(
+    path.join(root, '.cache/ocr-supervisor/watchdog-control.json'),
+    '{"mode":"hold"}\n',
+  );
+  const retryPath = path.join(root, '.cache/ocr-supervisor/page-retries.json');
+  let existingPageRetries = {};
+  try {
+    existingPageRetries = JSON.parse(await readFile(retryPath, 'utf8'));
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  await writeFile(retryPath, JSON.stringify({ ...existingPageRetries, ...pageRetries }));
+  if (text !== null) {
+    await mkdir(path.join(root, '.cache/text'), { recursive: true });
+    await writeFile(path.join(root, '.cache/text', `${document.id}.txt`), text);
+  }
+}
+
 test('planner selects only wholly untouched documents and reports every conflict', async (t) => {
   const { root, documents } = await createFixture(t, [
     { id: 'eligible', pageCount: 7 },
@@ -129,6 +182,76 @@ test('manifest pins the audited runtime and explicit document-level import hard 
   );
   assert.equal(manifest.import_hard_gates.local_revalidation_after_planning.completed_pages_must_equal, 0);
   assert.equal(manifest.import_hard_gates.local_revalidation_after_planning.source_sha256_must_equal_planned_value, true);
+});
+
+test('planner requires exact per-document opt-in and snapshots existing local trees, text, and retry ledgers', async (t) => {
+  const { root, documents } = await createFixture(t, [
+    { id: 'partial', pageCount: 3 },
+    { id: 'complete-local', pageCount: 2 },
+    { id: 'untouched', pageCount: 4 },
+  ]);
+  await installLocalProgress(root, documents[0], {
+    completedPages: [1],
+    failedPages: { 2: { error: 'content failure' } },
+    pageRetries: {
+      'partial:2:paddle': {
+        attempts: 5,
+        quarantined: true,
+      },
+    },
+    text: 'local partial text\n',
+  });
+  await installLocalProgress(root, documents[1], {
+    completedPages: [1, 2],
+    text: 'local complete text\n',
+  });
+
+  const manifest = await buildRemoteOcrOffloadManifest({
+    projectRoot: root,
+    reprocessDocuments: ['partial', 'complete-local'],
+    generatedAt: '2026-07-16T00:00:00.000Z',
+  });
+  assert.equal(manifest.planning_mode, 'explicit_existing_local_document_reprocess_read_only');
+  assert.deepEqual(manifest.documents.map((document) => document.id), ['partial', 'complete-local']);
+  assert.equal(manifest.counts.explicitly_reprocessed_documents, 2);
+  assert.equal(manifest.counts.explicitly_reprocessed_local_completed_pages, 3);
+  assert.equal(
+    manifest.import_hard_gates.local_revalidation_after_planning.original_document_tree_must_not_be_deleted,
+    true,
+  );
+  const partial = manifest.documents[0].planning_snapshot;
+  assert.equal(partial.mode, 'replace_existing_local_document');
+  assert.deepEqual(partial.completion.completed_pages, [1]);
+  assert.deepEqual(partial.completion.failed_pages, [2]);
+  assert.deepEqual(partial.retry_ledger.pages.keys, ['partial:2:paddle']);
+  assert.equal(partial.text.exists, true);
+  assert.match(partial.document_tree.tree_sha256, /^[a-f0-9]{64}$/);
+  assert.match(partial.snapshot_sha256, /^[a-f0-9]{64}$/);
+  const excluded = new Map(manifest.excluded_documents.map((document) => [document.id, document.reasons]));
+  assert.deepEqual(excluded.get('untouched'), ['NOT_EXPLICITLY_SELECTED_FOR_REPROCESS']);
+
+  await assert.rejects(
+    buildRemoteOcrOffloadManifest({
+      projectRoot: root,
+      reprocessDocuments: ['partial', 'partial'],
+    }),
+    /duplicate reprocess document id/,
+  );
+  await assert.rejects(
+    buildRemoteOcrOffloadManifest({
+      projectRoot: root,
+      reprocessDocuments: ['missing'],
+    }),
+    /absent from the OCR queue/,
+  );
+  await assert.rejects(
+    buildRemoteOcrOffloadManifest({
+      projectRoot: root,
+      reprocessDocuments: ['partial'],
+      limitDocuments: 1,
+    }),
+    /cannot be combined/,
+  );
 });
 
 test('planner fails closed when a candidate source no longer matches the queue checksum', async (t) => {

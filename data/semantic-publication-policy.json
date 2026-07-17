@@ -1,0 +1,724 @@
+{
+  "$schema": "./semantic-publication-policy.schema.json",
+  "schema_version": 1,
+  "policy": "fail_closed_semantic_publication_v1",
+  "reviewed_by": "curriculum-r6-independent-corpus-audit",
+  "reviewed_at": "2026-07-16T15:39:23.463Z",
+  "quality_profiles": {
+    "text-expected-page": {
+      "minimum_meaningful_characters_when_text_expected": 20,
+      "forbidden_unicode_scripts": [],
+      "minimum_required_script_characters": {},
+      "tabular_alignment_required": false,
+      "required_resolution_attestations": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ]
+    },
+    "structured-table-page": {
+      "minimum_meaningful_characters_when_text_expected": 20,
+      "forbidden_unicode_scripts": [],
+      "minimum_required_script_characters": {},
+      "tabular_alignment_required": true,
+      "required_resolution_attestations": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "row_alignment_verified",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ]
+    },
+    "exact-character-page": {
+      "minimum_meaningful_characters_when_text_expected": 20,
+      "forbidden_unicode_scripts": [],
+      "minimum_required_script_characters": {},
+      "tabular_alignment_required": false,
+      "required_resolution_attestations": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "exact_character_verified",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ]
+    },
+    "running-header-page": {
+      "minimum_meaningful_characters_when_text_expected": 20,
+      "forbidden_unicode_scripts": [],
+      "minimum_required_script_characters": {},
+      "tabular_alignment_required": false,
+      "required_resolution_attestations": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "running_header_removed",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ]
+    },
+    "russian-glossary": {
+      "minimum_meaningful_characters_when_text_expected": 20,
+      "forbidden_unicode_scripts": [
+        "Hiragana",
+        "Katakana",
+        "Hangul",
+        "Bengali",
+        "Tamil",
+        "Tibetan",
+        "Arabic",
+        "Devanagari",
+        "Telugu",
+        "Thai",
+        "Armenian",
+        "Georgian"
+      ],
+      "minimum_required_script_characters": {
+        "Cyrillic": 10
+      },
+      "tabular_alignment_required": true,
+      "required_resolution_attestations": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "row_alignment_verified",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ]
+    },
+    "japanese-parallel-table": {
+      "minimum_meaningful_characters_when_text_expected": 20,
+      "forbidden_unicode_scripts": [
+        "Cyrillic",
+        "Hangul",
+        "Bengali",
+        "Tamil",
+        "Tibetan",
+        "Arabic"
+      ],
+      "minimum_required_script_characters": {
+        "Hiragana": 1
+      },
+      "tabular_alignment_required": true,
+      "required_resolution_attestations": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "row_alignment_verified",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ]
+    }
+  },
+  "document_aliases": [
+    {
+      "alias_document_id": "ictr-6c6df9d121ac",
+      "canonical_document_id": "moe-2022-17",
+      "source_artifact_sha256": "d5f080fee80df073ef67f6b0dbe303250913777aee32f98bea4f22df1c6247d8",
+      "relation": "exact_source_duplicate",
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "note": "两份 PDF 的源文件 SHA-256 与 68 页页数完全一致；以教育部本机扫描记录 moe-2022-17 为 canonical，ICTR 记录仅保留来源 alias 身份。"
+    }
+  ],
+  "page_controls": [
+    {
+      "control_id": "r6-missed-ictr-bb00-p078",
+      "document_id": "ictr-bb00e7fd186f",
+      "source_artifact_sha256": "77b24cc47e4ee699c19ede24744c1fd1ae8a02e5227e15299d39f2886b497f99",
+      "page_count": 109,
+      "page_start": 78,
+      "page_end": 78,
+      "quality_profile": "text-expected-page",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "ocr_missing_or_severely_incomplete",
+        "image_text_expected_ocr_under_20"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计确认物理页 78 有完整俄语词汇内容，但当前 OCR 为空或严重不完整。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "重识别、原图逐项核对和同版在线文本核对完成前不得进入语料、概念或引用。"
+    },
+    {
+      "control_id": "r6-missed-ictr-d395-p061",
+      "document_id": "ictr-d39597b0d7f5",
+      "source_artifact_sha256": "292a0078f21d3c01e08359c250c8a13b7854cb6fb051acfa6e2ae81e937d4325",
+      "page_count": 106,
+      "page_start": 61,
+      "page_end": 61,
+      "quality_profile": "text-expected-page",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "ocr_missing_or_severely_incomplete",
+        "image_text_expected_ocr_under_20"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计确认物理页 61 为有字俄语词汇页，当前 OCR 无有效正文。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "本页同时落在俄语词汇包整体隔离段内，两个独立门均须通过。"
+    },
+    {
+      "control_id": "r6-missed-ictr-d395-p082-p083",
+      "document_id": "ictr-d39597b0d7f5",
+      "source_artifact_sha256": "292a0078f21d3c01e08359c250c8a13b7854cb6fb051acfa6e2ae81e937d4325",
+      "page_count": 106,
+      "page_start": 82,
+      "page_end": 83,
+      "quality_profile": "text-expected-page",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "ocr_missing_or_severely_incomplete",
+        "image_text_expected_ocr_under_20"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计确认物理页 82 至 83 均有词表正文，当前 OCR 为空或仅余页眉。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "两页同时落在俄语词汇包整体隔离段内，须按行恢复。"
+    },
+    {
+      "control_id": "r6-missed-ictr-d395-p085",
+      "document_id": "ictr-d39597b0d7f5",
+      "source_artifact_sha256": "292a0078f21d3c01e08359c250c8a13b7854cb6fb051acfa6e2ae81e937d4325",
+      "page_count": 106,
+      "page_start": 85,
+      "page_end": 85,
+      "quality_profile": "text-expected-page",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "ocr_missing_or_severely_incomplete",
+        "image_text_expected_ocr_under_20"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计确认物理页 85 有词表正文，当前 OCR 无有效正文。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "本页同时落在俄语词汇包整体隔离段内，须按行恢复。"
+    },
+    {
+      "control_id": "r6-missed-ictr-ddd18-p231",
+      "document_id": "ictr-ddd18cff2338",
+      "source_artifact_sha256": "f4a376ebdd65557eb0dea91a292e8f6badd042a2d75bad4a92001d63ee6e4faf",
+      "page_count": 241,
+      "page_start": 231,
+      "page_end": 231,
+      "quality_profile": "text-expected-page",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "ocr_missing_or_severely_incomplete",
+        "image_text_expected_ocr_under_20"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计确认物理页 231 有英语词表正文，当前 OCR 为空或严重不完整。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "不得用相邻词表页推断补写。"
+    },
+    {
+      "control_id": "r6-missed-moe-2011-02-p081",
+      "document_id": "moe-2011-02",
+      "source_artifact_sha256": "41cf1d11ccd595cf5c36f014e56c4be473945c8ee3c04346d72228c85da7499b",
+      "page_count": 183,
+      "page_start": 81,
+      "page_end": 81,
+      "quality_profile": "text-expected-page",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "ocr_missing_or_severely_incomplete",
+        "image_text_expected_ocr_under_20"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计确认物理页 81 有双栏英语词汇正文，当前 OCR 严重不完整。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "双栏顺序和词项完整性须逐列核对。"
+    },
+    {
+      "control_id": "r6-missed-moe-2022-06-p102",
+      "document_id": "moe-2022-06",
+      "source_artifact_sha256": "59ec3971e0dbd6ca487c4e4972cbc80effaf2fd62418d07e5f62c6698fa222fb",
+      "page_count": 201,
+      "page_start": 102,
+      "page_end": 102,
+      "quality_profile": "text-expected-page",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "ocr_missing_or_severely_incomplete",
+        "image_text_expected_ocr_under_20"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计确认物理页 102 有英语词表正文，当前 OCR 严重不完整。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "词项顺序和双栏边界须从原图恢复。"
+    },
+    {
+      "control_id": "r6-missed-moe-2022-06-p106",
+      "document_id": "moe-2022-06",
+      "source_artifact_sha256": "59ec3971e0dbd6ca487c4e4972cbc80effaf2fd62418d07e5f62c6698fa222fb",
+      "page_count": 201,
+      "page_start": 106,
+      "page_end": 106,
+      "quality_profile": "text-expected-page",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "ocr_missing_or_severely_incomplete",
+        "image_text_expected_ocr_under_20"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计确认物理页 106 有英语词表正文，当前 OCR 无有效正文。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "不得视为空白页。"
+    },
+    {
+      "control_id": "r6-missed-moe-2022-06-p124",
+      "document_id": "moe-2022-06",
+      "source_artifact_sha256": "59ec3971e0dbd6ca487c4e4972cbc80effaf2fd62418d07e5f62c6698fa222fb",
+      "page_count": 201,
+      "page_start": 124,
+      "page_end": 124,
+      "quality_profile": "text-expected-page",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "ocr_missing_or_severely_incomplete",
+        "image_text_expected_ocr_under_20"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计确认物理页 124 有英语词表正文，当前 OCR 无有效正文。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "不得视为空白页。"
+    },
+    {
+      "control_id": "r6-missed-moe-2022-06-p130",
+      "document_id": "moe-2022-06",
+      "source_artifact_sha256": "59ec3971e0dbd6ca487c4e4972cbc80effaf2fd62418d07e5f62c6698fa222fb",
+      "page_count": 201,
+      "page_start": 130,
+      "page_end": 130,
+      "quality_profile": "text-expected-page",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "ocr_missing_or_severely_incomplete",
+        "image_text_expected_ocr_under_20"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计确认物理页 130 有英语词表正文，当前 OCR 无有效正文。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "不得视为空白页。"
+    },
+    {
+      "control_id": "r6-russian-glossary-ictr-3db-p039-p086",
+      "document_id": "ictr-3db457c6f361",
+      "source_artifact_sha256": "4b335d4856b0aa80a76ac6811bc2da585277ea2f25bc35a7db828860b73b1177",
+      "page_count": 96,
+      "page_start": 39,
+      "page_end": 86,
+      "quality_profile": "russian-glossary",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "whole_glossary_language_specific_reprocess_required",
+        "unexpected_unicode_script",
+        "glossary_row_alignment_unverified"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "目录物理页 4 标示附录1词汇表，正文物理页 39 出现“附录1 词汇表”，物理页 87 开始附录2；故完整词汇表边界为物理页 39 至 86。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "row_alignment_verified",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "样本页 84 已出现非俄语脚本和词条错乱；为避免漏掉同类错误，整段词汇表 fail-closed。"
+    },
+    {
+      "control_id": "r6-russian-glossary-ictr-d395-p059-p099",
+      "document_id": "ictr-d39597b0d7f5",
+      "source_artifact_sha256": "292a0078f21d3c01e08359c250c8a13b7854cb6fb051acfa6e2ae81e937d4325",
+      "page_count": 106,
+      "page_start": 59,
+      "page_end": 99,
+      "quality_profile": "russian-glossary",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "whole_glossary_language_specific_reprocess_required",
+        "unexpected_unicode_script",
+        "glossary_row_alignment_unverified"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "目录物理页 4 标示附录“一、词汇包”，正文物理页 59 开始词汇包，物理页 100 明确开始“二、语法项目表”；故完整词汇包边界为物理页 59 至 99。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "row_alignment_verified",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "物理页 61、82、83、85 另有漏识别硬门，样本页 62、101 显示脚本或行义异常；词汇包整段须重跑并逐行核对。"
+    },
+    {
+      "control_id": "r6-russian-glossary-moe-2011-04-p037-p072",
+      "document_id": "moe-2011-04",
+      "source_artifact_sha256": "a0ccaf4b2f7ff4738964ce4989d7a6ff2757226f4aaaf5364ededfb85734b17f",
+      "page_count": 92,
+      "page_start": 37,
+      "page_end": 72,
+      "quality_profile": "russian-glossary",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "whole_glossary_language_specific_reprocess_required",
+        "unexpected_unicode_script",
+        "glossary_row_alignment_unverified"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "目录物理页 4 标示附录1词汇表，正文物理页 37 开始附录1词汇表，物理页 73 开始附录2；故完整词汇表边界为物理页 37 至 72。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "row_alignment_verified",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "物理页 43、45、48、51、65、67 出现脚本幻觉或词义错位样本；整段词汇表须按俄语词条与中文释义成对复核。"
+    },
+    {
+      "control_id": "r6-russian-glossary-moe-2022-08-p061-p100",
+      "document_id": "moe-2022-08",
+      "source_artifact_sha256": "42c9c10a4374ca9b88009a666b86c622b828050da5ebaa636e72ca026b54e1cd",
+      "page_count": 111,
+      "page_start": 61,
+      "page_end": 100,
+      "quality_profile": "russian-glossary",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "whole_glossary_language_specific_reprocess_required",
+        "unexpected_unicode_script",
+        "glossary_row_alignment_unverified"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "目录物理页 7 标示附录4词汇表，正文物理页 61 开始附录4词汇表，物理页 101 开始附录5教学案例；故完整词汇表边界为物理页 61 至 100。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "row_alignment_verified",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "物理页 66、67、69、70、73、74、86、87、95、97 出现脚本幻觉或词义错位样本；整段词汇表须重跑并逐行核对。"
+    },
+    {
+      "control_id": "r6-japanese-row-shift-ictr-f985-p054",
+      "document_id": "ictr-f985431f376f",
+      "source_artifact_sha256": "2dcc89ede277eeb9277bce7d8ae79ddf3307b587499172533f2ed0a3f72ac33e",
+      "page_count": 102,
+      "page_start": 54,
+      "page_end": 54,
+      "quality_profile": "japanese-parallel-table",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "definition_row_shift",
+        "glossary_row_alignment_unverified"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计逐行比较物理页 54，确认四项日语词条与中文释义错位。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "row_alignment_verified",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "不能只校正四个表面词项，须重建并核对整页行对应关系。"
+    },
+    {
+      "control_id": "r6-japanese-missing-definition-ictr-f985-p060",
+      "document_id": "ictr-f985431f376f",
+      "source_artifact_sha256": "2dcc89ede277eeb9277bce7d8ae79ddf3307b587499172533f2ed0a3f72ac33e",
+      "page_count": 102,
+      "page_start": 60,
+      "page_end": 60,
+      "quality_profile": "japanese-parallel-table",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "missing_definition",
+        "glossary_row_alignment_unverified"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计逐行比较物理页 60，确认日语词条“こえ”的中文释义缺失。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "row_alignment_verified",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "须核对整页而非只补单个释义，防止相邻行继续错位。"
+    },
+    {
+      "control_id": "r6-japanese-row-shift-ictr-f985-p061",
+      "document_id": "ictr-f985431f376f",
+      "source_artifact_sha256": "2dcc89ede277eeb9277bce7d8ae79ddf3307b587499172533f2ed0a3f72ac33e",
+      "page_count": 102,
+      "page_start": 61,
+      "page_end": 61,
+      "quality_profile": "japanese-parallel-table",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "definition_row_shift",
+        "glossary_row_alignment_unverified"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计逐行比较物理页 61，确认 30 项词条的释义整体下移一行。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "row_alignment_verified",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-r6-independent-corpus-audit",
+      "reviewed_at": "2026-07-16T15:39:23.463Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "整页 30 项必须重新行对齐，任何局部补丁均不足以放行。"
+    },
+    {
+      "control_id": "r6-structured-table-moe-2011-01-p049",
+      "document_id": "moe-2011-01",
+      "source_artifact_sha256": "3d205824c00c73e5323d37afb8ed9ee878919286447b72adfbe9bc487f9ffae9",
+      "page_count": 83,
+      "page_start": 49,
+      "page_end": 49,
+      "quality_profile": "structured-table-page",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "table_structure_collapsed",
+        "row_column_alignment_lost"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计比较源 PDF 物理页 49 与远端样本：源图中的“星／行／学／雪／Y”及“牙／羊／阳／样／要／爷／也／业／叶”为分立纵列表项，候选将其拼接为单元格，行列与分组对应关系丢失。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "row_alignment_verified",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-remote-first-book-quality-sample",
+      "reviewed_at": "2026-07-16T16:18:46.429Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "远端候选尚未进入本机接收与发布流程；本控制预先绑定源页，未来即使候选被标为 accepted，也须先逐行逐列恢复并核验后才能放行。"
+    },
+    {
+      "control_id": "r6-exact-character-moe-2011-01-p065",
+      "document_id": "moe-2011-01",
+      "source_artifact_sha256": "3d205824c00c73e5323d37afb8ed9ee878919286447b72adfbe9bc487f9ffae9",
+      "page_count": 83,
+      "page_start": 65,
+      "page_end": 65,
+      "quality_profile": "exact-character-page",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "exact_character_mismatch"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计比较源 PDF 物理页 65 与远端样本，源图序号 1680 的字形为“竖”，候选识别为“坚”。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "exact_character_verified",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-remote-first-book-quality-sample",
+      "reviewed_at": "2026-07-16T16:18:46.429Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "远端候选尚未进入本机接收与发布流程；本控制预先阻断该页，只有原图、专门字符复识及同版在线文本共同确认精确字形后方可放行。"
+    },
+    {
+      "control_id": "r6-structured-table-moe-2022-03-p075",
+      "document_id": "moe-2022-03",
+      "source_artifact_sha256": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a",
+      "page_count": 109,
+      "page_start": 75,
+      "page_end": 75,
+      "quality_profile": "structured-table-page",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "column_order_reversed",
+        "row_column_alignment_lost"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计比较源 PDF 物理页 75 与远端样本：源图为多列字表，候选按从右到左的列序串接内容，原有列序、行列对应和分组语义均已丢失。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "row_alignment_verified",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-remote-second-book-quality-sample",
+      "reviewed_at": "2026-07-16T16:31:25.170Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "远端候选尚未进入本机接收与发布流程；未来即使该页被标为 accepted，也须按源图恢复原列序及逐行逐列对应后才能放行。"
+    },
+    {
+      "control_id": "r6-running-header-moe-2022-03-p109",
+      "document_id": "moe-2022-03",
+      "source_artifact_sha256": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a",
+      "page_count": 109,
+      "page_start": 109,
+      "page_end": 109,
+      "quality_profile": "running-header-page",
+      "status": "unresolved_fail_closed",
+      "reasons": [
+        "running_header_promoted_to_heading"
+      ],
+      "source_image_text_expected": true,
+      "boundary_basis": "独立图文审计比较源 PDF 物理页 109 与远端样本：源图页首“义务教育 语文 课程标准（2022年版）”为运行页眉，候选却将其提升为正文二级标题“##”。",
+      "resolution_requirements": [
+        "language_specific_ocr",
+        "source_image_comparison",
+        "running_header_removed",
+        "online_same_edition_checked",
+        "version_match_verified"
+      ],
+      "resolution_attestations": [],
+      "reviewed_by": "curriculum-remote-second-book-quality-sample",
+      "reviewed_at": "2026-07-16T16:31:25.170Z",
+      "resolved_by": null,
+      "resolved_at": null,
+      "note": "远端候选尚未进入本机接收与发布流程；运行页眉必须从正文层级中移除并经原图核验，不能仅通过格式降级掩盖结构错误。"
+    }
+  ]
+}

@@ -9,7 +9,10 @@
 5. `docs/data-model.md`
 6. `docs/deployment.md`
 7. `docs/operations.md`
-8. `/Users/ylsuen/CF/runbooks/bdfz_project_matrix_and_interdependencies.md`（仅 BDFZ 内部运维环境）
+8. `docs/project-asset-ledger.md`
+9. `docs/project-data-integrity-audit-2026-07-16.md`
+10. `docs/project-operations-ledger.md`
+11. `/Users/ylsuen/CF/runbooks/bdfz_project_matrix_and_interdependencies.md`（仅 BDFZ 内部运维环境）
 
 ## 不可突破的边界
 
@@ -32,4 +35,9 @@
 
 ## 当前已知未决
 
-50 份可运行扫描任务、8,690 页进入质量优先 OCR 队列。它们在逐页识别、篇目定位、同版在线核查和冲突裁决完成前保持 fail-closed。Companion 源码入口已登记，但新安装包需在真实 Android 设备验证后才能发布。
+- OCR 名义队列为 86 份／11,847 页，物理去重为 85 份／11,779 页。最新本机状态为 primary/audit 6,947、Vision 7,012、accepted display/citation 0；不得继续引用旧 50／8,690 口径。
+- 一页 `legacy-compendium-chemistry:84:paddle` 隔离，6,091 页仍 unresolved、783 页待图像复核、73 页待空白确认。逐页识别完成不是发布完成。
+- 本机 v9 已具备 corpus release gate、91 chunk receipts、versioned R2 pointer reader；preview/production 仍只到 D1 0004 和 stable R2 keys，明确 blocked，尚未部署。
+- 当前深层 ontology 的 169 个节点主要属于语文；其它学科不能伪装为同等深度完成。
+- 两个 derived OCR PDF 的工具/参数谱系不完整，保持不可入队、不可发布。
+- Companion 源码入口已登记，但新安装包需在真实 Android 设备验证后才能发布。

@@ -1,0 +1,40 @@
+[Unit]
+Description=Read-only monitor for the isolated curriculum OCR partial14 reprocess
+After=network-online.target curriculum-ocr-llama.service
+Wants=network-online.target
+ConditionPathIsDirectory=%h/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess
+
+[Service]
+Type=oneshot
+SuccessExitStatus=10
+WorkingDirectory=%h/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace
+UMask=0077
+ExecStart=/usr/bin/node %h/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace/monitor-remote-ocr-reprocess.mjs \
+  --run-root %h/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess \
+  --output-dir %h/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/monitor \
+  --shard-output a=output/production-p4-mb16-shard-a-r1 \
+  --shard-output b=output/production-p4-mb16-shard-b-r1 \
+  --worker-unit a=curriculum-ocr-reprocess@a.service \
+  --worker-unit b=curriculum-ocr-reprocess@b.service \
+  --llama-unit curriculum-ocr-llama.service \
+  --llama-health-url http://127.0.0.1:8112/health \
+  --stall-seconds 900 \
+  --disk-min-gib 50 \
+  --gpu-max-c 85 \
+  --memory-min-gib 1 \
+  --cpu-warning-c 97 \
+  --cpu-critical-c 99
+Restart=no
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/monitor
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+# This unit only observes. It never restarts workers or mutates OCR data.
+# Worker Restart=on-failure and the runner's bounded timeout/retry contract own recovery.

@@ -1,0 +1,710 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/zh-compulsory-2022-online-claims-v1.json",
+  "title": "Fail-closed online claim verification for the 2022 compulsory Chinese curriculum standard",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "artifact_id",
+    "title",
+    "assertion_boundary",
+    "reviewed_at",
+    "document_identity",
+    "release_boundary",
+    "sources",
+    "artifact_equivalence",
+    "claims",
+    "interpretive_alignments",
+    "version_mismatch_controls",
+    "transcription_conflicts"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "./zh-compulsory-2022-claims.schema.json"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "artifact_id": {
+      "const": "online-verification:zh-compulsory-2022-v1"
+    },
+    "title": {
+      "$ref": "#/$defs/nonEmptyString"
+    },
+    "assertion_boundary": {
+      "$ref": "#/$defs/nonEmptyString"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date"
+    },
+    "document_identity": {
+      "$ref": "#/$defs/documentIdentity"
+    },
+    "release_boundary": {
+      "$ref": "#/$defs/releaseBoundary"
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "artifact_equivalence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/artifactEquivalence"
+      }
+    },
+    "claims": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "$ref": "#/$defs/claim"
+      }
+    },
+    "interpretive_alignments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/interpretiveAlignment"
+      }
+    },
+    "version_mismatch_controls": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/versionMismatchControl"
+      }
+    },
+    "transcription_conflicts": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/$defs/transcriptionConflict"
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "publicationLocked": {
+      "type": "boolean",
+      "const": false
+    },
+    "documentIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_id",
+        "title",
+        "version_label",
+        "stage",
+        "school_type",
+        "subject",
+        "issued_by",
+        "source_artifact_sha256",
+        "page_count",
+        "primary_source_id",
+        "publication_unlock"
+      ],
+      "properties": {
+        "document_id": {
+          "const": "moe-2022-03"
+        },
+        "title": {
+          "const": "义务教育语文课程标准（2022年版）"
+        },
+        "version_label": {
+          "const": "2022年版"
+        },
+        "stage": {
+          "const": "义务教育"
+        },
+        "school_type": {
+          "const": "ordinary_general_education"
+        },
+        "subject": {
+          "const": "语文"
+        },
+        "issued_by": {
+          "const": "中华人民共和国教育部"
+        },
+        "source_artifact_sha256": {
+          "const": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a"
+        },
+        "page_count": {
+          "const": 109
+        },
+        "primary_source_id": {
+          "const": "source:moe-2022-chinese-pdf"
+        },
+        "publication_unlock": {
+          "$ref": "#/$defs/publicationLocked"
+        }
+      }
+    },
+    "releaseBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "publication_unlock",
+        "candidate_layer_mutation_allowed",
+        "ontology_merge_allowed",
+        "builder_input_allowed",
+        "public_data_update_allowed",
+        "publication_gate_change_allowed",
+        "deployment_allowed"
+      ],
+      "properties": {
+        "publication_unlock": {
+          "$ref": "#/$defs/publicationLocked"
+        },
+        "candidate_layer_mutation_allowed": {
+          "const": false
+        },
+        "ontology_merge_allowed": {
+          "const": false
+        },
+        "builder_input_allowed": {
+          "const": false
+        },
+        "public_data_update_allowed": {
+          "const": false
+        },
+        "publication_gate_change_allowed": {
+          "const": false
+        },
+        "deployment_allowed": {
+          "const": false
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "title",
+        "publisher",
+        "url",
+        "authority_class",
+        "evidence_role",
+        "version_relation",
+        "independent_text_decision",
+        "publication_unlock",
+        "artifact_sha256",
+        "same_artifact_as",
+        "support_scope",
+        "limitations"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "pattern": "^source:[a-z0-9-]+$"
+        },
+        "title": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "publisher": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https://"
+        },
+        "authority_class": {
+          "enum": [
+            "ministry_primary",
+            "ministry_official_web",
+            "ministry_affiliated_education_press",
+            "official_publisher_journal",
+            "official_publisher_metadata",
+            "regional_official_education_platform",
+            "curriculum_research_institute"
+          ]
+        },
+        "evidence_role": {
+          "enum": [
+            "primary_artifact",
+            "identity_only",
+            "independent_text",
+            "same_artifact_mirror",
+            "metadata_only",
+            "conflicted_transcription",
+            "version_mismatch"
+          ]
+        },
+        "version_relation": {
+          "enum": [
+            "exact_2022_edition",
+            "same_artifact_exact_2022_edition",
+            "version_mismatch_2025_revision",
+            "version_mismatch_high_school",
+            "version_mismatch_special_education"
+          ]
+        },
+        "independent_text_decision": {
+          "type": "boolean"
+        },
+        "publication_unlock": {
+          "$ref": "#/$defs/publicationLocked"
+        },
+        "artifact_sha256": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "same_artifact_as": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^source:[a-z0-9-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "support_scope": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "artifactEquivalence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_source_id",
+        "mirror_source_id",
+        "sha256",
+        "classification",
+        "independent_evidence_increment",
+        "publication_unlock",
+        "note"
+      ],
+      "properties": {
+        "canonical_source_id": {
+          "type": "string",
+          "pattern": "^source:[a-z0-9-]+$"
+        },
+        "mirror_source_id": {
+          "type": "string",
+          "pattern": "^source:[a-z0-9-]+$"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "classification": {
+          "const": "same_artifact_mirror"
+        },
+        "independent_evidence_increment": {
+          "const": 0
+        },
+        "publication_unlock": {
+          "$ref": "#/$defs/publicationLocked"
+        },
+        "note": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "title",
+        "claim_type",
+        "verification_status",
+        "normative",
+        "publication_unlock",
+        "source_image_pages",
+        "exact_terms",
+        "ordered_items",
+        "structure",
+        "crosschecks",
+        "limitations",
+        "conflict_ids"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "pattern": "^claim:[a-z0-9-]+$"
+        },
+        "title": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "claim_type": {
+          "enum": [
+            "controlled_term_set",
+            "ordered_goal_list"
+          ]
+        },
+        "verification_status": {
+          "enum": [
+            "independently_crosschecked",
+            "partial_conflicted"
+          ]
+        },
+        "normative": {
+          "const": true
+        },
+        "publication_unlock": {
+          "$ref": "#/$defs/publicationLocked"
+        },
+        "source_image_pages": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 109
+          }
+        },
+        "exact_terms": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "ordered_items": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/orderedItem"
+          }
+        },
+        "structure": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/structureItem"
+          }
+        },
+        "crosschecks": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/crosscheck"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "conflict_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^conflict:[a-z0-9-]+$"
+          }
+        }
+      }
+    },
+    "orderedItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "position",
+        "text",
+        "publication_unlock"
+      ],
+      "properties": {
+        "position": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "text": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "publication_unlock": {
+          "$ref": "#/$defs/publicationLocked"
+        }
+      }
+    },
+    "structureItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "members",
+        "note"
+      ],
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "note": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "crosscheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "role",
+        "independent_for_claim",
+        "support_scope"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "pattern": "^source:[a-z0-9-]+$"
+        },
+        "role": {
+          "enum": [
+            "independent_exact_support",
+            "partial_support",
+            "conflicting_transcription",
+            "metadata_only",
+            "identity_only"
+          ]
+        },
+        "independent_for_claim": {
+          "type": "boolean"
+        },
+        "support_scope": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "interpretiveAlignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alignment_id",
+        "source_id",
+        "alignment_type",
+        "status",
+        "normative",
+        "semantic_relation_allowed",
+        "publication_unlock",
+        "mappings",
+        "caveats"
+      ],
+      "properties": {
+        "alignment_id": {
+          "type": "string",
+          "pattern": "^alignment:[a-z0-9-]+$"
+        },
+        "source_id": {
+          "type": "string",
+          "pattern": "^source:[a-z0-9-]+$"
+        },
+        "alignment_type": {
+          "const": "goal_to_core_competency_interpretation"
+        },
+        "status": {
+          "const": "interpretive_nonexclusive"
+        },
+        "normative": {
+          "const": false
+        },
+        "semantic_relation_allowed": {
+          "const": false
+        },
+        "publication_unlock": {
+          "$ref": "#/$defs/publicationLocked"
+        },
+        "mappings": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "$ref": "#/$defs/alignmentMapping"
+          }
+        },
+        "caveats": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "alignmentMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "goal_numbers",
+        "target_label"
+      ],
+      "properties": {
+        "goal_numbers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          }
+        },
+        "target_label": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "versionMismatchControl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "classification",
+        "mismatch_dimension",
+        "forbidden_uses",
+        "publication_unlock",
+        "note"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "pattern": "^source:[a-z0-9-]+$"
+        },
+        "classification": {
+          "const": "version_mismatch"
+        },
+        "mismatch_dimension": {
+          "enum": [
+            "edition_revision",
+            "education_stage",
+            "school_type"
+          ]
+        },
+        "forbidden_uses": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "wording_adjudication",
+              "concept_identity_merge",
+              "publication_unlock"
+            ]
+          }
+        },
+        "publication_unlock": {
+          "$ref": "#/$defs/publicationLocked"
+        },
+        "note": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "transcriptionConflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "conflict_id",
+        "physical_pdf_page",
+        "section_path",
+        "conflict_kind",
+        "rejected_reading",
+        "accepted_reading",
+        "decision",
+        "source_image_status",
+        "evidence_source_ids",
+        "publication_unlock",
+        "note"
+      ],
+      "properties": {
+        "conflict_id": {
+          "type": "string",
+          "pattern": "^conflict:[a-z0-9-]+$"
+        },
+        "physical_pdf_page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 109
+        },
+        "section_path": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "conflict_kind": {
+          "enum": [
+            "local_ocr_omission",
+            "local_ocr_substitution",
+            "online_transcription_variant"
+          ]
+        },
+        "rejected_reading": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "accepted_reading": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "decision": {
+          "const": "source_image_wins"
+        },
+        "source_image_status": {
+          "const": "human_verified"
+        },
+        "evidence_source_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^source:[a-z0-9-]+$"
+          }
+        },
+        "publication_unlock": {
+          "$ref": "#/$defs/publicationLocked"
+        },
+        "note": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    }
+  }
+}

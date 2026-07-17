@@ -1,0 +1,978 @@
+{
+  "$schema": "./zh-compulsory-2022-claims.schema.json",
+  "schema_version": 1,
+  "artifact_id": "online-verification:zh-compulsory-2022-v1",
+  "title": "《义务教育语文课程标准（2022年版）》逐项在线核对证据",
+  "assertion_boundary": "本文件只记录版本敏感的在线交叉核对结果与冲突裁决，不是候选概念层、规范本体、构建输入、公开数据或发布放行凭据。",
+  "reviewed_at": "2026-07-16",
+  "document_identity": {
+    "document_id": "moe-2022-03",
+    "title": "义务教育语文课程标准（2022年版）",
+    "version_label": "2022年版",
+    "stage": "义务教育",
+    "school_type": "ordinary_general_education",
+    "subject": "语文",
+    "issued_by": "中华人民共和国教育部",
+    "source_artifact_sha256": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a",
+    "page_count": 109,
+    "primary_source_id": "source:moe-2022-chinese-pdf",
+    "publication_unlock": false
+  },
+  "release_boundary": {
+    "publication_unlock": false,
+    "candidate_layer_mutation_allowed": false,
+    "ontology_merge_allowed": false,
+    "builder_input_allowed": false,
+    "public_data_update_allowed": false,
+    "publication_gate_change_allowed": false,
+    "deployment_allowed": false
+  },
+  "sources": [
+    {
+      "source_id": "source:moe-2022-chinese-pdf",
+      "title": "义务教育语文课程标准（2022年版）",
+      "publisher": "中华人民共和国教育部",
+      "url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582344386456.pdf",
+      "authority_class": "ministry_primary",
+      "evidence_role": "primary_artifact",
+      "version_relation": "exact_2022_edition",
+      "independent_text_decision": false,
+      "publication_unlock": false,
+      "artifact_sha256": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a",
+      "same_artifact_as": null,
+      "support_scope": [
+        "文献身份、页码、版面图像与规范文字的最终裁决"
+      ],
+      "limitations": [
+        "同一 PDF 的 OCR、文本层或镜像不能被重复计作独立在线证据"
+      ]
+    },
+    {
+      "source_id": "source:moe-2022-release",
+      "title": "教育部关于印发义务教育课程方案和课程标准（2022年版）的通知",
+      "publisher": "中华人民共和国教育部",
+      "url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
+      "authority_class": "ministry_official_web",
+      "evidence_role": "identity_only",
+      "version_relation": "exact_2022_edition",
+      "independent_text_decision": false,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "发布日期、发布机构、义务教育课程方案和课程标准（2022年版）的官方身份"
+      ],
+      "limitations": [
+        "通知页不承载语文学科标准全部正文，不能用于逐字裁决"
+      ]
+    },
+    {
+      "source_id": "source:moe-2022-qa",
+      "title": "教育部教材局负责人就《义务教育课程方案和课程标准（2022年版）》答记者问",
+      "publisher": "中华人民共和国教育部",
+      "url": "https://hudong.moe.gov.cn/jyb_xwfb/s271/202204/t20220421_620066.html",
+      "authority_class": "ministry_official_web",
+      "evidence_role": "independent_text",
+      "version_relation": "exact_2022_edition",
+      "independent_text_decision": true,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "四项语文核心素养名称",
+        "2022 年版义务教育课程标准修订背景与总体定位"
+      ],
+      "limitations": [
+        "问答只概括部分规范内容，不能替代学科标准正文"
+      ]
+    },
+    {
+      "source_id": "source:ictr-2022-chinese-pdf",
+      "title": "义务教育语文课程标准（2022年版）",
+      "publisher": "课程教材研究所",
+      "url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/3.%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%AD%E6%96%87%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%882022%E5%B9%B4%E7%89%88%EF%BC%89.20220428161048.pdf",
+      "authority_class": "curriculum_research_institute",
+      "evidence_role": "same_artifact_mirror",
+      "version_relation": "same_artifact_exact_2022_edition",
+      "independent_text_decision": false,
+      "publication_unlock": false,
+      "artifact_sha256": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a",
+      "same_artifact_as": "source:moe-2022-chinese-pdf",
+      "support_scope": [
+        "官方 PDF 的可用性镜像与文件完整性复核"
+      ],
+      "limitations": [
+        "与教育部 PDF 的 SHA-256 完全相同，只是同一物理制品的镜像，独立证据增量为零"
+      ]
+    },
+    {
+      "source_id": "source:jyb-video-20220720",
+      "title": "视频解读义务教育语文课程标准（2022年版）",
+      "publisher": "中国教育新闻网",
+      "url": "https://www.jyb.cn/rmtzcg/xwy/spxw/202207/t20220720_701940.html",
+      "authority_class": "ministry_affiliated_education_press",
+      "evidence_role": "independent_text",
+      "version_relation": "exact_2022_edition",
+      "independent_text_decision": true,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "四项语文核心素养名称",
+        "四类语文实践名称",
+        "三个层面及六个学习任务群名称"
+      ],
+      "limitations": [
+        "解读性报道可独立确认术语出现，但对层级关系的解释仍须回到标准版面"
+      ]
+    },
+    {
+      "source_id": "source:jyb-chinese-character-20240809",
+      "title": "让汉字活泼泼地长在儿童心里",
+      "publisher": "中国教育报",
+      "url": "https://paper.jyb.cn/zgjyb/html/2024-08/09/content_144742_17698150.htm",
+      "authority_class": "ministry_affiliated_education_press",
+      "evidence_role": "independent_text",
+      "version_relation": "exact_2022_edition",
+      "independent_text_decision": true,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "四项语文核心素养名称",
+        "四类语文实践名称",
+        "六个学习任务群名称",
+        "语言运用的基础性表述"
+      ],
+      "limitations": [
+        "“具体化为四个方面”等属于作者解读，不得据此创建规范本体父子关系"
+      ]
+    },
+    {
+      "source_id": "source:pep-task-groups-2022-12",
+      "title": "语文学习任务群的内涵及教学体现",
+      "publisher": "人民教育出版社",
+      "url": "https://www.pep.com.cn/bks/xxyw/jzjd/202505/W020250531429966841522.pdf",
+      "authority_class": "official_publisher_journal",
+      "evidence_role": "independent_text",
+      "version_relation": "exact_2022_edition",
+      "independent_text_decision": true,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "基础型、发展型、拓展型三个层面",
+        "一加三加二的六个学习任务群",
+        "六个学习任务群之间的并列关系"
+      ],
+      "limitations": [
+        "文章是课程标准解读，不取代标准对各任务群学习内容的规范原文"
+      ]
+    },
+    {
+      "source_id": "source:pep-contexts-2024-07",
+      "title": "新课程标准中的“情境”内涵及其教学意蕴",
+      "publisher": "人民教育出版社",
+      "url": "https://www.pep.com.cn/bks/xxyw/jzjd/202505/W020250531417808767161.pdf",
+      "authority_class": "official_publisher_journal",
+      "evidence_role": "independent_text",
+      "version_relation": "exact_2022_edition",
+      "independent_text_decision": true,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "日常生活、文学体验、跨学科学习三类学业质量情境",
+        "三类情境的功能差异"
+      ],
+      "limitations": [
+        "情境教学意蕴属于解释性展开，不得替代课程标准的学业质量描述"
+      ]
+    },
+    {
+      "source_id": "source:pep-assessment-2024-09",
+      "title": "小学语文第一学段非纸笔测评的问题与对策",
+      "publisher": "人民教育出版社",
+      "url": "https://www.pep.com.cn/bks/xxyw/jzjd/202505/W020250531416084612478.pdf",
+      "authority_class": "official_publisher_journal",
+      "evidence_role": "independent_text",
+      "version_relation": "exact_2022_edition",
+      "independent_text_decision": true,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "四个学段、三类情境与四类语文实践构成的学业质量描述框架",
+        "第一学段的测评应用"
+      ],
+      "limitations": [
+        "文章聚焦第一学段非纸笔测评，不能单独确认所有学段的完整规范描述"
+      ]
+    },
+    {
+      "source_id": "source:pep-core-2024-06",
+      "title": "聚焦核心素养，优化小学语文教学路径",
+      "publisher": "人民教育出版社",
+      "url": "https://www.pep.com.cn/bks/xxyw/jzjd/202505/W020250531418923210735.pdf",
+      "authority_class": "official_publisher_journal",
+      "evidence_role": "independent_text",
+      "version_relation": "exact_2022_edition",
+      "independent_text_decision": true,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "语文核心素养定义及四项名称",
+        "识字与写字、阅读与鉴赏、表达与交流、梳理与探究四类语文实践"
+      ],
+      "limitations": [
+        "小学教学路径分析不覆盖第四学段的全部课程内容"
+      ]
+    },
+    {
+      "source_id": "source:pep-goal6-2024-06",
+      "title": "小学语文教育中的社会情感学习",
+      "publisher": "人民教育出版社",
+      "url": "https://www.pep.com.cn/bks/xxyw/jzjd/202505/W020250531418607869480.pdf",
+      "authority_class": "official_publisher_journal",
+      "evidence_role": "independent_text",
+      "version_relation": "exact_2022_edition",
+      "independent_text_decision": true,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "总目标第六条中的“提高语言表现力和创造力，提高形象思维能力”",
+        "社会情感学习与语文实践的关联"
+      ],
+      "limitations": [
+        "仅对总目标第六条形成独立逐字支持，不能据此确认全部九条总目标"
+      ]
+    },
+    {
+      "source_id": "source:jyb-guohua-20220610",
+      "title": "落实立德树人根本任务——2022版义务教育课程标准修订解读",
+      "publisher": "中国教育新闻网",
+      "url": "https://www.jyb.cn/rmtzcg/xwy/wzxw/202206/t20220610_696711.html",
+      "authority_class": "ministry_affiliated_education_press",
+      "evidence_role": "independent_text",
+      "version_relation": "exact_2022_edition",
+      "independent_text_decision": true,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "四项语文核心素养",
+        "四个学段",
+        "三类情境",
+        "四类语文实践"
+      ],
+      "limitations": [
+        "跨学科课程标准解读包含作者综合判断，不能替代语文学科标准逐字文本"
+      ]
+    },
+    {
+      "source_id": "source:nmg-goals-interpretation",
+      "title": "指向核心素养 确立质量标准——《义务教育语文课程标准（2022年版）》“课程目标”解读",
+      "publisher": "内蒙古自治区教育公共服务平台",
+      "url": "https://basic.nmg.smartedu.cn/studio/index.php?id=14417&r=studio%2Fpost%2Fview&sid=845",
+      "authority_class": "regional_official_education_platform",
+      "evidence_role": "conflicted_transcription",
+      "version_relation": "exact_2022_edition",
+      "independent_text_decision": false,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "九条总目标的在线转录",
+        "总目标到核心素养的解释性、非排他映射"
+      ],
+      "limitations": [
+        "第六条将“提高形象思维能力”误录为“提升形象思维能力”",
+        "学段表述另有可靠性警示，故不能作为独立逐字裁决源"
+      ]
+    },
+    {
+      "source_id": "source:hep-interpretation-metadata",
+      "title": "义务教育语文课程标准（2022年版）解读",
+      "publisher": "高等教育出版社",
+      "url": "https://mall.hep.com.cn/goods-38550.html",
+      "authority_class": "official_publisher_metadata",
+      "evidence_role": "metadata_only",
+      "version_relation": "exact_2022_edition",
+      "independent_text_decision": false,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "权威解读书的书名、作者与 ISBN 9787040587104"
+      ],
+      "limitations": [
+        "商品元数据页不提供可用于逐字核对的完整正文"
+      ]
+    },
+    {
+      "source_id": "source:hep-2025-revision",
+      "title": "义务教育语文课程标准日常修订版（2022年版2025年修订）解读",
+      "publisher": "高等教育出版社",
+      "url": "https://xuanshu.hep.com.cn/front/book/findBookDetails?bookId=697a4250e119ac972922bcc9",
+      "authority_class": "official_publisher_metadata",
+      "evidence_role": "version_mismatch",
+      "version_relation": "version_mismatch_2025_revision",
+      "independent_text_decision": false,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "识别存在 2025 年日常修订版本"
+      ],
+      "limitations": [
+        "版本晚于本 artifact 的 2022 年版，禁止用于 2022 年版逐字裁决、概念合并或发布放行"
+      ]
+    },
+    {
+      "source_id": "source:moe-highschool-2020",
+      "title": "普通高中语文课程标准（2017年版2020年修订）",
+      "publisher": "中华人民共和国教育部",
+      "url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
+      "authority_class": "ministry_official_web",
+      "evidence_role": "version_mismatch",
+      "version_relation": "version_mismatch_high_school",
+      "independent_text_decision": false,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "识别普通高中语文课程标准属于另一教育阶段"
+      ],
+      "limitations": [
+        "高中阶段不能用于义务教育 2022 年版的逐字裁决、概念合并或发布放行"
+      ]
+    },
+    {
+      "source_id": "source:ictr-blindschool-2016",
+      "title": "盲校义务教育语文课程标准（2016年版）",
+      "publisher": "课程教材研究所",
+      "url": "https://www.ictr.edu.cn/Uploads/File/2022/05/23/30_%E7%9B%B2%E6%A0%A1%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%AD%E6%96%87%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%882016%E5%B9%B4%E7%89%88%EF%BC%89.20220523161205.pdf",
+      "authority_class": "curriculum_research_institute",
+      "evidence_role": "version_mismatch",
+      "version_relation": "version_mismatch_special_education",
+      "independent_text_decision": false,
+      "publication_unlock": false,
+      "artifact_sha256": null,
+      "same_artifact_as": null,
+      "support_scope": [
+        "识别盲校特殊教育语文课程标准属于另一学校类型与版本"
+      ],
+      "limitations": [
+        "特殊教育 2016 年版不能用于普通义务教育 2022 年版的逐字裁决、概念合并或发布放行"
+      ]
+    }
+  ],
+  "artifact_equivalence": [
+    {
+      "canonical_source_id": "source:moe-2022-chinese-pdf",
+      "mirror_source_id": "source:ictr-2022-chinese-pdf",
+      "sha256": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a",
+      "classification": "same_artifact_mirror",
+      "independent_evidence_increment": 0,
+      "publication_unlock": false,
+      "note": "教育部下载件与课程教材研究所下载件逐字节 SHA-256 相同；两条 URL 只提高可获取性，不构成两份独立文本见证。"
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "claim:core-competencies",
+      "title": "语文课程核心素养的四个方面",
+      "claim_type": "controlled_term_set",
+      "verification_status": "independently_crosschecked",
+      "normative": true,
+      "publication_unlock": false,
+      "source_image_pages": [
+        11,
+        12
+      ],
+      "exact_terms": [
+        "文化自信",
+        "语言运用",
+        "思维能力",
+        "审美创造"
+      ],
+      "ordered_items": [],
+      "structure": [
+        {
+          "label": "核心素养四个方面",
+          "members": [
+            "文化自信",
+            "语言运用",
+            "思维能力",
+            "审美创造"
+          ],
+          "note": "四个方面是一个整体；语言运用是其他三个方面形成与发展的基础，但该基础性表述不等于普通的父子层级。"
+        }
+      ],
+      "crosschecks": [
+        {
+          "source_id": "source:moe-2022-qa",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "教育部官方问答列出文化自信、语言运用、思维能力、审美创造。"
+        },
+        {
+          "source_id": "source:jyb-video-20220720",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "中国教育新闻网解读列出四项核心素养名称。"
+        },
+        {
+          "source_id": "source:pep-core-2024-06",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "人民教育出版社期刊文章引述核心素养定义与四项名称。"
+        },
+        {
+          "source_id": "source:jyb-chinese-character-20240809",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "中国教育报文章再次列出四项名称，并说明语言运用的基础性。"
+        }
+      ],
+      "limitations": [
+        "只确认规范术语及标准明确表述，不把解读文章中的因果、具体化或教学路径自动写成本体关系。"
+      ],
+      "conflict_ids": []
+    },
+    {
+      "claim_id": "claim:language-practices",
+      "title": "语文实践的四个领域",
+      "claim_type": "controlled_term_set",
+      "verification_status": "independently_crosschecked",
+      "normative": true,
+      "publication_unlock": false,
+      "source_image_pages": [
+        9,
+        44
+      ],
+      "exact_terms": [
+        "识字与写字",
+        "阅读与鉴赏",
+        "表达与交流",
+        "梳理与探究"
+      ],
+      "ordered_items": [],
+      "structure": [
+        {
+          "label": "四类语文实践",
+          "members": [
+            "识字与写字",
+            "阅读与鉴赏",
+            "表达与交流",
+            "梳理与探究"
+          ],
+          "note": "四类实践用于组织课程内容与学业质量描述，不应压缩成未经标准明示的能力父子树。"
+        }
+      ],
+      "crosschecks": [
+        {
+          "source_id": "source:jyb-video-20220720",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "中国教育新闻网解读列出四类语文实践。"
+        },
+        {
+          "source_id": "source:jyb-chinese-character-20240809",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "中国教育报文章列出四类语文实践。"
+        },
+        {
+          "source_id": "source:pep-core-2024-06",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "人民教育出版社期刊文章引用四类语文实践名称。"
+        },
+        {
+          "source_id": "source:jyb-guohua-20220610",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "2022 版课程标准修订解读再次列出四类语文实践。"
+        }
+      ],
+      "limitations": [
+        "“以生活为基础”“以学习任务为载体”两处本地 OCR 漏字仍以原页图像为最终裁决。"
+      ],
+      "conflict_ids": [
+        "conflict:page-9-life-basis",
+        "conflict:page-9-task-carrier"
+      ]
+    },
+    {
+      "claim_id": "claim:learning-task-groups",
+      "title": "三个层面设置六个语文学习任务群",
+      "claim_type": "controlled_term_set",
+      "verification_status": "independently_crosschecked",
+      "normative": true,
+      "publication_unlock": false,
+      "source_image_pages": [
+        27
+      ],
+      "exact_terms": [
+        "语言文字积累与梳理",
+        "实用性阅读与交流",
+        "文学阅读与创意表达",
+        "思辨性阅读与表达",
+        "整本书阅读",
+        "跨学科学习"
+      ],
+      "ordered_items": [],
+      "structure": [
+        {
+          "label": "基础型学习任务群",
+          "members": [
+            "语言文字积累与梳理"
+          ],
+          "note": "第一层面，一项任务群。"
+        },
+        {
+          "label": "发展型学习任务群",
+          "members": [
+            "实用性阅读与交流",
+            "文学阅读与创意表达",
+            "思辨性阅读与表达"
+          ],
+          "note": "第二层面，三项任务群。"
+        },
+        {
+          "label": "拓展型学习任务群",
+          "members": [
+            "整本书阅读",
+            "跨学科学习"
+          ],
+          "note": "第三层面，两项任务群。"
+        }
+      ],
+      "crosschecks": [
+        {
+          "source_id": "source:jyb-video-20220720",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "视频解读明确三个层面及六个学习任务群的名称。"
+        },
+        {
+          "source_id": "source:jyb-chinese-character-20240809",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "中国教育报文章列出六个学习任务群。"
+        },
+        {
+          "source_id": "source:pep-task-groups-2022-12",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "人民教育出版社期刊文章明确三层、一加三加二结构及六群并列关系。"
+        }
+      ],
+      "limitations": [
+        "“三层六任务群”只是检索简称；标准原文是“分三个层面设置学习任务群”，六个任务群是同类并列实体，层面只承担分组角色。"
+      ],
+      "conflict_ids": []
+    },
+    {
+      "claim_id": "claim:academic-quality-stages",
+      "title": "六三学制的四个学业质量学段",
+      "claim_type": "controlled_term_set",
+      "verification_status": "independently_crosschecked",
+      "normative": true,
+      "publication_unlock": false,
+      "source_image_pages": [
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50
+      ],
+      "exact_terms": [
+        "第一学段（1～2年级）",
+        "第二学段（3～4年级）",
+        "第三学段（5～6年级）",
+        "第四学段（7～9年级）"
+      ],
+      "ordered_items": [],
+      "structure": [
+        {
+          "label": "六三学制",
+          "members": [
+            "第一学段（1～2年级）",
+            "第二学段（3～4年级）",
+            "第三学段（5～6年级）",
+            "第四学段（7～9年级）"
+          ],
+          "note": "四个学段是年级范围，不是学业质量等级；五四学制须参照另行研制，不能静默套用。"
+        }
+      ],
+      "crosschecks": [
+        {
+          "source_id": "source:pep-assessment-2024-09",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "人民教育出版社测评文章确认课程标准按四个学段描述学业质量。"
+        },
+        {
+          "source_id": "source:jyb-guohua-20220610",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "修订解读确认义务教育学业质量按四个学段组织。"
+        },
+        {
+          "source_id": "source:moe-2022-chinese-pdf",
+          "role": "identity_only",
+          "independent_for_claim": false,
+          "support_scope": "原页图像逐页确认四个学段标题及其年级范围。"
+        }
+      ],
+      "limitations": [
+        "在线来源独立确认四学段框架，括号内精确年级范围仍由 44—50 页原图逐项裁决。"
+      ],
+      "conflict_ids": [
+        "conflict:page-44-quality-basis"
+      ]
+    },
+    {
+      "claim_id": "claim:academic-quality-contexts",
+      "title": "学业质量描述的三类语文学习情境",
+      "claim_type": "controlled_term_set",
+      "verification_status": "independently_crosschecked",
+      "normative": true,
+      "publication_unlock": false,
+      "source_image_pages": [
+        44
+      ],
+      "exact_terms": [
+        "日常生活",
+        "文学体验",
+        "跨学科学习"
+      ],
+      "ordered_items": [],
+      "structure": [
+        {
+          "label": "三类语文学习情境",
+          "members": [
+            "日常生活",
+            "文学体验",
+            "跨学科学习"
+          ],
+          "note": "这里的“跨学科学习”是学业质量情境角色，必须与同名学习任务群分别建模，不能仅因标签相同而合并。"
+        }
+      ],
+      "crosschecks": [
+        {
+          "source_id": "source:pep-contexts-2024-07",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "人民教育出版社期刊文章明确日常生活、文学体验、跨学科学习三类情境及作用差异。"
+        },
+        {
+          "source_id": "source:pep-assessment-2024-09",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "测评文章引用由三类情境、四类实践和四学段组成的学业质量框架。"
+        },
+        {
+          "source_id": "source:jyb-guohua-20220610",
+          "role": "independent_exact_support",
+          "independent_for_claim": true,
+          "support_scope": "修订解读再次列出三类语文学习情境。"
+        }
+      ],
+      "limitations": [
+        "同名不等于同一语义角色；本 artifact 只确认术语与角色区分，不触发任何本体合并。"
+      ],
+      "conflict_ids": []
+    },
+    {
+      "claim_id": "claim:overall-goals",
+      "title": "课程总目标九条",
+      "claim_type": "ordered_goal_list",
+      "verification_status": "partial_conflicted",
+      "normative": true,
+      "publication_unlock": false,
+      "source_image_pages": [
+        13,
+        14
+      ],
+      "exact_terms": [],
+      "ordered_items": [
+        {
+          "position": 1,
+          "text": "在语文学习过程中，培养爱国主义、集体主义、社会主义思想道德，逐步形成正确的世界观、人生观、价值观。",
+          "publication_unlock": false
+        },
+        {
+          "position": 2,
+          "text": "热爱国家通用语言文字，感受语言文字及作品的独特价值，认识中华文化的丰厚博大，汲取智慧，弘扬社会主义先进文化、革命文化、中华优秀传统文化，建立文化自信。",
+          "publication_unlock": false
+        },
+        {
+          "position": 3,
+          "text": "关心社会文化生活，积极参与和组织校园、社区等文化活动，发展交流、合作、探究等实践能力，增强社会责任意识。感受多样文化，吸收人类优秀文化的精华。",
+          "publication_unlock": false
+        },
+        {
+          "position": 4,
+          "text": "认识和书写常用汉字，学会汉语拼音，能说普通话。主动积累、梳理基本的语言材料和语言经验，逐步形成良好的语感，初步领悟语言文字运用规律。学会使用常用的语文工具书，运用多种媒介学习语文，初步掌握基本的语文学习方法，养成良好的学习习惯。",
+          "publication_unlock": false
+        },
+        {
+          "position": 5,
+          "text": "学会运用多种阅读方法，具有独立阅读能力。能阅读日常的书报杂志，初步鉴赏文学作品，能借助工具书阅读浅易文言文。学会倾听与表达，初步学会用口头语言文明地进行人际沟通和社会交往。能根据需要，用书面语言具体明确、文从字顺地表达自己的见闻、体验和想法。",
+          "publication_unlock": false
+        },
+        {
+          "position": 6,
+          "text": "积极观察、感知生活，发展联想和想象，激发创造潜能，丰富语言经验，培养语言直觉，提高语言表现力和创造力，提高形象思维能力。",
+          "publication_unlock": false
+        },
+        {
+          "position": 7,
+          "text": "乐于探索，勤于思考，初步掌握比较、分析、概括、推理等思维方法，辩证地思考问题，有理有据、负责任地表达自己的观点，养成实事求是、崇尚真知的态度。",
+          "publication_unlock": false
+        },
+        {
+          "position": 8,
+          "text": "感受语言文字的美，感悟作品的思想内涵和艺术价值，能结合自己的经验，理解、欣赏和初步评价语言文字作品，丰富自己的情感体验和精神世界。",
+          "publication_unlock": false
+        },
+        {
+          "position": 9,
+          "text": "能借助不同媒介表达自己的见闻和感受，学习发现美、表现美和创造美，形成健康的审美情趣。",
+          "publication_unlock": false
+        }
+      ],
+      "structure": [],
+      "crosschecks": [
+        {
+          "source_id": "source:moe-2022-chinese-pdf",
+          "role": "identity_only",
+          "independent_for_claim": false,
+          "support_scope": "第 13—14 页版面图像是九条总目标逐字裁决的真值源。"
+        },
+        {
+          "source_id": "source:nmg-goals-interpretation",
+          "role": "conflicting_transcription",
+          "independent_for_claim": false,
+          "support_scope": "在线页面提供九条总目标转录，但第六条将“提高”误作“提升”，且另有可靠性警示。"
+        },
+        {
+          "source_id": "source:pep-goal6-2024-06",
+          "role": "partial_support",
+          "independent_for_claim": true,
+          "support_scope": "人民教育出版社期刊文章独立支持第六条的正确表述“提高语言表现力和创造力，提高形象思维能力”。"
+        },
+        {
+          "source_id": "source:hep-interpretation-metadata",
+          "role": "metadata_only",
+          "independent_for_claim": false,
+          "support_scope": "确认存在 2022 年版权威解读书，但商品页不能逐字确认九条目标。"
+        }
+      ],
+      "limitations": [
+        "尚无第二个权威、独立、完整且无冲突的在线文本逐条覆盖全部九项目标，因此保持 partial_conflicted；任何单条已交叉确认都不能把整个九条列表提升为完整在线双证。"
+      ],
+      "conflict_ids": [
+        "conflict:page-13-culture-word",
+        "conflict:page-13-goal6-raise"
+      ]
+    }
+  ],
+  "interpretive_alignments": [
+    {
+      "alignment_id": "alignment:nmg-goals-to-core",
+      "source_id": "source:nmg-goals-interpretation",
+      "alignment_type": "goal_to_core_competency_interpretation",
+      "status": "interpretive_nonexclusive",
+      "normative": false,
+      "semantic_relation_allowed": false,
+      "publication_unlock": false,
+      "mappings": [
+        {
+          "goal_numbers": [
+            1
+          ],
+          "target_label": "立德树人"
+        },
+        {
+          "goal_numbers": [
+            2,
+            3
+          ],
+          "target_label": "文化自信"
+        },
+        {
+          "goal_numbers": [
+            4,
+            5
+          ],
+          "target_label": "语言运用"
+        },
+        {
+          "goal_numbers": [
+            6,
+            7
+          ],
+          "target_label": "思维能力"
+        },
+        {
+          "goal_numbers": [
+            8,
+            9
+          ],
+          "target_label": "审美创造"
+        }
+      ],
+      "caveats": [
+        "这是区域官方教育平台解读者的归纳，不是课程标准正文中的规范映射。",
+        "同一目标可同时关联多个核心素养方面，映射不表示排他父子关系。",
+        "来源第六条存在“提升／提高”误录，故整个来源不得承担规范逐字裁决。"
+      ]
+    }
+  ],
+  "version_mismatch_controls": [
+    {
+      "source_id": "source:hep-2025-revision",
+      "classification": "version_mismatch",
+      "mismatch_dimension": "edition_revision",
+      "forbidden_uses": [
+        "wording_adjudication",
+        "concept_identity_merge",
+        "publication_unlock"
+      ],
+      "publication_unlock": false,
+      "note": "2025 日常修订版与本 artifact 的 2022 年原版不是同一版本；只用于版本存在性提示。"
+    },
+    {
+      "source_id": "source:moe-highschool-2020",
+      "classification": "version_mismatch",
+      "mismatch_dimension": "education_stage",
+      "forbidden_uses": [
+        "wording_adjudication",
+        "concept_identity_merge",
+        "publication_unlock"
+      ],
+      "publication_unlock": false,
+      "note": "普通高中语文课程标准属于另一教育阶段；同名术语不得自动回填义务教育 2022 年版。"
+    },
+    {
+      "source_id": "source:ictr-blindschool-2016",
+      "classification": "version_mismatch",
+      "mismatch_dimension": "school_type",
+      "forbidden_uses": [
+        "wording_adjudication",
+        "concept_identity_merge",
+        "publication_unlock"
+      ],
+      "publication_unlock": false,
+      "note": "盲校 2016 年版属于特殊教育学校类型及另一版本；不得与普通义务教育 2022 年版静默合并。"
+    }
+  ],
+  "transcription_conflicts": [
+    {
+      "conflict_id": "conflict:page-9-life-basis",
+      "physical_pdf_page": 9,
+      "section_path": [
+        "课程理念",
+        "增强课程实施的情境性和实践性"
+      ],
+      "conflict_kind": "local_ocr_omission",
+      "rejected_reading": "以生活基础",
+      "accepted_reading": "以生活为基础",
+      "decision": "source_image_wins",
+      "source_image_status": "human_verified",
+      "evidence_source_ids": [
+        "source:moe-2022-chinese-pdf",
+        "source:jyb-video-20220720"
+      ],
+      "publication_unlock": false,
+      "note": "原页图像中的“为”清晰可见；本地 OCR 漏字，接受图像读法并保留冲突记录。"
+    },
+    {
+      "conflict_id": "conflict:page-9-task-carrier",
+      "physical_pdf_page": 9,
+      "section_path": [
+        "课程理念",
+        "增强课程实施的情境性和实践性"
+      ],
+      "conflict_kind": "local_ocr_omission",
+      "rejected_reading": "以学习任务载体",
+      "accepted_reading": "以学习任务为载体",
+      "decision": "source_image_wins",
+      "source_image_status": "human_verified",
+      "evidence_source_ids": [
+        "source:moe-2022-chinese-pdf",
+        "source:jyb-video-20220720"
+      ],
+      "publication_unlock": false,
+      "note": "原页图像中的“为”清晰可见；本地 OCR 漏字，接受图像读法并保留冲突记录。"
+    },
+    {
+      "conflict_id": "conflict:page-13-culture-word",
+      "physical_pdf_page": 13,
+      "section_path": [
+        "课程目标",
+        "总目标",
+        "第三条"
+      ],
+      "conflict_kind": "local_ocr_substitution",
+      "rejected_reading": "感受多样化",
+      "accepted_reading": "感受多样文化",
+      "decision": "source_image_wins",
+      "source_image_status": "human_verified",
+      "evidence_source_ids": [
+        "source:moe-2022-chinese-pdf",
+        "source:nmg-goals-interpretation"
+      ],
+      "publication_unlock": false,
+      "note": "图像明确为“文化”；本地 OCR 将“文化”替换为“化”，在线九目标转录在本处与图像一致。"
+    },
+    {
+      "conflict_id": "conflict:page-13-goal6-raise",
+      "physical_pdf_page": 13,
+      "section_path": [
+        "课程目标",
+        "总目标",
+        "第六条"
+      ],
+      "conflict_kind": "online_transcription_variant",
+      "rejected_reading": "提升形象思维能力",
+      "accepted_reading": "提高形象思维能力",
+      "decision": "source_image_wins",
+      "source_image_status": "human_verified",
+      "evidence_source_ids": [
+        "source:moe-2022-chinese-pdf",
+        "source:pep-goal6-2024-06",
+        "source:nmg-goals-interpretation"
+      ],
+      "publication_unlock": false,
+      "note": "内蒙古平台误录为“提升”；教育部原页图像与人民教育出版社独立引文均为“提高”。"
+    },
+    {
+      "conflict_id": "conflict:page-44-quality-basis",
+      "physical_pdf_page": 44,
+      "section_path": [
+        "学业质量",
+        "学业质量内涵"
+      ],
+      "conflict_kind": "local_ocr_omission",
+      "rejected_reading": "核心素养评价提供基本依据",
+      "accepted_reading": "为核心素养评价提供基本依据",
+      "decision": "source_image_wins",
+      "source_image_status": "human_verified",
+      "evidence_source_ids": [
+        "source:moe-2022-chinese-pdf",
+        "source:pep-assessment-2024-09"
+      ],
+      "publication_unlock": false,
+      "note": "原页图像句首“为”清晰可见；本地 OCR 漏字，接受图像读法并保留冲突记录。"
+    }
+  ]
+}

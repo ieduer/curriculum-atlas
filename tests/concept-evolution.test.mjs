@@ -27,6 +27,10 @@ test('solid stars have paragraph-level citation evidence', () => {
 
 test('OCR observations stay non-quotable and outside formal lineage edges', () => {
   const ocr = graph.episodes.filter((episode) => episode.claim_policy.display_level !== 'solid');
+  if (graph.coverage.ocr_display_accepted_pages === 0) {
+    assert.deepEqual(ocr, []);
+    return;
+  }
   assert.ok(ocr.length > 0);
   for (const episode of ocr) {
     assert.equal(episode.claim_policy.quotation_allowed, false);

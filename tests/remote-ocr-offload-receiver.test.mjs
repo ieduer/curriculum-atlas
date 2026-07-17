@@ -1,0 +1,1373 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+import {
+  parseReceiverArguments,
+  receiveRemoteOcrOffload,
+} from '../scripts/receive-remote-ocr-offload.mjs';
+import { captureLocalReprocessSnapshot } from '../scripts/lib/remote-ocr-local-snapshot.mjs';
+
+const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+const runtime = Object.freeze({
+  pipeline: 'PaddleOCR-VL',
+  pipeline_version: 'v1.6',
+  model_sha256: 'a'.repeat(64),
+  mmproj_sha256: 'b'.repeat(64),
+  llama_commit: 'c'.repeat(40),
+  render_dpi: 240,
+});
+const pythonRuntime = Object.freeze({
+  schema_version: 1,
+  implementation: 'CPython',
+  python_version: '3.13.12',
+  packages: {
+    paddlepaddle: '3.3.1',
+    paddleocr: '3.7.0',
+    paddlex: '3.7.2',
+    pypdfium2: '5.12.0',
+  },
+});
+const layoutCache = Object.freeze({
+  schema_version: 1,
+  model_name: 'PP-DocLayoutV3',
+  relative_root: 'official_models',
+  file_count: 17,
+  total_bytes: 100,
+  tree_sha256: 'd'.repeat(64),
+});
+const attestation = Object.freeze({
+  schema_version: 1,
+  systemd_unit: 'curriculum-ocr-llama.service',
+  active_state: 'active',
+  sub_state: 'running',
+  binary_path: '/fixture/llama-server',
+});
+const attestationSha256 = sha256(`${JSON.stringify(attestation)}\n`);
+const runtimeDevice = 'cpu+NVIDIA RTX 3060 Laptop GPU CUDA llama.cpp';
+const runtimeFingerprint = Object.freeze({
+  ...runtime,
+  runtime_device: runtimeDevice,
+  llama_server_attestation_sha256: attestationSha256,
+  python_runtime: pythonRuntime,
+  paddlex_layout_model_cache: layoutCache,
+});
+const runtimeFingerprintSha256 = sha256(`${JSON.stringify(runtimeFingerprint)}\n`);
+const workerConfiguration = Object.freeze({
+  llama_url: 'http://127.0.0.1:8112/v1',
+  vl_rec_max_concurrency: 4,
+  server_parallel: 4,
+  micro_batch: 16,
+  use_queues: true,
+  runtime_device: runtimeDevice,
+  paddlex_cache_home: '/fixture/paddlex-cache',
+  python_runtime: pythonRuntime,
+  paddlex_layout_model_cache_sha256: layoutCache.tree_sha256,
+});
+const recovery = Object.freeze({
+  max_attempts: 5,
+  backoff_seconds: [2, 10, 30, 60],
+  terminal_status: 'quarantined',
+  terminal_exit_code: 12,
+  child_monitoring: {
+    startup_timeout_seconds: 180,
+    idle_timeout_seconds: 300,
+    wall_floor_seconds: 1200,
+    wall_seconds_per_page: 25,
+    terminate_grace_seconds: 15,
+    poll_interval_seconds: 5,
+  },
+});
+
+async function pathExists(pathname) {
+  try {
+    await access(pathname);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function writeJson(pathname, value) {
+  await mkdir(path.dirname(pathname), { recursive: true });
+  const raw = `${JSON.stringify(value, null, 2)}\n`;
+  await writeFile(pathname, raw);
+  return { raw, sha256: sha256(raw) };
+}
+
+async function writeSidecar(pathname, digest) {
+  await writeFile(`${pathname}.sha256`, `${digest}  ${path.basename(pathname)}\n`);
+}
+
+function manifestFor(documents) {
+  return {
+    schema_version: 1,
+    manifest_type: 'curriculum_remote_whole_document_ocr_offload_plan',
+    quality_policy: {
+      stage: 'remote_primary_ocr_staging_only',
+      whole_document_atomic: true,
+      citation_allowed: false,
+      remote_results_require_local_witness_and_exact_audit_before_publication: true,
+    },
+    runtime: { ...runtime },
+    import_hard_gates: {
+      decision: 'reject_entire_document_if_any_gate_fails',
+      remote_document_revalidation: {
+        citation_allowed_must_equal: false,
+        every_page_requires_valid_lowercase_sha256: [
+          'result_json_sha256',
+          'content_markdown_sha256',
+          'rendered_image_sha256',
+        ],
+      },
+    },
+    counts: {
+      selected_documents: documents.length,
+      selected_pages: documents.reduce((sum, document) => sum + document.page_count, 0),
+      selected_source_bytes: documents.reduce((sum, document) => sum + document.source_bytes, 0),
+    },
+    documents,
+  };
+}
+
+function documentFor(id, sourcePath, source, pageCount) {
+  return {
+    id,
+    title: id,
+    subject: '语文',
+    priority: 1,
+    source_path: sourcePath,
+    source_sha256: sha256(source),
+    source_bytes: Buffer.byteLength(source),
+    page_count: pageCount,
+    required_page_range: { first: 1, last: pageCount, count: pageCount },
+    planning_snapshot: {
+      state_file_present: false,
+      local_completed_pages: 0,
+      local_failed_pages: 0,
+      local_retry_conflicts: 0,
+      local_production_artifact_conflicts: 0,
+    },
+    citation_allowed: false,
+  };
+}
+
+function renderedSha256(documentId, page) {
+  return sha256(`rendered:${documentId}:${page}`);
+}
+
+function nativeAsset(name, contents = Buffer.from('fixture Paddle JPEG bytes')) {
+  const match = /^img_in_(header_image_box|image_box|footer_image_box|chart_box)_(\d+)_(\d+)_(\d+)_(\d+)\.jpg$/u.exec(name);
+  assert.ok(match, `invalid fixture Paddle asset name: ${name}`);
+  const labels = {
+    header_image_box: 'header_image',
+    image_box: 'image',
+    footer_image_box: 'footer_image',
+    chart_box: 'chart',
+  };
+  return {
+    name,
+    contents,
+    blockLabel: labels[match[1]],
+    bbox: match.slice(2).map(Number),
+  };
+}
+
+function runIdentity(manifestSha256) {
+  return {
+    schema_version: 1,
+    manifest_sha256: manifestSha256,
+    runtime: { ...runtime },
+    runtime_fingerprint: runtimeFingerprint,
+    runtime_fingerprint_sha256: runtimeFingerprintSha256,
+    llama_server_attestation: attestation,
+    llama_server_attestation_sha256: attestationSha256,
+    runner_script_sha256: 'e'.repeat(64),
+    ocr_script_sha256: 'f'.repeat(64),
+    input_root: '/fixture/input',
+    python_invocation_path: '/fixture/python',
+    python_resolved_target: '/fixture/python3.13',
+    worker_configuration: workerConfiguration,
+    document_recovery: recovery,
+    whole_document_atomic: true,
+    citation_allowed: false,
+  };
+}
+
+async function createRepairManifest(shardRoot, repairPages, documents, pageTexts, { finalTextMismatch = false } = {}) {
+  if (!repairPages.size) return null;
+  const documentById = new Map(documents.map((document) => [document.id, document]));
+  const evidenceRoot = path.join(path.dirname(shardRoot), `${path.basename(shardRoot)}-repair-evidence`);
+  await mkdir(evidenceRoot, { recursive: true });
+  const repairDocuments = new Map();
+  const pageByKey = new Map();
+  for (const key of [...repairPages].sort()) {
+    const [documentId, pageRaw] = key.split(':');
+    const page = Number(pageRaw);
+    const document = documentById.get(documentId);
+    const text = pageTexts.get(documentId)[page - 1];
+    const renderedEvidence = `rendered:${documentId}:${page}`;
+    const onlineEvidence = `same-edition-online:${documentId}:${page}`;
+    const renderedPath = `${documentId}-page-${String(page).padStart(4, '0')}.png`;
+    const onlinePath = `${documentId}-page-${String(page).padStart(4, '0')}-online.txt`;
+    await Promise.all([
+      writeFile(path.join(evidenceRoot, renderedPath), renderedEvidence),
+      writeFile(path.join(evidenceRoot, onlinePath), onlineEvidence),
+    ]);
+    const manifestPage = {
+      physical_pdf_page: page,
+      citation_eligible: false,
+      rendered_image_sha256: sha256(renderedEvidence),
+      final_text: finalTextMismatch ? `${text}mismatch` : text,
+      final_text_sha256: sha256(finalTextMismatch ? `${text}mismatch` : text),
+      evidence: [
+        {
+          kind: 'rendered_page_image',
+          path: renderedPath,
+          sha256: sha256(renderedEvidence),
+        },
+        {
+          kind: 'same_edition_online_text',
+          path: onlinePath,
+          sha256: sha256(onlineEvidence),
+        },
+      ],
+    };
+    if (!repairDocuments.has(documentId)) {
+      repairDocuments.set(documentId, {
+        document_id: documentId,
+        source_sha256: document.source_sha256,
+        page_count: document.page_count,
+        citation_allowed: false,
+        pages: [],
+      });
+    }
+    repairDocuments.get(documentId).pages.push(manifestPage);
+    pageByKey.set(key, manifestPage);
+  }
+  const pathname = path.join(evidenceRoot, 'repair-manifest.json');
+  const manifest = {
+    schema_version: 1,
+    manifest_type: 'curriculum_remote_ocr_page_repair',
+    repair_id: `repair-${path.basename(shardRoot)}`,
+    method: 'human_image_and_same_edition_online_adjudication',
+    citation_allowed: false,
+    documents: [...repairDocuments.values()],
+  };
+  const written = await writeJson(pathname, {
+    ...manifest,
+  });
+  await writeSidecar(pathname, written.sha256);
+  return {
+    evidenceRoot,
+    manifest,
+    manifestPath: pathname,
+    manifestSha256: written.sha256,
+    pageByKey,
+  };
+}
+
+async function createShard({
+  manifestPath,
+  shardRoot,
+  documents,
+  pageTexts,
+  statuses = {},
+  repairPages = new Set(),
+  repairCitationEligible = false,
+  repairFinalTextMismatch = false,
+  nativeAssets = new Map(),
+  bindNativeAssets = true,
+}) {
+  const shardManifest = manifestFor(documents);
+  const manifestWritten = await writeJson(manifestPath, shardManifest);
+  await mkdir(shardRoot, { recursive: true });
+  const repair = await createRepairManifest(
+    shardRoot,
+    repairPages,
+    documents,
+    pageTexts,
+    { finalTextMismatch: repairFinalTextMismatch },
+  );
+  await writeJson(path.join(shardRoot, 'run-identity.json'), runIdentity(manifestWritten.sha256));
+  const runDocuments = {};
+  const countByStatus = { complete: 0, quarantined: 0 };
+  const repairReceiptDocuments = [];
+
+  for (const document of documents) {
+    const documentRoot = path.join(shardRoot, 'documents', document.id);
+    const pages = {};
+    const pageArtifacts = [];
+    for (let page = 1; page <= document.page_count; page += 1) {
+      const pageRoot = path.join(documentRoot, 'pages', String(page).padStart(4, '0'));
+      await mkdir(pageRoot, { recursive: true });
+      const content = pageTexts.get(document.id)[page - 1];
+      const repaired = repairPages.has(`${document.id}:${page}`);
+      const pageNativeAssets = nativeAssets.get(`${document.id}:${page}`) || [];
+      let result;
+      let provenance = null;
+      if (repaired) {
+        const manifestPage = repair.pageByKey.get(`${document.id}:${page}`);
+        const artifactText = content;
+        provenance = {
+          schema_version: 1,
+          repair_manifest_sha256: repair.manifestSha256,
+          repair_id: repair.manifest.repair_id,
+          method: repair.manifest.method,
+          base_failure: {
+            error: 'RuntimeError: llama PEG-native 500 parser rejected output',
+            recorded_at: '2026-07-16T00:30:00.000Z',
+          },
+          citation_eligible: repairCitationEligible,
+        };
+        result = `${JSON.stringify({
+          schema_version: 1,
+          result_type: 'curriculum_remote_ocr_page_repair',
+          document_id: document.id,
+          physical_pdf_page: page,
+          text: artifactText,
+          final_text_sha256: sha256(artifactText),
+          citation_eligible: false,
+          repair_provenance: provenance,
+        }, null, 2)}\n`;
+        await mkdir(path.join(pageRoot, 'markdown'), { recursive: true });
+        await writeFile(
+          path.join(pageRoot, 'markdown', `page-${String(page).padStart(4, '0')}.md`),
+          artifactText,
+        );
+        assert.equal(manifestPage.rendered_image_sha256, renderedSha256(document.id, page));
+      } else {
+        const parsingBlocks = bindNativeAssets
+          ? pageNativeAssets.map((asset, index) => ({
+              block_label: asset.blockLabel,
+              block_content: '',
+              block_bbox: asset.bbox,
+              block_id: index,
+              block_order: null,
+              group_id: index,
+              block_polygon_points: [],
+            }))
+          : [];
+        result = `${JSON.stringify({
+          input_path: `/tmp/page-${String(page).padStart(4, '0')}.png`,
+          page_index: null,
+          page_count: null,
+          width: 1600,
+          height: 2200,
+          model_settings: {
+            use_doc_preprocessor: false,
+            use_layout_detection: true,
+          },
+          parsing_res_list: parsingBlocks,
+          layout_det_res: {
+            input_path: null,
+            page_index: null,
+            boxes: bindNativeAssets
+              ? pageNativeAssets.map((asset, index) => ({
+                  cls_id: 14,
+                  label: asset.blockLabel,
+                  score: 0.9,
+                  coordinate: asset.bbox,
+                  order: null,
+                  polygon_points: [],
+                  fixture_index: index,
+                }))
+              : [],
+          },
+        }, null, 2)}\n`;
+        const markdownRoot = path.join(pageRoot, 'markdown');
+        await mkdir(markdownRoot, { recursive: true });
+        await writeFile(
+          path.join(markdownRoot, `page-${String(page).padStart(4, '0')}.md`),
+          content,
+        );
+        if (pageNativeAssets.length) {
+          const imagesRoot = path.join(markdownRoot, 'imgs');
+          await mkdir(imagesRoot, { recursive: true });
+          for (const asset of pageNativeAssets) {
+            await writeFile(path.join(imagesRoot, asset.name), asset.contents);
+          }
+        }
+      }
+      await writeFile(path.join(pageRoot, 'result.json'), result);
+      await writeFile(path.join(pageRoot, 'content.md'), content);
+      const statePage = {
+        status: 'ocr_complete_pending_audit',
+        physical_pdf_page: page,
+        rendered_image_sha256: renderedSha256(document.id, page),
+        result_json_sha256: sha256(result),
+        content_markdown_sha256: sha256(content),
+        citation_eligible: false,
+      };
+      if (provenance) statePage.repair_provenance = provenance;
+      pages[String(page)] = statePage;
+      pageArtifacts.push({
+        page_number: page,
+        rendered_image_sha256: statePage.rendered_image_sha256,
+        result_json_sha256: statePage.result_json_sha256,
+        content_markdown_sha256: statePage.content_markdown_sha256,
+        citation_eligible: false,
+      });
+    }
+    const selectedPages = Array.from({ length: document.page_count }, (_, index) => index + 1);
+    const stateWritten = await writeJson(path.join(documentRoot, 'state.json'), {
+      schema_version: 1,
+      document_id: document.id,
+      source_sha256: document.source_sha256,
+      page_count: document.page_count,
+      configuration: {
+        pipeline: runtime.pipeline,
+        pipeline_version: runtime.pipeline_version,
+        layout_model: 'PP-DocLayoutV3',
+        recognizer: 'PaddleOCR-VL-1.6-0.9B official GGUF',
+        recognizer_backend: 'llama-cpp-server',
+        recognizer_server_url: workerConfiguration.llama_url,
+        dpi: runtime.render_dpi,
+        device: runtimeDevice,
+        python: pythonRuntime.python_version,
+        paddlepaddle: pythonRuntime.packages.paddlepaddle,
+        paddleocr: pythonRuntime.packages.paddleocr,
+        paddlex: pythonRuntime.packages.paddlex,
+        vl_rec_max_concurrency: workerConfiguration.vl_rec_max_concurrency,
+        server_parallel: workerConfiguration.server_parallel,
+        micro_batch: workerConfiguration.micro_batch,
+        use_queues: workerConfiguration.use_queues,
+      },
+      completed_pages: selectedPages,
+      failed_pages: {},
+      pages,
+      selected_pages: selectedPages,
+      selected_pages_complete: true,
+    });
+    const repairedPageNumbers = [...repairPages]
+      .filter((key) => key.startsWith(`${document.id}:`))
+      .map((key) => Number(key.split(':')[1]))
+      .sort((left, right) => left - right);
+    if (repairedPageNumbers.length) {
+      repairReceiptDocuments.push({
+        document_id: document.id,
+        source_sha256: document.source_sha256,
+        page_count: document.page_count,
+        state_before_sha256: sha256(`before-repair:${document.id}`),
+        state_after_sha256: stateWritten.sha256,
+        pages: repairedPageNumbers.map((page) => {
+          const statePage = pages[String(page)];
+          const manifestPage = repair.pageByKey.get(`${document.id}:${page}`);
+          return {
+            physical_pdf_page: page,
+            rendered_image_sha256: statePage.rendered_image_sha256,
+            final_text_sha256: manifestPage.final_text_sha256,
+            result_json_sha256: statePage.result_json_sha256,
+            content_markdown_sha256: statePage.content_markdown_sha256,
+            citation_eligible: false,
+          };
+        }),
+      });
+    }
+    const status = statuses[document.id] || 'complete';
+    const statusPath = path.join(shardRoot, 'status', `${document.id}.json`);
+    const statusValue = status === 'complete'
+      ? {
+          schema_version: 1,
+          document_id: document.id,
+          status: 'complete',
+          source_sha256: document.source_sha256,
+          page_count: document.page_count,
+          runtime_fingerprint_sha256: runtimeFingerprintSha256,
+          citation_allowed: false,
+          whole_document_atomic: true,
+          artifacts: {
+            state_sha256: stateWritten.sha256,
+            page_artifacts_sha256: sha256(`${JSON.stringify(pageArtifacts)}\n`),
+            page_artifacts: pageArtifacts,
+          },
+        }
+      : {
+          schema_version: 1,
+          document_id: document.id,
+          status: 'quarantined',
+          attempt: 5,
+          max_attempts: 5,
+          page_count: document.page_count,
+          runtime_fingerprint_sha256: runtimeFingerprintSha256,
+          citation_allowed: false,
+          quarantine_reason: 'attempt_budget_exhausted',
+          error: 'OCR child exited 1',
+        };
+    const statusWritten = await writeJson(statusPath, statusValue);
+    await writeSidecar(statusPath, statusWritten.sha256);
+    runDocuments[document.id] = {
+      status,
+      attempts: status === 'complete' ? 1 : 5,
+      page_count: document.page_count,
+      status_json_sha256: statusWritten.sha256,
+    };
+    countByStatus[status] += 1;
+  }
+
+  const runStatusPath = path.join(shardRoot, 'run-status.json');
+  const runStatusWritten = await writeJson(runStatusPath, {
+    schema_version: 1,
+    manifest_sha256: manifestWritten.sha256,
+    runtime_fingerprint_sha256: runtimeFingerprintSha256,
+    document_recovery: recovery,
+    citation_allowed: false,
+    started_at: '2026-07-16T00:00:00.000Z',
+    updated_at: '2026-07-16T01:00:00.000Z',
+    settled: true,
+    finished: countByStatus.quarantined === 0,
+    counts: {
+      total: documents.length,
+      complete: countByStatus.complete,
+      failed: 0,
+      interrupted: 0,
+      pending: 0,
+      running: 0,
+      retry_wait: 0,
+      quarantined: countByStatus.quarantined,
+    },
+    documents: runDocuments,
+  });
+  await writeSidecar(runStatusPath, runStatusWritten.sha256);
+  if (repair) {
+    const repairReceiptPath = path.join(
+      shardRoot,
+      'repair-receipts',
+      `${repair.manifest.repair_id}.json`,
+    );
+    const repairReceiptWritten = await writeJson(repairReceiptPath, {
+      schema_version: 1,
+      receipt_type: 'curriculum_remote_ocr_page_repair_receipt',
+      repair_id: repair.manifest.repair_id,
+      repair_manifest_sha256: repair.manifestSha256,
+      method: repair.manifest.method,
+      citation_allowed: false,
+      status: 'applied',
+      applied_at: '2026-07-16T00:45:00.000Z',
+      documents: repairReceiptDocuments,
+    });
+    await writeSidecar(repairReceiptPath, repairReceiptWritten.sha256);
+  }
+  return {
+    manifestPath,
+    shardRoot,
+    repairManifestPath: repair?.manifestPath || null,
+  };
+}
+
+async function createLocalPartialSnapshot({
+  document,
+  productionRoot,
+  textRoot,
+  supervisorRoot,
+  completedPages = [1],
+  failedPages = {},
+  pageRetries = {},
+}) {
+  const documentRoot = path.join(productionRoot, document.id);
+  await mkdir(path.join(documentRoot, 'pages'), { recursive: true });
+  const pages = {};
+  for (const page of completedPages) {
+    const pageRoot = path.join(documentRoot, 'pages', String(page).padStart(4, '0'));
+    await mkdir(pageRoot, { recursive: true });
+    const result = `${JSON.stringify({ local_partial_page: page })}\n`;
+    const content = `original local partial page ${page}\n`;
+    await writeFile(path.join(pageRoot, 'result.json'), result);
+    await writeFile(path.join(pageRoot, 'content.md'), content);
+    pages[String(page)] = {
+      status: 'ocr_complete_pending_audit',
+      physical_pdf_page: page,
+      rendered_image_sha256: sha256(`local-rendered:${document.id}:${page}`),
+      result_json_sha256: sha256(result),
+      content_markdown_sha256: sha256(content),
+      citation_eligible: false,
+    };
+  }
+  await writeJson(path.join(documentRoot, 'state.json'), {
+    schema_version: 1,
+    document_id: document.id,
+    source_sha256: document.source_sha256,
+    page_count: document.page_count,
+    completed_pages: completedPages,
+    failed_pages: failedPages,
+    pages,
+  });
+  await writeFile(path.join(documentRoot, 'audit-local.json'), '{"status":"unresolved_fail_closed"}\n');
+  await mkdir(textRoot, { recursive: true });
+  await writeFile(path.join(textRoot, `${document.id}.txt`), 'original local partial joined text\n');
+  await mkdir(supervisorRoot, { recursive: true });
+  const documentRetries = {};
+  await writeJson(path.join(supervisorRoot, 'retries.json'), documentRetries);
+  await writeJson(path.join(supervisorRoot, 'page-retries.json'), pageRetries);
+  return captureLocalReprocessSnapshot({
+    document,
+    documentRoot,
+    textPath: path.join(textRoot, `${document.id}.txt`),
+    documentRetries,
+    pageRetries,
+  });
+}
+
+async function fixture(t, {
+  repairB = false,
+  quarantineB = repairB,
+  repairCitationEligible = false,
+  repairFinalTextMismatch = false,
+  nativeAssetA = false,
+  bindNativeAssets = true,
+  reprocessA = false,
+  reprocessAPageRetry = false,
+} = {}) {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'remote-ocr-receiver-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const projectRoot = path.join(root, 'project');
+  const sourceRoot = path.join(projectRoot, 'sources');
+  await mkdir(sourceRoot, { recursive: true });
+  const sourceA = 'source-a';
+  const sourceB = 'source-b';
+  await writeFile(path.join(sourceRoot, 'a.pdf'), sourceA);
+  await writeFile(path.join(sourceRoot, 'b.pdf'), sourceB);
+  const documentA = documentFor('doc-a', 'sources/a.pdf', sourceA, 2);
+  const documentB = documentFor('doc-b', 'sources/b.pdf', sourceB, 1);
+  const productionRoot = path.join(projectRoot, 'local-production');
+  const textRoot = path.join(projectRoot, 'local-text');
+  const supervisorRoot = path.join(projectRoot, 'local-supervisor');
+  const receiptRoot = path.join(projectRoot, 'receipts');
+  if (reprocessA) {
+    documentA.planning_snapshot = await createLocalPartialSnapshot({
+      document: documentA,
+      productionRoot,
+      textRoot,
+      supervisorRoot,
+      pageRetries: reprocessAPageRetry
+        ? {
+            'doc-a:2:paddle': {
+              attempts: 5,
+              quarantined: true,
+            },
+          }
+        : {},
+    });
+  }
+  const asset = nativeAsset('img_in_image_box_245_322_1414_1925.jpg');
+  const nativeMarkdown = nativeAssetA
+    ? 'alpha page one\n\n<div style="text-align: center;"><img src="imgs/img_in_image_box_245_322_1414_1925.jpg" alt="Image" width="72%" /></div>\n'
+    : 'alpha page one\n';
+  const pageTexts = new Map([
+    ['doc-a', [nativeMarkdown, '']],
+    ['doc-b', ['beta page one\n']],
+  ]);
+  const parentManifestPath = path.join(root, 'parent-manifest.json');
+  await writeJson(parentManifestPath, manifestFor([documentA, documentB]));
+  const shardA = await createShard({
+    manifestPath: path.join(root, 'shard-a-manifest.json'),
+    shardRoot: path.join(root, 'shard-a'),
+    documents: [documentA],
+    pageTexts,
+    nativeAssets: nativeAssetA ? new Map([['doc-a:1', [asset]]]) : new Map(),
+    bindNativeAssets,
+  });
+  const repairPages = repairB ? new Set(['doc-b:1']) : new Set();
+  const shardB = await createShard({
+    manifestPath: path.join(root, 'shard-b-manifest.json'),
+    shardRoot: path.join(root, 'shard-b'),
+    documents: [documentB],
+    pageTexts,
+    statuses: quarantineB ? { 'doc-b': 'quarantined' } : {},
+    repairPages,
+    repairCitationEligible,
+    repairFinalTextMismatch,
+  });
+  await mkdir(textRoot, { recursive: true });
+  if (!reprocessA) await writeFile(path.join(textRoot, 'doc-a.txt'), 'existing placeholder\n');
+  const documents = new Map([
+    ['a.pdf', documentA],
+    ['b.pdf', documentB],
+  ]);
+  const options = {
+    manifest: parentManifestPath,
+    shards: [
+      {
+        manifestPath: shardA.manifestPath,
+        root: shardA.shardRoot,
+        ...(shardA.repairManifestPath ? { repairManifestPath: shardA.repairManifestPath } : {}),
+      },
+      {
+        manifestPath: shardB.manifestPath,
+        root: shardB.shardRoot,
+        ...(shardB.repairManifestPath ? { repairManifestPath: shardB.repairManifestPath } : {}),
+      },
+    ],
+    projectRoot,
+    productionRoot,
+    textRoot,
+    supervisorRoot,
+    receiptRoot,
+    python: process.execPath,
+  };
+  const dependencies = {
+    pageCounter: (_python, sourcePath) => documents.get(path.basename(sourcePath)).page_count,
+  };
+  return {
+    root,
+    projectRoot,
+    parentManifestPath,
+    shardA,
+    shardB,
+    documentA,
+    documentB,
+    pageTexts,
+    productionRoot,
+    textRoot,
+    supervisorRoot,
+    receiptRoot,
+    options,
+    dependencies,
+  };
+}
+
+test('argument parser keeps dry-run as the default and pairs shard inputs', () => {
+  const parsed = parseReceiverArguments([
+    '--manifest', 'parent.json',
+    '--shard-manifest', 'a.json',
+    '--shard-root', 'a-root',
+    '--repair-manifest', '-',
+    '--shard-manifest', 'b.json',
+    '--shard-root', 'b-root',
+    '--repair-manifest', 'b-repair.json',
+  ]);
+  assert.equal(parsed.apply, false);
+  assert.deepEqual(parsed.shards, [
+    { manifestPath: 'a.json', root: 'a-root' },
+    { manifestPath: 'b.json', root: 'b-root', repairManifestPath: 'b-repair.json' },
+  ]);
+  assert.throws(
+    () => parseReceiverArguments(['--manifest', 'parent.json', '--shard-manifest', 'a.json']),
+    /matching pairs/,
+  );
+  assert.throws(
+    () => parseReceiverArguments([
+      '--manifest', 'parent.json',
+      '--shard-manifest', 'a.json',
+      '--shard-root', 'a-root',
+      '--shard-manifest', 'b.json',
+      '--shard-root', 'b-root',
+      '--repair-manifest', 'b-repair.json',
+    ]),
+    /once per shard/,
+  );
+  assert.deepEqual(
+    parseReceiverArguments(['--rollback-receipt', '/tmp/receipt.json']),
+    { shards: [], apply: false, rollbackReceipt: '/tmp/receipt.json' },
+  );
+  assert.deepEqual(
+    parseReceiverArguments(['--apply', '--rollback-receipt', '/tmp/receipt.json']),
+    { shards: [], apply: true, rollbackReceipt: '/tmp/receipt.json' },
+  );
+  assert.throws(
+    () => parseReceiverArguments([
+      '--rollback-receipt', '/tmp/receipt.json',
+      '--manifest', 'parent.json',
+    ]),
+    /cannot be combined/,
+  );
+});
+
+test('dry-run validates the exact shard union without writing destination or receipt files', async (t) => {
+  const value = await fixture(t);
+  const result = await receiveRemoteOcrOffload(value.options, value.dependencies);
+  assert.equal(result.status, 'dry_run_validated');
+  assert.equal(result.dry_run, true);
+  assert.deepEqual(result.counts, {
+    documents: 2,
+    pages: 3,
+    repair_pages: 0,
+    existing_document_trees_to_backup: 0,
+    existing_text_files_to_backup: 1,
+  });
+  assert.equal(await pathExists(value.productionRoot), false);
+  assert.equal(await pathExists(value.receiptRoot), false);
+  assert.equal(await readFile(path.join(value.textRoot, 'doc-a.txt'), 'utf8'), 'existing placeholder\n');
+  const docA = result.documents.find((item) => item.document_id === 'doc-a');
+  assert.equal(docA.joined_text_sha256, sha256('alpha page one\n\f'));
+  assert.equal(docA.previous_text_sha256, sha256('existing placeholder\n'));
+});
+
+test('receiver resolves destination roots and rejects a symlink escape before validation or writes', async (t) => {
+  const value = await fixture(t);
+  const outsideProduction = path.join(value.root, 'outside-production');
+  await mkdir(outsideProduction);
+  await symlink(outsideProduction, value.productionRoot);
+  await assert.rejects(
+    receiveRemoteOcrOffload(value.options, value.dependencies),
+    /productionRoot must remain inside --project-root/,
+  );
+  assert.deepEqual(await readdir(outsideProduction), []);
+  assert.equal(await pathExists(value.receiptRoot), false);
+});
+
+test('explicit local reprocess dry-run supports a mixed replace/install manifest and binds retry state', async (t) => {
+  const value = await fixture(t, { reprocessA: true, reprocessAPageRetry: true });
+  const result = await receiveRemoteOcrOffload(value.options, value.dependencies);
+  assert.equal(result.status, 'dry_run_validated');
+  assert.deepEqual(result.counts, {
+    documents: 2,
+    pages: 3,
+    repair_pages: 0,
+    existing_document_trees_to_backup: 1,
+    existing_text_files_to_backup: 1,
+  });
+  const docA = result.documents.find((item) => item.document_id === 'doc-a');
+  const docB = result.documents.find((item) => item.document_id === 'doc-b');
+  assert.equal(docA.replacement_mode, 'replace_existing_local_document');
+  assert.match(docA.planned_local_snapshot_sha256, /^[a-f0-9]{64}$/);
+  assert.match(docA.previous_document_tree_sha256, /^[a-f0-9]{64}$/);
+  assert.equal(docB.replacement_mode, 'install_into_absent_destination');
+  assert.equal(await readFile(
+    path.join(value.productionRoot, 'doc-a/pages/0001/content.md'),
+    'utf8',
+  ), 'original local partial page 1\n');
+  assert.equal(JSON.parse(await readFile(
+    path.join(value.supervisorRoot, 'page-retries.json'),
+    'utf8',
+  ))['doc-a:2:paddle'].quarantined, true);
+});
+
+test('explicit local reprocess fails closed on document, retry-ledger, or missing-page drift', async (t) => {
+  await t.test('document tree drift', async (t) => {
+    const value = await fixture(t, { reprocessA: true });
+    await writeFile(path.join(value.productionRoot, 'doc-a/audit-local.json'), '{"status":"changed"}\n');
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /local reprocess snapshot changed after planning/,
+    );
+  });
+  await t.test('retry ledger drift', async (t) => {
+    const value = await fixture(t, { reprocessA: true, reprocessAPageRetry: true });
+    await writeJson(path.join(value.supervisorRoot, 'page-retries.json'), {
+      'doc-a:2:paddle': { attempts: 6, quarantined: true },
+    });
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /local reprocess snapshot changed after planning/,
+    );
+  });
+  await t.test('local completed page disappears', async (t) => {
+    const value = await fixture(t, { reprocessA: true });
+    await rm(path.join(value.productionRoot, 'doc-a/pages/0001'), { recursive: true });
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /physical local page directories do not exactly equal completed_pages/,
+    );
+  });
+  await t.test('remote whole-document result loses a page', async (t) => {
+    const value = await fixture(t, { reprocessA: true });
+    await rm(path.join(value.shardA.shardRoot, 'documents/doc-a/pages/0002'), { recursive: true });
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /physical page directory set is not exactly 1\.\.2/,
+    );
+  });
+});
+
+test('receiver rejects overlapping shard documents before any local write', async (t) => {
+  const value = await fixture(t);
+  const duplicate = await createShard({
+    manifestPath: path.join(value.root, 'duplicate-a-manifest.json'),
+    shardRoot: path.join(value.root, 'duplicate-a'),
+    documents: [value.documentA],
+    pageTexts: value.pageTexts,
+  });
+  await assert.rejects(
+    receiveRemoteOcrOffload({
+      ...value.options,
+      shards: [
+        value.options.shards[0],
+        { manifestPath: duplicate.manifestPath, root: duplicate.shardRoot },
+      ],
+    }, value.dependencies),
+    /document appears in more than one shard: doc-a/,
+  );
+  assert.equal(await pathExists(value.receiptRoot), false);
+});
+
+test('receiver rejects an incomplete shard union', async (t) => {
+  const value = await fixture(t);
+  const sourceC = 'source-c';
+  const documentC = documentFor('doc-c', 'sources/c.pdf', sourceC, 1);
+  await writeJson(value.parentManifestPath, manifestFor([
+    value.documentA,
+    value.documentB,
+    documentC,
+  ]));
+  await assert.rejects(
+    receiveRemoteOcrOffload(value.options, value.dependencies),
+    /shard union does not exactly equal the parent manifest/,
+  );
+});
+
+test('receiver rejects tampered runtime/status identity and unexpected document artifacts', async (t) => {
+  await t.test('run identity citation gate', async (t) => {
+    const value = await fixture(t);
+    const pathname = path.join(value.shardA.shardRoot, 'run-identity.json');
+    const identity = JSON.parse(await readFile(pathname, 'utf8'));
+    identity.citation_allowed = true;
+    await writeJson(pathname, identity);
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /run identity citation_allowed must equal false/,
+    );
+  });
+  await t.test('run-status sidecar', async (t) => {
+    const value = await fixture(t);
+    await writeFile(path.join(value.shardA.shardRoot, 'run-status.json'), '{"broken":true}\n');
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /run status SHA-256 sidecar mismatch/,
+    );
+  });
+  await t.test('unexpected page artifact', async (t) => {
+    const value = await fixture(t);
+    await writeFile(path.join(value.shardA.shardRoot, 'documents/doc-a/pages/0001/rogue.txt'), 'rogue');
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /page contains unexpected artifacts/,
+    );
+  });
+});
+
+test('native Paddle Markdown asset trees are strictly bound, hashed, and fail closed', async (t) => {
+  await t.test('valid bound JPG assets are accepted with a deterministic Markdown tree hash', async (t) => {
+    const value = await fixture(t, { nativeAssetA: true });
+    const first = await receiveRemoteOcrOffload(value.options, value.dependencies);
+    const second = await receiveRemoteOcrOffload(value.options, value.dependencies);
+    const document = first.documents.find((item) => item.document_id === 'doc-a');
+    const repeated = second.documents.find((item) => item.document_id === 'doc-a');
+    assert.equal(document.native_markdown_asset_count, 1);
+    assert.equal(document.native_markdown_asset_bytes, Buffer.byteLength('fixture Paddle JPEG bytes'));
+    assert.match(document.native_markdown_trees_sha256, /^[a-f0-9]{64}$/);
+    assert.equal(document.native_markdown_trees_sha256, repeated.native_markdown_trees_sha256);
+  });
+
+  await t.test('an asset absent from Paddle result geometry is rejected', async (t) => {
+    const value = await fixture(t, { nativeAssetA: true, bindNativeAssets: false });
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /Paddle Markdown asset is not bound to result geometry/,
+    );
+  });
+
+  await t.test('the native Markdown mirror must remain byte-identical to content.md', async (t) => {
+    const value = await fixture(t);
+    await writeFile(
+      path.join(value.shardA.shardRoot, 'documents/doc-a/pages/0001/markdown/page-0001.md'),
+      'drifted native mirror\n',
+    );
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /native Paddle Markdown mirror or state hash mismatch/,
+    );
+  });
+
+  await t.test('unknown asset filenames are rejected even when they are regular JPG files', async (t) => {
+    const value = await fixture(t, { nativeAssetA: true });
+    const imagesRoot = path.join(value.shardA.shardRoot, 'documents/doc-a/pages/0001/markdown/imgs');
+    await rm(path.join(imagesRoot, 'img_in_image_box_245_322_1414_1925.jpg'));
+    await writeFile(path.join(imagesRoot, 'unbound.jpg'), 'fixture Paddle JPEG bytes');
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /asset name is not a pinned Paddle filename/,
+    );
+  });
+
+  await t.test('a Paddle-looking asset symlink is rejected', async (t) => {
+    const value = await fixture(t, { nativeAssetA: true });
+    const assetPath = path.join(
+      value.shardA.shardRoot,
+      'documents/doc-a/pages/0001/markdown/imgs/img_in_image_box_245_322_1414_1925.jpg',
+    );
+    await rm(assetPath);
+    await symlink('../../content.md', assetPath);
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /Markdown asset is not a regular file/,
+    );
+  });
+
+  await t.test('repair mirrors cannot inherit native Paddle image assets', async (t) => {
+    const value = await fixture(t, { repairB: true });
+    const imagesRoot = path.join(value.shardB.shardRoot, 'documents/doc-b/pages/0001/markdown/imgs');
+    await mkdir(imagesRoot);
+    await writeFile(
+      path.join(imagesRoot, 'img_in_image_box_245_322_1414_1925.jpg'),
+      'fixture Paddle JPEG bytes',
+    );
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /repaired page must not contain unbound Paddle Markdown assets/,
+    );
+  });
+});
+
+test('quarantined documents require exact independently hashed repair provenance', async (t) => {
+  await t.test('valid repair', async (t) => {
+    const value = await fixture(t, { repairB: true });
+    const result = await receiveRemoteOcrOffload(value.options, value.dependencies);
+    assert.equal(result.counts.repair_pages, 1);
+    const repaired = result.documents.find((item) => item.document_id === 'doc-b');
+    assert.equal(repaired.source_document_status, 'quarantined');
+    assert.equal(repaired.repair_pages, 1);
+    assert.equal(result.citation_allowed, false);
+  });
+  await t.test('quarantine without repair', async (t) => {
+    const value = await fixture(t, { quarantineB: true });
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /quarantined document has no independently adjudicated repair pages/,
+    );
+  });
+  await t.test('repaired state requires an explicit per-shard manifest argument', async (t) => {
+    const value = await fixture(t, { repairB: true });
+    const shards = structuredClone(value.options.shards);
+    delete shards[1].repairManifestPath;
+    await assert.rejects(
+      receiveRemoteOcrOffload({ ...value.options, shards }, value.dependencies),
+      /explicit --repair-manifest is missing/,
+    );
+  });
+  await t.test('repair provenance cannot enable citation', async (t) => {
+    const value = await fixture(t, { repairB: true, repairCitationEligible: true });
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /repair provenance contract mismatch/,
+    );
+  });
+  await t.test('repair manifest must retain its independent hash', async (t) => {
+    const value = await fixture(t, { repairB: true });
+    const pathname = value.shardB.repairManifestPath;
+    const manifest = JSON.parse(await readFile(pathname, 'utf8'));
+    manifest.method = 'changed_after_application';
+    const rewritten = await writeJson(pathname, manifest);
+    await writeSidecar(pathname, rewritten.sha256);
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /repair provenance contract mismatch|repair receipt identity conflicts/,
+    );
+  });
+  await t.test('repair evidence must still match its independently declared hash', async (t) => {
+    const value = await fixture(t, { repairB: true });
+    const manifest = JSON.parse(await readFile(value.shardB.repairManifestPath, 'utf8'));
+    const evidencePath = path.join(
+      path.dirname(value.shardB.repairManifestPath),
+      manifest.documents[0].pages[0].evidence[1].path,
+    );
+    await writeFile(evidencePath, 'tampered online evidence');
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /repair evidence hash mismatch/,
+    );
+  });
+  await t.test('repair receipt must bind the current repaired state', async (t) => {
+    const value = await fixture(t, { repairB: true });
+    const manifest = JSON.parse(await readFile(value.shardB.repairManifestPath, 'utf8'));
+    const receiptPath = path.join(
+      value.shardB.shardRoot,
+      'repair-receipts',
+      `${manifest.repair_id}.json`,
+    );
+    const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+    receipt.documents[0].state_after_sha256 = '0'.repeat(64);
+    const rewritten = await writeJson(receiptPath, receipt);
+    await writeSidecar(receiptPath, rewritten.sha256);
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /repair receipt state or document identity mismatch/,
+    );
+  });
+  await t.test('repaired Markdown mirror must equal the adjudicated final text', async (t) => {
+    const value = await fixture(t, { repairB: true });
+    await writeFile(
+      path.join(value.shardB.shardRoot, 'documents/doc-b/pages/0001/markdown/page-0001.md'),
+      'drifted mirror\n',
+    );
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /repaired artifacts conflict with the repair manifest/,
+    );
+  });
+  await t.test('repair manifest final text must equal the repaired content', async (t) => {
+    const value = await fixture(t, { repairB: true, repairFinalTextMismatch: true });
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /repaired artifacts conflict with the repair manifest/,
+    );
+  });
+});
+
+test('apply atomically installs whole documents, replaces text, and writes exact rollback evidence', async (t) => {
+  const value = await fixture(t, { repairB: true, nativeAssetA: true });
+  const result = await receiveRemoteOcrOffload(
+    { ...value.options, apply: true },
+    value.dependencies,
+  );
+  assert.equal(result.status, 'applied');
+  assert.equal(result.counts.documents, 2);
+  assert.equal(result.counts.repair_pages, 1);
+  assert.equal(
+    await readFile(path.join(value.textRoot, 'doc-a.txt'), 'utf8'),
+    `${value.pageTexts.get('doc-a')[0]}\f${value.pageTexts.get('doc-a')[1]}`,
+  );
+  assert.equal(await readFile(path.join(value.textRoot, 'doc-b.txt'), 'utf8'), 'beta page one\n');
+  assert.equal(
+    await readFile(path.join(path.dirname(result.receipt_path), 'backups/text/doc-a.txt'), 'utf8'),
+    'existing placeholder\n',
+  );
+  assert.equal(await pathExists(path.join(value.productionRoot, 'doc-a/state.json')), true);
+  assert.equal(await pathExists(path.join(value.productionRoot, 'doc-b/state.json')), true);
+  assert.equal(
+    await pathExists(path.join(
+      value.productionRoot,
+      'doc-a/pages/0001/markdown/imgs/img_in_image_box_245_322_1414_1925.jpg',
+    )),
+    true,
+  );
+  assert.deepEqual((await readdir(value.productionRoot)).sort(), ['doc-a', 'doc-b']);
+  assert.deepEqual((await readdir(value.textRoot)).sort(), ['doc-a.txt', 'doc-b.txt']);
+  const receipt = JSON.parse(await readFile(result.receipt_path, 'utf8'));
+  assert.equal(receipt.status, 'applied');
+  assert.equal(receipt.citation_allowed, false);
+  assert.equal(receipt.documents[0].rollback.target_document_path.endsWith('doc-a'), true);
+  assert.equal(receipt.documents[0].rollback.document_action, 'remove_new_tree');
+  assert.equal(receipt.documents[0].rollback.text_action, 'restore_verified_backup');
+  assert.equal(receipt.documents[1].rollback.text_action, 'remove_new_file');
+  assert.equal(await pathExists(receipt.source_evidence.parent_manifest.path), true);
+  const archivedRepair = receipt.source_evidence.shards
+    .map((shard) => shard.repair?.manifest?.path)
+    .find(Boolean);
+  assert.equal(await pathExists(archivedRepair), true);
+  const archivedRepairReceipt = receipt.source_evidence.shards
+    .map((shard) => shard.repair?.receipt?.path)
+    .find(Boolean);
+  assert.equal(await pathExists(archivedRepairReceipt), true);
+  const archivedRepairEvidence = receipt.source_evidence.shards
+    .flatMap((shard) => shard.repair?.evidence || []);
+  assert.equal(archivedRepairEvidence.length, 2);
+  assert.equal(await pathExists(archivedRepairEvidence[0].path), true);
+  const sidecar = await readFile(`${result.receipt_path}.sha256`, 'utf8');
+  assert.match(sidecar, /^[a-f0-9]{64}  receipt\.json\n$/);
+  const receiptBeforeRepeat = await readFile(result.receipt_path, 'utf8');
+  const repeated = await receiveRemoteOcrOffload(
+    { ...value.options, apply: true },
+    value.dependencies,
+  );
+  assert.equal(repeated.status, 'verified_idempotent');
+  assert.equal(repeated.receipt_path, result.receipt_path);
+  assert.equal(await readFile(result.receipt_path, 'utf8'), receiptBeforeRepeat);
+  assert.deepEqual((await readdir(value.productionRoot)).sort(), ['doc-a', 'doc-b']);
+  assert.deepEqual((await readdir(value.textRoot)).sort(), ['doc-a.txt', 'doc-b.txt']);
+});
+
+test('explicit local reprocess apply preserves the original tree, clears owned retries, rolls back, and reapplies safely', async (t) => {
+  const value = await fixture(t, { reprocessA: true, reprocessAPageRetry: true });
+  const applied = await receiveRemoteOcrOffload(
+    { ...value.options, apply: true },
+    value.dependencies,
+  );
+  assert.equal(applied.status, 'applied');
+  assert.equal(applied.counts.replaced_local_documents, 1);
+  const receipt = JSON.parse(await readFile(applied.receipt_path, 'utf8'));
+  const docA = receipt.documents.find((item) => item.document_id === 'doc-a');
+  assert.equal(docA.replacement_mode, 'replace_existing_local_document');
+  assert.equal(docA.previous_document.existed, true);
+  assert.equal(
+    await readFile(path.join(docA.previous_document.backup_path, 'pages/0001/content.md'), 'utf8'),
+    'original local partial page 1\n',
+  );
+  assert.equal(
+    await readFile(path.join(value.productionRoot, 'doc-a/pages/0001/content.md'), 'utf8'),
+    value.pageTexts.get('doc-a')[0],
+  );
+  assert.deepEqual(
+    JSON.parse(await readFile(path.join(value.supervisorRoot, 'page-retries.json'), 'utf8')),
+    {},
+  );
+  assert.equal(
+    JSON.parse(await readFile(
+      receipt.supervisor_retry_ledgers.ledgers.find((item) => item.name === 'page_retries').before.backup_path,
+      'utf8',
+    ))['doc-a:2:paddle'].quarantined,
+    true,
+  );
+
+  const repeatedApply = await receiveRemoteOcrOffload(
+    { ...value.options, apply: true },
+    value.dependencies,
+  );
+  assert.equal(repeatedApply.status, 'verified_idempotent');
+  assert.equal(repeatedApply.receipt_path, applied.receipt_path);
+
+  const rollbackDryRun = await receiveRemoteOcrOffload({
+    rollbackReceipt: applied.receipt_path,
+    apply: false,
+  });
+  assert.equal(rollbackDryRun.status, 'rollback_dry_run_validated');
+  assert.equal(rollbackDryRun.documents[0].document_action, 'restore_verified_backup');
+
+  const rolledBack = await receiveRemoteOcrOffload({
+    rollbackReceipt: applied.receipt_path,
+    apply: true,
+  });
+  assert.equal(rolledBack.status, 'rolled_back');
+  assert.equal(
+    await readFile(path.join(value.productionRoot, 'doc-a/pages/0001/content.md'), 'utf8'),
+    'original local partial page 1\n',
+  );
+  assert.equal(
+    await readFile(path.join(value.textRoot, 'doc-a.txt'), 'utf8'),
+    'original local partial joined text\n',
+  );
+  assert.equal(
+    JSON.parse(await readFile(path.join(value.supervisorRoot, 'page-retries.json'), 'utf8'))['doc-a:2:paddle'].quarantined,
+    true,
+  );
+  assert.equal(await pathExists(path.join(value.productionRoot, 'doc-b')), false);
+  assert.equal(await pathExists(path.join(value.textRoot, 'doc-b.txt')), false);
+
+  const repeatedRollback = await receiveRemoteOcrOffload({
+    rollbackReceipt: applied.receipt_path,
+    apply: true,
+  });
+  assert.equal(repeatedRollback.status, 'verified_idempotent');
+
+  const reapplied = await receiveRemoteOcrOffload(
+    { ...value.options, apply: true },
+    value.dependencies,
+  );
+  assert.equal(reapplied.status, 'applied');
+  assert.notEqual(reapplied.receipt_path, applied.receipt_path);
+});
+
+test('idempotent re-entry fails closed if an applied target drifts', async (t) => {
+  const value = await fixture(t);
+  await receiveRemoteOcrOffload(
+    { ...value.options, apply: true },
+    value.dependencies,
+  );
+  await writeFile(path.join(value.textRoot, 'doc-b.txt'), 'drifted\n');
+  await assert.rejects(
+    receiveRemoteOcrOffload(
+      { ...value.options, apply: true },
+      value.dependencies,
+    ),
+    /idempotent target hashes differ from the applied receipt/,
+  );
+});
+
+test('apply rechecks local ownership after staging and leaves no receiver artifacts on conflict', async (t) => {
+  const value = await fixture(t);
+  await assert.rejects(
+    receiveRemoteOcrOffload(
+      { ...value.options, apply: true },
+      {
+        ...value.dependencies,
+        beforeApplyRecheck: async () => {
+          await mkdir(path.join(value.productionRoot, 'doc-b'));
+        },
+      },
+    ),
+    /doc-b: local production destination already exists/,
+  );
+  assert.equal(await pathExists(path.join(value.productionRoot, 'doc-a')), false);
+  assert.equal(await readFile(path.join(value.textRoot, 'doc-a.txt'), 'utf8'), 'existing placeholder\n');
+  assert.deepEqual(await readdir(value.receiptRoot), []);
+  assert.equal(
+    (await readdir(value.productionRoot)).some((name) => name.startsWith('.receive-')),
+    false,
+  );
+});
+
+test('receiver refuses to race a running local watchdog', async (t) => {
+  const value = await fixture(t);
+  await writeJson(path.join(value.supervisorRoot, 'watchdog-control.json'), { mode: 'run' });
+  await assert.rejects(
+    receiveRemoteOcrOffload(value.options, value.dependencies),
+    /local OCR watchdog must be held before remote receipt; current mode=run/,
+  );
+  assert.equal(await pathExists(value.receiptRoot), false);
+});
+
+test('a later commit failure rolls back already installed documents and restores prior text', async (t) => {
+  const value = await fixture(t);
+  await assert.rejects(
+    receiveRemoteOcrOffload(
+      { ...value.options, apply: true },
+      {
+        ...value.dependencies,
+        beforeCommitDocument: async (documentId) => {
+          if (documentId === 'doc-b') throw new Error('synthetic commit failure');
+        },
+      },
+    ),
+    /synthetic commit failure/,
+  );
+  assert.equal(await pathExists(path.join(value.productionRoot, 'doc-a')), false);
+  assert.equal(await pathExists(path.join(value.productionRoot, 'doc-b')), false);
+  assert.equal(await readFile(path.join(value.textRoot, 'doc-a.txt'), 'utf8'), 'existing placeholder\n');
+  assert.equal(await pathExists(path.join(value.textRoot, 'doc-b.txt')), false);
+  const receiptDirectories = (await readdir(value.receiptRoot)).filter((name) => !name.startsWith('.'));
+  assert.equal(receiptDirectories.length, 1);
+  const receiptPath = path.join(value.receiptRoot, receiptDirectories[0], 'receipt.json');
+  const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+  assert.equal(receipt.status, 'rolled_back_after_apply_failure');
+  assert.equal(receipt.error, 'synthetic commit failure');
+  assert.deepEqual(
+    (await readdir(value.productionRoot)).filter((name) => name.startsWith('.receive-')),
+    [],
+  );
+});
+
+test('a mixed reprocess commit failure restores the exact original partial tree and retry ledger', async (t) => {
+  const value = await fixture(t, { reprocessA: true, reprocessAPageRetry: true });
+  await assert.rejects(
+    receiveRemoteOcrOffload(
+      { ...value.options, apply: true },
+      {
+        ...value.dependencies,
+        beforeCommitDocument: async (documentId) => {
+          if (documentId === 'doc-b') throw new Error('synthetic mixed commit failure');
+        },
+      },
+    ),
+    /synthetic mixed commit failure/,
+  );
+  assert.equal(
+    await readFile(path.join(value.productionRoot, 'doc-a/pages/0001/content.md'), 'utf8'),
+    'original local partial page 1\n',
+  );
+  assert.equal(
+    await readFile(path.join(value.textRoot, 'doc-a.txt'), 'utf8'),
+    'original local partial joined text\n',
+  );
+  assert.equal(
+    JSON.parse(await readFile(path.join(value.supervisorRoot, 'page-retries.json'), 'utf8'))['doc-a:2:paddle'].attempts,
+    5,
+  );
+  assert.equal(await pathExists(path.join(value.productionRoot, 'doc-b')), false);
+  const receiptDirectories = (await readdir(value.receiptRoot)).filter((name) => !name.startsWith('.'));
+  const receipt = JSON.parse(await readFile(
+    path.join(value.receiptRoot, receiptDirectories[0], 'receipt.json'),
+    'utf8',
+  ));
+  assert.equal(receipt.status, 'rolled_back_after_apply_failure');
+});

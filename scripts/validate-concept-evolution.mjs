@@ -3,6 +3,9 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createConceptPublicationGate } from './concept-page-publication.mjs';
+import { isNativeTextRecord } from './page-publication-gate.mjs';
+import { semanticDocumentDisposition } from './semantic-publication-gate.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const graphPath = process.env.CONCEPT_GRAPH_OUTPUT_PATH
@@ -20,7 +23,31 @@ const core = JSON.parse(coreText);
 const graph = JSON.parse(academicText);
 const quality = JSON.parse(await readFile(qualityPath, 'utf8'));
 const model = JSON.parse(await readFile(path.join(root, 'data/concept-model-v2.json'), 'utf8'));
+const catalog = JSON.parse(await readFile(path.join(root, 'data/catalog.json'), 'utf8'));
+const pagePublicationManifest = JSON.parse(await readFile(path.join(root, 'data/page-publication-manifest.json'), 'utf8'));
+const semanticPublicationPolicy = JSON.parse(
+  await readFile(path.join(root, 'data/semantic-publication-policy.json'), 'utf8'),
+);
+const conceptPublicationGate = createConceptPublicationGate({
+  manifest: pagePublicationManifest,
+  semanticPolicy: semanticPublicationPolicy,
+  records: catalog.documents,
+});
+const semanticPublicationGate = conceptPublicationGate.semantic_gate;
+const catalogById = new Map(catalog.documents.map((record) => [record.id, record]));
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+const currentBuildLogicSha256 = {
+  builder_sha256: sha256(await readFile(path.join(root, 'scripts/build-concept-evolution.mjs'))),
+  concept_publication_gate_sha256: sha256(await readFile(path.join(root, 'scripts/concept-page-publication.mjs'))),
+  page_publication_gate_sha256: sha256(await readFile(path.join(root, 'scripts/page-publication-gate.mjs'))),
+  semantic_publication_policy_sha256: sha256(
+    await readFile(path.join(root, 'data/semantic-publication-policy.json')),
+  ),
+  semantic_publication_gate_sha256: sha256(
+    await readFile(path.join(root, 'scripts/semantic-publication-gate.mjs')),
+  ),
+  validator_sha256: sha256(await readFile(path.join(root, 'scripts/validate-concept-evolution.mjs'))),
+};
 
 const failures = [];
 const fail = (condition, message) => { if (!condition) failures.push(message); };
@@ -49,6 +76,20 @@ fail(core.academic_model_ref?.build_revision === graph.build_revision, 'core aca
 fail(core.academic_model_ref?.sha256 === sha256(academicText), 'core academic reference hash mismatch');
 fail(Buffer.byteLength(coreText) < 4 * 1024 * 1024, 'core artifact exceeds 4 MiB');
 fail(quality.passed === true, 'quality report is not passing');
+fail(graph.input_fingerprints?.ocr_concept_publication_sha256 === conceptPublicationGate.revision_sha256, 'OCR concept publication fingerprint mismatch');
+fail(core.input_fingerprints?.ocr_concept_publication_sha256 === conceptPublicationGate.revision_sha256, 'core OCR concept publication fingerprint mismatch');
+fail(quality.input_fingerprints?.ocr_concept_publication_sha256 === conceptPublicationGate.revision_sha256, 'quality OCR concept publication fingerprint mismatch');
+fail(graph.input_fingerprints?.semantic_publication_revision_sha256 === semanticPublicationGate.revision_sha256, 'semantic publication fingerprint mismatch');
+fail(core.input_fingerprints?.semantic_publication_revision_sha256 === semanticPublicationGate.revision_sha256, 'core semantic publication fingerprint mismatch');
+fail(quality.input_fingerprints?.semantic_publication_revision_sha256 === semanticPublicationGate.revision_sha256, 'quality semantic publication fingerprint mismatch');
+fail(graph.coverage?.ocr_display_accepted_pages === conceptPublicationGate.revision_projection.length, 'OCR display-accepted coverage count mismatch');
+fail(graph.coverage?.catalog_alias_documents === semanticPublicationGate.aliasById.size, 'catalog alias coverage count mismatch');
+fail(graph.coverage?.catalog_documents === catalog.documents.length - semanticPublicationGate.aliasById.size, 'canonical catalog coverage count mismatch');
+for (const [key, value] of Object.entries(currentBuildLogicSha256)) {
+  fail(graph.input_fingerprints?.[key] === value, `${key}: academic build logic hash drift`);
+  fail(core.input_fingerprints?.[key] === value, `${key}: core build logic hash drift`);
+  fail(quality.input_fingerprints?.[key] === value, `${key}: quality build logic hash drift`);
+}
 fail(graph.coverage?.negative_claim_eligible === false, 'graph-level negative claim gate is open');
 fail(graph.course_families && typeof graph.course_families === 'object' && !Array.isArray(graph.course_families), 'course_families: missing object');
 fail(graph.course_to_subject_links && typeof graph.course_to_subject_links === 'object' && !Array.isArray(graph.course_to_subject_links), 'course_to_subject_links: missing object');
@@ -78,6 +119,9 @@ const ontologyScopes = index('ontology_scopes');
 const ontologyNodes = index('ontology_nodes');
 const ontologyRelations = index('ontology_relations');
 const ontologyEvidence = index('ontology_evidence');
+const relationEndpointIds = new Set(graph.relations.flatMap((relation) => [relation.source, relation.target]));
+const publishedOcrPageByKey = new Map(conceptPublicationGate.revision_projection
+  .map((page) => [`${page.document_id}:${page.page_number}`, page]));
 
 const taxonomyBySourceLabel = new Map(graph.subject_taxonomy.map((item) => [item.source_label, item]));
 fail(taxonomyBySourceLabel.size === graph.subject_taxonomy.length, 'subject_taxonomy: duplicate source labels');
@@ -214,7 +258,23 @@ for (const work of graph.works) {
   fail(work.subject.entity_kind === 'curriculum_course'
     ? work.course_entity?.stable_course_id === work.subject.stable_course_id
     : work.course_entity === null, `${work.id}: explicit course entity mismatch`);
-  fail(work.identity_status.includes('not_deduplicated'), `${work.id}: unsafe deduplication status`);
+  const canonicalDocumentId = work.id.startsWith('work:') ? work.id.slice('work:'.length) : null;
+  const canonicalRecord = catalogById.get(canonicalDocumentId);
+  const disposition = canonicalRecord
+    ? semanticDocumentDisposition(semanticPublicationGate, canonicalRecord)
+    : null;
+  if (disposition?.alternate_document_ids?.length) {
+    fail(work.identity_status === 'exact_source_deduplicated_canonical', `${work.id}: exact duplicate canonical status missing`);
+    fail(JSON.stringify(work.document_ids) === JSON.stringify([
+      canonicalDocumentId,
+      ...disposition.alternate_document_ids,
+    ]), `${work.id}: exact duplicate aliases are not bound to the canonical work`);
+    for (const aliasDocumentId of disposition.alternate_document_ids) {
+      fail(!works.has(`work:${aliasDocumentId}`), `${work.id}: alias created a duplicate work`);
+    }
+  } else {
+    fail(work.identity_status.includes('not_deduplicated'), `${work.id}: unsafe deduplication status`);
+  }
 }
 
 for (const edition of graph.editions) {
@@ -224,6 +284,15 @@ for (const edition of graph.editions) {
   if (edition.embedded_item_id !== null) fail(embeddedItems.has(edition.embedded_item_id), `${edition.id}: embedded item missing`);
   if (edition.revision_year !== null) {
     fail(graph.revisions.some((revision) => revision.edition_id === edition.id && revision.revision_year === edition.revision_year), `${edition.id}: revision record missing`);
+  }
+  const disposition = semanticDocumentDisposition(
+    semanticPublicationGate,
+    catalogById.get(edition.document_id) || { id: edition.document_id },
+  );
+  if (disposition.alternate_document_ids?.length) {
+    fail(edition.identity_status === 'exact_source_deduplicated_canonical', `${edition.id}: exact duplicate canonical status missing`);
+    fail(JSON.stringify(edition.alternate_document_ids) === JSON.stringify(disposition.alternate_document_ids),
+      `${edition.id}: alternate document ids do not match semantic policy`);
   }
 }
 
@@ -252,6 +321,10 @@ for (const occurrence of graph.occurrences) {
   fail(occurrence.section_context?.section_type === 'unknown' && occurrence.section_context?.normative_role === 'unknown', `${occurrence.id}: unknown section/role was inferred`);
   fail(occurrence.match_type === 'exact_surface', `${occurrence.id}: unsupported automatic match type`);
   fail(evidence.get(occurrence.evidence_id)?.occurrence_ids.includes(occurrence.id), `${occurrence.id}: evidence reverse link missing`);
+  if (evidence.get(occurrence.evidence_id)?.publication_basis === 'accepted_ocr_page_manifest') {
+    fail(occurrence.publication_basis === 'accepted_ocr_page_manifest', `${occurrence.id}: OCR occurrence lacks accepted publication basis`);
+    fail(occurrence.semantic_claim_allowed === false, `${occurrence.id}: OCR occurrence was promoted to semantic evidence`);
+  }
 }
 
 for (const item of graph.evidence) {
@@ -264,9 +337,29 @@ for (const item of graph.evidence) {
   fail(item.online_verification_id === null || typeof item.online_verification_id === 'string', `${item.id}: invalid online verification ID`);
   if (item.evidence_status !== 'citation_ready') {
     fail(item.citation_allowed === false, `${item.id}: candidate evidence is citation allowed`);
-    fail(item.citation_gate?.document_allowed === false && item.citation_gate?.paragraph_allowed === false, `${item.id}: candidate citation gate is open`);
+    fail(item.citation_gate?.paragraph_allowed === false, `${item.id}: candidate paragraph citation gate is open`);
+    if (item.publication_basis !== 'accepted_ocr_page_manifest') {
+      fail(item.citation_gate?.document_allowed === false, `${item.id}: non-OCR candidate document citation gate is open`);
+    }
   }
   if (item.embedded_item_id !== null) fail(item.citation_allowed === false, `${item.id}: OCR fragment is quotable`);
+  const sourceRecord = catalogById.get(item.document_id);
+  const ocrDerived = sourceRecord ? !isNativeTextRecord(sourceRecord) : item.embedded_item_id !== null;
+  if (ocrDerived) {
+    const page = publishedOcrPageByKey.get(`${item.document_id}:${item.physical_pdf_page}`);
+    fail(item.publication_basis === 'accepted_ocr_page_manifest', `${item.id}: OCR evidence lacks accepted page publication basis`);
+    fail(Boolean(page), `${item.id}: OCR evidence page is absent from the display-accepted manifest projection`);
+    if (page) {
+      fail(item.source_artifact_sha256 === page.source_artifact_sha256, `${item.id}: OCR source artifact hash drift`);
+      fail(item.source_page_sha256 === page.source_page_sha256, `${item.id}: OCR source page hash drift`);
+      fail(item.final_text_sha256 === page.final_text_sha256, `${item.id}: OCR final text hash drift`);
+      fail(item.evidence_bundle_sha256 === page.evidence_bundle_sha256, `${item.id}: OCR evidence bundle hash drift`);
+      fail(item.stable_locator === page.stable_locator, `${item.id}: OCR stable locator drift`);
+      fail(item.citation_allowed === item.citation_gate?.paragraph_allowed && (!item.citation_allowed || page.citation_allowed),
+        `${item.id}: OCR citation state exceeds or contradicts the accepted page manifest`);
+    }
+    fail(item.semantic_claim_allowed === false, `${item.id}: OCR lexical evidence was promoted to semantic evidence`);
+  }
 }
 
 function expectedVisibilityFacets(episode) {
@@ -300,6 +393,9 @@ for (const episode of graph.episodes) {
     : episode.visibility_facets.length ? episode.visibility_policy === 'reviewed_course_relation' : episode.visibility_policy === 'global_only', `${episode.id}: visibility policy mismatch`);
   fail(Number.isInteger(episode.time?.year) && episode.time.year >= 1800 && episode.time.year <= 2030, `${episode.id}: invalid year`);
   fail(episode.evidence_ids.length > 0 && episode.evidence_ids.every((id) => evidence.has(id)), `${episode.id}: evidence missing`);
+  const episodeEvidence = episode.evidence_ids.map((id) => evidence.get(id));
+  const citationClasses = new Set(episodeEvidence.map((item) => item.citation_allowed));
+  fail(citationClasses.size === 1, `${episode.id}: citation-ready and display-only evidence were merged into one frequency episode`);
   fail(episode.occurrence_ids.length > 0 && episode.occurrence_ids.every((id) => occurrences.has(id)), `${episode.id}: occurrences missing`);
   fail(episode.observation?.roles?.length === 1 && episode.observation.roles[0] === 'unknown', `${episode.id}: normative role inferred`);
   const frequency = episode.observation?.frequency;
@@ -313,6 +409,10 @@ for (const episode of graph.episodes) {
     fail(episode.evidence_ids.some((id) => evidence.get(id)?.citation_allowed === true && evidence.get(id)?.evidence_status === 'citation_ready'), `${episode.id}: solid has no citation-ready evidence`);
   } else {
     fail(episode.claim_policy.quotation_allowed === false, `${episode.id}: non-solid episode is quotable`);
+    fail(episode.observation.observation_class === 'nonsemantic_candidate' && episode.observation.semantic === false,
+      `${episode.id}: display-only episode is not explicitly nonsemantic`);
+    fail(episode.claim_policy.semantic_relation_allowed === false && !relationEndpointIds.has(episode.id),
+      `${episode.id}: display-only episode entered a relation`);
   }
   fail(episode.coverage.negative_claim_eligible === false, `${episode.id}: negative history claim enabled`);
   fail(episode.claim_policy.historical_superlative_allowed === false, `${episode.id}: historical superlative enabled`);
@@ -341,6 +441,19 @@ for (const item of graph.ontology_evidence) {
   fail(editions.has(item.edition_id), `${item.id}: ontology evidence edition missing`);
   fail(item.evidence_status === 'citation_ready' && item.citation_allowed === true, `${item.id}: ontology evidence is not citation ready`);
   fail(Array.isArray(item.section_path) && item.section_path.length > 0 && item.required_terms.length > 0, `${item.id}: ontology section path or anchor terms missing`);
+  const sourceRecord = catalogById.get(item.document_id);
+  if (sourceRecord && !isNativeTextRecord(sourceRecord)) {
+    const page = publishedOcrPageByKey.get(`${item.document_id}:${item.physical_pdf_page}`);
+    fail(Boolean(page) && page.citation_allowed === true, `${item.id}: OCR ontology anchor lacks a citation-accepted page`);
+    fail(item.publication_basis === 'accepted_ocr_page_manifest', `${item.id}: OCR ontology anchor lacks publication basis`);
+    if (page) {
+      fail(item.source_artifact_sha256 === page.source_artifact_sha256
+        && item.source_page_sha256 === page.source_page_sha256
+        && item.final_text_sha256 === page.final_text_sha256
+        && item.evidence_bundle_sha256 === page.evidence_bundle_sha256
+        && item.stable_locator === page.stable_locator, `${item.id}: OCR ontology anchor hash drift`);
+    }
+  }
 }
 for (const node of graph.ontology_nodes) {
   fail(ontologyNodeTypes.has(node.node_type), `${node.id}: invalid ontology node type`);
@@ -416,6 +529,7 @@ for (const relation of graph.relations) {
   const source = episodes.get(relation.source);
   const target = episodes.get(relation.target);
   fail(Boolean(source && target), `${relation.id}: endpoint missing`);
+  fail(source?.observation?.status === 'citation_ready' && target?.observation?.status === 'citation_ready', `${relation.id}: non-citation episode entered a relation`);
   fail(relation.source_evidence_ids?.length > 0 && relation.source_evidence_ids.every((id) => evidence.has(id) && source?.evidence_ids.includes(id)), `${relation.id}: source endpoint evidence invalid`);
   fail(relation.target_evidence_ids?.length > 0 && relation.target_evidence_ids.every((id) => evidence.has(id) && target?.evidence_ids.includes(id)), `${relation.id}: target endpoint evidence invalid`);
   const review = relationReviews.get(relation.relation_review_id);

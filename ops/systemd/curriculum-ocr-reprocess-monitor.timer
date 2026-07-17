@@ -1,0 +1,12 @@
+[Unit]
+Description=Poll the isolated curriculum OCR partial14 reprocess every two minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=10s
+Persistent=true
+Unit=curriculum-ocr-reprocess-monitor.service
+
+[Install]
+WantedBy=timers.target

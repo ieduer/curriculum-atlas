@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/semantic-publication-policy-v1.json",
+  "title": "Curriculum Atlas semantic publication policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy",
+    "reviewed_by",
+    "reviewed_at",
+    "quality_profiles",
+    "document_aliases",
+    "page_controls"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "policy": {
+      "const": "fail_closed_semantic_publication_v1"
+    },
+    "reviewed_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "quality_profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/qualityProfile"
+      }
+    },
+    "document_aliases": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/documentAlias"
+      }
+    },
+    "page_controls": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/pageControl"
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "documentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "qualityProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimum_meaningful_characters_when_text_expected",
+        "forbidden_unicode_scripts",
+        "minimum_required_script_characters",
+        "tabular_alignment_required",
+        "required_resolution_attestations"
+      ],
+      "properties": {
+        "minimum_meaningful_characters_when_text_expected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "forbidden_unicode_scripts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "minimum_required_script_characters": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "tabular_alignment_required": {
+          "type": "boolean"
+        },
+        "required_resolution_attestations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "documentAlias": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "alias_document_id",
+        "canonical_document_id",
+        "source_artifact_sha256",
+        "relation",
+        "reviewed_by",
+        "reviewed_at",
+        "note"
+      ],
+      "properties": {
+        "alias_document_id": {
+          "$ref": "#/$defs/documentId"
+        },
+        "canonical_document_id": {
+          "$ref": "#/$defs/documentId"
+        },
+        "source_artifact_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "relation": {
+          "const": "exact_source_duplicate"
+        },
+        "reviewed_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "pageControl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "control_id",
+        "document_id",
+        "source_artifact_sha256",
+        "page_count",
+        "page_start",
+        "page_end",
+        "quality_profile",
+        "status",
+        "reasons",
+        "source_image_text_expected",
+        "boundary_basis",
+        "resolution_requirements",
+        "resolution_attestations",
+        "reviewed_by",
+        "reviewed_at",
+        "resolved_by",
+        "resolved_at",
+        "note"
+      ],
+      "properties": {
+        "control_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9:-]*$"
+        },
+        "document_id": {
+          "$ref": "#/$defs/documentId"
+        },
+        "source_artifact_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "page_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "page_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "page_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "quality_profile": {
+          "$ref": "#/$defs/documentId"
+        },
+        "status": {
+          "enum": [
+            "unresolved_fail_closed",
+            "resolved_after_review"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source_image_text_expected": {
+          "type": "boolean"
+        },
+        "boundary_basis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resolution_requirements": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "resolution_attestations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "reviewed_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "resolved_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "resolved_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

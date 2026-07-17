@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "contract": "curriculum_downloads_asset_audit_v1",
+  "generated_by": "scripts/build-downloads-asset-audit-receipt.mjs",
+  "audited_at": "2026-07-17T02:29:48.977Z",
+  "downloads_root_label": "operator_downloads",
+  "ok": true,
+  "downloads_ingested": true,
+  "pdf_files": 237,
+  "relevant_files": 15,
+  "unique_relevant_artifacts": 15,
+  "relevant_artifacts": [
+    {
+      "sha256": "048643acc85ab479bbef70c23491ea6ec3f16d755ca7f01be8ad376691b3f787",
+      "size_bytes": 6311665,
+      "pdf_magic": true,
+      "disposition": "canonical",
+      "ingested": true
+    },
+    {
+      "sha256": "0bed0ac557e5e33977ea3dd017427e184500a06831b1a88e4baf0bbc7249f33f",
+      "size_bytes": 14938947,
+      "pdf_magic": true,
+      "disposition": "canonical",
+      "ingested": true
+    },
+    {
+      "sha256": "0ec72a59fab2e648f5bf5d41aab41a94b2303e30f6e4c8aae052bec2ee45c514",
+      "size_bytes": 95075471,
+      "pdf_magic": true,
+      "disposition": "canonical",
+      "ingested": true
+    },
+    {
+      "sha256": "2efba74945f9b5b5b4664699ba72c25215c1d76198002e1b8c1ff1364874016d",
+      "size_bytes": 27504193,
+      "pdf_magic": true,
+      "disposition": "canonical",
+      "ingested": true
+    },
+    {
+      "sha256": "4976e3652d1c4403d9c6094310b7d0af323e5b0c2144953958f00b7657a77dcb",
+      "size_bytes": 17795330,
+      "pdf_magic": true,
+      "disposition": "canonical",
+      "ingested": true
+    },
+    {
+      "sha256": "4b4ffd1b45017e437c478ec6dc3419e607621681bb15e9ae7945a5a42200d7f3",
+      "size_bytes": 47576128,
+      "pdf_magic": true,
+      "disposition": "canonical",
+      "ingested": true
+    },
+    {
+      "sha256": "62a418f15036042d4e8a068f0dab7ef6f564f0f96d4026b917500f08c1b48a65",
+      "size_bytes": 17680265,
+      "pdf_magic": true,
+      "disposition": "canonical",
+      "ingested": true
+    },
+    {
+      "sha256": "7b65b9903ead4dc168111a66af075b7043475f6d5870b822b7a392442e7f299d",
+      "size_bytes": 15665578,
+      "pdf_magic": true,
+      "disposition": "canonical",
+      "ingested": true
+    },
+    {
+      "sha256": "87d59af673e2dcf380c0ac28be18ab1ef1d999fd22888c2178d3e5602f886083",
+      "size_bytes": 16357729,
+      "pdf_magic": true,
+      "disposition": "canonical",
+      "ingested": true
+    },
+    {
+      "sha256": "b5ce7ce88a2db3a1f7db32f1766e0e22ff8bdf1dcc90a41ba239003038a180d1",
+      "size_bytes": 23821033,
+      "pdf_magic": true,
+      "disposition": "canonical",
+      "ingested": true
+    },
+    {
+      "sha256": "bffe36cecc354da51f415292f6e9d90d85f49182d05e83c6d2e0e39a423c2e94",
+      "size_bytes": 13954768,
+      "pdf_magic": true,
+      "disposition": "canonical",
+      "ingested": true
+    },
+    {
+      "sha256": "cba74636ff4426f2d8870801f95ab7af2fca194fbda277fcdce24c563e9eac46",
+      "size_bytes": 22183256,
+      "pdf_magic": true,
+      "disposition": "variant",
+      "ingested": true
+    },
+    {
+      "sha256": "d1055bae37dfd8e06f55f9827944ad5aded27ac735e85229b04b7db048d4a857",
+      "size_bytes": 15256596,
+      "pdf_magic": true,
+      "disposition": "canonical",
+      "ingested": true
+    },
+    {
+      "sha256": "d15f908131e2c8056163d64c747e3ff66ca485d6f66f5707383783eb737c28e5",
+      "size_bytes": 14162966,
+      "pdf_magic": true,
+      "disposition": "variant",
+      "ingested": true
+    },
+    {
+      "sha256": "e60dc4579ae865b3acf22ac3204b86c1d7b35b268d6466fa01df08c168e4c078",
+      "size_bytes": 13135474,
+      "pdf_magic": true,
+      "disposition": "variant",
+      "ingested": true
+    }
+  ],
+  "project_source_pdf_files": 245,
+  "project_unique_source_artifacts": 209,
+  "project_unique_queue_pages": 11779,
+  "registry_sha256": "c7c105a88365c23f1e3d5499f369554627bcad698985235a3b229c28b26d2bea",
+  "errors": 0,
+  "warnings": 2,
+  "receipt_sha256": "6b7b850b1ea5b69edd49859b126f638a4e8737b45a867d99741ae238800e9bbd"
+}

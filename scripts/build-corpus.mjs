@@ -1,7 +1,20 @@
 import { createHash } from 'node:crypto';
-import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadDocumentClassificationResolver } from './document-classification.mjs';
+import { buildParagraphIdentityGuardSql } from './import-corpus.mjs';
+import {
+  bindAcceptedOcrDocument,
+  isNativeTextRecord,
+  paragraphProvenanceLocator,
+  sha256Text,
+  validatePagePublicationManifest,
+} from './page-publication-gate.mjs';
+import {
+  applySemanticPagePublication,
+  createSemanticPublicationGate,
+  semanticDocumentDisposition,
+} from './semantic-publication-gate.mjs';
 
 const projectRoot = new URL('../', import.meta.url);
 const catalog = JSON.parse(await readFile(new URL('data/catalog.json', projectRoot), 'utf8'));
@@ -9,13 +22,82 @@ const insights = JSON.parse(await readFile(new URL('data/subject-insights.json',
 const ingest = JSON.parse(await readFile(new URL('data/ingest-manifest.json', projectRoot), 'utf8'));
 const documentedSources = JSON.parse(await readFile(new URL('data/document-sources.json', projectRoot), 'utf8')).sources;
 const onlineVerificationSamples = JSON.parse(await readFile(new URL('data/online-verification-samples.json', projectRoot), 'utf8')).samples;
+const pagePublicationManifest = validatePagePublicationManifest(
+  JSON.parse(await readFile(new URL('data/page-publication-manifest.json', projectRoot), 'utf8')),
+);
+const semanticPublicationPolicy = JSON.parse(
+  await readFile(new URL('data/semantic-publication-policy.json', projectRoot), 'utf8'),
+);
+const semanticPublicationGate = createSemanticPublicationGate({
+  policy: semanticPublicationPolicy,
+  records: catalog.documents,
+});
 const checksumById = new Map(ingest.entries.map((entry) => [entry.id, entry.source_sha256]));
+const catalogById = new Map(catalog.documents.map((record) => [record.id, record]));
+const pagePublicationByDocument = new Map(pagePublicationManifest.documents.map((document) => [document.document_id, document]));
+for (const record of catalog.documents) {
+  if (typeof record.text_quality_status !== 'string' || !record.text_quality_status.trim()) {
+    throw new Error(`Catalog document lacks explicit text_quality_status: ${record.id}`);
+  }
+  if (typeof record.citation_allowed !== 'boolean') {
+    throw new Error(`Catalog document lacks explicit citation_allowed: ${record.id}`);
+  }
+}
+for (const document of pagePublicationManifest.documents) {
+  const record = catalogById.get(document.document_id);
+  if (!record) throw new Error(`Page publication manifest references unknown document: ${document.document_id}`);
+  if (semanticDocumentDisposition(semanticPublicationGate, record).excluded) {
+    throw new Error(`Page publication manifest must not accept exact duplicate alias: ${document.document_id}`);
+  }
+  if (isNativeTextRecord(record)) {
+    throw new Error(`Page publication manifest must not override native text document: ${document.document_id}`);
+  }
+}
 const classifyDocument = await loadDocumentClassificationResolver(projectRoot);
 const classifications = new Map(catalog.documents.map((record) => [record.id, classifyDocument(record)]));
 const unclassified = [...classifications.values()].filter((item) => item.scope_kind === 'unclassified');
 if (unclassified.length) {
   throw new Error(`Unclassified document subjects: ${unclassified.map((item) => `${item.document_id}:${item.source_subject_label}`).join(', ')}`);
 }
+const corpusTextById = new Map();
+const corpusTextAssets = [];
+for (const record of catalog.documents) {
+  if (semanticDocumentDisposition(semanticPublicationGate, record).excluded) continue;
+  const nativeText = isNativeTextRecord(record);
+  const acceptedOcrDocument = pagePublicationByDocument.get(record.id);
+  if (!nativeText && !acceptedOcrDocument) continue;
+  let raw;
+  try {
+    raw = await readFile(new URL(`.cache/text/${record.id}.txt`, projectRoot), 'utf8');
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    if (acceptedOcrDocument) throw new Error(`Accepted OCR document is missing final text: ${record.id}`);
+    if (nativeText && record.citation_allowed) {
+      throw new Error(`Citation-enabled native document is missing source text: ${record.id}`);
+    }
+    continue;
+  }
+  corpusTextById.set(record.id, raw);
+  corpusTextAssets.push({
+    document_id: record.id,
+    sha256: sha256Text(raw),
+    bytes: Buffer.byteLength(raw, 'utf8'),
+  });
+}
+const corpusReleaseFingerprint = createHash('sha256').update(JSON.stringify({
+  catalog,
+  ingest,
+  document_sources: documentedSources,
+  subject_insights: insights,
+  online_verification_samples: onlineVerificationSamples,
+  document_classifications: [...classifications.values()],
+  page_publication_manifest: pagePublicationManifest,
+  semantic_publication_policy: semanticPublicationPolicy,
+  semantic_publication_revision_sha256: semanticPublicationGate.revision_sha256,
+  text_assets: corpusTextAssets,
+  corpus_builder_contract: 'release_snapshot_v4_reference_closure',
+})).digest('hex');
+const corpusReleaseId = `corpus-${corpusReleaseFingerprint.slice(0, 24)}`;
 const outputDir = new URL('data/corpus-chunks/', projectRoot);
 await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
@@ -61,16 +143,11 @@ function periodFor(year) {
 }
 
 function textQualityFor(record) {
-  if (record.text_quality_status) return record.text_quality_status;
-  if (['html', 'catalog'].includes(record.file_format)) return 'official_native_text';
-  if (record.file_format === 'pdf_in_zip' || record.id.startsWith('neea-2019-')) return 'official_native_text';
-  return 'not_assessed';
+  return record.text_quality_status;
 }
 
 function citationAllowedFor(record) {
-  if (record.citation_allowed === true) return 1;
-  if (record.citation_allowed === false) return 0;
-  return ['html', 'catalog', 'pdf_in_zip'].includes(record.file_format) || record.id.startsWith('neea-2019-') ? 1 : 0;
+  return record.citation_allowed ? 1 : 0;
 }
 
 function providerFor(record) {
@@ -82,13 +159,14 @@ function providerFor(record) {
 const statements = [];
 for (const record of catalog.documents) {
   const year = yearFor(record);
-  statements.push(`INSERT INTO documents(id,title,subject,stage,document_type,version_label,issued_by,issued_date,published_date,current_status,source_tier,access_status,source_page_url,source_url,file_format,redistribution,checksum_sha256,note,period_id,sort_year,text_quality_status,ocr_engine,ocr_audit_ref,citation_allowed,page_count) VALUES(${[
+  statements.push(`INSERT INTO documents(id,title,subject,stage,document_type,version_label,issued_by,issued_date,published_date,current_status,source_tier,access_status,source_page_url,source_url,file_format,redistribution,checksum_sha256,note,period_id,sort_year,text_quality_status,ocr_engine,ocr_audit_ref,citation_allowed,page_count,corpus_release_id) VALUES(${[
     record.id, record.title, record.subject, record.stage, record.document_type, record.version_label,
     record.issued_by, record.issued_date, record.published_date, record.current_status, record.source_tier,
     record.access_status, record.source_page_url, record.source_url, record.file_format, record.redistribution,
     checksumById.get(record.id) || record.checksum_sha256, record.note, periodFor(year), year,
     textQualityFor(record), record.ocr_engine, record.ocr_audit_ref, citationAllowedFor(record), record.page_count,
-  ].map(sql).join(',')}) ON CONFLICT(id) DO UPDATE SET title=excluded.title,subject=excluded.subject,stage=excluded.stage,document_type=excluded.document_type,version_label=excluded.version_label,issued_by=excluded.issued_by,issued_date=excluded.issued_date,published_date=excluded.published_date,current_status=excluded.current_status,source_tier=excluded.source_tier,access_status=excluded.access_status,source_page_url=excluded.source_page_url,source_url=excluded.source_url,file_format=excluded.file_format,redistribution=excluded.redistribution,checksum_sha256=excluded.checksum_sha256,note=excluded.note,period_id=excluded.period_id,sort_year=excluded.sort_year,text_quality_status=excluded.text_quality_status,ocr_engine=excluded.ocr_engine,ocr_audit_ref=excluded.ocr_audit_ref,citation_allowed=excluded.citation_allowed,page_count=excluded.page_count;`);
+    corpusReleaseId,
+  ].map(sql).join(',')}) ON CONFLICT(id) DO UPDATE SET title=excluded.title,subject=excluded.subject,stage=excluded.stage,document_type=excluded.document_type,version_label=excluded.version_label,issued_by=excluded.issued_by,issued_date=excluded.issued_date,published_date=excluded.published_date,current_status=excluded.current_status,source_tier=excluded.source_tier,access_status=excluded.access_status,source_page_url=excluded.source_page_url,source_url=excluded.source_url,file_format=excluded.file_format,redistribution=excluded.redistribution,checksum_sha256=excluded.checksum_sha256,note=excluded.note,period_id=excluded.period_id,sort_year=excluded.sort_year,text_quality_status=excluded.text_quality_status,ocr_engine=excluded.ocr_engine,ocr_audit_ref=excluded.ocr_audit_ref,citation_allowed=excluded.citation_allowed,page_count=excluded.page_count,corpus_release_id=excluded.corpus_release_id;`);
   const classification = classifications.get(record.id);
   statements.push(`INSERT INTO document_classifications(document_id,entity_kind,canonical_subject,subject_family,scope_kind,scope_label,source_subject_label,decision_basis,reviewed_at) VALUES(${[
     classification.document_id, classification.entity_kind, classification.canonical_subject, classification.subject_family,
@@ -96,6 +174,17 @@ for (const record of catalog.documents) {
     classification.decision_basis, classification.reviewed_at,
   ].map(sql).join(',')}) ON CONFLICT(document_id) DO UPDATE SET entity_kind=excluded.entity_kind,canonical_subject=excluded.canonical_subject,subject_family=excluded.subject_family,scope_kind=excluded.scope_kind,scope_label=excluded.scope_label,source_subject_label=excluded.source_subject_label,decision_basis=excluded.decision_basis,reviewed_at=excluded.reviewed_at;`);
 }
+statements.push(`DELETE FROM document_sources WHERE document_id IN (
+  SELECT id FROM documents WHERE corpus_release_id=${sql(corpusReleaseId)}
+);`);
+statements.push('DELETE FROM subject_insights;');
+statements.push('DELETE FROM term_relations;');
+statements.push('DELETE FROM terms;');
+statements.push(`UPDATE paragraphs SET display_allowed=0,citation_allowed=0 WHERE document_id IN (
+  SELECT id FROM documents WHERE text_quality_status != 'official_native_text'
+);`);
+statements.push(`UPDATE page_publication_gates SET display_allowed=0,citation_allowed=0
+  WHERE publication_basis='accepted_ocr_page_manifest';`);
 
 const sourceRows = new Map();
 for (const record of catalog.documents) {
@@ -113,6 +202,24 @@ for (const record of catalog.documents) {
 for (const source of documentedSources) {
   sourceRows.set(`${source.document_id}\0${source.source_url}`, source);
 }
+const coreTableCounts = {
+  subjects: 0,
+  periods: 5,
+  document_relations: 0,
+  chapters: 0,
+  document_classifications: classifications.size,
+  document_sources: sourceRows.size,
+  primary_document_sources: [...sourceRows.values()].filter((source) => Number(source.is_primary) === 1).length,
+  subject_insights: insights.insights.length,
+  terms: insights.terms.length,
+  term_relations: insights.relations.length,
+  version_diffs: 0,
+  online_verifications: onlineVerificationSamples.length,
+  online_evidence: onlineVerificationSamples.reduce(
+    (count, verification) => count + verification.online_evidence.length,
+    0,
+  ),
+};
 for (const source of sourceRows.values()) {
   statements.push(`INSERT OR REPLACE INTO document_sources(document_id,provider,source_page_url,source_url,checksum_sha256,access_status,is_primary,note) VALUES(${[
     source.document_id, source.provider, source.source_page_url, source.source_url, source.checksum_sha256,
@@ -136,15 +243,16 @@ for (const relation of insights.relations) {
   ].map(sql).join(',')});`);
 }
 for (const verification of onlineVerificationSamples) {
-  statements.push(`INSERT OR REPLACE INTO online_verifications(id,document_id,paragraph_id,physical_page,printed_page,entity_type,entity_label,source_image_sha256,primary_ocr_sha256,edition_match_status,verification_status,resolution,uncertainty_note,citation_allowed,reviewed_by) VALUES(${[
+  statements.push(`INSERT INTO online_verifications(id,document_id,paragraph_id,physical_page,printed_page,entity_type,entity_label,source_image_sha256,primary_ocr_sha256,edition_match_status,verification_status,resolution,uncertainty_note,citation_allowed,reviewed_by,corpus_release_id) VALUES(${[
     verification.id, verification.document_id, null, verification.physical_pdf_page, verification.printed_page,
     verification.entity_type, verification.entity_label, verification.source_image_sha256,
     verification.primary_ocr_sha256, verification.edition_match_status, verification.verification_status,
     verification.resolution, verification.uncertainty_note, verification.citation_allowed ? 1 : 0,
-    verification.reviewed_by,
-  ].map(sql).join(',')});`);
+    verification.reviewed_by, corpusReleaseId,
+  ].map(sql).join(',')}) ON CONFLICT(id) DO UPDATE SET document_id=excluded.document_id,paragraph_id=excluded.paragraph_id,physical_page=excluded.physical_page,printed_page=excluded.printed_page,entity_type=excluded.entity_type,entity_label=excluded.entity_label,source_image_sha256=excluded.source_image_sha256,primary_ocr_sha256=excluded.primary_ocr_sha256,edition_match_status=excluded.edition_match_status,verification_status=excluded.verification_status,resolution=excluded.resolution,uncertainty_note=excluded.uncertainty_note,citation_allowed=excluded.citation_allowed,reviewed_by=excluded.reviewed_by,corpus_release_id=excluded.corpus_release_id,updated_at=CURRENT_TIMESTAMP;`);
+  statements.push(`DELETE FROM online_evidence WHERE verification_id=${sql(verification.id)};`);
   for (const evidence of verification.online_evidence) {
-    statements.push(`INSERT OR REPLACE INTO online_evidence(verification_id,role,publisher,source_type,source_title,source_url,published_at,retrieved_at,version_match,fact_summary,content_sha256) VALUES(${[
+    statements.push(`INSERT INTO online_evidence(verification_id,role,publisher,source_type,source_title,source_url,published_at,retrieved_at,version_match,fact_summary,content_sha256) VALUES(${[
       verification.id, evidence.role, evidence.publisher, evidence.source_type, evidence.source_title || null,
       evidence.url, evidence.published_at || null, evidence.retrieved_at || '2026-07-15', evidence.version_match,
       evidence.fact, evidence.content_sha256 || null,
@@ -156,43 +264,167 @@ statements.push(`INSERT OR REPLACE INTO site_meta(key,value) VALUES('citation_re
 statements.push(`INSERT OR REPLACE INTO site_meta(key,value) VALUES('classified_document_count', ${sql(String(classifications.size))});`);
 statements.push(`INSERT OR REPLACE INTO site_meta(key,value) VALUES('unclassified_document_count', ${sql(String(unclassified.length))});`);
 statements.push(`INSERT OR REPLACE INTO site_meta(key,value) VALUES('document_classification_schema_version', '1');`);
-await writeFile(join(outputDir.pathname, '000-core.sql'), `${statements.join('\n')}\n`);
+statements.push(`INSERT OR REPLACE INTO site_meta(key,value) VALUES('page_publication_schema_version', '1');`);
+statements.push(`INSERT OR REPLACE INTO site_meta(key,value) VALUES('semantic_publication_schema_version', ${sql(String(semanticPublicationGate.schema_version))});`);
+statements.push(`INSERT OR REPLACE INTO site_meta(key,value) VALUES('semantic_publication_policy', ${sql(semanticPublicationGate.policy)});`);
+statements.push(`INSERT OR REPLACE INTO site_meta(key,value) VALUES('semantic_publication_revision_sha256', ${sql(semanticPublicationGate.revision_sha256)});`);
+statements.push(`INSERT OR REPLACE INTO site_meta(key,value) VALUES('exact_duplicate_alias_document_count', ${sql(String(semanticPublicationGate.aliasById.size))});`);
 
 let paragraphStatements = [];
+let paragraphIdentityRows = [];
 let chunkIndex = 1;
 let totalParagraphs = 0;
+let displayedParagraphs = 0;
+let closedOcrParagraphs = 0;
+let skippedOcrDocuments = 0;
+let excludedAliasDocuments = 0;
+let semanticExcludedPages = 0;
+let acceptedOcrDocuments = 0;
+let pagePublicationGates = 0;
+const sqlFiles = [];
+async function writeSqlFile(name, content) {
+  await writeFile(join(outputDir.pathname, name), content);
+  sqlFiles.push({
+    name,
+    sha256: stableHash(content),
+    bytes: Buffer.byteLength(content, 'utf8'),
+  });
+}
 async function flush() {
   if (paragraphStatements.length === 0) return;
-  const content = [...paragraphStatements, ''].join('\n');
-  await writeFile(join(outputDir.pathname, `${String(chunkIndex).padStart(3, '0')}-paragraphs.sql`), content);
+  const chunkName = `${String(chunkIndex).padStart(3, '0')}-paragraphs.sql`;
+  const identityGuard = buildParagraphIdentityGuardSql(paragraphIdentityRows, chunkName);
+  const content = [identityGuard, ...paragraphStatements, ''].filter(Boolean).join('\n');
+  await writeSqlFile(chunkName, content);
   chunkIndex += 1;
   paragraphStatements = [];
+  paragraphIdentityRows = [];
 }
 
 for (const record of catalog.documents) {
-  const textUrl = new URL(`.cache/text/${record.id}.txt`, projectRoot);
-  try { await access(textUrl); } catch { continue; }
-  const raw = await readFile(textUrl, 'utf8');
+  if (semanticDocumentDisposition(semanticPublicationGate, record).excluded) {
+    excludedAliasDocuments += 1;
+    continue;
+  }
+  const nativeText = isNativeTextRecord(record);
+  const acceptedOcrDocument = pagePublicationByDocument.get(record.id);
+  if (!nativeText && !acceptedOcrDocument) {
+    skippedOcrDocuments += 1;
+    continue;
+  }
+  const raw = corpusTextById.get(record.id);
+  if (raw === undefined) continue;
   const pages = raw.split('\f');
   const documentCitationAllowed = citationAllowedFor(record);
   const textQualityStatus = textQualityFor(record);
+  const sourceArtifactSha256 = checksumById.get(record.id) || record.checksum_sha256
+    || (nativeText ? sha256Text(raw) : null);
+  const acceptedPagePublication = nativeText
+    ? pages.map((page, pageIndex) => ({
+      page_number: pageIndex + 1,
+      source_artifact_sha256: sourceArtifactSha256,
+      source_page_sha256: null,
+      page_final_text_sha256: sha256Text(page),
+      evidence_bundle_sha256: null,
+      stable_locator: `${record.id}:page:${pageIndex + 1}`,
+      review_status: 'official_native_text',
+      reviewed_by: null,
+      reviewed_at: null,
+      uncertainty_note: null,
+      display_allowed: true,
+      citation_allowed: Boolean(documentCitationAllowed),
+    }))
+    : bindAcceptedOcrDocument({
+      record,
+      sourceArtifactSha256,
+      rawPages: pages,
+      manifestDocument: acceptedOcrDocument,
+      documentCitationAllowed: Boolean(documentCitationAllowed),
+    });
+  if (!nativeText) acceptedOcrDocuments += 1;
+  const pagePublication = acceptedPagePublication.map((page, pageIndex) => applySemanticPagePublication({
+    gate: semanticPublicationGate,
+    record,
+    page,
+    rawText: pages[pageIndex],
+  }));
   let ordinal = 0;
   for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
-    for (const candidate of pages[pageIndex].split(/\n\s*\n/)) {
+    const pageGate = pagePublication[pageIndex];
+    pagePublicationGates += 1;
+    paragraphStatements.push(`INSERT INTO page_publication_gates(document_id,page_number,source_artifact_sha256,source_page_sha256,final_text_sha256,evidence_bundle_sha256,stable_locator,publication_basis,review_status,reviewed_by,reviewed_at,uncertainty_note,display_allowed,citation_allowed,corpus_release_id) VALUES(${[
+      record.id, pageGate.page_number, pageGate.source_artifact_sha256, pageGate.source_page_sha256,
+      pageGate.page_final_text_sha256, pageGate.evidence_bundle_sha256, pageGate.stable_locator,
+      nativeText ? 'official_native_text' : 'accepted_ocr_page_manifest', pageGate.review_status,
+      pageGate.reviewed_by, pageGate.reviewed_at, pageGate.uncertainty_note,
+      pageGate.display_allowed ? 1 : 0, pageGate.citation_allowed ? 1 : 0, corpusReleaseId,
+    ].map(sql).join(',')}) ON CONFLICT(document_id,page_number) DO UPDATE SET source_artifact_sha256=excluded.source_artifact_sha256,source_page_sha256=excluded.source_page_sha256,final_text_sha256=excluded.final_text_sha256,evidence_bundle_sha256=excluded.evidence_bundle_sha256,stable_locator=excluded.stable_locator,publication_basis=excluded.publication_basis,review_status=excluded.review_status,reviewed_by=excluded.reviewed_by,reviewed_at=excluded.reviewed_at,uncertainty_note=excluded.uncertainty_note,display_allowed=excluded.display_allowed,citation_allowed=excluded.citation_allowed,corpus_release_id=excluded.corpus_release_id;`);
+    if (paragraphStatements.length >= 250) await flush();
+    if (pageGate.semantic_excluded) {
+      semanticExcludedPages += 1;
+      continue;
+    }
+    const candidates = pages[pageIndex].split(/\n\s*\n/);
+    for (let blockIndex = 0; blockIndex < candidates.length; blockIndex += 1) {
+      const candidate = candidates[blockIndex];
       const body = normalizeBlock(candidate);
       if (!useful(body)) continue;
       ordinal += 1;
       totalParagraphs += 1;
+      if (pageGate.display_allowed) displayedParagraphs += 1;
+      else if (!nativeText) closedOcrParagraphs += 1;
       const locator = `第${pageIndex + 1}页·段${ordinal}`;
-      paragraphStatements.push(`INSERT INTO paragraphs(document_id,ordinal,page_number,heading,body,source_locator,body_sha256,text_quality_status,ocr_quality_score,citation_allowed) VALUES(${[
-        record.id, ordinal, pageIndex + 1, null, body, locator, stableHash(body), textQualityStatus, null, documentCitationAllowed,
-      ].map(sql).join(',')}) ON CONFLICT(document_id,ordinal) DO UPDATE SET page_number=excluded.page_number,heading=excluded.heading,body=excluded.body,source_locator=excluded.source_locator,body_sha256=excluded.body_sha256,text_quality_status=excluded.text_quality_status,ocr_quality_score=excluded.ocr_quality_score,citation_allowed=excluded.citation_allowed;`);
+      const bodySha256 = stableHash(body);
+      const provenanceLocator = paragraphProvenanceLocator(record.id, pageIndex + 1, blockIndex + 1, bodySha256);
+      paragraphStatements.push(`INSERT INTO paragraphs(document_id,ordinal,page_number,heading,body,source_locator,body_sha256,text_quality_status,ocr_quality_score,citation_allowed,display_allowed,source_artifact_sha256,source_page_sha256,page_final_text_sha256,evidence_bundle_sha256,provenance_locator,uncertainty_note,corpus_release_id) VALUES(${[
+        record.id, ordinal, pageIndex + 1, null, body, locator, bodySha256, textQualityStatus, null,
+        pageGate.citation_allowed ? 1 : 0, pageGate.display_allowed ? 1 : 0,
+        pageGate.source_artifact_sha256, pageGate.source_page_sha256, pageGate.page_final_text_sha256,
+        pageGate.evidence_bundle_sha256, provenanceLocator, pageGate.uncertainty_note, corpusReleaseId,
+      ].map(sql).join(',')}) ON CONFLICT(document_id,ordinal) DO UPDATE SET page_number=excluded.page_number,heading=excluded.heading,body=excluded.body,source_locator=excluded.source_locator,body_sha256=excluded.body_sha256,text_quality_status=excluded.text_quality_status,ocr_quality_score=excluded.ocr_quality_score,citation_allowed=excluded.citation_allowed,display_allowed=excluded.display_allowed,source_artifact_sha256=excluded.source_artifact_sha256,source_page_sha256=excluded.source_page_sha256,page_final_text_sha256=excluded.page_final_text_sha256,evidence_bundle_sha256=excluded.evidence_bundle_sha256,provenance_locator=excluded.provenance_locator,uncertainty_note=excluded.uncertainty_note,corpus_release_id=excluded.corpus_release_id;`);
+      paragraphIdentityRows.push({
+        document_id: record.id,
+        ordinal,
+        page_number: pageIndex + 1,
+        heading: null,
+        source_locator: locator,
+        body_sha256: bodySha256,
+        provenance_locator: provenanceLocator,
+      });
       if (paragraphStatements.length >= 250) await flush();
     }
   }
 }
 await flush();
+await writeSqlFile('000-core.sql', `${statements.join('\n')}\n`);
+sqlFiles.sort((left, right) => left.name.localeCompare(right.name));
+const manifestProjection = {
+  schema_version: 1,
+  release_id: corpusReleaseId,
+  release_fingerprint_sha256: corpusReleaseFingerprint,
+  documents: catalog.documents.length,
+  paragraphs: totalParagraphs,
+  fts_rows: totalParagraphs,
+  page_publication_gates: pagePublicationGates,
+  displayed_paragraphs: displayedParagraphs,
+  accepted_ocr_documents: acceptedOcrDocuments,
+  core_table_counts: coreTableCounts,
+  text_asset_count: corpusTextAssets.length,
+  text_assets: corpusTextAssets,
+  sql_chunks: sqlFiles.length,
+  sql_files: sqlFiles,
+};
+const manifestSha256 = stableHash(JSON.stringify(manifestProjection));
 await writeFile(join(outputDir.pathname, 'manifest.json'), `${JSON.stringify({
-  generated_at: new Date().toISOString(), documents: catalog.documents.length, paragraphs: totalParagraphs, sql_chunks: chunkIndex,
+  generated_at: new Date().toISOString(),
+  ...manifestProjection,
+  manifest_sha256: manifestSha256,
+  closed_ocr_paragraphs: closedOcrParagraphs,
+  skipped_ocr_documents: skippedOcrDocuments,
+  excluded_exact_duplicate_alias_documents: excludedAliasDocuments,
+  semantic_excluded_pages: semanticExcludedPages,
+  page_publication_schema_version: pagePublicationManifest.schema_version,
+  semantic_publication_schema_version: semanticPublicationGate.schema_version,
+  semantic_publication_revision_sha256: semanticPublicationGate.revision_sha256,
 }, null, 2)}\n`);
-console.log(`Built ${totalParagraphs} paragraphs across ${chunkIndex} SQL chunks.`);
+console.log(`Built ${totalParagraphs} paragraphs across ${sqlFiles.length} SQL chunks.`);

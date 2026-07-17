@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "policy": "fail_closed_project_asset_registry_v1",
+  "reviewed_by": "curriculum-atlas-asset-data-integrity-20260716",
+  "reviewed_at": "2026-07-17T00:32:23Z",
+  "source_roots": [
+    ".cache/sources",
+    ".cache/high-school-2020"
+  ],
+  "ocr_queue_statuses": [
+    "ocr_required",
+    "ocr_in_quality_review"
+  ],
+  "allowed_dispositions": [
+    "canonical",
+    "variant",
+    "derived",
+    "quarantine"
+  ],
+  "downloads_relevant_name_pattern": "课程标准|教学大纲|课程方案|考试大纲|课程计划",
+  "expected_counts": {
+    "catalog_documents": 196,
+    "document_source_records": 163,
+    "ingest_entries": 196,
+    "source_pdf_files": 245,
+    "unique_source_pdf_artifacts": 209,
+    "invalid_pdf_files": 4,
+    "explicit_artifacts": 8,
+    "quarantine_artifacts": 3,
+    "source_archive_containers": 1,
+    "nominal_queue_documents": 86,
+    "nominal_queue_pages": 11847,
+    "unique_queue_artifacts": 85,
+    "unique_queue_pages": 11779,
+    "blocked_documents": 2
+  },
+  "document_aliases": [
+    {
+      "source_artifact_sha256": "d5f080fee80df073ef67f6b0dbe303250913777aee32f98bea4f22df1c6247d8",
+      "canonical_document_id": "moe-2022-17",
+      "alias_document_ids": [
+        "ictr-6c6df9d121ac"
+      ],
+      "relation": "exact_source_duplicate",
+      "note": "两条目录记录指向位元级相同的 68 页劳动课程标准；OCR 唯一工作量只计一次。"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "legacy-compendium-biology-scan-b",
+      "disposition": "variant",
+      "media_type": "application/pdf",
+      "sha256": "e60dc4579ae865b3acf22ac3204b86c1d7b35b268d6466fa01df08c168e4c078",
+      "size_bytes": 13135474,
+      "page_count": 463,
+      "paths": [
+        ".cache/sources/local-compendia/biology-b.pdf"
+      ],
+      "parent_document_id": "legacy-compendium-biology",
+      "parent_sha256": "87d59af673e2dcf380c0ac28be18ab1ef1d999fd22888c2178d3e5602f886083",
+      "relation": "same_edition_cross_validation_scan",
+      "valid_pdf_required": true,
+      "queue_eligible": false,
+      "publication_eligible": false,
+      "note": "同版 463 页 JBIG2 扫描，仅供页序、图像和字符差异复核。"
+    },
+    {
+      "artifact_id": "legacy-compendium-mathematics-scan-b",
+      "disposition": "variant",
+      "media_type": "application/pdf",
+      "sha256": "cba74636ff4426f2d8870801f95ab7af2fca194fbda277fcdce24c563e9eac46",
+      "size_bytes": 22183256,
+      "page_count": 698,
+      "paths": [
+        ".cache/sources/local-compendia/math-b.pdf"
+      ],
+      "parent_document_id": "legacy-compendium-mathematics",
+      "parent_sha256": "2efba74945f9b5b5b4664699ba72c25215c1d76198002e1b8c1ff1364874016d",
+      "relation": "same_edition_cross_validation_scan",
+      "valid_pdf_required": true,
+      "queue_eligible": false,
+      "publication_eligible": false,
+      "note": "同版 698 页 JBIG2 扫描，仅供页序、图像和字符差异复核。"
+    },
+    {
+      "artifact_id": "legacy-compendium-politics-scan-b",
+      "disposition": "variant",
+      "media_type": "application/pdf",
+      "sha256": "d15f908131e2c8056163d64c747e3ff66ca485d6f66f5707383783eb737c28e5",
+      "size_bytes": 14162966,
+      "page_count": 424,
+      "paths": [
+        ".cache/sources/local-compendia/politics-b.pdf"
+      ],
+      "parent_document_id": "legacy-compendium-politics",
+      "parent_sha256": "4976e3652d1c4403d9c6094310b7d0af323e5b0c2144953958f00b7657a77dcb",
+      "relation": "same_edition_cross_validation_scan",
+      "valid_pdf_required": true,
+      "queue_eligible": false,
+      "publication_eligible": false,
+      "note": "同版 424 页 JBIG2 扫描，仅供页序、图像和字符差异复核。"
+    },
+    {
+      "artifact_id": "legacy-compendium-plans-ocr-layer",
+      "disposition": "derived",
+      "media_type": "application/pdf",
+      "sha256": "5353c574e187a381437d0ffa380af52ad28216f981ec8f13ee4bd4d0f1c8d043",
+      "size_bytes": 40889167,
+      "page_count": 423,
+      "paths": [
+        ".cache/sources/legacy-compendium-ocr.pdf"
+      ],
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_sha256": "62a418f15036042d4e8a068f0dab7ef6f564f0f96d4026b917500f08c1b48a65",
+      "relation": "ocr_layer_derivative",
+      "lineage_status": "incomplete_review_required",
+      "derivation_tool": "unverified_pikepdf_output",
+      "valid_pdf_required": true,
+      "queue_eligible": false,
+      "publication_eligible": false,
+      "note": "OCR 文本层衍生件；缺少可重放工具参数和逐页质量证明，不得作为识别源或上线文本。"
+    },
+    {
+      "artifact_id": "legacy-compendium-chinese-ocr-layer",
+      "disposition": "derived",
+      "media_type": "application/pdf",
+      "sha256": "152ea901ed0ea5817261e103129a4053c37a28c6bf97fdecbd8ab5dbca1071b2",
+      "size_bytes": 63605226,
+      "page_count": 568,
+      "paths": [
+        ".cache/sources/legacy-yuwen-compendium-ocr.pdf"
+      ],
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_sha256": "4b4ffd1b45017e437c478ec6dc3419e607621681bb15e9ae7945a5a42200d7f3",
+      "relation": "ocr_layer_derivative",
+      "lineage_status": "incomplete_review_required",
+      "derivation_tool": "unverified_pikepdf_output",
+      "valid_pdf_required": true,
+      "queue_eligible": false,
+      "publication_eligible": false,
+      "note": "OCR 文本层衍生件；缺少可重放工具参数和逐页质量证明，不得作为识别源或上线文本。"
+    },
+    {
+      "artifact_id": "quarantine-ictr-physics-2017-zero-payload",
+      "disposition": "quarantine",
+      "media_type": "application/octet-stream",
+      "sha256": "5711024837310d68c30741142fb9b26cf75a040f703452395817e4cdb60c7263",
+      "size_bytes": 2787438,
+      "paths": [
+        ".cache/sources/ictr-2a9f8ddd4169.pdf",
+        ".cache/sources/ictr/普通高中课程标准（2017年版）/普通高中物理课程标准（2017年版）.pdf"
+      ],
+      "intended_document_id": "ictr-2a9f8ddd4169",
+      "relation": "invalid_download_payload",
+      "valid_pdf_required": false,
+      "expected_pdf_magic": false,
+      "queue_eligible": false,
+      "publication_eligible": false,
+      "note": "文件为全零载荷而非 PDF；仅保留故障证据，目录记录继续 metadata-only fail closed。"
+    },
+    {
+      "artifact_id": "quarantine-ictr-english-experimental-zero-payload",
+      "disposition": "quarantine",
+      "media_type": "application/octet-stream",
+      "sha256": "4047001069c1999c1e9c8917a6f7c381a401924bf012d1e3b395dbbe8578778a",
+      "size_bytes": 12230617,
+      "paths": [
+        ".cache/sources/ictr/普通高中课程标准（实验）/普通高中英语课程标准（实验）.pdf"
+      ],
+      "intended_document_id": "ictr-24bb45bda31b",
+      "relation": "invalid_download_payload",
+      "valid_pdf_required": false,
+      "expected_pdf_magic": false,
+      "queue_eligible": false,
+      "publication_eligible": false,
+      "note": "文件为全零载荷而非 PDF；仅保留故障证据，目录记录继续 metadata-only fail closed。"
+    },
+    {
+      "artifact_id": "quarantine-ictr-course-plan-2022-zero-payload",
+      "disposition": "quarantine",
+      "media_type": "application/octet-stream",
+      "sha256": "d24e55627bb5fcd39da6a41568a3542452f9ab4cd05430cbccb97dab59b37847",
+      "size_bytes": 3974530,
+      "paths": [
+        ".cache/sources/ictr/课程方案/义务教育课程方案（2022年版）.pdf"
+      ],
+      "intended_document_id": "moe-2022-01",
+      "intended_parent_sha256": "976efdf360bf6a28156f5b232aec48566104726ae2617c379cf4cdb4b60aef73",
+      "relation": "invalid_mirror_download_payload",
+      "valid_pdf_required": false,
+      "expected_pdf_magic": false,
+      "queue_eligible": false,
+      "publication_eligible": false,
+      "note": "课程方案镜像下载得到全零载荷；不能替代已经核验的教育部原始 PDF。"
+    }
+  ],
+  "source_archive_containers": [
+    {
+      "artifact_id": "moe-high-school-2020-source-archive",
+      "media_type": "application/zip",
+      "sha256": "30204dfd2357c6d6f3bd66e55538f1fbb62a952459aff9c0293e3e2d608d004f",
+      "size_bytes": 38598043,
+      "paths": [
+        ".cache/sources/moe-hs-2020.zip"
+      ],
+      "expected_magic_hex": "504b0304",
+      "relation": "source_archive_container",
+      "queue_eligible": false,
+      "publication_eligible": false,
+      "note": "普通高中 2020 修订版来源压缩包；其 21 个解包 PDF 仍须由物理 PDF 审计逐件覆盖。"
+    }
+  ]
+}

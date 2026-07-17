@@ -1,5 +1,121 @@
 import { createHash } from 'node:crypto';
 
+const defaultVisionLanguages = Object.freeze(['zh-Hans', 'en-US']);
+const russianVisionLanguages = Object.freeze(['ru-RU', 'zh-Hans', 'en-US']);
+
+function arraysEqual(left, right) {
+  return Array.isArray(left)
+    && Array.isArray(right)
+    && left.length === right.length
+    && left.every((value, index) => value === right[index]);
+}
+
+function validSha256(value) {
+  return /^[a-f0-9]{64}$/i.test(String(value || ''));
+}
+
+function profilePassesValid(record, profile) {
+  if (!Array.isArray(record.witness_passes)
+    || record.witness_passes.length !== profile.passes.length) return false;
+  const stem = `page-${String(record.physical_pdf_page).padStart(3, '0')}`;
+  for (const expectedPass of profile.passes) {
+    const pass = record.witness_passes.find((candidate) => candidate?.pass_id === expectedPass.pass_id);
+    if (!pass
+      || pass.role !== expectedPass.role
+      || !arraysEqual(pass.languages, expectedPass.languages)
+      || !Array.isArray(pass.lines)
+      || !validSha256(pass.raw_sidecar_sha256)
+      || !validSha256(pass.raw_text_sha256)
+      || pass.raw_sidecar_file !== `vision-passes/${expectedPass.pass_id}/${stem}.json`
+      || pass.raw_text_file !== `vision-passes/${expectedPass.pass_id}/${stem}.txt`
+      || !Number.isInteger(pass.attempt_count)
+      || pass.attempt_count < 1
+      || typeof pass.recovered_after_retry !== 'boolean') return false;
+  }
+  const canonical = record.witness_passes.find((pass) => pass.pass_id === profile.canonical_pass_id);
+  return Boolean(canonical && JSON.stringify(record.lines) === JSON.stringify(canonical.lines));
+}
+
+function engineProvenanceValid(provenance) {
+  const launcher = provenance?.launcher;
+  const launcherValid = launcher == null || Boolean(
+    launcher.schema_version === 1
+    && launcher.path === 'scripts/vision-ocr-launcher.mjs'
+    && validSha256(launcher.sha256)
+    && typeof launcher.node_binary === 'string'
+    && launcher.node_binary.startsWith('/')
+    && launcher.child_binary === '/usr/bin/swift'
+    && Number(launcher.buffer_limit_bytes) === 8 * 1024 * 1024
+  );
+  return Boolean(provenance
+    && provenance.schema_version === 1
+    && provenance.framework === 'Apple Vision'
+    && provenance.request_api === 'VNRecognizeTextRequest'
+    && provenance.framework_distribution === 'macOS bundled'
+    && provenance.execution_binary === '/usr/bin/swift'
+    && typeof provenance.swift_version === 'string'
+    && provenance.swift_version
+    && provenance.script_path === 'scripts/vision-ocr-batch.swift'
+    && validSha256(provenance.script_sha256)
+    && provenance.renderer?.name === 'MuPDF mutool 1.28.0'
+    && provenance.renderer?.binary === '/opt/homebrew/bin/mutool'
+    && validSha256(provenance.renderer?.sha256)
+    && provenance.os?.product_name === 'macOS'
+    && typeof provenance.os?.product_version === 'string'
+    && provenance.os.product_version
+    && typeof provenance.os?.build_version === 'string'
+    && provenance.os.build_version
+    && provenance.os?.platform === 'darwin'
+    && typeof provenance.os?.architecture === 'string'
+    && provenance.os.architecture
+    && typeof provenance.os?.kernel_release === 'string'
+    && provenance.os.kernel_release
+    && launcherValid);
+}
+
+function legacyDefaultWitnessRecordValid(record) {
+  const configuration = record.engine_configuration;
+  return (record.schema_version === 1 || record.schema_version === 2)
+    && record.engine === 'Apple Vision VNRecognizeTextRequest accurate zh-Hans+en-US'
+    && configuration?.recognition_level === 'accurate'
+    && arraysEqual(configuration.languages, defaultVisionLanguages)
+    && configuration.language_correction === true
+    && Number(configuration.minimum_text_height) === 0.008
+    && record.witness_profile == null
+    && record.witness_profile_sha256 == null
+    && record.witness_passes == null
+    && record.line_source_pass_id == null
+    && record.engine_provenance == null;
+}
+
+export function visionWitnessPlan(document = {}) {
+  const russian = String(document.subject || '').trim() === '俄语';
+  return russian
+    ? {
+        schema_version: 1,
+        profile_id: 'apple-vision-russian-dual-v1',
+        document_language: 'ru',
+        canonical_pass_id: 'zh-primary',
+        passes: [
+          { pass_id: 'zh-primary', role: 'canonical', languages: [...defaultVisionLanguages] },
+          { pass_id: 'ru-supplement', role: 'supplemental', languages: [...russianVisionLanguages] },
+        ],
+      }
+    : {
+        schema_version: 1,
+        profile_id: 'apple-vision-default-v1',
+        document_language: 'default',
+        canonical_pass_id: 'zh-primary',
+        passes: [
+          { pass_id: 'zh-primary', role: 'canonical', languages: [...defaultVisionLanguages] },
+        ],
+      };
+}
+
+export function visionWitnessProfileSha(profile) {
+  return createHash('sha256').update(JSON.stringify(profile)).digest('hex');
+}
+
 export function pageRetryKey(documentId, page, stage) {
   return `${documentId}:${Number(page)}:${stage}`;
 }
@@ -76,14 +192,45 @@ export function paddleLogIndicatesRuntimeFailure(value) {
 
 export function witnessRecordValid(record, expected = {}) {
   if (!record || record.error || !Array.isArray(record.lines)) return false;
-  if (!/^[a-f0-9]{64}$/i.test(String(record.source_pdf_sha256 || ''))) return false;
-  if (!/^[a-f0-9]{64}$/i.test(String(record.rendered_image_sha256 || ''))) return false;
+  if (!validSha256(record.source_pdf_sha256)) return false;
+  if (!validSha256(record.rendered_image_sha256)) return false;
   if (!record.engine || record.citation_allowed !== false) return false;
   if (expected.file && record.file !== expected.file) return false;
   if (expected.documentId && record.document_id !== expected.documentId) return false;
   if (expected.page && Number(record.physical_pdf_page) !== Number(expected.page)) return false;
   if (expected.pdfSha && record.source_pdf_sha256 !== expected.pdfSha) return false;
   if (expected.imageSha && record.rendered_image_sha256 !== expected.imageSha) return false;
+  if (expected.witnessProfile) {
+    const profile = expected.witnessProfile;
+    const profileSha = expected.witnessProfileSha || visionWitnessProfileSha(profile);
+    const containsSignedProfileFields = record.witness_profile != null
+      || record.witness_profile_sha256 != null
+      || record.witness_passes != null
+      || record.line_source_pass_id != null
+      || record.engine_provenance != null;
+    if (!containsSignedProfileFields) {
+      return expected.allowLegacyDefault === true
+        && profile.profile_id === 'apple-vision-default-v1'
+        && legacyDefaultWitnessRecordValid(record);
+    }
+    const canonicalPass = profile.passes.find((pass) => pass.pass_id === profile.canonical_pass_id);
+    if (record.schema_version !== 3
+      || !canonicalPass
+      || record.witness_profile == null
+      || record.engine !== 'Apple Vision VNRecognizeTextRequest accurate language-profile-v1'
+      || record.witness_profile_sha256 !== profileSha
+      || visionWitnessProfileSha(record.witness_profile) !== profileSha
+      || record.line_source_pass_id !== profile.canonical_pass_id
+      || record.engine_configuration?.recognition_level !== 'accurate'
+      || !arraysEqual(record.engine_configuration?.languages, canonicalPass.languages)
+      || record.engine_configuration?.language_correction !== true
+      || Number(record.engine_configuration?.minimum_text_height) !== 0.008
+      || Number(record.engine_configuration?.render_dpi) !== 240
+      || record.engine_configuration?.renderer !== 'MuPDF mutool 1.28.0'
+      || JSON.stringify(record.engine_configuration?.language_passes) !== JSON.stringify(profile.passes)
+      || !profilePassesValid(record, profile)
+      || !engineProvenanceValid(record.engine_provenance)) return false;
+  }
   return true;
 }
 

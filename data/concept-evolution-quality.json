@@ -4,15 +4,21 @@
   "artifact_profile": "curriculum-concept-evolution-quality-v1",
   "academic_schema": "curriculum-concept-evolution-academic-v2",
   "model_kind": "curriculum-concept-observation-model",
-  "build_revision": "7d06a9b48a12a23b67ede054ddafb5da9208f50d3a6d9cab64df6752c6d39f64",
+  "build_revision": "6f305cdcd9e7992ab91afe8291a52a3f343383cd714de5fd77cbfe79184b7704",
   "input_fingerprints": {
-    "catalog_sha256": "c1d67cbe987e6b9966a9b00302113e992750717e2e27553232948deba9da76c5",
+    "catalog_sha256": "6ffc73adb605e1b2fa9b76651414064bab0222a6abc3727445660f2adfb4b15a",
     "queue_sha256": "0cf6c2f8b21737c165287e9ae894bc93fc6e49ebd623c2463df296bc43fb73c5",
     "concept_model_sha256": "98d8b3b8c9f4ad1e7f02410c2470fa8b34820996e380d39230a763fd49b3356e",
     "lexicon_sha256": "d8b792139ff4d28afff5cd685ce8b73174435353dd9343430ade26e8e763608b",
     "ontology_sha256": "98b185f71afe4c70f880cd42725f16450e2df4b720bf6d47b221b91f7a04c687",
-    "builder_sha256": "42aade544a91900a54c5f6462ba52989a182edef409df29a96d9dd0e6b9f674c",
-    "validator_sha256": "53a0e7339c7e0bf58f2fad4f4e3c41ac1df75f6486182726dcd580b787c5b1b8"
+    "builder_sha256": "21d253b0304db3777abae7e90c9d9c9044593714e0c43cd0f26b2089ad9ddaf8",
+    "concept_publication_gate_sha256": "7141ebd2429fc7e44ed1f6ff33268a535c80df560af01bcf2114235be070d28f",
+    "page_publication_gate_sha256": "12ba2f37eb8a2086cec31b0c1c35635c7bd4e39c7254afcd30767b1298470227",
+    "semantic_publication_policy_sha256": "6bf7017b3804d8aa905b4449826d71a9b087df6f6ae0377a9b4108e7948d859a",
+    "semantic_publication_gate_sha256": "98600b34241797f2cbf1a22af00ab91ad296ca1d2081b731bbba6c7370b54a55",
+    "validator_sha256": "6dc9c21129f41008eaf00b99c16eae074ebee8b0238248e59650b01c896159a7",
+    "ocr_concept_publication_sha256": "fc64a03b220cb67400aa157edd03cd79ad44bc53cf2222d316d378d1a9c2a67c",
+    "semantic_publication_revision_sha256": "b2a5dc0d3bb6e4fcc555613319375610455d3c3ce874fdd0149e4878e43698b4"
   },
   "passed": true,
   "checks": [
@@ -77,16 +83,28 @@
       "passed": true
     },
     {
+      "id": "ocr_page_publication_provenance_complete",
+      "passed": true
+    },
+    {
+      "id": "ocr_display_only_is_nonsemantic",
+      "passed": true
+    },
+    {
+      "id": "ocr_concept_publication_fingerprint_bound",
+      "passed": true
+    },
+    {
       "id": "no_negative_historical_claims",
       "passed": true
     }
   ],
-  "core_bytes": 3860085,
-  "academic_bytes": 22013686,
-  "academic_sha256": "1e95a2ca181b0fe2071cfb90483af146e2de7e72fc096e5a805fe23d82b1eb93",
+  "core_bytes": 4068726,
+  "academic_bytes": 23190534,
+  "academic_sha256": "d398eec3955d782ad3523f3e99ce3ad71b8c75cfd12d398a23329dc4121cc385",
   "release_boundary": "基于当前可用语料的词面概念观察图；不是完整课程史，不宣称概念义项连续、绝对首次、消失、取代、影响或因果演进。",
   "unresolved": [
-    "10383 OCR pages remain",
+    "11847 OCR pages remain outside the concept publication display gate",
     "Concept-sense definitions and semantic rename, split, merge, replacement, and influence relations require editor-reviewed dual-ended evidence.",
     "Exact repeated-text clusters are marked rather than silently discarded; their editorial classification remains pending.",
     "Source-text candidates remain non-quotable until paragraph-level citation gates pass."

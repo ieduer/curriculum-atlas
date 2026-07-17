@@ -78,9 +78,18 @@ export function episodeCanonicalSubject(episode) {
     : null;
 }
 
-function episodeCourseEntity(episode) {
+export function episodeCourseEntity(episode) {
   const course = episode?.course_entity || (episode?.scope_entity?.entity_kind === 'curriculum_course' ? episode.scope_entity : null);
   return course?.entity_kind === 'curriculum_course' ? course : null;
+}
+
+export function episodeColor(episode) {
+  const subject = episodeSubjectFacet(episode);
+  if (subject) return subjectColor(subject);
+  const course = episodeCourseEntity(episode);
+  const visibilityFacets = episodeVisibilityFacets(episode);
+  if (course && visibilityFacets.length === 1) return subjectColor(visibilityFacets[0]);
+  return course ? '#67d7b1' : '#e7bd61';
 }
 
 export function episodeEntityLabel(episode) {
@@ -167,7 +176,7 @@ export class CurriculumCosmos {
     this.mount = mount;
     this.callbacks = callbacks;
     this.canvas = document.createElement('canvas');
-    this.canvas.setAttribute('aria-label', '历代课程标准星图，可拖动旋转、滚轮缩放并点击星体');
+    this.canvas.setAttribute('aria-label', '历代课程标准星图，可拖动旋转、滚轮缩放并点击星体；菱形星体为课程节点，圆形星体为学科概念');
     this.mount.replaceChildren(this.canvas);
     this.context = this.canvas.getContext('2d');
     this.abort = new AbortController();
@@ -223,7 +232,7 @@ export class CurriculumCosmos {
       const display = episode.claim_policy?.display_level || 'candidate_dashed';
       return {
         kind: 'concept', episode, id: episode.id, subject, visibilityFacets, course: course?.canonical || null, entityLabel, facetEligible: Boolean(subject), year: Number(episode.time.year),
-        conceptId: episode.concept_id, color: subject ? subjectColor(subject) : course ? '#67d7b1' : '#e7bd61',
+        conceptId: episode.concept_id, color: episodeColor(episode),
         x: yearX(Math.max(1902, Math.min(2022, Number(episode.time.year)))),
         y: Math.sin(angle) * radius + (conceptDrift() - .5) * 68 + (lineDrift() - .5) * 24,
         z: Math.cos(angle) * radius * .8 + (conceptDrift() - .5) * 52 + (lineDrift() - .5) * 24,
@@ -502,6 +511,17 @@ export class CurriculumCosmos {
     context.arc(projected.x - radius * .28, projected.y - radius * .28, Math.max(.55, radius * .27), 0, TAU);
     context.fillStyle = `rgba(255,255,255,${.68 + depthAlpha * .26})`;
     context.fill();
+
+    if (node.course) {
+      const markerRadius = radius + 2.4;
+      context.save();
+      context.translate(projected.x, projected.y);
+      context.rotate(Math.PI / 4);
+      context.strokeStyle = rgba(node.color, selected || hovered ? .88 : .56 * depthAlpha);
+      context.lineWidth = selected ? 1.35 : .85;
+      context.strokeRect(-markerRadius, -markerRadius, markerRadius * 2, markerRadius * 2);
+      context.restore();
+    }
 
     if (selected) {
       context.save();

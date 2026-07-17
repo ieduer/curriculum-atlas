@@ -1,8 +1,19 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
-import { access, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isNativeTextRecord } from './page-publication-gate.mjs';
+import {
+  acceptedConceptPages,
+  bindConceptDocumentText,
+  bindConceptPageText,
+  conceptFrequencyDenominators,
+  conceptObservationIdentity,
+  conceptOcrObservationPolicy,
+  createConceptPublicationGate,
+} from './concept-page-publication.mjs';
+import { semanticDocumentDisposition } from './semantic-publication-gate.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const textRoot = path.join(root, '.cache/text');
@@ -24,13 +35,24 @@ const readOptionalJson = async (relative, fallback) => {
     throw error;
   }
 };
-const [catalog, lexicon, ontology, queue, model, ingestManifest] = await Promise.all([
+const [
+  catalog,
+  lexicon,
+  ontology,
+  queue,
+  model,
+  ingestManifest,
+  pagePublicationManifest,
+  semanticPublicationPolicy,
+] = await Promise.all([
   readJson('data/catalog.json'),
   readJson('data/concept-lexicon.json'),
   readJson('data/concept-ontology.json'),
   readJson('data/ocr-queue.json'),
   readJson('data/concept-model-v2.json'),
   readOptionalJson('data/ingest-manifest.json', { entries: [] }),
+  readJson('data/page-publication-manifest.json'),
+  readJson('data/semantic-publication-policy.json'),
 ]);
 
 if (model.schema_version !== 2) throw new Error('data/concept-model-v2.json must use schema_version 2');
@@ -39,20 +61,40 @@ if (ontology.schema_version !== 1) throw new Error('data/concept-ontology.json m
 const sha256 = (value) => createHash('sha256').update(String(value)).digest('hex');
 const sha256Bytes = (value) => createHash('sha256').update(value).digest('hex');
 const compactId = (prefix, value, length = 16) => `${prefix}:${sha256(value).slice(0, length)}`;
-const inputFingerprints = Object.fromEntries(await Promise.all([
-  ['catalog_sha256', 'data/catalog.json'],
-  ['queue_sha256', 'data/ocr-queue.json'],
-  ['concept_model_sha256', 'data/concept-model-v2.json'],
-  ['lexicon_sha256', 'data/concept-lexicon.json'],
-  ['ontology_sha256', 'data/concept-ontology.json'],
-  ['builder_sha256', 'scripts/build-concept-evolution.mjs'],
-  ['validator_sha256', 'scripts/validate-concept-evolution.mjs'],
-].map(async ([key, relativePath]) => [key, sha256Bytes(await readFile(path.join(root, relativePath)))])));
 const academicSchema = 'curriculum-concept-evolution-academic-v2';
 const catalogById = new Map(catalog.documents.map((record) => [record.id, record]));
 const queueById = new Map(queue.documents.map((record) => [record.id, record]));
 const ingestById = new Map((ingestManifest.entries || []).map((entry) => [entry.id, entry]));
 const conceptById = new Map(lexicon.concepts.map((concept) => [concept.id, concept]));
+const conceptPublicationGate = createConceptPublicationGate({
+  manifest: pagePublicationManifest,
+  semanticPolicy: semanticPublicationPolicy,
+  records: catalog.documents,
+});
+const semanticPublicationGate = conceptPublicationGate.semantic_gate;
+const canonicalCatalogDocuments = catalog.documents.filter(
+  (record) => !semanticDocumentDisposition(semanticPublicationGate, record).excluded,
+);
+const canonicalQueueDocuments = queue.documents.filter(
+  (record) => !semanticDocumentDisposition(semanticPublicationGate, record).excluded,
+);
+const inputFingerprints = {
+  ...Object.fromEntries(await Promise.all([
+    ['catalog_sha256', 'data/catalog.json'],
+    ['queue_sha256', 'data/ocr-queue.json'],
+    ['concept_model_sha256', 'data/concept-model-v2.json'],
+    ['lexicon_sha256', 'data/concept-lexicon.json'],
+    ['ontology_sha256', 'data/concept-ontology.json'],
+    ['builder_sha256', 'scripts/build-concept-evolution.mjs'],
+    ['concept_publication_gate_sha256', 'scripts/concept-page-publication.mjs'],
+    ['page_publication_gate_sha256', 'scripts/page-publication-gate.mjs'],
+    ['semantic_publication_policy_sha256', 'data/semantic-publication-policy.json'],
+    ['semantic_publication_gate_sha256', 'scripts/semantic-publication-gate.mjs'],
+    ['validator_sha256', 'scripts/validate-concept-evolution.mjs'],
+  ].map(async ([key, relativePath]) => [key, sha256Bytes(await readFile(path.join(root, relativePath)))]))),
+  ocr_concept_publication_sha256: conceptPublicationGate.revision_sha256,
+  semantic_publication_revision_sha256: semanticPublicationGate.revision_sha256,
+};
 
 function normalizeBlock(value) {
   return String(value || '').replace(/\u0000/g, '').replace(/[ \t]+/g, ' ')
@@ -110,9 +152,14 @@ function observationTime(record) {
 }
 
 function effectiveCitationAllowed(record) {
-  if (record.citation_allowed === true) return true;
-  if (record.citation_allowed === false) return false;
-  return ['html', 'catalog', 'pdf_in_zip'].includes(record.file_format) || record.id.startsWith('neea-2019-');
+  return record.citation_allowed === true;
+}
+
+function sourceArtifactSha256For(record) {
+  return record.checksum_sha256
+    || ingestById.get(record.id)?.source_sha256
+    || queueById.get(record.id)?.source_sha256
+    || null;
 }
 
 function normalizedStage(record) {
@@ -269,8 +316,8 @@ function matchParagraph(body, entity) {
 }
 
 const rawSubjectLabels = [...new Set([
-  ...catalog.documents.map((record) => record.subject),
-  ...queue.documents.map((record) => record.subject),
+  ...canonicalCatalogDocuments.map((record) => record.subject),
+  ...canonicalQueueDocuments.map((record) => record.subject),
   ...Object.keys(model.subject_taxonomy || {}),
 ].filter(Boolean))].sort((left, right) => left.localeCompare(right, 'zh-CN'));
 
@@ -292,8 +339,8 @@ const subjectTaxonomy = rawSubjectLabels.map((sourceLabel) => {
     related_subjects: classified.related_subjects,
     course_variant: classified.course_variant,
     lineage_family: classified.lineage_family,
-    source_document_count: catalog.documents.filter((record) => record.subject === sourceLabel).length,
-    source_queue_document_count: queue.documents.filter((record) => record.subject === sourceLabel).length,
+    source_document_count: canonicalCatalogDocuments.filter((record) => record.subject === sourceLabel).length,
+    source_queue_document_count: canonicalQueueDocuments.filter((record) => record.subject === sourceLabel).length,
   };
 });
 const subjectEntityAudit = catalog.documents.map((record) => {
@@ -319,7 +366,7 @@ const subjectEntityAudit = catalog.documents.map((record) => {
   };
 }).sort((left, right) => left.document_id.localeCompare(right.document_id));
 
-const canonicalSubjects = [...new Set(catalog.documents.map(subjectEntity)
+const canonicalSubjects = [...new Set(canonicalCatalogDocuments.map(subjectEntity)
   .filter(isFacetEntity)
   .map((entity) => entity.canonical))].sort((left, right) => left.localeCompare(right, 'zh-CN'));
 const subjectFacets = Object.keys(model.subject_facet_groups || {});
@@ -384,7 +431,7 @@ const worksById = new Map();
 const editionsById = new Map();
 const revisions = [];
 const editionByDocumentId = new Map();
-for (const record of catalog.documents) {
+for (const record of canonicalCatalogDocuments) {
   const entity = subjectEntity(record);
   const line = curriculumLineFor(record, entity);
   const workId = `work:${record.id}`;
@@ -392,6 +439,8 @@ for (const record of catalog.documents) {
   const years = versionYears(record);
   const time = observationTime(record);
   const sourceArtifact = ingestById.get(record.id);
+  const documentDisposition = semanticDocumentDisposition(semanticPublicationGate, record);
+  const alternateDocumentIds = documentDisposition.alternate_document_ids || [];
   worksById.set(workId, {
     id: workId,
     canonical_title: record.title,
@@ -400,8 +449,10 @@ for (const record of catalog.documents) {
     curriculum_line_id: line.id,
     issuer: record.issued_by || null,
     jurisdiction: record.country || '中国',
-    document_ids: [record.id],
-    identity_status: 'document_scoped_not_deduplicated',
+    document_ids: [record.id, ...alternateDocumentIds],
+    identity_status: alternateDocumentIds.length
+      ? 'exact_source_deduplicated_canonical'
+      : 'document_scoped_not_deduplicated',
     parent_work_id: null,
   });
   const edition = {
@@ -418,12 +469,15 @@ for (const record of catalog.documents) {
     published_date: record.published_date || null,
     effective_date: null,
     source_artifact_sha256: record.checksum_sha256 || sourceArtifact?.source_sha256 || null,
-    identity_status: 'document_scoped_not_deduplicated',
-    alternate_document_ids: [],
+    identity_status: alternateDocumentIds.length
+      ? 'exact_source_deduplicated_canonical'
+      : 'document_scoped_not_deduplicated',
+    alternate_document_ids: alternateDocumentIds,
     embedded_item_id: null,
   };
   editionsById.set(editionId, edition);
   editionByDocumentId.set(record.id, edition);
+  for (const aliasDocumentId of alternateDocumentIds) editionByDocumentId.set(aliasDocumentId, edition);
   if (years.revision_year) {
     revisions.push({
       id: `revision:${record.id}:${years.revision_year}`,
@@ -443,31 +497,88 @@ for (const record of catalog.documents) {
 
 const allTextDocuments = [];
 const eligibleDocuments = [];
-for (const record of catalog.documents) {
+for (const record of canonicalCatalogDocuments) {
+  const nativeOfficialText = isNativeTextRecord(record);
+  const acceptedOcrPages = nativeOfficialText ? [] : acceptedConceptPages({
+    gate: conceptPublicationGate,
+    record,
+    sourceArtifactSha256: sourceArtifactSha256For(record),
+    documentCitationAllowed: effectiveCitationAllowed(record),
+  });
+  if (!nativeOfficialText && acceptedOcrPages.length === 0) continue;
   const textPath = path.join(textRoot, `${record.id}.txt`);
   if (!(await exists(textPath))) continue;
   const raw = await readFile(textPath, 'utf8');
-  const pages = raw.split('\f');
+  const rawPages = raw.split('\f');
+  const pages = nativeOfficialText
+    ? rawPages.map((rawText, pageIndex) => ({
+      page_number: pageIndex + 1,
+      raw_text: rawText,
+      publication_basis: 'native_official_text',
+      citation_allowed: effectiveCitationAllowed(record),
+      source_artifact_sha256: sourceArtifactSha256For(record),
+      source_page_sha256: null,
+      final_text_sha256: null,
+      evidence_bundle_sha256: null,
+      stable_locator: null,
+      reviewed_by: null,
+      reviewed_at: null,
+      uncertainty_note: null,
+    }))
+    : bindConceptDocumentText({
+      pages: acceptedOcrPages,
+      rawPages,
+      semanticGate: semanticPublicationGate,
+      record,
+    });
+  if (pages.length === 0) continue;
   const paragraphs = [];
   let ordinal = 0;
-  for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
-    for (const candidate of pages[pageIndex].split(/\n\s*\n/)) {
+  for (const page of pages) {
+    const ocrPolicy = nativeOfficialText ? null : conceptOcrObservationPolicy(page);
+    for (const candidate of page.raw_text.split(/\n\s*\n/)) {
       const body = normalizeBlock(candidate);
       if (!useful(body)) continue;
       ordinal += 1;
       paragraphs.push({
         body,
         ordinal,
-        physical_page: pageIndex + 1,
+        physical_page: page.page_number,
         body_sha256: sha256(body),
         meaningful_characters: meaningfulCharacters(body),
         text_reuse_cluster_id: null,
+        publication_basis: page.publication_basis,
+        citation_allowed: nativeOfficialText ? page.citation_allowed : ocrPolicy.quotation_allowed,
+        evidence_status: nativeOfficialText
+          ? page.citation_allowed ? 'citation_ready' : 'source_text_candidate'
+          : ocrPolicy.evidence_status,
+        publication_gate: nativeOfficialText ? null : {
+          source_artifact_sha256: page.source_artifact_sha256,
+          source_page_sha256: page.source_page_sha256,
+          final_text_sha256: page.final_text_sha256,
+          evidence_bundle_sha256: page.evidence_bundle_sha256,
+          stable_locator: page.stable_locator,
+          reviewed_by: page.reviewed_by,
+          reviewed_at: page.reviewed_at,
+          uncertainty_note: page.uncertainty_note,
+          display_allowed: true,
+          citation_allowed: page.citation_allowed,
+        },
       });
     }
   }
   const characters = paragraphs.reduce((sum, paragraph) => sum + paragraph.meaningful_characters, 0);
-  const usablePages = pages.filter((page) => meaningfulCharacters(page) >= 24).length;
-  const item = { record, entity: subjectEntity(record), pages, paragraphs, characters, usablePages, time: observationTime(record) };
+  const usablePages = pages.filter((page) => meaningfulCharacters(page.raw_text) >= 24).length;
+  const item = {
+    record,
+    entity: subjectEntity(record),
+    pages,
+    paragraphs,
+    characters,
+    usablePages,
+    time: observationTime(record),
+    text_origin: nativeOfficialText ? 'native_official_text' : 'accepted_ocr_page_manifest',
+  };
   allTextDocuments.push(item);
   if (characters >= lexicon.matching_policy.minimum_meaningful_document_characters && item.time.year) eligibleDocuments.push(item);
 }
@@ -489,6 +600,7 @@ const ontologyEvidence = (ontology.evidence_anchors || []).map((anchor) => {
   }
   const paragraph = document.paragraphs.find((item) => item.ordinal === anchor.paragraph_ordinal);
   if (!paragraph) throw new Error(`Ontology anchor ${anchor.id} paragraph ${anchor.paragraph_ordinal} is missing`);
+  if (!paragraph.citation_allowed) throw new Error(`Ontology anchor ${anchor.id} page citation gate is closed`);
   const compactBody = compactEvidenceText(paragraph.body);
   for (const term of anchor.required_terms || []) {
     if (!compactBody.includes(compactEvidenceText(term))) throw new Error(`Ontology anchor ${anchor.id} is missing required term: ${term}`);
@@ -505,7 +617,12 @@ const ontologyEvidence = (ontology.evidence_anchors || []).map((anchor) => {
     source_locator: `第${paragraph.physical_page}页·段${paragraph.ordinal}`,
     section_path: anchor.section_path,
     body_sha256: paragraph.body_sha256,
-    source_artifact_sha256: edition.source_artifact_sha256,
+    source_artifact_sha256: paragraph.publication_gate?.source_artifact_sha256 || edition.source_artifact_sha256,
+    source_page_sha256: paragraph.publication_gate?.source_page_sha256 || null,
+    final_text_sha256: paragraph.publication_gate?.final_text_sha256 || null,
+    evidence_bundle_sha256: paragraph.publication_gate?.evidence_bundle_sha256 || null,
+    stable_locator: paragraph.publication_gate?.stable_locator || null,
+    publication_basis: paragraph.publication_basis,
     required_terms: anchor.required_terms,
     evidence_status: 'citation_ready',
     citation_allowed: true,
@@ -614,10 +731,11 @@ for (const document of eligibleDocuments) {
   document.eligibleCharacters = document.paragraphs
     .filter((paragraph) => !paragraph.text_reuse_cluster_id)
     .reduce((sum, paragraph) => sum + paragraph.meaningful_characters, 0);
+  document.eligibleCharactersByObservationClass = conceptFrequencyDenominators(document.paragraphs);
 }
 
 const coverageCellByEdition = new Map();
-for (const record of catalog.documents) {
+for (const record of canonicalCatalogDocuments) {
   const edition = editionByDocumentId.get(record.id);
   const text = allTextDocuments.find((item) => item.record.id === record.id);
   const entity = subjectEntity(record);
@@ -670,12 +788,12 @@ const occurrences = [];
 const occurrenceById = new Map();
 const observationGroups = new Map();
 
-function observationKey(conceptId, senseId, lineId, editionId, year) {
-  return [conceptId, senseId, lineId, editionId, year].join('|');
+function observationKey(conceptId, senseId, lineId, editionId, year, observationClass) {
+  return conceptObservationIdentity({ conceptId, senseId, lineId, editionId, year, observationClass });
 }
 
 function ensureObservation(seed) {
-  const key = observationKey(seed.concept.id, seed.sense.id, seed.line.id, seed.edition.id, seed.year);
+  const key = observationKey(seed.concept.id, seed.sense.id, seed.line.id, seed.edition.id, seed.year, seed.observation_class);
   if (!observationGroups.has(key)) {
     observationGroups.set(key, {
       ...seed,
@@ -707,8 +825,9 @@ for (const document of eligibleDocuments) {
   const work = worksById.get(edition.work_id);
   const line = curriculumLineById.get(edition.curriculum_line_id);
   const coverageCell = coverageCellByEdition.get(edition.id);
-  const status = effectiveCitationAllowed(record) ? 'citation_ready' : 'source_text_candidate';
   for (const paragraph of paragraphs) {
+    const status = paragraph.evidence_status;
+    const observationClass = paragraph.citation_allowed ? 'citation_ready' : 'nonsemantic_candidate';
     const matches = matchParagraph(paragraph.body, entity);
     const matchesByConcept = Map.groupBy(matches, (match) => match.concept.id);
     for (const [conceptId, conceptMatches] of matchesByConcept) {
@@ -735,12 +854,15 @@ for (const document of eligibleDocuments) {
           match_type: 'exact_surface',
           text_reuse_cluster_id: paragraph.text_reuse_cluster_id,
           status,
+          publication_basis: paragraph.publication_basis,
+          semantic_claim_allowed: false,
         };
         registerOccurrence(occurrence);
         occurrenceIds.push(occurrence.id);
       }
       const first = conceptMatches[0];
-      const citationAllowed = status === 'citation_ready';
+      const citationAllowed = paragraph.citation_allowed;
+      const publicationGate = paragraph.publication_gate;
       registerEvidence({
         id: evidenceId,
         concept_id: conceptId,
@@ -758,11 +880,15 @@ for (const document of eligibleDocuments) {
         paragraph_ordinal: paragraph.ordinal,
         source_locator: `第${paragraph.physical_page}页·段${paragraph.ordinal}`,
         body_sha256: paragraph.body_sha256,
-        source_artifact_sha256: edition.source_artifact_sha256,
-        scan_image_sha256: null,
-        primary_ocr_sha256: null,
+        source_artifact_sha256: publicationGate?.source_artifact_sha256 || edition.source_artifact_sha256,
+        source_page_sha256: publicationGate?.source_page_sha256 || null,
+        final_text_sha256: publicationGate?.final_text_sha256 || null,
+        evidence_bundle_sha256: publicationGate?.evidence_bundle_sha256 || null,
+        stable_locator: publicationGate?.stable_locator || null,
+        scan_image_sha256: publicationGate?.source_page_sha256 || null,
+        primary_ocr_sha256: publicationGate?.final_text_sha256 || null,
         witness_sha256: null,
-        extraction_engine: record.text_quality_status === 'official_native_text' ? 'native_pdf_text' : null,
+        extraction_engine: paragraph.publication_basis === 'native_official_text' ? 'native_pdf_text' : 'accepted_ocr_final_text',
         matched_surface: first.surface.form,
         match_offsets: conceptMatches.map((match) => ({ surface_form_id: match.surface.id, start: match.start, end: match.end })),
         snippet: excerpt(paragraph.body, first.start, first.surface.form.length),
@@ -770,19 +896,27 @@ for (const document of eligibleDocuments) {
         section_context: { chapter_path: null, section_heading: null, section_type: 'unknown', normative_role: 'unknown' },
         text_reuse_cluster_id: paragraph.text_reuse_cluster_id,
         evidence_status: status,
-        edition_match_status: 'catalog_document_identity_only',
+        edition_match_status: publicationGate ? 'source_artifact_hash_bound' : 'catalog_document_identity_only',
         online_verification_id: null,
         citation_gate: {
-          document_allowed: citationAllowed,
+          document_allowed: publicationGate ? effectiveCitationAllowed(record) : citationAllowed,
           paragraph_allowed: citationAllowed,
-          basis: 'corpus_import_policy_document_status_propagated',
+          basis: publicationGate ? 'accepted_ocr_page_manifest' : 'corpus_import_policy_document_status_propagated',
         },
         citation_allowed: citationAllowed,
-        uncertainty_note: citationAllowed ? null : 'Document-level citation gate is closed; lexical observation is non-quotable.',
+        publication_basis: paragraph.publication_basis,
+        semantic_claim_allowed: false,
+        uncertainty_note: citationAllowed ? null
+          : publicationGate?.uncertainty_note || 'Document-level citation gate is closed; lexical observation is non-quotable.',
       });
       const observation = ensureObservation({
         concept, sense, subject: episodeSubject(entity), scope_entity: entity, line, work, edition, embedded_item_id: null,
-        year: time.year, time_basis: time.basis, status, coverageCell,
+        year: time.year,
+        time_basis: time.basis,
+        status,
+        coverageCell,
+        observation_class: observationClass,
+        eligible_meaningful_characters: document.eligibleCharactersByObservationClass[observationClass] || 0,
       });
       observation.evidence_ids.add(evidenceId);
       observation.occurrence_ids.push(...occurrenceIds);
@@ -793,41 +927,42 @@ for (const document of eligibleDocuments) {
   }
 }
 
-const reviewFiles = (await readdir(path.join(root, 'data'))).filter((name) => /^ocr-review-.*\.json$/.test(name));
-const reviewByPage = new Map();
-for (const file of reviewFiles) {
-  const reviewFile = await readJson(`data/${file}`);
-  for (const page of reviewFile.pages || []) {
-    reviewByPage.set(`${reviewFile.document_id}:${page.physical_page}`, {
-      page,
-      engines: reviewFile.engines || {},
-      online_evidence_count: (reviewFile.online_evidence || []).length,
-    });
-  }
-}
-
 const embeddedItems = [];
 for (const [documentId, queueRecord] of queueById) {
+  const parentRecord = catalogById.get(documentId) || queueRecord;
+  if (semanticDocumentDisposition(semanticPublicationGate, parentRecord).excluded) continue;
+  const acceptedPages = acceptedConceptPages({
+    gate: conceptPublicationGate,
+    record: parentRecord,
+    sourceArtifactSha256: sourceArtifactSha256For(parentRecord),
+    documentCitationAllowed: effectiveCitationAllowed(parentRecord),
+  });
+  if (acceptedPages.length === 0) continue;
+  const acceptedPageByNumber = new Map(acceptedPages.map((page) => [page.page_number, page]));
   const statePath = path.join(ocrRoot, documentId, 'state.json');
   if (!(await exists(statePath))) continue;
   const state = JSON.parse(await readFile(statePath, 'utf8'));
   for (const rawPageNumber of state.completed_pages || []) {
     const pageNumber = Number(rawPageNumber);
+    const acceptedPage = acceptedPageByNumber.get(pageNumber);
+    if (!acceptedPage) continue;
     const contentPath = path.join(ocrRoot, documentId, 'pages', String(pageNumber).padStart(4, '0'), 'content.md');
     if (!(await exists(contentPath))) continue;
     const rawBody = await readFile(contentPath, 'utf8');
-    const body = normalizeBlock(rawBody);
-    const reviewEntry = reviewByPage.get(`${documentId}:${pageNumber}`);
-    const review = reviewEntry?.page;
+    const boundPage = bindConceptPageText(acceptedPage, rawBody, {
+      semanticGate: semanticPublicationGate,
+      record: parentRecord,
+    });
+    if (!boundPage.display_allowed) continue;
+    const body = normalizeBlock(boundPage.raw_text);
     const firstLine = rawBody.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || '';
     if (/目录/.test(firstLine)) continue;
-    if (!review && !/^#{1,3}\s+/.test(firstLine)) continue;
+    if (!/^#{1,3}\s+/.test(firstLine)) continue;
     const yearMatch = body.slice(0, 1200).match(/(?:^|[^\d])((?:18|19|20)\d{2})(?:\s*年|[）)])/);
     if (!yearMatch) continue;
     const year = Number(yearMatch[1]);
-    const parentRecord = catalogById.get(documentId) || queueRecord;
     const entity = subjectEntity(parentRecord);
-    const title = review?.entity || firstLine.replace(/^#{1,6}\s*/, '') || `第${pageNumber}页篇目`;
+    const title = firstLine.replace(/^#{1,6}\s*/, '') || `第${pageNumber}页篇目`;
     const stage = /蒙学堂/.test(body) ? '蒙学堂' : /小学堂|小学/.test(body) ? '小学' : /中学堂|中学/.test(body) ? '中学' : 'unknown';
     const line = curriculumLineFor({ ...parentRecord, title, stage, document_type: 'embedded_item' }, entity, true, stage);
     const embeddedItemId = `embedded:${documentId}:p${pageNumber}`;
@@ -840,14 +975,14 @@ for (const [documentId, queueRecord] of queueById) {
       parent_document_id: documentId,
       parent_work_id: parentWorkId,
       title,
-      identity_status: review ? 'reviewed_page_fragment_not_full_item' : 'ocr_heading_page_fragment_candidate',
+      identity_status: 'display_accepted_page_fragment_not_full_item',
       physical_page_start: pageNumber,
       physical_page_end: pageNumber,
-      printed_page: review?.printed_page || null,
+      printed_page: null,
       display_year: year,
       year_basis: 'display_year_observed_in_page_fragment',
       stage,
-      uncertainty_note: review?.uncertainty_note || 'Page-fragment boundary and exact edition identity are not editor-verified.',
+      uncertainty_note: boundPage.uncertainty_note || 'Page-fragment boundary and exact edition identity are not editor-verified.',
     };
     embeddedItems.push(embeddedItem);
     worksById.set(workId, {
@@ -875,7 +1010,7 @@ for (const [documentId, queueRecord] of queueById) {
       issued_date: null,
       published_date: null,
       effective_date: null,
-      source_artifact_sha256: queueRecord.source_sha256 || parentRecord.checksum_sha256 || null,
+      source_artifact_sha256: boundPage.source_artifact_sha256,
       identity_status: 'embedded_page_fragment_not_full_edition',
       alternate_document_ids: [],
       embedded_item_id: embeddedItemId,
@@ -910,17 +1045,15 @@ for (const [documentId, queueRecord] of queueById) {
       complete: false,
       alias_search_complete: false,
       lexical_search_scope: 'automatic_surface_forms_only',
-      citation_gate: 'ocr_page_fragment_non_quotable',
+      citation_gate: 'accepted_ocr_page_manifest_display_only_fragment',
       negative_claim_eligible: false,
       missing_reasons: ['full_embedded_item_boundary_not_established', 'exact_edition_online_text_not_established', 'semantic_surface_review_incomplete'],
     };
     coverageCellByEdition.set(editionId, coverageCell);
     const matches = matchParagraph(body, entity);
     const matchesByConcept = Map.groupBy(matches, (match) => match.concept.id);
-    const reviewed = review?.decision === 'human_image_review_pass_non_citation';
-    const status = reviewed ? 'verified_non_citation'
-      : review?.decision === 'human_judgment_with_warning' ? 'conflict' : 'ocr_candidate';
-    const pageState = state.pages?.[String(pageNumber)] || {};
+    const pageObservationPolicy = conceptOcrObservationPolicy(boundPage, { forceNonCitation: true });
+    const status = pageObservationPolicy.evidence_status;
     for (const [conceptId, conceptMatches] of matchesByConcept) {
       const concept = conceptById.get(conceptId);
       const sense = senseByConcept.get(conceptId);
@@ -945,6 +1078,8 @@ for (const [documentId, queueRecord] of queueById) {
           match_type: 'exact_surface',
           text_reuse_cluster_id: null,
           status,
+          publication_basis: boundPage.publication_basis,
+          semantic_claim_allowed: false,
         };
         registerOccurrence(occurrence);
         occurrenceIds.push(occurrence.id);
@@ -963,15 +1098,19 @@ for (const [documentId, queueRecord] of queueById) {
         embedded_item_id: embeddedItemId,
         parent_compendium_id: documentId,
         physical_pdf_page: pageNumber,
-        printed_page: review?.printed_page || null,
+        printed_page: null,
         paragraph_ordinal: null,
-        source_locator: `PDF物理页 ${pageNumber}`,
+        source_locator: boundPage.stable_locator,
         body_sha256: sha256(body),
-        source_artifact_sha256: edition.source_artifact_sha256,
-        scan_image_sha256: review?.rendered_image_sha256 || pageState.rendered_image_sha256 || null,
-        primary_ocr_sha256: review?.primary_ocr_sha256 || pageState.content_markdown_sha256 || null,
-        witness_sha256: review?.vision_text_sha256 || null,
-        extraction_engine: reviewEntry?.engines?.primary || null,
+        source_artifact_sha256: boundPage.source_artifact_sha256,
+        source_page_sha256: boundPage.source_page_sha256,
+        final_text_sha256: boundPage.final_text_sha256,
+        evidence_bundle_sha256: boundPage.evidence_bundle_sha256,
+        stable_locator: boundPage.stable_locator,
+        scan_image_sha256: boundPage.source_page_sha256,
+        primary_ocr_sha256: boundPage.final_text_sha256,
+        witness_sha256: null,
+        extraction_engine: 'accepted_ocr_final_text',
         matched_surface: first.surface.form,
         match_offsets: conceptMatches.map((match) => ({ surface_form_id: match.surface.id, start: match.start, end: match.end })),
         snippet: excerpt(body, first.start, first.surface.form.length),
@@ -979,16 +1118,23 @@ for (const [documentId, queueRecord] of queueById) {
         section_context: { chapter_path: null, section_heading: null, section_type: 'unknown', normative_role: 'unknown' },
         text_reuse_cluster_id: null,
         evidence_status: status,
-        edition_match_status: review ? 'scan_identity_reviewed_online_version_not_exact' : 'not_assessed',
+        edition_match_status: 'source_artifact_hash_bound',
         online_verification_id: null,
-        online_stable_fact_witness_count: reviewEntry?.online_evidence_count || 0,
-        citation_gate: { document_allowed: false, paragraph_allowed: false, basis: 'ocr_page_fragment_fail_closed' },
+        online_stable_fact_witness_count: 0,
+        citation_gate: { document_allowed: effectiveCitationAllowed(parentRecord), paragraph_allowed: false, basis: 'accepted_ocr_page_manifest_display_only_fragment' },
         citation_allowed: false,
-        uncertainty_note: review?.uncertainty_note || 'OCR candidate; exact edition and wording are not released.',
+        publication_basis: boundPage.publication_basis,
+        semantic_claim_allowed: false,
+        uncertainty_note: boundPage.uncertainty_note || 'OCR page is display-accepted, but the embedded-item identity remains non-citable.',
       });
       const observation = ensureObservation({
         concept, sense, subject: episodeSubject(entity), scope_entity: entity, line, work: worksById.get(workId), edition, embedded_item_id: embeddedItemId,
-        year, time_basis: 'embedded_item_display_year', status, coverageCell,
+        year,
+        time_basis: 'embedded_item_display_year',
+        status,
+        coverageCell,
+        observation_class: 'nonsemantic_candidate',
+        eligible_meaningful_characters: pageCharacters,
       });
       observation.evidence_ids.add(evidenceId);
       observation.occurrence_ids.push(...occurrenceIds);
@@ -1003,11 +1149,11 @@ const statusRank = { citation_ready: 4, verified_non_citation: 3, source_text_ca
 const episodes = [...observationGroups.values()].map((item) => {
   const evidenceStatuses = [...item.evidence_ids].map((id) => evidenceById.get(id)?.evidence_status).filter(Boolean);
   const status = evidenceStatuses.sort((left, right) => statusRank[right] - statusRank[left])[0] || item.status;
-  const denominator = item.coverageCell.eligible_meaningful_characters;
+  const denominator = item.eligible_meaningful_characters;
   const rate = denominator > 0 ? item.local_unique_mention_count / denominator * 10000 : null;
   const visibility = visibilityForEntity(item.scope_entity);
   return {
-    id: compactId('concept', `${item.sense.id}|${item.line.id}|${item.edition.id}|${item.year}`),
+    id: compactId('concept', `${item.sense.id}|${item.line.id}|${item.edition.id}|${item.year}|${item.observation_class}`),
     concept_id: item.concept.id,
     concept_sense_id: item.sense.id,
     label: item.concept.label,
@@ -1035,6 +1181,8 @@ const episodes = [...observationGroups.values()].map((item) => {
     },
     observation: {
       status,
+      observation_class: item.observation_class,
+      semantic: false,
       match_type: 'exact_surface',
       roles: ['unknown'],
       mention_count: item.mention_count,
@@ -1069,6 +1217,7 @@ const episodes = [...observationGroups.values()].map((item) => {
         : status === 'verified_non_citation' ? 'reviewed_ring'
           : status === 'conflict' ? 'warning_ring' : 'candidate_dashed',
       quotation_allowed: status === 'citation_ready',
+      semantic_relation_allowed: status === 'citation_ready',
       historical_superlative_allowed: false,
       first_appearance_allowed: false,
       disappearance_allowed: false,
@@ -1181,13 +1330,9 @@ for (const group of coObservedGroups.values()) {
   }
 }
 
-const completedOcrPages = [];
-for (const document of queue.documents) {
-  const statePath = path.join(ocrRoot, document.id, 'state.json');
-  if (!(await exists(statePath))) continue;
-  const state = JSON.parse(await readFile(statePath, 'utf8'));
-  for (const page of state.completed_pages || []) completedOcrPages.push(`${document.id}:${page}`);
-}
+const conceptPublishedOcrPages = conceptPublicationGate.revision_projection
+  .map((page) => `${page.document_id}:${page.page_number}`)
+  .sort();
 
 const years = episodes.map((episode) => episode.time.year);
 const inputRevision = sha256(JSON.stringify({
@@ -1196,7 +1341,13 @@ const inputRevision = sha256(JSON.stringify({
   ontology,
   model,
   queue_generated_at: queue.generated_at,
-  completed_ocr_pages: completedOcrPages.sort(),
+  build_logic_sha256: {
+    builder: inputFingerprints.builder_sha256,
+    concept_publication_gate: inputFingerprints.concept_publication_gate_sha256,
+    page_publication_gate: inputFingerprints.page_publication_gate_sha256,
+  },
+  concept_publication_sha256: conceptPublicationGate.revision_sha256,
+  concept_published_ocr_pages: conceptPublishedOcrPages,
   evidence_hashes: evidence.map((item) => [item.id, item.body_sha256, item.primary_ocr_sha256]),
 }));
 
@@ -1231,6 +1382,22 @@ const editorialAudit = [
     status: 'enforced',
     assertion_boundary: 'Only controlled subject or assessment-subject entries with facet_eligible=true may enter the subject facet; curriculum courses remain separately identified course entities.',
   },
+  {
+    id: 'audit:ocr-page-publication-gate',
+    audit_type: 'publication_gate',
+    actor: 'data/page-publication-manifest.json',
+    performed_at: null,
+    status: 'enforced',
+    assertion_boundary: 'OCR text can enter concept observations only from exact source-bound display-accepted pages; citation-false pages remain nonsemantic candidates and cannot influence citation-ready frequency or relations.',
+  },
+  {
+    id: 'audit:semantic-publication-quarantine',
+    audit_type: 'publication_gate',
+    actor: 'data/semantic-publication-policy.json',
+    performed_at: semanticPublicationPolicy.reviewed_at,
+    status: 'enforced',
+    assertion_boundary: 'Known OCR omissions, foreign-language Unicode anomalies, unresolved glossary row alignment, and exact duplicate aliases are excluded before corpus or concept derivation.',
+  },
 ];
 
 const academicGraph = {
@@ -1244,15 +1411,17 @@ const academicGraph = {
   input_fingerprints: inputFingerprints,
   assertion_boundary: '基于当前可用语料的词面概念观察图；不是完整课程史，不宣称概念义项连续、绝对首次、消失、取代、影响或因果演进。',
   coverage: {
-    catalog_documents: catalog.documents.length,
-    citation_ready_catalog_documents: catalog.counts?.citation_ready || catalog.documents.filter(effectiveCitationAllowed).length,
+    catalog_documents: canonicalCatalogDocuments.length,
+    catalog_alias_documents: semanticPublicationGate.aliasById.size,
+    citation_ready_catalog_documents: canonicalCatalogDocuments.filter(effectiveCitationAllowed).length,
     meaningful_citation_ready_documents: eligibleDocuments.filter((item) => effectiveCitationAllowed(item.record)).length,
     year_identified_meaningful_citation_ready_documents: eligibleDocuments.filter((item) => effectiveCitationAllowed(item.record)).length,
     meaningful_source_text_documents: eligibleDocuments.length,
     verified_meaningful_characters: eligibleDocuments.filter((item) => effectiveCitationAllowed(item.record)).reduce((sum, item) => sum + item.characters, 0),
-    ocr_queue_documents: queue.counts.documents,
-    ocr_queue_pages: queue.counts.pages,
-    ocr_completed_pages: completedOcrPages.length,
+    ocr_queue_documents: canonicalQueueDocuments.length,
+    ocr_queue_pages: canonicalQueueDocuments.reduce((sum, record) => sum + (record.page_count || 0), 0),
+    ocr_completed_pages: conceptPublishedOcrPages.length,
+    ocr_display_accepted_pages: conceptPublishedOcrPages.length,
     citation_ready_episodes: episodes.filter((item) => item.observation.status === 'citation_ready').length,
     verified_non_citation_episodes: episodes.filter((item) => item.observation.status === 'verified_non_citation').length,
     source_text_candidate_episodes: episodes.filter((item) => item.observation.status === 'source_text_candidate').length,
@@ -1322,6 +1491,13 @@ const coreEvidence = evidence.filter((item) => coreEvidenceIds.has(item.id)).map
   paragraph_ordinal: item.paragraph_ordinal,
   matched_surface: item.matched_surface,
   snippet: item.snippet,
+  source_artifact_sha256: item.source_artifact_sha256,
+  source_page_sha256: item.source_page_sha256,
+  final_text_sha256: item.final_text_sha256,
+  evidence_bundle_sha256: item.evidence_bundle_sha256,
+  stable_locator: item.stable_locator,
+  publication_basis: item.publication_basis,
+  semantic_claim_allowed: item.semantic_claim_allowed,
   evidence_status: item.evidence_status,
   citation_allowed: item.citation_allowed,
   uncertainty_note: item.uncertainty_note,
@@ -1397,6 +1573,8 @@ const graph = {
 const corePayload = `${JSON.stringify(graph, null, 2)}\n`;
 
 const citationReadyEvidence = new Set(evidence.filter((item) => item.evidence_status === 'citation_ready' && item.citation_allowed).map((item) => item.id));
+const ocrEvidence = evidence.filter((item) => item.publication_basis === 'accepted_ocr_page_manifest');
+const relationEpisodeIds = new Set(relations.flatMap((relation) => [relation.source, relation.target]));
 const checks = [
   { id: 'unique_episode_ids', passed: new Set(episodes.map((item) => item.id)).size === episodes.length },
   { id: 'unique_evidence_ids', passed: new Set(evidence.map((item) => item.id)).size === evidence.length },
@@ -1418,6 +1596,12 @@ const checks = [
   { id: 'non_solid_not_quotable', passed: episodes.filter((item) => item.claim_policy.display_level !== 'solid').every((item) => !item.claim_policy.quotation_allowed) },
   { id: 'relations_have_dual_evidence', passed: relations.every((item) => item.source_evidence_ids.length > 0 && item.target_evidence_ids.length > 0) },
   { id: 'automatic_relations_nonsemantic', passed: relations.every((item) => item.semantic === false && item.influence_claim_allowed === false) },
+  { id: 'ocr_page_publication_provenance_complete', passed: ocrEvidence.every((item) => item.source_artifact_sha256
+    && item.source_page_sha256 && item.final_text_sha256 && item.evidence_bundle_sha256 && item.stable_locator) },
+  { id: 'ocr_display_only_is_nonsemantic', passed: episodes.filter((item) => item.observation.observation_class === 'nonsemantic_candidate')
+    .every((item) => item.observation.semantic === false && item.claim_policy.semantic_relation_allowed === false
+      && item.claim_policy.quotation_allowed === false && !relationEpisodeIds.has(item.id)) },
+  { id: 'ocr_concept_publication_fingerprint_bound', passed: inputFingerprints.ocr_concept_publication_sha256 === conceptPublicationGate.revision_sha256 },
   { id: 'no_negative_historical_claims', passed: episodes.every((item) => !item.coverage.negative_claim_eligible && !item.claim_policy.historical_superlative_allowed && !item.claim_policy.first_appearance_allowed && !item.claim_policy.disappearance_allowed) },
 ];
 const quality = {
@@ -1435,7 +1619,7 @@ const quality = {
   academic_sha256: academicSha256,
   release_boundary: academicGraph.assertion_boundary,
   unresolved: [
-    `${Math.max(0, queue.counts.pages - completedOcrPages.length)} OCR pages remain`,
+    `${Math.max(0, queue.counts.pages - conceptPublishedOcrPages.length)} OCR pages remain outside the concept publication display gate`,
     'Concept-sense definitions and semantic rename, split, merge, replacement, and influence relations require editor-reviewed dual-ended evidence.',
     'Exact repeated-text clusters are marked rather than silently discarded; their editorial classification remains pending.',
     'Source-text candidates remain non-quotable until paragraph-level citation gates pass.',

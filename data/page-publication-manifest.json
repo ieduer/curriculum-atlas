@@ -1,0 +1,6 @@
+{
+  "$schema": "./page-publication-manifest.schema.json",
+  "schema_version": 1,
+  "policy": "fail_closed_page_publication_v1",
+  "documents": []
+}

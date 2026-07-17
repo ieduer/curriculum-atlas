@@ -3,12 +3,18 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
   CurriculumCosmos,
+  episodeColor,
   episodeCanonicalSubject,
+  episodeCourseEntity,
   episodeEntityLabel,
   episodeSubjectFacet,
   episodeVisibilityFacets,
   episodeVisibleForSubjectFilter,
+  subjectColor,
 } from '../public/atlas.js';
+import {
+  controlledSubjectFacetCounts,
+} from '../public/subject-facets.js';
 
 const root = new URL('../', import.meta.url);
 
@@ -32,6 +38,10 @@ test('star-map facet helper admits controlled subject and assessment-subject ent
   };
   assert.equal(episodeSubjectFacet(course), null);
   assert.equal(episodeEntityLabel(course), '定向行走');
+  assert.equal(episodeColor({
+    ...course,
+    visibility_facets: ['语文'],
+  }), '#ff828b');
 
   for (const episode of [
     { subject: { entity_kind: 'scope', facet_eligible: false, canonical: null }, scope_entity: { kind: 'curriculum_framework', label: '课程方案' } },
@@ -70,19 +80,22 @@ test('API, retrieval, and corpus persistence use document classifications rather
 });
 
 test('frontend subject controls consume strict display facets and hide all nodes atomically', async () => {
-  const [app, atlas, index] = await Promise.all([
+  const [app, atlas, index, facets] = await Promise.all([
     readFile(new URL('public/app.js', root), 'utf8'),
     readFile(new URL('public/atlas.js', root), 'utf8'),
     readFile(new URL('public/index.html', root), 'utf8'),
+    readFile(new URL('public/subject-facets.js', root), 'utf8'),
   ]);
   assert.match(app, /controlledSubjectFacetCounts\(state\.conceptGraph\)/);
   assert.match(app, /episodeVisibleForSubjectFilter\(episode, state\.hiddenSubjects, state\.hideAllSubjects/);
-  assert.match(app, /item\?\.facet_eligible === true && \['subject', 'assessment_subject'\]\.includes\(item\.entity_kind\)/);
-  assert.match(app, /typeof item\.facet === 'string'/);
+  assert.match(app, /from '\.\/subject-facets\.js\?v=[^']+'/);
+  assert.match(facets, /item\?\.facet_eligible !== true \|\| item\?\.entity_kind !== 'subject'/);
+  assert.match(facets, /DISPLAY_SUBJECT_FACETS/);
   assert.match(app, /document\?\.entity_kind === 'subject'/);
   assert.match(atlas, /node\.year > this\.filters\.maxYear \|\| !episodeVisibleForSubjectFilter/);
   assert.match(atlas, /!source \|\| !target \|\| !this\.visible\(source\) \|\| !this\.visible\(target\)/);
-  assert.match(atlas, /color: subject \? subjectColor\(subject\) : course \? '#67d7b1' : '#e7bd61'/);
+  assert.match(atlas, /color: episodeColor\(episode\)/);
+  assert.match(atlas, /if \(node\.course\)[\s\S]*context\.rotate\(Math\.PI \/ 4\)/);
   assert.match(app, /location\.hostname !== 'curriculum\.bdfz\.net'/);
   assert.match(app, /https:\/\/my\.bdfz\.net\/site-auth\.js/);
   assert.match(app, /https:\/\/pulse\.bdfz\.net\/beacon\.js/);
@@ -92,12 +105,49 @@ test('frontend subject controls consume strict display facets and hide all nodes
 
   const appEntryVersion = index.match(/\/app\.js\?v=([^"']+)/)?.[1];
   const stylesheetVersion = index.match(/\/styles\.css\?v=([^"']+)/)?.[1];
+  const subjectFacetImportVersion = app.match(/\.\/subject-facets\.js\?v=([^'";]+)/)?.[1];
+  const subjectFacetPreloadVersion = index.match(/rel="modulepreload" href="\/subject-facets\.js\?v=([^"']+)"/)?.[1];
   const atlasModuleVersion = app.match(/\.\/atlas\.js\?v=([^'";]+)/)?.[1];
   const graphVersion = app.match(/concept-evolution\.json\?v=([^'";]+)/)?.[1];
   assert.ok(appEntryVersion, 'index app cache version missing');
   assert.equal(stylesheetVersion, appEntryVersion, 'stylesheet cache version drifted');
+  assert.equal(subjectFacetImportVersion, appEntryVersion, 'subject facet module cache version drifted');
+  assert.equal(subjectFacetPreloadVersion, appEntryVersion, 'subject facet preload cache version drifted');
   assert.equal(atlasModuleVersion, appEntryVersion, 'atlas module cache version drifted');
   assert.equal(graphVersion, appEntryVersion, 'concept graph cache version drifted');
+});
+
+test('real reviewed course relations inherit one subject-facet color while preserving course identity', async () => {
+  const graph = JSON.parse(await readFile(new URL('public/data/concept-evolution.json', root), 'utf8'));
+  const reviewedCourses = graph.episodes.filter((episode) => episode.visibility_policy === 'reviewed_course_relation');
+  assert.equal(reviewedCourses.length, 19);
+  for (const episode of reviewedCourses) {
+    assert.equal(episode.visibility_facets.length, 1, episode.id);
+    assert.ok(episodeCourseEntity(episode), episode.id);
+    assert.equal(episodeColor(episode), subjectColor(episode.visibility_facets[0]), episode.id);
+  }
+
+  const cosmos = {
+    nodes: [],
+    subjects: [],
+    tracks: [],
+    buildEdges() {},
+    fitToGraph() {},
+  };
+  CurriculumCosmos.prototype.setData.call(cosmos, { ...graph, edges: [] });
+  for (const episode of reviewedCourses) {
+    const node = cosmos.nodes.find((candidate) => candidate.id === episode.id);
+    assert.ok(node, episode.id);
+    assert.equal(node.course, episodeCourseEntity(episode).canonical, episode.id);
+    assert.equal(node.color, subjectColor(episode.visibility_facets[0]), episode.id);
+  }
+
+  const futureScope = {
+    subject: { entity_kind: 'scope', facet_eligible: false, canonical: null },
+    scope_entity: { entity_kind: 'cross_cutting_framework', canonical: '未来范围节点' },
+    visibility_facets: ['语文'],
+  };
+  assert.equal(episodeColor(futureScope), '#e7bd61');
 });
 
 test('subject focus fits visible nodes, restores the full map, preserves Shift camera, and fits legacy routes', async () => {
@@ -176,18 +226,8 @@ test('each subject isolate is fail-closed and Chinese cannot inherit sports-cour
 });
 
 test('the 12 display groups preserve exact identities and remain stable controls', async () => {
-  const [app, graphSource] = await Promise.all([
-    readFile(new URL('public/app.js', root), 'utf8'),
-    readFile(new URL('public/data/concept-evolution.json', root), 'utf8'),
-  ]);
+  const graphSource = await readFile(new URL('public/data/concept-evolution.json', root), 'utf8');
   const graph = JSON.parse(graphSource);
-  const helperStart = app.indexOf('function controlledSubjectFacetCounts(');
-  const helperEnd = app.indexOf('\n}\n\nfunction renderSubjectControls', helperStart) + 2;
-  assert.ok(helperStart >= 0 && helperEnd > helperStart, 'controlled subject helper missing');
-  const controlledSubjectFacetCounts = Function(
-    'episodeSubjectFacet',
-    `"use strict"; ${app.slice(helperStart, helperEnd)}; return controlledSubjectFacetCounts;`,
-  )(episodeSubjectFacet);
 
   const { subjects, counts } = controlledSubjectFacetCounts(graph);
   assert.equal(subjects.length, 12);

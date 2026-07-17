@@ -1,0 +1,276 @@
+{
+  "schema_version": 1,
+  "artifact_profile": "ocr-page-furniture-approval-ledger-v1",
+  "activation_status": "approved_not_activated",
+  "policy": {
+    "raw_witness_mutation": "forbidden",
+    "audit_filter_activation": "requires_explicit_consumer_and_final_witness_snapshot_match",
+    "publication_effect": "none"
+  },
+  "documents": [
+    {
+      "document_id": "moe-2022-03",
+      "source_pdf_sha256": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a",
+      "page_count": 109,
+      "sidecar_snapshot_sha256": "68b24b515dec01b7f60af3ef153fca27b28a52787ae816b741e5ad7b441914f7",
+      "review_status": "manually_approved_unactivated",
+      "header_rules": [],
+      "footer_rules": [
+        {
+          "rule_id": "moe-2022-03-footer-002-005-offset-minus-1",
+          "candidate_type": "printed_page_number_footer",
+          "start_page": 2,
+          "end_page": 5,
+          "page_count": 4,
+          "physical_to_printed_offset": -1,
+          "printed_page_start": 1,
+          "printed_page_end": 4,
+          "observed_last_line_must_equal_printed_page": true,
+          "removal_scope": "audit_comparison_only",
+          "review_method": "manual_source_image_stratified",
+          "approval_status": "approved_not_activated",
+          "eligible_for_audit_filter": true,
+          "activated": false,
+          "examples": [
+            {
+              "physical_page": 2,
+              "printed_page": 1,
+              "rendered_image_sha256": "ea700e7017fd5b4a1cc5801465329b4e4bdc0435a7b4256f09844462a02bf705"
+            },
+            {
+              "physical_page": 3,
+              "printed_page": 2,
+              "rendered_image_sha256": "8b8f8f89aa9e9043acfc0f245280cae150382054f31bb345487afd61100a8aab"
+            },
+            {
+              "physical_page": 5,
+              "printed_page": 4,
+              "rendered_image_sha256": "7377f35b1594d4eec608df426efe7162ec861e4e19c3e04c509937975337c8d1"
+            }
+          ]
+        },
+        {
+          "rule_id": "moe-2022-03-footer-006-007-offset-minus-5",
+          "candidate_type": "printed_page_number_footer",
+          "start_page": 6,
+          "end_page": 7,
+          "page_count": 2,
+          "physical_to_printed_offset": -5,
+          "printed_page_start": 1,
+          "printed_page_end": 2,
+          "observed_last_line_must_equal_printed_page": true,
+          "removal_scope": "audit_comparison_only",
+          "review_method": "manual_source_image_stratified",
+          "approval_status": "approved_not_activated",
+          "eligible_for_audit_filter": true,
+          "activated": false,
+          "examples": [
+            {
+              "physical_page": 6,
+              "printed_page": 1,
+              "rendered_image_sha256": "10256150d918b5177132ba0b8cee52a7ef6eac694c523cba64c39dc8e219240a"
+            },
+            {
+              "physical_page": 7,
+              "printed_page": 2,
+              "rendered_image_sha256": "fdab83d06bd527d1b9aba865ab2d5804652b294029380642dea94c42381b68b1"
+            }
+          ]
+        },
+        {
+          "rule_id": "moe-2022-03-footer-008-063-offset-minus-7",
+          "candidate_type": "printed_page_number_footer",
+          "start_page": 8,
+          "end_page": 63,
+          "page_count": 56,
+          "physical_to_printed_offset": -7,
+          "printed_page_start": 1,
+          "printed_page_end": 56,
+          "observed_last_line_must_equal_printed_page": true,
+          "removal_scope": "audit_comparison_only",
+          "review_method": "manual_source_image_stratified",
+          "approval_status": "approved_not_activated",
+          "eligible_for_audit_filter": true,
+          "activated": false,
+          "examples": [
+            {
+              "physical_page": 8,
+              "printed_page": 1,
+              "rendered_image_sha256": "950eab87889ec2821d122a1b088ac94b4b870fe2f1f28cf9b35f802cef2fb3dc"
+            },
+            {
+              "physical_page": 35,
+              "printed_page": 28,
+              "rendered_image_sha256": "db568a56e146643075a851f7e9a96bc818ba40a7f09996348dd15a191d303485"
+            },
+            {
+              "physical_page": 63,
+              "printed_page": 56,
+              "rendered_image_sha256": "9df27116d99aa032f12b6f2c91290aa306377b25e8643a194315a9375862b9fc"
+            }
+          ]
+        },
+        {
+          "rule_id": "moe-2022-03-footer-065-077-offset-minus-7",
+          "candidate_type": "printed_page_number_footer",
+          "start_page": 65,
+          "end_page": 77,
+          "page_count": 13,
+          "physical_to_printed_offset": -7,
+          "printed_page_start": 58,
+          "printed_page_end": 70,
+          "observed_last_line_must_equal_printed_page": true,
+          "removal_scope": "audit_comparison_only",
+          "review_method": "manual_source_image_stratified",
+          "approval_status": "approved_not_activated",
+          "eligible_for_audit_filter": true,
+          "activated": false,
+          "examples": [
+            {
+              "physical_page": 65,
+              "printed_page": 58,
+              "rendered_image_sha256": "79b5751d4dce4a3a86e1a79982164b256055acbdb8562c3ea7e729a654b9f22b"
+            },
+            {
+              "physical_page": 71,
+              "printed_page": 64,
+              "rendered_image_sha256": "bf841c3840cd2cf7e4d2e49b249ccfbec977318f1eb19e86374a5fd91cf788d4"
+            },
+            {
+              "physical_page": 77,
+              "printed_page": 70,
+              "rendered_image_sha256": "fed3e7b2d2cc18b44a4cbad981dad6f14e1d97785603812c11f8c473292fba83"
+            }
+          ]
+        },
+        {
+          "rule_id": "moe-2022-03-footer-081-088-offset-minus-7",
+          "candidate_type": "printed_page_number_footer",
+          "start_page": 81,
+          "end_page": 88,
+          "page_count": 8,
+          "physical_to_printed_offset": -7,
+          "printed_page_start": 74,
+          "printed_page_end": 81,
+          "observed_last_line_must_equal_printed_page": true,
+          "removal_scope": "audit_comparison_only",
+          "review_method": "manual_source_image_stratified",
+          "approval_status": "approved_not_activated",
+          "eligible_for_audit_filter": true,
+          "activated": false,
+          "examples": [
+            {
+              "physical_page": 81,
+              "printed_page": 74,
+              "rendered_image_sha256": "eb22a200163424515a04a9be4d61171de60928c78aaa5102d73ab4d37c3a2cbf"
+            },
+            {
+              "physical_page": 84,
+              "printed_page": 77,
+              "rendered_image_sha256": "228a186ab95c36d6633b6efe62c8c794615782256c6e855804282dcd916f7d9f"
+            },
+            {
+              "physical_page": 88,
+              "printed_page": 81,
+              "rendered_image_sha256": "004ffaff0f3be480832252a4da1b711e395125f24994e2c7401f0e134a915882"
+            }
+          ]
+        },
+        {
+          "rule_id": "moe-2022-03-footer-090-097-offset-minus-7",
+          "candidate_type": "printed_page_number_footer",
+          "start_page": 90,
+          "end_page": 97,
+          "page_count": 8,
+          "physical_to_printed_offset": -7,
+          "printed_page_start": 83,
+          "printed_page_end": 90,
+          "observed_last_line_must_equal_printed_page": true,
+          "removal_scope": "audit_comparison_only",
+          "review_method": "manual_source_image_stratified",
+          "approval_status": "approved_not_activated",
+          "eligible_for_audit_filter": true,
+          "activated": false,
+          "examples": [
+            {
+              "physical_page": 90,
+              "printed_page": 83,
+              "rendered_image_sha256": "12417eb6a16cdeeb627d50fc475808f5f72dd977acfded0438700b9be359563a"
+            },
+            {
+              "physical_page": 93,
+              "printed_page": 86,
+              "rendered_image_sha256": "4d601bf9925be9c0ff1d10b4fa06da585b3e2371121c74054daf31a2775ed95c"
+            },
+            {
+              "physical_page": 97,
+              "printed_page": 90,
+              "rendered_image_sha256": "fe1b7ca69027e85a9a86a8e1916f8c9d995183d93f05142df4d8a040d9b10990"
+            }
+          ]
+        },
+        {
+          "rule_id": "moe-2022-03-footer-101-102-offset-minus-7",
+          "candidate_type": "printed_page_number_footer",
+          "start_page": 101,
+          "end_page": 102,
+          "page_count": 2,
+          "physical_to_printed_offset": -7,
+          "printed_page_start": 94,
+          "printed_page_end": 95,
+          "observed_last_line_must_equal_printed_page": true,
+          "removal_scope": "audit_comparison_only",
+          "review_method": "manual_source_image_stratified",
+          "approval_status": "approved_not_activated",
+          "eligible_for_audit_filter": true,
+          "activated": false,
+          "examples": [
+            {
+              "physical_page": 101,
+              "printed_page": 94,
+              "rendered_image_sha256": "c4a8291f249016f9ebf036c9048276b07a2e92fafc7f5bab8de983daa5b82752"
+            },
+            {
+              "physical_page": 102,
+              "printed_page": 95,
+              "rendered_image_sha256": "fd1fefa99afb3a022dc60d237cf9d94b96451a664397c85bc6c5d558425aef1c"
+            }
+          ]
+        },
+        {
+          "rule_id": "moe-2022-03-footer-104-109-offset-minus-7",
+          "candidate_type": "printed_page_number_footer",
+          "start_page": 104,
+          "end_page": 109,
+          "page_count": 6,
+          "physical_to_printed_offset": -7,
+          "printed_page_start": 97,
+          "printed_page_end": 102,
+          "observed_last_line_must_equal_printed_page": true,
+          "removal_scope": "audit_comparison_only",
+          "review_method": "manual_source_image_stratified",
+          "approval_status": "approved_not_activated",
+          "eligible_for_audit_filter": true,
+          "activated": false,
+          "examples": [
+            {
+              "physical_page": 104,
+              "printed_page": 97,
+              "rendered_image_sha256": "dc610252666bd84df8f1737599628b6d4e0f260c97aa62df751f12b3e038cedc"
+            },
+            {
+              "physical_page": 106,
+              "printed_page": 99,
+              "rendered_image_sha256": "163d9159e38a01187844ce1c1a6feec77a4ab51f473784cbca1dfed3d4d23f0d"
+            },
+            {
+              "physical_page": 109,
+              "printed_page": 102,
+              "rendered_image_sha256": "ac6a8a7deae8e5a9d150cf84369619a0ece3d53fc9ffdb9efe3ad3d25b3aeadb"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

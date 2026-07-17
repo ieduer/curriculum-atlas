@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-15T15:06:13.518Z",
+  "generated_at": "2026-07-17T02:28:01.778Z",
   "source_policy": "Primary official sources first; missing originals stay explicitly missing.",
   "counts": {
     "documents": 196,
     "verified_online": 176,
     "local_verified_scan": 12,
     "metadata_only": 6,
-    "citation_ready": 103,
+    "citation_ready": 101,
     "ocr_review_pending": 88
   },
   "documents": [
@@ -984,7 +984,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "01"
+      "archive_member_prefix": "01",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-02",
@@ -1006,7 +1008,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "02"
+      "archive_member_prefix": "02",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-03",
@@ -1028,7 +1032,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "03"
+      "archive_member_prefix": "03",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-04",
@@ -1050,7 +1056,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "04"
+      "archive_member_prefix": "04",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-05",
@@ -1072,7 +1080,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "05"
+      "archive_member_prefix": "05",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-06",
@@ -1094,7 +1104,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "06"
+      "archive_member_prefix": "06",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-07",
@@ -1116,7 +1128,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "07"
+      "archive_member_prefix": "07",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-08",
@@ -1138,7 +1152,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "08"
+      "archive_member_prefix": "08",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-09",
@@ -1160,7 +1176,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "09"
+      "archive_member_prefix": "09",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-10",
@@ -1182,7 +1200,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "10"
+      "archive_member_prefix": "10",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-11",
@@ -1204,7 +1224,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "11"
+      "archive_member_prefix": "11",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-12",
@@ -1226,7 +1248,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "12"
+      "archive_member_prefix": "12",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-13",
@@ -1248,7 +1272,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "13"
+      "archive_member_prefix": "13",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-14",
@@ -1270,7 +1296,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "14"
+      "archive_member_prefix": "14",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-15",
@@ -1292,7 +1320,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "15"
+      "archive_member_prefix": "15",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-16",
@@ -1314,7 +1344,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "16"
+      "archive_member_prefix": "16",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-17",
@@ -1336,7 +1368,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "17"
+      "archive_member_prefix": "17",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-18",
@@ -1358,7 +1392,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "18"
+      "archive_member_prefix": "18",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-19",
@@ -1380,7 +1416,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "19"
+      "archive_member_prefix": "19",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-20",
@@ -1402,7 +1440,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "20"
+      "archive_member_prefix": "20",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "moe-hs-2020-21",
@@ -1424,7 +1464,9 @@
       "source_page_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
       "source_url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
       "file_format": "pdf_in_zip",
-      "archive_member_prefix": "21"
+      "archive_member_prefix": "21",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "neea-2019-01",
@@ -1444,7 +1486,9 @@
       "current_status": "historical",
       "source_page_url": "https://www.neea.edu.cn/html1/report/19012/153-1.htm",
       "source_url": "https://www.neea.edu.cn/res/Home/1901/86158689c683971ff0d198b6a80e5eb3.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "neea-2019-02",
@@ -1464,7 +1508,9 @@
       "current_status": "historical",
       "source_page_url": "https://www.neea.edu.cn/html1/report/19012/153-1.htm",
       "source_url": "https://www.neea.edu.cn/res/Home/1901/ae5f3abdac517d2902c1ee902c10e9b4.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "neea-2019-03",
@@ -1484,7 +1530,9 @@
       "current_status": "historical",
       "source_page_url": "https://www.neea.edu.cn/html1/report/19012/153-1.htm",
       "source_url": "https://www.neea.edu.cn/res/Home/1901/60735dcff3fd04bb538e0150a86f764e.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "neea-2019-04",
@@ -1504,7 +1552,9 @@
       "current_status": "historical",
       "source_page_url": "https://www.neea.edu.cn/html1/report/19012/153-1.htm",
       "source_url": "https://www.neea.edu.cn/res/Home/1901/d722242b1b7b3b4eed7d217dc782789a.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "neea-2019-05",
@@ -1524,7 +1574,9 @@
       "current_status": "historical",
       "source_page_url": "https://www.neea.edu.cn/html1/report/19012/153-1.htm",
       "source_url": "https://www.neea.edu.cn/res/Home/1901/e482ae98711e5138dcaa4e23c0268323.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "neea-2019-06",
@@ -1544,7 +1596,9 @@
       "current_status": "historical",
       "source_page_url": "https://www.neea.edu.cn/html1/report/19012/153-1.htm",
       "source_url": "https://www.neea.edu.cn/res/Home/1901/c1e68939802423ddaadbeb6745afdf05.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "neea-2019-07",
@@ -1564,7 +1618,9 @@
       "current_status": "historical",
       "source_page_url": "https://www.neea.edu.cn/html1/report/19012/153-1.htm",
       "source_url": "https://www.neea.edu.cn/res/Home/1901/37917dd480ad101f28e16722f6b63052.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "neea-2019-08",
@@ -1584,7 +1640,9 @@
       "current_status": "historical",
       "source_page_url": "https://www.neea.edu.cn/html1/report/19012/153-1.htm",
       "source_url": "https://www.neea.edu.cn/res/Home/1901/447ff4f561e93bc2ebcb744703fc584e.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "neea-2019-09",
@@ -1604,7 +1662,9 @@
       "current_status": "historical",
       "source_page_url": "https://www.neea.edu.cn/html1/report/19012/153-1.htm",
       "source_url": "https://www.neea.edu.cn/res/Home/1901/53e4c4127f17bdf6ec8aa93f4de806f0.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "neea-2019-10",
@@ -1624,7 +1684,9 @@
       "current_status": "historical",
       "source_page_url": "https://www.neea.edu.cn/html1/report/19012/153-1.htm",
       "source_url": "https://www.neea.edu.cn/res/Home/1901/dfaa2ce3923702b19c147b03fccb9c9f.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "neea-2019-11",
@@ -1644,7 +1706,9 @@
       "current_status": "historical",
       "source_page_url": "https://www.neea.edu.cn/html1/report/19012/153-1.htm",
       "source_url": "https://www.neea.edu.cn/res/Home/1901/690da6e735a889c39cfdf8bf4029c18a.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "id": "neea-2019-12",
@@ -1664,7 +1728,9 @@
       "current_status": "historical",
       "source_page_url": "https://www.neea.edu.cn/html1/report/19012/153-1.htm",
       "source_url": "https://www.neea.edu.cn/res/Home/1901/d15ec0514666ac280810099f9595b557.pdf",
-      "file_format": "pdf"
+      "file_format": "pdf",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true
     },
     {
       "country": "中国",
@@ -1672,6 +1738,8 @@
       "source_tier": "primary_official",
       "access_status": "verified_online",
       "redistribution": "metadata_and_excerpt_only",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true,
       "id": "policy-1950-1993-overview",
       "title": "中国基础教育课程沿革官方概述（1950—1993）",
       "subject": "综合",
@@ -1692,6 +1760,8 @@
       "source_tier": "primary_official",
       "access_status": "verified_online",
       "redistribution": "metadata_and_excerpt_only",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true,
       "id": "policy-2001-reform-outline",
       "title": "基础教育课程改革纲要（试行）",
       "subject": "综合",
@@ -1711,6 +1781,8 @@
       "source_tier": "primary_official",
       "access_status": "verified_online",
       "redistribution": "metadata_and_excerpt_only",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true,
       "id": "policy-2003-hs-standards",
       "title": "普通高中课程方案和课程标准实验稿通知",
       "subject": "综合",
@@ -1730,6 +1802,8 @@
       "source_tier": "primary_official",
       "access_status": "verified_online",
       "redistribution": "metadata_and_excerpt_only",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true,
       "id": "policy-2020-gaokao-evaluation",
       "title": "中国高考评价体系发布说明",
       "subject": "考试评价",
@@ -1749,6 +1823,8 @@
       "source_tier": "primary_official",
       "access_status": "verified_online",
       "redistribution": "metadata_and_excerpt_only",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true,
       "id": "policy-2020-evaluation-reform",
       "title": "深化新时代教育评价改革总体方案",
       "subject": "考试评价",
@@ -1768,6 +1844,8 @@
       "source_tier": "primary_official",
       "access_status": "verified_online",
       "redistribution": "metadata_and_excerpt_only",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true,
       "id": "policy-2000-hs-syllabi",
       "title": "2000—2002年普通高中课程计划与教学大纲修订背景",
       "subject": "综合",
@@ -1787,6 +1865,8 @@
       "source_tier": "primary_official",
       "access_status": "metadata_only",
       "redistribution": "metadata_and_excerpt_only",
+      "text_quality_status": "metadata_only",
+      "citation_allowed": false,
       "id": "catalog-legacy-originals",
       "title": "1950—1992课程标准/教学大纲原件待补目录",
       "subject": "综合",
@@ -1807,6 +1887,8 @@
       "source_tier": "primary_official",
       "access_status": "verified_online",
       "redistribution": "metadata_and_excerpt_only",
+      "text_quality_status": "metadata_only",
+      "citation_allowed": false,
       "id": "catalog-revision-watch",
       "title": "现行课程标准修订动态观察",
       "subject": "综合",

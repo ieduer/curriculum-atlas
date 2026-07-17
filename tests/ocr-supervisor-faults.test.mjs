@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
+  buildVisionWitnessSidecar,
   classifyPaddleExitOne,
   conceptCandidateCompatible,
   discardVisionOutputs,
@@ -13,6 +14,7 @@ import {
   retryReconcileBusyReasons,
   selectAuditBackfillPages,
   selectPrimaryRecoveryPages,
+  visionInvocationArgs,
 } from '../scripts/ocr-supervisor.mjs';
 import {
   classifyHealth,
@@ -25,10 +27,45 @@ import {
   pageRetryKey,
   retryBlocksPage,
   selectPendingPages,
+  visionWitnessPlan,
+  visionWitnessProfileSha,
   witnessRecordValid,
 } from '../scripts/lib/ocr-supervisor-state.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+const visionProvenance = {
+  schema_version: 1,
+  framework: 'Apple Vision',
+  request_api: 'VNRecognizeTextRequest',
+  framework_distribution: 'macOS bundled',
+  execution_binary: '/usr/bin/swift',
+  swift_version: 'Swift version 6.0',
+  script_path: 'scripts/vision-ocr-batch.swift',
+  script_sha256: 'd'.repeat(64),
+  renderer: {
+    name: 'MuPDF mutool 1.28.0',
+    binary: '/opt/homebrew/bin/mutool',
+    sha256: 'e'.repeat(64),
+  },
+  os: {
+    product_name: 'macOS',
+    product_version: '15.5',
+    build_version: '24F74',
+    platform: 'darwin',
+    architecture: 'arm64',
+    kernel_type: 'Darwin',
+    kernel_release: '24.5.0',
+    kernel_version: 'Darwin Kernel Version 24.5.0',
+  },
+};
+
+function witnessProfileExpected(profile) {
+  return {
+    witnessProfile: profile,
+    witnessProfileSha: visionWitnessProfileSha(profile),
+    allowLegacyDefault: profile.profile_id === 'apple-vision-default-v1',
+  };
+}
 
 async function primaryFixture(t) {
   const primaryRoot = await mkdtemp(path.join(os.tmpdir(), 'ocr-primary-recovery-'));
@@ -84,7 +121,13 @@ async function auditFixture(t, { audit = 'valid' } = {}) {
       physical_pdf_page: 1,
       source_pdf_sha256: fixture.document.source_sha256,
       rendered_image_sha256: sha256(image),
-      engine: 'Apple Vision',
+      engine: 'Apple Vision VNRecognizeTextRequest accurate zh-Hans+en-US',
+      engine_configuration: {
+        recognition_level: 'accurate',
+        languages: ['zh-Hans', 'en-US'],
+        language_correction: true,
+        minimum_text_height: 0.008,
+      },
       citation_allowed: false,
     })}\n`),
   ]);
@@ -251,6 +294,166 @@ test('witness sidecar is rejected when document, page, PDF, image, or file ident
   assert.equal(witnessRecordValid({ ...record, rendered_image_sha256: 'other' }, expected), false);
   assert.equal(witnessRecordValid({ ...record, rendered_image_sha256: null }, {}), false);
   assert.equal(witnessRecordValid({ ...record, error: 'nilError' }, expected), false);
+});
+
+test('Vision language routing keeps Chinese as canonical and adds a Russian supplemental pass only for Russian documents', () => {
+  const defaultProfile = visionWitnessPlan({ subject: '语文' });
+  assert.deepEqual(defaultProfile.passes, [
+    { pass_id: 'zh-primary', role: 'canonical', languages: ['zh-Hans', 'en-US'] },
+  ]);
+  assert.equal(defaultProfile.canonical_pass_id, 'zh-primary');
+
+  const russianProfile = visionWitnessPlan({ subject: '俄语' });
+  assert.deepEqual(russianProfile.passes, [
+    { pass_id: 'zh-primary', role: 'canonical', languages: ['zh-Hans', 'en-US'] },
+    { pass_id: 'ru-supplement', role: 'supplemental', languages: ['ru-RU', 'zh-Hans', 'en-US'] },
+  ]);
+  assert.equal(russianProfile.canonical_pass_id, 'zh-primary');
+  assert.notEqual(visionWitnessProfileSha(defaultProfile), visionWitnessProfileSha(russianProfile));
+});
+
+test('legacy default-language witnesses remain readable but cannot impersonate a signed profile or satisfy Russian evidence', () => {
+  const legacy = {
+    schema_version: 2,
+    file: 'page-001.png',
+    lines: [{ text: '旧见证', confidence: 0.9 }],
+    document_id: 'doc',
+    physical_pdf_page: 1,
+    source_pdf_sha256: 'a'.repeat(64),
+    rendered_image_sha256: 'b'.repeat(64),
+    engine: 'Apple Vision VNRecognizeTextRequest accurate zh-Hans+en-US',
+    engine_configuration: {
+      recognition_level: 'accurate',
+      languages: ['zh-Hans', 'en-US'],
+      language_correction: true,
+      minimum_text_height: 0.008,
+    },
+    citation_allowed: false,
+  };
+  assert.equal(witnessRecordValid(legacy, witnessProfileExpected(visionWitnessPlan({ subject: '语文' }))), true);
+  assert.equal(witnessRecordValid(legacy, witnessProfileExpected(visionWitnessPlan({ subject: '俄语' }))), false);
+  assert.equal(witnessRecordValid({
+    ...legacy,
+    engine_provenance: visionProvenance,
+  }, witnessProfileExpected(visionWitnessPlan({ subject: '语文' }))), false);
+  assert.equal(witnessRecordValid({
+    ...legacy,
+    engine_configuration: { ...legacy.engine_configuration, languages: ['ru-RU', 'zh-Hans', 'en-US'] },
+  }, witnessProfileExpected(visionWitnessPlan({ subject: '语文' }))), false);
+});
+
+test('Russian witness sidecar binds both language passes and provenance while retaining Chinese canonical lines', () => {
+  const document = { id: 'ru-doc', subject: '俄语' };
+  const profile = visionWitnessPlan(document);
+  const sidecar = buildVisionWitnessSidecar({
+    document,
+    page: 7,
+    pdfSha: 'a'.repeat(64),
+    imageSha: 'b'.repeat(64),
+    imageInfo: { size: 4096, mtimeMs: 1234 },
+    profile,
+    passResults: [
+      {
+        pass_id: 'zh-primary',
+        record: { file: 'page-007.png', lines: [{ text: '中华人民共和国教育部', confidence: 0.99 }] },
+        raw_sidecar_file: 'vision-passes/zh-primary/page-007.json',
+        raw_sidecar_sha256: '1'.repeat(64),
+        raw_text_file: 'vision-passes/zh-primary/page-007.txt',
+        raw_text_sha256: '2'.repeat(64),
+        attempt_count: 1,
+      },
+      {
+        pass_id: 'ru-supplement',
+        record: { file: 'page-007.png', lines: [{ text: 'Русский язык', confidence: 0.98 }] },
+        raw_sidecar_file: 'vision-passes/ru-supplement/page-007.json',
+        raw_sidecar_sha256: '3'.repeat(64),
+        raw_text_file: 'vision-passes/ru-supplement/page-007.txt',
+        raw_text_sha256: '4'.repeat(64),
+        attempt_count: 2,
+      },
+    ],
+    provenance: visionProvenance,
+    generatedAt: '2026-07-16T00:00:00.000Z',
+  });
+  const expected = {
+    file: 'page-007.png',
+    documentId: 'ru-doc',
+    page: 7,
+    pdfSha: 'a'.repeat(64),
+    imageSha: 'b'.repeat(64),
+    ...witnessProfileExpected(profile),
+  };
+
+  assert.equal(sidecar.schema_version, 3);
+  assert.equal(sidecar.line_source_pass_id, 'zh-primary');
+  assert.equal(sidecar.lines[0].text, '中华人民共和国教育部');
+  assert.equal(sidecar.witness_passes[1].lines[0].text, 'Русский язык');
+  assert.deepEqual(sidecar.engine_configuration.language_passes, profile.passes);
+  assert.equal(sidecar.engine_provenance.os.product_version, '15.5');
+  assert.equal(witnessRecordValid(sidecar, expected), true);
+
+  const replacedCanonical = structuredClone(sidecar);
+  replacedCanonical.lines = replacedCanonical.witness_passes[1].lines;
+  assert.equal(witnessRecordValid(replacedCanonical, expected), false);
+
+  const tamperedLanguage = structuredClone(sidecar);
+  tamperedLanguage.witness_passes[1].languages = ['zh-Hans', 'ru-RU', 'en-US'];
+  assert.equal(witnessRecordValid(tamperedLanguage, expected), false);
+
+  const missingProvenance = structuredClone(sidecar);
+  delete missingProvenance.engine_provenance.os.build_version;
+  assert.equal(witnessRecordValid(missingProvenance, expected), false);
+
+  const mislabelledEngine = structuredClone(sidecar);
+  mislabelledEngine.engine = 'Paddle OCR';
+  assert.equal(witnessRecordValid(mislabelledEngine, expected), false);
+
+  const missingSupplement = structuredClone(sidecar);
+  missingSupplement.witness_passes = missingSupplement.witness_passes.slice(0, 1);
+  assert.equal(witnessRecordValid(missingSupplement, expected), false);
+});
+
+test('Russian witness assembly fails closed when any required pass is absent', () => {
+  const document = { id: 'ru-doc', subject: '俄语' };
+  assert.throws(() => buildVisionWitnessSidecar({
+    document,
+    page: 1,
+    pdfSha: 'a'.repeat(64),
+    imageSha: 'b'.repeat(64),
+    imageInfo: { size: 1, mtimeMs: 1 },
+    profile: visionWitnessPlan(document),
+    passResults: [{
+      pass_id: 'zh-primary',
+      record: { file: 'page-001.png', lines: [] },
+      raw_sidecar_file: 'vision-passes/zh-primary/page-001.json',
+      raw_sidecar_sha256: '1'.repeat(64),
+      raw_text_file: 'vision-passes/zh-primary/page-001.txt',
+      raw_text_sha256: '2'.repeat(64),
+      attempt_count: 1,
+    }],
+    provenance: visionProvenance,
+  }), (error) => error.code === 'VISION_REQUIRED_PASS_MISSING' && error.pass_id === 'ru-supplement');
+});
+
+test('Vision invocation receives explicit language parameters and PNG paths, never primary OCR text artifacts', () => {
+  assert.deepEqual(visionInvocationArgs({
+    scriptPath: '/repo/scripts/vision-ocr-batch.swift',
+    outputDir: '/tmp/vision-passes/ru-supplement',
+    languages: ['ru-RU', 'zh-Hans', 'en-US'],
+    imagePaths: ['/tmp/images/page-001.png'],
+  }), [
+    '/repo/scripts/vision-ocr-batch.swift',
+    '--output-dir',
+    '/tmp/vision-passes/ru-supplement',
+    '--languages',
+    'ru-RU,zh-Hans,en-US',
+    '/tmp/images/page-001.png',
+  ]);
+  assert.throws(() => visionInvocationArgs({
+    outputDir: '/tmp/vision',
+    languages: ['zh-Hans', 'en-US'],
+    imagePaths: ['/tmp/primary/pages/0001/content.md'],
+  }), { code: 'VISION_INVOCATION_INVALID' });
 });
 
 test('an invalid old Vision sidecar cannot survive failed batch and page retries', async (t) => {

@@ -8,12 +8,13 @@ for (const record of sourceManifest) {
   if (!record.title || !record.source_url || !record.source_tier) {
     throw new Error(`Incomplete source record: ${record.id}`);
   }
+  if (typeof record.citation_allowed !== 'boolean' || !record.text_quality_status) {
+    throw new Error(`Source record lacks an explicit text-quality disposition: ${record.id}`);
+  }
 }
 
 function citationReady(record) {
-  if (record.citation_allowed === true) return true;
-  if (record.citation_allowed === false) return false;
-  return ['html', 'catalog', 'pdf_in_zip'].includes(record.file_format) || record.id.startsWith('neea-2019-');
+  return record.citation_allowed === true;
 }
 
 const catalog = {

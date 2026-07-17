@@ -5,6 +5,10 @@ import { createReadStream } from 'node:fs';
 import { lstat, mkdir, readFile, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  captureLocalReprocessSnapshot,
+  LOCAL_REPROCESS_SNAPSHOT_MODE,
+} from './lib/remote-ocr-local-snapshot.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultProjectRoot = path.resolve(path.dirname(scriptPath), '..');
@@ -21,14 +25,19 @@ export const PINNED_REMOTE_OCR_RUNTIME = Object.freeze({
 });
 
 function parseArguments(argv) {
-  const parsed = { limitDocuments: null, output: null, help: false };
+  const parsed = {
+    limitDocuments: null,
+    output: null,
+    reprocessDocuments: [],
+    help: false,
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === '--help' || argument === '-h') {
       parsed.help = true;
       continue;
     }
-    if (argument !== '--limit-documents' && argument !== '--output') {
+    if (!['--limit-documents', '--output', '--reprocess-document'].includes(argument)) {
       throw new Error(`Unknown argument: ${argument}`);
     }
     const value = argv[index + 1];
@@ -39,10 +48,18 @@ function parseArguments(argv) {
         throw new Error('--limit-documents must be a positive integer');
       }
       parsed.limitDocuments = number;
-    } else {
+    } else if (argument === '--output') {
       parsed.output = value;
+    } else {
+      if (!documentIdPattern.test(value) || value === '.' || value === '..') {
+        throw new Error(`unsafe --reprocess-document id: ${value}`);
+      }
+      parsed.reprocessDocuments.push(value);
     }
     index += 1;
+  }
+  if (parsed.reprocessDocuments.length > 0 && parsed.limitDocuments !== null) {
+    throw new Error('--limit-documents cannot be combined with explicit --reprocess-document selection');
   }
   return parsed;
 }
@@ -185,6 +202,7 @@ function incrementReasonCounts(counts, reasons) {
 export async function buildRemoteOcrOffloadManifest({
   projectRoot = defaultProjectRoot,
   limitDocuments = null,
+  reprocessDocuments = [],
   generatedAt = new Date().toISOString(),
 } = {}) {
   const lexicalRoot = path.resolve(projectRoot);
@@ -194,6 +212,24 @@ export async function buildRemoteOcrOffloadManifest({
   if (limitDocuments !== null && (!Number.isSafeInteger(limitDocuments) || limitDocuments < 1)) {
     throw new Error('limitDocuments must be null or a positive integer');
   }
+  if (!Array.isArray(reprocessDocuments)) throw new Error('reprocessDocuments must be an array');
+  if (reprocessDocuments.length > 0 && limitDocuments !== null) {
+    throw new Error('limitDocuments cannot be combined with explicit reprocessDocuments');
+  }
+  const reprocessDocumentSet = new Set();
+  for (const documentId of reprocessDocuments) {
+    if (typeof documentId !== 'string'
+      || !documentIdPattern.test(documentId)
+      || documentId === '.'
+      || documentId === '..') {
+      throw new Error(`unsafe reprocess document id: ${documentId}`);
+    }
+    if (reprocessDocumentSet.has(documentId)) {
+      throw new Error(`duplicate reprocess document id: ${documentId}`);
+    }
+    reprocessDocumentSet.add(documentId);
+  }
+  const reprocessMode = reprocessDocumentSet.size > 0;
 
   const queueLexicalPath = path.join(absoluteRoot, 'data/ocr-queue.json');
   const dataRoot = path.join(absoluteRoot, 'data');
@@ -201,18 +237,35 @@ export async function buildRemoteOcrOffloadManifest({
   const supervisorRoot = path.join(absoluteRoot, '.cache/ocr-supervisor');
   const sourceRoot = path.join(absoluteRoot, '.cache/sources');
   const witnessRoot = path.join(absoluteRoot, '.cache/ocr-witness');
-  const [queuePath, resolvedDataRoot, resolvedProductionRoot, resolvedSupervisorRoot, resolvedSourceRoot, resolvedWitnessRoot] = await Promise.all([
+  const textRoot = path.join(absoluteRoot, '.cache/text');
+  const [queuePath, resolvedDataRoot, resolvedProductionRoot, resolvedSupervisorRoot, resolvedSourceRoot, resolvedWitnessRoot, resolvedTextRoot] = await Promise.all([
     resolveProjectPath(absoluteRoot, queueLexicalPath, 'data/ocr-queue.json', { mustExist: true }),
     resolveProjectPath(absoluteRoot, dataRoot, 'data', { mustExist: true }),
     resolveProjectPath(absoluteRoot, productionRoot, '.cache/ocr-production'),
     resolveProjectPath(absoluteRoot, supervisorRoot, '.cache/ocr-supervisor'),
     resolveProjectPath(absoluteRoot, sourceRoot, '.cache/sources'),
     resolveProjectPath(absoluteRoot, witnessRoot, '.cache/ocr-witness'),
+    resolveProjectPath(absoluteRoot, textRoot, '.cache/text'),
   ]);
-  if ([resolvedProductionRoot, resolvedSupervisorRoot, resolvedWitnessRoot].some((protectedRoot) => (
+  if ([resolvedProductionRoot, resolvedSupervisorRoot, resolvedWitnessRoot, resolvedTextRoot].some((protectedRoot) => (
     isWithin(protectedRoot, resolvedSourceRoot) || isWithin(resolvedSourceRoot, protectedRoot)
   ))) {
     throw new Error('.cache/sources aliases protected OCR state');
+  }
+  const localStateRoots = [
+    ['.cache/ocr-production', resolvedProductionRoot],
+    ['.cache/ocr-supervisor', resolvedSupervisorRoot],
+    ['.cache/ocr-witness', resolvedWitnessRoot],
+    ['.cache/text', resolvedTextRoot],
+  ];
+  for (let leftIndex = 0; leftIndex < localStateRoots.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < localStateRoots.length; rightIndex += 1) {
+      const [leftLabel, leftRoot] = localStateRoots[leftIndex];
+      const [rightLabel, rightRoot] = localStateRoots[rightIndex];
+      if (isWithin(leftRoot, rightRoot) || isWithin(rightRoot, leftRoot)) {
+        throw new Error(`${leftLabel} aliases ${rightLabel}`);
+      }
+    }
   }
   if (!isWithin(resolvedDataRoot, queuePath)) {
     throw new Error('data/ocr-queue.json escapes its expected data root through a symlink');
@@ -241,16 +294,37 @@ export async function buildRemoteOcrOffloadManifest({
   requirePlainObject(documentRetries, '.cache/ocr-supervisor/retries.json');
   requirePlainObject(pageRetries, '.cache/ocr-supervisor/page-retries.json');
   if (!Array.isArray(queue.documents)) throw new Error('data/ocr-queue.json documents must be an array');
+  if (reprocessMode) {
+    for (const lockName of ['lock', 'drain-lock']) {
+      if (await pathExists(path.join(supervisorRoot, lockName))) {
+        throw new Error(`local OCR ${lockName} is active; explicit reprocess snapshots require a held local owner`);
+      }
+    }
+    const watchdogControl = await readSupervisorJson('watchdog-control.json');
+    const watchdogMode = Object.keys(watchdogControl).length ? watchdogControl.mode : 'absent';
+    if (!['absent', 'hold'].includes(watchdogMode)) {
+      throw new Error(`local OCR watchdog must be held before explicit reprocess planning; current mode=${watchdogMode}`);
+    }
+  }
 
   const identifiers = new Set();
   const eligible = [];
   const excluded = [];
   const exclusionReasonCounts = {};
+  const foundReprocessDocumentIds = new Set();
 
   for (const document of queue.documents) {
     validateQueueDocument(document);
     if (identifiers.has(document.id)) throw new Error(`duplicate queue document id: ${document.id}`);
     identifiers.add(document.id);
+    const explicitlySelectedForReprocess = reprocessDocumentSet.has(document.id);
+    if (reprocessMode && !explicitlySelectedForReprocess) {
+      const reasons = ['NOT_EXPLICITLY_SELECTED_FOR_REPROCESS'];
+      excluded.push({ id: document.id, reasons });
+      incrementReasonCounts(exclusionReasonCounts, reasons);
+      continue;
+    }
+    if (explicitlySelectedForReprocess) foundReprocessDocumentIds.add(document.id);
 
     const documentRoot = path.join(productionRoot, document.id);
     const resolvedDocumentRoot = await resolveProjectPath(absoluteRoot, documentRoot, `${document.id}: OCR production root`, {
@@ -274,21 +348,25 @@ export async function buildRemoteOcrOffloadManifest({
     const localStateReasons = stateReadReasons.length > 0
       ? stateReadReasons
       : stateReasons(state, document, statePresent);
-    const reasons = [
-      ...localStateReasons,
-      ...retryReasons(document.id, documentRetries, pageRetries),
-    ];
-    if (await pathExists(documentRoot)) {
-      const entries = (await readdir(resolvedDocumentRoot)).filter((entry) => entry !== 'state.json' && entry !== '.DS_Store');
-      if (entries.length > 0 && localStateReasons.length === 0) {
-        reasons.push('LOCAL_PRODUCTION_ARTIFACT_CONFLICT');
+    if (!reprocessMode) {
+      const reasons = [
+        ...localStateReasons,
+        ...retryReasons(document.id, documentRetries, pageRetries),
+      ];
+      if (await pathExists(documentRoot)) {
+        const entries = (await readdir(resolvedDocumentRoot)).filter((entry) => entry !== 'state.json' && entry !== '.DS_Store');
+        if (entries.length > 0 && localStateReasons.length === 0) {
+          reasons.push('LOCAL_PRODUCTION_ARTIFACT_CONFLICT');
+        }
       }
-    }
-    const uniqueReasons = [...new Set(reasons)];
-    if (uniqueReasons.length > 0) {
-      excluded.push({ id: document.id, reasons: uniqueReasons });
-      incrementReasonCounts(exclusionReasonCounts, uniqueReasons);
-      continue;
+      const uniqueReasons = [...new Set(reasons)];
+      if (uniqueReasons.length > 0) {
+        excluded.push({ id: document.id, reasons: uniqueReasons });
+        incrementReasonCounts(exclusionReasonCounts, uniqueReasons);
+        continue;
+      }
+    } else if (stateReadReasons.length > 0) {
+      throw new Error(`${document.id}: explicit reprocess state cannot be snapshotted: ${stateReadReasons.join(',')}`);
     }
 
     const sourceLexicalPath = sourcePathWithinProject(absoluteRoot, sourceRoot, document.local_cache_path, document.id);
@@ -313,6 +391,30 @@ export async function buildRemoteOcrOffloadManifest({
       throw new Error(`${document.id}: source SHA-256 differs from data/ocr-queue.json`);
     }
 
+    let planningSnapshot = {
+      state_file_present: statePresent,
+      local_completed_pages: 0,
+      local_failed_pages: 0,
+      local_retry_conflicts: 0,
+      local_production_artifact_conflicts: 0,
+    };
+    if (reprocessMode) {
+      const textPath = path.join(textRoot, `${document.id}.txt`);
+      const resolvedTextPath = await resolveProjectPath(
+        absoluteRoot,
+        textPath,
+        `${document.id}: local joined text`,
+        { within: resolvedTextRoot },
+      );
+      planningSnapshot = await captureLocalReprocessSnapshot({
+        document,
+        documentRoot: resolvedDocumentRoot,
+        textPath: resolvedTextPath,
+        documentRetries,
+        pageRetries,
+      });
+    }
+
     eligible.push({
       id: document.id,
       title: document.title,
@@ -323,15 +425,22 @@ export async function buildRemoteOcrOffloadManifest({
       source_bytes: sourceStats.size,
       page_count: document.page_count,
       required_page_range: { first: 1, last: document.page_count, count: document.page_count },
-      planning_snapshot: {
-        state_file_present: statePresent,
-        local_completed_pages: 0,
-        local_failed_pages: 0,
-        local_retry_conflicts: 0,
-        local_production_artifact_conflicts: 0,
-      },
+      planning_snapshot: planningSnapshot,
       citation_allowed: false,
     });
+  }
+
+  if (reprocessMode) {
+    const missing = [...reprocessDocumentSet].filter((documentId) => !foundReprocessDocumentIds.has(documentId));
+    if (missing.length > 0) throw new Error(`reprocess documents are absent from the OCR queue: ${missing.join(', ')}`);
+    const [currentDocumentRetries, currentPageRetries] = await Promise.all([
+      readSupervisorJson('retries.json'),
+      readSupervisorJson('page-retries.json'),
+    ]);
+    if (JSON.stringify(currentDocumentRetries) !== JSON.stringify(documentRetries)
+      || JSON.stringify(currentPageRetries) !== JSON.stringify(pageRetries)) {
+      throw new Error('local OCR retry ledger changed while explicit reprocess snapshots were captured');
+    }
   }
 
   const selected = limitDocuments === null ? eligible : eligible.slice(0, limitDocuments);
@@ -341,7 +450,9 @@ export async function buildRemoteOcrOffloadManifest({
     schema_version: 1,
     manifest_type: 'curriculum_remote_whole_document_ocr_offload_plan',
     generated_at: generatedAt,
-    planning_mode: 'local_read_only_except_explicit_manifest_output',
+    planning_mode: reprocessMode
+      ? 'explicit_existing_local_document_reprocess_read_only'
+      : 'local_read_only_except_explicit_manifest_output',
     quality_policy: {
       stage: 'remote_primary_ocr_staging_only',
       whole_document_atomic: true,
@@ -352,10 +463,19 @@ export async function buildRemoteOcrOffloadManifest({
     import_hard_gates: {
       decision: 'reject_entire_document_if_any_gate_fails',
       local_revalidation_after_planning: {
-        completed_pages_must_equal: 0,
-        failed_pages_must_equal: 0,
-        retry_conflicts_must_equal: 0,
-        production_artifact_conflicts_must_equal: 0,
+        ...(reprocessMode
+          ? {
+              mode_must_equal: LOCAL_REPROCESS_SNAPSHOT_MODE,
+              exact_snapshot_sha256_must_match: true,
+              original_document_tree_requires_atomic_backup: true,
+              original_document_tree_must_not_be_deleted: true,
+            }
+          : {
+              completed_pages_must_equal: 0,
+              failed_pages_must_equal: 0,
+              retry_conflicts_must_equal: 0,
+              production_artifact_conflicts_must_equal: 0,
+            }),
         source_sha256_must_equal_planned_value: true,
         page_count_must_equal_planned_value: true,
       },
@@ -377,6 +497,10 @@ export async function buildRemoteOcrOffloadManifest({
       selected_documents: selected.length,
       selected_pages: total(selected, 'page_count'),
       selected_source_bytes: total(selected, 'source_bytes'),
+      explicitly_reprocessed_documents: reprocessMode ? selected.length : 0,
+      explicitly_reprocessed_local_completed_pages: reprocessMode
+        ? selected.reduce((sum, document) => sum + document.planning_snapshot.completion.completed_pages.length, 0)
+        : 0,
       excluded_documents: excluded.length,
       exclusion_reason_counts: exclusionReasonCounts,
     },
@@ -438,6 +562,8 @@ function usage() {
     '',
     'Options:',
     '  --limit-documents <N>  Select only the first N eligible whole documents.',
+    '  --reprocess-document <ID>  Explicitly select one existing local OCR document for a full remote rerun.',
+    '                             Repeat for each document; cannot be combined with --limit-documents.',
     '  --output <PATH>        Atomically write the manifest instead of stdout.',
     '  --help                 Show this help.',
     '',
@@ -451,7 +577,10 @@ async function main() {
     process.stdout.write(`${usage()}\n`);
     return;
   }
-  const manifest = await buildRemoteOcrOffloadManifest({ limitDocuments: options.limitDocuments });
+  const manifest = await buildRemoteOcrOffloadManifest({
+    limitDocuments: options.limitDocuments,
+    reprocessDocuments: options.reprocessDocuments,
+  });
   if (options.output) {
     const outputPath = await writeRemoteOcrOffloadManifest(options.output, manifest);
     process.stdout.write(`${JSON.stringify({ output: outputPath, counts: manifest.counts })}\n`);

@@ -206,8 +206,13 @@ test('coverage and claim policy cannot assert first appearance or disappearance'
 });
 
 test('OCR page fragments remain incomplete and non-quotable', () => {
-  assert.ok(graph.embedded_items.length > 0);
   const ocrEvidence = graph.evidence.filter((item) => item.embedded_item_id !== null);
+  if (graph.coverage.ocr_display_accepted_pages === 0) {
+    assert.deepEqual(graph.embedded_items, []);
+    assert.deepEqual(ocrEvidence, []);
+    return;
+  }
+  assert.ok(graph.embedded_items.length > 0);
   assert.ok(ocrEvidence.length > 0);
   assert.ok(ocrEvidence.every((item) => item.citation_allowed === false
     && item.citation_gate.document_allowed === false

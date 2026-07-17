@@ -29,6 +29,7 @@ import {
   verifyLlamaServerAttestation,
   verifyPinnedRuntime,
 } from '../scripts/run-remote-ocr-offload.mjs';
+import { captureLocalReprocessSnapshot } from '../scripts/lib/remote-ocr-local-snapshot.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const runtime = Object.freeze({
@@ -277,6 +278,56 @@ test('manifest validation requires whole untouched documents and citation fail-c
   const wrongDpi = structuredClone(manifest);
   wrongDpi.runtime.render_dpi = 300;
   assert.throws(() => validateRemoteOcrManifest(wrongDpi), /render_dpi must equal 240/);
+});
+
+test('manifest validation accepts only hash-valid explicit local replacement snapshots', async (t) => {
+  const { root } = await fixture(t);
+  const contents = 'source';
+  const document = documentFor('doc-reprocess', 'pdfs/reprocess.pdf', contents, 2);
+  const documentRoot = path.join(root, 'local-production', document.id);
+  const textPath = path.join(root, 'local-text', `${document.id}.txt`);
+  await mkdir(path.join(documentRoot, 'pages/0001'), { recursive: true });
+  await mkdir(path.dirname(textPath), { recursive: true });
+  const result = '{"local":true}\n';
+  const content = 'local partial\n';
+  await writeFile(path.join(documentRoot, 'pages/0001/result.json'), result);
+  await writeFile(path.join(documentRoot, 'pages/0001/content.md'), content);
+  await writeFile(path.join(documentRoot, 'state.json'), `${JSON.stringify({
+    schema_version: 1,
+    document_id: document.id,
+    source_sha256: document.source_sha256,
+    page_count: document.page_count,
+    completed_pages: [1],
+    failed_pages: {},
+    pages: {
+      1: {
+        status: 'ocr_complete_pending_audit',
+        physical_pdf_page: 1,
+        rendered_image_sha256: sha256('rendered'),
+        result_json_sha256: sha256(result),
+        content_markdown_sha256: sha256(content),
+        citation_eligible: false,
+      },
+    },
+  }, null, 2)}\n`);
+  await writeFile(textPath, 'joined local text\n');
+  document.planning_snapshot = await captureLocalReprocessSnapshot({
+    document,
+    documentRoot,
+    textPath,
+    documentRetries: {},
+    pageRetries: {
+      'doc-reprocess:2:paddle': { attempts: 1 },
+    },
+  });
+  const manifest = manifestFor([document]);
+  assert.equal(validateRemoteOcrManifest(manifest), manifest);
+  const tampered = structuredClone(manifest);
+  tampered.documents[0].planning_snapshot.text.bytes += 1;
+  assert.throws(
+    () => validateRemoteOcrManifest(tampered),
+    /replacement snapshot SHA-256 is invalid/,
+  );
 });
 
 test('document preflight enforces source containment, bytes, SHA-256, and page count', async (t) => {
@@ -1032,10 +1083,10 @@ test('child progress monitor enforces wall timeout despite continuously advancin
     logPath,
     documentRoot,
     monitoring: {
-      startup_timeout_seconds: 0.2,
-      idle_timeout_seconds: 0.15,
-      wall_timeout_seconds: 0.2,
-      terminate_grace_seconds: 0.05,
+      startup_timeout_seconds: 5,
+      idle_timeout_seconds: 0.25,
+      wall_timeout_seconds: 0.6,
+      terminate_grace_seconds: 0.08,
       poll_interval_seconds: 0.01,
     },
   });

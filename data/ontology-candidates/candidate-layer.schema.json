@@ -1,0 +1,792 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/ontology-candidate-layer-v1.json",
+  "title": "Fail-closed curriculum ontology candidate layer",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "candidate_layer_id",
+    "title",
+    "assertion_boundary",
+    "publication_status",
+    "source_identity",
+    "version_isolation",
+    "release_boundary",
+    "semantic_guards",
+    "lexical_reuse_policy",
+    "milestones",
+    "triangulation_policy",
+    "page_risks",
+    "excluded_page_controls",
+    "evidence_anchors",
+    "node_groups",
+    "editorial_alignments"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "./candidate-layer.schema.json"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "candidate_layer_id": {
+      "const": "candidate-layer:zh-compulsory-2022-v1"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "assertion_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "publication_status": {
+      "const": "candidate_fail_closed"
+    },
+    "source_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_id",
+        "title",
+        "subject_facet",
+        "stage",
+        "school_type",
+        "version_label",
+        "issued_by",
+        "source_artifact_sha256",
+        "source_bytes",
+        "page_count",
+        "local_cache_path",
+        "citation_allowed",
+        "online_same_edition_check"
+      ],
+      "properties": {
+        "document_id": {
+          "const": "moe-2022-03"
+        },
+        "title": {
+          "const": "义务教育语文课程标准（2022年版）"
+        },
+        "subject_facet": {
+          "const": "语文"
+        },
+        "stage": {
+          "const": "义务教育"
+        },
+        "school_type": {
+          "const": "ordinary_general_education"
+        },
+        "version_label": {
+          "const": "2022年版"
+        },
+        "issued_by": {
+          "const": "中华人民共和国教育部"
+        },
+        "source_artifact_sha256": {
+          "const": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a"
+        },
+        "source_bytes": {
+          "const": 20618661
+        },
+        "page_count": {
+          "const": 109
+        },
+        "local_cache_path": {
+          "const": ".cache/sources/moe-2022-03.pdf"
+        },
+        "citation_allowed": {
+          "const": false
+        },
+        "online_same_edition_check": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "exact_official_artifact_confirmed",
+            "independent_online_text_confirmed",
+            "status"
+          ],
+          "properties": {
+            "exact_official_artifact_confirmed": {
+              "const": true
+            },
+            "independent_online_text_confirmed": {
+              "const": false
+            },
+            "status": {
+              "const": "artifact_match_only"
+            }
+          }
+        }
+      }
+    },
+    "version_isolation": {
+      "$ref": "#/$defs/versionIsolation"
+    },
+    "release_boundary": {
+      "$ref": "#/$defs/releaseBoundary"
+    },
+    "semantic_guards": {
+      "$ref": "#/$defs/semanticGuards"
+    },
+    "lexical_reuse_policy": {
+      "$ref": "#/$defs/lexicalReusePolicy"
+    },
+    "milestones": {
+      "$ref": "#/$defs/milestones"
+    },
+    "triangulation_policy": {
+      "$ref": "#/$defs/triangulationPolicy"
+    },
+    "page_risks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/pageRisk"
+      }
+    },
+    "excluded_page_controls": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "$ref": "#/$defs/excludedPageControl"
+      }
+    },
+    "evidence_anchors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/evidenceAnchor"
+      }
+    },
+    "node_groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/nodeGroup"
+      }
+    },
+    "editorial_alignments": {
+      "type": "array",
+      "minItems": 16,
+      "maxItems": 16,
+      "items": {
+        "$ref": "#/$defs/editorialAlignment"
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pageNumber": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 109
+    },
+    "versionIsolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope_id",
+        "exact_edition_only",
+        "ordinary_school_only",
+        "cross_scope_merge_allowed",
+        "same_label_implies_same_sense",
+        "forbidden_scope_ids",
+        "forbidden_document_ids",
+        "forbidden_school_types",
+        "forbidden_stages"
+      ],
+      "properties": {
+        "scope_id": {
+          "const": "candidate-scope:zh-compulsory-2022-ordinary"
+        },
+        "exact_edition_only": {
+          "const": true
+        },
+        "ordinary_school_only": {
+          "const": true
+        },
+        "cross_scope_merge_allowed": {
+          "const": false
+        },
+        "same_label_implies_same_sense": {
+          "const": false
+        },
+        "forbidden_scope_ids": {
+          "type": "array",
+          "contains": {
+            "const": "scope:zh-2016-blind"
+          }
+        },
+        "forbidden_document_ids": {
+          "type": "array",
+          "contains": {
+            "const": "moe-hs-2020-02"
+          }
+        },
+        "forbidden_school_types": {
+          "type": "array",
+          "contains": {
+            "const": "special_education_school_for_the_blind"
+          }
+        },
+        "forbidden_stages": {
+          "type": "array",
+          "contains": {
+            "const": "高中"
+          }
+        }
+      }
+    },
+    "releaseBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ontology_merge_allowed",
+        "concept_evolution_build_allowed",
+        "public_data_update_allowed",
+        "publication_gate_changed",
+        "deployment_allowed",
+        "nodes_citation_allowed_must_equal",
+        "relations_semantic_relation_allowed_must_equal"
+      ],
+      "properties": {
+        "ontology_merge_allowed": {
+          "const": false
+        },
+        "concept_evolution_build_allowed": {
+          "const": false
+        },
+        "public_data_update_allowed": {
+          "const": false
+        },
+        "publication_gate_changed": {
+          "const": false
+        },
+        "deployment_allowed": {
+          "const": false
+        },
+        "nodes_citation_allowed_must_equal": {
+          "const": false
+        },
+        "relations_semantic_relation_allowed_must_equal": {
+          "const": false
+        }
+      }
+    },
+    "semanticGuards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overall_goals_may_map_to_core_competency_dimensions",
+        "quality_stage_descriptions_are_numbered_quality_levels",
+        "quality_context_cross_disciplinary_node_may_equal_task_group_node",
+        "language_use_may_bind_high_school_language_use_lexeme",
+        "forbidden_quality_level_labels",
+        "notes"
+      ],
+      "properties": {
+        "overall_goals_may_map_to_core_competency_dimensions": {
+          "const": false
+        },
+        "quality_stage_descriptions_are_numbered_quality_levels": {
+          "const": false
+        },
+        "quality_context_cross_disciplinary_node_may_equal_task_group_node": {
+          "const": false
+        },
+        "language_use_may_bind_high_school_language_use_lexeme": {
+          "const": false
+        },
+        "forbidden_quality_level_labels": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "notes": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "lexicalReusePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exact_reuse_only",
+        "unspecified_binding_must_be_null",
+        "allowed_lexical_concept_ids",
+        "forbidden_lexical_concept_ids"
+      ],
+      "properties": {
+        "exact_reuse_only": {
+          "const": true
+        },
+        "unspecified_binding_must_be_null": {
+          "const": true
+        },
+        "allowed_lexical_concept_ids": {
+          "type": "array",
+          "minItems": 11,
+          "maxItems": 11,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "forbidden_lexical_concept_ids": {
+          "type": "array",
+          "contains": {
+            "const": "language-use"
+          }
+        }
+      }
+    },
+    "milestones": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "M0",
+        "M1"
+      ],
+      "properties": {
+        "M0": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "description",
+            "added_node_count",
+            "cumulative_node_count"
+          ],
+          "properties": {
+            "description": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "added_node_count": {
+              "const": 43
+            },
+            "cumulative_node_count": {
+              "const": 43
+            }
+          }
+        },
+        "M1": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "description",
+            "added_node_count",
+            "cumulative_node_count"
+          ],
+          "properties": {
+            "description": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "added_node_count": {
+              "const": 21
+            },
+            "cumulative_node_count": {
+              "const": 64
+            }
+          }
+        }
+      }
+    },
+    "triangulationPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_parties",
+        "exact_version_match_required",
+        "unresolved_candidate_must_remain_non_citable",
+        "raw_image_is_truth_source"
+      ],
+      "properties": {
+        "required_parties": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "source_page_image",
+              "ocr_text_with_independent_witness",
+              "same_edition_online_text"
+            ]
+          }
+        },
+        "exact_version_match_required": {
+          "const": true
+        },
+        "unresolved_candidate_must_remain_non_citable": {
+          "const": true
+        },
+        "raw_image_is_truth_source": {
+          "const": true
+        }
+      }
+    },
+    "pageRisk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "physical_pages",
+        "category",
+        "severity",
+        "disposition"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^risk:"
+        },
+        "physical_pages": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/pageNumber"
+          }
+        },
+        "category": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "severity": {
+          "enum": [
+            "medium",
+            "high",
+            "critical"
+          ]
+        },
+        "disposition": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "excludedPageControl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "physical_page",
+        "control_id",
+        "required_attestation",
+        "citation_allowed"
+      ],
+      "properties": {
+        "physical_page": {
+          "enum": [
+            75,
+            109
+          ]
+        },
+        "control_id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "required_attestation": {
+          "enum": [
+            "row_alignment_verified",
+            "running_header_removed"
+          ]
+        },
+        "citation_allowed": {
+          "const": false
+        }
+      }
+    },
+    "triangulationGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_page_image_status",
+        "ocr_text_status",
+        "same_edition_online_text_status",
+        "version_match_status",
+        "overall_status"
+      ],
+      "properties": {
+        "source_page_image_status": {
+          "const": "pending_full_review"
+        },
+        "ocr_text_status": {
+          "const": "candidate_unaccepted"
+        },
+        "same_edition_online_text_status": {
+          "const": "artifact_match_only_text_pending"
+        },
+        "version_match_status": {
+          "const": "verified_exact_artifact"
+        },
+        "overall_status": {
+          "const": "blocked"
+        }
+      }
+    },
+    "evidenceAnchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "physical_pages",
+        "section_path",
+        "evidence_role",
+        "candidate_terms",
+        "risk_ids",
+        "triangulation_gate",
+        "citation_allowed"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^anchor:zh-compulsory-2022-"
+        },
+        "physical_pages": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/pageNumber"
+          }
+        },
+        "section_path": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "evidence_role": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "candidate_terms": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "risk_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^risk:"
+          }
+        },
+        "triangulation_gate": {
+          "$ref": "#/$defs/triangulationGate"
+        },
+        "citation_allowed": {
+          "const": false
+        }
+      }
+    },
+    "parentRelationPolicy": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "relation_type_candidate",
+        "assertion_basis",
+        "review_status",
+        "semantic_relation_allowed"
+      ],
+      "properties": {
+        "relation_type_candidate": {
+          "enum": [
+            "contains_candidate",
+            "editorial_cluster_candidate"
+          ]
+        },
+        "assertion_basis": {
+          "enum": [
+            "official_structure_candidate",
+            "official_numbered_structure_candidate",
+            "official_repeated_heading_candidate",
+            "editorial_model"
+          ]
+        },
+        "review_status": {
+          "enum": [
+            "candidate_extracted",
+            "reviewed_inference"
+          ]
+        },
+        "semantic_relation_allowed": {
+          "const": false
+        }
+      }
+    },
+    "candidateNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "parent_id",
+        "lexical_concept_id",
+        "definition_candidate",
+        "review_status",
+        "citation_allowed",
+        "publication_status",
+        "evidence_anchor_ids"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^candidate:zh-compulsory-2022"
+        },
+        "label": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "parent_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lexical_concept_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "definition_candidate": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "review_status": {
+          "enum": [
+            "editorial_container",
+            "candidate_extracted",
+            "reviewed_inference"
+          ]
+        },
+        "citation_allowed": {
+          "const": false
+        },
+        "publication_status": {
+          "const": "candidate_fail_closed"
+        },
+        "evidence_anchor_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^anchor:zh-compulsory-2022-"
+          }
+        }
+      }
+    },
+    "nodeGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "group_id",
+        "family",
+        "milestone",
+        "node_type",
+        "parent_relation_policy",
+        "nodes"
+      ],
+      "properties": {
+        "group_id": {
+          "type": "string",
+          "pattern": "^group:"
+        },
+        "family": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "milestone": {
+          "enum": [
+            "M0",
+            "M1"
+          ]
+        },
+        "node_type": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "parent_relation_policy": {
+          "$ref": "#/$defs/parentRelationPolicy"
+        },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/candidateNode"
+          }
+        }
+      }
+    },
+    "editorialAlignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "source",
+        "target",
+        "relation_type_candidate",
+        "assertion_basis",
+        "review_status",
+        "semantic_relation_allowed",
+        "evidence_anchor_ids"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^alignment:"
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^candidate:zh-compulsory-2022-stage-[1-4]-"
+        },
+        "target": {
+          "type": "string",
+          "pattern": "^candidate:zh-compulsory-2022-practice-"
+        },
+        "relation_type_candidate": {
+          "const": "models_practice_domain_requirement_cluster"
+        },
+        "assertion_basis": {
+          "const": "editorial_model"
+        },
+        "review_status": {
+          "const": "reviewed_inference"
+        },
+        "semantic_relation_allowed": {
+          "const": false
+        },
+        "evidence_anchor_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "const": "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          }
+        }
+      }
+    }
+  }
+}

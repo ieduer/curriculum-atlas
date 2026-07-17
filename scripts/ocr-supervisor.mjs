@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 import { access, appendFile, copyFile, mkdir, open, readFile, readdir, rename, rm, stat, statfs, writeFile } from 'node:fs/promises';
 import net from 'node:net';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -18,6 +19,8 @@ import {
   retryBlocksPage,
   retriesForPage,
   selectPendingPages,
+  visionWitnessPlan,
+  visionWitnessProfileSha,
   witnessRecordValid,
 } from './lib/ocr-supervisor-state.mjs';
 
@@ -45,6 +48,7 @@ const llamaRepository = path.join(root, '.cache/tools/llama.cpp');
 const modelPath = path.join(root, '.cache/ocr-runtime/PaddleOCR-VL-1.6-GGUF.gguf');
 const mmprojPath = path.join(root, '.cache/ocr-runtime/PaddleOCR-VL-1.6-GGUF-mmproj.gguf');
 const pythonPath = path.join(root, '.cache/venv-paddleocr/bin/python');
+const visionLauncherPath = path.join(root, 'scripts/vision-ocr-launcher.mjs');
 const rendererBinary = '/opt/homebrew/bin/mutool';
 const expected = {
   llama_commit: '12127defda4f41b7679cb2477a4b0d65ee6a0c8f',
@@ -63,6 +67,7 @@ const visionPageRetryLimits = Object.freeze({
   idleTimeoutMs: 180000,
   wallTimeoutMs: 600000,
 });
+const visionPipeBufferLimitBytes = 8 * 1024 * 1024;
 const maxBatchPages = 64;
 const runtimeInteger = (name, fallback, minimum, maximum) => {
   const value = Number(process.env[name]);
@@ -92,11 +97,18 @@ const option = (name, fallback = null) => {
   const index = rawArgs.indexOf(name);
   return index >= 0 && rawArgs[index + 1] ? rawArgs[index + 1] : fallback;
 };
+const options = (name) => rawArgs.flatMap((value, index) => value === name && rawArgs[index + 1]
+  ? [rawArgs[index + 1]]
+  : []);
 const batchPages = Math.max(1, Math.min(maxBatchPages, Number(option('--batch-pages', String(maxBatchPages))) || maxBatchPages));
 const requestedDocument = option('--document');
+const requestedDocuments = [...new Set(options('--document'))];
+const requestedManifest = option('--manifest');
 const retryFailed = rawArgs.includes('--retry-failed');
 const forceImmediateRecovery = rawArgs.includes('--force-immediate');
 const recoveryMode = command === 'recover';
+const evidenceOnlyModes = new Set(['witness_backfill', 'audit_backfill']);
+const evidenceRetryStages = new Set(['vision', 'vision_render', 'audit']);
 const nowIso = () => new Date().toISOString();
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 let activeStageChild = null;
@@ -153,6 +165,115 @@ export async function readFreshVisionOutput(sidecarPath, expected = {}) {
   if (record.source_pdf_sha256 != null && expected.pdfSha && record.source_pdf_sha256 !== expected.pdfSha) return null;
   if (record.rendered_image_sha256 != null && expected.imageSha && record.rendered_image_sha256 !== expected.imageSha) return null;
   return record;
+}
+
+export function visionInvocationArgs({
+  outputDir,
+  languages,
+  imagePaths,
+  scriptPath = path.join(root, 'scripts/vision-ocr-batch.swift'),
+}) {
+  if (typeof outputDir !== 'string' || !outputDir
+    || !Array.isArray(languages) || languages.length === 0
+    || languages.some((language) => typeof language !== 'string' || !language)
+    || !Array.isArray(imagePaths) || imagePaths.length === 0
+    || imagePaths.some((imagePath) => typeof imagePath !== 'string' || path.extname(imagePath).toLowerCase() !== '.png')) {
+    throw Object.assign(new Error('Apple Vision invocation requires an output directory, languages, and PNG image paths'), {
+      code: 'VISION_INVOCATION_INVALID',
+    });
+  }
+  return [scriptPath, '--output-dir', outputDir, '--languages', languages.join(','), ...imagePaths];
+}
+
+export function visionLauncherInvocationArgs({
+  outputDir,
+  languages,
+  imagePaths,
+  launcherPath = visionLauncherPath,
+  bufferLimitBytes = visionPipeBufferLimitBytes,
+}) {
+  const swiftArguments = visionInvocationArgs({ outputDir, languages, imagePaths });
+  return [
+    launcherPath,
+    '--buffer-limit-bytes',
+    String(bufferLimitBytes),
+    '--',
+    ...swiftArguments.slice(1),
+  ];
+}
+
+export function buildVisionWitnessSidecar({
+  document,
+  page,
+  pdfSha,
+  imageSha,
+  imageInfo,
+  profile,
+  passResults,
+  provenance,
+  generatedAt = nowIso(),
+}) {
+  const byPass = new Map((passResults || []).map((result) => [result.pass_id, result]));
+  const witnessPasses = profile.passes.map((pass) => {
+    const result = byPass.get(pass.pass_id);
+    if (!result?.record || result.record.error || !Array.isArray(result.record.lines)
+      || !/^[a-f0-9]{64}$/i.test(String(result.raw_sidecar_sha256 || ''))
+      || !/^[a-f0-9]{64}$/i.test(String(result.raw_text_sha256 || ''))) {
+      throw Object.assign(new Error(`Required Apple Vision pass is missing or invalid: ${pass.pass_id}`), {
+        code: 'VISION_REQUIRED_PASS_MISSING',
+        pass_id: pass.pass_id,
+      });
+    }
+    return {
+      pass_id: pass.pass_id,
+      role: pass.role,
+      languages: [...pass.languages],
+      lines: result.record.lines,
+      raw_sidecar_file: result.raw_sidecar_file,
+      raw_sidecar_sha256: result.raw_sidecar_sha256,
+      raw_text_file: result.raw_text_file,
+      raw_text_sha256: result.raw_text_sha256,
+      attempt_count: result.attempt_count,
+      recovered_after_retry: result.attempt_count > 1,
+    };
+  });
+  const canonical = witnessPasses.find((pass) => pass.pass_id === profile.canonical_pass_id);
+  if (!canonical) {
+    throw Object.assign(new Error(`Canonical Apple Vision pass is missing: ${profile.canonical_pass_id}`), {
+      code: 'VISION_CANONICAL_PASS_MISSING',
+    });
+  }
+  return {
+    schema_version: 3,
+    file: `page-${String(page).padStart(3, '0')}.png`,
+    lines: canonical.lines,
+    document_id: document.id,
+    physical_pdf_page: page,
+    source_pdf_sha256: pdfSha,
+    rendered_image_sha256: imageSha,
+    rendered_image_bytes: imageInfo.size,
+    rendered_image_mtime_ms: Math.trunc(imageInfo.mtimeMs),
+    generated_at: generatedAt,
+    attempt_count: Math.max(...witnessPasses.map((pass) => pass.attempt_count)),
+    recovered_after_retry: witnessPasses.some((pass) => pass.recovered_after_retry),
+    engine: 'Apple Vision VNRecognizeTextRequest accurate language-profile-v1',
+    engine_configuration: {
+      recognition_level: 'accurate',
+      languages: [...canonical.languages],
+      language_passes: profile.passes,
+      language_correction: true,
+      minimum_text_height: 0.008,
+      render_dpi: visionRenderDpi,
+      renderer: 'MuPDF mutool 1.28.0',
+    },
+    engine_provenance: provenance,
+    witness_profile: profile,
+    witness_profile_sha256: visionWitnessProfileSha(profile),
+    line_source_pass_id: profile.canonical_pass_id,
+    witness_passes: witnessPasses,
+    critical_fields: [],
+    citation_allowed: false,
+  };
 }
 
 export function classifyPaddleExitOne({ exitCode, logText = '', pages = [], beforeState = {}, afterState = {} }) {
@@ -286,6 +407,257 @@ async function sha256File(value) {
     stream.on('end', resolve);
   });
   return hash.digest('hex');
+}
+
+export function validateEvidenceManifestScope(manifest, queueDocuments = queue.documents) {
+  if (!manifest || manifest.schema_version !== 1
+    || manifest.manifest_type !== 'curriculum_remote_whole_document_ocr_offload_plan'
+    || !Array.isArray(manifest.documents)
+    || manifest.documents.length === 0) {
+    throw Object.assign(new Error('Evidence backfill manifest must be a non-empty remote whole-document OCR plan'), {
+      code: 'EVIDENCE_MANIFEST_INVALID',
+      exitCode: 64,
+    });
+  }
+  const queueById = new Map(queueDocuments.map((document) => [document.id, document]));
+  const seen = new Set();
+  const documents = [];
+  for (const scoped of manifest.documents) {
+    const document = queueById.get(scoped?.id);
+    if (!document || seen.has(scoped.id)
+      || scoped.page_count !== document.page_count
+      || scoped.source_sha256 !== document.source_sha256
+      || scoped.citation_allowed !== false) {
+      throw Object.assign(new Error(`Evidence backfill manifest document identity is invalid: ${scoped?.id || '<missing>'}`), {
+        code: 'EVIDENCE_MANIFEST_DOCUMENT_INVALID',
+        exitCode: 64,
+      });
+    }
+    seen.add(scoped.id);
+    documents.push(document);
+  }
+  if (Number.isInteger(manifest.counts?.selected_documents)
+    && manifest.counts.selected_documents !== documents.length) {
+    throw Object.assign(new Error('Evidence backfill manifest selected document count does not match its document list'), {
+      code: 'EVIDENCE_MANIFEST_COUNT_MISMATCH',
+      exitCode: 64,
+    });
+  }
+  return documents;
+}
+
+async function loadEvidenceScope() {
+  if (!requestedManifest && requestedDocuments.length === 0) {
+    throw Object.assign(new Error('backfill-evidence requires --manifest PATH or at least one --document ID'), {
+      code: 'EVIDENCE_SCOPE_REQUIRED',
+      exitCode: 64,
+    });
+  }
+  let documents = queue.documents;
+  let manifestPath = null;
+  let manifestSha256 = null;
+  if (requestedManifest) {
+    manifestPath = path.resolve(requestedManifest);
+    const manifest = await readJson(manifestPath, null);
+    documents = validateEvidenceManifestScope(manifest);
+    manifestSha256 = await sha256File(manifestPath);
+  }
+  if (requestedDocuments.length) {
+    const byId = new Map(documents.map((document) => [document.id, document]));
+    const selected = [];
+    for (const id of requestedDocuments) {
+      const document = byId.get(id);
+      if (!document) {
+        throw Object.assign(new Error(`Evidence backfill document is outside the selected scope: ${id}`), {
+          code: 'EVIDENCE_DOCUMENT_OUT_OF_SCOPE',
+          exitCode: 64,
+        });
+      }
+      selected.push(document);
+    }
+    documents = selected;
+  }
+  return {
+    documents,
+    document_ids: documents.map((document) => document.id),
+    manifest_path: manifestPath ? path.relative(root, manifestPath) : null,
+    manifest_sha256: manifestSha256,
+  };
+}
+
+export function evidenceExecutionPolicy(mode) {
+  if (!evidenceOnlyModes.has(mode)) {
+    throw Object.assign(new Error(`Evidence-only execution refuses OCR mode: ${mode || '<none>'}`), {
+      code: 'EVIDENCE_PRIMARY_WORK_REQUIRED',
+      exitCode: 12,
+      mode,
+    });
+  }
+  return {
+    renderVision: mode === 'witness_backfill',
+    runPrimaryOcr: false,
+    buildDerivedArtifacts: false,
+  };
+}
+
+export function evidenceDrainDecision({
+  selection = null,
+  freeGiB = Number.POSITIVE_INFINITY,
+  interrupted = false,
+  pageFailures = [],
+} = {}) {
+  if (interrupted) return { action: 'stop', status: 'interrupted', code: 'RUN_INTERRUPTED', exitCode: 130 };
+  if (freeGiB < 50) return { action: 'stop', status: 'blocked', code: 'EVIDENCE_DISK_WARNING', exitCode: 2 };
+  if (pageFailures.length) {
+    const systematicVisionFailure = selection?.mode === 'witness_backfill'
+      && pageFailures.length === selection.pages?.length
+      && pageFailures.every((failure) => failure.stage === 'vision' || failure.stage === 'vision_render');
+    return {
+      action: 'stop',
+      status: 'failed',
+      code: systematicVisionFailure ? 'EVIDENCE_VISION_BATCH_FAILED' : 'EVIDENCE_PAGE_FAILED',
+      exitCode: 10,
+      systematic_vision_failure: systematicVisionFailure,
+    };
+  }
+  if (!selection) return { action: 'complete', status: 'completed', code: 'EVIDENCE_SCOPE_COMPLETE', exitCode: 0 };
+  if (!evidenceOnlyModes.has(selection.mode)) {
+    return {
+      action: 'stop',
+      status: 'blocked',
+      code: selection.mode === 'evidence_blocked' ? 'EVIDENCE_RETRY_BLOCKED' : 'EVIDENCE_PRIMARY_WORK_REQUIRED',
+      exitCode: selection.mode === 'evidence_blocked' ? 10 : 12,
+      blocked_mode: selection.mode,
+    };
+  }
+  return { action: 'continue', status: 'ready', code: 'EVIDENCE_BATCH_READY', exitCode: 0 };
+}
+
+function scopedPageRetryRecords(records, documentId, page) {
+  const prefix = `${documentId}:${Number(page)}:`;
+  return Object.entries(records || {})
+    .filter(([key]) => key.startsWith(prefix))
+    .map(([key, record]) => ({ key, stage: key.slice(prefix.length), record }));
+}
+
+function evidenceRetryBlocksPage(records, documentId, page, now = Date.now(), override = false) {
+  if (override) return false;
+  return scopedPageRetryRecords(records, documentId, page)
+    .filter(({ stage }) => evidenceRetryStages.has(stage))
+    .some(({ record }) => record?.quarantined
+      || (record?.next_retry_at && Date.parse(record.next_retry_at) > now));
+}
+
+export async function inspectEvidenceScopePrimaryReadiness(documents, {
+  primaryRoot = productionRoot,
+  pageRetryRecords = {},
+  deep = true,
+} = {}) {
+  for (const document of documents) {
+    const state = await readJson(path.join(primaryRoot, document.id, 'state.json'), {});
+    const completed = [...new Set((state.completed_pages || []).map(Number))]
+      .filter((page) => Number.isInteger(page) && page >= 1 && page <= document.page_count)
+      .sort((left, right) => left - right);
+    if (completed.length !== document.page_count
+      || completed.some((page, index) => page !== index + 1)) {
+      const completedSet = new Set(completed);
+      const firstMissing = Array.from({ length: document.page_count }, (_, index) => index + 1)
+        .find((page) => !completedSet.has(page));
+      return { document, pages: firstMissing ? [firstMissing] : [], state, mode: 'new_ocr', reason: 'scope_document_not_complete' };
+    }
+    if (Object.keys(state.failed_pages || {}).length) {
+      return {
+        document,
+        pages: Object.keys(state.failed_pages).map(Number).filter(Number.isInteger).slice(0, 1),
+        state,
+        mode: 'full_recovery',
+        reason: 'scope_document_has_failed_pages',
+      };
+    }
+    const nonEvidenceRetry = Object.entries(pageRetryRecords || {}).find(([key, record]) => {
+      const match = key.match(/^(.+):(\d+):([^:]+)$/);
+      return match?.[1] === document.id
+        && !evidenceRetryStages.has(match[3])
+        && (record?.quarantined || record?.next_retry_at || Number(record?.attempts || 0) > 0);
+    });
+    if (nonEvidenceRetry) {
+      return {
+        document,
+        pages: [Number(nonEvidenceRetry[0].match(/^.+:(\d+):[^:]+$/)?.[1])].filter(Number.isInteger),
+        state,
+        mode: 'primary_recovery',
+        reason: 'scope_document_has_primary_retry',
+      };
+    }
+    for (const page of completed) {
+      if (!(await primaryPageValid(state, document.id, page, deep, primaryRoot))) {
+        return { document, pages: [page], state, mode: 'primary_recovery', reason: 'completed_primary_artifact_invalid' };
+      }
+    }
+  }
+  return null;
+}
+
+export async function selectEvidenceBatch(documents, {
+  limit = batchPages,
+  primaryRoot = productionRoot,
+  witnessBaseRoot = witnessRoot,
+  pageRetryRecords = {},
+  now = Date.now(),
+  retryOverride = false,
+  verifyPrimary = true,
+} = {}) {
+  if (verifyPrimary) {
+    const unsafe = await inspectEvidenceScopePrimaryReadiness(documents, {
+      primaryRoot,
+      pageRetryRecords,
+      deep: true,
+    });
+    if (unsafe) return unsafe;
+  }
+  for (const document of documents) {
+    const state = await readJson(path.join(primaryRoot, document.id, 'state.json'), {});
+    const completedPages = [...new Set((state.completed_pages || []).map(Number))]
+      .filter((page) => Number.isInteger(page) && page >= 1 && page <= document.page_count)
+      .sort((left, right) => left - right);
+    const missingWitness = [];
+    const visionDir = path.join(witnessBaseRoot, document.id, 'vision');
+    for (const page of completedPages) {
+      const sidecar = path.join(visionDir, `page-${String(page).padStart(3, '0')}.json`);
+      if (await validWitnessSidecar(sidecar, await witnessIdentity(document, page, witnessBaseRoot))) continue;
+      if (evidenceRetryBlocksPage(pageRetryRecords, document.id, page, now, retryOverride)) {
+        return { document, pages: [page], state, mode: 'evidence_blocked', reason: 'witness_retry_blocked' };
+      }
+      if (!(await primaryPageValid(state, document.id, page, true, primaryRoot))) {
+        return { document, pages: [page], state, mode: 'primary_recovery', reason: 'witness_candidate_primary_invalid' };
+      }
+      missingWitness.push(page);
+      if (missingWitness.length >= limit) break;
+    }
+    if (missingWitness.length) return { document, pages: missingWitness, state, mode: 'witness_backfill' };
+    const auditBackfill = [];
+    for (const page of completedPages) {
+      const audit = await inspectAuditPage(document, state, page, { primaryRoot, witnessBaseRoot });
+      if (audit.current) continue;
+      if (evidenceRetryBlocksPage(pageRetryRecords, document.id, page, now, retryOverride)) {
+        return { document, pages: [page], state, mode: 'evidence_blocked', reason: 'audit_retry_blocked' };
+      }
+      const inputs = await readAuditInputs(document, state, page, { primaryRoot, witnessBaseRoot });
+      if (!inputs.valid) {
+        return {
+          document,
+          pages: [page],
+          state,
+          mode: inputs.reason === 'primary' ? 'primary_recovery' : 'witness_backfill',
+          reason: `audit_input_${inputs.reason}_invalid`,
+        };
+      }
+      auditBackfill.push(page);
+      if (auditBackfill.length >= limit) break;
+    }
+    if (auditBackfill.length) return { document, pages: auditBackfill, state, mode: 'audit_backfill' };
+  }
+  return null;
 }
 
 async function primaryPageValid(state, documentId, page, deep = false, primaryRoot = productionRoot) {
@@ -482,6 +854,59 @@ async function runCapture(executable, args, options = {}) {
   });
 }
 
+async function collectVisionEngineProvenance() {
+  const scriptPath = path.join(root, 'scripts/vision-ocr-batch.swift');
+  try {
+    const [scriptSha, launcherSha] = await Promise.all([
+      sha256File(scriptPath),
+      sha256File(visionLauncherPath),
+    ]);
+    const swift = await runCapture(process.execPath, [visionLauncherPath, '--probe-version'], { timeoutMs: 30000 });
+    const productName = await runCapture('/usr/bin/sw_vers', ['-productName'], { timeoutMs: 30000 });
+    const productVersion = await runCapture('/usr/bin/sw_vers', ['-productVersion'], { timeoutMs: 30000 });
+    const buildVersion = await runCapture('/usr/bin/sw_vers', ['-buildVersion'], { timeoutMs: 30000 });
+    return {
+      schema_version: 1,
+      framework: 'Apple Vision',
+      request_api: 'VNRecognizeTextRequest',
+      framework_distribution: 'macOS bundled',
+      execution_binary: '/usr/bin/swift',
+      swift_version: `${swift.stdout}\n${swift.stderr}`.trim().split('\n')[0],
+      script_path: 'scripts/vision-ocr-batch.swift',
+      script_sha256: scriptSha,
+      launcher: {
+        schema_version: 1,
+        path: 'scripts/vision-ocr-launcher.mjs',
+        sha256: launcherSha,
+        node_binary: process.execPath,
+        child_binary: '/usr/bin/swift',
+        buffer_limit_bytes: visionPipeBufferLimitBytes,
+      },
+      renderer: {
+        name: 'MuPDF mutool 1.28.0',
+        binary: rendererBinary,
+        sha256: expected.renderer_sha256,
+      },
+      os: {
+        product_name: productName.stdout.trim(),
+        product_version: productVersion.stdout.trim(),
+        build_version: buildVersion.stdout.trim(),
+        platform: process.platform,
+        architecture: process.arch,
+        kernel_type: os.type(),
+        kernel_release: os.release(),
+        kernel_version: os.version(),
+      },
+    };
+  } catch (error) {
+    throw Object.assign(error, {
+      code: 'VISION_PROVENANCE_FAILED',
+      scope: 'runtime',
+      exitCode: 10,
+    });
+  }
+}
+
 async function processAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 1) return false;
   try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; }
@@ -511,12 +936,16 @@ async function portOpen() {
 }
 
 async function witnessIdentity(document, page, baseRoot = witnessRoot) {
+  const witnessProfile = visionWitnessPlan(document);
   return {
     documentId: document.id,
     page,
     pdfSha: document.source_sha256,
     file: `page-${String(page).padStart(3, '0')}.png`,
     imagePath: path.join(baseRoot, document.id, 'images', `page-${String(page).padStart(3, '0')}.png`),
+    witnessProfile,
+    witnessProfileSha: visionWitnessProfileSha(witnessProfile),
+    allowLegacyDefault: witnessProfile.profile_id === 'apple-vision-default-v1',
   };
 }
 
@@ -957,13 +1386,161 @@ async function stopOwnedServer(server) {
   await server.log?.close().catch(() => {});
 }
 
+function loggedChildStdio(logHandle, pipeOutput) {
+  if (pipeOutput) return ['ignore', 'pipe', 'pipe'];
+  if (!logHandle || !Number.isInteger(logHandle.fd)) {
+    throw Object.assign(new Error('spawnLoggedProcess requires an open log file handle'), {
+      code: 'LOG_HANDLE_REQUIRED',
+    });
+  }
+  return ['ignore', logHandle.fd, logHandle.fd];
+}
+
+function attachLoggedChildOutput(child, pipeOutput, {
+  bufferLimitBytes = visionPipeBufferLimitBytes,
+  stage = 'child_process',
+  logPath = null,
+  openLog = open,
+} = {}) {
+  let outputEnded = Promise.resolve();
+  let bufferedBytes = 0;
+  let bufferedChunks = [];
+  let captureError = null;
+  let overflowKillTimer = null;
+  if (pipeOutput) {
+    if (!Number.isInteger(bufferLimitBytes) || bufferLimitBytes < 1) {
+      throw Object.assign(new Error('Pipe output buffer limit must be a positive integer'), {
+        code: 'CHILD_OUTPUT_BUFFER_LIMIT_INVALID',
+        exitCode: 64,
+        stage,
+      });
+    }
+    const stopOverflowingChild = () => {
+      if (child.exitCode !== null || child.signalCode !== null) return;
+      child.kill('SIGTERM');
+      overflowKillTimer = setTimeout(() => {
+        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+      }, 5000);
+    };
+    const buffer = (chunk) => {
+      if (captureError) return;
+      const value = Buffer.from(chunk);
+      const remaining = bufferLimitBytes - bufferedBytes;
+      if (value.length <= remaining) {
+        bufferedChunks.push(value);
+        bufferedBytes += value.length;
+        return;
+      }
+      if (remaining > 0) {
+        bufferedChunks.push(value.subarray(0, remaining));
+        bufferedBytes += remaining;
+      }
+      captureError = Object.assign(new Error(`${stage} output exceeded the ${bufferLimitBytes}-byte in-memory capture limit`), {
+        code: 'CHILD_OUTPUT_BUFFER_LIMIT',
+        exitCode: 10,
+        stage,
+        buffer_limit_bytes: bufferLimitBytes,
+      });
+      stopOverflowingChild();
+    };
+    child.stdout.on('data', buffer);
+    child.stderr.on('data', buffer);
+    const finished = (stream) => new Promise((resolve) => {
+      if (stream.readableEnded || stream.destroyed) {
+        resolve();
+        return;
+      }
+      const done = () => {
+        stream.removeListener('end', done);
+        stream.removeListener('close', done);
+        stream.removeListener('error', done);
+        resolve();
+      };
+      stream.once('end', done);
+      stream.once('close', done);
+      stream.once('error', done);
+    });
+    outputEnded = Promise.all([finished(child.stdout), finished(child.stderr)]);
+  }
+  return {
+    bufferedBytes: () => bufferedBytes,
+    captureError: () => captureError,
+    flush: async () => {
+      await outputEnded;
+      if (overflowKillTimer) clearTimeout(overflowKillTimer);
+      if (pipeOutput) {
+        if (typeof logPath !== 'string' || !logPath) {
+          throw Object.assign(new Error('Pipe output capture requires a lazy log path'), {
+            code: 'LAZY_LOG_PATH_REQUIRED',
+            exitCode: 64,
+            stage,
+          });
+        }
+        const marker = captureError
+          ? Buffer.from(`\n[${captureError.code}: ${captureError.message}]\n`)
+          : Buffer.alloc(0);
+        if (bufferedBytes || marker.length) {
+          const lazyLog = await openLog(logPath, 'a');
+          try {
+            await lazyLog.write(Buffer.concat([...bufferedChunks, marker], bufferedBytes + marker.length));
+          } finally {
+            await lazyLog.close().catch(() => {});
+          }
+        }
+        bufferedChunks = [];
+      }
+      if (captureError) throw captureError;
+    },
+  };
+}
+
+export function spawnLoggedProcess(executable, args, {
+  cwd = root,
+  env = process.env,
+  logHandle,
+  logPath,
+  openLog = open,
+  pipeOutput = false,
+  pipeBufferLimitBytes = visionPipeBufferLimitBytes,
+  spawnImplementation = spawn,
+} = {}) {
+  const child = spawnImplementation(executable, args, {
+    cwd,
+    env,
+    stdio: loggedChildStdio(logHandle, pipeOutput),
+  });
+  const capture = attachLoggedChildOutput(child, pipeOutput, {
+    bufferLimitBytes: pipeBufferLimitBytes,
+    stage: path.basename(executable),
+    logPath,
+    openLog,
+  });
+  return {
+    child,
+    pipeOutput,
+    bufferedBytes: capture.bufferedBytes,
+    captureError: capture.captureError,
+    flushOutput: capture.flush,
+  };
+}
+
 async function runLogged(executable, args, logPath, run, stage, env = {}, acceptedExitCodes = [0], limits = {}) {
   throwIfInterrupted();
   run.stage = stage;
   await updateRun(run);
-  const log = await open(logPath, 'a');
   let timedOutError = null;
-  const child = spawn(executable, args, { cwd: root, env: { ...process.env, ...env }, stdio: ['ignore', log.fd, log.fd] });
+  const pipeOutput = limits.pipeOutput === true;
+  const log = pipeOutput ? null : await open(logPath, 'a');
+  const child = spawn(executable, args, {
+    cwd: root,
+    env: { ...process.env, ...env },
+    stdio: loggedChildStdio(log, pipeOutput),
+  });
+  const outputCapture = attachLoggedChildOutput(child, pipeOutput, {
+    bufferLimitBytes: limits.pipeBufferLimitBytes ?? visionPipeBufferLimitBytes,
+    stage,
+    logPath,
+  });
   const exitPromise = new Promise((resolve) => {
     child.once('error', (error) => resolve({ error }));
     child.once('exit', (code, signal) => resolve(timedOutError
@@ -1009,14 +1586,21 @@ async function runLogged(executable, args, logPath, run, stage, env = {}, accept
     if (child.exitCode === null) child.kill('SIGTERM');
     killTimer = setTimeout(() => { if (child.exitCode === null) child.kill('SIGKILL'); }, 5000);
   }, 5000) : null;
-  const outcome = await exitPromise.finally(async () => {
+  const outcome = await exitPromise;
+  let outputCaptureError = null;
+  try {
+    await outputCapture.flush();
+  } catch (error) {
+    outputCaptureError = error;
+  } finally {
     clearInterval(heartbeat);
     if (activityMonitor) clearInterval(activityMonitor);
     if (killTimer) clearTimeout(killTimer);
     if (activeStageChild === child) activeStageChild = null;
     run.active_child_pid = null;
-    await log.close().catch(() => {});
-  });
+    await log?.close().catch(() => {});
+  }
+  if (outputCaptureError) throw outputCaptureError;
   if (outcome.error) throw outcome.error;
   const result = outcome.result;
   await updateRun(run);
@@ -1029,7 +1613,13 @@ async function renderVision(document, pages, pdfSha, logPath, run) {
   const base = path.join(witnessRoot, document.id);
   const imageDir = path.join(base, 'images');
   const visionDir = path.join(base, 'vision');
-  await Promise.all([mkdir(imageDir, { recursive: true }), mkdir(visionDir, { recursive: true })]);
+  const passRoot = path.join(base, 'vision-passes');
+  const profile = visionWitnessPlan(document);
+  await Promise.all([
+    mkdir(imageDir, { recursive: true }),
+    mkdir(visionDir, { recursive: true }),
+    mkdir(passRoot, { recursive: true }),
+  ]);
   const rendered = [];
   const successPages = [];
   const failures = [];
@@ -1076,98 +1666,168 @@ async function renderVision(document, pages, pdfSha, logPath, run) {
   // Vision intermittently returns Foundation._GenericObjCError when invoked in
   // the same instant that Poppler closes a newly rendered PNG. A short bounded
   // settle keeps the independent witness deterministic without weakening it.
-  const attempts = new Map(rendered.map(({ page }) => [page, 1]));
-  const executionFailures = new Map();
-  const outputNotBefore = new Map();
   const renderedIdentities = new Map(await Promise.all(rendered.map(async ({ page, imagePath }) => {
     const [imageSha, imageInfo] = await Promise.all([sha256File(imagePath), stat(imagePath)]);
     return [page, { imageSha, imageBytes: imageInfo.size, imageMtimeMs: Math.trunc(imageInfo.mtimeMs) }];
   })));
+  const passResultsByPage = new Map(rendered.map(({ page }) => [page, new Map()]));
+  const passFailures = new Map();
+  const passAttempts = new Map();
+  let provenance = null;
   if (rendered.length) {
-    await interruptibleSleep(1500);
-    const batchStartedAt = Date.now();
-    for (const { page } of rendered) outputNotBefore.set(page, batchStartedAt);
     try {
-      await runLogged(
-        '/usr/bin/swift',
-        [path.join(root, 'scripts/vision-ocr-batch.swift'), '--output-dir', visionDir, ...rendered.map(({ imagePath }) => imagePath)],
-        logPath,
-        run,
-        'independent_apple_vision',
-        {},
-        [0],
-        { ...visionBatchLimits, activityPaths: [visionDir] },
-      );
+      provenance = await collectVisionEngineProvenance();
     } catch (error) {
       if (shutdownRequested) throw interruptedError();
-      for (const { page } of rendered) executionFailures.set(page, error);
+      throw error;
     }
-    throwIfInterrupted();
-  }
-
-  const failedIndexes = async () => {
-    const failed = [];
-    for (let index = 0; index < rendered.length; index += 1) {
-      const page = rendered[index].page;
-      const sidecarPath = path.join(visionDir, `page-${String(page).padStart(3, '0')}.json`);
-      const identity = renderedIdentities.get(page);
-      const record = await readFreshVisionOutput(sidecarPath, {
-        notBeforeMs: outputNotBefore.get(page),
-        file: `page-${String(page).padStart(3, '0')}.png`,
-        documentId: document.id,
-        page,
-        pdfSha,
-        imageSha: identity?.imageSha,
-      });
-      if (!record) failed.push(index);
-    }
-    return failed;
-  };
-
-  let failed = await failedIndexes();
-  for (const delay of [2000, 10000, 30000]) {
-    if (!failed.length) break;
-    await interruptibleSleep(delay);
-    for (const index of failed) {
+    await interruptibleSleep(1500);
+    for (const pass of profile.passes) {
       throwIfInterrupted();
-      const { page, imagePath } = rendered[index];
-      attempts.set(page, (attempts.get(page) || 1) + 1);
-      const sidecarPath = path.join(visionDir, `page-${String(page).padStart(3, '0')}.json`);
-      await discardVisionOutputs(sidecarPath);
-      outputNotBefore.set(page, Date.now());
+      const passDir = path.join(passRoot, pass.pass_id);
+      await mkdir(passDir, { recursive: true });
+      const attempts = new Map(rendered.map(({ page }) => [page, 1]));
+      const executionFailures = new Map();
+      const outputNotBefore = new Map();
+      passAttempts.set(pass.pass_id, attempts);
+      for (const { page } of rendered) {
+        await discardVisionOutputs(path.join(passDir, `page-${String(page).padStart(3, '0')}.json`));
+      }
+      const batchStartedAt = Date.now();
+      for (const { page } of rendered) outputNotBefore.set(page, batchStartedAt);
       try {
         await runLogged(
-          '/usr/bin/swift',
-          [path.join(root, 'scripts/vision-ocr-batch.swift'), '--output-dir', visionDir, imagePath],
+          process.execPath,
+          visionLauncherInvocationArgs({
+            outputDir: passDir,
+            languages: pass.languages,
+            imagePaths: rendered.map(({ imagePath }) => imagePath),
+          }),
           logPath,
           run,
-          'independent_apple_vision_page_retry',
+          `independent_apple_vision_${pass.pass_id.replaceAll('-', '_')}`,
           {},
           [0],
-          { ...visionPageRetryLimits, activityPaths: [visionDir] },
+          {
+            ...visionBatchLimits,
+            activityPaths: [passDir],
+            pipeOutput: true,
+            pipeBufferLimitBytes: visionPipeBufferLimitBytes,
+          },
         );
-        executionFailures.delete(page);
       } catch (error) {
         if (shutdownRequested) throw interruptedError();
-        executionFailures.set(page, error);
+        for (const { page } of rendered) executionFailures.set(page, error);
+      }
+      throwIfInterrupted();
+
+      const failedIndexes = async () => {
+        const failed = [];
+        for (let index = 0; index < rendered.length; index += 1) {
+          const page = rendered[index].page;
+          const sidecarPath = path.join(passDir, `page-${String(page).padStart(3, '0')}.json`);
+          const identity = renderedIdentities.get(page);
+          const record = await readFreshVisionOutput(sidecarPath, {
+            notBeforeMs: outputNotBefore.get(page),
+            file: `page-${String(page).padStart(3, '0')}.png`,
+            documentId: document.id,
+            page,
+            pdfSha,
+            imageSha: identity?.imageSha,
+          });
+          if (!record) failed.push(index);
+        }
+        return failed;
+      };
+
+      let failed = await failedIndexes();
+      for (const delay of [2000, 10000, 30000]) {
+        if (!failed.length) break;
+        await interruptibleSleep(delay);
+        for (const index of failed) {
+          throwIfInterrupted();
+          const { page, imagePath } = rendered[index];
+          attempts.set(page, (attempts.get(page) || 1) + 1);
+          const sidecarPath = path.join(passDir, `page-${String(page).padStart(3, '0')}.json`);
+          await discardVisionOutputs(sidecarPath);
+          outputNotBefore.set(page, Date.now());
+          try {
+            await runLogged(
+              process.execPath,
+              visionLauncherInvocationArgs({
+                outputDir: passDir,
+                languages: pass.languages,
+                imagePaths: [imagePath],
+              }),
+              logPath,
+              run,
+              `independent_apple_vision_page_retry_${pass.pass_id.replaceAll('-', '_')}`,
+              {},
+              [0],
+              {
+                ...visionPageRetryLimits,
+                activityPaths: [passDir],
+                pipeOutput: true,
+                pipeBufferLimitBytes: visionPipeBufferLimitBytes,
+              },
+            );
+            executionFailures.delete(page);
+          } catch (error) {
+            if (shutdownRequested) throw interruptedError();
+            executionFailures.set(page, error);
+          }
+        }
+        failed = await failedIndexes();
+      }
+
+      for (const { page } of rendered) {
+        const stem = `page-${String(page).padStart(3, '0')}`;
+        const sidecarPath = path.join(passDir, `${stem}.json`);
+        const textPath = path.join(passDir, `${stem}.txt`);
+        const identity = renderedIdentities.get(page);
+        const record = await readFreshVisionOutput(sidecarPath, {
+          notBeforeMs: outputNotBefore.get(page),
+          file: `${stem}.png`,
+          documentId: document.id,
+          page,
+          pdfSha,
+          imageSha: identity?.imageSha,
+        });
+        if (!record) {
+          passFailures.set(`${page}:${pass.pass_id}`, executionFailures.get(page)
+            || Object.assign(new Error(`missing, stale, or mismatched output for pass ${pass.pass_id}`), {
+              code: 'VISION_WITNESS_FAILED',
+            }));
+          continue;
+        }
+        try {
+          const [rawSidecarSha, rawTextSha] = await Promise.all([
+            sha256File(sidecarPath),
+            sha256File(textPath),
+          ]);
+          passResultsByPage.get(page).set(pass.pass_id, {
+            pass_id: pass.pass_id,
+            record,
+            raw_sidecar_file: path.relative(base, sidecarPath).split(path.sep).join('/'),
+            raw_sidecar_sha256: rawSidecarSha,
+            raw_text_file: path.relative(base, textPath).split(path.sep).join('/'),
+            raw_text_sha256: rawTextSha,
+            attempt_count: attempts.get(page),
+          });
+        } catch (error) {
+          passFailures.set(`${page}:${pass.pass_id}`, Object.assign(error, {
+            code: 'VISION_RAW_ARTIFACT_MISSING',
+          }));
+        }
       }
     }
-    failed = await failedIndexes();
   }
 
   for (const { page, imagePath: image } of rendered) {
     const sidecarPath = path.join(visionDir, `page-${String(page).padStart(3, '0')}.json`);
     const renderedIdentity = renderedIdentities.get(page);
-    const record = await readFreshVisionOutput(sidecarPath, {
-      notBeforeMs: outputNotBefore.get(page),
-      file: `page-${String(page).padStart(3, '0')}.png`,
-      documentId: document.id,
-      page,
-      pdfSha,
-      imageSha: renderedIdentity?.imageSha,
-    });
-    const imageSha = await sha256File(image);
-    const imageInfo = await stat(image);
+    const [imageSha, imageInfo] = await Promise.all([sha256File(image), stat(image)]);
+    const maximumAttempts = Math.max(1, ...profile.passes.map((pass) => passAttempts.get(pass.pass_id)?.get(page) || 1));
     if (renderedIdentity?.imageSha !== imageSha) {
       failures.push({
         page,
@@ -1175,50 +1835,64 @@ async function renderVision(document, pages, pdfSha, logPath, run) {
         code: 'VISION_IMAGE_CHANGED_DURING_RUN',
         name: 'VisionWitnessError',
         message: 'rendered image identity changed after Apple Vision invocation',
-        attempts: attempts.get(page),
+        attempts: maximumAttempts,
       });
       continue;
     }
-    if (!record) {
-      const executionFailure = executionFailures.get(page);
+    const results = [...(passResultsByPage.get(page)?.values() || [])];
+    const missingPass = profile.passes.find((pass) => !results.some((result) => result.pass_id === pass.pass_id));
+    if (missingPass) {
+      const passFailure = passFailures.get(`${page}:${missingPass.pass_id}`);
       failures.push({
         page,
         stage: 'vision',
-        code: executionFailure?.code || 'VISION_WITNESS_FAILED',
-        name: executionFailure?.name || 'VisionWitnessError',
-        message: executionFailure?.message || 'missing, stale, or mismatched sidecar from the current Vision attempt',
-        attempts: attempts.get(page),
+        code: passFailure?.code || 'VISION_REQUIRED_PASS_MISSING',
+        name: passFailure?.name || 'VisionWitnessError',
+        message: passFailure?.message || `required Apple Vision pass did not produce current evidence: ${missingPass.pass_id}`,
+        attempts: maximumAttempts,
+        pass_id: missingPass.pass_id,
       });
       continue;
     }
-    const enriched = {
-      ...record,
-      schema_version: 2,
-      document_id: document.id,
-      physical_pdf_page: page,
-      source_pdf_sha256: pdfSha,
-      rendered_image_sha256: imageSha,
-      rendered_image_bytes: imageInfo.size,
-      rendered_image_mtime_ms: Math.trunc(imageInfo.mtimeMs),
-      generated_at: nowIso(),
-      attempt_count: attempts.get(page),
-      recovered_after_retry: attempts.get(page) > 1,
-      engine: 'Apple Vision VNRecognizeTextRequest accurate zh-Hans+en-US',
-      engine_configuration: { recognition_level: 'accurate', languages: ['zh-Hans', 'en-US'], language_correction: true, minimum_text_height: 0.008, render_dpi: visionRenderDpi, renderer: 'MuPDF mutool 1.28.0' },
-      critical_fields: [],
-      citation_allowed: false,
-    };
-    if (!witnessRecordValid(enriched, { ...await witnessIdentity(document, page), imageSha })) {
-      failures.push({ page, stage: 'vision', code: 'VISION_IDENTITY_MISMATCH', name: 'VisionWitnessError', message: 'sidecar identity failed strict validation', attempts: attempts.get(page) });
+    let enriched;
+    try {
+      enriched = buildVisionWitnessSidecar({
+        document,
+        page,
+        pdfSha,
+        imageSha,
+        imageInfo,
+        profile,
+        passResults: results,
+        provenance,
+      });
+    } catch (error) {
+      failures.push({
+        page,
+        stage: 'vision',
+        code: error.code || 'VISION_WITNESS_ASSEMBLY_FAILED',
+        name: error.name || 'VisionWitnessError',
+        message: error.message,
+        attempts: maximumAttempts,
+        pass_id: error.pass_id || null,
+      });
       continue;
     }
+    if (!witnessRecordValid(enriched, { ...await witnessIdentity(document, page), imageSha })) {
+      failures.push({ page, stage: 'vision', code: 'VISION_IDENTITY_MISMATCH', name: 'VisionWitnessError', message: 'sidecar identity or language profile failed strict validation', attempts: maximumAttempts });
+      continue;
+    }
+    await writeFile(sidecarPath.replace(/\.json$/i, '.txt'), `${enriched.lines.map((line) => line.text).join('\n')}\n`);
     await atomicJson(sidecarPath, enriched);
     successPages.push(page);
   }
   return { imageDir, visionDir, successPages, failures };
 }
 
-async function preflight(document, { requirePrimaryRuntime = true } = {}) {
+async function preflight(document, {
+  requirePrimaryRuntime = true,
+  requireVisionRuntime = true,
+} = {}) {
   const disk = await statfs(root);
   const freeGiB = Number(disk.bavail * disk.bsize) / 1024 ** 3;
   if (freeGiB < 25) throw Object.assign(new Error(`Disk hard stop: ${freeGiB.toFixed(2)} GiB free`), { permanent: false, scope: 'global', code: 'DISK_HARD_STOP' });
@@ -1229,6 +1903,25 @@ async function preflight(document, { requirePrimaryRuntime = true } = {}) {
   const sourcePath = path.join(root, document.local_cache_path);
   if (!(await exists(sourcePath))) throw Object.assign(new Error(`Missing source PDF: ${sourcePath}`), { permanent: true, scope: 'document', code: 'SOURCE_FILE_MISSING' });
   const pdfSha = await sha256File(sourcePath);
+  let rendererSha = null;
+  if (requireVisionRuntime) {
+    const rendererInfo = await stat(rendererBinary).catch(() => null);
+    if (!rendererInfo?.isFile()) {
+      throw Object.assign(new Error(`Missing Apple Vision renderer: ${rendererBinary}`), {
+        permanent: true,
+        scope: 'global',
+        code: 'RENDERER_MISSING',
+      });
+    }
+    rendererSha = await sha256File(rendererBinary);
+    if (rendererSha !== expected.renderer_sha256) {
+      throw Object.assign(new Error('MuPDF renderer checksum mismatch'), {
+        permanent: true,
+        scope: 'global',
+        code: 'RENDERER_CHECKSUM_MISMATCH',
+      });
+    }
+  }
   const commit = requirePrimaryRuntime
     ? await runCapture('git', ['-C', llamaRepository, 'rev-parse', 'HEAD']).then((result) => result.stdout.trim())
     : null;
@@ -1238,6 +1931,7 @@ async function preflight(document, { requirePrimaryRuntime = true } = {}) {
     free_gib: freeGiB,
     model_sha256: null,
     mmproj_sha256: null,
+    renderer_sha256: rendererSha,
     source_pdf_sha256: pdfSha,
     llama_commit: commit,
     runtime_model_integrity: requirePrimaryRuntime ? 'pending_until_witness_passes' : 'not_required_for_audit_backfill',
@@ -1298,6 +1992,20 @@ async function clearPageFailures(documentId, page) {
   let changed = false;
   for (const key of Object.keys(records)) {
     if (key.startsWith(`${documentId}:${Number(page)}:`)) {
+      delete records[key];
+      changed = true;
+    }
+  }
+  if (changed) await atomicJson(pageRetriesPath, records);
+}
+
+async function clearEvidencePageFailures(documentId, page) {
+  const records = await readJson(pageRetriesPath, {});
+  let changed = false;
+  const prefix = `${documentId}:${Number(page)}:`;
+  for (const key of Object.keys(records)) {
+    const stage = key.startsWith(prefix) ? key.slice(prefix.length) : null;
+    if (stage && evidenceRetryStages.has(stage)) {
       delete records[key];
       changed = true;
     }
@@ -1420,7 +2128,7 @@ async function promoteConceptCandidate(runDirectory) {
   }
 }
 
-async function once() {
+async function once({ preselected = null, evidenceOnly = false } = {}) {
   shutdownRequested = false;
   const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
   let lockAcquired = false;
@@ -1442,13 +2150,16 @@ async function once() {
     await acquireLock(runId);
     lockAcquired = true;
     throwIfInterrupted();
-    selected = await nextBatch();
+    selected = preselected || await nextBatch();
     if (!selected) {
       const status = await collectStatus();
       console.log(JSON.stringify({ status: status.scheduler_state, health: status.health }));
-      return;
+      return { status: status.scheduler_state, selected: null, page_failures: [] };
     }
     const { document, pages, mode } = selected;
+    const executionPolicy = evidenceOnly
+      ? evidenceExecutionPolicy(mode)
+      : { ...ocrExecutionPolicy(mode), buildDerivedArtifacts: true };
     const logDir = path.join(supervisorRoot, 'logs', runId);
     await mkdir(logDir, { recursive: true });
     run = {
@@ -1462,6 +2173,7 @@ async function once() {
       heartbeat_at: nowIso(),
       stage: 'preflight',
       status: 'running',
+      evidence_only: evidenceOnly,
       owned_llama_pid: null,
       page_failures: [],
       audited_pages: [],
@@ -1473,8 +2185,10 @@ async function once() {
       },
     };
     await updateRun(run);
-    const executionPolicy = ocrExecutionPolicy(mode);
-    const checks = await preflight(document, { requirePrimaryRuntime: executionPolicy.runPrimaryOcr });
+    const checks = await preflight(document, {
+      requirePrimaryRuntime: executionPolicy.runPrimaryOcr,
+      requireVisionRuntime: executionPolicy.renderVision,
+    });
     throwIfInterrupted();
     run.preflight = checks;
     let witness;
@@ -1584,7 +2298,8 @@ async function once() {
       try {
         await runLogged('node', [path.join(root, 'scripts/audit-ocr-witnesses.mjs'), path.join(productionRoot, document.id, 'pages'), witness.visionDir, auditPath, String(page), String(page)], path.join(logDir, 'audit.log'), run, 'witness_audit');
         await copyFile(auditPath, path.join(productionRoot, document.id, auditName));
-        await clearPageFailures(document.id, page);
+        if (evidenceOnly) await clearEvidencePageFailures(document.id, page);
+        else await clearPageFailures(document.id, page);
         run.audited_pages.push(page);
       } catch (error) {
         if (shutdownRequested) throw interruptedError();
@@ -1606,7 +2321,7 @@ async function once() {
       throw paddleExecutionError;
     }
 
-    if (run.audited_pages.length) {
+    if (run.audited_pages.length && executionPolicy.buildDerivedArtifacts) {
       throwIfInterrupted();
       const conceptRunDirectory = path.join(candidateRunsRoot, runId);
       await mkdir(conceptRunDirectory, { recursive: true });
@@ -1635,6 +2350,13 @@ async function once() {
     await appendFile(historyPath, `${JSON.stringify({ ...run, preflight: { ...run.preflight, source_pdf_sha256: run.preflight.source_pdf_sha256 } })}\n`);
     console.log(JSON.stringify({ status: run.status, run_id: runId, mode, document_id: document.id, pages, audited_pages: run.audited_pages, page_failures: run.page_failures }));
     if (run.page_failures.length) process.exitCode = 10;
+    return {
+      status: run.status,
+      run_id: runId,
+      selection: selected,
+      audited_pages: [...run.audited_pages],
+      page_failures: [...run.page_failures],
+    };
   } catch (error) {
     if (run) {
       run.status = interrupted ? 'interrupted' : 'failed';
@@ -1653,7 +2375,246 @@ async function once() {
     process.removeListener('SIGINT', stop);
     process.removeListener('SIGTERM', stop);
     if (lockAcquired) await releaseLock(runId);
-    await collectStatus().catch(() => {});
+    if (!evidenceOnly) await collectStatus().catch(() => {});
+  }
+}
+
+async function evidenceScopeStateFingerprint(documents) {
+  return Object.fromEntries(await Promise.all(documents.map(async (document) => {
+    const statePath = path.join(productionRoot, document.id, 'state.json');
+    return [document.id, await sha256File(statePath).catch(() => null)];
+  })));
+}
+
+function evidenceScopeFingerprintMatches(left, right) {
+  return left && right
+    && Object.keys(left).length === Object.keys(right).length
+    && Object.entries(left).every(([documentId, sha]) => sha && right[documentId] === sha);
+}
+
+function scopedEvidenceRetries(records, documentIds) {
+  const allowed = new Set(documentIds);
+  return Object.entries(records || {}).filter(([key, record]) => {
+    const match = key.match(/^(.+):(\d+):([^:]+)$/);
+    return match
+      && allowed.has(match[1])
+      && evidenceRetryStages.has(match[3])
+      && (record?.quarantined || record?.next_retry_at || Number(record?.attempts || 0) > 0);
+  });
+}
+
+async function backfillEvidence() {
+  shutdownRequested = false;
+  const scope = await loadEvidenceScope();
+  const drainId = `evidence-${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
+  const stop = () => {
+    shutdownRequested = true;
+    if (activeStageChild?.exitCode === null) activeStageChild.kill('SIGTERM');
+  };
+  process.once('SIGINT', stop);
+  process.once('SIGTERM', stop);
+  const state = {
+    schema_version: 2,
+    command: 'backfill-evidence',
+    drain_id: drainId,
+    pid: process.pid,
+    batch_pages: batchPages,
+    status: 'running',
+    stage: 'starting',
+    started_at: nowIso(),
+    heartbeat_at: nowIso(),
+    scope: {
+      manifest_path: scope.manifest_path,
+      manifest_sha256: scope.manifest_sha256,
+      document_count: scope.documents.length,
+      document_ids: scope.document_ids,
+    },
+    batches_completed: 0,
+    pages_audited: 0,
+    retry_override: retryFailed || forceImmediateRecovery,
+    canary_required: false,
+    runtime_policy: {
+      apple_vision_only: true,
+      primary_ocr_disabled: true,
+      llama_disabled: true,
+      derived_artifacts_disabled: true,
+      source: 'evidence_drain_state',
+    },
+  };
+  const updateDrainState = async (changes = {}) => {
+    Object.assign(state, changes, { heartbeat_at: nowIso() });
+    await atomicJson(drainStatePath, state);
+  };
+  const finish = async (decision, details = {}) => {
+    const terminal = {
+      status: decision.status,
+      stage: decision.action === 'complete' ? 'complete' : 'stopped',
+      completed_at: decision.action === 'complete' ? nowIso() : undefined,
+      stopped_at: decision.action === 'stop' ? nowIso() : undefined,
+      result_code: decision.code,
+      ...details,
+    };
+    await updateDrainState(terminal);
+    console.log(JSON.stringify({
+      status: decision.action === 'complete' ? 'evidence_backfill_complete' : `evidence_${decision.status}`,
+      code: decision.code,
+      scope: state.scope,
+      batches_completed: state.batches_completed,
+      pages_audited: state.pages_audited,
+      ...details,
+    }));
+    if (decision.exitCode) process.exitCode = decision.exitCode;
+  };
+  let drainLockAcquired = false;
+  try {
+    await acquireDrainLock(drainId);
+    drainLockAcquired = true;
+    activeOwnedDrainId = drainId;
+    await updateDrainState();
+    const initialRetries = await readJson(pageRetriesPath, {});
+    const initialDisk = await statfs(root);
+    const initialFreeGiB = Number(initialDisk.bavail * initialDisk.bsize) / 1024 ** 3;
+    const diskDecision = evidenceDrainDecision({
+      selection: { mode: 'witness_backfill', pages: [] },
+      freeGiB: initialFreeGiB,
+    });
+    if (diskDecision.action === 'stop') {
+      await finish(diskDecision, { free_gib: Number(initialFreeGiB.toFixed(2)) });
+      return;
+    }
+    const unsafe = await inspectEvidenceScopePrimaryReadiness(scope.documents, {
+      pageRetryRecords: initialRetries,
+      deep: true,
+    });
+    const unsafeDecision = evidenceDrainDecision({ selection: unsafe, freeGiB: initialFreeGiB });
+    if (unsafeDecision.action === 'stop') {
+      await finish(unsafeDecision, {
+        blocked_mode: unsafe?.mode,
+        document_id: unsafe?.document?.id,
+        pages: unsafe?.pages || [],
+        reason: unsafe?.reason,
+      });
+      return;
+    }
+    let stateFingerprint = await evidenceScopeStateFingerprint(scope.documents);
+    let canaryRequired = (retryFailed || forceImmediateRecovery)
+      && scopedEvidenceRetries(initialRetries, scope.document_ids).length > 0;
+    await updateDrainState({
+      stage: canaryRequired ? 'canary_pending' : 'selecting_evidence',
+      canary_required: canaryRequired,
+      free_gib: Number(initialFreeGiB.toFixed(2)),
+    });
+    while (true) {
+      throwIfInterrupted();
+      const disk = await statfs(root);
+      const freeGiB = Number(disk.bavail * disk.bsize) / 1024 ** 3;
+      const currentFingerprint = await evidenceScopeStateFingerprint(scope.documents);
+      if (!evidenceScopeFingerprintMatches(stateFingerprint, currentFingerprint)) {
+        const decision = evidenceDrainDecision({
+          selection: { mode: 'primary_recovery', pages: [], reason: 'scope_state_changed' },
+          freeGiB,
+        });
+        await finish(decision, { reason: 'scope_state_changed_during_evidence_backfill' });
+        return;
+      }
+      const currentRetries = await readJson(pageRetriesPath, {});
+      const selection = await selectEvidenceBatch(scope.documents, {
+        limit: canaryRequired ? 1 : batchPages,
+        pageRetryRecords: currentRetries,
+        retryOverride: retryFailed || forceImmediateRecovery,
+        verifyPrimary: false,
+      });
+      let decision = evidenceDrainDecision({ selection, freeGiB });
+      if (decision.action === 'complete') {
+        const finalUnsafe = await inspectEvidenceScopePrimaryReadiness(scope.documents, {
+          pageRetryRecords: currentRetries,
+          deep: true,
+        });
+        decision = evidenceDrainDecision({ selection: finalUnsafe, freeGiB });
+        if (decision.action === 'complete') {
+          await finish(decision, { free_gib: Number(freeGiB.toFixed(2)) });
+          return;
+        }
+      }
+      if (decision.action === 'stop') {
+        await finish(decision, {
+          blocked_mode: selection?.mode,
+          document_id: selection?.document?.id,
+          pages: selection?.pages || [],
+          reason: selection?.reason,
+          free_gib: Number(freeGiB.toFixed(2)),
+        });
+        return;
+      }
+      await updateDrainState({
+        stage: canaryRequired ? 'running_canary' : 'running_evidence_batch',
+        canary_required: canaryRequired,
+        current_batch: {
+          mode: selection.mode,
+          document_id: selection.document.id,
+          pages: selection.pages,
+        },
+        free_gib: Number(freeGiB.toFixed(2)),
+      });
+      const outcome = await once({ preselected: selection, evidenceOnly: true });
+      decision = evidenceDrainDecision({
+        selection,
+        freeGiB,
+        pageFailures: outcome.page_failures,
+      });
+      if (decision.action === 'stop') {
+        await finish(decision, {
+          document_id: selection.document.id,
+          pages: selection.pages,
+          page_failures: outcome.page_failures,
+          canary_required: canaryRequired,
+          recovery_hint: 'rerun with --retry-failed or --force-immediate; the next recovery starts with one page',
+        });
+        return;
+      }
+      const wasCanary = canaryRequired;
+      state.batches_completed += 1;
+      state.pages_audited += outcome.audited_pages.length;
+      if (wasCanary) canaryRequired = false;
+      stateFingerprint = await evidenceScopeStateFingerprint(scope.documents);
+      await updateDrainState({
+        stage: 'between_evidence_batches',
+        canary_required: canaryRequired,
+        current_batch: null,
+        last_run_id: outcome.run_id,
+        last_document_id: selection.document.id,
+        last_pages: selection.pages,
+      });
+      console.log(JSON.stringify({
+        status: 'evidence_backfill_progress',
+        run_id: outcome.run_id,
+        mode: selection.mode,
+        document_id: selection.document.id,
+        pages: selection.pages,
+        pages_audited: outcome.audited_pages,
+        batches_completed: state.batches_completed,
+        canary_passed: wasCanary,
+      }));
+      await interruptibleSleep(1000);
+    }
+  } catch (error) {
+    const interrupted = shutdownRequested || error.exitCode === 130;
+    const decision = evidenceDrainDecision({ interrupted });
+    if (drainLockAcquired) {
+      await finish(interrupted ? decision : {
+        action: 'stop',
+        status: 'failed',
+        code: error.code || 'EVIDENCE_DRAIN_FAILED',
+        exitCode: error.exitCode || 10,
+      }, { error: error.message }).catch(() => {});
+      return;
+    }
+    throw error;
+  } finally {
+    if (drainLockAcquired) await releaseDrainLock(drainId).catch(() => {});
+    if (activeOwnedDrainId === drainId) activeOwnedDrainId = null;
+    process.removeListener('SIGINT', stop);
+    process.removeListener('SIGTERM', stop);
   }
 }
 
@@ -1797,10 +2758,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       await once();
     } else if (command === 'drain') {
       await drain();
+    } else if (command === 'backfill-evidence') {
+      await backfillEvidence();
     } else if (command === 'reconcile-runtime-retries') {
       console.log(JSON.stringify(await reconcileRuntimePageRetries({ apply: rawArgs.includes('--apply') }), null, 2));
     } else {
-      console.error(`usage: node scripts/ocr-supervisor.mjs <status|check|once|recover|drain|reconcile-runtime-retries> [--batch-pages 1-${maxBatchPages}] [--document ID] [--retry-failed] [--apply]`);
+      console.error(`usage: node scripts/ocr-supervisor.mjs <status|check|once|recover|drain|backfill-evidence|reconcile-runtime-retries> [--batch-pages 1-${maxBatchPages}] [--manifest PATH] [--document ID ...] [--retry-failed] [--force-immediate] [--apply]`);
       process.exitCode = 64;
     }
   } catch (error) {

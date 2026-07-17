@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/page-publication-manifest-v1.json",
+  "title": "Curriculum Atlas page publication manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy",
+    "documents"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "policy": {
+      "const": "fail_closed_page_publication_v1"
+    },
+    "documents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "document_id",
+          "source_artifact_sha256",
+          "acceptance_status",
+          "reviewed_by",
+          "reviewed_at",
+          "pages"
+        ],
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "source_artifact_sha256": {
+            "$ref": "#/$defs/sha256"
+          },
+          "acceptance_status": {
+            "const": "accepted_page_manifest"
+          },
+          "reviewed_by": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reviewed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "pages": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "page_number",
+                "source_page_sha256",
+                "final_text_sha256",
+                "evidence_bundle_sha256",
+                "stable_locator",
+                "review_status"
+              ],
+              "properties": {
+                "page_number": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "source_page_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "final_text_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "evidence_bundle_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "stable_locator": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "review_status": {
+                  "enum": [
+                    "accepted",
+                    "unresolved_fail_closed"
+                  ]
+                },
+                "display_allowed": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "citation_allowed": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "uncertainty_note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

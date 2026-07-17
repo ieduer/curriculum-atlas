@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "policy": "fail_closed_release_assets_v1",
+  "release_manifest_schema_version": 1,
+  "source_tree": {
+    "roots": [
+      "data",
+      "docs",
+      "migrations",
+      "ops",
+      "public",
+      "scripts",
+      "src",
+      "tests"
+    ],
+    "files": [
+      ".assetsignore",
+      ".env.example",
+      ".gitignore",
+      "CHANGELOG.md",
+      "CONTRIBUTING.md",
+      "LICENSE",
+      "README.md",
+      "SECURITY.md",
+      "package.json",
+      "package-lock.json",
+      "tsconfig.json",
+      "wrangler.jsonc"
+    ],
+    "excluded_paths": []
+  },
+  "release_governance": {
+    "downloads_receipt_source": "data/downloads-asset-audit-receipt.json",
+    "downloads_receipt_max_age_hours": 24,
+    "environment_evidence_source": "data/release-environment-evidence.json",
+    "environment_evidence_max_age_hours": 4
+  },
+  "data_inventory": {
+    "excluded_prefixes": [
+      "data/corpus-chunks"
+    ],
+    "allowed_dispositions": [
+      "r2_public_metadata",
+      "d1_build_input",
+      "static_build_input",
+      "quality_evidence_private",
+      "candidate_fail_closed",
+      "test_benchmark",
+      "release_governance_receipt"
+    ],
+    "files": [
+      { "path": "data/artifact-registry.json", "disposition": "r2_public_metadata", "consumers": ["asset_audit", "release_manifest"] },
+      { "path": "data/catalog.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "concept_builder", "d1_import"] },
+      { "path": "data/concept-evolution-quality.json", "disposition": "static_build_input", "consumers": ["concept_validator"] },
+      { "path": "data/concept-lexicon.json", "disposition": "static_build_input", "consumers": ["concept_builder"] },
+      { "path": "data/concept-model-v2.json", "disposition": "static_build_input", "consumers": ["concept_builder"] },
+      { "path": "data/concept-ontology.json", "disposition": "static_build_input", "consumers": ["concept_builder"] },
+      { "path": "data/document-sources.json", "disposition": "d1_build_input", "consumers": ["catalog_builder", "corpus_builder"] },
+      { "path": "data/downloads-asset-audit-receipt.json", "disposition": "release_governance_receipt", "consumers": ["release_manifest", "deploy_gate"] },
+      { "path": "data/ingest-manifest.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "source_manifest_api"] },
+      { "path": "data/local-compendia.json", "disposition": "d1_build_input", "consumers": ["catalog_builder"] },
+      { "path": "data/local-official-scans.json", "disposition": "d1_build_input", "consumers": ["catalog_builder", "ocr_queue_builder"] },
+      { "path": "data/ocr-benchmark-ground-truth.json", "disposition": "test_benchmark", "consumers": ["ocr_benchmark"] },
+      { "path": "data/ocr-benchmark-results.json", "disposition": "test_benchmark", "consumers": ["ocr_benchmark"] },
+      { "path": "data/ocr-page-furniture-approvals.json", "disposition": "candidate_fail_closed", "consumers": ["approval_validator"] },
+      { "path": "data/ocr-queue.json", "disposition": "r2_public_metadata", "consumers": ["ocr_supervisor", "concept_builder"] },
+      { "path": "data/ocr-review-legacy-chinese-0017-0020.json", "disposition": "candidate_fail_closed", "consumers": ["ocr_review"] },
+      { "path": "data/ocr-throughput-benchmark-results.json", "disposition": "test_benchmark", "consumers": ["ocr_benchmark"] },
+      { "path": "data/online-verification-samples.json", "disposition": "r2_public_metadata", "consumers": ["online_verification_validator"] },
+      { "path": "data/online-verification-standard.json", "disposition": "r2_public_metadata", "consumers": ["online_verification_validator"] },
+      { "path": "data/online-verification-validation.json", "disposition": "r2_public_metadata", "consumers": ["release_manifest"] },
+      { "path": "data/online-verification/r6-foreign-language-source-map.json", "disposition": "r2_public_metadata", "consumers": ["online_verification_validator"] },
+      { "path": "data/online-verification/r6-foreign-language-source-map.schema.json", "disposition": "r2_public_metadata", "consumers": ["online_verification_validator"] },
+      { "path": "data/online-verification/zh-compulsory-2022-claims.json", "disposition": "r2_public_metadata", "consumers": ["online_verification_validator"] },
+      { "path": "data/online-verification/zh-compulsory-2022-claims.schema.json", "disposition": "r2_public_metadata", "consumers": ["online_verification_validator"] },
+      { "path": "data/ontology-candidates/candidate-layer.schema.json", "disposition": "candidate_fail_closed", "consumers": ["ontology_candidate_validator"] },
+      { "path": "data/ontology-candidates/zh-compulsory-2022.json", "disposition": "candidate_fail_closed", "consumers": ["ontology_candidate_validator"] },
+      { "path": "data/page-publication-manifest.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "publication_gate"] },
+      { "path": "data/page-publication-manifest.schema.json", "disposition": "r2_public_metadata", "consumers": ["publication_gate"] },
+      { "path": "data/release-assets-policy.json", "disposition": "r2_public_metadata", "consumers": ["release_manifest"] },
+      { "path": "data/release-environment-evidence.json", "disposition": "r2_public_metadata", "consumers": ["release_manifest", "metadata_publisher"] },
+      { "path": "data/semantic-publication-policy.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "semantic_gate"] },
+      { "path": "data/semantic-publication-policy.schema.json", "disposition": "r2_public_metadata", "consumers": ["semantic_gate"] },
+      { "path": "data/subject-insights.json", "disposition": "d1_build_input", "consumers": ["corpus_builder", "concept_builder"] },
+      { "path": "data/supplemental-sources.json", "disposition": "d1_build_input", "consumers": ["catalog_builder"] }
+    ]
+  },
+  "graph_assets": [
+    {
+      "role": "concept_graph_core",
+      "source": "public/data/concept-evolution.json"
+    },
+    {
+      "role": "concept_graph_academic",
+      "source": "public/data/concept-evolution-academic.json"
+    }
+  ],
+  "static_assets": {
+    "source_root": "public",
+    "deploy_root": "dist"
+  },
+  "r2": {
+    "current_pointer_key": "release/current.json",
+    "release_prefix": "releases",
+    "buckets": {
+      "preview": "bdfz-curriculum-atlas-sources-preview",
+      "production": "bdfz-curriculum-atlas-sources"
+    },
+    "governed_source_files": [
+      "data/artifact-registry.json",
+      "data/catalog.json",
+      "data/ingest-manifest.json",
+      "data/ocr-queue.json",
+      "data/release-assets-policy.json",
+      "data/release-environment-evidence.json"
+    ],
+    "governed_source_prefixes": [
+      "data/online-verification",
+      "data/page-publication",
+      "data/semantic-publication"
+    ],
+    "objects": [
+      {
+        "role": "artifact_registry",
+        "source": "data/artifact-registry.json",
+        "key": "quality/artifact-registry.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "catalog",
+        "source": "data/catalog.json",
+        "key": "catalog/catalog.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "ingest_manifest",
+        "source": "data/ingest-manifest.json",
+        "key": "catalog/ingest-manifest.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "ocr_queue",
+        "source": "data/ocr-queue.json",
+        "key": "quality/ocr-queue.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "page_publication_manifest",
+        "source": "data/page-publication-manifest.json",
+        "key": "quality/page-publication-manifest.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "page_publication_schema",
+        "source": "data/page-publication-manifest.schema.json",
+        "key": "quality/page-publication-manifest.schema.json",
+        "content_type": "application/schema+json"
+      },
+      {
+        "role": "semantic_publication_policy",
+        "source": "data/semantic-publication-policy.json",
+        "key": "quality/semantic-publication-policy.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "semantic_publication_schema",
+        "source": "data/semantic-publication-policy.schema.json",
+        "key": "quality/semantic-publication-policy.schema.json",
+        "content_type": "application/schema+json"
+      },
+      {
+        "role": "online_verification_standard",
+        "source": "data/online-verification-standard.json",
+        "key": "quality/online-verification-standard.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "online_verification_validation",
+        "source": "data/online-verification-validation.json",
+        "key": "quality/online-verification-validation.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "online_verification_samples",
+        "source": "data/online-verification-samples.json",
+        "key": "quality/online-verification-samples.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "online_verification_r6_foreign_language_map",
+        "source": "data/online-verification/r6-foreign-language-source-map.json",
+        "key": "quality/online-verification/r6-foreign-language-source-map.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "online_verification_r6_foreign_language_schema",
+        "source": "data/online-verification/r6-foreign-language-source-map.schema.json",
+        "key": "quality/online-verification/r6-foreign-language-source-map.schema.json",
+        "content_type": "application/schema+json"
+      },
+      {
+        "role": "online_verification_zh_compulsory_2022_claims",
+        "source": "data/online-verification/zh-compulsory-2022-claims.json",
+        "key": "quality/online-verification/zh-compulsory-2022-claims.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "online_verification_zh_compulsory_2022_schema",
+        "source": "data/online-verification/zh-compulsory-2022-claims.schema.json",
+        "key": "quality/online-verification/zh-compulsory-2022-claims.schema.json",
+        "content_type": "application/schema+json"
+      },
+      {
+        "role": "release_assets_policy",
+        "source": "data/release-assets-policy.json",
+        "key": "release/release-assets-policy.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "release_environment_evidence",
+        "source": "data/release-environment-evidence.json",
+        "key": "release/release-environment-evidence.json",
+        "content_type": "application/json"
+      }
+    ]
+  },
+  "environment_snapshot": {
+    "required_migration": "0006_corpus_import_release.sql",
+    "required_r2_release_reader": "versioned_manifest_v1",
+    "local": {
+      "worker_revision": "working-tree-v9",
+      "worker_version_id": null,
+      "asset_git_commit": "$git_head",
+      "migration_state": "source_inventory_only",
+      "r2_release_reader": "versioned_manifest_v1",
+      "applied_migrations": null
+    }
+  }
+}

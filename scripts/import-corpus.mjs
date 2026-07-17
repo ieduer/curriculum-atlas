@@ -1,46 +1,537 @@
-import { readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { readdir, readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const args = new Map();
-for (let index = 2; index < process.argv.length; index += 1) {
-  const key = process.argv[index];
-  if (!key.startsWith('--')) throw new Error(`unexpected argument: ${key}`);
-  if (key === '--remote' || key === '--core-only') {
-    args.set(key.slice(2), true);
-    continue;
-  }
-  const value = process.argv[index + 1];
-  if (!value || value.startsWith('--')) throw new Error(`missing value for ${key}`);
-  args.set(key.slice(2), value);
-  index += 1;
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const RELEASE_ID_PATTERN = /^corpus-[a-f0-9]{24}$/;
+export const CORE_TABLE_COUNT_KEYS = [
+  'subjects',
+  'periods',
+  'document_relations',
+  'chapters',
+  'document_classifications',
+  'document_sources',
+  'primary_document_sources',
+  'subject_insights',
+  'terms',
+  'term_relations',
+  'version_diffs',
+  'online_verifications',
+  'online_evidence',
+];
+const LEGACY_ZERO_CORE_TABLES = new Set([
+  'subjects',
+  'document_relations',
+  'chapters',
+  'version_diffs',
+]);
+
+function sql(value) {
+  if (value === null || value === undefined) return 'NULL';
+  if (typeof value === 'number') return String(value);
+  return `'${String(value).replaceAll("'", "''")}'`;
 }
 
-const database = String(args.get('database') || '');
-if (!database) throw new Error('--database is required');
-if (!args.get('remote')) throw new Error('refusing remote mutation without explicit --remote');
-const environment = String(args.get('env') || '');
-const from = Math.max(0, Number(args.get('from') || 0));
-const to = Math.max(from, Number(args.get('to') || Number.MAX_SAFE_INTEGER));
-const root = new URL('../', import.meta.url);
-const directory = new URL('data/corpus-chunks/', root);
-let files = (await readdir(directory))
-  .filter((name) => /^\d{3}-(?:core|paragraphs)\.sql$/.test(name))
-  .sort();
-if (args.get('core-only')) files = files.filter((name) => name.startsWith('000-'));
-files = files.filter((name) => {
-  const index = Number(name.slice(0, 3));
-  return index >= from && index <= to;
-});
-if (!files.length) throw new Error('no corpus SQL files selected');
+export function buildParagraphIdentityGuardSql(rows, chunkName) {
+  if (rows.length === 0) return '';
+  const guardKey = `paragraph_identity:${chunkName}`;
+  const values = rows.map((row) => `(${[
+    row.document_id,
+    row.ordinal,
+    row.page_number,
+    row.heading,
+    row.source_locator,
+    row.body_sha256,
+    row.provenance_locator,
+  ].map(sql).join(',')})`).join(',\n    ');
+  return `DELETE FROM corpus_import_guards WHERE guard_key=${sql(guardKey)};
+WITH incoming(document_id,ordinal,page_number,heading,source_locator,body_sha256,provenance_locator) AS (
+  VALUES ${values}
+)
+INSERT INTO corpus_import_guards(guard_key,ok)
+SELECT ${sql(guardKey)},CASE WHEN NOT EXISTS(
+  SELECT 1 FROM incoming i
+  JOIN paragraphs p ON p.document_id=i.document_id AND p.ordinal=i.ordinal
+  WHERE (
+       EXISTS(SELECT 1 FROM comments c WHERE c.paragraph_id=p.id)
+    OR EXISTS(SELECT 1 FROM online_verifications v WHERE v.paragraph_id=p.id)
+  ) AND (p.page_number IS NOT i.page_number
+     OR p.heading IS NOT i.heading
+     OR p.source_locator IS NOT i.source_locator
+     OR p.body_sha256 IS NOT i.body_sha256
+     OR p.provenance_locator IS NOT i.provenance_locator)
+) THEN 1 ELSE 0 END;
+DELETE FROM corpus_import_guards WHERE guard_key=${sql(guardKey)};`;
+}
 
-for (const [position, file] of files.entries()) {
+function nonNegativeInteger(value, label) {
+  if (!Number.isInteger(value) || value < 0) throw new Error(`${label} must be a non-negative integer`);
+  return value;
+}
+
+function sha256Asset(value, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object`);
+  const sha256 = String(value.sha256 || '');
+  if (!SHA256_PATTERN.test(sha256)) throw new Error(`${label}.sha256 is invalid`);
+  const bytes = nonNegativeInteger(value.bytes, `${label}.bytes`);
+  if (bytes === 0) throw new Error(`${label}.bytes must be positive`);
+  return { sha256, bytes };
+}
+
+function validateTextAssets(value, count) {
+  if (!Array.isArray(value) || value.length !== count) {
+    throw new Error(`text_assets must contain exactly ${count} records`);
+  }
+  const ids = new Set();
+  return value.map((entry, index) => {
+    const label = `text_assets[${index}]`;
+    const documentId = String(entry?.document_id || '');
+    if (!documentId || documentId.length > 160 || /[/\\\0]/.test(documentId)) {
+      throw new Error(`${label}.document_id is invalid`);
+    }
+    if (ids.has(documentId)) throw new Error(`text_assets contains duplicate document_id: ${documentId}`);
+    ids.add(documentId);
+    return { document_id: documentId, ...sha256Asset(entry, label) };
+  });
+}
+
+function validateSqlFiles(value, count) {
+  if (!Array.isArray(value) || value.length !== count || count < 1) {
+    throw new Error(`sql_files must contain exactly ${count} records`);
+  }
+  return value.map((entry, index) => {
+    const expectedName = index === 0
+      ? '000-core.sql'
+      : `${String(index).padStart(3, '0')}-paragraphs.sql`;
+    const name = String(entry?.name || '');
+    if (name !== expectedName) throw new Error(`sql_files[${index}].name must equal ${expectedName}`);
+    return { name, ...sha256Asset(entry, `sql_files[${index}]`) };
+  });
+}
+
+function validateCoreTableCounts(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('core_table_counts must be an object');
+  }
+  const actualKeys = Object.keys(value);
+  if (actualKeys.length !== CORE_TABLE_COUNT_KEYS.length
+      || CORE_TABLE_COUNT_KEYS.some((key) => !Object.hasOwn(value, key))) {
+    throw new Error(`core_table_counts must contain exactly: ${CORE_TABLE_COUNT_KEYS.join(', ')}`);
+  }
+  const counts = {};
+  for (const key of CORE_TABLE_COUNT_KEYS) {
+    counts[key] = nonNegativeInteger(value[key], `core_table_counts.${key}`);
+    if (LEGACY_ZERO_CORE_TABLES.has(key) && counts[key] !== 0) {
+      throw new Error(`core_table_counts.${key} must equal 0`);
+    }
+  }
+  return counts;
+}
+
+export function validateCorpusManifest(value, sqlFileCount = null) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('corpus manifest must be an object');
+  if (value.schema_version !== 1) throw new Error('corpus manifest schema_version must equal 1');
+  if (!RELEASE_ID_PATTERN.test(String(value.release_id || ''))) throw new Error('corpus manifest release_id is invalid');
+  if (!SHA256_PATTERN.test(String(value.release_fingerprint_sha256 || ''))) {
+    throw new Error('corpus manifest release_fingerprint_sha256 is invalid');
+  }
+  if (!SHA256_PATTERN.test(String(value.manifest_sha256 || ''))) throw new Error('corpus manifest manifest_sha256 is invalid');
+  const releaseFingerprint = String(value.release_fingerprint_sha256);
+  if (value.release_id !== `corpus-${releaseFingerprint.slice(0, 24)}`) {
+    throw new Error('corpus manifest release_id does not match release fingerprint');
+  }
+  const textAssetCount = nonNegativeInteger(value.text_asset_count, 'text_asset_count');
+  const sqlChunks = nonNegativeInteger(value.sql_chunks, 'sql_chunks');
+  const manifest = {
+    schema_version: 1,
+    release_id: value.release_id,
+    release_fingerprint_sha256: releaseFingerprint,
+    documents: nonNegativeInteger(value.documents, 'documents'),
+    paragraphs: nonNegativeInteger(value.paragraphs, 'paragraphs'),
+    fts_rows: nonNegativeInteger(value.fts_rows, 'fts_rows'),
+    page_publication_gates: nonNegativeInteger(value.page_publication_gates, 'page_publication_gates'),
+    displayed_paragraphs: nonNegativeInteger(value.displayed_paragraphs, 'displayed_paragraphs'),
+    accepted_ocr_documents: nonNegativeInteger(value.accepted_ocr_documents, 'accepted_ocr_documents'),
+    core_table_counts: validateCoreTableCounts(value.core_table_counts),
+    text_asset_count: textAssetCount,
+    text_assets: validateTextAssets(value.text_assets, textAssetCount),
+    sql_chunks: sqlChunks,
+    sql_files: validateSqlFiles(value.sql_files, sqlChunks),
+  };
+  if (manifest.fts_rows !== manifest.paragraphs) throw new Error('fts_rows must equal paragraphs');
+  if (manifest.displayed_paragraphs > manifest.paragraphs) {
+    throw new Error('displayed_paragraphs cannot exceed paragraphs');
+  }
+  if (sqlFileCount !== null && manifest.sql_chunks !== sqlFileCount) {
+    throw new Error(`corpus manifest expects ${manifest.sql_chunks} SQL chunks but found ${sqlFileCount}`);
+  }
+  const actualManifestSha256 = createHash('sha256').update(JSON.stringify(manifest)).digest('hex');
+  if (actualManifestSha256 !== value.manifest_sha256) throw new Error('corpus manifest hash mismatch');
+  return { ...manifest, manifest_sha256: value.manifest_sha256 };
+}
+
+function coreCountsJsonSql(releaseId) {
+  return `json_object(
+    'subjects',(SELECT COUNT(*) FROM subjects),
+    'periods',(SELECT COUNT(*) FROM periods),
+    'document_relations',(SELECT COUNT(*) FROM document_relations),
+    'chapters',(SELECT COUNT(*) FROM chapters),
+    'document_classifications',(SELECT COUNT(*) FROM document_classifications dc JOIN documents d ON d.id=dc.document_id WHERE d.corpus_release_id=${releaseId}),
+    'document_sources',(SELECT COUNT(*) FROM document_sources ds JOIN documents d ON d.id=ds.document_id WHERE d.corpus_release_id=${releaseId}),
+    'primary_document_sources',(SELECT COUNT(*) FROM document_sources ds JOIN documents d ON d.id=ds.document_id WHERE d.corpus_release_id=${releaseId} AND ds.is_primary=1),
+    'subject_insights',(SELECT COUNT(*) FROM subject_insights),
+    'terms',(SELECT COUNT(*) FROM terms),
+    'term_relations',(SELECT COUNT(*) FROM term_relations),
+    'version_diffs',(SELECT COUNT(*) FROM version_diffs),
+    'online_verifications',(SELECT COUNT(*) FROM online_verifications ov WHERE ov.corpus_release_id=${releaseId}),
+    'online_evidence',(SELECT COUNT(*) FROM online_evidence oe JOIN online_verifications ov ON ov.id=oe.verification_id WHERE ov.corpus_release_id=${releaseId})
+  )`;
+}
+
+function coreCountChecks(manifest, releaseId) {
+  const counts = manifest.core_table_counts;
+  return [
+    `(SELECT COUNT(*) FROM subjects)=${counts.subjects}`,
+    `(SELECT COUNT(*) FROM periods)=${counts.periods}`,
+    `(SELECT COUNT(*) FROM document_relations)=${counts.document_relations}`,
+    `(SELECT COUNT(*) FROM chapters)=${counts.chapters}`,
+    `(SELECT COUNT(*) FROM document_classifications dc JOIN documents d ON d.id=dc.document_id WHERE d.corpus_release_id=${releaseId})=${counts.document_classifications}`,
+    `(SELECT COUNT(*) FROM document_sources ds JOIN documents d ON d.id=ds.document_id WHERE d.corpus_release_id=${releaseId})=${counts.document_sources}`,
+    `(SELECT COUNT(*) FROM document_sources ds JOIN documents d ON d.id=ds.document_id WHERE d.corpus_release_id=${releaseId} AND ds.is_primary=1)=${counts.primary_document_sources}`,
+    `(SELECT COUNT(*) FROM subject_insights)=${counts.subject_insights}`,
+    `(SELECT COUNT(*) FROM terms)=${counts.terms}`,
+    `(SELECT COUNT(*) FROM term_relations)=${counts.term_relations}`,
+    `(SELECT COUNT(*) FROM version_diffs)=${counts.version_diffs}`,
+    `(SELECT COUNT(*) FROM online_verifications ov WHERE ov.corpus_release_id=${releaseId})=${counts.online_verifications}`,
+    `(SELECT COUNT(*) FROM online_evidence oe JOIN online_verifications ov ON ov.id=oe.verification_id WHERE ov.corpus_release_id=${releaseId})=${counts.online_evidence}`,
+  ];
+}
+
+export async function verifyCorpusSqlFiles(manifestInput, directory) {
+  const manifest = validateCorpusManifest(manifestInput);
+  const actualNames = (await readdir(directory))
+    .filter((name) => /^\d{3}-(?:core|paragraphs)\.sql$/.test(name))
+    .sort();
+  const expectedNames = manifest.sql_files.map((entry) => entry.name);
+  if (JSON.stringify(actualNames) !== JSON.stringify(expectedNames)) {
+    throw new Error('corpus SQL file set does not match manifest');
+  }
+  for (const expected of manifest.sql_files) {
+    const content = await readFile(new URL(expected.name, directory));
+    const actual = {
+      bytes: content.byteLength,
+      sha256: createHash('sha256').update(content).digest('hex'),
+    };
+    if (actual.bytes !== expected.bytes || actual.sha256 !== expected.sha256) {
+      throw new Error(`corpus SQL file integrity mismatch: ${expected.name}`);
+    }
+  }
+  return manifest;
+}
+
+export function buildCorpusImportStartSql(manifestInput, { resume = false } = {}) {
+  const manifest = validateCorpusManifest(manifestInput);
+  const expectedCoreCountsJson = JSON.stringify(manifest.core_table_counts);
+  const resumeGuard = resume
+    ? `AND EXISTS(
+  SELECT 1 FROM corpus_import_releases
+  WHERE release_id=${sql(manifest.release_id)}
+    AND release_fingerprint_sha256=${sql(manifest.release_fingerprint_sha256)}
+    AND manifest_sha256=${sql(manifest.manifest_sha256)}
+    AND state IN ('in_progress','failed')
+)`
+    : '';
+  const resetReceipts = resume
+    ? ''
+    : `DELETE FROM corpus_import_chunks WHERE release_id=${sql(manifest.release_id)};\n`;
+  return `DELETE FROM corpus_import_guards WHERE guard_key='start';
+INSERT INTO corpus_import_guards(guard_key,ok)
+SELECT 'start',CASE WHEN NOT EXISTS(
+  SELECT 1 FROM corpus_import_releases
+  WHERE state = 'in_progress' AND release_id != ${sql(manifest.release_id)}
+)
+AND (SELECT COUNT(*) FROM subjects)=0
+AND (SELECT COUNT(*) FROM periods)=${manifest.core_table_counts.periods}
+AND (SELECT COUNT(*) FROM document_relations)=0
+AND (SELECT COUNT(*) FROM chapters)=0
+AND (SELECT COUNT(*) FROM version_diffs)=0
+${resumeGuard}
+THEN 1 ELSE 0 END;
+INSERT INTO corpus_import_releases(
+  release_id,release_fingerprint_sha256,manifest_sha256,state,expected_documents,expected_paragraphs,
+  expected_fts_rows,expected_page_gates,expected_displayed_paragraphs,accepted_ocr_documents,
+  expected_chunks,expected_core_counts_json,actual_documents,actual_paragraphs,actual_fts_rows,actual_page_gates,actual_displayed_paragraphs,actual_chunks,actual_core_counts_json,
+  started_at,updated_at,ready_at,failure_reason
+) VALUES(${[
+    manifest.release_id, manifest.release_fingerprint_sha256, manifest.manifest_sha256, 'in_progress', manifest.documents,
+    manifest.paragraphs, manifest.fts_rows, manifest.page_publication_gates,
+    manifest.displayed_paragraphs, manifest.accepted_ocr_documents, manifest.sql_chunks, expectedCoreCountsJson,
+  ].map(sql).join(',')},NULL,NULL,NULL,NULL,NULL,NULL,NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL,NULL)
+ON CONFLICT(release_id) DO UPDATE SET
+  release_fingerprint_sha256=excluded.release_fingerprint_sha256,
+  manifest_sha256=excluded.manifest_sha256,
+  state='in_progress',
+  expected_documents=excluded.expected_documents,
+  expected_paragraphs=excluded.expected_paragraphs,
+  expected_fts_rows=excluded.expected_fts_rows,
+  expected_page_gates=excluded.expected_page_gates,
+  expected_displayed_paragraphs=excluded.expected_displayed_paragraphs,
+  accepted_ocr_documents=excluded.accepted_ocr_documents,
+  expected_chunks=excluded.expected_chunks,
+  expected_core_counts_json=excluded.expected_core_counts_json,
+  actual_documents=NULL,actual_paragraphs=NULL,actual_fts_rows=NULL,
+  actual_page_gates=NULL,actual_displayed_paragraphs=NULL,actual_chunks=NULL,
+  actual_core_counts_json=NULL,
+  updated_at=CURRENT_TIMESTAMP,ready_at=NULL,failure_reason=NULL;
+${resetReceipts}INSERT INTO site_meta(key,value) VALUES('corpus_import_state','in_progress')
+  ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;
+INSERT INTO site_meta(key,value) VALUES('current_corpus_release_id',${sql(manifest.release_id)})
+  ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;
+INSERT INTO site_meta(key,value) VALUES('current_corpus_manifest_sha256',${sql(manifest.manifest_sha256)})
+  ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;
+DELETE FROM corpus_import_guards WHERE guard_key='start';`;
+}
+
+export function buildCorpusChunkReceiptSql(manifestInput, chunkName) {
+  const manifest = validateCorpusManifest(manifestInput);
+  const chunk = manifest.sql_files.find((entry) => entry.name === chunkName);
+  if (!chunk) throw new Error(`chunk is not declared by corpus manifest: ${chunkName}`);
+  return `INSERT INTO corpus_import_chunks(release_id,chunk_name,chunk_sha256,chunk_bytes,imported_at)
+VALUES(${sql(manifest.release_id)},${sql(chunk.name)},${sql(chunk.sha256)},${sql(chunk.bytes)},CURRENT_TIMESTAMP)
+ON CONFLICT(release_id,chunk_name) DO UPDATE SET
+  chunk_sha256=excluded.chunk_sha256,chunk_bytes=excluded.chunk_bytes,imported_at=CURRENT_TIMESTAMP;`;
+}
+
+export function buildCorpusImportFailureSql(manifestInput, reason = 'corpus_import_failed') {
+  const manifest = validateCorpusManifest(manifestInput);
+  const safeReason = String(reason).slice(0, 240);
+  return `UPDATE corpus_import_releases
+SET state='failed',failure_reason=${sql(safeReason)},updated_at=CURRENT_TIMESTAMP
+WHERE release_id=${sql(manifest.release_id)};
+UPDATE site_meta SET value='failed',updated_at=CURRENT_TIMESTAMP
+WHERE key='corpus_import_state'
+  AND (SELECT value FROM site_meta WHERE key='current_corpus_release_id')=${sql(manifest.release_id)};`;
+}
+
+export function buildCorpusImportFinalizeSql(manifestInput) {
+  const manifest = validateCorpusManifest(manifestInput);
+  const releaseId = sql(manifest.release_id);
+  const manifestSha256 = sql(manifest.manifest_sha256);
+  const chunkValues = manifest.sql_files.map((chunk) => `(${[
+    chunk.name, chunk.sha256, chunk.bytes,
+  ].map(sql).join(',')})`).join(',\n    ');
+  const coreChecks = coreCountChecks(manifest, releaseId).map((check) => `  AND ${check}`).join('\n');
+  return `DELETE FROM corpus_import_guards WHERE guard_key='finalize';
+INSERT INTO corpus_import_guards(guard_key,ok)
+SELECT 'finalize',CASE WHEN
+  (SELECT value FROM site_meta WHERE key='corpus_import_state')='in_progress'
+  AND (SELECT value FROM site_meta WHERE key='current_corpus_release_id')=${releaseId}
+  AND (SELECT value FROM site_meta WHERE key='current_corpus_manifest_sha256')=${manifestSha256}
+  AND EXISTS(
+    SELECT 1 FROM corpus_import_releases
+    WHERE release_id=${releaseId}
+      AND release_fingerprint_sha256=${sql(manifest.release_fingerprint_sha256)}
+      AND manifest_sha256=${manifestSha256} AND state='in_progress'
+  )
+THEN 1 ELSE 0 END;
+
+UPDATE paragraphs SET display_allowed=0,citation_allowed=0
+WHERE corpus_release_id IS NULL OR corpus_release_id != ${releaseId};
+DELETE FROM paragraph_fts
+WHERE paragraph_id IN (
+  SELECT id FROM paragraphs WHERE corpus_release_id IS NULL OR corpus_release_id != ${releaseId}
+);
+DELETE FROM paragraphs
+WHERE (corpus_release_id IS NULL OR corpus_release_id != ${releaseId})
+  AND NOT EXISTS (SELECT 1 FROM comments WHERE comments.paragraph_id=paragraphs.id)
+  AND NOT EXISTS (SELECT 1 FROM online_verifications WHERE online_verifications.paragraph_id=paragraphs.id);
+DELETE FROM page_publication_gates
+WHERE corpus_release_id IS NULL OR corpus_release_id != ${releaseId};
+UPDATE documents SET citation_allowed=0
+WHERE corpus_release_id IS NULL OR corpus_release_id != ${releaseId};
+UPDATE online_verifications SET citation_allowed=0
+WHERE corpus_release_id IS NULL OR corpus_release_id != ${releaseId};
+DELETE FROM online_verifications
+WHERE (corpus_release_id IS NULL OR corpus_release_id != ${releaseId})
+  AND paragraph_id IS NULL;
+
+DELETE FROM corpus_import_guards WHERE guard_key='finalize';
+WITH expected_chunks(chunk_name,chunk_sha256,chunk_bytes) AS (
+  VALUES ${chunkValues}
+)
+INSERT INTO corpus_import_guards(guard_key,ok)
+SELECT 'finalize',CASE WHEN
+  (SELECT COUNT(*) FROM documents WHERE corpus_release_id=${releaseId})=${manifest.documents}
+  AND (SELECT COUNT(*) FROM paragraphs WHERE corpus_release_id=${releaseId})=${manifest.paragraphs}
+  AND (SELECT COUNT(*) FROM paragraph_fts)=${manifest.fts_rows}
+  AND (SELECT COUNT(*) FROM page_publication_gates WHERE corpus_release_id=${releaseId})=${manifest.page_publication_gates}
+  AND (SELECT COUNT(*) FROM page_publication_gates)=${manifest.page_publication_gates}
+  AND (SELECT COUNT(*) FROM paragraphs WHERE corpus_release_id=${releaseId} AND display_allowed=1)=${manifest.displayed_paragraphs}
+  AND (SELECT COUNT(DISTINCT document_id) FROM page_publication_gates
+       WHERE corpus_release_id=${releaseId} AND publication_basis='accepted_ocr_page_manifest')=${manifest.accepted_ocr_documents}
+  AND (SELECT COUNT(*) FROM corpus_import_chunks WHERE release_id=${releaseId})=${manifest.sql_chunks}
+  AND (SELECT COUNT(*) FROM expected_chunks e
+       JOIN corpus_import_chunks c
+         ON c.release_id=${releaseId} AND c.chunk_name=e.chunk_name
+        AND c.chunk_sha256=e.chunk_sha256 AND c.chunk_bytes=e.chunk_bytes)=${manifest.sql_chunks}
+${coreChecks}
+  AND NOT EXISTS(
+    SELECT 1 FROM paragraphs p
+    LEFT JOIN documents d ON d.id=p.document_id AND d.corpus_release_id=${releaseId}
+    WHERE p.corpus_release_id=${releaseId} AND d.id IS NULL
+  )
+  AND NOT EXISTS(
+    SELECT 1 FROM documents d
+    LEFT JOIN document_classifications dc ON dc.document_id=d.id
+    WHERE d.corpus_release_id=${releaseId} AND dc.document_id IS NULL
+  )
+  AND NOT EXISTS(
+    SELECT 1 FROM documents d
+    LEFT JOIN document_sources ds ON ds.document_id=d.id AND ds.is_primary=1
+    WHERE d.corpus_release_id=${releaseId}
+    GROUP BY d.id HAVING COUNT(ds.id)=0
+  )
+  AND NOT EXISTS(
+    SELECT 1 FROM paragraphs p
+    LEFT JOIN page_publication_gates g
+      ON g.document_id=p.document_id AND g.page_number=p.page_number AND g.corpus_release_id=${releaseId}
+    WHERE p.corpus_release_id=${releaseId}
+      AND (g.document_id IS NULL OR p.display_allowed!=g.display_allowed OR p.citation_allowed!=g.citation_allowed)
+  )
+  AND NOT EXISTS(
+    SELECT 1 FROM paragraphs p
+    JOIN documents d ON d.id=p.document_id
+    WHERE p.corpus_release_id=${releaseId}
+      AND (p.citation_allowed>p.display_allowed OR (p.citation_allowed=1 AND d.citation_allowed=0))
+  )
+  AND NOT EXISTS(
+    SELECT 1 FROM paragraphs p
+    LEFT JOIN paragraph_fts f ON f.paragraph_id=p.id
+    WHERE p.corpus_release_id=${releaseId}
+    GROUP BY p.id HAVING COUNT(f.paragraph_id)!=1
+  )
+  AND NOT EXISTS(
+    SELECT 1 FROM paragraph_fts f
+    LEFT JOIN paragraphs p ON p.id=f.paragraph_id AND p.corpus_release_id=${releaseId}
+    WHERE p.id IS NULL
+  )
+THEN 1 ELSE 0 END;
+
+UPDATE corpus_import_releases SET
+  state='ready',
+  actual_documents=(SELECT COUNT(*) FROM documents WHERE corpus_release_id=${releaseId}),
+  actual_paragraphs=(SELECT COUNT(*) FROM paragraphs WHERE corpus_release_id=${releaseId}),
+  actual_fts_rows=(SELECT COUNT(*) FROM paragraph_fts),
+  actual_page_gates=(SELECT COUNT(*) FROM page_publication_gates WHERE corpus_release_id=${releaseId}),
+  actual_displayed_paragraphs=(SELECT COUNT(*) FROM paragraphs WHERE corpus_release_id=${releaseId} AND display_allowed=1),
+  actual_chunks=(SELECT COUNT(*) FROM corpus_import_chunks WHERE release_id=${releaseId}),
+  actual_core_counts_json=${coreCountsJsonSql(releaseId)},
+  updated_at=CURRENT_TIMESTAMP,ready_at=CURRENT_TIMESTAMP,failure_reason=NULL
+WHERE release_id=${releaseId};
+INSERT INTO site_meta(key,value) VALUES('accepted_ocr_document_count',${sql(String(manifest.accepted_ocr_documents))})
+  ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;
+UPDATE site_meta SET value='ready',updated_at=CURRENT_TIMESTAMP WHERE key='corpus_import_state';
+DELETE FROM corpus_import_guards WHERE guard_key='finalize';`;
+}
+
+function parseArgs(argv) {
+  const args = new Map();
+  for (let index = 0; index < argv.length; index += 1) {
+    const key = argv[index];
+    if (!key.startsWith('--')) throw new Error(`unexpected argument: ${key}`);
+    if (key === '--remote' || key === '--core-only') {
+      args.set(key.slice(2), true);
+      continue;
+    }
+    const value = argv[index + 1];
+    if (!value || value.startsWith('--')) throw new Error(`missing value for ${key}`);
+    args.set(key.slice(2), value);
+    index += 1;
+  }
+  return args;
+}
+
+function runWrangler(root, database, environment, commandArgs, stdio = 'inherit') {
   const command = ['wrangler', 'd1', 'execute', database];
   if (environment) command.push('--env', environment);
-  command.push('--remote', '--file', new URL(file, directory).pathname);
-  process.stdout.write(`[${position + 1}/${files.length}] ${file}\n`);
-  const result = spawnSync('npx', command, { cwd: root.pathname, stdio: 'inherit' });
-  if (result.status !== 0) {
-    process.stderr.write(`import stopped at ${file}; rerun with --from ${file.slice(0, 3)}\n`);
-    process.exit(result.status || 1);
-  }
+  command.push('--remote', ...commandArgs);
+  return spawnSync('npx', command, { cwd: root.pathname, stdio });
 }
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const database = String(args.get('database') || '');
+  if (!database) throw new Error('--database is required');
+  if (!args.get('remote')) throw new Error('refusing remote mutation without explicit --remote');
+  const environment = String(args.get('env') || '');
+  const from = Math.max(0, Number(args.get('from') || 0));
+  const to = Math.max(from, Number(args.get('to') || Number.MAX_SAFE_INTEGER));
+  const root = new URL('../', import.meta.url);
+  const directory = new URL('data/corpus-chunks/', root);
+  const allFiles = (await readdir(directory))
+    .filter((name) => /^\d{3}-(?:core|paragraphs)\.sql$/.test(name))
+    .sort();
+  const manifest = await verifyCorpusSqlFiles(
+    validateCorpusManifest(
+      JSON.parse(await readFile(new URL('manifest.json', directory), 'utf8')),
+      allFiles.length,
+    ),
+    directory,
+  );
+  let files = args.get('core-only') ? allFiles.filter((name) => name.startsWith('000-')) : allFiles;
+  files = files.filter((name) => {
+    const index = Number(name.slice(0, 3));
+    return index >= from && index <= to;
+  });
+  if (!files.length) throw new Error('no corpus SQL files selected');
+
+  const start = runWrangler(root, database, environment, [
+    '--command', buildCorpusImportStartSql(manifest, { resume: from > 0 }),
+  ]);
+  if (start.status !== 0) process.exit(start.status || 1);
+
+  for (const [position, file] of files.entries()) {
+    process.stdout.write(`[${position + 1}/${files.length}] ${file}\n`);
+    const result = runWrangler(root, database, environment, ['--file', new URL(file, directory).pathname]);
+    if (result.status !== 0) {
+      runWrangler(root, database, environment, [
+        '--command', buildCorpusImportFailureSql(manifest, `chunk_failed:${file}`),
+      ]);
+      process.stderr.write(`import stopped at ${file}; rerun with --from ${file.slice(0, 3)}\n`);
+      process.exit(result.status || 1);
+    }
+    const receipt = runWrangler(root, database, environment, [
+      '--command', buildCorpusChunkReceiptSql(manifest, file),
+    ]);
+    if (receipt.status !== 0) {
+      runWrangler(root, database, environment, [
+        '--command', buildCorpusImportFailureSql(manifest, `chunk_receipt_failed:${file}`),
+      ]);
+      process.stderr.write(`chunk imported but receipt failed at ${file}; rerun with --from ${file.slice(0, 3)}\n`);
+      process.exit(receipt.status || 1);
+    }
+  }
+
+  const lastFileIndex = Number(allFiles.at(-1).slice(0, 3));
+  const selectedLastIndex = Number(files.at(-1).slice(0, 3));
+  if (args.get('core-only') || selectedLastIndex < lastFileIndex) {
+    process.stdout.write(`release ${manifest.release_id} remains in_progress; import the remaining chunks before finalization\n`);
+    return;
+  }
+
+  const finalized = runWrangler(root, database, environment, [
+    '--command', buildCorpusImportFinalizeSql(manifest),
+  ]);
+  if (finalized.status !== 0) {
+    runWrangler(root, database, environment, [
+      '--command', buildCorpusImportFailureSql(manifest, 'finalize_invariant_failed'),
+    ]);
+    process.exit(finalized.status || 1);
+  }
+  process.stdout.write(`release ${manifest.release_id} ready\n`);
+}
+
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+if (isMain) await main();

@@ -135,6 +135,8 @@ const highSchool2020 = highSchoolSpecs.map((spec, index) => documentRecord('moe-
   source_url: 'https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip',
   file_format: 'pdf_in_zip',
   archive_member_prefix: String(index + 1).padStart(2, '0'),
+  text_quality_status: 'official_native_text',
+  citation_allowed: true,
 }));
 
 const neeaSpecs = [
@@ -162,6 +164,8 @@ const neea2019 = neeaSpecs.map((spec, index) => documentRecord('neea-2019', inde
   source_page_url: 'https://www.neea.edu.cn/html1/report/19012/153-1.htm',
   source_url: `${neea2019Base}${spec[2]}`,
   file_format: 'pdf',
+  text_quality_status: 'official_native_text',
+  citation_allowed: true,
 }));
 
 const policyRecords = [
@@ -218,7 +222,14 @@ const policyRecords = [
     current_status: 'revision_watch', source_page_url: 'https://www.moe.gov.cn/', source_url: 'https://www.moe.gov.cn/', file_format: 'catalog',
     note: '现行标签按教育部公开目录判定；已知处于修订中的版本单独标注，不将修订意向误报为已发布标准。',
   },
-].map((record) => ({ ...common, access_status: record.current_status === 'missing_primary_files' ? 'metadata_only' : 'verified_online', redistribution: 'metadata_and_excerpt_only', ...record }));
+].map((record) => ({
+  ...common,
+  access_status: record.current_status === 'missing_primary_files' ? 'metadata_only' : 'verified_online',
+  redistribution: 'metadata_and_excerpt_only',
+  text_quality_status: record.file_format === 'html' ? 'official_native_text' : 'metadata_only',
+  citation_allowed: record.file_format === 'html',
+  ...record,
+}));
 
 const supplementalDocuments = JSON.parse(await readFile(new URL('../data/supplemental-sources.json', import.meta.url), 'utf8')).documents;
 const localCompendia = JSON.parse(await readFile(new URL('../data/local-compendia.json', import.meta.url), 'utf8')).documents;

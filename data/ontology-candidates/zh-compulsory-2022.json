@@ -1,0 +1,1817 @@
+{
+  "$schema": "./candidate-layer.schema.json",
+  "schema_version": 1,
+  "candidate_layer_id": "candidate-layer:zh-compulsory-2022-v1",
+  "title": "义务教育语文课程标准（2022年版）概念候选层",
+  "assertion_boundary": "本文件仅保存普通义务教育语文2022年版的版本隔离候选结构。它不修改现有本体，不生成公开星图数据，不开放引用或语义关系，也不把候选标签视为已经完成图像、OCR与同版在线文本三方核验的正式学术结论。",
+  "publication_status": "candidate_fail_closed",
+  "source_identity": {
+    "document_id": "moe-2022-03",
+    "title": "义务教育语文课程标准（2022年版）",
+    "subject_facet": "语文",
+    "stage": "义务教育",
+    "school_type": "ordinary_general_education",
+    "version_label": "2022年版",
+    "issued_by": "中华人民共和国教育部",
+    "source_artifact_sha256": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a",
+    "source_bytes": 20618661,
+    "page_count": 109,
+    "local_cache_path": ".cache/sources/moe-2022-03.pdf",
+    "citation_allowed": false,
+    "online_same_edition_check": {
+      "exact_official_artifact_confirmed": true,
+      "independent_online_text_confirmed": false,
+      "status": "artifact_match_only"
+    }
+  },
+  "version_isolation": {
+    "scope_id": "candidate-scope:zh-compulsory-2022-ordinary",
+    "exact_edition_only": true,
+    "ordinary_school_only": true,
+    "cross_scope_merge_allowed": false,
+    "same_label_implies_same_sense": false,
+    "forbidden_scope_ids": [
+      "scope:zh-2016-blind",
+      "scope:zh-hs-2020"
+    ],
+    "forbidden_document_ids": [
+      "ictr-42b373aa14b0",
+      "moe-hs-2020-02"
+    ],
+    "forbidden_school_types": [
+      "special_education_school_for_the_blind"
+    ],
+    "forbidden_stages": [
+      "高中"
+    ]
+  },
+  "release_boundary": {
+    "ontology_merge_allowed": false,
+    "concept_evolution_build_allowed": false,
+    "public_data_update_allowed": false,
+    "publication_gate_changed": false,
+    "deployment_allowed": false,
+    "nodes_citation_allowed_must_equal": false,
+    "relations_semantic_relation_allowed_must_equal": false
+  },
+  "semantic_guards": {
+    "overall_goals_may_map_to_core_competency_dimensions": false,
+    "quality_stage_descriptions_are_numbered_quality_levels": false,
+    "quality_context_cross_disciplinary_node_may_equal_task_group_node": false,
+    "language_use_may_bind_high_school_language_use_lexeme": false,
+    "forbidden_quality_level_labels": [
+      "学业质量水平一",
+      "学业质量水平二",
+      "学业质量水平三",
+      "学业质量水平四",
+      "学业质量水平五"
+    ],
+    "notes": [
+      "九项总目标保持独立编号候选，不自行分配到四个核心素养维度。",
+      "第一至第四学段学业质量是义务教育四个学段的综合表现描述，不是高中版本的水平一至水平五。",
+      "学习任务群中的跨学科学习与学业质量中的跨学科学习情境必须是不同语义节点。",
+      "本版语言运用不得复用高中语言文字运用的language-use词义标识。"
+    ]
+  },
+  "lexical_reuse_policy": {
+    "exact_reuse_only": true,
+    "unspecified_binding_must_be_null": true,
+    "allowed_lexical_concept_ids": [
+      "core-competency",
+      "cultural-confidence",
+      "literacy-writing",
+      "reading-appreciation",
+      "expression-communication",
+      "sorting-inquiry",
+      "learning-task-group",
+      "practical-reading-communication",
+      "speculative-reading-expression",
+      "whole-book-reading",
+      "academic-quality"
+    ],
+    "forbidden_lexical_concept_ids": [
+      "language-use"
+    ]
+  },
+  "milestones": {
+    "M0": {
+      "description": "核心骨架候选：根、核心素养、总目标、语文实践、主题载体、学习任务群、学业质量。",
+      "added_node_count": 43,
+      "cumulative_node_count": 43
+    },
+    "M1": {
+      "description": "在M0上增加学段要求框架、四学段及四学段乘四实践领域要求簇。",
+      "added_node_count": 21,
+      "cumulative_node_count": 64
+    }
+  },
+  "triangulation_policy": {
+    "required_parties": [
+      "source_page_image",
+      "ocr_text_with_independent_witness",
+      "same_edition_online_text"
+    ],
+    "exact_version_match_required": true,
+    "unresolved_candidate_must_remain_non_citable": true,
+    "raw_image_is_truth_source": true
+  },
+  "page_risks": [
+    {
+      "id": "risk:toc-body-confusion-p006",
+      "physical_pages": [
+        6
+      ],
+      "category": "navigation_not_body_evidence",
+      "severity": "high",
+      "disposition": "目录仅可定位章节，不可单独证明候选语义。"
+    },
+    {
+      "id": "risk:running-furniture",
+      "physical_pages": [
+        8,
+        11,
+        12,
+        13,
+        14,
+        23,
+        25,
+        26,
+        27,
+        30,
+        33,
+        36,
+        38,
+        41,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50
+      ],
+      "category": "running_header_or_page_number",
+      "severity": "medium",
+      "disposition": "核对正文前必须以原图排除页眉、页脚与印刷页码。"
+    },
+    {
+      "id": "risk:goal-stage-boundary-p013-p014",
+      "physical_pages": [
+        13,
+        14
+      ],
+      "category": "section_boundary_and_page_break",
+      "severity": "high",
+      "disposition": "总目标第8项跨页，第9项与学段要求同页，必须核对编号与章节边界。"
+    },
+    {
+      "id": "risk:stage-range-segmentation-p014-p023",
+      "physical_pages": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "category": "long_range_hierarchy",
+      "severity": "high",
+      "disposition": "四学段与四实践领域反复出现，要求簇属于编辑分组，不能误作原文明确语义关系。"
+    },
+    {
+      "id": "risk:theme-task-boundary-p025-p027",
+      "physical_pages": [
+        25,
+        26,
+        27
+      ],
+      "category": "section_boundary_and_hierarchy",
+      "severity": "high",
+      "disposition": "主题与载体形式跨页后转入内容组织与学习任务群，必须保持章节层级。"
+    },
+    {
+      "id": "risk:task-group-heading-scope",
+      "physical_pages": [
+        27,
+        30,
+        33,
+        36,
+        38,
+        41
+      ],
+      "category": "heading_scope_and_group_identity",
+      "severity": "high",
+      "disposition": "每个学习任务群的名称、旨在描述与后续学段内容必须按原图确定边界。"
+    },
+    {
+      "id": "risk:quality-composite-segmentation-p044-p050",
+      "physical_pages": [
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50
+      ],
+      "category": "composite_performance_description",
+      "severity": "high",
+      "disposition": "学段学业质量综合多类情境与实践活动，当前只建框架节点，不拆表现指标。"
+    },
+    {
+      "id": "risk:quality-stage-not-numbered-level",
+      "physical_pages": [
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50
+      ],
+      "category": "cross_version_semantic_contamination",
+      "severity": "critical",
+      "disposition": "严禁把第一至第四学段学业质量建模为高中水平一至水平五。"
+    },
+    {
+      "id": "risk:known-structured-table-defect-p075",
+      "physical_pages": [
+        75
+      ],
+      "category": "known_semantic_publication_block",
+      "severity": "critical",
+      "disposition": "受row_alignment_verified门禁控制，不得作为本候选层证据。"
+    },
+    {
+      "id": "risk:known-running-header-defect-p109",
+      "physical_pages": [
+        109
+      ],
+      "category": "known_semantic_publication_block",
+      "severity": "critical",
+      "disposition": "受running_header_removed门禁控制，不得作为本候选层证据。"
+    }
+  ],
+  "excluded_page_controls": [
+    {
+      "physical_page": 75,
+      "control_id": "r6-structured-table-moe-2022-03-p075",
+      "required_attestation": "row_alignment_verified",
+      "citation_allowed": false
+    },
+    {
+      "physical_page": 109,
+      "control_id": "r6-running-header-moe-2022-03-p109",
+      "required_attestation": "running_header_removed",
+      "citation_allowed": false
+    }
+  ],
+  "evidence_anchors": [
+    {
+      "id": "anchor:zh-compulsory-2022-toc-p006",
+      "physical_pages": [
+        6
+      ],
+      "section_path": [
+        "目录"
+      ],
+      "evidence_role": "navigation_only",
+      "candidate_terms": [
+        "课程目标",
+        "课程内容",
+        "学业质量"
+      ],
+      "risk_ids": [
+        "risk:toc-body-confusion-p006"
+      ],
+      "triangulation_gate": {
+        "source_page_image_status": "pending_full_review",
+        "ocr_text_status": "candidate_unaccepted",
+        "same_edition_online_text_status": "artifact_match_only_text_pending",
+        "version_match_status": "verified_exact_artifact",
+        "overall_status": "blocked"
+      },
+      "citation_allowed": false
+    },
+    {
+      "id": "anchor:zh-compulsory-2022-course-nature-p008",
+      "physical_pages": [
+        8
+      ],
+      "section_path": [
+        "一、课程性质"
+      ],
+      "evidence_role": "candidate_body_structure",
+      "candidate_terms": [
+        "国家通用语言文字运用",
+        "综合性、实践性课程",
+        "工具性与人文性的统一"
+      ],
+      "risk_ids": [
+        "risk:running-furniture"
+      ],
+      "triangulation_gate": {
+        "source_page_image_status": "pending_full_review",
+        "ocr_text_status": "candidate_unaccepted",
+        "same_edition_online_text_status": "artifact_match_only_text_pending",
+        "version_match_status": "verified_exact_artifact",
+        "overall_status": "blocked"
+      },
+      "citation_allowed": false
+    },
+    {
+      "id": "anchor:zh-compulsory-2022-core-competency-p011-p012",
+      "physical_pages": [
+        11,
+        12
+      ],
+      "section_path": [
+        "三、课程目标",
+        "（一）核心素养内涵"
+      ],
+      "evidence_role": "candidate_body_structure",
+      "candidate_terms": [
+        "文化自信",
+        "语言运用",
+        "思维能力",
+        "审美创造"
+      ],
+      "risk_ids": [
+        "risk:running-furniture"
+      ],
+      "triangulation_gate": {
+        "source_page_image_status": "pending_full_review",
+        "ocr_text_status": "candidate_unaccepted",
+        "same_edition_online_text_status": "artifact_match_only_text_pending",
+        "version_match_status": "verified_exact_artifact",
+        "overall_status": "blocked"
+      },
+      "citation_allowed": false
+    },
+    {
+      "id": "anchor:zh-compulsory-2022-overall-goals-p013-p014",
+      "physical_pages": [
+        13,
+        14
+      ],
+      "section_path": [
+        "三、课程目标",
+        "（二）总目标"
+      ],
+      "evidence_role": "candidate_numbered_structure",
+      "candidate_terms": [
+        "总目标",
+        "1",
+        "9"
+      ],
+      "risk_ids": [
+        "risk:running-furniture",
+        "risk:goal-stage-boundary-p013-p014"
+      ],
+      "triangulation_gate": {
+        "source_page_image_status": "pending_full_review",
+        "ocr_text_status": "candidate_unaccepted",
+        "same_edition_online_text_status": "artifact_match_only_text_pending",
+        "version_match_status": "verified_exact_artifact",
+        "overall_status": "blocked"
+      },
+      "citation_allowed": false
+    },
+    {
+      "id": "anchor:zh-compulsory-2022-stage-requirements-p014-p023",
+      "physical_pages": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "section_path": [
+        "三、课程目标",
+        "（三）学段要求"
+      ],
+      "evidence_role": "candidate_repeated_hierarchy",
+      "candidate_terms": [
+        "第一学段",
+        "第二学段",
+        "第三学段",
+        "第四学段",
+        "识字与写字",
+        "阅读与鉴赏",
+        "表达与交流",
+        "梳理与探究"
+      ],
+      "risk_ids": [
+        "risk:running-furniture",
+        "risk:stage-range-segmentation-p014-p023"
+      ],
+      "triangulation_gate": {
+        "source_page_image_status": "pending_full_review",
+        "ocr_text_status": "candidate_unaccepted",
+        "same_edition_online_text_status": "artifact_match_only_text_pending",
+        "version_match_status": "verified_exact_artifact",
+        "overall_status": "blocked"
+      },
+      "citation_allowed": false
+    },
+    {
+      "id": "anchor:zh-compulsory-2022-themes-task-groups-p025-p027",
+      "physical_pages": [
+        25,
+        26,
+        27
+      ],
+      "section_path": [
+        "四、课程内容",
+        "（一）主题与载体形式",
+        "（二）内容组织与呈现方式"
+      ],
+      "evidence_role": "candidate_body_structure",
+      "candidate_terms": [
+        "中华优秀传统文化",
+        "革命文化",
+        "社会主义先进文化",
+        "语文学习任务群"
+      ],
+      "risk_ids": [
+        "risk:running-furniture",
+        "risk:theme-task-boundary-p025-p027"
+      ],
+      "triangulation_gate": {
+        "source_page_image_status": "pending_full_review",
+        "ocr_text_status": "candidate_unaccepted",
+        "same_edition_online_text_status": "artifact_match_only_text_pending",
+        "version_match_status": "verified_exact_artifact",
+        "overall_status": "blocked"
+      },
+      "citation_allowed": false
+    },
+    {
+      "id": "anchor:zh-compulsory-2022-task-language-p027",
+      "physical_pages": [
+        27
+      ],
+      "section_path": [
+        "四、课程内容",
+        "（二）内容组织与呈现方式",
+        "语言文字积累与梳理"
+      ],
+      "evidence_role": "candidate_task_group_identity",
+      "candidate_terms": [
+        "基础型学习任务群",
+        "语言文字积累与梳理"
+      ],
+      "risk_ids": [
+        "risk:running-furniture",
+        "risk:task-group-heading-scope"
+      ],
+      "triangulation_gate": {
+        "source_page_image_status": "pending_full_review",
+        "ocr_text_status": "candidate_unaccepted",
+        "same_edition_online_text_status": "artifact_match_only_text_pending",
+        "version_match_status": "verified_exact_artifact",
+        "overall_status": "blocked"
+      },
+      "citation_allowed": false
+    },
+    {
+      "id": "anchor:zh-compulsory-2022-task-practical-p030",
+      "physical_pages": [
+        30
+      ],
+      "section_path": [
+        "四、课程内容",
+        "（二）内容组织与呈现方式",
+        "实用性阅读与交流"
+      ],
+      "evidence_role": "candidate_task_group_identity",
+      "candidate_terms": [
+        "发展型学习任务群",
+        "实用性阅读与交流"
+      ],
+      "risk_ids": [
+        "risk:running-furniture",
+        "risk:task-group-heading-scope"
+      ],
+      "triangulation_gate": {
+        "source_page_image_status": "pending_full_review",
+        "ocr_text_status": "candidate_unaccepted",
+        "same_edition_online_text_status": "artifact_match_only_text_pending",
+        "version_match_status": "verified_exact_artifact",
+        "overall_status": "blocked"
+      },
+      "citation_allowed": false
+    },
+    {
+      "id": "anchor:zh-compulsory-2022-task-literary-p033",
+      "physical_pages": [
+        33
+      ],
+      "section_path": [
+        "四、课程内容",
+        "（二）内容组织与呈现方式",
+        "文学阅读与创意表达"
+      ],
+      "evidence_role": "candidate_task_group_identity",
+      "candidate_terms": [
+        "发展型学习任务群",
+        "文学阅读与创意表达"
+      ],
+      "risk_ids": [
+        "risk:running-furniture",
+        "risk:task-group-heading-scope"
+      ],
+      "triangulation_gate": {
+        "source_page_image_status": "pending_full_review",
+        "ocr_text_status": "candidate_unaccepted",
+        "same_edition_online_text_status": "artifact_match_only_text_pending",
+        "version_match_status": "verified_exact_artifact",
+        "overall_status": "blocked"
+      },
+      "citation_allowed": false
+    },
+    {
+      "id": "anchor:zh-compulsory-2022-task-speculative-p036",
+      "physical_pages": [
+        36
+      ],
+      "section_path": [
+        "四、课程内容",
+        "（二）内容组织与呈现方式",
+        "思辨性阅读与表达"
+      ],
+      "evidence_role": "candidate_task_group_identity",
+      "candidate_terms": [
+        "发展型学习任务群",
+        "思辨性阅读与表达"
+      ],
+      "risk_ids": [
+        "risk:running-furniture",
+        "risk:task-group-heading-scope"
+      ],
+      "triangulation_gate": {
+        "source_page_image_status": "pending_full_review",
+        "ocr_text_status": "candidate_unaccepted",
+        "same_edition_online_text_status": "artifact_match_only_text_pending",
+        "version_match_status": "verified_exact_artifact",
+        "overall_status": "blocked"
+      },
+      "citation_allowed": false
+    },
+    {
+      "id": "anchor:zh-compulsory-2022-task-whole-book-p038",
+      "physical_pages": [
+        38
+      ],
+      "section_path": [
+        "四、课程内容",
+        "（二）内容组织与呈现方式",
+        "整本书阅读"
+      ],
+      "evidence_role": "candidate_task_group_identity",
+      "candidate_terms": [
+        "拓展型学习任务群",
+        "整本书阅读"
+      ],
+      "risk_ids": [
+        "risk:running-furniture",
+        "risk:task-group-heading-scope"
+      ],
+      "triangulation_gate": {
+        "source_page_image_status": "pending_full_review",
+        "ocr_text_status": "candidate_unaccepted",
+        "same_edition_online_text_status": "artifact_match_only_text_pending",
+        "version_match_status": "verified_exact_artifact",
+        "overall_status": "blocked"
+      },
+      "citation_allowed": false
+    },
+    {
+      "id": "anchor:zh-compulsory-2022-task-cross-disciplinary-p041",
+      "physical_pages": [
+        41
+      ],
+      "section_path": [
+        "四、课程内容",
+        "（二）内容组织与呈现方式",
+        "跨学科学习"
+      ],
+      "evidence_role": "candidate_task_group_identity",
+      "candidate_terms": [
+        "拓展型学习任务群",
+        "跨学科学习"
+      ],
+      "risk_ids": [
+        "risk:running-furniture",
+        "risk:task-group-heading-scope"
+      ],
+      "triangulation_gate": {
+        "source_page_image_status": "pending_full_review",
+        "ocr_text_status": "candidate_unaccepted",
+        "same_edition_online_text_status": "artifact_match_only_text_pending",
+        "version_match_status": "verified_exact_artifact",
+        "overall_status": "blocked"
+      },
+      "citation_allowed": false
+    },
+    {
+      "id": "anchor:zh-compulsory-2022-quality-p044-p050",
+      "physical_pages": [
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50
+      ],
+      "section_path": [
+        "五、学业质量",
+        "（一）学业质量内涵",
+        "（二）学业质量描述"
+      ],
+      "evidence_role": "candidate_composite_quality_structure",
+      "candidate_terms": [
+        "第一学段",
+        "第二学段",
+        "第三学段",
+        "第四学段",
+        "日常生活",
+        "文学体验",
+        "跨学科学习"
+      ],
+      "risk_ids": [
+        "risk:running-furniture",
+        "risk:quality-composite-segmentation-p044-p050",
+        "risk:quality-stage-not-numbered-level"
+      ],
+      "triangulation_gate": {
+        "source_page_image_status": "pending_full_review",
+        "ocr_text_status": "candidate_unaccepted",
+        "same_edition_online_text_status": "artifact_match_only_text_pending",
+        "version_match_status": "verified_exact_artifact",
+        "overall_status": "blocked"
+      },
+      "citation_allowed": false
+    }
+  ],
+  "node_groups": [
+    {
+      "group_id": "group:m0-root",
+      "family": "root",
+      "milestone": "M0",
+      "node_type": "subject_model_candidate",
+      "parent_relation_policy": null,
+      "nodes": [
+        {
+          "id": "candidate:zh-compulsory-2022",
+          "label": "义务教育语文课程概念候选体系（2022年版）",
+          "parent_id": null,
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "editorial_container",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-toc-p006",
+            "anchor:zh-compulsory-2022-course-nature-p008"
+          ]
+        }
+      ]
+    },
+    {
+      "group_id": "group:m0-core-competency",
+      "family": "core_competency",
+      "milestone": "M0",
+      "node_type": "competency_candidate",
+      "parent_relation_policy": {
+        "relation_type_candidate": "contains_candidate",
+        "assertion_basis": "official_structure_candidate",
+        "review_status": "candidate_extracted",
+        "semantic_relation_allowed": false
+      },
+      "nodes": [
+        {
+          "id": "candidate:zh-compulsory-2022-core-competency",
+          "label": "核心素养",
+          "parent_id": "candidate:zh-compulsory-2022",
+          "lexical_concept_id": "core-competency",
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-core-competency-p011-p012"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-cultural-confidence",
+          "label": "文化自信",
+          "parent_id": "candidate:zh-compulsory-2022-core-competency",
+          "lexical_concept_id": "cultural-confidence",
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-core-competency-p011-p012"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-language-use",
+          "label": "语言运用",
+          "parent_id": "candidate:zh-compulsory-2022-core-competency",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-core-competency-p011-p012"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-thinking-ability",
+          "label": "思维能力",
+          "parent_id": "candidate:zh-compulsory-2022-core-competency",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-core-competency-p011-p012"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-aesthetic-creation",
+          "label": "审美创造",
+          "parent_id": "candidate:zh-compulsory-2022-core-competency",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-core-competency-p011-p012"
+          ]
+        }
+      ]
+    },
+    {
+      "group_id": "group:m0-overall-goals",
+      "family": "overall_goals",
+      "milestone": "M0",
+      "node_type": "overall_goal_candidate",
+      "parent_relation_policy": {
+        "relation_type_candidate": "contains_candidate",
+        "assertion_basis": "official_numbered_structure_candidate",
+        "review_status": "candidate_extracted",
+        "semantic_relation_allowed": false
+      },
+      "nodes": [
+        {
+          "id": "candidate:zh-compulsory-2022-overall-goals",
+          "label": "总目标",
+          "parent_id": "candidate:zh-compulsory-2022",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-overall-goals-p013-p014"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-overall-goal-01",
+          "label": "总目标第1项",
+          "parent_id": "candidate:zh-compulsory-2022-overall-goals",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-overall-goals-p013-p014"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-overall-goal-02",
+          "label": "总目标第2项",
+          "parent_id": "candidate:zh-compulsory-2022-overall-goals",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-overall-goals-p013-p014"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-overall-goal-03",
+          "label": "总目标第3项",
+          "parent_id": "candidate:zh-compulsory-2022-overall-goals",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-overall-goals-p013-p014"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-overall-goal-04",
+          "label": "总目标第4项",
+          "parent_id": "candidate:zh-compulsory-2022-overall-goals",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-overall-goals-p013-p014"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-overall-goal-05",
+          "label": "总目标第5项",
+          "parent_id": "candidate:zh-compulsory-2022-overall-goals",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-overall-goals-p013-p014"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-overall-goal-06",
+          "label": "总目标第6项",
+          "parent_id": "candidate:zh-compulsory-2022-overall-goals",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-overall-goals-p013-p014"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-overall-goal-07",
+          "label": "总目标第7项",
+          "parent_id": "candidate:zh-compulsory-2022-overall-goals",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-overall-goals-p013-p014"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-overall-goal-08",
+          "label": "总目标第8项",
+          "parent_id": "candidate:zh-compulsory-2022-overall-goals",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-overall-goals-p013-p014"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-overall-goal-09",
+          "label": "总目标第9项",
+          "parent_id": "candidate:zh-compulsory-2022-overall-goals",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-overall-goals-p013-p014"
+          ]
+        }
+      ]
+    },
+    {
+      "group_id": "group:m0-practices",
+      "family": "practices",
+      "milestone": "M0",
+      "node_type": "practice_domain_candidate",
+      "parent_relation_policy": {
+        "relation_type_candidate": "contains_candidate",
+        "assertion_basis": "official_repeated_heading_candidate",
+        "review_status": "candidate_extracted",
+        "semantic_relation_allowed": false
+      },
+      "nodes": [
+        {
+          "id": "candidate:zh-compulsory-2022-practices",
+          "label": "语文实践活动",
+          "parent_id": "candidate:zh-compulsory-2022",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-practice-literacy-writing",
+          "label": "识字与写字",
+          "parent_id": "candidate:zh-compulsory-2022-practices",
+          "lexical_concept_id": "literacy-writing",
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-practice-reading-appreciation",
+          "label": "阅读与鉴赏",
+          "parent_id": "candidate:zh-compulsory-2022-practices",
+          "lexical_concept_id": "reading-appreciation",
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-practice-expression-communication",
+          "label": "表达与交流",
+          "parent_id": "candidate:zh-compulsory-2022-practices",
+          "lexical_concept_id": "expression-communication",
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-practice-sorting-inquiry",
+          "label": "梳理与探究",
+          "parent_id": "candidate:zh-compulsory-2022-practices",
+          "lexical_concept_id": "sorting-inquiry",
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        }
+      ]
+    },
+    {
+      "group_id": "group:m0-themes",
+      "family": "themes",
+      "milestone": "M0",
+      "node_type": "content_theme_candidate",
+      "parent_relation_policy": {
+        "relation_type_candidate": "contains_candidate",
+        "assertion_basis": "official_structure_candidate",
+        "review_status": "candidate_extracted",
+        "semantic_relation_allowed": false
+      },
+      "nodes": [
+        {
+          "id": "candidate:zh-compulsory-2022-themes",
+          "label": "主题与载体形式",
+          "parent_id": "candidate:zh-compulsory-2022",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-themes-task-groups-p025-p027"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-theme-traditional-culture",
+          "label": "中华优秀传统文化",
+          "parent_id": "candidate:zh-compulsory-2022-themes",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-themes-task-groups-p025-p027"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-theme-revolutionary-culture",
+          "label": "革命文化",
+          "parent_id": "candidate:zh-compulsory-2022-themes",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-themes-task-groups-p025-p027"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-theme-advanced-socialist-culture",
+          "label": "社会主义先进文化",
+          "parent_id": "candidate:zh-compulsory-2022-themes",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-themes-task-groups-p025-p027"
+          ]
+        }
+      ]
+    },
+    {
+      "group_id": "group:m0-task-groups",
+      "family": "task_groups",
+      "milestone": "M0",
+      "node_type": "task_group_candidate",
+      "parent_relation_policy": {
+        "relation_type_candidate": "contains_candidate",
+        "assertion_basis": "official_structure_candidate",
+        "review_status": "candidate_extracted",
+        "semantic_relation_allowed": false
+      },
+      "nodes": [
+        {
+          "id": "candidate:zh-compulsory-2022-task-groups",
+          "label": "语文学习任务群",
+          "parent_id": "candidate:zh-compulsory-2022",
+          "lexical_concept_id": "learning-task-group",
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-themes-task-groups-p025-p027"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-task-level-foundational",
+          "label": "基础型学习任务群",
+          "parent_id": "candidate:zh-compulsory-2022-task-groups",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-themes-task-groups-p025-p027"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-task-level-developmental",
+          "label": "发展型学习任务群",
+          "parent_id": "candidate:zh-compulsory-2022-task-groups",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-themes-task-groups-p025-p027"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-task-level-extension",
+          "label": "拓展型学习任务群",
+          "parent_id": "candidate:zh-compulsory-2022-task-groups",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-themes-task-groups-p025-p027"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-task-language-accumulation",
+          "label": "语言文字积累与梳理",
+          "parent_id": "candidate:zh-compulsory-2022-task-level-foundational",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-task-language-p027"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-task-practical-reading",
+          "label": "实用性阅读与交流",
+          "parent_id": "candidate:zh-compulsory-2022-task-level-developmental",
+          "lexical_concept_id": "practical-reading-communication",
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-task-practical-p030"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-task-literary-reading",
+          "label": "文学阅读与创意表达",
+          "parent_id": "candidate:zh-compulsory-2022-task-level-developmental",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-task-literary-p033"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-task-speculative-reading",
+          "label": "思辨性阅读与表达",
+          "parent_id": "candidate:zh-compulsory-2022-task-level-developmental",
+          "lexical_concept_id": "speculative-reading-expression",
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-task-speculative-p036"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-task-whole-book-reading",
+          "label": "整本书阅读",
+          "parent_id": "candidate:zh-compulsory-2022-task-level-extension",
+          "lexical_concept_id": "whole-book-reading",
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-task-whole-book-p038"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-task-cross-disciplinary-learning",
+          "label": "跨学科学习",
+          "parent_id": "candidate:zh-compulsory-2022-task-level-extension",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-task-cross-disciplinary-p041"
+          ]
+        }
+      ]
+    },
+    {
+      "group_id": "group:m0-academic-quality",
+      "family": "academic_quality",
+      "milestone": "M0",
+      "node_type": "quality_structure_candidate",
+      "parent_relation_policy": {
+        "relation_type_candidate": "contains_candidate",
+        "assertion_basis": "official_structure_candidate",
+        "review_status": "candidate_extracted",
+        "semantic_relation_allowed": false
+      },
+      "nodes": [
+        {
+          "id": "candidate:zh-compulsory-2022-academic-quality",
+          "label": "学业质量",
+          "parent_id": "candidate:zh-compulsory-2022",
+          "lexical_concept_id": "academic-quality",
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-quality-p044-p050"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-quality-stage-1",
+          "label": "第一学段学业质量",
+          "parent_id": "candidate:zh-compulsory-2022-academic-quality",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-quality-p044-p050"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-quality-stage-2",
+          "label": "第二学段学业质量",
+          "parent_id": "candidate:zh-compulsory-2022-academic-quality",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-quality-p044-p050"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-quality-stage-3",
+          "label": "第三学段学业质量",
+          "parent_id": "candidate:zh-compulsory-2022-academic-quality",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-quality-p044-p050"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-quality-stage-4",
+          "label": "第四学段学业质量",
+          "parent_id": "candidate:zh-compulsory-2022-academic-quality",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-quality-p044-p050"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-quality-context-daily-life",
+          "label": "日常生活情境",
+          "parent_id": "candidate:zh-compulsory-2022-academic-quality",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-quality-p044-p050"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-quality-context-literary-experience",
+          "label": "文学体验情境",
+          "parent_id": "candidate:zh-compulsory-2022-academic-quality",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-quality-p044-p050"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-quality-context-cross-disciplinary-learning",
+          "label": "跨学科学习情境",
+          "parent_id": "candidate:zh-compulsory-2022-academic-quality",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-quality-p044-p050"
+          ]
+        }
+      ]
+    },
+    {
+      "group_id": "group:m1-stage-requirements",
+      "family": "stage_requirements",
+      "milestone": "M1",
+      "node_type": "stage_requirement_candidate",
+      "parent_relation_policy": {
+        "relation_type_candidate": "contains_candidate",
+        "assertion_basis": "official_structure_candidate",
+        "review_status": "candidate_extracted",
+        "semantic_relation_allowed": false
+      },
+      "nodes": [
+        {
+          "id": "candidate:zh-compulsory-2022-stage-requirements",
+          "label": "学段要求",
+          "parent_id": "candidate:zh-compulsory-2022",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-requirement-1",
+          "label": "第一学段要求",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirements",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-requirement-2",
+          "label": "第二学段要求",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirements",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-requirement-3",
+          "label": "第三学段要求",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirements",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-requirement-4",
+          "label": "第四学段要求",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirements",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "candidate_extracted",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        }
+      ]
+    },
+    {
+      "group_id": "group:m1-stage-practice-clusters",
+      "family": "stage_practice_clusters",
+      "milestone": "M1",
+      "node_type": "stage_practice_requirement_cluster_candidate",
+      "parent_relation_policy": {
+        "relation_type_candidate": "editorial_cluster_candidate",
+        "assertion_basis": "editorial_model",
+        "review_status": "reviewed_inference",
+        "semantic_relation_allowed": false
+      },
+      "nodes": [
+        {
+          "id": "candidate:zh-compulsory-2022-stage-1-literacy-writing",
+          "label": "第一学段·识字与写字要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-1",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-1-reading-appreciation",
+          "label": "第一学段·阅读与鉴赏要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-1",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-1-expression-communication",
+          "label": "第一学段·表达与交流要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-1",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-1-sorting-inquiry",
+          "label": "第一学段·梳理与探究要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-1",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-2-literacy-writing",
+          "label": "第二学段·识字与写字要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-2",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-2-reading-appreciation",
+          "label": "第二学段·阅读与鉴赏要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-2",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-2-expression-communication",
+          "label": "第二学段·表达与交流要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-2",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-2-sorting-inquiry",
+          "label": "第二学段·梳理与探究要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-2",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-3-literacy-writing",
+          "label": "第三学段·识字与写字要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-3",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-3-reading-appreciation",
+          "label": "第三学段·阅读与鉴赏要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-3",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-3-expression-communication",
+          "label": "第三学段·表达与交流要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-3",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-3-sorting-inquiry",
+          "label": "第三学段·梳理与探究要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-3",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-4-literacy-writing",
+          "label": "第四学段·识字与写字要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-4",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-4-reading-appreciation",
+          "label": "第四学段·阅读与鉴赏要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-4",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-4-expression-communication",
+          "label": "第四学段·表达与交流要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-4",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        },
+        {
+          "id": "candidate:zh-compulsory-2022-stage-4-sorting-inquiry",
+          "label": "第四学段·梳理与探究要求簇",
+          "parent_id": "candidate:zh-compulsory-2022-stage-requirement-4",
+          "lexical_concept_id": null,
+          "definition_candidate": null,
+          "review_status": "reviewed_inference",
+          "citation_allowed": false,
+          "publication_status": "candidate_fail_closed",
+          "evidence_anchor_ids": [
+            "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+          ]
+        }
+      ]
+    }
+  ],
+  "editorial_alignments": [
+    {
+      "id": "alignment:stage-1-literacy-writing",
+      "source": "candidate:zh-compulsory-2022-stage-1-literacy-writing",
+      "target": "candidate:zh-compulsory-2022-practice-literacy-writing",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-1-reading-appreciation",
+      "source": "candidate:zh-compulsory-2022-stage-1-reading-appreciation",
+      "target": "candidate:zh-compulsory-2022-practice-reading-appreciation",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-1-expression-communication",
+      "source": "candidate:zh-compulsory-2022-stage-1-expression-communication",
+      "target": "candidate:zh-compulsory-2022-practice-expression-communication",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-1-sorting-inquiry",
+      "source": "candidate:zh-compulsory-2022-stage-1-sorting-inquiry",
+      "target": "candidate:zh-compulsory-2022-practice-sorting-inquiry",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-2-literacy-writing",
+      "source": "candidate:zh-compulsory-2022-stage-2-literacy-writing",
+      "target": "candidate:zh-compulsory-2022-practice-literacy-writing",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-2-reading-appreciation",
+      "source": "candidate:zh-compulsory-2022-stage-2-reading-appreciation",
+      "target": "candidate:zh-compulsory-2022-practice-reading-appreciation",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-2-expression-communication",
+      "source": "candidate:zh-compulsory-2022-stage-2-expression-communication",
+      "target": "candidate:zh-compulsory-2022-practice-expression-communication",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-2-sorting-inquiry",
+      "source": "candidate:zh-compulsory-2022-stage-2-sorting-inquiry",
+      "target": "candidate:zh-compulsory-2022-practice-sorting-inquiry",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-3-literacy-writing",
+      "source": "candidate:zh-compulsory-2022-stage-3-literacy-writing",
+      "target": "candidate:zh-compulsory-2022-practice-literacy-writing",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-3-reading-appreciation",
+      "source": "candidate:zh-compulsory-2022-stage-3-reading-appreciation",
+      "target": "candidate:zh-compulsory-2022-practice-reading-appreciation",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-3-expression-communication",
+      "source": "candidate:zh-compulsory-2022-stage-3-expression-communication",
+      "target": "candidate:zh-compulsory-2022-practice-expression-communication",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-3-sorting-inquiry",
+      "source": "candidate:zh-compulsory-2022-stage-3-sorting-inquiry",
+      "target": "candidate:zh-compulsory-2022-practice-sorting-inquiry",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-4-literacy-writing",
+      "source": "candidate:zh-compulsory-2022-stage-4-literacy-writing",
+      "target": "candidate:zh-compulsory-2022-practice-literacy-writing",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-4-reading-appreciation",
+      "source": "candidate:zh-compulsory-2022-stage-4-reading-appreciation",
+      "target": "candidate:zh-compulsory-2022-practice-reading-appreciation",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-4-expression-communication",
+      "source": "candidate:zh-compulsory-2022-stage-4-expression-communication",
+      "target": "candidate:zh-compulsory-2022-practice-expression-communication",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    },
+    {
+      "id": "alignment:stage-4-sorting-inquiry",
+      "source": "candidate:zh-compulsory-2022-stage-4-sorting-inquiry",
+      "target": "candidate:zh-compulsory-2022-practice-sorting-inquiry",
+      "relation_type_candidate": "models_practice_domain_requirement_cluster",
+      "assertion_basis": "editorial_model",
+      "review_status": "reviewed_inference",
+      "semantic_relation_allowed": false,
+      "evidence_anchor_ids": [
+        "anchor:zh-compulsory-2022-stage-requirements-p014-p023"
+      ]
+    }
+  ]
+}
