@@ -1,5 +1,6 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { sourceManifest } from './source-manifest.mjs';
+import { preserveGeneratedAt } from './lib/stable-generated-at.mjs';
 
 const ids = new Set();
 for (const record of sourceManifest) {
@@ -17,6 +18,7 @@ function citationReady(record) {
   return record.citation_allowed === true;
 }
 
+const catalogUrl = new URL('../data/catalog.json', import.meta.url);
 const catalog = {
   schema_version: 1,
   generated_at: new Date().toISOString(),
@@ -32,6 +34,12 @@ const catalog = {
   documents: sourceManifest,
 };
 
+try {
+  preserveGeneratedAt(catalog, JSON.parse(await readFile(catalogUrl, 'utf8')));
+} catch (error) {
+  if (error?.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error;
+}
+
 await mkdir(new URL('../data/', import.meta.url), { recursive: true });
-await writeFile(new URL('../data/catalog.json', import.meta.url), `${JSON.stringify(catalog, null, 2)}\n`);
+await writeFile(catalogUrl, `${JSON.stringify(catalog, null, 2)}\n`);
 console.log(`Built ${catalog.counts.documents}-record catalog.`);

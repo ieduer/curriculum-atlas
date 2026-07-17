@@ -7,7 +7,7 @@
 - 资产层已完成统一盘点：245 个 PDF 路径对应 209 个唯一 SHA-256 实体；201 个 canonical、3 个 variant、2 个 derived、3 个 quarantine。Downloads 内命中的 15 本课程标准汇编已全部在项目来源根登记。
 - 编目层固定为 196 条：101 条 `official_native_text` 可进入正文语料，88 条仍处 OCR 质量流程，2 条只作目录元数据，5 条不可用。文件格式和文件名不再隐式提升正文或引文资格。
 - OCR 的名义分母为 86 份／11,847 页，物理去重分母为 85 份／11,779 页。当前本机闭环为主 OCR 6,947 页、Apple Vision 见证 7,012 页、exact audit 6,947 页；显示放行 0 页、引文放行 0 页。
-- 最终 v4 语料 release `corpus-537eb577f0cf5b08e7ef3e94` 已绑定 101 份真实正文、196 个目录身份、16,456 段、16,456 条 FTS、6,031 个页级门和 91 个 SQL 分块，并对 13 项核心表计数形成闭包。每个分块均有 SHA-256、字节数及 D1 导入回执；任一结构、归属或计数不符均不得转为 `ready`。
+- 最终 v4 语料 release `corpus-f56f6fac3e022bb24ad69265` 已绑定 101 份真实正文、196 个目录身份、16,456 段、16,456 条 FTS、6,031 个页级门和 91 个 SQL 分块，并对 13 项核心表计数形成闭包。每个分块均有 SHA-256、字节数及 D1 导入回执；任一结构、归属或计数不符均不得转为 `ready`。
 - Worker 已在本机支持 R2 `release/current.json` → 不可变 release manifest → versioned object 的完整哈希读取；若 pointer 存在但漂移，绝不回退旧固定 key。
 - preview 和 production 没有在本轮变更。它们仍停在 migration `0004` 与 `stable_keys_v0`，因此被发布清单明确阻断；不能把本机完成描述为已上线。
 
@@ -24,7 +24,7 @@
 | OCR evidence | `.cache/ocr-supervisor/status.json` | primary/audit 6,947；Vision 7,012；reviewed 4；citation 0 | `legacy-compendium-chemistry:84:paddle` 隔离；其余仍需图像／同版在线裁决 |
 | Page publication | `data/page-publication-manifest.json` | accepted documents 0；accepted pages 0 | 没有 OCR 文本进入公开正文 |
 | Semantic gate | `data/semantic-publication-policy.json` | 1 exact alias；21 page controls | 未解决控制优先覆盖未来 acceptance |
-| Corpus | `data/corpus-chunks/manifest.json` | v4 release `corpus-537eb577f0cf5b08e7ef3e94`；196 documents；101 text assets；16,456 paragraphs；6,031 gates；91 chunks；13 项 core counts | 本机构建通过；远端 D1 未导入本 release |
+| Corpus | `data/corpus-chunks/manifest.json` | v4 release `corpus-f56f6fac3e022bb24ad69265`；196 documents；101 text assets；16,456 paragraphs；6,031 gates；91 chunks；13 项 core counts | 本机构建通过；远端 D1 未导入本 release |
 | Concept graph | `public/data/concept-evolution*.json` | revision `d6d695c1…`；553 episodes；475 edges；7,821 occurrences；5,228 evidence | 本地生成物；OCR 未放行，因此不含未审 OCR 正文 |
 | Deep ontology | academic graph | 169 nodes；175 relations；21 evidence anchors | 语文深层模型已有；不得外推为全学科完成 |
 | Worker source | `src/index.ts` | v9 working tree；corpus-ready gate + versioned R2 reader | 本机测试通过；未部署 |
@@ -95,9 +95,9 @@ flowchart LR
 
 当前 corpus manifest：
 
-- schema 1；builder contract `release_snapshot_v4_reference_closure`；release `corpus-537eb577f0cf5b08e7ef3e94`；fingerprint `537eb577f0cf5b08e7ef3e94564042150e41052182d13e3a54a0efebe06e8434`；
+- schema 1；builder contract `release_snapshot_v4_reference_closure`；release `corpus-f56f6fac3e022bb24ad69265`；fingerprint `f56f6fac3e022bb24ad6926540e780199232c3b7717c454e005437ece864f21d`；
 - 196 documents；101 text assets；16,456 paragraphs；16,456 FTS；6,031 page gates；16,456 displayed native paragraphs；0 accepted OCR documents；
-- 91 SQL chunks；manifest SHA-256 `e781e40fe72e469530730d8a70e4467d7a9d707cb5420a8343a7fa3eb9b0bf97`。
+- 91 SQL chunks；manifest SHA-256 `5df89703bb875d4e4cf1988a77c5c0a7a8491e0aac5e5da959484e297cbf43b9`。
 
 Manifest 的 13 项 `core_table_counts` 为：
 

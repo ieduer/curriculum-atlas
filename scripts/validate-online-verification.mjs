@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import { preserveGeneratedAt } from './lib/stable-generated-at.mjs';
 
 const projectRoot = new URL('../', import.meta.url);
 const [standard, sampleFile] = await Promise.all([
@@ -47,6 +48,12 @@ const report = {
   valid: results.every((item) => item.valid),
   results,
 };
-await writeFile(new URL('data/online-verification-validation.json', projectRoot), `${JSON.stringify(report, null, 2)}\n`);
+const reportUrl = new URL('data/online-verification-validation.json', projectRoot);
+try {
+  preserveGeneratedAt(report, JSON.parse(await readFile(reportUrl, 'utf8')));
+} catch (error) {
+  if (error?.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error;
+}
+await writeFile(reportUrl, `${JSON.stringify(report, null, 2)}\n`);
 console.log(JSON.stringify(report));
 if (!report.valid) process.exitCode = 1;
