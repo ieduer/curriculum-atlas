@@ -92,11 +92,19 @@ export function planSubjectFacetQueries(facet, index) {
 }
 
 export function filterDocumentsBySubjectFacet(documents, facet, index) {
+  const normalized = normalizeSubjectFacet(facet, index);
+  if (!normalized) return [];
   const canonicalSubjects = new Set(canonicalSubjectsForFacet(facet, index));
-  if (!canonicalSubjects.size) return [];
-  return (Array.isArray(documents) ? documents : []).filter((document) =>
-    document?.entity_kind === 'subject'
-      && canonicalSubjects.has(clean(document.canonical_subject)));
+  return (Array.isArray(documents) ? documents : []).filter((document) => {
+    const taxonomyKind = clean(document?.taxonomy_entity_kind);
+    const persistedFacet = clean(document?.display_facet);
+    if (['subject', 'assessment_subject'].includes(taxonomyKind) && persistedFacet) {
+      return persistedFacet === normalized;
+    }
+    return !taxonomyKind
+      && document?.entity_kind === 'subject'
+      && canonicalSubjects.has(clean(document.canonical_subject));
+  });
 }
 
 export function controlledSubjectFacetCounts(conceptGraph) {

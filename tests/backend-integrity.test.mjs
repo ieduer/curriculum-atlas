@@ -166,13 +166,15 @@ test('AI citation validator fails closed on invalid, malformed, loose, or missin
   }
 });
 
-function makeAiEnv(answer) {
-  const state = { logBindings: [] };
+function makeAiEnv(answer, passageOverrides = {}) {
+  const state = { logBindings: [], aiPrompt: null };
   const passage = {
     id: 12,
     document_id: 'doc-a',
     title: '测试课程标准',
     entity_kind: 'subject',
+    taxonomy_entity_kind: 'subject',
+    display_facet: '语文',
     subject: '语文',
     entity_label: '语文',
     subject_family: '语言',
@@ -184,6 +186,7 @@ function makeAiEnv(answer) {
     body: '测试证据正文。',
     source_url: 'https://example.invalid/source',
     score: 0,
+    ...passageOverrides,
   };
   return {
     state,
@@ -212,7 +215,9 @@ function makeAiEnv(answer) {
         },
       },
       APIS: {
-        async fetch() {
+        async fetch(request) {
+          const body = JSON.parse(await request.text());
+          state.aiPrompt = body.contents?.[0]?.parts?.[0]?.text || null;
           return Response.json({ answer });
         },
       },
@@ -252,6 +257,45 @@ test('answerWithEvidence permits a fully explicit uncertainty response with no f
   assert.deepEqual(result.citations, []);
   assert.equal(result.retrievalCount, 1);
   assert.equal(state.logBindings[0].at(-1), 'ok');
+});
+
+test('answerWithEvidence preserves curriculum-course and assessment-domain taxonomy in context and citations', async (t) => {
+  const { answerWithEvidence } = await loadAiModule();
+  const cases = [
+    {
+      name: 'curriculum course',
+      passage: {
+        entity_kind: 'scope', taxonomy_entity_kind: 'curriculum_course', display_facet: null,
+        subject: null, entity_label: '技术', scope_kind: 'curriculum_course', scope_label: '技术',
+      },
+      promptIdentity: '课程：技术',
+    },
+    {
+      name: 'assessment domain',
+      passage: {
+        entity_kind: 'scope', taxonomy_entity_kind: 'assessment_domain', display_facet: null,
+        subject: null, entity_label: '学业质量', scope_kind: 'assessment_framework', scope_label: '学业质量',
+      },
+      promptIdentity: '考试评价范围：学业质量',
+    },
+  ];
+
+  for (const item of cases) {
+    await t.test(item.name, async () => {
+      const { env, state } = makeAiEnv('该证据说明一个可核验事实。[P:12]', item.passage);
+      const result = await answerWithEvidence(
+        env,
+        { authenticated: false, user: null, admin: false },
+        '比较课程标准的主要变化',
+        '',
+      );
+      assert.match(state.aiPrompt, new RegExp(item.promptIdentity));
+      assert.equal(result.citations.length, 1);
+      assert.equal(result.citations[0].entityKind, item.passage.entity_kind);
+      assert.equal(result.citations[0].taxonomyEntityKind, item.passage.taxonomy_entity_kind);
+      assert.equal(result.citations[0].displayFacet, item.passage.display_facet);
+    });
+  }
 });
 
 function makeCommentEnv({ parent = null, paragraph = null, sources = {} } = {}) {

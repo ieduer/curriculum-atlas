@@ -74,9 +74,9 @@ function seedOldCorpus(db) {
     'verified_online','https://example.test/page','https://example.test/file','html','metadata_only',
     'official_native_text',1,'${oldRelease}');
   INSERT INTO document_classifications(
-    document_id,entity_kind,canonical_subject,subject_family,scope_kind,scope_label,
-    source_subject_label,decision_basis
-  ) VALUES('doc-a','subject','语文','语文',NULL,NULL,'语文','fixture');
+    document_id,entity_kind,taxonomy_entity_kind,canonical_subject,display_facet,
+    subject_family,scope_kind,scope_label,source_subject_label,decision_basis
+  ) VALUES('doc-a','subject','subject','语文','语文','语文',NULL,NULL,'语文','fixture');
   INSERT INTO document_sources(
     document_id,provider,source_page_url,source_url,access_status,is_primary
   ) VALUES('doc-a','教育部','https://example.test/page','https://example.test/file','verified_online',1);`);

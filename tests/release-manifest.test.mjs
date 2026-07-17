@@ -109,7 +109,8 @@ test('release manifest binds the complete data, graph, static, Git, and environm
   assert.ok(manifest.static_assets.files.some((asset) => asset.path === 'public/index.html'));
   assert.ok(manifest.static_assets.files.every((asset) => asset.deploy_path.startsWith('dist/')));
 
-  assert.equal(manifest.environment_snapshot.environments.local.worker_revision, 'working-tree-v9');
+  assert.equal(manifest.environment_snapshot.environments.local.worker_revision, 'working-tree-v10');
+  assert.equal(manifest.environment_snapshot.required_migration, '0007_document_taxonomy_contract.sql');
   assert.equal(manifest.environment_snapshot.environments.local.r2_release_reader, 'versioned_manifest_v1');
   assert.equal(
     manifest.environment_snapshot.environments.local.release_blockers.some((blocker) => blocker.code === 'versioned_r2_reader_required'),
@@ -124,7 +125,6 @@ test('release manifest binds the complete data, graph, static, Git, and environm
     assert.equal(state.asset_git_commit_object_exists, true);
     assert.equal(state.asset_git_commit_deployment_parity, true);
     assert.deepEqual(state.applied_migrations, [...observed.applied_migrations].sort());
-    assert.deepEqual(observed.pending_migrations, expectedPendingMigrations);
     assert.deepEqual(state.pending_migrations, expectedPendingMigrations);
     assert.deepEqual(
       state.release_blockers

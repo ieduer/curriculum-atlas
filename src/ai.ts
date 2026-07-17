@@ -33,6 +33,22 @@ export interface AiAnswerCitationValidation {
   uncitedClaims: string[];
 }
 
+const TAXONOMY_KIND_LABELS: Record<string, string> = {
+  subject: '学科',
+  assessment_subject: '考试评价身份',
+  curriculum_course: '课程',
+  assessment_domain: '考试评价范围',
+  source_collection: '资料汇编',
+  cross_cutting_framework: '跨学科框架',
+  unclassified: '分类待核',
+};
+
+function passageIdentityContext(passage: { taxonomy_entity_kind: string; entity_label: string; display_facet: string | null }): string {
+  const kind = TAXONOMY_KIND_LABELS[passage.taxonomy_entity_kind] || '范围';
+  const facet = passage.display_facet ? `｜展示分面：${passage.display_facet}` : '';
+  return `${kind}：${passage.entity_label}${facet}`;
+}
+
 function uniqueNumbers(values: number[]): number[] {
   return [...new Set(values)];
 }
@@ -156,7 +172,7 @@ export async function answerWithEvidence(
   const passages = await retrieve(env, { query, subject, limit: 10 });
   if (passages.length === 0) throw new HttpError(422, '资料库中没有找到足够证据，请调整关键词或取消学科筛选');
   const context = passages.map((passage) =>
-    `[P:${passage.id}] ${passage.title}｜${passage.source_locator}\n${passage.body}`,
+    `[P:${passage.id}] ${passage.title}｜${passage.source_locator}｜${passageIdentityContext(passage)}\n${passage.body}`,
   ).join('\n\n');
   const prompt = `你是“中国历年课程标准与考试评价演变”教师研究助手。只使用下列检索证据回答。\n\n规则：\n1. 每个事实句必须在同一句紧跟 [P:数字] 引文；只能使用提供的编号，不能让多句事实共用末尾的一个引文。\n2. 区分原文事实、跨版本比较和教学建议；教学建议明确以“建议”或“教学建议”开头。\n3. 只有不陈述标准事实的教学建议和明确的证据不足句可以不带引文。\n4. 证据不足时直说，不补写不存在的标准条文。\n5. 不把修订动态误报为已发布标准。\n6. 用简洁中文回答，末尾给出“证据边界”。\n\n教师问题：${query}\n${subject ? `学科筛选：${subject}\n` : ''}\n检索证据：\n${context}`;
   const init: RequestInit = {
@@ -199,6 +215,8 @@ export async function answerWithEvidence(
       subject: passage.subject,
       entityLabel: passage.entity_label,
       entityKind: passage.entity_kind,
+      taxonomyEntityKind: passage.taxonomy_entity_kind,
+      displayFacet: passage.display_facet,
       locator: passage.source_locator,
       sourceUrl: passage.source_url,
       excerpt: passage.body.slice(0, 240),

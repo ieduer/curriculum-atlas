@@ -5,7 +5,7 @@ import { retrieve } from './retrieval';
 import { enforceRateLimit, verifyTurnstile } from './security';
 import type { Env, Session } from './types';
 
-const VERSION = '2026.07.16-v9';
+const VERSION = '2026.07.16-v10';
 const R2_CURRENT_POINTER_KEY = 'release/current.json';
 const R2_INGEST_MANIFEST_KEY = 'catalog/ingest-manifest.json';
 const R2_RELEASE_PREFIX = 'releases';
@@ -15,7 +15,10 @@ const MAX_RELEASE_MANIFEST_BYTES = 16 * 1024 * 1024;
 const MAX_INGEST_MANIFEST_BYTES = 64 * 1024 * 1024;
 const REQUIRED_CLASSIFICATION_COUNTS = {
   documents: 196,
-  subjects: 160,
+  academicIdentities: 160,
+  subjects: 159,
+  assessmentSubjects: 1,
+  displayFacets: 12,
   courses: 16,
   scopes: 20,
   unclassified: 0,
@@ -214,26 +217,32 @@ async function health(env: Env): Promise<Response> {
   ).all<{ key: string; value: string }>();
   const schemaMeta = new Map(metaRows.results.map((row) => [row.key, row.value]));
   const corpus = await currentCorpusRelease(env);
-  let classifications: { documents: number; classified: number; subject_documents: number; course_documents: number; scope_documents: number; unclassified_documents: number } | null = null;
+  let classifications: { documents: number; classified: number; academic_identity_documents: number; subject_documents: number; assessment_subject_documents: number; display_facets: number; course_documents: number; scope_documents: number; unclassified_documents: number } | null = null;
   try {
     classifications = await env.DB.prepare(`SELECT COUNT(d.id) AS documents, COUNT(dc.document_id) AS classified,
-      SUM(CASE WHEN dc.entity_kind = 'subject' AND dc.canonical_subject IS NOT NULL THEN 1 ELSE 0 END) AS subject_documents,
-      SUM(CASE WHEN dc.entity_kind = 'scope' AND dc.scope_kind = 'curriculum_course' THEN 1 ELSE 0 END) AS course_documents,
-      SUM(CASE WHEN dc.entity_kind = 'scope' AND dc.scope_kind != 'curriculum_course' THEN 1 ELSE 0 END) AS scope_documents,
-      SUM(CASE WHEN dc.scope_kind = 'unclassified' THEN 1 ELSE 0 END) AS unclassified_documents
+      SUM(CASE WHEN dc.taxonomy_entity_kind IN ('subject', 'assessment_subject') THEN 1 ELSE 0 END) AS academic_identity_documents,
+      SUM(CASE WHEN dc.taxonomy_entity_kind = 'subject' THEN 1 ELSE 0 END) AS subject_documents,
+      SUM(CASE WHEN dc.taxonomy_entity_kind = 'assessment_subject' THEN 1 ELSE 0 END) AS assessment_subject_documents,
+      COUNT(DISTINCT CASE WHEN dc.taxonomy_entity_kind = 'subject' THEN dc.display_facet END) AS display_facets,
+      SUM(CASE WHEN dc.taxonomy_entity_kind = 'curriculum_course' THEN 1 ELSE 0 END) AS course_documents,
+      SUM(CASE WHEN dc.entity_kind = 'scope' AND dc.taxonomy_entity_kind != 'curriculum_course' THEN 1 ELSE 0 END) AS scope_documents,
+      SUM(CASE WHEN dc.taxonomy_entity_kind = 'unclassified' THEN 1 ELSE 0 END) AS unclassified_documents
       FROM documents d LEFT JOIN document_classifications dc ON dc.document_id = d.id
       WHERE d.corpus_release_id = ?`).bind(corpus?.release_id || '')
-      .first<{ documents: number; classified: number; subject_documents: number; course_documents: number; scope_documents: number; unclassified_documents: number }>();
+      .first<{ documents: number; classified: number; academic_identity_documents: number; subject_documents: number; assessment_subject_documents: number; display_facets: number; course_documents: number; scope_documents: number; unclassified_documents: number }>();
   } catch {
     classifications = null;
   }
   const schemaReady = schemaMeta.get('schema_version') === '3'
-    && schemaMeta.get('document_classification_schema_version') === '1'
+    && schemaMeta.get('document_classification_schema_version') === '2'
     && schemaMeta.get('page_publication_schema_version') === '1';
   const classificationCounts = {
     documents: Number(classifications?.documents || 0),
     classified: Number(classifications?.classified || 0),
+    academicIdentities: Number(classifications?.academic_identity_documents || 0),
     subjects: Number(classifications?.subject_documents || 0),
+    assessmentSubjects: Number(classifications?.assessment_subject_documents || 0),
+    displayFacets: Number(classifications?.display_facets || 0),
     courses: Number(classifications?.course_documents || 0),
     scopes: Number(classifications?.scope_documents || 0),
     unclassified: Number(classifications?.unclassified_documents || 0),
@@ -241,7 +250,10 @@ async function health(env: Env): Promise<Response> {
   const classificationReady = classifications !== null
     && classificationCounts.documents === REQUIRED_CLASSIFICATION_COUNTS.documents
     && classificationCounts.classified === REQUIRED_CLASSIFICATION_COUNTS.documents
+    && classificationCounts.academicIdentities === REQUIRED_CLASSIFICATION_COUNTS.academicIdentities
     && classificationCounts.subjects === REQUIRED_CLASSIFICATION_COUNTS.subjects
+    && classificationCounts.assessmentSubjects === REQUIRED_CLASSIFICATION_COUNTS.assessmentSubjects
+    && classificationCounts.displayFacets === REQUIRED_CLASSIFICATION_COUNTS.displayFacets
     && classificationCounts.courses === REQUIRED_CLASSIFICATION_COUNTS.courses
     && classificationCounts.scopes === REQUIRED_CLASSIFICATION_COUNTS.scopes
     && classificationCounts.unclassified === REQUIRED_CLASSIFICATION_COUNTS.unclassified;
@@ -302,7 +314,10 @@ async function health(env: Env): Promise<Response> {
       complete: classificationReady,
       documents: classificationCounts.documents,
       classified: classificationCounts.classified,
+      academicIdentityDocuments: classificationCounts.academicIdentities,
       subjectDocuments: classificationCounts.subjects,
+      assessmentSubjectDocuments: classificationCounts.assessmentSubjects,
+      displayFacets: classificationCounts.displayFacets,
       courseDocuments: classificationCounts.courses,
       scopeDocuments: classificationCounts.scopes,
       unclassifiedDocuments: classificationCounts.unclassified,
@@ -317,33 +332,52 @@ async function health(env: Env): Promise<Response> {
   }, schemaReady && classificationReady && corpusReady && releaseSourceReady ? 200 : 503);
 }
 
-async function requireCanonicalSubject(env: Env, subject: string): Promise<void> {
-  if (!subject) return;
+async function requireExactQueryIdentity(env: Env, identity: string): Promise<void> {
+  if (!identity) return;
   const match = await env.DB.prepare(`SELECT dc.canonical_subject FROM document_classifications dc
     JOIN documents d ON d.id=dc.document_id
-    WHERE dc.entity_kind='subject' AND dc.canonical_subject=?
+    WHERE dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject=?
       AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id') LIMIT 1`)
-    .bind(subject).first();
-  if (!match) throw new HttpError(400, '学科筛选不存在或不是学科实体');
+    .bind(identity).first();
+  if (!match) throw new HttpError(400, '精确分类身份不存在或不可检索');
 }
 
 async function meta(env: Env): Promise<Response> {
-  const [documents, paragraphs, comments, citationReady, onlineVerified, subjects, courses, periods] = await Promise.all([
+  const [documents, paragraphs, comments, citationReady, onlineVerified, subjects, queryIdentities, assessmentIdentities, courses, periods] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) AS count FROM documents WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>(),
     env.DB.prepare("SELECT COUNT(*) AS count FROM paragraphs WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>(),
     env.DB.prepare("SELECT COUNT(*) AS count FROM comments WHERE status = 'approved'").first<{ count: number }>(),
     env.DB.prepare("SELECT COUNT(*) AS count FROM documents WHERE citation_allowed=1 AND corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>(),
     env.DB.prepare("SELECT COUNT(*) AS count FROM online_verifications WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id') AND verification_status IN ('verified_exact','verified_stable_fact_only')").first<{ count: number }>(),
-    env.DB.prepare(`SELECT dc.canonical_subject AS name, COUNT(*) AS documentCount,
+    env.DB.prepare(`SELECT dc.display_facet AS name, COUNT(*) AS documentCount,
       MIN(d.sort_year) AS firstYear, MAX(d.sort_year) AS lastYear
       FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
-      WHERE dc.entity_kind = 'subject' AND dc.canonical_subject IS NOT NULL
+      WHERE dc.taxonomy_entity_kind = 'subject' AND dc.display_facet IS NOT NULL
         AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
-      GROUP BY dc.canonical_subject ORDER BY documentCount DESC, dc.canonical_subject`).all(),
+      GROUP BY dc.display_facet ORDER BY CASE dc.display_facet
+        WHEN '语文' THEN 1 WHEN '数学' THEN 2 WHEN '外语' THEN 3 WHEN '思想政治与道德法治' THEN 4
+        WHEN '历史' THEN 5 WHEN '历史与社会' THEN 6 WHEN '地理' THEN 7 WHEN '科学类' THEN 8
+        WHEN '技术' THEN 9 WHEN '劳动' THEN 10 WHEN '艺术' THEN 11 WHEN '体育与健康' THEN 12 ELSE 99 END`).all(),
+    env.DB.prepare(`SELECT dc.canonical_subject AS name, dc.taxonomy_entity_kind AS taxonomyEntityKind,
+      dc.display_facet AS displayFacet, COUNT(*) AS documentCount,
+      MIN(d.sort_year) AS firstYear, MAX(d.sort_year) AS lastYear
+      FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
+      WHERE dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject IS NOT NULL
+        AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+      GROUP BY dc.canonical_subject, dc.taxonomy_entity_kind, dc.display_facet
+      ORDER BY dc.display_facet, dc.taxonomy_entity_kind, dc.canonical_subject`).all(),
+    env.DB.prepare(`SELECT dc.canonical_subject AS name, dc.taxonomy_entity_kind AS taxonomyEntityKind,
+      dc.display_facet AS relatedDisplayFacet, COUNT(*) AS documentCount,
+      MIN(d.sort_year) AS firstYear, MAX(d.sort_year) AS lastYear
+      FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
+      WHERE dc.taxonomy_entity_kind = 'assessment_subject' AND dc.canonical_subject IS NOT NULL
+        AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+      GROUP BY dc.canonical_subject, dc.taxonomy_entity_kind, dc.display_facet
+      ORDER BY dc.display_facet, dc.canonical_subject`).all(),
     env.DB.prepare(`SELECT dc.scope_label AS name, COUNT(*) AS documentCount,
       MIN(d.sort_year) AS firstYear, MAX(d.sort_year) AS lastYear
       FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
-      WHERE dc.entity_kind = 'scope' AND dc.scope_kind = 'curriculum_course' AND dc.scope_label IS NOT NULL
+      WHERE dc.taxonomy_entity_kind = 'curriculum_course' AND dc.scope_label IS NOT NULL
         AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
       GROUP BY dc.scope_label ORDER BY documentCount DESC, dc.scope_label`).all(),
     env.DB.prepare('SELECT * FROM periods ORDER BY sort_order').all(),
@@ -362,6 +396,8 @@ async function meta(env: Env): Promise<Response> {
       onlineVerifications: onlineVerified?.count || 0,
     },
     subjects: subjects.results,
+    queryIdentities: queryIdentities.results,
+    assessmentIdentities: assessmentIdentities.results,
     courses: courses.results,
     periods: periods.results,
     turnstileSiteKey: env.TURNSTILE_SITE_KEY,
@@ -374,16 +410,16 @@ async function listDocuments(url: URL, env: Env): Promise<Response> {
   const status = textParam(url.searchParams.get('status'), 40);
   const type = textParam(url.searchParams.get('type'), 40);
   const limit = clampInt(url.searchParams.get('limit'), 100, 1, 200);
-  await requireCanonicalSubject(env, subject);
+  await requireExactQueryIdentity(env, subject);
   const result = await env.DB.prepare(
     `SELECT d.id,d.title,d.subject,d.stage,d.document_type,d.version_label,d.issued_by,d.issued_date,d.published_date,d.current_status,
             d.source_tier,d.access_status,d.source_page_url,d.source_url,d.file_format,d.redistribution,d.checksum_sha256,d.note,d.period_id,d.sort_year,
             d.text_quality_status,d.ocr_engine,d.ocr_audit_ref,d.citation_allowed,d.page_count,
-            dc.entity_kind,dc.canonical_subject,dc.subject_family,dc.scope_kind,dc.scope_label,dc.source_subject_label,
+            dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family,dc.scope_kind,dc.scope_label,dc.source_subject_label,
             COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label
      FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
      WHERE d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
-       AND (? = '' OR (dc.entity_kind = 'subject' AND dc.canonical_subject = ?))
+       AND (? = '' OR (dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject = ?))
        AND (? = '' OR d.stage = ?) AND (? = '' OR d.current_status = ?) AND (? = '' OR d.document_type = ?)
      ORDER BY COALESCE(d.sort_year, 0) DESC, entity_label, d.title LIMIT ?`,
   ).bind(subject, subject, stage, stage, status, status, type, type, limit).all();
@@ -391,7 +427,7 @@ async function listDocuments(url: URL, env: Env): Promise<Response> {
 }
 
 async function documentDetail(id: string, url: URL, env: Env): Promise<Response> {
-  const document = await env.DB.prepare(`SELECT d.*, dc.entity_kind,dc.canonical_subject,dc.subject_family,
+  const document = await env.DB.prepare(`SELECT d.*, dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family,
     dc.scope_kind,dc.scope_label,dc.source_subject_label,
     COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label
     FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
@@ -405,7 +441,7 @@ async function documentDetail(id: string, url: URL, env: Env): Promise<Response>
       online_verification_status,evidence_triad_status,uncertainty_note FROM paragraphs
       WHERE document_id = ? AND display_allowed = 1 ORDER BY ordinal LIMIT ? OFFSET ?`).bind(id, limit, offset).all(),
     env.DB.prepare(`SELECT dr.relation_type, dr.note, d.id, d.title, d.subject, d.version_label,
-      dc.entity_kind,dc.canonical_subject,dc.scope_kind,dc.scope_label,
+      dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.scope_kind,dc.scope_label,
       COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label
       FROM document_relations dr JOIN documents d ON d.id = dr.target_document_id
       JOIN document_classifications dc ON dc.document_id = d.id WHERE dr.source_document_id = ?
@@ -457,7 +493,7 @@ async function search(url: URL, env: Env): Promise<Response> {
   const query = textParam(url.searchParams.get('q'), 240);
   if (query.length < 2) throw new HttpError(400, '请输入至少两个字符');
   const subject = textParam(url.searchParams.get('subject'), 40);
-  await requireCanonicalSubject(env, subject);
+  await requireExactQueryIdentity(env, subject);
   const passages = await retrieve(env, {
     query,
     subject,
@@ -469,7 +505,7 @@ async function search(url: URL, env: Env): Promise<Response> {
 
 async function insights(url: URL, env: Env): Promise<Response> {
   const subject = textParam(url.searchParams.get('subject'), 40);
-  await requireCanonicalSubject(env, subject);
+  await requireExactQueryIdentity(env, subject);
   const result = await env.DB.prepare(`SELECT * FROM subject_insights WHERE (? = '' OR subject IN (?, '综合')) ORDER BY sort_order`)
     .bind(subject, subject).all();
   return cacheJson({ insights: result.results }, 600);
@@ -488,12 +524,12 @@ async function terminology(env: Env): Promise<Response> {
 async function compare(url: URL, env: Env): Promise<Response> {
   const subject = textParam(url.searchParams.get('subject'), 40);
   if (!subject) throw new HttpError(400, '请选择学科');
-  await requireCanonicalSubject(env, subject);
+  await requireExactQueryIdentity(env, subject);
   const [documents, insights] = await Promise.all([
     env.DB.prepare(`SELECT d.id,d.title,d.version_label,d.stage,d.sort_year,d.current_status,d.source_url,
-      dc.entity_kind,dc.canonical_subject,dc.subject_family
+      dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family
       FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
-      WHERE dc.entity_kind = 'subject' AND dc.canonical_subject = ?
+      WHERE dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject = ?
         AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
       ORDER BY d.sort_year`).bind(subject).all(),
     env.DB.prepare(`SELECT * FROM subject_insights WHERE subject IN (?, '综合') ORDER BY sort_order`).bind(subject).all(),
@@ -621,7 +657,7 @@ async function aiChat(request: Request, env: Env, session: Session): Promise<Res
   const query = textParam(input.query || '', 1_200);
   const subject = textParam(input.subject || '', 40);
   if (query.length < 8) throw new HttpError(400, '问题至少需要 8 个字符');
-  await requireCanonicalSubject(env, subject);
+  await requireExactQueryIdentity(env, subject);
   return json(await answerWithEvidence(env, session, query, subject));
 }
 

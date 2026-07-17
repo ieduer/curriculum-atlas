@@ -225,10 +225,10 @@
     ]
   },
   "environment_snapshot": {
-    "required_migration": "0006_corpus_import_release.sql",
+    "required_migration": "0007_document_taxonomy_contract.sql",
     "required_r2_release_reader": "versioned_manifest_v1",
     "local": {
-      "worker_revision": "working-tree-v9",
+      "worker_revision": "working-tree-v10",
       "worker_version_id": null,
       "asset_git_commit": "$git_head",
       "migration_state": "source_inventory_only",

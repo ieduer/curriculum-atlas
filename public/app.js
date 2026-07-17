@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260716v14';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260716v15';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -6,7 +6,7 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260716v14';
+} from './subject-facets.js?v=20260716v15';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -103,7 +103,7 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const conceptGraph = await api('/data/concept-evolution.json?v=20260716v14');
+  const conceptGraph = await api('/data/concept-evolution.json?v=20260716v15');
   const [meta, documents, insights] = await Promise.all([
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
@@ -171,23 +171,48 @@ function statusLabel(status) {
 }
 
 function documentSubjectFacet(document) {
-  return document?.entity_kind === 'subject' && typeof document?.canonical_subject === 'string' && document.canonical_subject.trim()
+  return document?.taxonomy_entity_kind === 'subject' && typeof document?.canonical_subject === 'string' && document.canonical_subject.trim()
+    ? document.canonical_subject.trim()
+    : null;
+}
+
+function documentCanonicalIdentity(document) {
+  return ['subject', 'assessment_subject'].includes(document?.taxonomy_entity_kind)
+    && typeof document?.canonical_subject === 'string' && document.canonical_subject.trim()
     ? document.canonical_subject.trim()
     : null;
 }
 
 function documentEntityLabel(document) {
-  return documentSubjectFacet(document) || document?.scope_label || document?.entity_label || document?.source_subject_label || document?.subject || '范围待核';
+  return documentCanonicalIdentity(document) || document?.scope_label || document?.entity_label || document?.source_subject_label || document?.subject || '范围待核';
+}
+
+function taxonomyIdentityKindLabel(taxonomyEntityKind) {
+  const labels = {
+    subject: '学科',
+    assessment_subject: '考试评价身份',
+    curriculum_course: '课程',
+    assessment_domain: '考试评价范围',
+    source_collection: '资料汇编',
+    cross_cutting_framework: '跨学科框架',
+    unclassified: '分类待核',
+  };
+  return labels[taxonomyEntityKind] || '范围';
+}
+
+function documentIdentityKindLabel(document) {
+  return taxonomyIdentityKindLabel(document?.taxonomy_entity_kind);
 }
 
 function documentSourceVariant(document) {
-  const subject = documentSubjectFacet(document);
+  const subject = documentCanonicalIdentity(document);
   const sourceLabel = typeof document?.source_subject_label === 'string' ? document.source_subject_label.trim() : '';
   return subject && sourceLabel && sourceLabel !== subject ? sourceLabel : null;
 }
 
 function availableCanonicalSubjects() {
-  const names = new Set((state.meta?.subjects || [])
+  const identities = state.meta?.queryIdentities || state.meta?.subjects || [];
+  const names = new Set(identities
     .map((item) => typeof item?.name === 'string' ? item.name.trim() : '')
     .filter(Boolean));
   for (const document of state.documents) {
@@ -214,7 +239,10 @@ function subjectQueryPlan(subjectOrFacet) {
 }
 
 function documentDisplayFacet(document) {
-  return displayFacetForSubject(documentSubjectFacet(document));
+  const persistedFacet = typeof document?.display_facet === 'string' ? document.display_facet.trim() : '';
+  return subjectFacetNames().includes(persistedFacet)
+    ? persistedFacet
+    : displayFacetForSubject(documentSubjectFacet(document));
 }
 
 function uniqueRows(rows, keyOf) {
@@ -711,10 +739,11 @@ async function renderDocument(id) {
     const source = doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener">发布页 / 原件 ↗</a>` : '原件链接待补';
     const paragraphs = data.paragraphs.length ? data.paragraphs.map((paragraph) => `<section class="paragraph ${paragraph.uncertainty_note ? 'uncertain' : ''}" id="p-${paragraph.id}"><span class="paragraph-number">P:${paragraph.id}<br>${escapeHtml(paragraph.source_locator)}</span>${escapeHtml(paragraph.body)}${paragraph.uncertainty_note ? `<small class="uncertainty-note">可能有问题：${escapeHtml(paragraph.uncertainty_note)}</small>` : ''}</section>`).join('') : '<div class="empty-state">该记录目前只有已核元数据，正文尚未达到上线门槛。</div>';
     const verification = data.verifications.length ? data.verifications.map((item) => `<article class="verification-row"><b>${escapeHtml(item.entity_label)} · ${escapeHtml(verificationLabel(item.verification_status))}</b><p>${escapeHtml(item.resolution)}</p>${item.uncertainty_note ? `<small class="uncertainty-note">可能有问题：${escapeHtml(item.uncertainty_note)}</small>` : ''}${(item.evidence || []).map((evidence) => `<p><a href="${escapeHtml(evidence.sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(evidence.publisher)}</a> · ${escapeHtml(verificationLabel(evidence.versionMatch))} · ${escapeHtml(evidence.factSummary)}</p>`).join('')}</article>`).join('') : '<div class="empty-state">尚无在线同版核查记录。</div>';
-    const documentSubject = documentSubjectFacet(doc);
+    const documentIdentityKind = documentIdentityKindLabel(doc);
     const documentFacet = documentDisplayFacet(doc);
+    const relatedFacet = doc.taxonomy_entity_kind === 'assessment_subject' ? documentFacet : null;
     const sourceVariant = documentSourceVariant(doc);
-    workbenchBody.innerHTML = `<div class="reader-grid"><article class="reader-document"><h2>${escapeHtml(doc.title)}</h2><p>${escapeHtml(doc.issued_by)}${doc.issued_date ? ` · ${escapeHtml(doc.issued_date)}` : ''} · ${escapeHtml(qualityLabel(doc))}</p>${paragraphs}<h2>在线三证核查</h2><p>只有同文同版来源可校正文句；同篇异版仅旁证稳定事实。</p>${verification}</article><aside class="reader-facts"><h3>资料身份</h3><p>编号：${escapeHtml(doc.id)}<br>${documentSubject ? '学科' : '范围'}：${escapeHtml(documentEntityLabel(doc))}${sourceVariant ? `<br>来源标注：${escapeHtml(sourceVariant)}` : ''}<br>学段：${escapeHtml(doc.stage)}<br>版本：${escapeHtml(doc.version_label)}<br>状态：${escapeHtml(statusLabel(doc.current_status))}<br>文本质量：${escapeHtml(doc.text_quality_status || '待评估')}<br>页数：${doc.page_count || '待核'}</p><p>${source}</p><div class="inspector-actions">${documentFacet ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(documentFacet)}" data-link>版本比较</a>` : ''}<a class="action-button" href="/discussions?documentId=${encodeURIComponent(doc.id)}" data-link>教师讨论</a></div></aside></div>`;
+    workbenchBody.innerHTML = `<div class="reader-grid"><article class="reader-document"><h2>${escapeHtml(doc.title)}</h2><p>${escapeHtml(doc.issued_by)}${doc.issued_date ? ` · ${escapeHtml(doc.issued_date)}` : ''} · ${escapeHtml(qualityLabel(doc))}</p>${paragraphs}<h2>在线三证核查</h2><p>只有同文同版来源可校正文句；同篇异版仅旁证稳定事实。</p>${verification}</article><aside class="reader-facts"><h3>资料身份</h3><p>编号：${escapeHtml(doc.id)}<br>${escapeHtml(documentIdentityKind)}：${escapeHtml(documentEntityLabel(doc))}${relatedFacet ? `<br>关联学科分面：${escapeHtml(relatedFacet)}` : ''}${sourceVariant ? `<br>来源标注：${escapeHtml(sourceVariant)}` : ''}<br>学段：${escapeHtml(doc.stage)}<br>版本：${escapeHtml(doc.version_label)}<br>状态：${escapeHtml(statusLabel(doc.current_status))}<br>文本质量：${escapeHtml(doc.text_quality_status || '待评估')}<br>页数：${doc.page_count || '待核'}</p><p>${source}</p><div class="inspector-actions">${documentFacet ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(documentFacet)}" data-link>版本比较</a>` : ''}<a class="action-button" href="/discussions?documentId=${encodeURIComponent(doc.id)}" data-link>教师讨论</a></div></aside></div>`;
     if (location.hash) requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView({ block: 'center' }));
   } catch (error) {
     workbenchBody.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
@@ -784,7 +813,7 @@ async function renderAi() {
       const facet = displayFacetForSubject(payload.subject) || '';
       const data = await researchSubjectFacet(payload.query, facet);
       answer.textContent = data.answer;
-      document.querySelector('#ai-citations').innerHTML = data.citations.map((citation) => `<article class="citation-row"><a href="/document/${encodeURIComponent(citation.documentId)}#p-${citation.paragraphId}" data-link>[P:${citation.paragraphId}] ${escapeHtml(citation.title)}</a><small>${escapeHtml(citation.entityLabel || citation.subject)} · ${escapeHtml(citation.locator)}</small><p>${escapeHtml(citation.excerpt)}</p></article>`).join('');
+      document.querySelector('#ai-citations').innerHTML = data.citations.map((citation) => `<article class="citation-row"><a href="/document/${encodeURIComponent(citation.documentId)}#p-${citation.paragraphId}" data-link>[P:${citation.paragraphId}] ${escapeHtml(citation.title)}</a><small>${escapeHtml(taxonomyIdentityKindLabel(citation.taxonomyEntityKind))} · ${escapeHtml(citation.entityLabel || citation.subject)}${citation.displayFacet ? ` · ${escapeHtml(citation.displayFacet)}分面` : ''} · ${escapeHtml(citation.locator)}</small><p>${escapeHtml(citation.excerpt)}</p></article>`).join('');
       window.BdfzIdentity?.recordEvent?.({ siteKey: 'curriculum', recordKey: `ai-research:${Date.now()}`, title: '课程标准证据研究', summary: '完成一次带引文的课程标准研究', itemGroup: 'teacher-research', itemType: 'rag-query', contentFormat: 'curriculum-atlas-rag-v1', sourceUrl: location.href, payload: { eventName: 'ai_evidence_research', subject: facet || 'cross-subject', canonicalSubjectCount: data.canonicalSubjects.length, retrievalCount: data.retrievalCount } }).catch(() => {});
     } catch (error) {
       answer.textContent = error.message;

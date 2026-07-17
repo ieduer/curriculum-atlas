@@ -4,6 +4,15 @@ function text(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+const FACET_TAXONOMY_ENTITY_KINDS = new Set(['subject', 'assessment_subject']);
+const SCOPE_TAXONOMY_ENTITY_KINDS = new Set([
+  'curriculum_course',
+  'assessment_domain',
+  'source_collection',
+  'cross_cutting_framework',
+  'unclassified',
+]);
+
 function scopeKind(rule) {
   const classification = text(rule?.classification) || '';
   if (rule?.entity_kind === 'curriculum_course') {
@@ -26,20 +35,24 @@ export function validateDocumentClassification(value, record) {
   const taxonomyEntityKind = text(value?.taxonomy_entity_kind)
     || (entityKind === 'subject' ? 'subject' : value?.scope_kind === 'curriculum_course' ? 'curriculum_course' : 'scope');
   const canonicalSubject = text(value?.canonical_subject);
+  const displayFacet = text(value?.display_facet);
   const classifiedScopeKind = text(value?.scope_kind);
   const scopeLabel = text(value?.scope_label);
   if (!entityKind) throw new Error(`Missing entity_kind for ${record.id}`);
   if (!['subject', 'scope'].includes(entityKind)) throw new Error(`Invalid entity_kind for ${record.id}: ${entityKind}`);
-  if (entityKind === 'subject' && !['subject', 'assessment_subject'].includes(taxonomyEntityKind)) {
+  if (entityKind === 'subject' && !FACET_TAXONOMY_ENTITY_KINDS.has(taxonomyEntityKind)) {
     throw new Error(`Invalid facet-bearing taxonomy_entity_kind for ${record.id}: ${taxonomyEntityKind}`);
+  }
+  if (entityKind === 'scope' && !SCOPE_TAXONOMY_ENTITY_KINDS.has(taxonomyEntityKind)) {
+    throw new Error(`Invalid scope taxonomy_entity_kind for ${record.id}: ${taxonomyEntityKind}`);
   }
   if (classifiedScopeKind === 'curriculum_course' && taxonomyEntityKind !== 'curriculum_course') {
     throw new Error(`Curriculum course storage mapping lacks curriculum_course semantics for ${record.id}`);
   }
-  if (entityKind === 'subject' && !canonicalSubject) {
-    throw new Error(`Subject classification lacks canonical_subject for ${record.id}`);
+  if (entityKind === 'subject' && (!canonicalSubject || !displayFacet)) {
+    throw new Error(`Facet-bearing classification lacks canonical_subject or display_facet for ${record.id}`);
   }
-  if (entityKind !== 'subject' && (canonicalSubject || !classifiedScopeKind || !scopeLabel)) {
+  if (entityKind !== 'subject' && (canonicalSubject || displayFacet || !classifiedScopeKind || !scopeLabel)) {
     throw new Error(`Scope classification is incomplete for ${record.id}`);
   }
   return {
@@ -47,6 +60,7 @@ export function validateDocumentClassification(value, record) {
     entity_kind: entityKind,
     taxonomy_entity_kind: taxonomyEntityKind,
     canonical_subject: entityKind === 'subject' ? canonicalSubject : null,
+    display_facet: entityKind === 'subject' ? displayFacet : null,
     subject_family: entityKind === 'subject' ? text(value.subject_family) || canonicalSubject : null,
     scope_kind: entityKind === 'subject' ? null : classifiedScopeKind,
     scope_label: entityKind === 'subject' ? null : scopeLabel,
@@ -74,6 +88,15 @@ export async function loadDocumentClassificationResolver(projectRoot) {
   for (const [family, labels] of Object.entries(model.subject_families)) {
     for (const label of labels) familyByLabel.set(label, family);
   }
+  const displayFacetFor = (rule, sourceLabel) => {
+    const matches = Object.entries(model.subject_facet_groups)
+      .filter(([, members]) => members.includes(sourceLabel) || members.includes(rule.canonical))
+      .map(([facet]) => facet);
+    if (matches.length !== 1) {
+      throw new Error(`Subject facet group must resolve exactly once: ${sourceLabel} -> ${rule.canonical} (${matches.join(', ') || 'none'})`);
+    }
+    return matches[0];
+  };
   return (record) => {
     const rule = model.document_entity_overrides[record.id] || model.subject_taxonomy[record.subject];
     if (!rule) return fallbackDocumentClassification(record);
@@ -82,6 +105,7 @@ export async function loadDocumentClassificationResolver(projectRoot) {
         entity_kind: 'subject',
         taxonomy_entity_kind: rule.entity_kind,
         canonical_subject: rule.canonical,
+        display_facet: displayFacetFor(rule, record.subject),
         subject_family: rule.lineage_family || familyByLabel.get(record.subject) || rule.canonical,
         decision_basis: `concept_model_v2:${rule.classification || 'subject'}`,
       }, record);

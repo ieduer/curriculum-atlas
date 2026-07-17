@@ -56,13 +56,15 @@ test('star-map facet helper admits controlled subject and assessment-subject ent
   }), '课程方案');
 });
 
-test('D1 migration enforces canonical subject and scope invariants', async () => {
-  const migration = await readFile(new URL('migrations/0004_document_classifications.sql', root), 'utf8');
-  assert.match(migration, /entity_kind TEXT NOT NULL CHECK \(entity_kind IN \('subject', 'scope'\)\)/);
-  assert.match(migration, /entity_kind = 'subject' AND canonical_subject IS NOT NULL/);
-  assert.match(migration, /entity_kind != 'subject' AND canonical_subject IS NULL/);
-  assert.match(migration, /'document_classification_schema_version', '1'/);
-  assert.doesNotMatch(migration, /'schema_version', '4'/);
+test('D1 schema v2 preserves raw taxonomy identity and constrains twelve public facets', async () => {
+  const migration = await readFile(new URL('migrations/0007_document_taxonomy_contract.sql', root), 'utf8');
+  assert.match(migration, /taxonomy_entity_kind TEXT NOT NULL CHECK/);
+  assert.match(migration, /'subject', 'assessment_subject', 'curriculum_course', 'assessment_domain'/);
+  assert.match(migration, /display_facet TEXT CHECK/);
+  assert.match(migration, /'语文', '数学', '外语', '思想政治与道德法治'/);
+  assert.match(migration, /decision_basis = 'concept_model_v2:assessment_subject' THEN 'assessment_subject'/);
+  assert.match(migration, /canonical_subject IN \('语文', '汉语'\) THEN '语文'/);
+  assert.match(migration, /'document_classification_schema_version', '2'/);
 });
 
 test('API, retrieval, and corpus persistence use document classifications rather than raw subjects', async () => {
@@ -72,10 +74,12 @@ test('API, retrieval, and corpus persistence use document classifications rather
     readFile(new URL('scripts/build-corpus.mjs', root), 'utf8'),
   ]);
   assert.match(index, /JOIN document_classifications dc ON dc\.document_id = d\.id/);
-  assert.match(index, /dc\.entity_kind = 'subject' AND dc\.canonical_subject = \?/);
+  assert.match(index, /dc\.taxonomy_entity_kind = 'subject' AND dc\.canonical_subject = \?/);
   assert.match(retrieval, /dc\.canonical_subject AS subject/);
-  assert.match(retrieval, /dc\.entity_kind = 'subject' AND dc\.canonical_subject = \?/);
+  assert.match(retrieval, /dc\.taxonomy_entity_kind = 'subject' AND dc\.canonical_subject = \?/);
   assert.match(corpus, /INSERT INTO document_classifications/);
+  assert.match(corpus, /taxonomy_entity_kind/);
+  assert.match(corpus, /display_facet/);
   assert.match(corpus, /classified_document_count/);
 });
 
@@ -91,7 +95,19 @@ test('frontend subject controls consume strict display facets and hide all nodes
   assert.match(app, /from '\.\/subject-facets\.js\?v=[^']+'/);
   assert.match(facets, /item\?\.facet_eligible !== true \|\| item\?\.entity_kind !== 'subject'/);
   assert.match(facets, /DISPLAY_SUBJECT_FACETS/);
-  assert.match(app, /document\?\.entity_kind === 'subject'/);
+  assert.match(app, /document\?\.taxonomy_entity_kind === 'subject'/);
+  assert.doesNotMatch(app, /document\?\.entity_kind === 'subject'/);
+  assert.match(app, /assessment_subject: '考试评价身份'/);
+  assert.match(app, /assessment_domain: '考试评价范围'/);
+  assert.match(app, /source_collection: '资料汇编'/);
+  assert.match(app, /cross_cutting_framework: '跨学科框架'/);
+  assert.match(app, /关联学科分面/);
+  assert.match(app, /\['subject', 'assessment_subject'\]\.includes\(document\?\.taxonomy_entity_kind\)/);
+  assert.match(app, /document\?\.display_facet/);
+  assert.match(app, /citation\.taxonomyEntityKind/);
+  assert.match(app, /citation\.displayFacet/);
+  assert.match(app, /`\$\{doc\.title\}\$\{documentEntityLabel\(doc\)\}\$\{doc\.issued_by\}\$\{doc\.version_label\}`\.includes\(query\)/,
+    'sources metadata/title query must retain assessment identities without claiming full-text coverage');
   assert.match(atlas, /node\.year > this\.filters\.maxYear \|\| !episodeVisibleForSubjectFilter/);
   assert.match(atlas, /!source \|\| !target \|\| !this\.visible\(source\) \|\| !this\.visible\(target\)/);
   assert.match(atlas, /color: episodeColor\(episode\)/);

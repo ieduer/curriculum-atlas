@@ -36,6 +36,8 @@ export interface Passage {
   document_id: string;
   title: string;
   entity_kind: string;
+  taxonomy_entity_kind: string;
+  display_facet: string | null;
   subject: string | null;
   entity_label: string;
   subject_family: string | null;
@@ -56,6 +58,8 @@ export interface AiCitation {
   subject: string | null;
   entityLabel: string;
   entityKind: string;
+  taxonomyEntityKind: string;
+  displayFacet: string | null;
   locator: string;
   sourceUrl: string;
   excerpt: string;

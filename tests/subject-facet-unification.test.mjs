@@ -52,16 +52,18 @@ test('query plans intersect live canonical subjects and never send a display fac
 test('facet filtering is strict and preserves canonical labels and edition identity', () => {
   const index = buildSubjectFacetIndex(graph, availableSubjects);
   const documents = [
-    { id: 'en-2011', entity_kind: 'subject', canonical_subject: '英语', version_label: '2011年版' },
-    { id: 'ru-2011', entity_kind: 'subject', canonical_subject: '俄语', version_label: '2011年版' },
-    { id: 'pe-2011', entity_kind: 'subject', canonical_subject: '体育与健康', version_label: '2011年版' },
-    { id: 'framework', entity_kind: 'scope', canonical_subject: null, scope_label: '课程方案' },
-    { id: 'assessment', entity_kind: 'subject', canonical_subject: '汉语', version_label: '考试大纲' },
+    { id: 'en-2011', entity_kind: 'subject', taxonomy_entity_kind: 'subject', canonical_subject: '英语', display_facet: '外语', version_label: '2011年版' },
+    { id: 'ru-2011', entity_kind: 'subject', taxonomy_entity_kind: 'subject', canonical_subject: '俄语', display_facet: '外语', version_label: '2011年版' },
+    { id: 'pe-2011', entity_kind: 'subject', taxonomy_entity_kind: 'subject', canonical_subject: '体育与健康', display_facet: '体育与健康', version_label: '2011年版' },
+    { id: 'framework', entity_kind: 'scope', taxonomy_entity_kind: 'cross_cutting_framework', canonical_subject: null, display_facet: null, scope_label: '课程方案' },
+    { id: 'assessment', entity_kind: 'subject', taxonomy_entity_kind: 'assessment_subject', canonical_subject: '汉语', display_facet: '语文', version_label: '考试大纲' },
   ];
   const filtered = filterDocumentsBySubjectFacet(documents, '外语', index);
   assert.deepEqual(filtered.map((item) => item.id), ['en-2011', 'ru-2011']);
   assert.deepEqual(filtered.map((item) => item.canonical_subject), ['英语', '俄语']);
   assert.deepEqual(filtered.map((item) => item.version_label), ['2011年版', '2011年版']);
+  assert.deepEqual(filterDocumentsBySubjectFacet(documents, '语文', index).map((item) => item.id), ['assessment']);
+  assert.equal(planSubjectFacetQueries('语文', index).some((item) => item.canonicalSubject === '汉语'), false);
 });
 
 test('hide-all suppresses subject, assessment, scope, and metadata episodes without leakage', () => {
@@ -91,7 +93,11 @@ test('frontend selectors use facets while compare, search, and AI expand exact c
   assert.match(app, /api\(`\/api\/search\?q=\$\{encodeURIComponent\(query\)\}&subject=\$\{encodeURIComponent\(canonicalSubject\)\}`\)/);
   assert.match(app, /JSON\.stringify\(\{ query, subject: canonicalSubject \}\)/);
   assert.match(app, /canonical_subject: document\.canonical_subject \|\| canonicalSubject/);
+  assert.match(app, /state\.meta\?\.queryIdentities \|\| state\.meta\?\.subjects/);
   assert.match(app, /state\.hideAllSubjects = subjects\.every/);
-  assert.match(backend, /await requireCanonicalSubject\(env, subject\)/);
+  assert.match(backend, /await requireExactQueryIdentity\(env, subject\)/);
+  assert.match(backend, /WHERE dc\.taxonomy_entity_kind = 'subject' AND dc\.canonical_subject=\?/);
+  assert.match(backend, /subjects: subjects\.results,[\s\S]*queryIdentities: queryIdentities\.results,[\s\S]*assessmentIdentities: assessmentIdentities\.results/);
+  assert.match(backend, /dc\.taxonomy_entity_kind = 'assessment_subject' AND dc\.canonical_subject IS NOT NULL/);
   assert.match(backend, /dc\.canonical_subject = \?/);
 });

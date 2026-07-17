@@ -18,7 +18,8 @@ export async function retrieve(env: Env, filters: SearchFilters): Promise<Passag
   const match = ftsQuery(query);
   if (match) {
     const result = await env.DB.prepare(
-      `SELECT p.id, p.document_id, d.title, dc.entity_kind, dc.canonical_subject AS subject,
+      `SELECT p.id, p.document_id, d.title, dc.entity_kind, dc.taxonomy_entity_kind, dc.display_facet,
+              dc.canonical_subject AS subject,
               COALESCE(dc.canonical_subject, dc.scope_label, dc.source_subject_label) AS entity_label,
               dc.subject_family, dc.scope_kind, dc.scope_label, d.version_label,
               p.page_number, p.source_locator, p.body, d.source_url,
@@ -30,7 +31,7 @@ export async function retrieve(env: Env, filters: SearchFilters): Promise<Passag
        WHERE paragraph_fts MATCH ?
          AND p.citation_allowed = 1
          AND d.citation_allowed = 1
-         AND (? = '' OR (dc.entity_kind = 'subject' AND dc.canonical_subject = ?))
+         AND (? = '' OR (dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject = ?))
          AND (? = '' OR d.stage = ?)
        ORDER BY score ASC
        LIMIT ?`,
@@ -40,7 +41,8 @@ export async function retrieve(env: Env, filters: SearchFilters): Promise<Passag
 
   const like = `%${query.replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
   const fallback = await env.DB.prepare(
-    `SELECT p.id, p.document_id, d.title, dc.entity_kind, dc.canonical_subject AS subject,
+    `SELECT p.id, p.document_id, d.title, dc.entity_kind, dc.taxonomy_entity_kind, dc.display_facet,
+            dc.canonical_subject AS subject,
             COALESCE(dc.canonical_subject, dc.scope_label, dc.source_subject_label) AS entity_label,
             dc.subject_family, dc.scope_kind, dc.scope_label, d.version_label,
             p.page_number, p.source_locator, p.body, d.source_url, 0 AS score
@@ -50,7 +52,7 @@ export async function retrieve(env: Env, filters: SearchFilters): Promise<Passag
      WHERE p.body LIKE ? ESCAPE '\\'
        AND p.citation_allowed = 1
        AND d.citation_allowed = 1
-       AND (? = '' OR (dc.entity_kind = 'subject' AND dc.canonical_subject = ?))
+       AND (? = '' OR (dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject = ?))
        AND (? = '' OR d.stage = ?)
      ORDER BY d.sort_year DESC, p.ordinal ASC LIMIT ?`,
   ).bind(like, subject, subject, stage, stage, limit).all<Passage>();

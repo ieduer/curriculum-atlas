@@ -12,15 +12,17 @@ function record(id, subject, title = `${subject || '未标注'}课程标准`, do
 
 test('reserved framework, assessment, evaluation, and collection labels fail closed as scopes', () => {
   const cases = [
-    ['课程方案', 'curriculum_framework', '课程方案'],
-    ['考试大纲', 'assessment_framework', '考试大纲'],
-    ['考试评价', 'evaluation_framework', '考试评价'],
-    ['艺术与劳动', 'subject_collection', '音乐美术劳技汇编'],
+    ['课程方案', 'cross_cutting_framework', 'curriculum_framework', '课程方案'],
+    ['考试大纲', 'assessment_domain', 'assessment_framework', '考试大纲'],
+    ['考试评价', 'assessment_domain', 'evaluation_framework', '考试评价'],
+    ['艺术与劳动', 'source_collection', 'subject_collection', '音乐美术劳技汇编'],
   ];
-  for (const [label, scopeKind, scopeLabel] of cases) {
+  for (const [label, taxonomyEntityKind, scopeKind, scopeLabel] of cases) {
     const value = classify(record(`scope-${label}`, label));
     assert.equal(value.entity_kind, 'scope');
+    assert.equal(value.taxonomy_entity_kind, taxonomyEntityKind);
     assert.equal(value.canonical_subject, null);
+    assert.equal(value.display_facet, null);
     assert.equal(value.scope_kind, scopeKind);
     assert.equal(value.scope_label, scopeLabel);
     assert.equal(value.source_subject_label, label);
@@ -36,9 +38,11 @@ test('bare 综合 uses document-level review and otherwise remains outside subje
   ));
   assert.equal(moral.entity_kind, 'subject');
   assert.equal(moral.canonical_subject, '思想品德');
+  assert.equal(moral.display_facet, '思想政治与道德法治');
   assert.equal(moral.source_subject_label, '综合');
   assert.equal(music.entity_kind, 'subject');
   assert.equal(music.canonical_subject, '音乐');
+  assert.equal(music.display_facet, '艺术');
 
   const curriculum = classify(record(
     'ictr-cfb2a39a2016', '综合', '聋校义务教育课程设置实验方案（2007年）',
@@ -57,20 +61,21 @@ test('bare 综合 uses document-level review and otherwise remains outside subje
 
 test('historical names normalize canonically while preserving their source label', () => {
   const cases = [
-    ['普通高级中学 体育体育与健康', '体育与健康', '体育与健康'],
-    ['初中科学', '科学', '科学'],
-    ['文科数学', '数学', '数学'],
-    ['理科数学', '数学', '数学'],
-    ['生物', '生物学', '科学'],
-    ['生物学', '生物学', '科学'],
-    ['信息技术', '信息技术', 'information_technology_education'],
-    ['信息科技', '信息科技', 'information_technology_education'],
+    ['普通高级中学 体育体育与健康', '体育与健康', '体育与健康', '体育与健康'],
+    ['初中科学', '科学', '科学', '科学类'],
+    ['文科数学', '数学', '数学', '数学'],
+    ['理科数学', '数学', '数学', '数学'],
+    ['生物', '生物学', '科学', '科学类'],
+    ['生物学', '生物学', '科学', '科学类'],
+    ['信息技术', '信息技术', 'information_technology_education', '技术'],
+    ['信息科技', '信息科技', 'information_technology_education', '技术'],
   ];
-  for (const [source, canonical, family] of cases) {
+  for (const [source, canonical, family, displayFacet] of cases) {
     const value = classify(record(`subject-${source}`, source));
     assert.equal(value.entity_kind, 'subject');
     assert.equal(value.canonical_subject, canonical);
     assert.equal(value.subject_family, family);
+    assert.equal(value.display_facet, displayFacet);
     assert.equal(value.source_subject_label, source);
   }
 });
@@ -108,6 +113,21 @@ test('explicit taxonomy covers the catalog with separate subject, course, and sc
   assert.equal(assessmentSubject.entity_kind, 'subject');
   assert.equal(assessmentSubject.taxonomy_entity_kind, 'assessment_subject');
   assert.equal(assessmentSubject.canonical_subject, '汉语');
+  assert.equal(assessmentSubject.display_facet, '语文');
+  const taxonomyCounts = Object.fromEntries([
+    'subject', 'assessment_subject', 'curriculum_course', 'assessment_domain',
+    'cross_cutting_framework', 'source_collection', 'unclassified',
+  ].map((kind) => [kind, rows.filter((item) => item.taxonomy_entity_kind === kind).length]));
+  assert.deepEqual(taxonomyCounts, {
+    subject: 159,
+    assessment_subject: 1,
+    curriculum_course: 16,
+    assessment_domain: 3,
+    cross_cutting_framework: 13,
+    source_collection: 4,
+    unclassified: 0,
+  });
+  assert.equal(new Set(rows.filter((item) => item.entity_kind === 'subject').map((item) => item.display_facet)).size, 12);
   const counts = {
     subject: rows.filter((item) => item.entity_kind === 'subject').length,
     course: rows.filter((item) => item.scope_kind === 'curriculum_course').length,
