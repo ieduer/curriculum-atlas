@@ -1,0 +1,42 @@
+[Unit]
+Description=Alert-only handler for failed BDFZ curriculum OCR monitor %i
+Documentation=https://github.com/ieduer/curriculum-atlas
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=15min
+StartLimitBurst=10
+
+[Service]
+Type=oneshot
+UMask=0077
+WorkingDirectory=%h/curriculum-ocr-offload/alert-runtime
+EnvironmentFile=%h/.config/bdfz/curriculum-ocr-monitor-alert.conf
+ExecStartPre=/usr/bin/test -d %h/.local/state/bdfz-curriculum-ocr-monitor-alert
+ExecStartPre=/usr/bin/test -f %h/curriculum-ocr-offload/alert-runtime/notify-remote-ocr-single-shard-monitor.mjs
+ExecStart=/usr/bin/node %h/curriculum-ocr-offload/alert-runtime/notify-remote-ocr-single-shard-monitor.mjs \
+  --mode alert \
+  --state-dir %h/.local/state/bdfz-curriculum-ocr-monitor-alert \
+  --latest-json ${BDFZ_OCR_ALERT_LATEST_JSON} \
+  --expected-run-id ${BDFZ_OCR_ALERT_EXPECTED_RUN_ID} \
+  --monitor-unit %i \
+  --worker-unit ${BDFZ_OCR_ALERT_WORKER_UNIT} \
+  --monitor-script ${BDFZ_OCR_ALERT_MONITOR_SCRIPT} \
+  --monitor-sha256 ${BDFZ_OCR_ALERT_MONITOR_SHA256} \
+  --max-latest-age-seconds 300 \
+  --credential-file %h/.config/bdfz/curriculum-ocr-monitor-telegram.env
+Restart=on-failure
+RestartSec=60s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/state/bdfz-curriculum-ocr-monitor-alert
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+# Provision the dedicated credential file separately as owner-only mode 0600.
+# This handler sends an alert only; it never stops, restarts, or mutates OCR.
