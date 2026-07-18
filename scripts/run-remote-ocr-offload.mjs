@@ -5,6 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { constants, createReadStream } from 'node:fs';
 import {
   access,
+  link,
   lstat,
   mkdir,
   open,
@@ -14,6 +15,7 @@ import {
   rename,
   rm,
   stat,
+  unlink,
   writeFile,
 } from 'node:fs/promises';
 import path from 'node:path';
@@ -52,6 +54,13 @@ const timeoutRecoveryLedgerType = 'curriculum_remote_ocr_timeout_recovery_consum
 const timeoutRecoveryClaimFilename = 'timeout-recovery-consumption-claim.json';
 const timeoutRecoveryClaimType = 'curriculum_remote_ocr_timeout_recovery_consumption_claim';
 const timeoutRecoveryClaimMode = 'atomic_single_claim';
+const timeoutRecoveryIncidentType = 'curriculum_remote_ocr_child_timeout_incident';
+const timeoutRecoveryIncidentDirectory = 'timeout-incidents';
+const timeoutRecoveryIssuanceDirectory = 'timeout-recovery-issuance';
+const timeoutRecoveryIssuanceClaimType = 'curriculum_remote_ocr_timeout_recovery_issuance_claim';
+const timeoutRecoveryAuthorityDirectoryName = 'timeout-recovery-authority-v1';
+const timeoutRecoveryPredecessorClaimKeyType = 'curriculum_remote_ocr_timeout_recovery_predecessor_claim_key';
+const p4ToP1Transition = 'p4_to_p1_v1';
 const legacyB1RunnerScriptSha256 = 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55';
 const llamaHealthTimeoutMilliseconds = 10_000;
 const pythonRuntimeProbeTimeoutMilliseconds = 15 * 60 * 1_000;
@@ -707,7 +716,7 @@ function productionLlamaCommandContract(serverParallel, port) {
       '--port': String(port),
       '--parallel': String(serverParallel),
       '--temp': '0',
-      '--ctx-size': String(8_192 * serverParallel),
+      '--ctx-size': '32768',
       '--n-gpu-layers': 'all',
       '--flash-attn': 'auto',
       '--cache-type-k': 'f16',
@@ -726,6 +735,33 @@ function productionLlamaCommandContract(serverParallel, port) {
       '--metrics',
     ],
   };
+}
+
+function productionLlamaArgv(serverBinary, model, mmproj, serverParallel, port) {
+  return [
+    serverBinary,
+    '-m', model,
+    '--mmproj', mmproj,
+    '--host', '127.0.0.1',
+    '--port', String(port),
+    '--temp', '0',
+    '--ctx-size', '32768',
+    '--parallel', String(serverParallel),
+    '--n-gpu-layers', 'all',
+    '--mmproj-offload',
+    '--flash-attn', 'auto',
+    '--cache-type-k', 'f16',
+    '--cache-type-v', 'f16',
+    '--batch-size', '2048',
+    '--ubatch-size', '512',
+    '--cont-batching',
+    '--fit', 'off',
+    '--timeout', '3600',
+    '--threads', '8',
+    '--threads-batch', '16',
+    '--no-webui',
+    '--metrics',
+  ];
 }
 
 async function defaultLlamaHealthProbe(healthUrl) {
@@ -803,6 +839,16 @@ export async function verifyLlamaServerAttestation(manifestRuntime, options, dep
   }
   const rawCmdline = await readProcCmdline(mainPid);
   const cmdline = decodeProcCmdline(rawCmdline);
+  const expectedArgv = productionLlamaArgv(
+    serverBinary,
+    model,
+    mmproj,
+    options.serverParallel,
+    Number(llamaUrl.port),
+  );
+  if (JSON.stringify(cmdline.arguments) !== JSON.stringify(expectedArgv)) {
+    throw new Error('llama-server /proc argv must equal the exact ordered production command vector');
+  }
   const modelArgument = singleCommandOption(cmdline.arguments, ['--model', '-m'], 'model');
   const mmprojArgument = singleCommandOption(cmdline.arguments, ['--mmproj'], '--mmproj');
   if (!path.isAbsolute(modelArgument) || await realpath(modelArgument) !== model) {
@@ -1139,6 +1185,84 @@ async function writeJsonWithSidecar(pathname, value) {
   return digest;
 }
 
+async function publishNoReplaceFile(pathname, raw, label) {
+  const parent = path.dirname(pathname);
+  const rawBuffer = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+  const tempPath = path.join(
+    parent,
+    `.${path.basename(pathname)}.${sha256Value(rawBuffer)}.${randomUUID()}.publish-tmp`,
+  );
+  let handle;
+  let tempPresent = false;
+  try {
+    handle = await open(
+      tempPath,
+      constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW,
+      0o600,
+    );
+    tempPresent = true;
+    const info = await handle.stat({ bigint: true });
+    const expectedUid = typeof process.getuid === 'function' ? BigInt(process.getuid()) : info.uid;
+    const expectedGid = typeof process.getgid === 'function' ? BigInt(process.getgid()) : info.gid;
+    if (!info.isFile() || info.nlink !== 1n || info.uid !== expectedUid || info.gid !== expectedGid) {
+      throw new Error(`${label} temporary inode is not a single-link file owned by the current uid/gid`);
+    }
+    await handle.writeFile(rawBuffer);
+    await handle.sync();
+    await handle.close();
+    handle = null;
+    let raced = false;
+    try {
+      await link(tempPath, pathname);
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      raced = true;
+    }
+    await unlink(tempPath);
+    tempPresent = false;
+    await syncDirectory(parent);
+    if (raced) {
+      let existing;
+      let lastError;
+      for (let attempt = 0; attempt < 50; attempt += 1) {
+        try {
+          existing = await readStrictFile(parent, pathname, label);
+          break;
+        } catch (readError) {
+          lastError = readError;
+          if (!/single-link/u.test(readError.message)) throw readError;
+          await new Promise((resolve) => setTimeout(resolve, 2));
+        }
+      }
+      if (!existing) throw lastError;
+      if (!existing.equals(rawBuffer)) {
+        throw new Error(`${label} already exists with different raw bytes`);
+      }
+      await syncDirectory(parent);
+    }
+  } finally {
+    await handle?.close();
+    if (tempPresent) {
+      await unlink(tempPath).catch((error) => {
+        if (error?.code !== 'ENOENT') throw error;
+      });
+    }
+    await syncDirectory(parent);
+  }
+}
+
+async function publishNoReplaceJsonWithSidecar(pathname, value, label) {
+  const raw = Buffer.from(jsonContents(value));
+  await publishNoReplaceFile(pathname, raw, label);
+  const digest = sha256Value(raw);
+  await publishNoReplaceFile(
+    `${pathname}.sha256`,
+    Buffer.from(`${digest}  ${path.basename(pathname)}\n`),
+    `${label} SHA-256 sidecar`,
+  );
+  return { raw, digest };
+}
+
 async function requireRealDirectory(pathname, label) {
   const info = await lstat(pathname).catch((error) => {
     if (error?.code === 'ENOENT') throw new Error(`${label} is missing`);
@@ -1175,7 +1299,39 @@ async function readStrictFile(root, pathname, label) {
   if (resolved !== path.resolve(pathname) || !isWithin(root, resolved)) {
     throw new Error(`${label} must resolve directly inside its owned root`);
   }
-  return readFile(resolved);
+  let handle;
+  try {
+    handle = await open(resolved, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch (error) {
+    throw new Error(`${label} cannot be opened without following links: ${error.message}`, { cause: error });
+  }
+  try {
+    const info = await handle.stat({ bigint: true });
+    const expectedUid = typeof process.getuid === 'function' ? BigInt(process.getuid()) : info.uid;
+    const expectedGid = typeof process.getgid === 'function' ? BigInt(process.getgid()) : info.gid;
+    if (!info.isFile()
+      || info.nlink !== 1n
+      || info.uid !== expectedUid
+      || info.gid !== expectedGid) {
+      throw new Error(`${label} must be a single-link regular file owned by the current uid/gid`);
+    }
+    const raw = await handle.readFile();
+    if (BigInt(raw.byteLength) !== info.size) {
+      throw new Error(`${label} size changed while it was read`);
+    }
+    const finalInfo = await handle.stat({ bigint: true });
+    if (finalInfo.dev !== info.dev
+      || finalInfo.ino !== info.ino
+      || finalInfo.size !== info.size
+      || finalInfo.mtimeNs !== info.mtimeNs
+      || finalInfo.ctimeNs !== info.ctimeNs
+      || finalInfo.nlink !== 1n) {
+      throw new Error(`${label} changed while it was read`);
+    }
+    return raw;
+  } finally {
+    await handle.close();
+  }
 }
 
 function parseSha256Sidecar(raw, pathname, label) {
@@ -1337,6 +1493,285 @@ function firstMissingPhysicalPage(completedPages, pageCount) {
     if (!completed.has(page)) return page;
   }
   return null;
+}
+
+function timeoutIncidentRelativePath(documentId, attempt) {
+  return `${timeoutRecoveryIncidentDirectory}/${documentId}/attempt-${String(attempt).padStart(4, '0')}.json`;
+}
+
+function validateTimeoutIncidentShape(incident, {
+  documentId,
+  attempt,
+  runtimeFingerprintSha256,
+  monitoringPolicy,
+  status,
+  logRaw,
+}, label) {
+  exactObjectKeys(incident, [
+    'schema_version',
+    'incident_type',
+    'evidence_origin',
+    'document_id',
+    'attempt',
+    'timeout_type',
+    'child_started_at',
+    'detected_at',
+    'recorded_at',
+    'elapsed_seconds',
+    'idle_seconds',
+    'termination_signals',
+    'monitoring_policy',
+    'runtime_fingerprint_sha256',
+    'log',
+    'citation_allowed',
+  ], label);
+  const startedAt = Date.parse(incident.child_started_at);
+  const detectedAt = Date.parse(incident.detected_at);
+  const recordedAt = Date.parse(incident.recorded_at);
+  const expectedSignals = /^OCR child idle_timeout after [1-9]\d*s; terminated with SIGTERM then SIGKILL$/u.test(status.error)
+    ? ['SIGTERM', 'SIGKILL']
+    : ['SIGTERM'];
+  const expectedError = `OCR child ${incident.timeout_type} after ${incident.elapsed_seconds}s; terminated with ${incident.termination_signals.join(' then ')}`;
+  if (incident.schema_version !== 1
+    || incident.incident_type !== timeoutRecoveryIncidentType
+    || !['runner_emitted_v1', 'legacy_status_log_derivation_v1'].includes(incident.evidence_origin)
+    || incident.document_id !== documentId
+    || incident.attempt !== attempt
+    || incident.timeout_type !== 'idle_timeout'
+    || !Number.isFinite(startedAt)
+    || !Number.isFinite(detectedAt)
+    || !Number.isFinite(recordedAt)
+    || detectedAt < startedAt
+    || recordedAt < detectedAt
+    || !Number.isSafeInteger(incident.elapsed_seconds)
+    || incident.elapsed_seconds < 1
+    || !Number.isSafeInteger(incident.idle_seconds)
+    || incident.idle_seconds < 1
+    || incident.idle_seconds > incident.elapsed_seconds
+    || !sameJsonValue(incident.termination_signals, expectedSignals)
+    || !sameJsonValue(incident.monitoring_policy, monitoringPolicy)
+    || incident.runtime_fingerprint_sha256 !== runtimeFingerprintSha256
+    || incident.citation_allowed !== false
+    || status.attempt !== attempt
+    || status.error !== expectedError) {
+    throw new Error(`${label} is not the exact runner-emitted idle-timeout incident for attempt ${attempt}`);
+  }
+  const log = exactObjectKeys(
+    incident.log,
+    ['path', 'bytes', 'sha256'],
+    `${label} log identity`,
+  );
+  if (log.path !== `logs/${documentId}.log`
+    || log.bytes !== logRaw.byteLength
+    || log.sha256 !== sha256Value(logRaw)) {
+    throw new Error(`${label} log identity differs from the exact final log bytes`);
+  }
+  return incident;
+}
+
+async function captureTimeoutIncident(
+  root,
+  document,
+  identity,
+  status,
+  { allowUnsealedIncident = false } = {},
+) {
+  const relativePath = timeoutIncidentRelativePath(document.id, status.attempt);
+  const pathname = path.join(root, relativePath);
+  const logPath = path.join(root, 'logs', `${document.id}.log`);
+  const logInfo = await requireRegularFile(logPath, `${document.id} timeout recovery log`);
+  if ((logInfo.mode & 0o777) !== 0o600) {
+    throw new Error(`${document.id}: timeout recovery log mode must equal 0600`);
+  }
+  const logRaw = await readStrictFile(root, logPath, `${document.id} timeout recovery log`);
+  const incidentPresent = await lstat(pathname).then(() => true, (error) => {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  });
+  let evidence;
+  let incident;
+  if (incidentPresent) {
+    const sidecarPath = `${pathname}.sha256`;
+    const sidecarPresent = await lstat(sidecarPath).then(() => true, (error) => {
+      if (error?.code === 'ENOENT') return false;
+      throw error;
+    });
+    if (sidecarPresent || !allowUnsealedIncident) {
+      evidence = await readStrictFileWithSidecar(
+        root,
+        pathname,
+        `${document.id} timeout incident`,
+      );
+    } else {
+      const raw = await readStrictFile(root, pathname, `${document.id} timeout incident`);
+      evidence = {
+        raw,
+        sidecarRaw: Buffer.from(`${sha256Value(raw)}  ${path.basename(pathname)}\n`),
+        digest: sha256Value(raw),
+        present: true,
+        sidecarPresent: false,
+      };
+    }
+    try {
+      incident = JSON.parse(evidence.raw);
+    } catch (error) {
+      throw new Error(`${document.id} timeout incident JSON is invalid: ${error.message}`);
+    }
+  } else {
+    const match = /^OCR child (idle_timeout) after ([1-9]\d*)s; terminated with (SIGTERM(?: then SIGKILL)?)$/u.exec(
+      status.error,
+    );
+    if (!match) {
+      throw new Error(`${document.id}: legacy timeout incident cannot be derived from the exact status`);
+    }
+    const terminationSignals = match[3].split(' then ');
+    const signalRows = logRaw.toString('utf8').match(/SignalInfo:\s*\*\*\* SIGTERM\b/gu) || [];
+    if (!sameJsonValue(terminationSignals, ['SIGTERM']) || signalRows.length !== status.attempt) {
+      throw new Error(`${document.id}: legacy timeout incident requires exactly ${status.attempt} Paddle SIGTERM signal rows`);
+    }
+    const elapsedSeconds = Number(match[2]);
+    const detectedAtMilliseconds = Date.parse(status.quarantined_at);
+    if (!Number.isFinite(detectedAtMilliseconds)) {
+      throw new Error(`${document.id}: legacy timeout incident lacks a valid quarantine timestamp`);
+    }
+    const monitoringPolicy = {
+      ...identity.document_recovery.child_monitoring,
+      wall_timeout_seconds: Math.max(
+        identity.document_recovery.child_monitoring.wall_floor_seconds,
+        identity.document_recovery.child_monitoring.wall_seconds_per_page * document.page_count,
+      ),
+    };
+    incident = {
+      schema_version: 1,
+      incident_type: timeoutRecoveryIncidentType,
+      evidence_origin: 'legacy_status_log_derivation_v1',
+      document_id: document.id,
+      attempt: status.attempt,
+      timeout_type: match[1],
+      child_started_at: new Date(detectedAtMilliseconds - elapsedSeconds * 1_000).toISOString(),
+      detected_at: status.quarantined_at,
+      recorded_at: status.quarantined_at,
+      elapsed_seconds: elapsedSeconds,
+      idle_seconds: elapsedSeconds,
+      termination_signals: terminationSignals,
+      monitoring_policy: monitoringPolicy,
+      runtime_fingerprint_sha256: identity.runtime_fingerprint_sha256,
+      log: {
+        path: `logs/${document.id}.log`,
+        bytes: logRaw.byteLength,
+        sha256: sha256Value(logRaw),
+      },
+      citation_allowed: false,
+    };
+    const raw = Buffer.from(jsonContents(incident));
+    const sidecarRaw = Buffer.from(`${sha256Value(raw)}  ${path.basename(pathname)}\n`);
+    evidence = {
+      raw,
+      sidecarRaw,
+      digest: sha256Value(raw),
+      present: false,
+    };
+  }
+  const monitoringPolicy = {
+    ...identity.document_recovery.child_monitoring,
+    wall_timeout_seconds: Math.max(
+      identity.document_recovery.child_monitoring.wall_floor_seconds,
+      identity.document_recovery.child_monitoring.wall_seconds_per_page * document.page_count,
+    ),
+  };
+  validateTimeoutIncidentShape(incident, {
+    documentId: document.id,
+    attempt: status.attempt,
+    runtimeFingerprintSha256: identity.runtime_fingerprint_sha256,
+    monitoringPolicy,
+    status,
+    logRaw,
+  }, `${document.id} timeout incident`);
+  return {
+    relative_path: relativePath,
+    present: evidence.present !== false,
+    raw_sha256: evidence.digest,
+    sidecar_sha256: sha256Value(evidence.sidecarRaw),
+    incident,
+    raw: evidence.raw,
+    sidecar_raw: evidence.sidecarRaw,
+    log_raw: logRaw,
+  };
+}
+
+async function writeTimeoutIncident({
+  outputRoot,
+  documentId,
+  attempt,
+  childStartedAt,
+  monitorIncident,
+  monitoringPolicy,
+  runtimeFingerprintSha256,
+}) {
+  if (!['startup_timeout', 'idle_timeout', 'wall_timeout'].includes(monitorIncident?.type)
+    || !Number.isSafeInteger(monitorIncident.elapsed_seconds)
+    || !Number.isSafeInteger(monitorIncident.idle_seconds)
+    || !Array.isArray(monitorIncident.termination_signals)
+    || !Number.isFinite(Date.parse(monitorIncident.detected_at))) {
+    throw new Error(`${documentId}: OCR monitor incident lacks its exact timeout type, timestamps, duration, or signals`);
+  }
+  const logPath = path.join(outputRoot, 'logs', `${documentId}.log`);
+  const logInfo = await requireRegularFile(logPath, `${documentId} OCR timeout log`);
+  if ((logInfo.mode & 0o777) !== 0o600) {
+    throw new Error(`${documentId}: OCR timeout log mode must equal 0600`);
+  }
+  const logRaw = await readStrictFile(outputRoot, logPath, `${documentId} OCR timeout log`);
+  const incident = {
+    schema_version: 1,
+    incident_type: timeoutRecoveryIncidentType,
+    evidence_origin: 'runner_emitted_v1',
+    document_id: documentId,
+    attempt,
+    timeout_type: monitorIncident.type,
+    child_started_at: childStartedAt,
+    detected_at: monitorIncident.detected_at,
+    recorded_at: isoNow(),
+    elapsed_seconds: monitorIncident.elapsed_seconds,
+    idle_seconds: monitorIncident.idle_seconds,
+    termination_signals: [...monitorIncident.termination_signals],
+    monitoring_policy: structuredClone(monitoringPolicy),
+    runtime_fingerprint_sha256: runtimeFingerprintSha256,
+    log: {
+      path: `logs/${documentId}.log`,
+      bytes: logRaw.byteLength,
+      sha256: sha256Value(logRaw),
+    },
+    citation_allowed: false,
+  };
+  const childStartedAtMilliseconds = Date.parse(incident.child_started_at);
+  const detectedAtMilliseconds = Date.parse(incident.detected_at);
+  const recordedAtMilliseconds = Date.parse(incident.recorded_at);
+  const validSignalSequence = sameJsonValue(incident.termination_signals, ['SIGTERM'])
+    || sameJsonValue(incident.termination_signals, ['SIGTERM', 'SIGKILL']);
+  if (!Number.isFinite(childStartedAtMilliseconds)
+    || !Number.isFinite(detectedAtMilliseconds)
+    || !Number.isFinite(recordedAtMilliseconds)
+    || detectedAtMilliseconds < childStartedAtMilliseconds
+    || recordedAtMilliseconds < detectedAtMilliseconds
+    || !Number.isSafeInteger(incident.elapsed_seconds)
+    || incident.elapsed_seconds < 1
+    || !Number.isSafeInteger(incident.idle_seconds)
+    || incident.idle_seconds < 0
+    || incident.idle_seconds > incident.elapsed_seconds
+    || !validSignalSequence
+    || !sameJsonValue(incident.monitoring_policy, monitoringPolicy)) {
+    throw new Error(`${documentId}: OCR monitor incident is not chronologically or structurally valid`);
+  }
+  const incidentRoot = path.join(outputRoot, timeoutRecoveryIncidentDirectory, documentId);
+  await mkdir(incidentRoot, { recursive: true, mode: 0o700 });
+  const relativePath = timeoutIncidentRelativePath(documentId, attempt);
+  const pathname = path.join(outputRoot, relativePath);
+  const evidence = await publishNoReplaceJsonWithSidecar(
+    pathname,
+    incident,
+    `${documentId} OCR timeout incident`,
+  );
+  return { relativePath, ...evidence, incident };
 }
 
 function exactObjectKeys(value, expectedKeys, label) {
@@ -1526,6 +1961,13 @@ async function captureTimeoutRecoveryGrant({
       || sha256Value(timeoutLogRaw) !== timeoutLog.sha256) {
       throw new Error(`${grantDocument.document_id}: timeout recovery log identity mismatch`);
     }
+    if (!predecessorDocument.timeout_incident
+      || predecessorDocument.timeout_incident.attempt !== timeoutRecoveryGrantedAttempt - 1
+      || predecessorDocument.timeout_incident.log.path !== timeoutLog.path
+      || predecessorDocument.timeout_incident.log.bytes !== timeoutLog.bytes
+      || predecessorDocument.timeout_incident.log.sha256 !== timeoutLog.sha256) {
+      throw new Error(`${grantDocument.document_id}: timeout recovery grant lacks the exact structured attempt-5 incident`);
+    }
     predecessorDocument.timeout_log = structuredClone(timeoutLog);
     predecessorDocument.timeout_log_raw = timeoutLogRaw;
   }
@@ -1538,12 +1980,76 @@ async function captureTimeoutRecoveryGrant({
   };
 }
 
-async function loadTimeoutRecoveryLedger(ledgerPath, grant) {
+function timeoutRecoveryPredecessorClaimKey(grant) {
+  return sha256Value(canonicalJson({
+    schema_version: 1,
+    claim_key_type: timeoutRecoveryPredecessorClaimKeyType,
+    predecessor: grant.predecessor,
+    policy: grant.policy,
+    documents: grant.documents,
+    citation_allowed: false,
+  }));
+}
+
+function canonicalTimeoutRecoveryAuthorityRoot(predecessorInputRoot) {
+  return path.join(
+    path.dirname(path.resolve(predecessorInputRoot)),
+    timeoutRecoveryAuthorityDirectoryName,
+  );
+}
+
+function deterministicTimeoutRecoveryLedgerIdentity(root, info, predecessorInputRoot) {
+  const nonceBasis = {
+    schema_version: 1,
+    authority_type: timeoutRecoveryLedgerType,
+    predecessor_input_root: path.resolve(predecessorInputRoot),
+    ledger_root: root,
+    ledger_device: String(info.dev),
+    ledger_inode: String(info.ino),
+    owner_uid: String(info.uid),
+    owner_gid: String(info.gid),
+    citation_allowed: false,
+  };
+  const basis = {
+    schema_version: 1,
+    ledger_type: timeoutRecoveryLedgerType,
+    ledger_nonce: sha256Value(canonicalJson(nonceBasis)),
+    citation_allowed: false,
+  };
+  return {
+    schema_version: basis.schema_version,
+    ledger_type: basis.ledger_type,
+    ledger_nonce: basis.ledger_nonce,
+    ledger_id: sha256Value(canonicalJson(basis)),
+    citation_allowed: false,
+  };
+}
+
+async function loadTimeoutRecoveryLedger(ledgerPath, grant, predecessorInputRoot) {
   if (!ledgerPath) {
     throw new Error('timeout recovery grant requires --timeout-recovery-ledger');
   }
   const root = await requireRealDirectory(ledgerPath, 'timeout recovery consumption ledger');
+  const canonicalRoot = canonicalTimeoutRecoveryAuthorityRoot(predecessorInputRoot);
+  if (root !== canonicalRoot || path.resolve(ledgerPath) !== canonicalRoot) {
+    throw new Error(`timeout recovery ledger must equal the single canonical authority root ${canonicalRoot}`);
+  }
+  const ledgerInfo = await stat(root, { bigint: true });
+  const expectedUid = typeof process.getuid === 'function' ? BigInt(process.getuid()) : ledgerInfo.uid;
+  const expectedGid = typeof process.getgid === 'function' ? BigInt(process.getgid()) : ledgerInfo.gid;
+  if ((Number(ledgerInfo.mode) & 0o777) !== 0o700
+    || ledgerInfo.uid !== expectedUid
+    || ledgerInfo.gid !== expectedGid) {
+    throw new Error('timeout recovery ledger must be mode 0700 and owned by the current uid/gid');
+  }
   const identityPath = path.join(root, 'ledger-identity.json');
+  for (const [pathname, label] of [
+    [identityPath, 'timeout recovery consumption ledger identity'],
+    [`${identityPath}.sha256`, 'timeout recovery consumption ledger identity SHA-256 sidecar'],
+  ]) {
+    const info = await requireRegularFile(pathname, label);
+    if ((info.mode & 0o777) !== 0o600) throw new Error(`${label} mode must equal 0600`);
+  }
   const evidence = await readStrictFileWithSidecar(
     root,
     identityPath,
@@ -1564,18 +2070,21 @@ async function loadTimeoutRecoveryLedger(ledgerPath, grant) {
   ], 'timeout recovery consumption ledger identity');
   requireSha256(identity.ledger_nonce, 'timeout recovery consumption ledger nonce');
   requireSha256(identity.ledger_id, 'timeout recovery consumption ledger ID');
-  const identityBasis = structuredClone(identity);
-  delete identityBasis.ledger_id;
+  const expectedIdentity = deterministicTimeoutRecoveryLedgerIdentity(
+    root,
+    ledgerInfo,
+    predecessorInputRoot,
+  );
   if (identity.schema_version !== 1
     || identity.ledger_type !== timeoutRecoveryLedgerType
     || identity.citation_allowed !== false
-    || identity.ledger_id !== sha256Value(canonicalJson(identityBasis))) {
-    throw new Error('timeout recovery consumption ledger identity is invalid');
+    || !sameJsonValue(identity, expectedIdentity)
+    || !evidence.raw.equals(Buffer.from(jsonContents(expectedIdentity)))) {
+    throw new Error('timeout recovery consumption ledger identity is not the deterministic canonical authority');
   }
   if (identity.ledger_id !== grant.consumption.ledger_id) {
     throw new Error('timeout recovery grant is bound to a different consumption ledger');
   }
-  const ledgerInfo = await stat(root, { bigint: true });
   if (grant.consumption.ledger_root !== root
     || grant.consumption.ledger_device !== String(ledgerInfo.dev)
     || grant.consumption.ledger_inode !== String(ledgerInfo.ino)) {
@@ -1592,6 +2101,105 @@ async function loadTimeoutRecoveryLedger(ledgerPath, grant) {
   };
 }
 
+function expectedTimeoutRecoveryIssuance(predecessor, ledger) {
+  const grantEvidence = predecessor.timeoutRecoveryGrant;
+  if (!grantEvidence) throw new Error('timeout recovery issuance requires a captured grant');
+  const predecessorClaimKey = timeoutRecoveryPredecessorClaimKey(grantEvidence.grant);
+  const documentById = new Map(
+    predecessor.documents.map((document) => [document.document_id, document]),
+  );
+  const incidentEvidence = grantEvidence.grant.documents.map((grantDocument) => {
+    const document = documentById.get(grantDocument.document_id);
+    if (!document?.timeout_incident
+      || !document.timeout_incident_raw_sha256
+      || !document.timeout_incident_sidecar_sha256) {
+      throw new Error(`${grantDocument.document_id}: timeout recovery issuance lacks structured incident evidence`);
+    }
+    return {
+      document_id: grantDocument.document_id,
+      attempt: document.timeout_incident.attempt,
+      timeout_type: document.timeout_incident.timeout_type,
+      raw_sha256: document.timeout_incident_raw_sha256,
+      sidecar_sha256: document.timeout_incident_sidecar_sha256,
+      log_sha256: document.timeout_incident.log.sha256,
+    };
+  });
+  const value = {
+    schema_version: 1,
+    claim_type: timeoutRecoveryIssuanceClaimType,
+    claim_key: predecessorClaimKey,
+    ledger_id: ledger.identity.ledger_id,
+    predecessor: structuredClone(grantEvidence.grant.predecessor),
+    grant_id: grantEvidence.grant.grant_id,
+    grant_raw_sha256: grantEvidence.rawSha256,
+    incident_evidence: incidentEvidence,
+    citation_allowed: false,
+  };
+  return {
+    claimKey: predecessorClaimKey,
+    path: path.join(ledger.root, `${predecessorClaimKey}.issuance.json`),
+    value,
+    raw: Buffer.from(jsonContents(value)),
+  };
+}
+
+async function verifyTimeoutRecoveryAuthority(predecessor, ledgerPath) {
+  if (!predecessor.timeoutRecoveryGrant) {
+    if (ledgerPath) {
+      throw new Error('--timeout-recovery-ledger is forbidden without a timeout recovery grant');
+    }
+    return null;
+  }
+  const ledger = await loadTimeoutRecoveryLedger(
+    ledgerPath,
+    predecessor.timeoutRecoveryGrant.grant,
+    predecessor.identity.input_root,
+  );
+  const expected = expectedTimeoutRecoveryIssuance(predecessor, ledger);
+  for (const [pathname, label] of [
+    [expected.path, 'timeout recovery issuance claim'],
+    [`${expected.path}.sha256`, 'timeout recovery issuance claim SHA-256 sidecar'],
+  ]) {
+    const info = await requireRegularFile(pathname, label);
+    if ((info.mode & 0o777) !== 0o600) throw new Error(`${label} mode must equal 0600`);
+  }
+  const evidence = await readStrictFileWithSidecar(
+    ledger.root,
+    expected.path,
+    'timeout recovery issuance claim',
+  );
+  if (!evidence.raw.equals(expected.raw)) {
+    throw new Error('timeout recovery issuance claim differs from the exact predecessor, grant, and incident evidence');
+  }
+  let value;
+  try {
+    value = JSON.parse(evidence.raw);
+  } catch (error) {
+    throw new Error(`timeout recovery issuance claim JSON is invalid: ${error.message}`);
+  }
+  exactObjectKeys(value, [
+    'schema_version',
+    'claim_type',
+    'claim_key',
+    'ledger_id',
+    'predecessor',
+    'grant_id',
+    'grant_raw_sha256',
+    'incident_evidence',
+    'citation_allowed',
+  ], 'timeout recovery issuance claim');
+  return {
+    ledger,
+    issuance: {
+      ...expected,
+      value,
+      sidecarRaw: evidence.sidecarRaw,
+      rawSha256: evidence.digest,
+      sidecarSha256: sha256Value(evidence.sidecarRaw),
+    },
+  };
+}
+
 async function claimTimeoutRecoveryGrant({
   prepared,
   outputRoot,
@@ -1605,7 +2213,14 @@ async function claimTimeoutRecoveryGrant({
     }
     return null;
   }
-  const ledger = await loadTimeoutRecoveryLedger(ledgerPath, grantEvidence.grant);
+  const authority = await verifyTimeoutRecoveryAuthority(prepared.predecessor, ledgerPath);
+  if (!authority
+    || authority.issuance.rawSha256 !== prepared.timeoutRecoveryAuthority?.issuance.rawSha256
+    || authority.issuance.sidecarSha256
+      !== prepared.timeoutRecoveryAuthority?.issuance.sidecarSha256) {
+    throw new Error('timeout recovery authority changed after successor preparation began');
+  }
+  const { ledger } = authority;
   const protectedRoots = [
     prepared.predecessor.root,
     outputRoot,
@@ -1646,14 +2261,16 @@ async function claimTimeoutRecoveryGrant({
   };
   const claimRaw = jsonContents(claim);
   const claimSha256 = sha256Value(claimRaw);
-  const claimPath = path.join(
-    ledger.claimsRoot,
-    `${grantEvidence.grant.grant_id}.claim.json`,
-  );
+  const predecessorClaimKey = timeoutRecoveryPredecessorClaimKey(grantEvidence.grant);
+  const claimPath = path.join(ledger.claimsRoot, `${predecessorClaimKey}.claim.json`);
   const claimSidecarPath = `${claimPath}.sha256`;
   const ledgerClaimSidecarRaw = `${claimSha256}  ${path.basename(claimPath)}\n`;
   const claimSidecarRaw = `${claimSha256}  ${timeoutRecoveryClaimFilename}\n`;
   const validateExistingClaim = async () => {
+    const claimInfo = await requireRegularFile(claimPath, 'timeout recovery consumption claim');
+    if ((claimInfo.mode & 0o777) !== 0o600) {
+      throw new Error('timeout recovery consumption claim mode must equal 0600');
+    }
     const raw = await readStrictFile(ledger.root, claimPath, 'timeout recovery consumption claim');
     if (raw.toString('utf8') !== claimRaw) {
       throw new Error('timeout recovery grant was already consumed by a different successor');
@@ -1663,13 +2280,24 @@ async function claimTimeoutRecoveryGrant({
       throw error;
     });
     if (sidecarPresent) {
+      const sidecarInfo = await requireRegularFile(
+        claimSidecarPath,
+        'timeout recovery consumption claim SHA-256 sidecar',
+      );
+      if ((sidecarInfo.mode & 0o777) !== 0o600) {
+        throw new Error('timeout recovery consumption claim SHA-256 sidecar mode must equal 0600');
+      }
       await readStrictFileWithSidecar(
         ledger.root,
         claimPath,
         'timeout recovery consumption claim',
       );
     } else if (!dryRun) {
-      await durableAtomicWrite(claimSidecarPath, ledgerClaimSidecarRaw);
+      await publishNoReplaceFile(
+        claimSidecarPath,
+        Buffer.from(ledgerClaimSidecarRaw),
+        'timeout recovery consumption claim SHA-256 sidecar',
+      );
     } else {
       throw new Error('timeout recovery consumption claim SHA-256 sidecar is missing');
     }
@@ -1689,19 +2317,23 @@ async function claimTimeoutRecoveryGrant({
     await validateExistingClaim();
   } else if (!dryRun) {
     try {
-      const handle = await open(claimPath, 'wx', 0o600);
-      try {
-        await handle.writeFile(claimRaw, 'utf8');
-        await handle.sync();
-      } finally {
-        await handle.close();
-      }
-      await syncDirectory(ledger.claimsRoot);
-      await durableAtomicWrite(claimSidecarPath, ledgerClaimSidecarRaw);
+      await publishNoReplaceFile(
+        claimPath,
+        Buffer.from(claimRaw),
+        'timeout recovery consumption claim',
+      );
     } catch (error) {
-      if (error?.code !== 'EEXIST') throw error;
-      await validateExistingClaim();
+      if (/already exists with different raw bytes/u.test(error.message)) {
+        throw new Error('timeout recovery grant was already consumed by a different successor');
+      }
+      throw error;
     }
+    await publishNoReplaceFile(
+      claimSidecarPath,
+      Buffer.from(ledgerClaimSidecarRaw),
+      'timeout recovery consumption claim SHA-256 sidecar',
+    );
+    await validateExistingClaim();
   }
   return {
     ledger,
@@ -1757,7 +2389,10 @@ async function captureSeedPredecessor(
   predecessorRoot,
   manifest,
   manifestSha256,
-  { captureTimeoutRecoveryGrantEvidence = true } = {},
+  {
+    captureTimeoutRecoveryGrantEvidence = true,
+    allowUnsealedTimeoutIncidents = false,
+  } = {},
 ) {
   const root = await requireRealDirectory(predecessorRoot, 'seed predecessor output root');
   const [documentsRoot, statusRoot] = await Promise.all([
@@ -1942,6 +2577,15 @@ async function captureSeedPredecessor(
       statusSha256,
       document,
     );
+    const timeoutIncident = progress.status === 'quarantined'
+      ? await captureTimeoutIncident(
+        root,
+        document,
+        identity,
+        status,
+        { allowUnsealedIncident: allowUnsealedTimeoutIncidents },
+      )
+      : null;
     if (progress.status === 'complete') {
       const artifacts = requireObject(status.artifacts, `${document.id} predecessor complete artifacts`);
       if (artifacts.state_sha256 !== validation.state_sha256
@@ -1970,6 +2614,13 @@ async function captureSeedPredecessor(
       state_raw: stateRaw,
       status_raw: statusRaw,
       status_sidecar_raw: statusSidecarRaw,
+      timeout_incident: timeoutIncident?.incident || null,
+      timeout_incident_present: timeoutIncident?.present === true,
+      timeout_incident_path: timeoutIncident?.relative_path || null,
+      timeout_incident_raw_sha256: timeoutIncident?.raw_sha256 || null,
+      timeout_incident_sidecar_sha256: timeoutIncident?.sidecar_sha256 || null,
+      timeout_incident_raw: timeoutIncident?.raw || null,
+      timeout_incident_sidecar_raw: timeoutIncident?.sidecar_raw || null,
     });
   }
   const timeoutRecoveryGrant = captureTimeoutRecoveryGrantEvidence
@@ -2032,6 +2683,65 @@ async function captureSeedPredecessor(
   return evidence;
 }
 
+function validateTimeoutRecoveryPredecessorConfiguration(predecessor) {
+  const identity = requireObject(predecessor.identity, 'timeout recovery predecessor identity');
+  const hashes = requireRecomputedSeedRuntimeHashes(identity, 'timeout recovery p4 predecessor');
+  const worker = requireObject(identity.worker_configuration, 'timeout recovery predecessor worker configuration');
+  const workerKeys = [
+    'llama_url',
+    'vl_rec_max_concurrency',
+    'server_parallel',
+    'micro_batch',
+    'use_queues',
+    'runtime_device',
+    'paddlex_cache_home',
+    'python_runtime',
+    'paddlex_layout_model_cache_sha256',
+  ].sort();
+  if (!sameJsonValue(Object.keys(worker).sort(), workerKeys)
+    || worker.vl_rec_max_concurrency !== 4
+    || worker.server_parallel !== 4
+    || worker.micro_batch !== 16
+    || worker.use_queues !== true) {
+    throw new Error('timeout recovery predecessor must be the exact p4/vl4/micro16/queues worker');
+  }
+  requireCanonicalP1SeedLlamaUrl(worker.llama_url, 'timeout recovery predecessor llama URL');
+  if (worker.runtime_device !== hashes.runtimeFingerprint.runtime_device
+    || !sameJsonValue(worker.python_runtime, hashes.runtimeFingerprint.python_runtime)
+    || worker.paddlex_layout_model_cache_sha256
+      !== hashes.runtimeFingerprint.paddlex_layout_model_cache?.tree_sha256) {
+    throw new Error('timeout recovery predecessor worker is not bound to its exact device, Python, or cache tree');
+  }
+  const attestation = hashes.attestation;
+  if (attestation.systemd_unit !== 'curriculum-ocr-llama.service'
+    || attestation.host !== '127.0.0.1'
+    || attestation.port !== 8112
+    || attestation.parallel !== 4
+    || attestation.model_sha256 !== identity.runtime.model_sha256
+    || attestation.mmproj_sha256 !== identity.runtime.mmproj_sha256) {
+    throw new Error('timeout recovery predecessor llama attestation is not the exact p4 production identity');
+  }
+  const production = requireObject(
+    attestation.production_command_contract,
+    'timeout recovery predecessor production command contract',
+  );
+  const expectedProduction = productionLlamaCommandContract(4, 8112);
+  if (!sameJsonValue(production, expectedProduction)) {
+    throw new Error('timeout recovery predecessor production command contract is not exact p4');
+  }
+  const expectedRecovery = {
+    max_attempts: maxDocumentAttempts,
+    backoff_seconds: documentRetryBackoffMilliseconds.map((milliseconds) => milliseconds / 1_000),
+    terminal_status: 'quarantined',
+    terminal_exit_code: quarantineExitCode,
+    child_monitoring: { ...defaultChildMonitoringPolicy },
+  };
+  if (!sameJsonValue(identity.document_recovery, expectedRecovery)) {
+    throw new Error('timeout recovery predecessor recovery policy is not exact idle300 production p4');
+  }
+  return identity;
+}
+
 export async function inspectTimeoutRecoveryPredecessorForGrant({
   manifestPath: manifestOption,
   predecessorRoot: predecessorOption,
@@ -2061,11 +2771,15 @@ export async function inspectTimeoutRecoveryPredecessorForGrant({
     predecessorRoot,
     manifest,
     manifestSha256,
-    { captureTimeoutRecoveryGrantEvidence: false },
+    {
+      captureTimeoutRecoveryGrantEvidence: false,
+      allowUnsealedTimeoutIncidents: true,
+    },
   );
   if (predecessor.root !== predecessorRoot) {
     throw new Error('timeout recovery predecessor root must not resolve through a symlink');
   }
+  validateTimeoutRecoveryPredecessorConfiguration(predecessor);
   const inputRoot = await requireRealDirectory(
     predecessor.identity.input_root,
     'timeout recovery predecessor input root',
@@ -2139,6 +2853,20 @@ export async function inspectTimeoutRecoveryPredecessorForGrant({
         bytes: timeoutLogRaw.byteLength,
         sha256: sha256Value(timeoutLogRaw),
       },
+      timeout_incident: {
+        path: document.timeout_incident_path,
+        present: document.timeout_incident_present === true,
+        raw_sha256: document.timeout_incident_raw_sha256,
+        sidecar_sha256: document.timeout_incident_sidecar_sha256,
+        attempt: document.timeout_incident.attempt,
+        timeout_type: document.timeout_incident.timeout_type,
+        evidence_origin: document.timeout_incident.evidence_origin,
+        detected_at: document.timeout_incident.detected_at,
+        recorded_at: document.timeout_incident.recorded_at,
+        termination_signals: structuredClone(document.timeout_incident.termination_signals),
+        log_sha256: document.timeout_incident.log.sha256,
+        value: structuredClone(document.timeout_incident),
+      },
     });
   }
   return {
@@ -2154,9 +2882,272 @@ export async function inspectTimeoutRecoveryPredecessorForGrant({
   };
 }
 
+function requireSameObjectKeys(left, right, label) {
+  if (!sameJsonValue(Object.keys(requireObject(left, label)).sort(), Object.keys(requireObject(right, label)).sort())) {
+    throw new Error(`${label} field set differs`);
+  }
+}
+
+function requireRecomputedSeedRuntimeHashes(identity, label) {
+  const attestation = requireObject(identity.llama_server_attestation, `${label} llama-server attestation`);
+  const attestationSha256 = sha256Value(`${JSON.stringify(attestation)}\n`);
+  if (identity.llama_server_attestation_sha256 !== attestationSha256) {
+    throw new Error(`${label} llama-server attestation SHA-256 is invalid`);
+  }
+  const runtimeFingerprint = requireObject(identity.runtime_fingerprint, `${label} runtime fingerprint`);
+  const runtimeFingerprintSha256 = sha256Value(`${JSON.stringify(runtimeFingerprint)}\n`);
+  if (identity.runtime_fingerprint_sha256 !== runtimeFingerprintSha256) {
+    throw new Error(`${label} runtime fingerprint SHA-256 is invalid`);
+  }
+  if (runtimeFingerprint.llama_server_attestation_sha256 !== attestationSha256) {
+    throw new Error(`${label} runtime fingerprint is not bound to its llama-server attestation`);
+  }
+  return { attestation, attestationSha256, runtimeFingerprint, runtimeFingerprintSha256 };
+}
+
+function requireCanonicalP1SeedLlamaUrl(value, label) {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${label} must be a valid URL`);
+  }
+  if (parsed.protocol !== 'http:' || parsed.hostname !== '127.0.0.1' || parsed.port !== '8112') {
+    throw new Error(`${label} must retain http://127.0.0.1:8112`);
+  }
+}
+
+function validateP4ToP1SeedConfigurationDelta(predecessor, successor) {
+  const predecessorIdentity = requireObject(predecessor.identity, 'p4 predecessor identity');
+  const successorIdentity = {
+    runtime: successor.runtime,
+    runtime_fingerprint: successor.runtimeFingerprint,
+    runtime_fingerprint_sha256: successor.runtimeFingerprintSha256,
+    llama_server_attestation: successor.llamaServerAttestation,
+    llama_server_attestation_sha256: sha256Value(
+      `${JSON.stringify(successor.llamaServerAttestation)}\n`,
+    ),
+    input_root: successor.inputRoot,
+    python_invocation_path: successor.pythonInvocationPath,
+    python_resolved_target: successor.pythonResolvedTarget,
+    worker_configuration: successor.workerConfiguration,
+    document_recovery: successor.documentRecovery,
+  };
+  if (predecessorIdentity.runner_script_sha256 !== legacyB1RunnerScriptSha256
+    || predecessorIdentity.seed_lineage !== undefined) {
+    throw new Error('p4-to-p1 predecessor is not the exact legacy unseeded runner');
+  }
+  if (!sameJsonValue(predecessorIdentity.runtime, successorIdentity.runtime)
+    || predecessorIdentity.input_root !== successorIdentity.input_root
+    || predecessorIdentity.python_invocation_path !== successorIdentity.python_invocation_path
+    || predecessorIdentity.python_resolved_target !== successorIdentity.python_resolved_target
+    || predecessorIdentity.ocr_script_sha256 !== successor.ocrScriptSha256) {
+    throw new Error('p4-to-p1 changes a forbidden model, DPI, input, Python, or OCR script identity');
+  }
+
+  const predecessorHashes = requireRecomputedSeedRuntimeHashes(predecessorIdentity, 'p4 predecessor');
+  const successorHashes = requireRecomputedSeedRuntimeHashes(successorIdentity, 'p1 successor');
+  if (predecessorHashes.attestationSha256 === successorHashes.attestationSha256
+    || predecessorHashes.runtimeFingerprintSha256 === successorHashes.runtimeFingerprintSha256) {
+    throw new Error('p4-to-p1 must change the attestation and runtime fingerprint identities');
+  }
+  requireSameObjectKeys(
+    predecessorHashes.runtimeFingerprint,
+    successorHashes.runtimeFingerprint,
+    'p4-to-p1 runtime fingerprint',
+  );
+  const predecessorRuntime = structuredClone(predecessorHashes.runtimeFingerprint);
+  const successorRuntime = structuredClone(successorHashes.runtimeFingerprint);
+  delete predecessorRuntime.llama_server_attestation_sha256;
+  delete successorRuntime.llama_server_attestation_sha256;
+  if (!sameJsonValue(predecessorRuntime, successorRuntime)) {
+    throw new Error('p4-to-p1 changes a forbidden runtime fingerprint field');
+  }
+
+  const predecessorAttestation = predecessorHashes.attestation;
+  const successorAttestation = successorHashes.attestation;
+  requireSameObjectKeys(
+    predecessorAttestation,
+    successorAttestation,
+    'p4-to-p1 llama attestation',
+  );
+  if (predecessorAttestation.systemd_unit !== 'curriculum-ocr-llama.service'
+    || successorAttestation.systemd_unit !== 'curriculum-ocr-llama.service'
+    || predecessorAttestation.host !== '127.0.0.1'
+    || successorAttestation.host !== '127.0.0.1'
+    || predecessorAttestation.port !== 8112
+    || successorAttestation.port !== 8112
+    || predecessorAttestation.parallel !== 4
+    || successorAttestation.parallel !== 1) {
+    throw new Error('p4-to-p1 llama unit, host, port, or parallelism is invalid');
+  }
+  requireSha256(predecessorAttestation.proc_cmdline_sha256, 'p4 proc cmdline SHA-256');
+  requireSha256(successorAttestation.proc_cmdline_sha256, 'p1 proc cmdline SHA-256');
+  if (predecessorAttestation.proc_cmdline_sha256 === successorAttestation.proc_cmdline_sha256) {
+    throw new Error('p4-to-p1 proc cmdline SHA-256 did not change');
+  }
+  const predecessorProduction = requireObject(
+    predecessorAttestation.production_command_contract,
+    'p4 production command contract',
+  );
+  const successorProduction = requireObject(
+    successorAttestation.production_command_contract,
+    'p1 production command contract',
+  );
+  requireSameObjectKeys(
+    predecessorProduction,
+    successorProduction,
+    'p4-to-p1 production command contract',
+  );
+  const predecessorValues = requireObject(predecessorProduction.values, 'p4 production command values');
+  const successorValues = requireObject(successorProduction.values, 'p1 production command values');
+  const productionValueKeys = [
+    '--batch-size',
+    '--cache-type-k',
+    '--cache-type-v',
+    '--ctx-size',
+    '--fit',
+    '--flash-attn',
+    '--host',
+    '--n-gpu-layers',
+    '--parallel',
+    '--port',
+    '--temp',
+    '--threads',
+    '--threads-batch',
+    '--timeout',
+    '--ubatch-size',
+  ].sort();
+  if (!sameJsonValue(Object.keys(predecessorValues).sort(), productionValueKeys)
+    || !sameJsonValue(Object.keys(successorValues).sort(), productionValueKeys)
+    || predecessorValues['--parallel'] !== '4'
+    || successorValues['--parallel'] !== '1') {
+    throw new Error('p4-to-p1 production command parallel declaration is invalid');
+  }
+  const stableCommandValues = {
+    '--host': '127.0.0.1',
+    '--port': '8112',
+    '--temp': '0',
+    '--ctx-size': '32768',
+    '--n-gpu-layers': 'all',
+    '--flash-attn': 'auto',
+    '--cache-type-k': 'f16',
+    '--cache-type-v': 'f16',
+    '--batch-size': '2048',
+    '--ubatch-size': '512',
+    '--fit': 'off',
+    '--timeout': '3600',
+    '--threads': '8',
+    '--threads-batch': '16',
+  };
+  for (const [name, expected] of Object.entries(stableCommandValues)) {
+    if (predecessorValues[name] !== expected || successorValues[name] !== expected) {
+      throw new Error(`p4-to-p1 changes forbidden production command value ${name}`);
+    }
+  }
+  const stableFlags = ['--mmproj-offload', '--cont-batching', '--no-webui', '--metrics'];
+  if (!sameJsonValue(predecessorProduction.flags, stableFlags)
+    || !sameJsonValue(successorProduction.flags, stableFlags)) {
+    throw new Error('p4-to-p1 changes forbidden production command flags');
+  }
+  const predecessorAttestationStable = structuredClone(predecessorAttestation);
+  const successorAttestationStable = structuredClone(successorAttestation);
+  for (const value of [predecessorAttestationStable, successorAttestationStable]) {
+    delete value.proc_cmdline_sha256;
+    delete value.parallel;
+    delete value.production_command_contract;
+  }
+  if (!sameJsonValue(predecessorAttestationStable, successorAttestationStable)) {
+    throw new Error('p4-to-p1 changes a forbidden llama-server attestation field');
+  }
+
+  const predecessorWorker = requireObject(predecessorIdentity.worker_configuration, 'p4 worker configuration');
+  const successorWorker = requireObject(successorIdentity.worker_configuration, 'p1 worker configuration');
+  const workerKeys = [
+    'llama_url',
+    'vl_rec_max_concurrency',
+    'server_parallel',
+    'micro_batch',
+    'use_queues',
+    'runtime_device',
+    'paddlex_cache_home',
+    'python_runtime',
+    'paddlex_layout_model_cache_sha256',
+  ].sort();
+  if (!sameJsonValue(Object.keys(predecessorWorker).sort(), workerKeys)
+    || !sameJsonValue(Object.keys(successorWorker).sort(), workerKeys)
+    || predecessorWorker.vl_rec_max_concurrency !== 4
+    || successorWorker.vl_rec_max_concurrency !== 1
+    || predecessorWorker.server_parallel !== 4
+    || successorWorker.server_parallel !== 1
+    || predecessorWorker.micro_batch !== 16
+    || successorWorker.micro_batch !== 16
+    || predecessorWorker.use_queues !== true
+    || successorWorker.use_queues !== true) {
+    throw new Error('p4-to-p1 worker configuration is outside the exact concurrency delta');
+  }
+  requireCanonicalP1SeedLlamaUrl(predecessorWorker.llama_url, 'p4 llama URL');
+  requireCanonicalP1SeedLlamaUrl(successorWorker.llama_url, 'p1 llama URL');
+  for (const key of workerKeys.filter((value) => ![
+    'vl_rec_max_concurrency',
+    'server_parallel',
+    'paddlex_cache_home',
+  ].includes(value))) {
+    if (!sameJsonValue(predecessorWorker[key], successorWorker[key])) {
+      throw new Error(`p4-to-p1 changes forbidden worker field ${key}`);
+    }
+  }
+  if (predecessorWorker.paddlex_cache_home !== successorWorker.paddlex_cache_home
+    && predecessorWorker.paddlex_layout_model_cache_sha256
+      !== successorWorker.paddlex_layout_model_cache_sha256) {
+    throw new Error('p4-to-p1 cache path changed without an identical cache tree SHA-256');
+  }
+  const predecessorRecovery = structuredClone(predecessorIdentity.document_recovery);
+  const successorRecovery = structuredClone(successorIdentity.document_recovery);
+  if (predecessorRecovery.child_monitoring?.idle_timeout_seconds !== 300
+    || successorRecovery.child_monitoring?.idle_timeout_seconds !== 1200) {
+    throw new Error('p4-to-p1 child idle timeout is not the exact 300-to-1200 transition');
+  }
+  delete predecessorRecovery.child_monitoring.idle_timeout_seconds;
+  delete successorRecovery.child_monitoring.idle_timeout_seconds;
+  if (!sameJsonValue(predecessorRecovery, successorRecovery)) {
+    throw new Error('p4-to-p1 changes a forbidden document recovery field');
+  }
+
+  return {
+    schema_version: 2,
+    transition: p4ToP1Transition,
+    vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
+    server_parallel: { predecessor: 4, successor: 1 },
+    paddlex_cache_home: {
+      predecessor: predecessorWorker.paddlex_cache_home,
+      successor: successorWorker.paddlex_cache_home,
+      tree_sha256: successorWorker.paddlex_layout_model_cache_sha256,
+    },
+    child_idle_timeout_seconds: { predecessor: 300, successor: 1200 },
+    llama_server_attestation: {
+      predecessor_sha256: predecessorHashes.attestationSha256,
+      successor_sha256: successorHashes.attestationSha256,
+      proc_cmdline_sha256: {
+        predecessor: predecessorAttestation.proc_cmdline_sha256,
+        successor: successorAttestation.proc_cmdline_sha256,
+      },
+      parallel: { predecessor: 4, successor: 1 },
+      production_command_parallel: { predecessor: '4', successor: '1' },
+    },
+    runtime_fingerprint: {
+      predecessor_sha256: predecessorHashes.runtimeFingerprintSha256,
+      successor_sha256: successorHashes.runtimeFingerprintSha256,
+    },
+  };
+}
+
 function validateSeedConfigurationDelta(predecessor, successor) {
   const predecessorWorker = requireObject(predecessor.identity.worker_configuration, 'predecessor worker configuration');
   const successorWorker = requireObject(successor.workerConfiguration, 'successor worker configuration');
+  if (successorWorker.server_parallel === 1) {
+    return validateP4ToP1SeedConfigurationDelta(predecessor, successor);
+  }
   if (predecessor.identity.runtime_fingerprint_sha256 !== successor.runtimeFingerprintSha256
     || !sameJsonValue(predecessor.identity.runtime_fingerprint, successor.runtimeFingerprint)
     || !sameJsonValue(predecessor.identity.runtime, successor.runtime)
@@ -2247,6 +3238,13 @@ function publicPredecessorDocument(document) {
     status_raw: _statusRaw,
     status_sidecar_raw: _statusSidecarRaw,
     timeout_log_raw: _timeoutLogRaw,
+    timeout_incident: _timeoutIncident,
+    timeout_incident_present: _timeoutIncidentPresent,
+    timeout_incident_path: _timeoutIncidentPath,
+    timeout_incident_raw_sha256: _timeoutIncidentRawSha256,
+    timeout_incident_sidecar_sha256: _timeoutIncidentSidecarSha256,
+    timeout_incident_raw: _timeoutIncidentRaw,
+    timeout_incident_sidecar_raw: _timeoutIncidentSidecarRaw,
     ...value
   } = document;
   return value;
@@ -2261,7 +3259,7 @@ function seedEvidenceFileRecord(relativePath, raw) {
   };
 }
 
-function seedEvidenceDocumentInventory(document) {
+function seedEvidenceDocumentInventory(document, { includeTimeoutRecoveryEvidence = false } = {}) {
   const statePath = `documents/${document.document_id}/state.json`;
   const statusPath = `status/${document.document_id}.json`;
   const statusSidecarPath = `${statusPath}.sha256`;
@@ -2291,10 +3289,33 @@ function seedEvidenceDocumentInventory(document) {
         document.timeout_log_raw,
       ),
     } : {}),
+    ...(includeTimeoutRecoveryEvidence && document.timeout_incident ? {
+      timeout_incident: {
+        document_id: document.document_id,
+        attempt: document.timeout_incident.attempt,
+        timeout_type: document.timeout_incident.timeout_type,
+        evidence_origin: document.timeout_incident.evidence_origin,
+        raw: seedEvidenceFileRecord(
+          document.timeout_incident_path,
+          document.timeout_incident_raw,
+        ),
+        sidecar: seedEvidenceFileRecord(
+          `${document.timeout_incident_path}.sha256`,
+          document.timeout_incident_sidecar_raw,
+        ),
+        log_sha256: document.timeout_incident.log.sha256,
+        citation_allowed: false,
+      },
+    } : {}),
   };
 }
 
-async function stageSeedPredecessorEvidence(outputRoot, predecessor, manifest) {
+async function stageSeedPredecessorEvidence(
+  outputRoot,
+  predecessor,
+  manifest,
+  { includeTimeoutRecoveryEvidence = false } = {},
+) {
   const evidenceRoot = path.join(
     outputRoot,
     `.seed-predecessor-evidence-candidate-${randomUUID()}`,
@@ -2316,6 +3337,12 @@ async function stageSeedPredecessorEvidence(outputRoot, predecessor, manifest) {
       if (document.timeout_log) {
         rawFiles.push([document.timeout_log.path, document.timeout_log_raw]);
       }
+      if (includeTimeoutRecoveryEvidence && document.timeout_incident) {
+        rawFiles.push(
+          [document.timeout_incident_path, document.timeout_incident_raw],
+          [`${document.timeout_incident_path}.sha256`, document.timeout_incident_sidecar_raw],
+        );
+      }
     }
     rawFiles.sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
     for (const [relativePath, raw] of rawFiles) {
@@ -2325,7 +3352,10 @@ async function stageSeedPredecessorEvidence(outputRoot, predecessor, manifest) {
       const predecessorDocument = predecessor.documents.find(
         (item) => item.document_id === document.id,
       );
-      return seedEvidenceDocumentInventory(predecessorDocument);
+      return seedEvidenceDocumentInventory(
+        predecessorDocument,
+        { includeTimeoutRecoveryEvidence },
+      );
     });
     const inventory = {
       schema_version: 1,
@@ -2368,12 +3398,31 @@ function timeoutRecoveryGrantSummary(predecessor) {
   };
 }
 
+function timeoutRecoveryIssuanceSummary(predecessor, authority) {
+  if (!predecessor.timeoutRecoveryGrant) return null;
+  if (!authority?.issuance) {
+    throw new Error('timeout recovery seed evidence requires the canonical issuance claim');
+  }
+  const basename = path.basename(authority.issuance.path);
+  return {
+    schema_version: 1,
+    claim_key: authority.issuance.claimKey,
+    ledger_id: authority.ledger.identity.ledger_id,
+    path: `${timeoutRecoveryIssuanceDirectory}/${basename}`,
+    sidecar_path: `${timeoutRecoveryIssuanceDirectory}/${basename}.sha256`,
+    raw_sha256: authority.issuance.rawSha256,
+    sidecar_sha256: authority.issuance.sidecarSha256,
+    citation_allowed: false,
+  };
+}
+
 async function prepareHashBoundSeed({
   predecessorRoot,
   outputRoot,
   manifest,
   manifestSha256,
   successor,
+  timeoutRecoveryLedger,
   dryRun = false,
 }) {
   const predecessor = await captureSeedPredecessor(predecessorRoot, manifest, manifestSha256);
@@ -2381,7 +3430,22 @@ async function prepareHashBoundSeed({
     throw new Error('seed predecessor and successor output roots must be disjoint and non-nested');
   }
   const allowedConfigurationDelta = validateSeedConfigurationDelta(predecessor, successor);
-  const predecessorEvidence = await stageSeedPredecessorEvidence(outputRoot, predecessor, manifest);
+  const timeoutRecoveryAuthority = await verifyTimeoutRecoveryAuthority(
+    predecessor,
+    timeoutRecoveryLedger,
+  );
+  const includeTimeoutRecoveryEvidence = Boolean(
+    predecessor.timeoutRecoveryGrant && allowedConfigurationDelta.schema_version === 2,
+  );
+  const timeoutRecoveryIssuance = includeTimeoutRecoveryEvidence
+    ? timeoutRecoveryIssuanceSummary(predecessor, timeoutRecoveryAuthority)
+    : null;
+  const predecessorEvidence = await stageSeedPredecessorEvidence(
+    outputRoot,
+    predecessor,
+    manifest,
+    { includeTimeoutRecoveryEvidence },
+  );
   const predecessorContract = {
     manifest_sha256: predecessor.manifest_sha256,
     run_identity_sha256: predecessor.run_identity_sha256,
@@ -2425,6 +3489,9 @@ async function prepareHashBoundSeed({
     allowed_configuration_delta: allowedConfigurationDelta,
     documents: predecessor.documents.map(publicPredecessorDocument),
     ...(recoveryGrantSummary ? { timeout_recovery_grant: recoveryGrantSummary } : {}),
+    ...(timeoutRecoveryIssuance ? {
+      timeout_recovery_issuance: timeoutRecoveryIssuance,
+    } : {}),
     citation_allowed: false,
   };
   const seedId = sha256Value(canonicalJson(seedBasis));
@@ -2452,6 +3519,19 @@ async function prepareHashBoundSeed({
         path.join(stageRoot, `${timeoutRecoveryGrantFilename}.sha256`),
         predecessor.timeoutRecoveryGrant.sidecarRaw,
       );
+      if (includeTimeoutRecoveryEvidence) {
+        const issuanceRoot = path.join(stageRoot, timeoutRecoveryIssuanceDirectory);
+        await mkdir(issuanceRoot, { mode: 0o700 });
+        const issuanceBasename = path.basename(timeoutRecoveryAuthority.issuance.path);
+        await atomicWrite(
+          path.join(issuanceRoot, issuanceBasename),
+          timeoutRecoveryAuthority.issuance.raw,
+        );
+        await atomicWrite(
+          path.join(issuanceRoot, `${issuanceBasename}.sha256`),
+          timeoutRecoveryAuthority.issuance.sidecarRaw,
+        );
+      }
     }
   } catch (error) {
     await rm(predecessorEvidence.root, { recursive: true, force: true }).catch(() => {});
@@ -2482,6 +3562,10 @@ async function prepareHashBoundSeed({
         timeout_recovery_grant_id: recoveryGrantSummary.grant_id,
         timeout_recovery_grant_sha256: recoveryGrantSummary.raw_sha256,
         timeout_recovery_documents: recoveryDocumentIds,
+        ...(includeTimeoutRecoveryEvidence ? {
+          timeout_recovery_issuance_claim_key: timeoutRecoveryIssuance.claim_key,
+          timeout_recovery_issuance_sha256: timeoutRecoveryIssuance.raw_sha256,
+        } : {}),
       } : {}),
       citation_allowed: false,
     };
@@ -2521,6 +3605,21 @@ async function prepareHashBoundSeed({
               ...structuredClone(recoveryGrantDocument.timeout_log),
               path: `${seedPredecessorEvidenceDirectory}/${recoveryGrantDocument.timeout_log.path}`,
             },
+            ...(includeTimeoutRecoveryEvidence ? {
+              predecessor_incident: {
+                document_id: predecessorDocument.document_id,
+                attempt: predecessorDocument.timeout_incident.attempt,
+                timeout_type: predecessorDocument.timeout_incident.timeout_type,
+                evidence_origin: predecessorDocument.timeout_incident.evidence_origin,
+                path: `${seedPredecessorEvidenceDirectory}/${predecessorDocument.timeout_incident_path}`,
+                sidecar_path:
+                  `${seedPredecessorEvidenceDirectory}/${predecessorDocument.timeout_incident_path}.sha256`,
+                raw_sha256: predecessorDocument.timeout_incident_raw_sha256,
+                sidecar_sha256: predecessorDocument.timeout_incident_sidecar_sha256,
+                log_sha256: predecessorDocument.timeout_incident.log.sha256,
+                citation_allowed: false,
+              },
+            } : {}),
           },
         } : {}),
       };
@@ -2640,6 +3739,9 @@ async function prepareHashBoundSeed({
       },
       allowed_configuration_delta: allowedConfigurationDelta,
       ...(recoveryGrantSummary ? { timeout_recovery_grant: recoveryGrantSummary } : {}),
+      ...(timeoutRecoveryIssuance ? {
+        timeout_recovery_issuance: timeoutRecoveryIssuance,
+      } : {}),
       counts: {
         documents: manifest.documents.length,
         inherited_documents: receiptDocuments.filter((document) => document.completed_pages.length > 0).length,
@@ -2666,6 +3768,8 @@ async function prepareHashBoundSeed({
       receiptSha256,
       runStatus,
       predecessor,
+      timeoutRecoveryAuthority,
+      includeTimeoutRecoveryEvidence,
     };
   } catch (error) {
     await rm(stageRoot, { recursive: true, force: true }).catch(() => {});
@@ -2720,6 +3824,9 @@ async function installHashBoundSeed(prepared, identity, outputRoot, dependencies
     ...(prepared.predecessor.timeoutRecoveryGrant ? [
       { name: timeoutRecoveryGrantFilename, type: 'file' },
       { name: `${timeoutRecoveryGrantFilename}.sha256`, type: 'file' },
+      ...(prepared.includeTimeoutRecoveryEvidence ? [
+        { name: timeoutRecoveryIssuanceDirectory, type: 'directory' },
+      ] : []),
       { name: timeoutRecoveryLedgerIdentityFilename, type: 'file' },
       { name: `${timeoutRecoveryLedgerIdentityFilename}.sha256`, type: 'file' },
       { name: timeoutRecoveryClaimFilename, type: 'file' },
@@ -2773,6 +3880,7 @@ async function installHashBoundSeed(prepared, identity, outputRoot, dependencies
         seedPredecessorEvidenceDirectory,
         timeoutRecoveryGrantFilename,
         `${timeoutRecoveryGrantFilename}.sha256`,
+        timeoutRecoveryIssuanceDirectory,
         timeoutRecoveryLedgerIdentityFilename,
         `${timeoutRecoveryLedgerIdentityFilename}.sha256`,
         timeoutRecoveryClaimFilename,
@@ -2844,6 +3952,299 @@ async function installHashBoundSeed(prepared, identity, outputRoot, dependencies
     }
   }
   return { marker, runStatus: prepared.runStatus };
+}
+
+async function readStrictJsonEvidence(root, pathname, label, { sidecar = true } = {}) {
+  const evidence = sidecar
+    ? await readStrictFileWithSidecar(root, pathname, label)
+    : { raw: await readStrictFile(root, pathname, label), sidecarRaw: null, digest: null };
+  try {
+    return { ...evidence, value: JSON.parse(evidence.raw) };
+  } catch (error) {
+    throw new Error(`${label} JSON is invalid: ${error.message}`);
+  }
+}
+
+async function verifyCommittedSeedImmutableItem(outputRoot, marker, name, type) {
+  const item = marker.installed_items.find((value) => value.name === name && value.type === type);
+  if (!item) throw new Error(`committed seed marker lacks immutable item ${name}`);
+  const actual = await seedInstallItemFingerprint(path.join(outputRoot, name), type);
+  if (!sameJsonValue(actual, item.fingerprint)) {
+    throw new Error(`committed seed immutable item ${name} differs from its marker`);
+  }
+}
+
+async function resumeCommittedSeed(outputRoot, expectedIdentity, manifest) {
+  const markerPath = path.join(outputRoot, 'seed-commit.json');
+  const markerPresent = await lstat(markerPath).then(() => true, (error) => {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  });
+  if (!markerPresent) return null;
+  const [markerEvidence, receiptEvidence, identityEvidence, runStatusEvidence] = await Promise.all([
+    readStrictJsonEvidence(outputRoot, markerPath, 'committed seed marker'),
+    readStrictJsonEvidence(outputRoot, path.join(outputRoot, 'seed-receipt.json'), 'committed seed receipt'),
+    readStrictJsonEvidence(
+      outputRoot,
+      path.join(outputRoot, 'run-identity.json'),
+      'committed seed run identity',
+      { sidecar: false },
+    ),
+    readStrictJsonEvidence(outputRoot, path.join(outputRoot, 'run-status.json'), 'committed seed run status'),
+  ]);
+  const marker = markerEvidence.value;
+  const receipt = receiptEvidence.value;
+  const identity = identityEvidence.value;
+  exactObjectKeys(marker, [
+    'schema_version',
+    'marker_type',
+    'seed_id',
+    'seed_receipt_sha256',
+    'run_identity_sha256',
+    'initial_run_status_sha256',
+    'installed_items',
+    'installed_items_sha256',
+    'citation_allowed',
+  ], 'committed seed marker');
+  if (marker.schema_version !== 1
+    || marker.marker_type !== 'curriculum_remote_ocr_hash_bound_seed_commit'
+    || marker.citation_allowed !== false
+    || marker.seed_id !== receipt.seed_id
+    || marker.seed_receipt_sha256 !== receiptEvidence.digest
+    || marker.run_identity_sha256 !== sha256Value(identityEvidence.raw)
+    || marker.installed_items_sha256 !== sha256Value(canonicalJson(marker.installed_items))) {
+    throw new Error('committed seed marker is not bound to the exact receipt, identity, or item list');
+  }
+  if (receipt.schema_version !== 1
+    || receipt.receipt_type !== seedReceiptType
+    || receipt.status !== 'prepared_commit_marker_required'
+    || receipt.manifest_sha256 !== expectedIdentity.manifest_sha256
+    || receipt.citation_allowed !== false
+    || identity.schema_version !== 1
+    || identity.manifest_sha256 !== expectedIdentity.manifest_sha256
+    || identity.citation_allowed !== false
+    || identity.whole_document_atomic !== true) {
+    throw new Error('committed seed receipt or identity differs from the active manifest contract');
+  }
+  for (const key of Object.keys(expectedIdentity)) {
+    if (!sameJsonValue(identity[key], expectedIdentity[key])) {
+      throw new Error(`committed seed run identity differs from active successor field ${key}`);
+    }
+  }
+  const lineage = requireObject(identity.seed_lineage, 'committed seed lineage');
+  if (lineage.schema_version !== 1
+    || lineage.mode !== seedMode
+    || lineage.seed_id !== receipt.seed_id
+    || lineage.seed_receipt_sha256 !== receiptEvidence.digest
+    || receipt.successor.runner_script_sha256 !== identity.runner_script_sha256
+    || receipt.successor.ocr_script_sha256 !== identity.ocr_script_sha256
+    || receipt.successor.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
+    || !sameJsonValue(receipt.successor.runtime, identity.runtime)
+    || !sameJsonValue(receipt.successor.runtime_fingerprint, identity.runtime_fingerprint)
+    || !sameJsonValue(receipt.successor.worker_configuration, identity.worker_configuration)
+    || !sameJsonValue(receipt.successor.document_recovery, identity.document_recovery)) {
+    throw new Error('committed seed lineage or successor receipt differs from the exact run identity');
+  }
+  await Promise.all([
+    verifyCommittedSeedImmutableItem(outputRoot, marker, seedPredecessorEvidenceDirectory, 'directory'),
+    verifyCommittedSeedImmutableItem(outputRoot, marker, 'seed-receipt.json', 'file'),
+    verifyCommittedSeedImmutableItem(outputRoot, marker, 'seed-receipt.json.sha256', 'file'),
+    verifyCommittedSeedImmutableItem(outputRoot, marker, 'run-identity.json', 'file'),
+  ]);
+
+  const recoveryGrant = receipt.timeout_recovery_grant || null;
+  const recoveryIssuance = receipt.timeout_recovery_issuance || null;
+  const recoveryConsumption = receipt.timeout_recovery_consumption || null;
+  const recoveryNames = [
+    timeoutRecoveryGrantFilename,
+    `${timeoutRecoveryGrantFilename}.sha256`,
+    timeoutRecoveryIssuanceDirectory,
+    timeoutRecoveryLedgerIdentityFilename,
+    `${timeoutRecoveryLedgerIdentityFilename}.sha256`,
+    timeoutRecoveryClaimFilename,
+    `${timeoutRecoveryClaimFilename}.sha256`,
+  ];
+  if (!recoveryGrant) {
+    if (recoveryIssuance || recoveryConsumption
+      || recoveryNames.some((name) => marker.installed_items.some((item) => item.name === name))) {
+      throw new Error('committed no-grant seed contains stray timeout recovery evidence');
+    }
+    for (const name of recoveryNames) {
+      const present = await lstat(path.join(outputRoot, name)).then(() => true, (error) => {
+        if (error?.code === 'ENOENT') return false;
+        throw error;
+      });
+      if (present) throw new Error(`committed no-grant seed contains stray ${name}`);
+    }
+  } else {
+    if (!recoveryIssuance || !recoveryConsumption) {
+      throw new Error('committed timeout recovery seed lacks issuance or consumption evidence');
+    }
+    await Promise.all([
+      verifyCommittedSeedImmutableItem(outputRoot, marker, timeoutRecoveryGrantFilename, 'file'),
+      verifyCommittedSeedImmutableItem(outputRoot, marker, `${timeoutRecoveryGrantFilename}.sha256`, 'file'),
+      verifyCommittedSeedImmutableItem(outputRoot, marker, timeoutRecoveryIssuanceDirectory, 'directory'),
+      verifyCommittedSeedImmutableItem(outputRoot, marker, timeoutRecoveryLedgerIdentityFilename, 'file'),
+      verifyCommittedSeedImmutableItem(
+        outputRoot,
+        marker,
+        `${timeoutRecoveryLedgerIdentityFilename}.sha256`,
+        'file',
+      ),
+      verifyCommittedSeedImmutableItem(outputRoot, marker, timeoutRecoveryClaimFilename, 'file'),
+      verifyCommittedSeedImmutableItem(outputRoot, marker, `${timeoutRecoveryClaimFilename}.sha256`, 'file'),
+    ]);
+    const [grantEvidence, issuanceEvidence, ledgerEvidence, claimEvidence] = await Promise.all([
+      readStrictJsonEvidence(
+        outputRoot,
+        path.join(outputRoot, timeoutRecoveryGrantFilename),
+        'committed timeout recovery grant',
+      ),
+      readStrictJsonEvidence(
+        outputRoot,
+        path.join(outputRoot, recoveryIssuance.path),
+        'committed timeout recovery issuance',
+      ),
+      readStrictJsonEvidence(
+        outputRoot,
+        path.join(outputRoot, timeoutRecoveryLedgerIdentityFilename),
+        'committed timeout recovery ledger identity',
+      ),
+      readStrictJsonEvidence(
+        outputRoot,
+        path.join(outputRoot, timeoutRecoveryClaimFilename),
+        'committed timeout recovery consumption claim',
+      ),
+    ]);
+    const grant = grantEvidence.value;
+    const issuance = issuanceEvidence.value;
+    const ledger = ledgerEvidence.value;
+    const claim = claimEvidence.value;
+    exactObjectKeys(recoveryIssuance, [
+      'schema_version',
+      'claim_key',
+      'ledger_id',
+      'path',
+      'sidecar_path',
+      'raw_sha256',
+      'sidecar_sha256',
+      'citation_allowed',
+    ], 'committed timeout recovery issuance summary');
+    exactObjectKeys(issuance, [
+      'schema_version',
+      'claim_type',
+      'claim_key',
+      'ledger_id',
+      'predecessor',
+      'grant_id',
+      'grant_raw_sha256',
+      'incident_evidence',
+      'citation_allowed',
+    ], 'committed timeout recovery issuance');
+    const grantBasis = structuredClone(grant);
+    delete grantBasis.grant_id;
+    if (grant.grant_id !== sha256Value(canonicalJson(grantBasis))
+      || grant.grant_id !== recoveryGrant.grant_id
+      || grantEvidence.digest !== recoveryGrant.raw_sha256
+      || sha256Value(grantEvidence.sidecarRaw) !== recoveryGrant.sidecar_sha256
+      || recoveryIssuance.path !== `${timeoutRecoveryIssuanceDirectory}/${recoveryIssuance.claim_key}.issuance.json`
+      || recoveryIssuance.sidecar_path !== `${recoveryIssuance.path}.sha256`
+      || issuanceEvidence.digest !== recoveryIssuance.raw_sha256
+      || sha256Value(issuanceEvidence.sidecarRaw) !== recoveryIssuance.sidecar_sha256
+      || issuance.claim_key !== recoveryIssuance.claim_key
+      || issuance.ledger_id !== recoveryIssuance.ledger_id
+      || issuance.ledger_id !== ledger.ledger_id
+      || issuance.grant_id !== grant.grant_id
+      || issuance.grant_raw_sha256 !== grantEvidence.digest) {
+      throw new Error('committed timeout recovery grant or issuance binding is invalid');
+    }
+    if (ledgerEvidence.digest !== recoveryConsumption.ledger_identity_sha256
+      || sha256Value(ledgerEvidence.sidecarRaw) !== recoveryConsumption.ledger_identity_sidecar_sha256
+      || claimEvidence.digest !== recoveryConsumption.claim_sha256
+      || sha256Value(claimEvidence.sidecarRaw) !== recoveryConsumption.claim_sidecar_sha256
+      || claim.ledger_id !== ledger.ledger_id
+      || claim.grant_id !== grant.grant_id
+      || claim.grant_raw_sha256 !== grantEvidence.digest
+      || claim.successor?.seed_id !== receipt.seed_id) {
+      throw new Error('committed timeout recovery ledger or consumption claim binding is invalid');
+    }
+    const outputInfo = await stat(outputRoot, { bigint: true });
+    if (claim.successor.output_root !== outputRoot
+      || claim.successor.output_device !== String(outputInfo.dev)
+      || claim.successor.output_inode !== String(outputInfo.ino)) {
+      throw new Error('committed timeout recovery claim is bound to a different successor root or inode');
+    }
+    const issuanceIncidentById = new Map(
+      issuance.incident_evidence.map((incident) => [incident.document_id, incident]),
+    );
+    const expectedIssuanceIncidents = [];
+    for (const document of receipt.documents) {
+      const summary = document.timeout_recovery?.predecessor_incident;
+      if (!summary) continue;
+      const incidentEvidence = await readStrictJsonEvidence(
+        outputRoot,
+        path.join(outputRoot, summary.path),
+        `${document.document_id} committed timeout incident`,
+      );
+      const incident = incidentEvidence.value;
+      const logSummary = document.timeout_recovery.predecessor_log;
+      const logRaw = await readStrictFile(
+        outputRoot,
+        path.join(outputRoot, logSummary.path),
+        `${document.document_id} committed timeout log`,
+      );
+      const issuanceIncident = issuanceIncidentById.get(document.document_id);
+      expectedIssuanceIncidents.push({
+        document_id: document.document_id,
+        attempt: incident.attempt,
+        timeout_type: incident.timeout_type,
+        raw_sha256: summary.raw_sha256,
+        sidecar_sha256: summary.sidecar_sha256,
+        log_sha256: summary.log_sha256,
+      });
+      if (!issuanceIncident
+        || incident.document_id !== document.document_id
+        || incident.attempt !== 5
+        || incident.timeout_type !== 'idle_timeout'
+        || summary.attempt !== incident.attempt
+        || summary.timeout_type !== incident.timeout_type
+        || summary.evidence_origin !== incident.evidence_origin
+        || incidentEvidence.digest !== summary.raw_sha256
+        || sha256Value(incidentEvidence.sidecarRaw) !== summary.sidecar_sha256
+        || incident.log.sha256 !== summary.log_sha256
+        || incident.log.sha256 !== logSummary.sha256
+        || incident.log.bytes !== logRaw.byteLength
+        || incident.log.sha256 !== sha256Value(logRaw)
+        || !sameJsonValue(issuanceIncident, {
+          document_id: document.document_id,
+          attempt: incident.attempt,
+          timeout_type: incident.timeout_type,
+          raw_sha256: summary.raw_sha256,
+          sidecar_sha256: summary.sidecar_sha256,
+          log_sha256: summary.log_sha256,
+        })) {
+        throw new Error(`${document.document_id}: committed structured timeout evidence is invalid`);
+      }
+    }
+    if (issuanceIncidentById.size !== grant.documents.length) {
+      throw new Error('committed timeout issuance incident set differs from the grant');
+    }
+    const orderedGrantedIds = grant.documents.map((document) => document.document_id);
+    const orderedIncidentIds = expectedIssuanceIncidents.map((incident) => incident.document_id);
+    if (!sameJsonValue(orderedIncidentIds, orderedGrantedIds)
+      || !sameJsonValue(issuance.incident_evidence, expectedIssuanceIncidents)) {
+      throw new Error('committed timeout issuance incident evidence order differs from the grant');
+    }
+  }
+  return {
+    seedId: receipt.seed_id,
+    receipt,
+    receiptSha256: receiptEvidence.digest,
+    runStatus: runStatusEvidence.value,
+    runStatusSha256: runStatusEvidence.digest,
+    identity,
+    resumedCommittedSeed: true,
+  };
 }
 
 async function acquireLock(outputRoot) {
@@ -2941,7 +4342,11 @@ function validateExistingRunStatus(runStatus, identity, documents, seedDocumentB
       || runStatus.seed_lineage?.timeout_recovery_grant_id !== seedLineage.timeout_recovery_grant_id
       || runStatus.seed_lineage?.timeout_recovery_grant_sha256 !== seedLineage.timeout_recovery_grant_sha256
       || runStatus.seed_lineage?.timeout_recovery_ledger_id !== seedLineage.timeout_recovery_ledger_id
-      || runStatus.seed_lineage?.timeout_recovery_claim_sha256 !== seedLineage.timeout_recovery_claim_sha256) {
+      || runStatus.seed_lineage?.timeout_recovery_claim_sha256 !== seedLineage.timeout_recovery_claim_sha256
+      || runStatus.seed_lineage?.timeout_recovery_issuance_claim_key
+        !== seedLineage.timeout_recovery_issuance_claim_key
+      || runStatus.seed_lineage?.timeout_recovery_issuance_sha256
+        !== seedLineage.timeout_recovery_issuance_sha256) {
       throw new Error('run status seed lineage differs from run identity');
     }
     if (grantedDocumentIds.length > 0) {
@@ -2949,15 +4354,30 @@ function validateExistingRunStatus(runStatus, identity, documents, seedDocumentB
       requireSha256(seedLineage.timeout_recovery_grant_sha256, 'run identity timeout recovery grant SHA-256');
       requireSha256(seedLineage.timeout_recovery_ledger_id, 'run identity timeout recovery ledger ID');
       requireSha256(seedLineage.timeout_recovery_claim_sha256, 'run identity timeout recovery claim SHA-256');
+      if (seedLineage.timeout_recovery_issuance_claim_key !== undefined
+        || seedLineage.timeout_recovery_issuance_sha256 !== undefined) {
+        requireSha256(
+          seedLineage.timeout_recovery_issuance_claim_key,
+          'run identity timeout recovery issuance claim key',
+        );
+        requireSha256(
+          seedLineage.timeout_recovery_issuance_sha256,
+          'run identity timeout recovery issuance SHA-256',
+        );
+      }
     } else if (seedLineage.timeout_recovery_grant_id !== undefined
       || seedLineage.timeout_recovery_grant_sha256 !== undefined
       || seedLineage.timeout_recovery_ledger_id !== undefined
       || seedLineage.timeout_recovery_claim_sha256 !== undefined
+      || seedLineage.timeout_recovery_issuance_claim_key !== undefined
+      || seedLineage.timeout_recovery_issuance_sha256 !== undefined
       || seedLineage.timeout_recovery_documents !== undefined
       || runStatus.seed_lineage?.timeout_recovery_grant_id !== undefined
       || runStatus.seed_lineage?.timeout_recovery_grant_sha256 !== undefined
       || runStatus.seed_lineage?.timeout_recovery_ledger_id !== undefined
       || runStatus.seed_lineage?.timeout_recovery_claim_sha256 !== undefined
+      || runStatus.seed_lineage?.timeout_recovery_issuance_claim_key !== undefined
+      || runStatus.seed_lineage?.timeout_recovery_issuance_sha256 !== undefined
       || runStatus.seed_lineage?.timeout_recovery_documents !== undefined) {
       throw new Error('seed lineage unexpectedly contains timeout recovery fields');
     }
@@ -3227,8 +4647,28 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
   const manifestSha256 = sha256Value(manifestRaw);
   const inputRoot = await realpath(options.inputRoot);
   const requestedOutputRoot = path.resolve(options.outputRoot);
+  const committedSeedCandidate = options.seedFromOutputRoot
+    ? await lstat(path.join(requestedOutputRoot, 'seed-commit.json')).then(() => true, (error) => {
+      if (error?.code === 'ENOENT') return false;
+      throw error;
+    })
+    : false;
+  let selfContainedSeedCandidate = false;
+  if (committedSeedCandidate) {
+    const committedReceiptRaw = await readFile(
+      path.join(requestedOutputRoot, 'seed-receipt.json'),
+      'utf8',
+    );
+    let committedReceipt;
+    try {
+      committedReceipt = JSON.parse(committedReceiptRaw);
+    } catch {
+      throw new Error('committed seed receipt is not valid JSON');
+    }
+    selfContainedSeedCandidate = committedReceipt.allowed_configuration_delta?.schema_version === 2;
+  }
   let seedPredecessorRoot = null;
-  if (options.seedFromOutputRoot) {
+  if (options.seedFromOutputRoot && !selfContainedSeedCandidate) {
     seedPredecessorRoot = await requireRealDirectory(
       options.seedFromOutputRoot,
       'seed predecessor output root',
@@ -3243,7 +4683,7 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
       throw new Error('seed predecessor and successor output roots must be disjoint and non-nested');
     }
   }
-  if (seedPredecessorRoot) {
+  if (options.seedFromOutputRoot) {
     await mkdir(requestedOutputRoot, { recursive: false, mode: 0o700 }).catch(async (error) => {
       if (error?.code !== 'EEXIST') throw error;
       await requireRealDirectory(requestedOutputRoot, 'successor output root');
@@ -3442,7 +4882,28 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
   let seededRunStatus = null;
   let seedDocumentById = null;
   if (options.seedFromOutputRoot) {
-    preparedSeed = await prepareHashBoundSeed({
+    const committedSeed = selfContainedSeedCandidate
+      ? await resumeCommittedSeed(outputRoot, identity, manifest)
+      : null;
+    if (committedSeed) {
+      preparedSeed = committedSeed;
+      identity = committedSeed.identity;
+      seededRunStatus = committedSeed.runStatus;
+      seedDocumentById = new Map(
+        committedSeed.receipt.documents.map((document) => [document.document_id, document]),
+      );
+      if (options.seedDryRun) {
+        return {
+          exitCode: 0,
+          seedDryRun: true,
+          seedReceipt: committedSeed.receipt,
+          seedReceiptSha256: committedSeed.receiptSha256,
+          runStatus: committedSeed.runStatus,
+          runStatusSha256: committedSeed.runStatusSha256,
+        };
+      }
+    } else {
+      preparedSeed = await prepareHashBoundSeed({
       predecessorRoot: seedPredecessorRoot,
       outputRoot,
       manifest,
@@ -3460,27 +4921,28 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
         pythonInvocationPath: python,
         pythonResolvedTarget: pythonExecutable.targetPath,
       },
+      timeoutRecoveryLedger: options.timeoutRecoveryLedger,
       dryRun: options.seedDryRun === true,
     });
-    try {
-      const timeoutRecoveryConsumption = await claimTimeoutRecoveryGrant({
+      try {
+        const timeoutRecoveryConsumption = await claimTimeoutRecoveryGrant({
         prepared: preparedSeed,
         outputRoot,
         ledgerPath: options.timeoutRecoveryLedger,
         dryRun: options.seedDryRun === true,
       });
-      await bindTimeoutRecoveryConsumption(
-        preparedSeed,
-        timeoutRecoveryConsumption,
-        options.seedDryRun === true,
-      );
-    } catch (error) {
-      await rm(preparedSeed.stageRoot, { recursive: true, force: true }).catch(() => {});
-      throw error;
-    }
-    identity = {
-      ...identity,
-      seed_lineage: {
+        await bindTimeoutRecoveryConsumption(
+          preparedSeed,
+          timeoutRecoveryConsumption,
+          options.seedDryRun === true,
+        );
+      } catch (error) {
+        await rm(preparedSeed.stageRoot, { recursive: true, force: true }).catch(() => {});
+        throw error;
+      }
+      identity = {
+        ...identity,
+        seed_lineage: {
         schema_version: 1,
         mode: seedMode,
         seed_id: preparedSeed.seedId,
@@ -3494,6 +4956,12 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
           timeout_recovery_grant_sha256: preparedSeed.receipt.timeout_recovery_grant.raw_sha256,
           timeout_recovery_ledger_id: preparedSeed.receipt.timeout_recovery_consumption.ledger_id,
           timeout_recovery_claim_sha256: preparedSeed.receipt.timeout_recovery_consumption.claim_sha256,
+          ...(preparedSeed.receipt.timeout_recovery_issuance ? {
+            timeout_recovery_issuance_claim_key:
+              preparedSeed.receipt.timeout_recovery_issuance.claim_key,
+            timeout_recovery_issuance_sha256:
+              preparedSeed.receipt.timeout_recovery_issuance.raw_sha256,
+          } : {}),
           timeout_recovery_documents: manifest.documents
             .map((document) => document.id)
             .filter((documentId) => preparedSeed.receipt.timeout_recovery_grant.documents.some(
@@ -3501,24 +4969,25 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
             )),
         } : {}),
         citation_allowed: false,
-      },
-    };
-    seedDocumentById = new Map(
-      preparedSeed.receipt.documents.map((document) => [document.document_id, document]),
-    );
-    if (options.seedDryRun) {
-      await rm(preparedSeed.stageRoot, { recursive: true, force: true });
-      return {
+        },
+      };
+      seedDocumentById = new Map(
+        preparedSeed.receipt.documents.map((document) => [document.document_id, document]),
+      );
+      if (options.seedDryRun) {
+        await rm(preparedSeed.stageRoot, { recursive: true, force: true });
+        return {
         exitCode: 0,
         seedDryRun: true,
         seedReceipt: preparedSeed.receipt,
         seedReceiptSha256: preparedSeed.receiptSha256,
         runStatus: preparedSeed.runStatus,
         runStatusSha256: preparedSeed.receipt.successor.initial_run_status_sha256,
-      };
+        };
+      }
+      const installed = await installHashBoundSeed(preparedSeed, identity, outputRoot, dependencies);
+      seededRunStatus = installed.runStatus;
     }
-    const installed = await installHashBoundSeed(preparedSeed, identity, outputRoot, dependencies);
-    seededRunStatus = installed.runStatus;
   } else {
     const identityPath = path.join(outputRoot, 'run-identity.json');
     try {
@@ -3817,11 +5286,12 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
         let childResult;
         let invocationError;
         try {
+          const activeMonitoringPolicy = childMonitoringPolicy(options, document.page_count);
           childResult = await invokeOcr(python, commandArguments, {
             env: { ...process.env, PADDLE_PDX_CACHE_HOME: workerConfiguration.paddlex_cache_home },
             logPath: path.join(outputRoot, 'logs', `${document.id}.log`),
             documentRoot,
-            monitoring: childMonitoringPolicy(options, document.page_count),
+            monitoring: activeMonitoringPolicy,
             onChild: (child) => {
               activeChild = child;
               if (stopRequested) {
@@ -3874,6 +5344,15 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
           }
         }
         if (monitorIncident) {
+          await writeTimeoutIncident({
+            outputRoot,
+            documentId: document.id,
+            attempt: progress.attempts,
+            childStartedAt: progress.started_at,
+            monitorIncident,
+            monitoringPolicy: childMonitoringPolicy(options, document.page_count),
+            runtimeFingerprintSha256: identity.runtime_fingerprint_sha256,
+          });
           try {
             await access(path.join(documentRoot, 'state.json'));
             await validateOcrDocumentOutput(document, documentRoot, runtime, {

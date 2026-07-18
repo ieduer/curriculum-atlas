@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
 import {
+  cp,
+  link,
   lstat,
   mkdtemp,
   mkdir,
   readFile,
+  readdir,
   realpath,
   rm,
   stat,
@@ -16,7 +18,11 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { prepareTimeoutRecoveryGrant } from '../scripts/prepare-timeout-recovery-grant.mjs';
+import {
+  buildTimeoutRecoveryAuthorityIdentity,
+  canonicalTimeoutRecoveryAuthorityRoot,
+  prepareTimeoutRecoveryGrant,
+} from '../scripts/prepare-timeout-recovery-grant.mjs';
 import { validateOcrDocumentOutput } from '../scripts/run-remote-ocr-offload.mjs';
 import { canonicalJson } from '../scripts/lib/remote-ocr-local-snapshot.mjs';
 
@@ -113,14 +119,59 @@ function recoveryPolicy() {
 function workerConfiguration(predecessorRoot) {
   return {
     llama_url: 'http://127.0.0.1:8112/v1',
-    vl_rec_max_concurrency: 2,
-    server_parallel: 2,
-    micro_batch: 4,
+    vl_rec_max_concurrency: 4,
+    server_parallel: 4,
+    micro_batch: 16,
     use_queues: true,
     runtime_device: runtimeDevice,
     paddlex_cache_home: path.join(predecessorRoot, 'paddlex-cache'),
     python_runtime: pythonRuntime,
     paddlex_layout_model_cache_sha256: '9'.repeat(64),
+  };
+}
+
+function productionAttestation() {
+  return {
+    schema_version: 1,
+    systemd_unit: 'curriculum-ocr-llama.service',
+    active_state: 'active',
+    sub_state: 'running',
+    binary_path: '/fixture/llama-server',
+    binary_sha256: 'd'.repeat(64),
+    version_sha256: 'e'.repeat(64),
+    llama_commit_prefix: runtime.llama_commit.slice(0, 8),
+    proc_cmdline_sha256: 'f'.repeat(64),
+    model_path: '/fixture/model.gguf',
+    model_sha256: runtime.model_sha256,
+    mmproj_path: '/fixture/mmproj.gguf',
+    mmproj_sha256: runtime.mmproj_sha256,
+    host: '127.0.0.1',
+    port: 8112,
+    parallel: 4,
+    production_command_contract: {
+      values: {
+        '--host': '127.0.0.1',
+        '--port': '8112',
+        '--parallel': '4',
+        '--temp': '0',
+        '--ctx-size': '32768',
+        '--n-gpu-layers': 'all',
+        '--flash-attn': 'auto',
+        '--cache-type-k': 'f16',
+        '--cache-type-v': 'f16',
+        '--batch-size': '2048',
+        '--ubatch-size': '512',
+        '--fit': 'off',
+        '--timeout': '3600',
+        '--threads': '8',
+        '--threads-batch': '16',
+      },
+      flags: ['--mmproj-offload', '--cont-batching', '--no-webui', '--metrics'],
+    },
+    health_url: 'http://127.0.0.1:8112/health',
+    health_status_code: 200,
+    health_status: 'ok',
+    health_body_sha256: '0'.repeat(64),
   };
 }
 
@@ -188,13 +239,14 @@ async function createPredecessorFixture(t) {
   t.after(() => rm(root, { recursive: true, force: true }));
   const inputRoot = path.join(root, 'input');
   const predecessorRoot = path.join(root, 'a-r1');
-  const ledgerRoot = path.join(root, 'ledger-authority');
+  const ledgerRoot = canonicalTimeoutRecoveryAuthorityRoot(inputRoot);
   const manifestPath = path.join(root, 'manifest.json');
   await Promise.all([
     mkdir(path.join(inputRoot, 'pdfs'), { recursive: true }),
     mkdir(path.join(predecessorRoot, 'documents'), { recursive: true }),
     mkdir(path.join(predecessorRoot, 'status'), { recursive: true }),
     mkdir(path.join(predecessorRoot, 'logs'), { recursive: true }),
+    mkdir(ledgerRoot, { recursive: true, mode: 0o700 }),
   ]);
   const specifications = [
     { id: 'complete-doc', pageCount: 2, completed: 2, status: 'complete' },
@@ -212,7 +264,7 @@ async function createPredecessorFixture(t) {
   await writeFile(manifestPath, manifestRaw, { mode: 0o600 });
   const manifestSha256 = sha256(manifestRaw);
   const worker = workerConfiguration(predecessorRoot);
-  const llamaAttestation = { schema_version: 1, test_owner: 'fixture' };
+  const llamaAttestation = productionAttestation();
   const llamaAttestationSha256 = sha256(`${JSON.stringify(llamaAttestation)}\n`);
   const runtimeFingerprint = {
     ...runtime,
@@ -291,7 +343,10 @@ async function createPredecessorFixture(t) {
       };
       await writeFile(
         path.join(predecessorRoot, 'logs', `${specification.id}.log`),
-        `bounded timeout log for ${specification.id}\n`,
+        Array.from(
+          { length: 5 },
+          (_, index) => `SignalInfo: *** SIGTERM attempt ${index + 1} for ${specification.id}\n`,
+        ).join(''),
         { mode: 0o600 },
       );
     }
@@ -346,6 +401,16 @@ async function createPredecessorFixture(t) {
     settled: true,
   };
   await writeJsonWithHashSeal(path.join(predecessorRoot, 'run-status.json'), runStatus);
+  const ledgerInfo = await stat(ledgerRoot, { bigint: true });
+  const ledgerIdentity = buildTimeoutRecoveryAuthorityIdentity({
+    ledgerRoot,
+    predecessorInputRoot: await realpath(inputRoot),
+    ledgerDevice: ledgerInfo.dev,
+    ledgerInode: ledgerInfo.ino,
+    ownerUid: ledgerInfo.uid,
+    ownerGid: ledgerInfo.gid,
+  });
+  await writeJsonWithHashSeal(path.join(ledgerRoot, 'ledger-identity.json'), ledgerIdentity);
   return {
     root,
     inputRoot,
@@ -389,44 +454,48 @@ test('default preview derives document evidence without mutating predecessor or 
     path.join(fixture.predecessorRoot, 'run-identity.json'),
     path.join(fixture.predecessorRoot, 'run-status.json'),
     fixture.timeoutLogPath,
+    path.join(fixture.ledgerRoot, 'ledger-identity.json'),
+    path.join(fixture.ledgerRoot, 'ledger-identity.json.sha256'),
   ]);
   const result = await prepareTimeoutRecoveryGrant(optionsFor(fixture));
   assert.equal(result.mode, 'preview');
   assert.equal(result.status, 'ready_to_apply');
-  assert.equal(result.ledger.present, false);
+  assert.equal(result.ledger.present, true);
+  assert.equal(result.ledger.identity_present, true);
   assert.equal(result.grant.present, false);
-  assert.deepEqual(result.grant.documents, [{ document_id: 'timeout-doc', first_missing_page: 2 }]);
-  await assert.rejects(lstat(fixture.ledgerRoot), { code: 'ENOENT' });
+  assert.equal(result.grant.documents.length, 1);
+  assert.equal(result.grant.documents[0].document_id, 'timeout-doc');
+  assert.equal(result.grant.documents[0].first_missing_page, 2);
+  assert.equal(result.grant.incidents.length, 1);
+  assert.equal(result.grant.incidents[0].present, false);
   await assert.rejects(lstat(fixture.grantPath), { code: 'ENOENT' });
   assert.deepEqual(await fingerprintFiles(before.map(({ pathname }) => pathname)), before);
 });
 
-test('apply uses a 32-byte nonce and durably installs exact 0700/0600 hash-sealed files', async (t) => {
+test('apply preserves the deterministic pre-existing authority and durably installs all exact hash-sealed evidence', async (t) => {
   const fixture = await createPredecessorFixture(t);
-  let nonceLength = null;
-  const result = await prepareTimeoutRecoveryGrant(
-    optionsFor(fixture, { apply: true }),
-    {
-      randomBytes(length) {
-        nonceLength = length;
-        return Buffer.alloc(length, 0xab);
-      },
-    },
-  );
-  assert.equal(nonceLength, 32);
+  const identityPath = path.join(fixture.ledgerRoot, 'ledger-identity.json');
+  const identityBefore = await fingerprintFiles([identityPath, `${identityPath}.sha256`]);
+  const result = await prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true }));
   assert.equal(result.status, 'applied');
   assert.equal(await mode(fixture.ledgerRoot), 0o700);
-  const identityPath = path.join(fixture.ledgerRoot, 'ledger-identity.json');
+  assert.deepEqual(await fingerprintFiles([identityPath, `${identityPath}.sha256`]), identityBefore);
+  const incidentPath = result.grant.incidents[0].path;
+  const issuancePath = result.grant.issuance.path;
   const files = [
     identityPath,
     `${identityPath}.sha256`,
+    incidentPath,
+    `${incidentPath}.sha256`,
+    issuancePath,
+    `${issuancePath}.sha256`,
     fixture.grantPath,
     `${fixture.grantPath}.sha256`,
   ];
   for (const pathname of files) assert.equal(await mode(pathname), 0o600);
   const identity = JSON.parse(await readFile(identityPath, 'utf8'));
-  assert.equal(identity.ledger_nonce, 'ab'.repeat(32));
   assert.equal(identity.ledger_id, result.ledger.ledger_id);
+  assert.match(identity.ledger_nonce, /^[a-f0-9]{64}$/u);
   const grantRaw = await readFile(fixture.grantPath);
   const grant = JSON.parse(grantRaw);
   assert.equal(grant.grant_id, result.grant.grant_id);
@@ -444,48 +513,76 @@ test('apply uses a 32-byte nonce and durably installs exact 0700/0600 hash-seale
   const grantBasis = structuredClone(grant);
   delete grantBasis.grant_id;
   assert.equal(grant.grant_id, sha256(canonicalJson(grantBasis)));
+  const incident = JSON.parse(await readFile(incidentPath, 'utf8'));
+  assert.equal(incident.incident_type, 'curriculum_remote_ocr_child_timeout_incident');
+  assert.equal(incident.evidence_origin, 'legacy_status_log_derivation_v1');
+  assert.equal(incident.document_id, 'timeout-doc');
+  assert.equal(incident.attempt, 5);
+  assert.equal(incident.timeout_type, 'idle_timeout');
+  assert.deepEqual(incident.termination_signals, ['SIGTERM']);
+  assert.equal(incident.log.sha256, sha256(await readFile(fixture.timeoutLogPath)));
+  assert.equal(incident.citation_allowed, false);
+  const issuance = JSON.parse(await readFile(issuancePath, 'utf8'));
+  assert.equal(issuance.claim_key, result.grant.issuance.claim_key);
+  assert.equal(issuance.grant_id, grant.grant_id);
+  assert.equal(issuance.incident_evidence[0].raw_sha256, sha256(await readFile(incidentPath)));
 });
 
-test('exact rerun is idempotent and partial hash-seal repair never rewrites raw files', async (t) => {
+test('exact rerun is idempotent; mutable evidence sidecars may be repaired but the authority identity never is', async (t) => {
   const fixture = await createPredecessorFixture(t);
-  await prepareTimeoutRecoveryGrant(
-    optionsFor(fixture, { apply: true }),
-    { randomBytes: (length) => Buffer.alloc(length, 0x11) },
-  );
+  const firstResult = await prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true }));
   const identityPath = path.join(fixture.ledgerRoot, 'ledger-identity.json');
-  const files = [identityPath, `${identityPath}.sha256`, fixture.grantPath, `${fixture.grantPath}.sha256`];
+  const incidentPath = firstResult.grant.incidents[0].path;
+  const issuancePath = firstResult.grant.issuance.path;
+  const files = [
+    identityPath,
+    `${identityPath}.sha256`,
+    incidentPath,
+    `${incidentPath}.sha256`,
+    issuancePath,
+    `${issuancePath}.sha256`,
+    fixture.grantPath,
+    `${fixture.grantPath}.sha256`,
+  ];
   const first = await fingerprintFiles(files);
-  const idempotent = await prepareTimeoutRecoveryGrant(
-    optionsFor(fixture, { apply: true }),
-    { randomBytes: () => { throw new Error('nonce must not be regenerated'); } },
-  );
+  const idempotent = await prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true }));
   assert.equal(idempotent.status, 'verified_idempotent');
   assert.deepEqual(await fingerprintFiles(files), first);
 
-  await Promise.all([unlink(`${identityPath}.sha256`), unlink(`${fixture.grantPath}.sha256`)]);
-  const rawBeforeRepair = await fingerprintFiles([identityPath, fixture.grantPath]);
+  await Promise.all([
+    unlink(`${incidentPath}.sha256`),
+    unlink(`${issuancePath}.sha256`),
+    unlink(`${fixture.grantPath}.sha256`),
+  ]);
+  const rawBeforeRepair = await fingerprintFiles([identityPath, incidentPath, issuancePath, fixture.grantPath]);
   const repairPreview = await prepareTimeoutRecoveryGrant(optionsFor(fixture));
   assert.equal(repairPreview.status, 'ready_to_apply');
   assert.deepEqual(repairPreview.planned_writes.sort(), [
-    `${identityPath}.sha256`,
+    `${incidentPath}.sha256`,
+    `${issuancePath}.sha256`,
     `${fixture.grantPath}.sha256`,
   ].sort());
-  const repaired = await prepareTimeoutRecoveryGrant(
-    optionsFor(fixture, { apply: true }),
-    { randomBytes: () => { throw new Error('nonce must not be regenerated'); } },
-  );
+  const repaired = await prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true }));
   assert.equal(repaired.status, 'applied');
-  assert.deepEqual(await fingerprintFiles([identityPath, fixture.grantPath]), rawBeforeRepair);
-  assert.equal(await mode(`${identityPath}.sha256`), 0o600);
+  assert.deepEqual(
+    await fingerprintFiles([identityPath, incidentPath, issuancePath, fixture.grantPath]),
+    rawBeforeRepair,
+  );
+  assert.equal(await mode(`${incidentPath}.sha256`), 0o600);
+  assert.equal(await mode(`${issuancePath}.sha256`), 0o600);
   assert.equal(await mode(`${fixture.grantPath}.sha256`), 0o600);
+
+  await unlink(`${identityPath}.sha256`);
+  await assert.rejects(
+    prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true })),
+    /pre-existing hash-sealed canonical authority identity/u,
+  );
+  await assert.rejects(lstat(`${identityPath}.sha256`), { code: 'ENOENT' });
 });
 
 test('a missing hash seal is repaired only when the surviving raw grant is exact', async (t) => {
   const fixture = await createPredecessorFixture(t);
-  await prepareTimeoutRecoveryGrant(
-    optionsFor(fixture, { apply: true }),
-    { randomBytes: (length) => Buffer.alloc(length, 0x22) },
-  );
+  await prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true }));
   await unlink(`${fixture.grantPath}.sha256`);
   const changed = JSON.parse(await readFile(fixture.grantPath, 'utf8'));
   changed.documents[0].first_missing_page += 1;
@@ -499,17 +596,22 @@ test('a missing hash seal is repaired only when the surviving raw grant is exact
 
 test('preparation rejects evidence drift before the grant write', async (t) => {
   const fixture = await createPredecessorFixture(t);
+  let mutated = false;
   await assert.rejects(
     prepareTimeoutRecoveryGrant(
       optionsFor(fixture, { apply: true }),
       {
-        randomBytes(length) {
-          writeFileSync(fixture.timeoutLogPath, 'drifted timeout log\n');
-          return Buffer.alloc(length, 0x33);
+        publicationHooks: {
+          async afterTempSync({ pathname }) {
+            if (!mutated && pathname.includes('/timeout-incidents/')) {
+              mutated = true;
+              await writeFile(fixture.timeoutLogPath, 'drifted timeout log\n', { mode: 0o600 });
+            }
+          },
         },
       },
     ),
-    /drifted during preparation/u,
+    /drifted during preparation|log changed|log identity differs/u,
   );
   await assert.rejects(lstat(fixture.grantPath), { code: 'ENOENT' });
 });
@@ -540,26 +642,26 @@ test('preparation rejects missing or symlinked logs and symlinked or nested auth
       prepareTimeoutRecoveryGrant(optionsFor(fixture, {
         ledgerRoot: path.join(fixture.predecessorRoot, 'nested-ledger'),
       })),
-      /must be disjoint from predecessor root/u,
+      /single canonical authority root/u,
     );
   });
   await t.test('symlinked ledger', async (subtest) => {
     const fixture = await createPredecessorFixture(subtest);
     const target = path.join(fixture.root, 'real-ledger');
     await mkdir(target, { mode: 0o700 });
+    await rm(fixture.ledgerRoot, { recursive: true });
     await symlink(target, fixture.ledgerRoot);
     await assert.rejects(
       prepareTimeoutRecoveryGrant(optionsFor(fixture)),
       /must not contain a symlink/u,
     );
   });
-  await t.test('missing ledger parent', async (subtest) => {
+  await t.test('missing canonical authority', async (subtest) => {
     const fixture = await createPredecessorFixture(subtest);
+    await rm(fixture.ledgerRoot, { recursive: true });
     await assert.rejects(
-      prepareTimeoutRecoveryGrant(optionsFor(fixture, {
-        ledgerRoot: path.join(fixture.root, 'missing-parent/ledger'),
-      })),
-      /parent must be an existing real directory/u,
+      prepareTimeoutRecoveryGrant(optionsFor(fixture)),
+      /must be provisioned before grant preparation/u,
     );
   });
   await t.test('symlinked predecessor', async (subtest) => {
@@ -576,10 +678,7 @@ test('preparation rejects missing or symlinked logs and symlinked or nested auth
 test('preparation rejects validly resealed grant drift and orphan sidecars', async (t) => {
   await t.test('grant drift', async (subtest) => {
     const fixture = await createPredecessorFixture(subtest);
-    await prepareTimeoutRecoveryGrant(
-      optionsFor(fixture, { apply: true }),
-      { randomBytes: (length) => Buffer.alloc(length, 0x44) },
-    );
+    await prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true }));
     const grant = JSON.parse(await readFile(fixture.grantPath, 'utf8'));
     grant.documents[0].timeout_log.sha256 = 'f'.repeat(64);
     const driftRaw = `${JSON.stringify(grant, null, 2)}\n`;
@@ -595,12 +694,7 @@ test('preparation rejects validly resealed grant drift and orphan sidecars', asy
   });
   await t.test('orphan identity seal', async (subtest) => {
     const fixture = await createPredecessorFixture(subtest);
-    await mkdir(fixture.ledgerRoot, { mode: 0o700 });
-    await writeFile(
-      path.join(fixture.ledgerRoot, 'ledger-identity.json.sha256'),
-      `${'0'.repeat(64)}  ledger-identity.json\n`,
-      { mode: 0o600 },
-    );
+    await unlink(path.join(fixture.ledgerRoot, 'ledger-identity.json'));
     await assert.rejects(
       prepareTimeoutRecoveryGrant(optionsFor(fixture)),
       /orphan SHA-256 hash seal/u,
@@ -623,14 +717,8 @@ test('preparation rejects validly resealed grant drift and orphan sidecars', asy
 test('two concurrent apply calls converge through exclusive creation without semantic drift', async (t) => {
   const fixture = await createPredecessorFixture(t);
   const [left, right] = await Promise.all([
-    prepareTimeoutRecoveryGrant(
-      optionsFor(fixture, { apply: true }),
-      { randomBytes: (length) => Buffer.alloc(length, 0x55) },
-    ),
-    prepareTimeoutRecoveryGrant(
-      optionsFor(fixture, { apply: true }),
-      { randomBytes: (length) => Buffer.alloc(length, 0x66) },
-    ),
+    prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true })),
+    prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true })),
   ]);
   assert.equal(left.grant.grant_id, right.grant.grant_id);
   assert.equal(left.ledger.ledger_id, right.ledger.ledger_id);
@@ -642,4 +730,220 @@ test('two concurrent apply calls converge through exclusive creation without sem
   );
   assert.equal(await mode(identityPath), 0o600);
   assert.equal(await mode(fixture.grantPath), 0o600);
+  const issuance = (await readdir(fixture.ledgerRoot)).filter((entry) => entry.endsWith('.issuance.json'));
+  assert.equal(issuance.length, 1);
+});
+
+test('exact p4 predecessor validation completes before any recovery evidence write', async (t) => {
+  const fixture = await createPredecessorFixture(t);
+  const identityPath = path.join(fixture.predecessorRoot, 'run-identity.json');
+  const identity = JSON.parse(await readFile(identityPath, 'utf8'));
+  identity.worker_configuration.server_parallel = 3;
+  await writeFile(identityPath, `${JSON.stringify(identity, null, 2)}\n`, { mode: 0o600 });
+  await assert.rejects(
+    prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true })),
+    /OCR worker configuration mismatch for server_parallel|exact p4\/vl4\/micro16\/queues worker/u,
+  );
+  await assert.rejects(lstat(fixture.grantPath), { code: 'ENOENT' });
+  await assert.rejects(
+    lstat(path.join(fixture.predecessorRoot, 'timeout-incidents')),
+    { code: 'ENOENT' },
+  );
+  assert.deepEqual(
+    (await readdir(fixture.ledgerRoot)).sort(),
+    ['ledger-identity.json', 'ledger-identity.json.sha256'],
+  );
+});
+
+test('authority identity, timeout log, and existing grant reject hard-linked inodes', async (t) => {
+  await t.test('authority identity nlink', async (subtest) => {
+    const fixture = await createPredecessorFixture(subtest);
+    await link(
+      path.join(fixture.ledgerRoot, 'ledger-identity.json'),
+      path.join(fixture.root, 'identity-hardlink.json'),
+    );
+    await assert.rejects(
+      prepareTimeoutRecoveryGrant(optionsFor(fixture)),
+      /single-link (?:regular )?file owned by the current uid\/gid/u,
+    );
+  });
+  await t.test('timeout log nlink', async (subtest) => {
+    const fixture = await createPredecessorFixture(subtest);
+    await link(fixture.timeoutLogPath, path.join(fixture.root, 'timeout-log-hardlink.log'));
+    await assert.rejects(
+      prepareTimeoutRecoveryGrant(optionsFor(fixture)),
+      /single-link (?:regular )?file owned by the current uid\/gid/u,
+    );
+  });
+  await t.test('grant nlink', async (subtest) => {
+    const fixture = await createPredecessorFixture(subtest);
+    await prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true }));
+    await link(fixture.grantPath, path.join(fixture.root, 'grant-hardlink.json'));
+    await assert.rejects(
+      prepareTimeoutRecoveryGrant(optionsFor(fixture)),
+      /single-link file owned by the current uid\/gid/u,
+    );
+  });
+});
+
+test('a validly sealed but arbitrary authority identity is rejected', async (t) => {
+  const fixture = await createPredecessorFixture(t);
+  const identityPath = path.join(fixture.ledgerRoot, 'ledger-identity.json');
+  const identity = JSON.parse(await readFile(identityPath, 'utf8'));
+  identity.ledger_nonce = '7'.repeat(64);
+  identity.ledger_id = sha256(canonicalJson({
+    schema_version: identity.schema_version,
+    ledger_type: identity.ledger_type,
+    ledger_nonce: identity.ledger_nonce,
+    citation_allowed: false,
+  }));
+  await writeJsonWithHashSeal(identityPath, identity);
+  await assert.rejects(
+    prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true })),
+    /not the deterministic canonical authority/u,
+  );
+  await assert.rejects(lstat(fixture.grantPath), { code: 'ENOENT' });
+});
+
+test('copied predecessor roots converge on one deterministic issuance claim', async (t) => {
+  const fixture = await createPredecessorFixture(t);
+  const copyRoot = path.join(fixture.root, 'a-r1-copy');
+  await cp(fixture.predecessorRoot, copyRoot, { recursive: true, preserveTimestamps: true });
+  const [original, copied] = await Promise.all([
+    prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true })),
+    prepareTimeoutRecoveryGrant({
+      manifest: fixture.manifestPath,
+      predecessorRoot: copyRoot,
+      ledgerRoot: fixture.ledgerRoot,
+      apply: true,
+    }),
+  ]);
+  assert.equal(original.grant.grant_id, copied.grant.grant_id);
+  assert.equal(original.grant.issuance.claim_key, copied.grant.issuance.claim_key);
+  assert.deepEqual(
+    await readFile(fixture.grantPath),
+    await readFile(path.join(copyRoot, 'timeout-recovery-grant.json')),
+  );
+  const issuance = (await readdir(fixture.ledgerRoot)).filter((entry) => entry.endsWith('.issuance.json'));
+  assert.equal(issuance.length, 1);
+});
+
+test('crash recovery never exposes partial final bytes and cleans only stale publication temps', async (t) => {
+  await t.test('crash after temp fsync leaves no final and next apply recovers', async (subtest) => {
+    const fixture = await createPredecessorFixture(subtest);
+    let crashed = false;
+    await assert.rejects(
+      prepareTimeoutRecoveryGrant(
+        optionsFor(fixture, { apply: true }),
+        {
+          publicationHooks: {
+            afterTempSync({ pathname }) {
+              if (!crashed && pathname.includes('/timeout-incidents/')) {
+                crashed = true;
+                const error = new Error('simulated crash after temp fsync');
+                error.simulateProcessCrash = true;
+                throw error;
+              }
+            },
+          },
+        },
+      ),
+      /simulated crash after temp fsync/u,
+    );
+    const incidentDirectory = path.join(fixture.predecessorRoot, 'timeout-incidents/timeout-doc');
+    await assert.rejects(
+      lstat(path.join(incidentDirectory, 'attempt-0005.json')),
+      { code: 'ENOENT' },
+    );
+    assert.equal(
+      (await readdir(incidentDirectory)).filter((entry) => entry.endsWith('.tmp')).length,
+      1,
+    );
+    const recovered = await prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true }));
+    assert.equal(recovered.status, 'applied');
+    assert.equal(
+      (await readdir(incidentDirectory)).filter((entry) => entry.endsWith('.tmp')).length,
+      0,
+    );
+    JSON.parse(await readFile(path.join(incidentDirectory, 'attempt-0005.json'), 'utf8'));
+  });
+
+  await t.test('crash after no-replace link leaves one complete final and next apply seals it', async (subtest) => {
+    const fixture = await createPredecessorFixture(subtest);
+    let crashed = false;
+    await assert.rejects(
+      prepareTimeoutRecoveryGrant(
+        optionsFor(fixture, { apply: true }),
+        {
+          publicationHooks: {
+            afterLink({ pathname }) {
+              if (!crashed && pathname.includes('/timeout-incidents/')) {
+                crashed = true;
+                const error = new Error('simulated crash after hardlink publication');
+                error.simulateProcessCrash = true;
+                throw error;
+              }
+            },
+          },
+        },
+      ),
+      /simulated crash after hardlink publication/u,
+    );
+    const incidentPath = path.join(
+      fixture.predecessorRoot,
+      'timeout-incidents/timeout-doc/attempt-0005.json',
+    );
+    const incidentRaw = await readFile(incidentPath);
+    JSON.parse(incidentRaw);
+    await assert.rejects(lstat(`${incidentPath}.sha256`), { code: 'ENOENT' });
+    const recovered = await prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true }));
+    assert.equal(recovered.status, 'applied');
+    assert.equal(
+      await readFile(`${incidentPath}.sha256`, 'utf8'),
+      `${sha256(incidentRaw)}  attempt-0005.json\n`,
+    );
+  });
+});
+
+test('structured timeout incident and legacy signal evidence are tamper-evident', async (t) => {
+  await t.test('legacy derivation requires one Paddle SIGTERM row per attempt', async (subtest) => {
+    const fixture = await createPredecessorFixture(subtest);
+    await writeFile(
+      fixture.timeoutLogPath,
+      Array.from({ length: 4 }, (_, index) => `SignalInfo: *** SIGTERM attempt ${index + 1}\n`).join(''),
+      { mode: 0o600 },
+    );
+    await assert.rejects(
+      prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true })),
+      /requires exactly 5 Paddle SIGTERM signal rows/u,
+    );
+  });
+  await t.test('resealed incident cannot change its signal or log binding', async (subtest) => {
+    const fixture = await createPredecessorFixture(subtest);
+    const applied = await prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true }));
+    const incidentPath = applied.grant.incidents[0].path;
+    const incident = JSON.parse(await readFile(incidentPath, 'utf8'));
+    incident.termination_signals = ['SIGTERM', 'SIGKILL'];
+    await writeJsonWithHashSeal(incidentPath, incident);
+    await assert.rejects(
+      prepareTimeoutRecoveryGrant(optionsFor(fixture)),
+      /not the exact runner-emitted idle-timeout incident/u,
+    );
+  });
+});
+
+test('logical authority recreation changes inode identity and fails closed', async (t) => {
+  const fixture = await createPredecessorFixture(t);
+  const identityPath = path.join(fixture.ledgerRoot, 'ledger-identity.json');
+  const identityRaw = await readFile(identityPath);
+  const identitySealRaw = await readFile(`${identityPath}.sha256`);
+  await rm(fixture.ledgerRoot, { recursive: true });
+  await mkdir(fixture.ledgerRoot, { mode: 0o700 });
+  await writeFile(identityPath, identityRaw, { mode: 0o600 });
+  await writeFile(`${identityPath}.sha256`, identitySealRaw, { mode: 0o600 });
+  await assert.rejects(
+    prepareTimeoutRecoveryGrant(optionsFor(fixture, { apply: true })),
+    /not the deterministic canonical authority/u,
+  );
+  await assert.rejects(lstat(fixture.grantPath), { code: 'ENOENT' });
 });

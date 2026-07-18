@@ -4,9 +4,11 @@ import { createHash } from 'node:crypto';
 import { symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import {
   chmod,
+  cp,
   mkdtemp,
   mkdir,
   readFile,
+  readdir,
   realpath,
   rename,
   rm,
@@ -31,7 +33,11 @@ import {
   verifyLlamaServerAttestation,
   verifyPinnedRuntime,
 } from '../scripts/run-remote-ocr-offload.mjs';
-import { receiveRemoteOcrOffload } from '../scripts/receive-remote-ocr-offload.mjs';
+import {
+  receiveRemoteOcrOffload,
+  validateP4ToP1SeedDelta,
+} from '../scripts/receive-remote-ocr-offload.mjs';
+import { validateP4ToP1MonitorDelta } from '../scripts/monitor-remote-ocr-single-shard.mjs';
 import {
   canonicalJson,
   captureLocalReprocessSnapshot,
@@ -69,6 +75,56 @@ const paddlexLayoutModelCache = Object.freeze({
 });
 const llamaSystemdUnit = 'curriculum-ocr-llama.service';
 const llamaServerBin = '/unused/llama-server';
+function productionCommandContract(parallel) {
+  return {
+    values: {
+      '--host': '127.0.0.1',
+      '--port': '8112',
+      '--parallel': String(parallel),
+      '--temp': '0',
+      '--ctx-size': '32768',
+      '--n-gpu-layers': 'all',
+      '--flash-attn': 'auto',
+      '--cache-type-k': 'f16',
+      '--cache-type-v': 'f16',
+      '--batch-size': '2048',
+      '--ubatch-size': '512',
+      '--fit': 'off',
+      '--timeout': '3600',
+      '--threads': '8',
+      '--threads-batch': '16',
+    },
+    flags: ['--mmproj-offload', '--cont-batching', '--no-webui', '--metrics'],
+  };
+}
+
+function productionArgv(binary, model, mmproj, parallel) {
+  return [
+    binary,
+    '-m', model,
+    '--mmproj', mmproj,
+    '--host', '127.0.0.1',
+    '--port', '8112',
+    '--temp', '0',
+    '--ctx-size', '32768',
+    '--parallel', String(parallel),
+    '--n-gpu-layers', 'all',
+    '--mmproj-offload',
+    '--flash-attn', 'auto',
+    '--cache-type-k', 'f16',
+    '--cache-type-v', 'f16',
+    '--batch-size', '2048',
+    '--ubatch-size', '512',
+    '--cont-batching',
+    '--fit', 'off',
+    '--timeout', '3600',
+    '--threads', '8',
+    '--threads-batch', '16',
+    '--no-webui',
+    '--metrics',
+  ];
+}
+
 const llamaServerAttestation = Object.freeze({
   schema_version: 1,
   systemd_unit: llamaSystemdUnit,
@@ -86,15 +142,27 @@ const llamaServerAttestation = Object.freeze({
   host: '127.0.0.1',
   port: 8112,
   parallel: 2,
-  production_command_contract: {
-    values: { '--host': '127.0.0.1', '--port': '8112', '--parallel': '2' },
-    flags: ['--mmproj-offload'],
-  },
+  production_command_contract: productionCommandContract(2),
   health_url: 'http://127.0.0.1:8112/health',
   health_status_code: 200,
   health_status: 'ok',
   health_body_sha256: '0'.repeat(64),
 });
+
+function llamaAttestationForParallel(parallel) {
+  const argv = productionArgv(
+    llamaServerBin,
+    '/unused/model',
+    '/unused/mmproj',
+    parallel,
+  );
+  return {
+    ...llamaServerAttestation,
+    proc_cmdline_sha256: sha256(Buffer.from(`${argv.join('\0')}\0`)),
+    parallel,
+    production_command_contract: productionCommandContract(parallel),
+  };
+}
 const healthySharedRuntimeRevalidation = async () => ({
   runtime,
   llamaServerAttestation,
@@ -413,8 +481,12 @@ async function completeSeededOutput(outputRoot, document) {
 
 async function writeJsonSidecar(pathname, value) {
   const contents = `${JSON.stringify(value, null, 2)}\n`;
-  await writeFile(pathname, contents);
-  await writeFile(`${pathname}.sha256`, `${sha256(contents)}  ${path.basename(pathname)}\n`);
+  await writeFile(pathname, contents, { mode: 0o600 });
+  await writeFile(
+    `${pathname}.sha256`,
+    `${sha256(contents)}  ${path.basename(pathname)}\n`,
+    { mode: 0o600 },
+  );
   return sha256(contents);
 }
 
@@ -435,12 +507,27 @@ function recoveryPolicy(idleTimeoutSeconds) {
   };
 }
 
-async function createTimeoutRecoveryLedger(ledgerRoot) {
-  await mkdir(ledgerRoot, { recursive: true });
+async function createTimeoutRecoveryLedger(ledgerRoot, predecessorInputRoot) {
+  await mkdir(ledgerRoot, { recursive: true, mode: 0o700 });
+  await chmod(ledgerRoot, 0o700);
+  const ledgerInfo = await stat(ledgerRoot, { bigint: true });
+  const resolvedInputRoot = await realpath(predecessorInputRoot);
+  const resolvedLedgerRoot = await realpath(ledgerRoot);
+  const nonceBasis = {
+    schema_version: 1,
+    authority_type: 'curriculum_remote_ocr_timeout_recovery_consumption_ledger',
+    predecessor_input_root: resolvedInputRoot,
+    ledger_root: resolvedLedgerRoot,
+    ledger_device: String(ledgerInfo.dev),
+    ledger_inode: String(ledgerInfo.ino),
+    owner_uid: String(ledgerInfo.uid),
+    owner_gid: String(ledgerInfo.gid),
+    citation_allowed: false,
+  };
   const identityBasis = {
     schema_version: 1,
     ledger_type: 'curriculum_remote_ocr_timeout_recovery_consumption_ledger',
-    ledger_nonce: sha256(`ledger:${ledgerRoot}`),
+    ledger_nonce: sha256(canonicalJson(nonceBasis)),
     citation_allowed: false,
   };
   const identity = {
@@ -461,12 +548,10 @@ async function createTimeoutRecoveryPredecessor({
   specifications,
   attestation,
   receiverNativeArtifacts = false,
+  ocrScriptSha256 = '8'.repeat(64),
 }) {
-  const ledgerRoot = path.join(
-    path.dirname(predecessorRoot),
-    `${path.basename(predecessorRoot)}-timeout-recovery-ledger`,
-  );
-  const ledgerIdentity = await createTimeoutRecoveryLedger(ledgerRoot);
+  const ledgerRoot = path.join(path.dirname(await realpath(inputRoot)), 'timeout-recovery-authority-v1');
+  const ledgerIdentity = await createTimeoutRecoveryLedger(ledgerRoot, inputRoot);
   const [ledgerAuthorityRoot, ledgerInfo] = await Promise.all([
     realpath(ledgerRoot),
     stat(ledgerRoot, { bigint: true }),
@@ -507,6 +592,7 @@ async function createTimeoutRecoveryPredecessor({
   const predecessorRecovery = recoveryPolicy(300);
   const progressById = {};
   const grantDocuments = [];
+  const incidentEvidence = [];
   for (const [id, pageCount, completedPageCount, status, attempts] of specifications) {
     const document = documents.find((item) => item.id === id);
     const documentRoot = await createCompletedOutput(predecessorRoot, document, {
@@ -582,9 +668,60 @@ async function createTimeoutRecoveryPredecessor({
     );
     progressById[id].status_json_sha256 = statusSha256;
     if (status === 'quarantined') {
-      const logContents = `bounded predecessor log for ${id}\n`;
+      const logContents = Array.from(
+        { length: 5 },
+        (_, index) => `SignalInfo: *** SIGTERM attempt ${index + 1} for ${id}\n`,
+      ).join('');
       const logPath = path.join(predecessorRoot, 'logs', `${id}.log`);
-      await writeFile(logPath, logContents);
+      await writeFile(logPath, logContents, { mode: 0o600 });
+      const elapsedSeconds = Number(/after (\d+)s/u.exec(statusRecord.error)[1]);
+      const detectedAtMilliseconds = Date.parse(statusRecord.quarantined_at);
+      const incident = {
+        schema_version: 1,
+        incident_type: 'curriculum_remote_ocr_child_timeout_incident',
+        evidence_origin: 'legacy_status_log_derivation_v1',
+        document_id: id,
+        attempt: 5,
+        timeout_type: 'idle_timeout',
+        child_started_at: new Date(detectedAtMilliseconds - elapsedSeconds * 1_000).toISOString(),
+        detected_at: statusRecord.quarantined_at,
+        recorded_at: statusRecord.quarantined_at,
+        elapsed_seconds: elapsedSeconds,
+        idle_seconds: elapsedSeconds,
+        termination_signals: ['SIGTERM'],
+        monitoring_policy: {
+          ...predecessorRecovery.child_monitoring,
+          wall_timeout_seconds: Math.max(
+            predecessorRecovery.child_monitoring.wall_floor_seconds,
+            predecessorRecovery.child_monitoring.wall_seconds_per_page * pageCount,
+          ),
+        },
+        runtime_fingerprint_sha256: runtimeFingerprintSha256,
+        log: {
+          path: `logs/${id}.log`,
+          bytes: Buffer.byteLength(logContents),
+          sha256: sha256(logContents),
+        },
+        citation_allowed: false,
+      };
+      const incidentPath = path.join(
+        predecessorRoot,
+        'timeout-incidents',
+        id,
+        'attempt-0005.json',
+      );
+      await mkdir(path.dirname(incidentPath), { recursive: true, mode: 0o700 });
+      await chmod(path.join(predecessorRoot, 'timeout-incidents'), 0o700);
+      await chmod(path.dirname(incidentPath), 0o700);
+      const incidentRawSha256 = await writeJsonSidecar(incidentPath, incident);
+      incidentEvidence.push({
+        document_id: id,
+        attempt: 5,
+        timeout_type: 'idle_timeout',
+        raw_sha256: incidentRawSha256,
+        sidecar_sha256: sha256(await readFile(`${incidentPath}.sha256`)),
+        log_sha256: sha256(logContents),
+      });
       grantDocuments.push({
         document_id: id,
         predecessor_status_sha256: statusSha256,
@@ -614,7 +751,7 @@ async function createTimeoutRecoveryPredecessor({
     llama_server_attestation: attestation,
     llama_server_attestation_sha256: attestationSha256,
     runner_script_sha256: 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55',
-    ocr_script_sha256: '8'.repeat(64),
+    ocr_script_sha256: ocrScriptSha256,
     input_root: await realpath(inputRoot),
     python_invocation_path: process.execPath,
     python_resolved_target: await realpath(process.execPath),
@@ -689,6 +826,29 @@ async function createTimeoutRecoveryPredecessor({
     documents: grantBasis.documents,
     citation_allowed: false,
   };
+  const predecessorClaimKey = sha256(canonicalJson({
+    schema_version: 1,
+    claim_key_type: 'curriculum_remote_ocr_timeout_recovery_predecessor_claim_key',
+    predecessor: grant.predecessor,
+    policy: grant.policy,
+    documents: grant.documents,
+    citation_allowed: false,
+  }));
+  const issuance = {
+    schema_version: 1,
+    claim_type: 'curriculum_remote_ocr_timeout_recovery_issuance_claim',
+    claim_key: predecessorClaimKey,
+    ledger_id: ledgerIdentity.ledger_id,
+    predecessor: structuredClone(grant.predecessor),
+    grant_id: grant.grant_id,
+    grant_raw_sha256: sha256(`${JSON.stringify(grant, null, 2)}\n`),
+    incident_evidence: incidentEvidence,
+    citation_allowed: false,
+  };
+  await writeJsonSidecar(
+    path.join(ledgerRoot, `${predecessorClaimKey}.issuance.json`),
+    issuance,
+  );
   return {
     documents,
     grant,
@@ -696,6 +856,7 @@ async function createTimeoutRecoveryPredecessor({
     predecessorWorker,
     ledgerRoot,
     ledgerIdentity,
+    issuance,
   };
 }
 
@@ -942,32 +1103,18 @@ test('llama-server attestation binds the active systemd MainPID to the pinned bi
   await chmod(serverBinary, 0o755);
   await writeFile(model, 'model');
   await writeFile(mmproj, 'mmproj');
-  const resolvedServerBinary = await realpath(serverBinary);
+  const [resolvedServerBinary, resolvedModel, resolvedMmproj] = await Promise.all([
+    realpath(serverBinary),
+    realpath(model),
+    realpath(mmproj),
+  ]);
 
-  const serverArguments = [
+  const serverArguments = productionArgv(
     resolvedServerBinary,
-    '--model', model,
-    '--mmproj', mmproj,
-    '--host', '127.0.0.1',
-    '--port', '8112',
-    '--parallel', '4',
-    '--temp', '0',
-    '--ctx-size', '32768',
-    '--n-gpu-layers', 'all',
-    '--mmproj-offload',
-    '--flash-attn', 'auto',
-    '--cache-type-k', 'f16',
-    '--cache-type-v', 'f16',
-    '--batch-size', '2048',
-    '--ubatch-size', '512',
-    '--cont-batching',
-    '--fit', 'off',
-    '--timeout', '3600',
-    '--threads', '8',
-    '--threads-batch', '16',
-    '--no-webui',
-    '--metrics',
-  ];
+    resolvedModel,
+    resolvedMmproj,
+    4,
+  );
   const cmdline = Buffer.from(`${serverArguments.join('\0')}\0`);
   let currentMainPid = 4242;
   const runCommand = (command, arguments_) => {
@@ -1037,6 +1184,23 @@ test('llama-server attestation binds the active systemd MainPID to the pinned bi
     attestation,
     'a systemd restart with the same binary, models, command, and health must keep an identical immutable attestation',
   );
+  const p1Arguments = productionArgv(
+    resolvedServerBinary,
+    resolvedModel,
+    resolvedMmproj,
+    1,
+  );
+  const p1Cmdline = Buffer.from(`${p1Arguments.join('\0')}\0`);
+  const p1Attestation = await verifyLlamaServerAttestation(runtime, {
+    ...options,
+    serverParallel: 1,
+  }, {
+    ...dependencies,
+    readProcCmdline: async () => p1Cmdline,
+  });
+  assert.equal(p1Attestation.parallel, 1);
+  assert.equal(p1Attestation.proc_cmdline_sha256, sha256(p1Cmdline));
+  assert.deepEqual(p1Attestation.production_command_contract, productionCommandContract(1));
   assert.equal(validateLlamaSystemdUnitName(llamaSystemdUnit), llamaSystemdUnit);
   assert.throws(
     () => validateLlamaSystemdUnitName('../../unsafe.service'),
@@ -1050,13 +1214,13 @@ test('llama-server attestation binds the active systemd MainPID to the pinned bi
     /MainPID executable mismatch/,
   );
   const wrongModelArguments = [...serverArguments];
-  wrongModelArguments[wrongModelArguments.indexOf(model)] = mmproj;
+  wrongModelArguments[wrongModelArguments.indexOf(resolvedModel)] = resolvedMmproj;
   await assert.rejects(
     verifyLlamaServerAttestation(runtime, options, {
       ...dependencies,
       readProcCmdline: async () => Buffer.from(`${wrongModelArguments.join('\0')}\0`),
     }),
-    /model argument does not resolve to the pinned model/,
+    /exact ordered production command vector/,
   );
   const wrongParallelArguments = [...serverArguments];
   wrongParallelArguments[wrongParallelArguments.indexOf('4')] = '3';
@@ -1065,7 +1229,7 @@ test('llama-server attestation binds the active systemd MainPID to the pinned bi
       ...dependencies,
       readProcCmdline: async () => Buffer.from(`${wrongParallelArguments.join('\0')}\0`),
     }),
-    /--parallel must equal 4, received 3/,
+    /exact ordered production command vector/,
   );
   const missingMetricsArguments = serverArguments.filter((argument) => argument !== '--metrics');
   await assert.rejects(
@@ -1073,8 +1237,21 @@ test('llama-server attestation binds the active systemd MainPID to the pinned bi
       ...dependencies,
       readProcCmdline: async () => Buffer.from(`${missingMetricsArguments.join('\0')}\0`),
     }),
-    /must set --metrics exactly once/,
+    /exact ordered production command vector/,
   );
+  for (const invalidArguments of [
+    [...serverArguments.slice(0, 1), '--model', ...serverArguments.slice(2)],
+    [...serverArguments, '--verbose'],
+    [serverArguments[0], ...serverArguments.slice(3, 5), ...serverArguments.slice(1, 3), ...serverArguments.slice(5)],
+  ]) {
+    await assert.rejects(
+      verifyLlamaServerAttestation(runtime, options, {
+        ...dependencies,
+        readProcCmdline: async () => Buffer.from(`${invalidArguments.join('\0')}\0`),
+      }),
+      /exact ordered production command vector/,
+    );
+  }
 });
 
 test('complete output validation recalculates artifact hashes and rejects citation or tampering', async (t) => {
@@ -1544,6 +1721,286 @@ test('hash-bound seed dry-run, commit, crash resume, attempt floor, and page pro
   );
 });
 
+test('exact schema-v2 p4-to-p1 seeds preserve OCR identity and pass receiver and monitor delta validators', async (t) => {
+  const { root, inputRoot, ocrScript } = await fixture(t);
+  const predecessorAttestation = llamaAttestationForParallel(4);
+  const successorAttestation = llamaAttestationForParallel(1);
+  const ocrScriptSha256 = sha256(await readFile(ocrScript));
+  const runnerScriptSha256 = 'e'.repeat(64);
+  const seeds = [];
+
+  for (const label of ['a', 'b']) {
+    const predecessorRoot = path.join(root, `${label}-p4`);
+    const successorRoot = path.join(root, `${label}-p1`);
+    const manifestPath = path.join(inputRoot, `${label}-p4-p1.json`);
+    const documentId = `doc-${label}-p4-p1`;
+    await createTimeoutRecoveryPredecessor({
+      inputRoot,
+      predecessorRoot,
+      manifestPath,
+      specifications: [[documentId, 1, 1, 'complete', 1]],
+      attestation: predecessorAttestation,
+      receiverNativeArtifacts: true,
+      ocrScriptSha256,
+    });
+    const options = {
+      manifest: manifestPath,
+      inputRoot,
+      outputRoot: successorRoot,
+      python: process.execPath,
+      ocrScript,
+      model: '/unused/model',
+      mmproj: '/unused/mmproj',
+      llamaRepo: '/unused/llama',
+      llamaServerBin,
+      llamaSystemdUnit,
+      llamaUrl: workerConfiguration.llama_url,
+      runtimeDevice,
+      vlRecMaxConcurrency: 1,
+      serverParallel: 1,
+      microBatch: 16,
+      useQueues: true,
+      childIdleTimeoutSeconds: 1200,
+      seedFromOutputRoot: predecessorRoot,
+      seedOnly: true,
+    };
+    const seedDependencies = {
+      pageCounter: () => 1,
+      runtime,
+      llamaServerAttestation: successorAttestation,
+      pythonRuntime,
+      paddlexLayoutModelCache,
+      runnerScriptSha256,
+      nowMilliseconds: () => Date.parse('2026-07-18T06:00:00.000Z'),
+      handleSignals: false,
+    };
+    const result = await runRemoteOcrOffload(options, seedDependencies);
+    const [predecessorIdentity, successorIdentity] = await Promise.all([
+      readFile(path.join(predecessorRoot, 'run-identity.json'), 'utf8').then(JSON.parse),
+      readFile(path.join(successorRoot, 'run-identity.json'), 'utf8').then(JSON.parse),
+    ]);
+    assert.equal(predecessorIdentity.ocr_script_sha256, ocrScriptSha256);
+    assert.equal(successorIdentity.ocr_script_sha256, ocrScriptSha256);
+    assert.equal(result.seedReceipt.allowed_configuration_delta.schema_version, 2);
+    assert.equal(result.seedReceipt.allowed_configuration_delta.transition, 'p4_to_p1_v1');
+    assert.equal(Object.hasOwn(result.seedReceipt, 'timeout_recovery_issuance'), false);
+    await assert.rejects(
+      stat(path.join(successorRoot, 'timeout-recovery-issuance')),
+      { code: 'ENOENT' },
+    );
+    assert.equal(
+      validateP4ToP1SeedDelta(result.seedReceipt, predecessorIdentity, successorIdentity),
+      'p4_to_p1_v1',
+    );
+    assert.equal(
+      validateP4ToP1MonitorDelta(result.seedReceipt, predecessorIdentity, successorIdentity),
+      'p4_to_p1_v1',
+    );
+    await rm(predecessorRoot, { recursive: true });
+    const resumed = await runRemoteOcrOffload(options, seedDependencies);
+    assert.equal(resumed.seedReceipt.seed_id, result.seedReceipt.seed_id);
+    seeds.push({ result, successorIdentity });
+  }
+
+  assert.equal(
+    seeds[0].successorIdentity.runtime_fingerprint_sha256,
+    seeds[1].successorIdentity.runtime_fingerprint_sha256,
+  );
+  assert.deepEqual(
+    seeds[0].successorIdentity.runtime_fingerprint,
+    seeds[1].successorIdentity.runtime_fingerprint,
+  );
+  assert.equal(
+    seeds[0].result.seedReceipt.successor.runtime_fingerprint_sha256,
+    seeds[1].result.seedReceipt.successor.runtime_fingerprint_sha256,
+  );
+});
+
+test('schema-v2 timeout seed verifies and archives canonical issuance plus structured incident before one claim', async (t) => {
+  const { root, inputRoot, ocrScript } = await fixture(t);
+  const predecessorRoot = path.join(root, 'timeout-p4');
+  const manifestPath = path.join(inputRoot, 'timeout-p4-p1.json');
+  const predecessorAttestation = llamaAttestationForParallel(4);
+  const successorAttestation = llamaAttestationForParallel(1);
+  const ocrScriptSha256 = sha256(await readFile(ocrScript));
+  const {
+    documents,
+    grant,
+    ledgerRoot,
+    issuance,
+  } = await createTimeoutRecoveryPredecessor({
+    inputRoot,
+    predecessorRoot,
+    manifestPath,
+    specifications: [['doc-timeout-p4-p1', 2, 1, 'quarantined', 5]],
+    attestation: predecessorAttestation,
+    receiverNativeArtifacts: true,
+    ocrScriptSha256,
+  });
+  await writeTimeoutRecoveryGrant(predecessorRoot, grant);
+  const issuancePath = path.join(ledgerRoot, `${issuance.claim_key}.issuance.json`);
+  const optionsFor = (outputRoot, extra = {}) => ({
+    manifest: manifestPath,
+    inputRoot,
+    outputRoot,
+    python: process.execPath,
+    ocrScript,
+    model: '/unused/model',
+    mmproj: '/unused/mmproj',
+    llamaRepo: '/unused/llama',
+    llamaServerBin,
+    llamaSystemdUnit,
+    llamaUrl: workerConfiguration.llama_url,
+    runtimeDevice,
+    vlRecMaxConcurrency: 1,
+    serverParallel: 1,
+    microBatch: 16,
+    useQueues: true,
+    childIdleTimeoutSeconds: 1200,
+    seedFromOutputRoot: predecessorRoot,
+    timeoutRecoveryLedger: ledgerRoot,
+    seedOnly: true,
+    ...extra,
+  });
+  const dependencies = {
+    pageCounter: () => documents[0].page_count,
+    runtime,
+    llamaServerAttestation: successorAttestation,
+    pythonRuntime,
+    paddlexLayoutModelCache,
+    runnerScriptSha256: 'e'.repeat(64),
+    nowMilliseconds: () => Date.parse('2026-07-18T06:00:00.000Z'),
+    handleSignals: false,
+  };
+
+  const rejectedRoot = path.join(root, 'missing-issuance-p1');
+  const [issuanceRaw, issuanceSealRaw] = await Promise.all([
+    readFile(issuancePath),
+    readFile(`${issuancePath}.sha256`),
+  ]);
+  await Promise.all([rm(issuancePath), rm(`${issuancePath}.sha256`)]);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(rejectedRoot), dependencies),
+    /timeout recovery issuance claim is missing/u,
+  );
+  for (const forbidden of [
+    'run-identity.json',
+    'seed-receipt.json',
+    'timeout-recovery-grant.json',
+  ]) {
+    await assert.rejects(stat(path.join(rejectedRoot, forbidden)), { code: 'ENOENT' });
+  }
+  await writeFile(issuancePath, issuanceRaw, { mode: 0o600 });
+  await writeFile(`${issuancePath}.sha256`, issuanceSealRaw, { mode: 0o600 });
+
+  const tamperedIssuance = { ...issuance, grant_raw_sha256: 'f'.repeat(64) };
+  await writeJsonSidecar(issuancePath, tamperedIssuance);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(path.join(root, 'tampered-issuance-p1')), dependencies),
+    /issuance claim differs from the exact predecessor, grant, and incident evidence/u,
+  );
+  await writeFile(issuancePath, issuanceRaw, { mode: 0o600 });
+  await writeFile(`${issuancePath}.sha256`, issuanceSealRaw, { mode: 0o600 });
+
+  const predecessorBeforeDryRun = await inspectTree(predecessorRoot);
+  const authorityBeforeDryRun = await inspectTree(ledgerRoot);
+  const dryRunRoot = path.join(root, 'timeout-p1-dry-run');
+  const dryRun = await runRemoteOcrOffload(
+    optionsFor(dryRunRoot, { seedDryRun: true }),
+    dependencies,
+  );
+  assert.equal(dryRun.seedDryRun, true);
+  assert.deepEqual(await inspectTree(predecessorRoot), predecessorBeforeDryRun);
+  assert.deepEqual(await inspectTree(ledgerRoot), authorityBeforeDryRun);
+  assert.equal(
+    (await readdir(dryRunRoot)).some((entry) => entry.startsWith('.seed-stage-')),
+    false,
+  );
+
+  const successorCandidates = [
+    path.join(root, 'timeout-p1-left'),
+    path.join(root, 'timeout-p1-right'),
+  ];
+  const concurrentSeeds = await Promise.allSettled(
+    successorCandidates.map((candidate) => runRemoteOcrOffload(optionsFor(candidate), dependencies)),
+  );
+  assert.equal(concurrentSeeds.filter((result) => result.status === 'fulfilled').length, 1);
+  assert.equal(concurrentSeeds.filter((result) => result.status === 'rejected').length, 1);
+  assert.match(
+    concurrentSeeds.find((result) => result.status === 'rejected').reason.message,
+    /already consumed by a different successor/u,
+  );
+  const winnerIndex = concurrentSeeds.findIndex((result) => result.status === 'fulfilled');
+  const successorRoot = successorCandidates[winnerIndex];
+  const seeded = concurrentSeeds[winnerIndex].value;
+  const predecessorIdentity = JSON.parse(await readFile(
+    path.join(predecessorRoot, 'run-identity.json'),
+    'utf8',
+  ));
+  const successorIdentity = JSON.parse(await readFile(
+    path.join(successorRoot, 'run-identity.json'),
+    'utf8',
+  ));
+  assert.equal(
+    validateP4ToP1SeedDelta(seeded.seedReceipt, predecessorIdentity, successorIdentity),
+    'p4_to_p1_v1',
+  );
+  assert.equal(
+    validateP4ToP1MonitorDelta(seeded.seedReceipt, predecessorIdentity, successorIdentity),
+    'p4_to_p1_v1',
+  );
+  assert.equal(seeded.seedReceipt.timeout_recovery_issuance.claim_key, issuance.claim_key);
+  const incidentSummary = seeded.seedReceipt.documents[0].timeout_recovery.predecessor_incident;
+  assert.equal(incidentSummary.document_id, 'doc-timeout-p4-p1');
+  assert.equal(incidentSummary.attempt, 5);
+  assert.equal(incidentSummary.timeout_type, 'idle_timeout');
+  assert.equal(incidentSummary.log_sha256, grant.documents[0].timeout_log.sha256);
+  assert.deepEqual(
+    await readFile(path.join(successorRoot, seeded.seedReceipt.timeout_recovery_issuance.path)),
+    issuanceRaw,
+  );
+  const archivedIncidentPath = path.join(successorRoot, incidentSummary.path);
+  assert.equal(sha256(await readFile(archivedIncidentPath)), incidentSummary.raw_sha256);
+  assert.equal(
+    sha256(await readFile(`${archivedIncidentPath}.sha256`)),
+    incidentSummary.sidecar_sha256,
+  );
+  const inventory = JSON.parse(await readFile(
+    path.join(successorRoot, 'seed-predecessor-evidence/inventory.json'),
+    'utf8',
+  ));
+  assert.equal(inventory.documents[0].timeout_incident.raw.sha256, incidentSummary.raw_sha256);
+  const claimFiles = (await readdir(ledgerRoot)).filter((entry) => entry.endsWith('.claim.json'));
+  assert.equal(claimFiles.length, 1);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(path.join(root, 'timeout-p1-replay')), dependencies),
+    /already consumed by a different successor/u,
+  );
+
+  const committedReceiptPath = path.join(successorRoot, 'seed-receipt.json');
+  const committedReceiptRaw = await readFile(committedReceiptPath);
+  await writeFile(committedReceiptPath, '{', { mode: 0o600 });
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(successorRoot), dependencies),
+    /committed seed receipt is not valid JSON/u,
+  );
+  await writeFile(committedReceiptPath, committedReceiptRaw, { mode: 0o600 });
+
+  await rm(ledgerRoot, { recursive: true });
+  await rm(predecessorRoot, { recursive: true });
+  const resumed = await runRemoteOcrOffload(optionsFor(successorRoot), dependencies);
+  assert.equal(resumed.seedOnly, true);
+  assert.equal(resumed.seedReceipt.seed_id, seeded.seedReceipt.seed_id);
+  assert.equal(resumed.seedReceipt.timeout_recovery_issuance.claim_key, issuance.claim_key);
+
+  const copiedSuccessorRoot = path.join(root, 'timeout-p1-copy');
+  await cp(successorRoot, copiedSuccessorRoot, { recursive: true, preserveTimestamps: true });
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(copiedSuccessorRoot), dependencies),
+    /active successor field worker_configuration|different successor root or inode/u,
+  );
+});
+
 test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and predecessor-immutable', async (t) => {
   const { root, inputRoot, ocrScript } = await fixture(t);
   const predecessorRoot = path.join(root, 'b-r1');
@@ -1947,7 +2404,9 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     handleSignals: false,
   };
   await assert.rejects(
-    runRemoteOcrOffload(optionsFor(path.join(root, 'no-grant')), dependencies),
+    runRemoteOcrOffload(optionsFor(path.join(root, 'no-grant'), {
+      timeoutRecoveryLedger: undefined,
+    }), dependencies),
     /requires timeout-recovery-grant\.json/,
   );
   await writeTimeoutRecoveryGrant(predecessorRoot, grant);
@@ -1958,12 +2417,12 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     /requires --timeout-recovery-ledger/,
   );
   const wrongLedgerRoot = path.join(root, 'wrong-timeout-recovery-ledger');
-  await createTimeoutRecoveryLedger(wrongLedgerRoot);
+  await createTimeoutRecoveryLedger(wrongLedgerRoot, inputRoot);
   await assert.rejects(
     runRemoteOcrOffload(optionsFor(path.join(root, 'wrong-ledger'), {
       timeoutRecoveryLedger: wrongLedgerRoot,
     }), dependencies),
-    /bound to a different consumption ledger/,
+    /single canonical authority root|bound to a different consumption ledger/,
   );
   const clonedLedgerRoot = path.join(root, 'cloned-timeout-recovery-ledger');
   await mkdir(clonedLedgerRoot, { recursive: true });
@@ -1975,7 +2434,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     runRemoteOcrOffload(optionsFor(path.join(root, 'cloned-ledger'), {
       timeoutRecoveryLedger: clonedLedgerRoot,
     }), dependencies),
-    /bound to a different ledger authority/,
+    /single canonical authority root|bound to a different ledger authority/,
   );
   const predecessorBefore = await inspectTree(predecessorRoot);
   const seeded = await runRemoteOcrOffload(optionsFor(successorRoot), dependencies);
@@ -2038,7 +2497,9 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     'utf8',
   ));
   assert.equal(evidenceInventory.documents.filter((document) => document.timeout_log).length, 4);
-  const claimPath = path.join(ledgerRoot, `${grant.grant_id}.claim.json`);
+  const claimFilename = (await readdir(ledgerRoot)).find((entry) => entry.endsWith('.claim.json'));
+  assert.ok(claimFilename);
+  const claimPath = path.join(ledgerRoot, claimFilename);
   const claim = JSON.parse(await readFile(claimPath, 'utf8'));
   assert.equal(claim.grant_raw_sha256, seeded.seedReceipt.timeout_recovery_grant.raw_sha256);
   assert.equal(claim.successor.seed_id, seeded.seedReceipt.seed_id);
@@ -2241,7 +2702,7 @@ test('timeout grant rejects drift and a failed granted attempt 6 is quarantined 
   await writeFile(timeoutLogPath, Buffer.concat([originalTimeoutLog, Buffer.from('drift\n')]));
   await assert.rejects(
     runRemoteOcrOffload(optionsFor(path.join(root, 'log-drift')), dependencies),
-    /timeout recovery log identity mismatch/,
+    /timeout recovery log identity mismatch|timeout incident log identity differs/u,
   );
   await writeFile(timeoutLogPath, originalTimeoutLog);
   await runRemoteOcrOffload(optionsFor(successorRoot), dependencies);
@@ -2970,7 +3431,7 @@ test('transient recovery preserves completed pages and lets healthy documents ru
   const order = [];
   let retryInvocations = 0;
   let preservedPageHash;
-  const invokeOcr = async (_command, arguments_) => {
+  const invokeOcr = async (_command, arguments_, invocationOptions) => {
     const documentId = arguments_[1];
     order.push(documentId);
     assert.ok(!arguments_.includes('--force-reprocess'));
@@ -2978,12 +3439,19 @@ test('transient recovery preserves completed pages and lets healthy documents ru
       retryInvocations += 1;
       if (retryInvocations === 1) {
         ({ completedPageHash: preservedPageHash } = await createPartialOutput(outputRoot, retryDocument));
+        await writeFile(
+          invocationOptions.logPath,
+          'SignalInfo: *** SIGTERM\nSignalInfo: *** SIGKILL\n',
+          { mode: 0o600 },
+        );
         return {
           code: null,
           signal: 'SIGKILL',
           monitorIncident: {
             type: 'idle_timeout',
             elapsed_seconds: 301,
+            idle_seconds: 301,
+            detected_at: new Date().toISOString(),
             termination_signals: ['SIGTERM', 'SIGKILL'],
           },
         };
