@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
@@ -243,4 +244,50 @@ test('A2 rollback proves every runtime is quiescent before restoring shared file
     'curriculum-ocr-llama.service',
   ]) assert.ok(rollback.indexOf(unit) < quiescenceAt, unit);
   assert.match(rollback, /successor, monitor evidence directory, alert[\s\S]*remain preserved/iu);
+});
+
+test('A2 rollback timer assertions do not query the service-only MainPID property', async () => {
+  const runbook = await readFile(new URL('../docs/remote-ocr-a2-deployment.md', import.meta.url), 'utf8');
+  const rollback = runbook.slice(runbook.indexOf('## 11. Rollback and irreversible boundary'));
+  const timerFunction = rollback.match(/^assert_timer_inactive\(\) \{\n[\s\S]*?^\}/mu)?.[0];
+  const processFunction = rollback.match(/^assert_process_unit_inactive\(\) \{\n[\s\S]*?^\}/mu)?.[0];
+  assert.ok(timerFunction, 'assert_timer_inactive function');
+  assert.ok(processFunction, 'assert_process_unit_inactive function');
+  assert.match(timerFunction, /ActiveState/u);
+  assert.doesNotMatch(timerFunction, /MainPID/u);
+  assert.match(processFunction, /ActiveState/u);
+  assert.match(processFunction, /MainPID/u);
+  const timerDisableFunction = rollback.match(/^disable_timer_or_reviewed_absent\(\) \{\n[\s\S]*?^\}/mu)?.[0];
+  const timerReproofFunction = rollback.match(/^assert_timer_quiet_or_reviewed_absent\(\) \{\n[\s\S]*?^\}/mu)?.[0];
+  assert.match(timerDisableFunction, /assert_timer_inactive/u);
+  assert.doesNotMatch(timerDisableFunction, /assert_process_unit_inactive/u);
+  assert.match(timerReproofFunction, /assert_timer_inactive/u);
+  assert.doesNotMatch(timerReproofFunction, /assert_process_unit_inactive/u);
+  for (const name of [
+    'disable_worker_or_reviewed_absent',
+    'stop_service_or_reviewed_absent',
+    'assert_worker_quiet_or_reviewed_absent',
+    'assert_service_quiet_or_reviewed_absent',
+  ]) {
+    const body = rollback.match(new RegExp(`^${name}\\(\\) \\{\\n[\\s\\S]*?^\\}`, 'mu'))?.[0];
+    assert.match(body, /assert_process_unit_inactive/u, name);
+    assert.doesNotMatch(body, /assert_timer_inactive/u, name);
+  }
+  assert.doesNotMatch(rollback, /^assert_inactive\(\)/mu);
+
+  const probe = spawnSync('/bin/bash', ['-se'], {
+    encoding: 'utf8',
+    input: `set -euo pipefail
+systemctl() {
+  case "$*" in
+    *"--property=ActiveState --value") printf '%s\\n' inactive ;;
+    *"--property=MainPID --value") return 97 ;;
+    *) return 98 ;;
+  esac
+}
+${timerFunction}
+assert_timer_inactive fixture.timer
+`,
+  });
+  assert.equal(probe.status, 0, probe.stderr);
 });

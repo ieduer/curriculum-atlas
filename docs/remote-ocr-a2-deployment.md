@@ -888,7 +888,14 @@ reviewed_unit_absent() {
   test ! -L "$HOME/$relative"
 }
 
-assert_inactive() {
+assert_timer_inactive() {
+  local unit=$1
+  local ACTIVE_STATE
+  ACTIVE_STATE=$(systemctl --user show "$unit" --property=ActiveState --value)
+  test "$ACTIVE_STATE" = inactive
+}
+
+assert_process_unit_inactive() {
   local unit=$1
   local ACTIVE_STATE MAIN_PID
   ACTIVE_STATE=$(systemctl --user show "$unit" --property=ActiveState --value)
@@ -917,7 +924,7 @@ disable_timer_or_reviewed_absent() {
   case "$LOAD_STATE" in
     loaded)
       systemctl --user disable --now "$unit"
-      assert_inactive "$unit"
+      assert_timer_inactive "$unit"
       assert_disabled "$unit"
       ;;
     not-found)
@@ -935,7 +942,7 @@ disable_worker_or_reviewed_absent() {
   case "$LOAD_STATE" in
     loaded)
       systemctl --user disable --now "$unit"
-      assert_inactive "$unit"
+      assert_process_unit_inactive "$unit"
       assert_disabled "$unit"
       ;;
     not-found)
@@ -953,7 +960,7 @@ stop_service_or_reviewed_absent() {
   case "$LOAD_STATE" in
     loaded)
       systemctl --user stop "$unit"
-      assert_inactive "$unit"
+      assert_process_unit_inactive "$unit"
       ;;
     not-found)
       reviewed_unit_absent "$unit" "$relative"
@@ -968,7 +975,7 @@ assert_timer_quiet_or_reviewed_absent() {
   local LOAD_STATE
   LOAD_STATE=$(systemctl --user show "$unit" --property=LoadState --value)
   case "$LOAD_STATE" in
-    loaded) assert_inactive "$unit"; assert_disabled "$unit" ;;
+    loaded) assert_timer_inactive "$unit"; assert_disabled "$unit" ;;
     not-found) reviewed_unit_absent "$unit" "$relative" ;;
     *) echo "unsafe timer LoadState for $unit: $LOAD_STATE" >&2; return 1 ;;
   esac
@@ -980,7 +987,7 @@ assert_worker_quiet_or_reviewed_absent() {
   local LOAD_STATE
   LOAD_STATE=$(systemctl --user show "$unit" --property=LoadState --value)
   case "$LOAD_STATE" in
-    loaded) assert_inactive "$unit"; assert_disabled "$unit" ;;
+    loaded) assert_process_unit_inactive "$unit"; assert_disabled "$unit" ;;
     not-found) reviewed_unit_absent "$unit" "$relative" ;;
     *) echo "unsafe worker LoadState for $unit: $LOAD_STATE" >&2; return 1 ;;
   esac
@@ -992,7 +999,7 @@ assert_service_quiet_or_reviewed_absent() {
   local LOAD_STATE
   LOAD_STATE=$(systemctl --user show "$unit" --property=LoadState --value)
   case "$LOAD_STATE" in
-    loaded) assert_inactive "$unit" ;;
+    loaded) assert_process_unit_inactive "$unit" ;;
     not-found) reviewed_unit_absent "$unit" "$relative" ;;
     *) echo "unsafe service LoadState for $unit: $LOAD_STATE" >&2; return 1 ;;
   esac
