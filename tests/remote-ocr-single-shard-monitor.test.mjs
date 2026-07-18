@@ -734,6 +734,44 @@ test('healthy running is 10 and a complete shard permits inactive B2 and llama s
   });
 });
 
+test('an interrupted seed backlog is recoverable only while the B2 worker is strictly running', () => {
+  const interrupted = {
+    ...baseSnapshot().successor,
+    progress_age_seconds: 30,
+    status_counts: {
+      total: 1,
+      complete: 0,
+      failed: 0,
+      interrupted: 1,
+      pending: 0,
+      running: 0,
+      retry_wait: 0,
+      quarantined: 0,
+    },
+  };
+  assert.deepEqual(classifySingleShardSnapshot(baseSnapshot({ successor: interrupted })), {
+    state: 'healthy_running', exit_code: 10, issues: [],
+  });
+
+  const staleWhileRunning = classifySingleShardSnapshot(baseSnapshot({
+    successor: { ...interrupted, progress_age_seconds: 1501 },
+  }));
+  assert.equal(staleWhileRunning.exit_code, 12);
+  assert.deepEqual(staleWhileRunning.issues.map(({ code }) => code), ['B2_NO_PROGRESS']);
+
+  const stoppedSeed = classifySingleShardSnapshot(baseSnapshot({
+    successor: { ...interrupted, progress_age_seconds: 5000 },
+    services: {
+      ...baseSnapshot().services,
+      worker: service({ active_state: 'inactive', sub_state: 'dead', main_pid: 0 }),
+    },
+  }));
+  assert.equal(stoppedSeed.exit_code, 12);
+  assert.ok(stoppedSeed.issues.some(({ code }) => code === 'B2_WORKER_NOT_ACTIVE'));
+  assert.ok(stoppedSeed.issues.some(({ code }) => code === 'B2_INTERRUPTED'));
+  assert.ok(!stoppedSeed.issues.some(({ code }) => code === 'B2_NO_PROGRESS'));
+});
+
 test('worker, llama, quarantine, B1 hash drift, stall, old workers, and resources are critical', () => {
   const cases = [
     ['worker down', { services: { ...baseSnapshot().services, worker: service({ active_state: 'inactive', sub_state: 'dead', main_pid: 0 }) } }, 'B2_WORKER_NOT_ACTIVE'],

@@ -1497,29 +1497,40 @@ function serviceActive(service) {
     && (service.active_state === 'active' || service.sub_state === 'running' || service.main_pid > 0));
 }
 
+function serviceStrictlyRunning(service) {
+  return Boolean(service
+    && service.active_state === 'active'
+    && service.sub_state === 'running'
+    && Number.isSafeInteger(service.main_pid)
+    && service.main_pid > 0);
+}
+
 export function classifySingleShardSnapshot(snapshot) {
   const issues = (snapshot.collection_errors || []).map(issue);
   const predecessor = snapshot.predecessor || failedPredecessor();
   const successor = snapshot.successor || failedSuccessor();
   const thresholds = snapshot.thresholds || defaultThresholds;
+  const worker = snapshot.services?.worker;
+  const workerStrictlyRunning = serviceStrictlyRunning(worker);
   if (predecessor.read_ok && predecessor.anchors_match !== true) issues.push(issue('B1_HASH_DRIFT'));
   if (successor.read_ok) {
     if (successor.inconsistent_completion) issues.push(issue('B2_COMPLETION_INCONSISTENT'));
     if ((successor.status_counts?.failed || 0) > 0) issues.push(issue('B2_FAILED'));
     if ((successor.status_counts?.quarantined || 0) > 0) issues.push(issue('B2_QUARANTINED'));
-    if ((successor.status_counts?.interrupted || 0) > 0) issues.push(issue('B2_INTERRUPTED'));
+    if (!successor.complete
+      && (successor.status_counts?.interrupted || 0) > 0
+      && !workerStrictlyRunning) issues.push(issue('B2_INTERRUPTED'));
     if ((successor.failed_pages || 0) > 0) issues.push(issue('B2_PAGE_FAILURE'));
-    if (!successor.complete && successor.progress_age_seconds > thresholds.stall_seconds) issues.push(issue('B2_NO_PROGRESS'));
+    if (!successor.complete
+      && workerStrictlyRunning
+      && successor.progress_age_seconds > thresholds.stall_seconds) issues.push(issue('B2_NO_PROGRESS'));
   }
   for (const label of ['a', 'b']) {
     if (serviceActive(snapshot.services?.old_workers?.[label])) issues.push(issue(`OLD_WORKER_${label.toUpperCase()}_ACTIVE`));
   }
-  const worker = snapshot.services?.worker;
   if (worker?.n_restarts > 0) issues.push(issue('B2_WORKER_RESTARTED'));
   if (successor.read_ok && !successor.complete) {
-    if (!worker || worker.active_state !== 'active' || worker.sub_state !== 'running' || worker.main_pid < 1) {
-      issues.push(issue('B2_WORKER_NOT_ACTIVE'));
-    }
+    if (!workerStrictlyRunning) issues.push(issue('B2_WORKER_NOT_ACTIVE'));
     if (worker?.exec_main_status !== 0) issues.push(issue('B2_WORKER_EXIT_STATUS'));
     const llama = snapshot.services?.llama;
     if (!llama?.systemd
