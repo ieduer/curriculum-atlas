@@ -30,6 +30,7 @@ import {
   GRAPH_SHARD_TRANSPORT,
   writeGraphShardBundle,
 } from './graph-shards.mjs';
+import { coreConceptEvidenceProjection } from './concept-evidence-projection.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const textRoot = process.env.CONCEPT_TEXT_ROOT
@@ -1203,10 +1204,9 @@ for (const documentBoundary of compendiumItemBoundaries.documents) {
       const pageNumber = boundPage.page_number;
       const pageCharacters = meaningfulCharacters(body);
       const matchesByConcept = Map.groupBy(matchParagraph(body, entity), (match) => match.concept.id);
-      const itemScopedPage = item.citation_allowed
-        ? { ...boundPage, citation_allowed: true }
-        : boundPage;
-      const pageObservationPolicy = conceptOcrObservationPolicy(itemScopedPage, { forceNonCitation: !item.citation_allowed });
+      const pageObservationPolicy = conceptOcrObservationPolicy(boundPage, {
+        forceNonCitation: !item.citation_allowed || boundPage.citation_allowed !== true,
+      });
       const status = pageObservationPolicy.evidence_status;
       for (const [conceptId, conceptMatches] of matchesByConcept) {
         const concept = conceptById.get(conceptId);
@@ -1675,27 +1675,7 @@ const coreEpisodes = episodes.map((episode) => {
 });
 const coreEpisodeById = new Map(coreEpisodes.map((episode) => [episode.id, episode]));
 const coreEvidenceIds = new Set(coreEpisodes.flatMap((episode) => episode.evidence_ids));
-const coreEvidence = evidence.filter((item) => coreEvidenceIds.has(item.id)).map((item) => ({
-  id: item.id,
-  document_id: item.document_id,
-  document_title: item.document_title,
-  source_locator: item.source_locator,
-  physical_pdf_page: item.physical_pdf_page,
-  printed_page: item.printed_page,
-  paragraph_ordinal: item.paragraph_ordinal,
-  matched_surface: item.matched_surface,
-  snippet: item.snippet,
-  source_artifact_sha256: item.source_artifact_sha256,
-  source_page_sha256: item.source_page_sha256,
-  final_text_sha256: item.final_text_sha256,
-  evidence_bundle_sha256: item.evidence_bundle_sha256,
-  stable_locator: item.stable_locator,
-  publication_basis: item.publication_basis,
-  semantic_claim_allowed: item.semantic_claim_allowed,
-  evidence_status: item.evidence_status,
-  citation_allowed: item.citation_allowed,
-  uncertainty_note: item.uncertainty_note,
-}));
+const coreEvidence = evidence.filter((item) => coreEvidenceIds.has(item.id)).map(coreConceptEvidenceProjection);
 const coreEdges = relations.map((relation) => ({
   ...relation,
   source_evidence_ids: coreEpisodeById.get(relation.source)?.evidence_ids || [],

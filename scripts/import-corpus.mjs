@@ -326,6 +326,34 @@ WHERE key='corpus_import_state'
   );`;
 }
 
+export function buildEmbeddedItemRetirementSql(currentReleaseId) {
+  if (!RELEASE_ID_PATTERN.test(currentReleaseId || '')) throw new Error('current corpus release id is invalid');
+  const releaseId = sql(currentReleaseId);
+  return `WITH RECURSIVE preserved_items(id) AS (
+  SELECT ei.id FROM embedded_items ei
+  WHERE (ei.corpus_release_id IS NULL OR ei.corpus_release_id != ${releaseId})
+    AND (
+      EXISTS (SELECT 1 FROM comments c WHERE c.embedded_item_id=ei.id)
+      OR EXISTS (SELECT 1 FROM paragraphs p WHERE p.embedded_item_id=ei.id)
+    )
+  UNION
+  SELECT parent.id
+  FROM preserved_items receipt
+  JOIN embedded_items child ON child.id=receipt.id
+  JOIN embedded_items parent ON parent.id=child.parent_item_id
+  WHERE parent.corpus_release_id IS NULL OR parent.corpus_release_id != ${releaseId}
+)
+UPDATE embedded_items
+SET identity_status='closed_tombstone',display_allowed=0,citation_allowed=0,
+    semantic_claim_allowed=0,item_citation_entitlement_sha256=NULL
+WHERE id IN (SELECT id FROM preserved_items);
+DELETE FROM embedded_items
+WHERE (corpus_release_id IS NULL OR corpus_release_id != ${releaseId})
+  AND identity_status!='closed_tombstone'
+  AND NOT EXISTS (SELECT 1 FROM comments c WHERE c.embedded_item_id=embedded_items.id)
+  AND NOT EXISTS (SELECT 1 FROM paragraphs p WHERE p.embedded_item_id=embedded_items.id);`;
+}
+
 export function buildCorpusImportFinalizeSql(manifestInput) {
   const manifest = validateCorpusManifest(manifestInput);
   const releaseId = sql(manifest.release_id);
@@ -358,8 +386,7 @@ DELETE FROM paragraphs
 WHERE (corpus_release_id IS NULL OR corpus_release_id != ${releaseId})
   AND NOT EXISTS (SELECT 1 FROM comments WHERE comments.paragraph_id=paragraphs.id)
   AND NOT EXISTS (SELECT 1 FROM online_verifications WHERE online_verifications.paragraph_id=paragraphs.id);
-DELETE FROM embedded_items
-WHERE corpus_release_id IS NULL OR corpus_release_id != ${releaseId};
+${buildEmbeddedItemRetirementSql(manifest.release_id)}
 DELETE FROM page_publication_gates
 WHERE corpus_release_id IS NULL OR corpus_release_id != ${releaseId};
 UPDATE documents SET citation_allowed=0
@@ -416,10 +443,7 @@ ${coreChecks}
       AND (
         g.document_id IS NULL
         OR p.display_allowed>g.display_allowed
-        OR p.citation_allowed>CASE
-          WHEN COALESCE(ei.citation_allowed,0)>g.citation_allowed THEN COALESCE(ei.citation_allowed,0)
-          ELSE g.citation_allowed
-        END
+        OR p.citation_allowed>g.citation_allowed
         OR (p.embedded_item_id IS NOT NULL AND (
           ei.id IS NULL
           OR ei.parent_document_id!=p.document_id
@@ -437,7 +461,8 @@ ${coreChecks}
     WHERE p.corpus_release_id=${releaseId}
       AND (
         p.citation_allowed>p.display_allowed
-        OR (p.citation_allowed=1 AND d.citation_allowed=0 AND COALESCE(ei.citation_allowed,0)=0)
+        OR (p.citation_allowed=1 AND p.embedded_item_id IS NULL AND d.citation_allowed=0)
+        OR (p.citation_allowed=1 AND p.embedded_item_id IS NOT NULL AND COALESCE(ei.citation_allowed,0)=0)
       )
   )
   AND NOT EXISTS(

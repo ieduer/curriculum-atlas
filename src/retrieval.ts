@@ -30,13 +30,21 @@ export async function retrieve(env: Env, filters: SearchFilters): Promise<Passag
        FROM paragraph_fts
        JOIN paragraphs p ON p.id = paragraph_fts.paragraph_id
        JOIN documents d ON d.id = p.document_id
+       JOIN page_publication_gates g
+         ON g.document_id = p.document_id
+        AND g.page_number = p.page_number
+        AND g.corpus_release_id = p.corpus_release_id
        JOIN document_classifications dc ON dc.document_id = d.id
        LEFT JOIN embedded_items ei
          ON ei.id = p.embedded_item_id
         AND ei.corpus_release_id = p.corpus_release_id
        WHERE paragraph_fts MATCH ?
+         AND p.corpus_release_id = (SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+         AND d.corpus_release_id = p.corpus_release_id
          AND p.citation_allowed = 1
-         AND (d.citation_allowed = 1 OR ei.citation_allowed = 1)
+         AND g.citation_allowed = 1
+         AND ((p.embedded_item_id IS NULL AND d.citation_allowed = 1)
+           OR (p.embedded_item_id IS NOT NULL AND ei.citation_allowed = 1))
          AND (? = '' OR (dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject = ?))
          AND (? = '' OR COALESCE(ei.stage, d.stage) = ?)
        ORDER BY score ASC
@@ -57,13 +65,21 @@ export async function retrieve(env: Env, filters: SearchFilters): Promise<Passag
             p.page_number, p.source_locator, p.body, d.source_url, 0 AS score
      FROM paragraphs p
      JOIN documents d ON d.id = p.document_id
+     JOIN page_publication_gates g
+       ON g.document_id = p.document_id
+      AND g.page_number = p.page_number
+      AND g.corpus_release_id = p.corpus_release_id
      JOIN document_classifications dc ON dc.document_id = d.id
      LEFT JOIN embedded_items ei
        ON ei.id = p.embedded_item_id
       AND ei.corpus_release_id = p.corpus_release_id
      WHERE p.body LIKE ? ESCAPE '\\'
+       AND p.corpus_release_id = (SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+       AND d.corpus_release_id = p.corpus_release_id
        AND p.citation_allowed = 1
-       AND (d.citation_allowed = 1 OR ei.citation_allowed = 1)
+       AND g.citation_allowed = 1
+       AND ((p.embedded_item_id IS NULL AND d.citation_allowed = 1)
+         OR (p.embedded_item_id IS NOT NULL AND ei.citation_allowed = 1))
        AND (? = '' OR (dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject = ?))
        AND (? = '' OR COALESCE(ei.stage, d.stage) = ?)
      ORDER BY COALESCE(ei.display_year, d.sort_year) DESC, p.ordinal ASC LIMIT ?`,

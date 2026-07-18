@@ -23,6 +23,7 @@ import {
   compendiumItemForPage,
 } from './compendium-corpus-projection.mjs';
 import {
+  effectiveParagraphCitationAllowed,
   verifyCompendiumHeadingEvidence,
   verifyCompendiumItemPageEvidence,
   verifyCompendiumPageAssetEvidence,
@@ -545,9 +546,13 @@ for (const record of catalog.documents) {
       const embeddedItem = compendiumItemForPage(compendiumProjection, record.id, pageIndex + 1);
       const isCompendiumCarrier = compendiumProjection.byDocument.has(record.id);
       const paragraphDisplayAllowed = pageGate.display_allowed && (!isCompendiumCarrier || Boolean(embeddedItem));
-      const paragraphCitationAllowed = paragraphDisplayAllowed && (embeddedItem
-        ? embeddedItem.citation_allowed === 1
-        : pageGate.citation_allowed);
+      const paragraphCitationAllowed = effectiveParagraphCitationAllowed({
+        paragraphAllowed: paragraphDisplayAllowed,
+        pageAllowed: pageGate.citation_allowed,
+        documentAllowed: documentCitationAllowed,
+        embeddedItemId: embeddedItem?.id || null,
+        itemAllowed: embeddedItem?.citation_allowed,
+      });
       if (paragraphDisplayAllowed) displayedParagraphs += 1;
       else if (!nativeText) closedOcrParagraphs += 1;
       paragraphStatements.push(`INSERT INTO paragraphs(document_id,ordinal,page_number,heading,body,source_locator,body_sha256,text_quality_status,ocr_quality_score,citation_allowed,display_allowed,source_artifact_sha256,source_page_sha256,page_final_text_sha256,evidence_bundle_sha256,provenance_locator,uncertainty_note,corpus_release_id,embedded_item_id) VALUES(${[

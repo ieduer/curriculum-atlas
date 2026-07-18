@@ -36,6 +36,23 @@
 
 ## 下一次标准发布流程
 
+### 本地 `0008` / 篇目层的集成边界（尚未上线）
+
+本分支只完成可独立审查的篇目数据合同、引文真值、稳定 ID、墓碑、分页、回复与深链接；它没有执行 D1/R2/Worker mutation，也没有切 current pointer。61 个候选仍是 0 display / 0 citation / 0 semantic。`0008_compendium_embedded_items.sql` 在 preview/production 都仍 pending。
+
+篇目 release 必须与 page-evidence publication coordinator 的 fenced staging/CAS 机制集成后才可发布。当前只读集成锚点是 commit `5b056d8a516cfc6bd4714b243ce90981ec7f3904`；不得盲目复制该分支实现，也不得把本分支的 prepare gate 当成完整 coordinator。合并前要独立复核冲突、D1 fence、R2 content-addressed readback 和 compare-and-swap 激活语义。
+
+规范状态机如下：
+
+1. **prepare/bootstrap**：source gate 通过；环境 evidence 新鲜；当前旧 Worker/旧 corpus health 为 200/ready；pending migrations 精确且只能是声明的 `0008`；另有 `dual_schema_bootstrap_verified=true` 的可审计证据。Graph parity、目标 corpus mismatch 和声明 migration 在此阶段是预期后置条件，其他 blocker 不豁免。
+2. **migration**：保存 D1 Time Travel 与用户表摘要后只应用声明 migration，回读 applied/pending 与 schema meta。没有 dual-schema 证据不得先部署本分支 Worker；没有回滚锚点不得迁移。
+3. **stage corpus**：导入 successor、逐 chunk 回执并 finalize ready，但 staging 不写 current corpus pointer；旧 release 继续服务。
+4. **stage graph/R2**：上传 content-addressed graph shards/manifest，逐对象 GET 校验 hash/bytes；仍不改 `release/current.json`。
+5. **activate CAS**：以预读 current identity/fence 做 compare-and-swap，同时只激活已 ready 的 D1 corpus 与已读回的 R2 manifest；冲突即中止，不覆盖其他发布者。
+6. **steady/postflight**：重新采集 environment evidence，要求 pending=0、目标 corpus 与本地 manifest 一致、Worker/graph Git parity、R2 current/manifest/object readback 全部一致，再运行 `--phase steady` 与浏览器/依赖回归。
+
+`scripts/deploy-worker.mjs --phase prepare` 只是 bootstrap deployment gate：它允许的 blocker 白名单不等于发布成功，并强制 `dual_schema_bootstrap_verified=true`。当前 manifest 尚不产生这项证据，因此本分支单独运行 prepare 会 fail closed；这是明确的集成依赖，不是可绕过的错误。默认 `--phase steady` 继续要求所有后置状态已满足，不再把 postcondition 伪装成 migration 前置条件。
+
 ### 0. 所有权、冻结和本地验证
 
 先核对 `git status` 与 `reports/agent_action_log.jsonl` 的文件/资源所有权，写 action-log `start`，再执行：
@@ -48,7 +65,7 @@ npx wrangler whoami
 git status --short
 ```
 
-当前基线 `npm run verify` 为 380/380；未来数字变化时记录实际结果，不照抄基线。
+测试数量会随 OCR、release fencing 与篇目负例增加；每次发布记录当次 `npm run verify` 的实际通过数与命令回执，不复制旧基线数字。
 
 ### 1. 只读回滚锚点
 
@@ -65,7 +82,7 @@ npx wrangler r2 object get bdfz-curriculum-atlas-sources-preview/release/current
 
 ### 2. Migration 与兼容 Worker
 
-有新 migration 时先应用 preview，并立即确认 pending 为 0：
+无新 schema 时沿用下列常规顺序。有 `0008` 篇目层时必须使用上一节 fenced 状态机；下列命令不能绕过 dual-schema/bootstrap、stage-no-pointer 或 CAS 激活条件：
 
 ```bash
 npx wrangler d1 migrations apply bdfz-curriculum-atlas-preview --env preview --remote

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 export const COMPENDIUM_TOC_PAGE_RECEIPT_POLICY = 'compendium_toc_page_evidence_bundle_v1';
 export const COMPENDIUM_TOC_ENTRY_RECEIPT_POLICY = 'compendium_toc_entry_evidence_v1';
 export const COMPENDIUM_ITEM_CITATION_POLICY = 'compendium_item_scoped_citation_entitlement_v1';
+export const COMPENDIUM_STABLE_ITEM_ID_POLICY = 'compendium_stable_item_identity_v1';
 
 export function sha256Bytes(value) {
   return createHash('sha256').update(value).digest('hex');
@@ -59,6 +60,25 @@ export function compendiumTocEntryReceiptProjection({
 
 export function compendiumTocEntryReceiptSha256(value) {
   return sha256Bytes(JSON.stringify(compendiumTocEntryReceiptProjection(value)));
+}
+
+export function compendiumStableItemId({
+  documentId,
+  sourceArtifactSha256,
+  tocEntryReceiptSha256,
+}) {
+  if (!/^[a-z0-9][a-z0-9-]+$/.test(documentId || '')
+    || !/^[a-f0-9]{64}$/.test(sourceArtifactSha256 || '')
+    || !/^[a-f0-9]{64}$/.test(tocEntryReceiptSha256 || '')) {
+    throw new Error('compendium stable item identity input is invalid');
+  }
+  const identity = sha256Bytes(JSON.stringify({
+    policy: COMPENDIUM_STABLE_ITEM_ID_POLICY,
+    parent_document_id: documentId,
+    source_artifact_sha256: sourceArtifactSha256,
+    toc_entry_receipt_sha256: tocEntryReceiptSha256,
+  })).slice(0, 24);
+  return `embedded:${documentId}:${identity}`;
 }
 
 export function onlineRegistryStatusForCompendium(status) {

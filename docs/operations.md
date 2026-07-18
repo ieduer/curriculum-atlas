@@ -5,6 +5,7 @@
 ## 当前检查点（2026-07-17）
 
 - 两端 D1 已应用 `0001`–`0007`；Worker 为 `2026.07.16-v10`，health 合同为 schema 3 / taxonomy 2 / page publication 1。
+- 本地 `0008_compendium_embedded_items.sql` 与 Worker v12 候选尚未部署；61 个汇编身份仍为导航候选，0 display / 0 citation / 0 semantic。发布必须先完成 `docs/deployment.md` 的 dual-schema bootstrap → migration → D1/R2 no-pointer staging → CAS activation → postflight，不得把本地测试通过写成上线。
 - Corpus `corpus-358471fcce862b2f0ae446fc` 在 preview 与 production 均为 `ready`：196 documents、16,456 paragraphs、16,456 FTS rows、6,031 page gates、16,456 displayed paragraphs、0 accepted OCR documents、91/91 chunks。
 - Taxonomy 为 159 subject、1 assessment subject、16 curriculum course、20 scope；公开 12 个 display facets，普通学科 API 仅接受 28 个 exact query identities。
 - Production Worker version `28c7e6d4-1638-42bc-b371-bd8d24210b93`，deployment `baa8a92f-ccc8-4972-b0ad-6d67876cdc84`，Assets Git `57487dc95481391cbcd40e0be0c92ee2d1ed8fdf`。
@@ -53,7 +54,7 @@ Production R2 最近一次独立读回：
 
 ## 4. Deploy and forbidden actions
 
-标准流程见 [`deployment.md`](deployment.md)：冻结与回滚锚点 → migrations → compatible Worker → exact corpus import → environment evidence commit/push → full verify → versioned R2 pointer → API/browser/dependency QA。
+标准流程见 [`deployment.md`](deployment.md)：冻结与回滚锚点 → prepare/dual-schema 证据 → migration → D1 corpus 与 content-addressed graph no-pointer staging → CAS activation → environment evidence/postflight → API/browser/dependency QA。
 
 禁止：
 

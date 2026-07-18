@@ -15,6 +15,7 @@ import {
 } from '../scripts/compendium-item-publication.mjs';
 import {
   buildCorpusChunkReceiptSql,
+  buildEmbeddedItemRetirementSql,
   buildCorpusImportFinalizeSql,
   buildCorpusImportStartSql,
 } from '../scripts/import-corpus.mjs';
@@ -52,7 +53,7 @@ function headingFixture(document, item, pageNumber, label) {
     evidence_bundle_sha256: digest(`bundle-${pageNumber}`),
     stable_locator: `${document.document_id}:page:${pageNumber}`,
     display_allowed: true,
-    citation_allowed: false,
+    citation_allowed: true,
   };
   item.body_heading = {
     verification_status: 'image_primary_witness_verified',
@@ -202,6 +203,63 @@ test('compendium migration preserves legacy carrier comments as explicit null it
   db.close();
 });
 
+test('referenced prior-release items become closed tombstones while unreferenced identities are removed', async () => {
+  const db = await migratedDatabase();
+  const oldRelease = `corpus-${'1'.repeat(24)}`;
+  const currentRelease = `corpus-${'2'.repeat(24)}`;
+  const documentId = 'tombstone-carrier';
+  db.prepare(`INSERT INTO documents(
+    id,title,subject,stage,document_type,version_label,issued_by,current_status,source_tier,
+    access_status,source_page_url,source_url,file_format,redistribution,checksum_sha256,
+    period_id,sort_year,text_quality_status,citation_allowed,page_count,corpus_release_id
+  ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+    documentId, '历史汇编', '语文', '小学', '课程标准汇编', '历史版', '课程教材研究所',
+    'historical', 'archival_scan', 'verified_local', 'https://example.test/page', 'https://example.test/file',
+    'pdf', 'metadata_only', 'a'.repeat(64), 'foundation', 1902, 'verified_ocr_item', 0, 10, oldRelease,
+  );
+  const insertItem = db.prepare(`INSERT INTO embedded_items(
+    id,parent_document_id,parent_item_id,sequence,item_kind,title,raw_title,stage,display_year,year_basis,
+    physical_page_start,physical_page_end,printed_page_start,issuing_body,identity_status,
+    page_publication_release_id,page_set_sha256,item_citation_entitlement_sha256,
+    online_verification_status,online_source_ids_json,display_allowed,citation_allowed,
+    semantic_claim_allowed,uncertainty_note,corpus_release_id
+  ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  const parentId = 'embedded:tombstone-carrier:000000000000000000000000';
+  const retainedId = 'embedded:tombstone-carrier:111111111111111111111111';
+  const deletedId = 'embedded:tombstone-carrier:222222222222222222222222';
+  for (const { id, sequence, parentItemId, kind, yearBasis } of [
+    { id: parentId, sequence: 1, parentItemId: null, kind: 'curriculum_document', yearBasis: 'toc_explicit_year' },
+    { id: retainedId, sequence: 2, parentItemId: parentId, kind: 'attachment', yearBasis: 'parent_notice_year' },
+    { id: deletedId, sequence: 3, parentItemId: null, kind: 'curriculum_document', yearBasis: 'toc_explicit_year' },
+  ]) {
+    insertItem.run(
+      id, documentId, parentItemId, sequence, kind, `篇目${sequence}`, `篇目${sequence}`, '小学',
+      1902 + sequence, yearBasis, sequence, sequence, sequence, null, 'verified_full_item',
+      `page-gate-${'3'.repeat(24)}`, '4'.repeat(64), null, 'not_started', '[]', 1, 0, 0,
+      '历史身份测试', oldRelease,
+    );
+  }
+  db.prepare(`INSERT INTO comments(id,document_id,embedded_item_id,author_name,author_kind,body,status)
+    VALUES('comment-on-old-item',?,?, '教师','authenticated','保留这一条历史篇目讨论','approved')`)
+    .run(documentId, retainedId);
+  db.exec(buildEmbeddedItemRetirementSql(currentRelease));
+  assert.deepEqual({ ...db.prepare('SELECT id,identity_status,display_allowed,citation_allowed,semantic_claim_allowed FROM embedded_items WHERE id=?').get(retainedId) }, {
+    id: retainedId,
+    identity_status: 'closed_tombstone',
+    display_allowed: 0,
+    citation_allowed: 0,
+    semantic_claim_allowed: 0,
+  });
+  assert.equal(db.prepare('SELECT identity_status FROM embedded_items WHERE id=?').get(parentId).identity_status, 'closed_tombstone');
+  assert.equal(db.prepare('SELECT id FROM embedded_items WHERE id=?').get(deletedId), undefined);
+  assert.equal(db.prepare("SELECT embedded_item_id FROM comments WHERE id='comment-on-old-item'").get().embedded_item_id, retainedId);
+  db.prepare("INSERT INTO site_meta(key,value) VALUES('current_corpus_release_id',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value")
+    .run(currentRelease);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM embedded_items WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").get().count, 0);
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
+  db.close();
+});
+
 function corpusManifest() {
   const projection = {
     schema_version: 1,
@@ -341,7 +399,7 @@ test('activated item remains independently citable from verified receipts throug
     document_id,page_number,source_artifact_sha256,source_page_sha256,final_text_sha256,
     evidence_bundle_sha256,stable_locator,publication_basis,review_status,display_allowed,
     citation_allowed,corpus_release_id
-  ) VALUES(?,?,?,?,?,?,?,'accepted_ocr_page_manifest','accepted',1,0,?)`).run(
+  ) VALUES(?,?,?,?,?,?,?,'accepted_ocr_page_manifest','accepted',1,1,?)`).run(
     document.document_id, boundPage.page_number, boundPage.source_artifact_sha256,
     boundPage.source_page_sha256, boundPage.final_text_sha256, boundPage.evidence_bundle_sha256,
     boundPage.stable_locator, manifest.release_id,
@@ -358,7 +416,25 @@ test('activated item remains independently citable from verified receipts throug
     manifest.release_id, item.item_id,
   );
   db.exec(buildCorpusChunkReceiptSql(manifest, '000-core.sql'));
-  db.exec(buildCorpusImportFinalizeSql(manifest));
+  const finalizeSql = buildCorpusImportFinalizeSql(manifest);
+  db.prepare('UPDATE page_publication_gates SET citation_allowed=0 WHERE document_id=? AND page_number=?').run(
+    document.document_id, boundPage.page_number,
+  );
+  assert.throws(() => db.exec(finalizeSql), /constraint failed/i,
+    'finalizer must reject embedded page=0/item=1');
+  assert.equal(db.prepare('SELECT state FROM corpus_import_releases WHERE release_id=?').get(manifest.release_id).state, 'in_progress');
+  db.prepare('UPDATE page_publication_gates SET citation_allowed=1 WHERE document_id=? AND page_number=?').run(
+    document.document_id, boundPage.page_number,
+  );
+  db.prepare('UPDATE documents SET citation_allowed=1 WHERE id=?').run(document.document_id);
+  db.prepare('UPDATE embedded_items SET citation_allowed=0,item_citation_entitlement_sha256=NULL WHERE id=?').run(item.item_id);
+  assert.throws(() => db.exec(finalizeSql), /constraint failed/i,
+    'finalizer must reject embedded page=1/item=0/parent=1');
+  db.prepare('UPDATE documents SET citation_allowed=0 WHERE id=?').run(document.document_id);
+  db.prepare('UPDATE embedded_items SET citation_allowed=1,item_citation_entitlement_sha256=? WHERE id=?').run(
+    projectedItem.item_citation_entitlement_sha256, item.item_id,
+  );
+  db.exec(finalizeSql);
   assert.equal(db.prepare('SELECT state FROM corpus_import_releases WHERE release_id=?').get(manifest.release_id).state, 'ready');
 
   const retrieve = await bundledRetrieve();
@@ -373,6 +449,22 @@ test('activated item remains independently citable from verified receipts throug
   assert.equal(results[0].embedded_item_id, item.item_id);
   assert.equal(results[0].title, item.title);
   assert.equal(results[0].version_label, '1902');
+
+  db.prepare('UPDATE page_publication_gates SET citation_allowed=0 WHERE document_id=? AND page_number=?').run(
+    document.document_id, boundPage.page_number,
+  );
+  assert.deepEqual(await retrieve({ DB: d1Adapter(db) }, { query: '识字能力', subject: '语文' }), [],
+    'embedded page=0/item=1 must never retrieve');
+  db.prepare('UPDATE page_publication_gates SET citation_allowed=1 WHERE document_id=? AND page_number=?').run(
+    document.document_id, boundPage.page_number,
+  );
+  db.prepare('UPDATE documents SET citation_allowed=1 WHERE id=?').run(document.document_id);
+  db.prepare('UPDATE embedded_items SET citation_allowed=0,item_citation_entitlement_sha256=NULL WHERE id=?').run(item.item_id);
+  assert.deepEqual(await retrieve({ DB: d1Adapter(db) }, { query: '识字能力', subject: '语文' }), [],
+    'embedded page=1/item=0/parent=1 must never retrieve');
+  db.prepare(`UPDATE embedded_items SET citation_allowed=1,item_citation_entitlement_sha256=? WHERE id=?`).run(
+    projectedItem.item_citation_entitlement_sha256, item.item_id,
+  );
 
   const worker = await bundledWorker();
   const itemResponse = await worker.fetch(new Request(
@@ -394,6 +486,36 @@ test('activated item remains independently citable from verified receipts throug
   assert.equal(itemDetail.paragraphs.length, 1);
   assert.equal(itemDetail.verifications.length, 1);
   assert.equal(itemDetail.verifications[0].id, sourceId);
+
+  const documentsResponse = await worker.fetch(new Request(
+    'https://curriculum.example/api/documents?limit=1',
+  ), {
+    DB: d1Adapter(db),
+    ENVIRONMENT: 'test',
+    SITE_ORIGIN: 'https://curriculum.example',
+    ASSETS: { fetch: async () => new Response('not used') },
+    SOURCES: {},
+    APIS: {},
+    USER_CENTER: {},
+  });
+  assert.equal(documentsResponse.status, 200);
+  const documentsPage = await documentsResponse.json();
+  assert.equal(documentsPage.total, 1);
+  assert.equal(documentsPage.hasMore, false);
+  assert.equal(documentsPage.cursor, null);
+  assert.deepEqual(documentsPage.documents.map((identity) => identity.id), [item.item_id]);
+  const invalidCursorResponse = await worker.fetch(new Request(
+    'https://curriculum.example/api/documents?cursor=not-a-valid-cursor',
+  ), {
+    DB: d1Adapter(db),
+    ENVIRONMENT: 'test',
+    SITE_ORIGIN: 'https://curriculum.example',
+    ASSETS: { fetch: async () => new Response('not used') },
+    SOURCES: {},
+    APIS: {},
+    USER_CENTER: {},
+  });
+  assert.equal(invalidCursorResponse.status, 400);
 
   db.prepare('UPDATE embedded_items SET citation_allowed=0,item_citation_entitlement_sha256=NULL WHERE id=?').run(item.item_id);
   assert.deepEqual(await retrieve({ DB: d1Adapter(db) }, { query: '识字能力', subject: '语文' }), []);

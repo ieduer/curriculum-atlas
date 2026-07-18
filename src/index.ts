@@ -5,11 +5,12 @@ import { retrieve } from './retrieval';
 import { enforceRateLimit, verifyTurnstile } from './security';
 import type { Env, Session } from './types';
 
-const VERSION = '2026.07.18-v11';
+const VERSION = '2026.07.18-v12';
 const R2_CURRENT_POINTER_KEY = 'release/current.json';
 const R2_INGEST_MANIFEST_KEY = 'catalog/ingest-manifest.json';
 const R2_RELEASE_PREFIX = 'releases';
 const R2_RELEASE_ID_PATTERN = /^release-[a-f0-9]{32}$/;
+const CORPUS_RELEASE_ID_PATTERN = /^corpus-[a-f0-9]{24}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const MAX_RELEASE_MANIFEST_BYTES = 16 * 1024 * 1024;
 const MAX_INGEST_MANIFEST_BYTES = 64 * 1024 * 1024;
@@ -63,6 +64,16 @@ interface CommentInput {
 interface AiInput {
   query?: string;
   subject?: string;
+}
+
+interface DocumentCursor {
+  v: 1;
+  releaseId: string;
+  offset: number;
+  subject: string;
+  stage: string;
+  status: string;
+  type: string;
 }
 
 interface CorpusReleaseStatus {
@@ -127,6 +138,30 @@ function optionalParagraphId(value: unknown): number | null {
     throw new HttpError(400, '段落编号无效');
   }
   return value;
+}
+
+function encodeDocumentCursor(value: DocumentCursor): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/u, '');
+}
+
+function decodeDocumentCursor(value: string): DocumentCursor {
+  try {
+    const normalized = value.replaceAll('-', '+').replaceAll('_', '/');
+    const binary = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='));
+    const decoded = JSON.parse(new TextDecoder().decode(Uint8Array.from(binary, (character) => character.charCodeAt(0)))) as Partial<DocumentCursor>;
+    if (Object.keys(decoded).sort().join(',') !== 'offset,releaseId,stage,status,subject,type,v'
+      || decoded.v !== 1 || !CORPUS_RELEASE_ID_PATTERN.test(decoded.releaseId || '')
+      || !Number.isSafeInteger(decoded.offset) || Number(decoded.offset) < 0 || Number(decoded.offset) > 1_000_000
+      || [decoded.subject, decoded.stage, decoded.status, decoded.type].some((entry) => typeof entry !== 'string')) {
+      throw new Error('invalid cursor projection');
+    }
+    return decoded as DocumentCursor;
+  } catch {
+    throw new HttpError(400, '资料分页游标无效');
+  }
 }
 
 function cacheJson(data: unknown, seconds = 300): Response {
@@ -457,7 +492,12 @@ async function meta(env: Env): Promise<Response> {
     env.DB.prepare("SELECT COUNT(*) AS count FROM documents WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>(),
     env.DB.prepare("SELECT COUNT(*) AS count FROM embedded_items WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>(),
     env.DB.prepare("SELECT COUNT(*) AS count FROM paragraphs WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>(),
-    env.DB.prepare("SELECT COUNT(*) AS count FROM comments WHERE status = 'approved'").first<{ count: number }>(),
+    env.DB.prepare(`SELECT COUNT(*) AS count FROM comments c
+      JOIN documents d ON d.id=c.document_id
+       AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+      LEFT JOIN embedded_items ei ON ei.id=c.embedded_item_id
+       AND ei.corpus_release_id=d.corpus_release_id
+      WHERE c.status='approved' AND (c.embedded_item_id IS NULL OR ei.id IS NOT NULL)`).first<{ count: number }>(),
     env.DB.prepare("SELECT COUNT(*) AS count FROM documents WHERE citation_allowed=1 AND corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>(),
     env.DB.prepare("SELECT COUNT(*) AS count FROM embedded_items WHERE citation_allowed=1 AND corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>(),
     env.DB.prepare("SELECT COUNT(*) AS count FROM online_verifications WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id') AND verification_status IN ('verified_exact','verified_stable_fact_only')").first<{ count: number }>(),
@@ -523,9 +563,20 @@ async function listDocuments(url: URL, env: Env): Promise<Response> {
   const status = textParam(url.searchParams.get('status'), 40);
   const type = textParam(url.searchParams.get('type'), 40);
   const limit = clampInt(url.searchParams.get('limit'), 100, 1, 200);
+  const cursor = textParam(url.searchParams.get('cursor'), 512);
   await requireExactQueryIdentity(env, subject);
-  const result = await env.DB.prepare(
-    `WITH identities AS (
+  const currentRelease = await env.DB.prepare("SELECT value FROM site_meta WHERE key='current_corpus_release_id'")
+    .first<{ value: string }>();
+  if (!CORPUS_RELEASE_ID_PATTERN.test(currentRelease?.value || '')) throw new HttpError(503, '当前资料版本不可用');
+  const cursorState = cursor ? decodeDocumentCursor(cursor) : null;
+  if (cursorState && (cursorState.releaseId !== currentRelease?.value
+    || cursorState.subject !== subject || cursorState.stage !== stage
+    || cursorState.status !== status || cursorState.type !== type)) {
+    throw new HttpError(409, '资料分页版本或筛选条件已变化，请重新载入');
+  }
+  const releaseId = String(currentRelease?.value);
+  const offset = cursorState?.offset || 0;
+  const identityCte = `WITH identities AS (
        SELECT d.id,d.title,d.subject,d.stage,d.document_type,d.version_label,d.issued_by,d.issued_date,d.published_date,d.current_status,
               d.source_tier,d.access_status,d.source_page_url,d.source_url,d.file_format,d.redistribution,d.checksum_sha256,d.note,d.period_id,d.sort_year,
               d.text_quality_status,d.ocr_engine,d.ocr_audit_ref,d.citation_allowed,d.page_count,
@@ -533,7 +584,7 @@ async function listDocuments(url: URL, env: Env): Promise<Response> {
               COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label,
               'document' AS identity_kind, NULL AS parent_document_id, NULL AS parent_title
        FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
-       WHERE d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+       WHERE d.corpus_release_id=?
          AND NOT EXISTS(
            SELECT 1 FROM embedded_items child
            WHERE child.parent_document_id=d.id AND child.corpus_release_id=d.corpus_release_id
@@ -548,15 +599,26 @@ async function listDocuments(url: URL, env: Env): Promise<Response> {
        FROM embedded_items ei
        JOIN documents d ON d.id=ei.parent_document_id AND d.corpus_release_id=ei.corpus_release_id
        JOIN document_classifications dc ON dc.document_id=d.id
-       WHERE ei.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+       WHERE ei.corpus_release_id=?
          AND ei.display_allowed=1
-     )
-     SELECT * FROM identities
-     WHERE (? = '' OR (taxonomy_entity_kind = 'subject' AND canonical_subject = ?))
-       AND (? = '' OR stage = ?) AND (? = '' OR current_status = ?) AND (? = '' OR document_type = ?)
-     ORDER BY COALESCE(sort_year, 0) DESC, entity_label, title LIMIT ?`,
-  ).bind(subject, subject, stage, stage, status, status, type, type, limit).all();
-  return cacheJson({ documents: result.results }, 600);
+     )`;
+  const filterSql = `WHERE (? = '' OR (taxonomy_entity_kind = 'subject' AND canonical_subject = ?))
+       AND (? = '' OR stage = ?) AND (? = '' OR current_status = ?) AND (? = '' OR document_type = ?)`;
+  const bindings = [releaseId, releaseId, subject, subject, stage, stage, status, status, type, type];
+  const [count, result] = await Promise.all([
+    env.DB.prepare(`${identityCte} SELECT COUNT(*) AS total FROM identities ${filterSql}`)
+      .bind(...bindings).first<{ total: number }>(),
+    env.DB.prepare(`${identityCte} SELECT * FROM identities ${filterSql}
+      ORDER BY COALESCE(sort_year, 0) DESC, entity_label, title, id LIMIT ? OFFSET ?`)
+      .bind(...bindings, limit, offset).all(),
+  ]);
+  const total = Number(count?.total || 0);
+  const nextOffset = offset + result.results.length;
+  const hasMore = nextOffset < total;
+  const nextCursor = hasMore
+    ? encodeDocumentCursor({ v: 1, releaseId, offset: nextOffset, subject, stage, status, type })
+    : null;
+  return cacheJson({ documents: result.results, total, hasMore, cursor: nextCursor }, 600);
 }
 
 function verificationRecords(rows: Array<Record<string, unknown>>): Array<Record<string, unknown> & { evidence: unknown[] }> {
@@ -781,6 +843,16 @@ async function listComments(url: URL, env: Env, session: Session): Promise<Respo
      FROM comments
      WHERE ${scopeClause}
        ${paragraphClause}
+       AND EXISTS(
+         SELECT 1 FROM documents current_document
+         WHERE current_document.id=comments.document_id
+           AND current_document.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+       )
+       AND (embedded_item_id IS NULL OR EXISTS(
+         SELECT 1 FROM embedded_items current_item
+         WHERE current_item.id=comments.embedded_item_id
+           AND current_item.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+       ))
        AND (${includePending ? "status IN ('pending','approved')" : "status = 'approved'"})
      ORDER BY created_at DESC LIMIT 100`,
   ).bind(...bindings).all();

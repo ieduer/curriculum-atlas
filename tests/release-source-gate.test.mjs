@@ -125,3 +125,53 @@ test('Worker deploy wrapper refuses exact target environment migration, graph, a
     release_blockers: [{ environment: 'production', code: 'corpus_release_mismatch' }],
   }, 'preview'), true, 'a blocker for the other target must not contaminate preview');
 });
+
+test('Worker prepare gate permits only the declared migration while the current release stays healthy', () => {
+  const requiredMigration = '0008_compendium_embedded_items.sql';
+  const target = {
+    release_ready: false,
+    pending_migrations: [requiredMigration],
+    required_migration: requiredMigration,
+    asset_git_commit_deployment_parity: false,
+    corpus_release_matches_local: false,
+    health: { http_status: 200, ok: true },
+    corpus_release: { ready: true, release_id: `corpus-${'a'.repeat(24)}` },
+    evidence_status: 'fresh',
+    dual_schema_bootstrap_verified: true,
+  };
+  const manifest = {
+    release_blockers: [
+      { environment: 'preview', code: 'pending_d1_migration' },
+      { environment: 'preview', code: 'worker_graph_shard_git_parity_required' },
+      { environment: 'preview', code: 'corpus_release_mismatch' },
+    ],
+    environment_snapshot: { environments: { preview: target } },
+  };
+  assert.equal(assertManifestDeploymentGates(manifest, 'preview', { phase: 'prepare' }), true);
+  assert.throws(() => assertManifestDeploymentGates({
+    ...manifest,
+    environment_snapshot: { environments: { preview: {
+      ...target, pending_migrations: [requiredMigration, '0009_unreviewed.sql'],
+    } } },
+  }, 'preview', { phase: 'prepare' }), /undeclared_pending_d1_migration/);
+  assert.throws(() => assertManifestDeploymentGates({
+    ...manifest,
+    environment_snapshot: { environments: { preview: {
+      ...target, health: { http_status: 503, ok: false },
+    } } },
+  }, 'preview', { phase: 'prepare' }), /current_release_unhealthy/);
+  assert.throws(() => assertManifestDeploymentGates({
+    ...manifest,
+    environment_snapshot: { environments: { preview: {
+      ...target, evidence_status: 'stale',
+    } } },
+  }, 'preview', { phase: 'prepare' }), /environment_evidence_not_fresh/);
+  assert.throws(() => assertManifestDeploymentGates({
+    ...manifest,
+    environment_snapshot: { environments: { preview: {
+      ...target, dual_schema_bootstrap_verified: false,
+    } } },
+  }, 'preview', { phase: 'prepare' }), /dual_schema_bootstrap_not_verified/);
+  assert.throws(() => assertManifestDeploymentGates(manifest, 'preview', { phase: 'steady' }),
+    /pending_d1_migration/);
+});

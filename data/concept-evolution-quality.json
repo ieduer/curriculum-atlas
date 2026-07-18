@@ -4,29 +4,29 @@
   "artifact_profile": "curriculum-concept-evolution-quality-v1",
   "academic_schema": "curriculum-concept-evolution-academic-v2",
   "model_kind": "curriculum-concept-observation-model",
-  "build_revision": "de43052b9cceebc9350d91f7e9dc84a48ced93aeb83d171ae34c9526f464ab8c",
+  "build_revision": "dd58870c26207053cf0a6288461d56b47fca11823482feac42eb1b00249d3251",
   "input_fingerprints": {
     "catalog_sha256": "75c64afb87aff147014ca2613b1d425ee956473d917586ac006a929f1a9743ce",
     "queue_sha256": "0cf6c2f8b21737c165287e9ae894bc93fc6e49ebd623c2463df296bc43fb73c5",
     "concept_model_sha256": "98d8b3b8c9f4ad1e7f02410c2470fa8b34820996e380d39230a763fd49b3356e",
     "lexicon_sha256": "d8b792139ff4d28afff5cd685ce8b73174435353dd9343430ade26e8e763608b",
     "ontology_sha256": "98b185f71afe4c70f880cd42725f16450e2df4b720bf6d47b221b91f7a04c687",
-    "builder_sha256": "02cf8e4c32e2a5cd43042bc5b30a592a4901a141e139d26f268316c680c078f7",
+    "builder_sha256": "78b31d15bb2902f7e4fac1cbbeb5f6318ba4587c260e5c4b12d6459e7a87fb77",
     "graph_sharder_sha256": "2d72068df8123739738a2d92bebb6d6f26220b68fe662be90328218627c228c4",
     "concept_publication_gate_sha256": "7141ebd2429fc7e44ed1f6ff33268a535c80df560af01bcf2114235be070d28f",
     "page_publication_gate_sha256": "12ba2f37eb8a2086cec31b0c1c35635c7bd4e39c7254afcd30767b1298470227",
     "semantic_publication_policy_sha256": "6bf7017b3804d8aa905b4449826d71a9b087df6f6ae0377a9b4108e7948d859a",
     "semantic_publication_gate_sha256": "98600b34241797f2cbf1a22af00ab91ad296ca1d2081b731bbba6c7370b54a55",
-    "compendium_item_boundaries_sha256": "66b9b4ba74aab17bc69a8faa821957111b8b17bca5a9560afff568867707c679",
-    "compendium_item_boundary_gate_sha256": "659b57d09ca12eb9138bfe7d1b025ecb04f23345b3d25fbe9da4ddc5d8bb17f3",
-    "compendium_item_publication_gate_sha256": "7ae27ff97a8045e832da1e7aa5feef2cd3b598b280b691ed835cf8c487b87d6c",
+    "compendium_item_boundaries_sha256": "8bbc64a3e31c5b83e572ae8a465a9ac9fe6204e548cbdaecccc50aede4dda40a",
+    "compendium_item_boundary_gate_sha256": "ad1f756ea041f8b30c7b420c204cbdc68f4defc12a2e9afdd3621bfba6301c55",
+    "compendium_item_publication_gate_sha256": "b0402e2f968bbd7f7bbe8d6939928d928eaa9197402598b377256f8823e56130",
     "online_verification_samples_sha256": "e74afc37f2e42a35968bb9f6b6d365196f77acabe3d928b3a45af39cf37597cd",
-    "corpus_manifest_gate_sha256": "5ec06d02fa5cac0e893d528fdf11c8717665598c94810dd6c6427556483736d4",
+    "corpus_manifest_gate_sha256": "d6e05daa328052fb65552fbbc084ea0aef3a7deb6b15b83a20044756e235d0d6",
     "validator_sha256": "59d46a1658a23f3ec763d62db44c259a17204c94566d43fe2c1bf229f2efdc9f",
     "ocr_concept_publication_sha256": "fc64a03b220cb67400aa157edd03cd79ad44bc53cf2222d316d378d1a9c2a67c",
     "semantic_publication_revision_sha256": "b2a5dc0d3bb6e4fcc555613319375610455d3c3ce874fdd0149e4878e43698b4",
-    "corpus_manifest_sha256": "529bdd297a98a710b3c9f7e8b6553b8c962c70b7c772c744b2f5ae611347c35a",
-    "corpus_release_fingerprint_sha256": "fda3fbf992729c8bfa5a4f3fb42dfe41ff1e09f7efa77ba0940fe2f7405a1928"
+    "corpus_manifest_sha256": "12d3c5969d55da678544cbc7441e822b015fd927f7887b2f092c12e341e4ae53",
+    "corpus_release_fingerprint_sha256": "3bddf69855aba5d096c7d9757ca84e22c1a21c1d5061b489dd1598d0a06a653e"
   },
   "passed": true,
   "checks": [
@@ -111,9 +111,9 @@
       "passed": true
     }
   ],
-  "core_bytes": 494829,
+  "core_bytes": 494830,
   "academic_bytes": 34785,
-  "academic_sha256": "753922d57791e6b334cda54a60ce68f5728e8221383a29dfea853c3146fb2b44",
+  "academic_sha256": "c0d360bfc869960deeeee4f570c8c24ee684253575bdb85224bbf89160534834",
   "release_boundary": "基于当前可用语料的词面概念观察图；不是完整课程史，不宣称概念义项连续、绝对首次、消失、取代、影响或因果演进。",
   "unresolved": [
     "11847 OCR pages remain outside the concept publication display gate",
@@ -126,6 +126,6 @@
     "profile": "immutable-content-addressed-graph-shards-v1",
     "max_shard_bytes": 524288,
     "shard_count": 78,
-    "total_shard_bytes": 25872832
+    "total_shard_bytes": 25886104
   }
 }

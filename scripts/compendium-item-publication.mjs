@@ -14,6 +14,19 @@ import {
 
 const PAGE_PUBLICATION_RELEASE_PATTERN = /^page-gate-[a-f0-9]{24}$/;
 
+const allowed = (value) => value === true || value === 1;
+
+export function effectiveParagraphCitationAllowed({
+  paragraphAllowed,
+  pageAllowed,
+  documentAllowed,
+  embeddedItemId = null,
+  itemAllowed = false,
+}) {
+  if (!allowed(paragraphAllowed) || !allowed(pageAllowed)) return false;
+  return embeddedItemId ? allowed(itemAllowed) : allowed(documentAllowed);
+}
+
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -246,6 +259,10 @@ export function verifyCompendiumItemPageEvidence({
     pages: boundPages,
   });
   const evidence = item.page_evidence;
+  if (evidence?.verification_status === 'all_pages_citation_verified'
+    && !boundPages.every((page) => page?.citation_allowed === true)) {
+    fail(item, 'all_pages_citation_verified but every bound page is not citation-allowed');
+  }
   if (!['all_pages_display_verified', 'all_pages_citation_verified'].includes(evidence?.verification_status)
     || evidence.page_publication_release_id !== currentPagePublicationReleaseId
     || evidence.physical_page_start !== item.candidate_physical_page_start

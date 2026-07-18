@@ -97,6 +97,15 @@ test('embedded compendium identities keep item-scoped reader and discussion boun
   assert.match(app, /id: `carrier:\$\{doc\.parent_document_id\}`/);
   assert.match(app, /既有父级讨论/);
   assert.match(app, /embeddedItem \? '汇编篇目'/);
+  assert.match(app, /name="parentId"/);
+  assert.match(app, /data-reply-comment/);
+  assert.match(app, /buildCommentThread\(data\.comments\)/);
+  assert.match(app, /body = Object\.fromEntries\(new FormData\(form\)\)/);
+});
+
+test('concept and ontology evidence links prefer embedded item identities', () => {
+  assert.match(app, /evidenceIdentityHref\(item\)/);
+  assert.equal((app.match(/evidenceIdentityHref\(item\)/g) || []).length, 2);
 });
 
 test('camera motion follows system preference and no redundant header controls remain', () => {

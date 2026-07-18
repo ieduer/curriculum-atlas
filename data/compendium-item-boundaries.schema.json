@@ -130,7 +130,7 @@
       "additionalProperties": false,
       "required": ["item_id", "sequence", "section", "item_kind", "parent_item_id", "raw_title", "title", "display_year", "year_basis", "toc_physical_page", "printed_page_start", "issuing_body", "candidate_physical_page_start", "candidate_physical_page_end", "toc_entry_sha256", "toc_entry_evidence", "body_heading", "online_verification", "page_evidence", "semantic_review", "identity_status", "display_allowed", "citation_allowed", "semantic_claim_allowed", "uncertainty_note"],
       "properties": {
-        "item_id": { "type": "string", "pattern": "^embedded:[a-z0-9-]+:item-\\d{3}$" },
+        "item_id": { "type": "string", "pattern": "^embedded:[a-z0-9-]+:[a-f0-9]{24}$" },
         "sequence": { "type": "integer", "minimum": 1 },
         "section": { "enum": ["小学", "中学", "综合"] },
         "item_kind": { "enum": ["curriculum_document", "attachment"] },

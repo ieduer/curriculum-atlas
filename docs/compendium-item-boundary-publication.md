@@ -24,6 +24,12 @@
 
 正文标题必须与目录标题经 NFKC 和受控空白规范化后相同。当前篇的末页只能是下一篇已核正文标题之前一页；末篇只能结束于 catalog 与 OCR queue 同时确认的源文件末页。附件有独立 item ID，并显式链接相邻同年父篇目。
 
+篇目 ID 不是目录序号。规范 ID 为 `embedded:<parent-document-id>:<24-hex>`，由父文档 ID、源文件 SHA-256 和 TOC entry receipt 计算；`sequence` 仅为展示排序。目录中插入新行或重排候选时，已有篇目、评论与深链接的 ID 不得随 ordinal 改写。当前 ledger 仍是 61 个导航候选，`display_allowed=0`、`citation_allowed=0`、`semantic_claim_allowed=0`，本次稳定 ID 迁移没有提升任何发布门。
+
+篇目引文的有效条件是 `paragraph ∧ page ∧ item`；普通文档是 `paragraph ∧ page ∧ document`。篇目 entitlement 不能把 `page.citation_allowed=0` 抬为 1，父载体 `document.citation_allowed=1` 也不能替代关闭的篇目门。`all_pages_citation_verified` 必须在构建时逐页检查，而不是只核对 page-set hash。
+
+Corpus successor 中仍被评论或保留段落引用的旧篇目必须转成 `closed_tombstone`；只有零引用旧篇目才能删除。Current-release API 不展示墓碑，但评论外键与稳定身份保留，为后续历史查看或同 ID 复活提供可审计基础。
+
 ## 运行顺序
 
 ```bash
@@ -37,3 +43,5 @@ node --test tests/compendium-item-boundaries.test.mjs tests/concept-evolution-ac
 先构建 corpus 是硬约束：篇目页集合包含当前 corpus release ID，旧 release 的人工记录不能继承到新正文。完整验证还会重新读取主 OCR、Vision witness 和页级发布门；校验后文件被替换、缺页、顺序变化、在线记录未解析或同版关系不成立时，构建直接失败。
 
 重新生成目录候选时必须显式提供源 SHA-256、总页数、印刷页到物理页偏移、目录页、OCR/witness 根目录、核对者与 UTC 时间，并把 `--output` 指向一个全新的审查路径。生成器使用排他创建，拒绝覆盖任何现有文件；候选输出会关闭所有正文、在线、引文和语义门，只能在逐项证据 diff 后受控合并，不能覆盖已审核记录。
+
+公开概念图 core evidence 必须保留 academic evidence 的 `embedded_item_id`。前端证据深链接优先进入篇目身份，仅在该字段为空时回退父文档，避免用户从篇目概念证据误跳到整卷载体。

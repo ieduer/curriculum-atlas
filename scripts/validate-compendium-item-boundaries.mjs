@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  compendiumStableItemId,
   compendiumTocEntryReceiptSha256,
   compendiumTocPageReceiptSha256,
   compendiumItemCitationEntitlementSha256,
@@ -170,7 +171,16 @@ export function validateCompendiumItemBoundaries(value, { catalog, queue, online
     add(errors, items.length > 0, 'items_empty', `${document.document_id} has no item candidates`);
     for (let index = 0; index < items.length; index += 1) {
       const item = items[index];
-      const expectedId = `embedded:${document.document_id}:item-${String(index + 1).padStart(3, '0')}`;
+      let expectedId = null;
+      try {
+        expectedId = compendiumStableItemId({
+          documentId: document.document_id,
+          sourceArtifactSha256: document.source_artifact_sha256,
+          tocEntryReceiptSha256: item?.toc_entry_sha256,
+        });
+      } catch {
+        expectedId = null;
+      }
       add(errors, exactKeys(item, [
         'item_id', 'sequence', 'section', 'item_kind', 'parent_item_id', 'raw_title', 'title',
         'display_year', 'year_basis', 'toc_physical_page', 'printed_page_start', 'issuing_body',
@@ -179,8 +189,8 @@ export function validateCompendiumItemBoundaries(value, { catalog, queue, online
         'body_heading', 'online_verification', 'page_evidence', 'semantic_review',
         'identity_status', 'display_allowed', 'citation_allowed', 'semantic_claim_allowed',
         'uncertainty_note',
-      ]), 'item_shape', `${item?.item_id || expectedId} keys are not canonical`);
-      add(errors, item.item_id === expectedId && !itemIds.has(item.item_id),
+      ]), 'item_shape', `${item?.item_id || expectedId || '<unknown>'} keys are not canonical`);
+      add(errors, expectedId !== null && item.item_id === expectedId && !itemIds.has(item.item_id),
         'item_id', `${item.item_id} is not the canonical unique identity`);
       itemIds.add(item.item_id);
       add(errors, item.sequence === index + 1, 'item_sequence', `${item.item_id} sequence drifted`);

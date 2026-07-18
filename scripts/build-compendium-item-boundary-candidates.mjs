@@ -5,6 +5,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  compendiumStableItemId,
   compendiumTocEntryReceiptSha256,
   compendiumTocPageReceiptSha256,
 } from './compendium-evidence-receipt.mjs';
@@ -119,8 +120,24 @@ export async function buildCompendiumBoundaryCandidates(options) {
         throw new Error(`attachment lacks an adjacent same-year parent: ${line}`);
       }
       const sequence = parsed.length + 1;
+      const entryReceiptSha256 = compendiumTocEntryReceiptSha256({
+        documentId: options.documentId,
+        sourceArtifactSha256: options.sourceSha256,
+        tocPageNumber: page.page_number,
+        tocPageEvidenceBundleSha256: page.evidence_bundle_sha256,
+        sourceLine: line,
+        section,
+        displayYear: lastYear,
+        rawTitle,
+        printedPageStart: printedStart,
+      });
+      const itemId = compendiumStableItemId({
+        documentId: options.documentId,
+        sourceArtifactSha256: options.sourceSha256,
+        tocEntryReceiptSha256: entryReceiptSha256,
+      });
       parsed.push({
-        item_id: `embedded:${options.documentId}:item-${String(sequence).padStart(3, '0')}`,
+        item_id: itemId,
         sequence,
         section,
         item_kind: attachment ? 'attachment' : 'curriculum_document',
@@ -137,17 +154,7 @@ export async function buildCompendiumBoundaryCandidates(options) {
           source_line: line,
           source_line_sha256: sha256(line),
           toc_page_evidence_bundle_sha256: page.evidence_bundle_sha256,
-          entry_receipt_sha256: compendiumTocEntryReceiptSha256({
-            documentId: options.documentId,
-            sourceArtifactSha256: options.sourceSha256,
-            tocPageNumber: page.page_number,
-            tocPageEvidenceBundleSha256: page.evidence_bundle_sha256,
-            sourceLine: line,
-            section,
-            displayYear: lastYear,
-            rawTitle,
-            printedPageStart: printedStart,
-          }),
+          entry_receipt_sha256: entryReceiptSha256,
         },
       });
     }

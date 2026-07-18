@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260718v18';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260718v19';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -6,8 +6,11 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260718v18';
-import { GraphShardStore } from './graph-loader.js?v=20260718v18';
+} from './subject-facets.js?v=20260718v19';
+import { GraphShardStore } from './graph-loader.js?v=20260718v19';
+import { loadAllDocumentIdentities } from './document-pagination.js?v=20260718v19';
+import { buildCommentThread, commentReplyTarget } from './comment-thread.js?v=20260718v19';
+import { evidenceIdentityHref } from './identity-links.js?v=20260718v19';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -107,14 +110,16 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const conceptGraph = await api('/data/concept-evolution.json?v=20260718v18');
+  const conceptGraph = await api('/data/concept-evolution.json?v=20260718v19');
   const [meta, documents, insights] = await Promise.all([
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
-    api('/api/documents?limit=200').catch(() => ({ documents: [] })),
+    loadAllDocumentIdentities(({ limit, cursor }) => api(
+      `/api/documents?limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+    )),
     api('/api/insights').catch(() => ({ insights: [] })),
   ]);
   state.meta = meta;
-  state.documents = documents.documents || [];
+  state.documents = documents;
   state.insights = insights.insights || [];
   if (conceptGraph.schema_version !== 1
     || !Array.isArray(conceptGraph.episodes)
@@ -349,7 +354,7 @@ function showConceptInspector(episode) {
   const entityLabel = episodeEntityLabel(episode);
   const entityKind = episodeCourseEntity(episode) ? '课程节点' : '学科概念';
   const evidenceHtml = records.map((item) => `<article class="concept-evidence ${item.citation_allowed ? '' : 'candidate'}">
-    ${item.citation_allowed ? `<a href="/document/${encodeURIComponent(item.document_id)}" data-link>${escapeHtml(item.document_title)}</a>` : `<b>${escapeHtml(item.document_title)}</b>`}
+    ${item.citation_allowed ? `<a href="${evidenceIdentityHref(item)}" data-link>${escapeHtml(item.document_title)}</a>` : `<b>${escapeHtml(item.document_title)}</b>`}
     <small>${escapeHtml(item.source_locator)} · ${escapeHtml(item.matched_surface)}${item.citation_allowed ? '' : ' · 不进入引文 AI'}</small>
     <p>${escapeHtml(item.snippet)}</p>
   </article>`).join('');
@@ -436,7 +441,7 @@ function showOntologyInspector(node) {
       return peer ? `<button type="button" data-ontology-node="${escapeHtml(peer.id)}"><span>${escapeHtml(ONTOLOGY_RELATION_LABELS[relation.type] || relation.type)}</span>${escapeHtml(peer.label)}</button>` : '';
     }).filter(Boolean).join('');
   const evidenceHtml = records.map((item) => `<article class="concept-evidence">
-    <a href="/document/${encodeURIComponent(item.document_id)}" data-link>${escapeHtml(item.document_title)}</a>
+    <a href="${evidenceIdentityHref(item)}" data-link>${escapeHtml(item.document_title)}</a>
     <small>${escapeHtml(item.source_locator)} · ${escapeHtml((item.section_path || []).join(' › '))}</small>
     <p>段落锚点：${escapeHtml((item.required_terms || []).join(' · '))}</p>
   </article>`).join('');
@@ -927,7 +932,28 @@ async function loadComments(documentId, embeddedItemId = null) {
   try {
     const embeddedScope = embeddedItemId ? `&embeddedItemId=${encodeURIComponent(embeddedItemId)}` : '';
     const data = await api(`/api/comments?documentId=${encodeURIComponent(documentId)}${embeddedScope}`);
-    root.innerHTML = data.comments.length ? data.comments.map((item) => `<article class="comment-row"><h3>${escapeHtml(item.author_name)}</h3><header>${new Date(`${item.created_at}Z`).toLocaleString('zh-CN')}</header><p>${escapeHtml(item.body)}</p></article>`).join('') : '<div class="empty-state">尚无公开讨论。第一条判断也应说明所据版本或条文。</div>';
+    const byId = new Map(data.comments.map((item) => [item.id, item]));
+    const renderNodes = (nodes, depth = 0) => nodes.map((item) => `<article class="comment-row" data-depth="${Math.min(depth, 6)}">
+      <h3>${escapeHtml(item.author_name)}</h3>
+      <header>${new Date(`${item.created_at}Z`).toLocaleString('zh-CN')}</header>
+      <p>${escapeHtml(item.body)}</p>
+      <button class="comment-reply" type="button" data-reply-comment="${escapeHtml(item.id)}">回复</button>
+      ${item.children.length ? `<div class="comment-children">${renderNodes(item.children, depth + 1)}</div>` : ''}
+    </article>`).join('');
+    root.innerHTML = data.comments.length
+      ? renderNodes(buildCommentThread(data.comments))
+      : '<div class="empty-state">尚无公开讨论。第一条判断也应说明所据版本或条文。</div>';
+    root.querySelectorAll('[data-reply-comment]').forEach((button) => button.addEventListener('click', () => {
+      const comment = byId.get(button.dataset.replyComment);
+      const form = document.querySelector('#comment-form');
+      const panel = document.querySelector('#reply-target');
+      if (!comment || !form || !panel) return;
+      const target = commentReplyTarget(comment);
+      form.elements.parentId.value = target.parentId;
+      panel.querySelector('span').textContent = `回复：${target.label.slice(0, 48)}`;
+      panel.hidden = false;
+      form.elements.body.focus();
+    }));
   } catch (error) {
     root.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
   }
@@ -964,7 +990,7 @@ async function renderDiscussions(url) {
   const selectedScopeId = embeddedItemId
     || (requestedIdentity?.identity_kind !== 'embedded_item' ? requestedIdentity?.id : '')
     || (documentId ? `carrier:${documentId}` : '');
-  workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>围绕同一证据讨论</h2><p>统一登录内容直接公开；匿名内容经 Turnstile 后进入审核。不要写入学生个人信息。</p><form class="work-form" id="discussion-picker"><label for="discussion-document">资料</label><select id="discussion-document" name="identityId">${discussionDocs.map((doc) => `<option value="${escapeHtml(doc.id)}" ${doc.id === selectedScopeId ? 'selected' : ''}>${escapeHtml(doc.sort_year)} · ${escapeHtml(doc.title)}</option>`).join('')}</select><button class="work-button secondary" type="submit">切换讨论</button></form><form class="work-form" id="comment-form"><h2>提交讨论</h2>${me.authenticated ? `<p>以 ${escapeHtml(me.user.display_name || me.user.slug)} 发布。</p>` : '<label for="author-name">署名</label><input id="author-name" name="authorName" maxlength="40" value="匿名教师">'}<label for="comment-body">内容</label><textarea id="comment-body" name="body" rows="6" minlength="8" maxlength="2000" required></textarea><div class="turnstile-slot" id="turnstile-box"></div><button class="work-button" type="submit">${me.authenticated ? '发布讨论' : '提交审核'}</button></form></aside><main class="workspace-main"><h2>教师讨论</h2><div class="comment-list" id="comment-list"><div class="empty-state">正在加载…</div></div></main></div>`;
+  workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>围绕同一证据讨论</h2><p>统一登录内容直接公开；匿名内容经 Turnstile 后进入审核。不要写入学生个人信息。</p><form class="work-form" id="discussion-picker"><label for="discussion-document">资料</label><select id="discussion-document" name="identityId">${discussionDocs.map((doc) => `<option value="${escapeHtml(doc.id)}" ${doc.id === selectedScopeId ? 'selected' : ''}>${escapeHtml(doc.sort_year)} · ${escapeHtml(doc.title)}</option>`).join('')}</select><button class="work-button secondary" type="submit">切换讨论</button></form><form class="work-form" id="comment-form"><h2>提交讨论</h2>${me.authenticated ? `<p>以 ${escapeHtml(me.user.display_name || me.user.slug)} 发布。</p>` : '<label for="author-name">署名</label><input id="author-name" name="authorName" maxlength="40" value="匿名教师">'}<input type="hidden" name="parentId" value=""><p class="reply-target" id="reply-target" hidden><span></span><button type="button" data-cancel-reply>取消回复</button></p><label for="comment-body">内容</label><textarea id="comment-body" name="body" rows="6" minlength="8" maxlength="2000" required></textarea><div class="turnstile-slot" id="turnstile-box"></div><button class="work-button" type="submit">${me.authenticated ? '发布讨论' : '提交审核'}</button></form></aside><main class="workspace-main"><h2>教师讨论</h2><div class="comment-list" id="comment-list"><div class="empty-state">正在加载…</div></div></main></div>`;
   document.querySelector('#discussion-picker').addEventListener('submit', (event) => {
     event.preventDefault();
     const identity = discussionDocs.find((doc) => doc.id === new FormData(event.currentTarget).get('identityId'));
@@ -975,10 +1001,15 @@ async function renderDiscussions(url) {
   let turnstileToken = '';
   if (!me.authenticated) setupTurnstile(document.querySelector('#turnstile-box'), (token) => { turnstileToken = token; });
   else document.querySelector('#turnstile-box').remove();
+  document.querySelector('[data-cancel-reply]').addEventListener('click', () => {
+    const form = document.querySelector('#comment-form');
+    form.elements.parentId.value = '';
+    document.querySelector('#reply-target').hidden = true;
+  });
   document.querySelector('#comment-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
-    const button = form.querySelector('button');
+    const button = form.querySelector('button[type="submit"]');
     button.disabled = true;
     try {
       const body = Object.fromEntries(new FormData(form));
@@ -990,6 +1021,8 @@ async function renderDiscussions(url) {
       if (result.status === 'approved') await loadComments(documentId, embeddedItemId);
       else window.turnstile?.reset();
       form.querySelector('textarea').value = '';
+      form.elements.parentId.value = '';
+      document.querySelector('#reply-target').hidden = true;
     } catch (error) {
       toast(error.message);
       window.turnstile?.reset();

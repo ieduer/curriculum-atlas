@@ -79,6 +79,7 @@ test('candidate boundaries fail closed under identity, range, or publication dri
     ['source hash', (value) => { value.documents[0].source_artifact_sha256 = '0'.repeat(64); }, /catalog_identity|queue_identity/],
     ['canonical title', (value) => { value.documents[0].items[0].title = '伪造标题'; }, /item_title_normalization/],
     ['TOC entry hash', (value) => { value.documents[0].items[0].raw_title = '伪造标题'; }, /item_title_normalization|item_toc_hash/],
+    ['malformed TOC receipt', (value) => { value.documents[0].items[0].toc_entry_sha256 = null; }, /item_id|item_toc_receipt/],
     ['printed mapping', (value) => { value.documents[0].items[0].candidate_physical_page_start += 1; }, /item_start_mapping|item_candidate_end/],
     ['candidate end', (value) => { value.documents[0].items[0].candidate_physical_page_end += 1; }, /item_candidate_end/],
     ['attachment parent', (value) => { value.documents[0].items[24].parent_item_id = value.documents[0].items[0].item_id; }, /attachment_parent/],
@@ -360,7 +361,16 @@ test('full-item publication binds every ordered page to the current corpus relea
     documentBoundary, item, boundPages, rawPages, currentPagePublicationReleaseId: `page-gate-${'d'.repeat(24)}`,
   }), /page evidence is stale/);
   const citationItem = copy(item);
+  const citationPages = boundPages.map((page) => ({ ...page, citation_allowed: true }));
   citationItem.page_evidence.verification_status = 'all_pages_citation_verified';
+  citationItem.page_evidence.page_set_sha256 = compendiumPageSetSha256({
+    documentId: documentBoundary.document_id,
+    sourceArtifactSha256: documentBoundary.source_artifact_sha256,
+    pagePublicationReleaseId: releaseId,
+    physicalPageStart: 17,
+    physicalPageEnd: 18,
+    pages: citationPages,
+  });
   citationItem.online_verification = {
     verification_status: 'same_edition_exact_text_verified',
     primary_item_text_sha256: digest(rawPages.join('\f')),
@@ -377,7 +387,7 @@ test('full-item publication binds every ordered page to the current corpus relea
     onlineSourceIds: citationItem.online_verification.source_ids,
   });
   const citationResult = verifyCompendiumItemPageEvidence({
-    documentBoundary, item: citationItem, boundPages, rawPages, currentPagePublicationReleaseId: releaseId,
+    documentBoundary, item: citationItem, boundPages: citationPages, rawPages, currentPagePublicationReleaseId: releaseId,
   });
   assert.match(citationResult.item_citation_entitlement_sha256, /^[a-f0-9]{64}$/);
   const staleOnlineItem = copy(item);

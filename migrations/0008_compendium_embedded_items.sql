@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS embedded_items (
   physical_page_end INTEGER NOT NULL CHECK (physical_page_end >= physical_page_start),
   printed_page_start INTEGER NOT NULL CHECK (printed_page_start > 0),
   issuing_body TEXT,
-  identity_status TEXT NOT NULL CHECK (identity_status = 'verified_full_item'),
+  identity_status TEXT NOT NULL CHECK (identity_status IN ('verified_full_item', 'closed_tombstone')),
   page_publication_release_id TEXT NOT NULL,
   page_set_sha256 TEXT NOT NULL CHECK (length(page_set_sha256) = 64),
   item_citation_entitlement_sha256 TEXT CHECK (
@@ -23,14 +23,24 @@ CREATE TABLE IF NOT EXISTS embedded_items (
   online_source_ids_json TEXT NOT NULL CHECK (
     json_valid(online_source_ids_json) AND json_type(online_source_ids_json) = 'array'
   ),
-  display_allowed INTEGER NOT NULL CHECK (display_allowed = 1),
+  display_allowed INTEGER NOT NULL CHECK (display_allowed IN (0, 1)),
   citation_allowed INTEGER NOT NULL CHECK (citation_allowed IN (0, 1)),
   semantic_claim_allowed INTEGER NOT NULL CHECK (semantic_claim_allowed IN (0, 1)),
   uncertainty_note TEXT,
   corpus_release_id TEXT NOT NULL,
-  UNIQUE(parent_document_id, sequence),
+  UNIQUE(parent_document_id, corpus_release_id, sequence),
   CHECK (citation_allowed <= display_allowed),
   CHECK (semantic_claim_allowed <= citation_allowed),
+  CHECK (
+    (identity_status = 'verified_full_item' AND display_allowed = 1)
+    OR (
+      identity_status = 'closed_tombstone'
+      AND display_allowed = 0
+      AND citation_allowed = 0
+      AND semantic_claim_allowed = 0
+      AND item_citation_entitlement_sha256 IS NULL
+    )
+  ),
   CHECK (
     (citation_allowed = 0 AND item_citation_entitlement_sha256 IS NULL)
     OR (
