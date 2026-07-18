@@ -1,0 +1,29 @@
+[Unit]
+Description=Curriculum Atlas fail-closed A-r2 timeout-recovery OCR monitor
+After=default.target
+
+[Service]
+Type=oneshot
+UMask=0077
+WorkingDirectory=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2
+EnvironmentFile=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2/a1-anchors.env
+ExecStartPre=/usr/bin/test -d /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2
+ExecStartPre=/usr/bin/test -d /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p4-mb16-shard-a-r1
+ExecStartPre=/usr/bin/test -d /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2
+ExecStartPre=/usr/bin/test -d /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/monitor-a-r2
+ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2/a1-anchors.env
+ExecStartPre=/usr/bin/sha256sum --check --strict /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2/SHA256SUMS
+ExecStart=/usr/bin/node /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2/scripts/monitor-remote-ocr-single-shard.mjs --run-root /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess --predecessor-output output/production-p4-mb16-shard-a-r1 --successor-output output/production-p1-mb16-shard-a-r2 --output-dir /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/monitor-a-r2 --worker-unit curriculum-ocr-reprocess-a-r2.service --old-worker-unit a=curriculum-ocr-reprocess@a.service --old-worker-unit b=curriculum-ocr-reprocess@b.service --inactive-worker-unit b-r2=curriculum-ocr-reprocess-b-r2.service --inactive-worker-unit b-r3=curriculum-ocr-reprocess-b-r3.service --inactive-worker-unit llama-p1-canary=curriculum-ocr-llama-p1-canary.service --llama-unit curriculum-ocr-llama.service --llama-health-url http://127.0.0.1:8112/health --b1-identity-sha256 ${BDFZ_OCR_A1_IDENTITY_SHA256} --b1-run-status-sha256 ${BDFZ_OCR_A1_RUN_STATUS_SHA256} --b1-state-hashset-sha256 ${BDFZ_OCR_A1_STATE_HASHSET_SHA256} --b1-status-hashset-sha256 ${BDFZ_OCR_A1_STATUS_HASHSET_SHA256} --b1-artifact-hashset-sha256 ${BDFZ_OCR_A1_ARTIFACT_HASHSET_SHA256} --stall-seconds 1500 --disk-min-gib 50 --memory-min-gib 1 --gpu-max-c 85
+SuccessExitStatus=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadOnlyPaths=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess
+ReadWritePaths=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/monitor-a-r2
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
