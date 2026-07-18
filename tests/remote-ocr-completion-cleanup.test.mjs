@@ -458,6 +458,7 @@ test('systemd template holds the complete lifecycle under one bounded no-fork fl
   assert.match(service, /^Restart=no$/mu);
   assert.match(service, /^ProtectHome=read-only$/mu);
   assert.match(service, /^ReadWritePaths=%h\/\.config\/systemd\/user\/default\.target\.wants$/mu);
+  assert.match(service, /^ReadWritePaths=%h\/curriculum-ocr-offload\/runs\/20260716T1520Z-partial14-reprocess\/\.b3-lifecycle\.lock$/mu);
   assert.doesNotMatch(`${service}\n${config}`, /(?:PASSWORD|TOKEN|COOKIE|\.secrets\.env)/iu);
   assert.match(config, /^BDFZ_OCR_B3_CLEANUP_SCRIPT=\/home\/suen\/curriculum-ocr-offload\/runs\/20260716T1520Z-partial14-reprocess\/workspace-b-r3\/scripts\/cleanup-remote-ocr-completion\.mjs$/mu);
   assert.match(config, /^BDFZ_OCR_B3_OUTPUT_ROOT=\/home\/suen\/curriculum-ocr-offload\/runs\/20260716T1520Z-partial14-reprocess\/output\/production-p1-mb16-shard-b-r3$/mu);

@@ -28,6 +28,7 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=%h/.config/systemd/user/default.target.wants
+ReadWritePaths=%h/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/.b3-lifecycle.lock
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
