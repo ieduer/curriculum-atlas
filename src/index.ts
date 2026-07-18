@@ -2,6 +2,7 @@ import { answerWithEvidence } from './ai';
 import { getSession, requireAdmin, requireAuthenticated } from './auth';
 import { clampInt, HttpError, json, readJson, requireSameOrigin, secureHeaders, textParam } from './http';
 import { retrieve } from './retrieval';
+import { handleReleaseCoordinator } from './release-coordinator';
 import { enforceRateLimit, verifyTurnstile } from './security';
 import type { Env, Session } from './types';
 
@@ -92,12 +93,13 @@ interface CorpusReleaseStatus {
 }
 
 interface R2ReleasePointer {
-  schema_version: 1;
+  schema_version: 1 | 2;
   release_id: string;
   release_manifest_key: string;
   release_manifest_sha256: string;
   release_manifest_bytes: number;
   managed_object_count: number;
+  fence?: number;
 }
 
 interface R2ReleaseAsset {
@@ -281,7 +283,7 @@ async function health(env: Env): Promise<Response> {
       sourceTreeSha256: releaseSourceReady ? env.RELEASE_SOURCE_TREE_SHA256 : null,
       corpusReleaseId: releaseSourceReady ? env.CORPUS_RELEASE_ID : null,
       corpusManifestSha256: releaseSourceReady ? env.CORPUS_MANIFEST_SHA256 : null,
-      r2Reader: 'versioned_manifest_v1',
+      r2Reader: 'versioned_manifest_v2_fenced',
     },
     schemaVersion: schemaMeta.get('schema_version') || null,
     classificationSchemaVersion: schemaMeta.get('document_classification_schema_version') || null,
@@ -692,7 +694,7 @@ function positiveSafeInteger(value: unknown): value is number {
 function parseReleasePointer(bytes: ArrayBuffer): R2ReleasePointer {
   const value = parseReleaseJson(bytes) as Partial<R2ReleasePointer> | null;
   if (!value || typeof value !== 'object'
-    || value.schema_version !== 1
+    || (value.schema_version !== 1 && value.schema_version !== 2)
     || typeof value.release_id !== 'string'
     || !R2_RELEASE_ID_PATTERN.test(value.release_id)
     || typeof value.release_manifest_key !== 'string'
@@ -700,7 +702,8 @@ function parseReleasePointer(bytes: ArrayBuffer): R2ReleasePointer {
     || typeof value.release_manifest_sha256 !== 'string'
     || !SHA256_PATTERN.test(value.release_manifest_sha256)
     || !positiveSafeInteger(value.release_manifest_bytes)
-    || !positiveSafeInteger(value.managed_object_count)) {
+    || !positiveSafeInteger(value.managed_object_count)
+    || (value.schema_version === 2 && !positiveSafeInteger(value.fence))) {
     return sourceManifestFailure();
   }
   return value as R2ReleasePointer;
@@ -756,11 +759,13 @@ async function sourceManifest(env: Env): Promise<Response> {
   );
   await requireSha256(releaseManifestBytes, pointer.release_manifest_sha256);
   const releaseManifest = parseReleaseJson(releaseManifestBytes) as {
+    manifest_contract?: unknown;
     schema_version?: unknown;
     release_id?: unknown;
     r2?: { release_prefix?: unknown; release_manifest_key?: unknown; objects?: unknown };
   };
   if (releaseManifest.schema_version !== 1
+    || (pointer.schema_version === 2 && releaseManifest.manifest_contract !== 'curriculum_desired_release_v2')
     || releaseManifest.release_id !== pointer.release_id
     || releaseManifest.r2?.release_prefix !== R2_RELEASE_PREFIX
     || releaseManifest.r2?.release_manifest_key !== pointer.release_manifest_key
@@ -793,6 +798,7 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
   const method = request.method;
   if (method === 'OPTIONS') return new Response(null, { status: 204, headers: { allow: 'GET, POST, PATCH, OPTIONS' } });
   if (pathname === '/api/health' && method === 'GET') return health(env);
+  if (pathname === '/api/admin/release-coordinate') return handleReleaseCoordinator(request, env);
   if (pathname === '/api/me' && method === 'GET') return me(request, env);
   await requireCorpusReady(env);
   if (pathname === '/api/meta' && method === 'GET') return meta(env);

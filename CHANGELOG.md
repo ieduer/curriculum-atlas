@@ -2,6 +2,14 @@
 
 本项目遵循日期化发布记录；生产资源的精确版本、验证证据与回滚锚点另见 `docs/operations.md` 和本机 canonical operations report。
 
+## 2026-07-18 — fenced publication v2（未部署）
+
+- 新增唯一 `curriculum_desired_release_v2` artifact：从 clean、upstream-exact Git HEAD 的 blob 构建 `dist`，并让 Worker 变量、corpus、R2 manifest 与环境证据共享同一组 Git/release/source-tree/corpus pin；观测时间、health、pointer 与治理回执不进入 release identity。
+- 新增 `0008_release_ownership_fences.sql`，为 corpus import 与 R2 publication 分别提供 owner token、单调 fence、expiry takeover；所有 start/resume/chunk/failure/finalize/renew 路径均由 live owner/fence 保护，首次导入前保存未经改写的 D1 Time Travel receipt。
+- Corpus importer 现在一次封存完整 builder inputs、text assets、manifest 与 SQL；chunk 数据和 receipt 在同一个 guarded batch 中提交，接管后旧 owner 不可继续写入。
+- R2 只允许 authenticated Worker coordinator 写入：immutable objects 使用 `If-None-Match: *`，pointer 使用 predecessor ETag 的 `If-Match`，激活前分页核对完整 prefix 与逐对象 body/hash/bytes/metadata；legacy schema-1 predecessor 只能以精确 manifest body hash/bytes 接管。
+- 新增真实 SQLite 全迁移、Miniflare D1/R2、Wrangler dry-run、Git/worktree race 与 publisher sealed-byte 回归。该条仅记录本地源码能力；preview/production 在应用 `0008`、安装 secret、部署并完成 live verification 前仍是 legacy v10 状态。
+
 ## 2026-07-17 — v10 taxonomy / corpus / R2 发布
 
 - Preview 与 production D1 均已应用 `0001`–`0007`，运行全局 schema 3、taxonomy schema 2、page publication schema 1；Worker 均升级为 `2026.07.16-v10`。

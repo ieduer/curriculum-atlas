@@ -2,13 +2,18 @@
 
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { readdir, readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { CORE_TABLE_COUNT_KEYS } from './import-corpus.mjs';
+import {
+  desiredReleasePin,
+  parseDesiredReleaseManifestArtifact,
+} from './lib/desired-release-manifest.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
-const DEFAULT_OUTPUT = 'data/release-environment-evidence.json';
+const DEFAULT_OUTPUT = '.wrangler/release-environment-evidence.json';
+const DEFAULT_MANIFEST = '.wrangler/release-manifest.json';
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const UUID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const ASSET_PATHS = [
@@ -37,6 +42,16 @@ const ENVIRONMENTS = {
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function projectRelativePath(root, value, label) {
+  const projectRoot = resolve(root);
+  const target = resolve(projectRoot, String(value || ''));
+  const relation = relative(projectRoot, target);
+  if (!value || relation === '..' || relation.startsWith(`..${sep}`) || isAbsolute(relation)) {
+    throw new Error(`${label} must remain inside the project root`);
+  }
+  return target;
 }
 
 function assertGitCommitExists(root, value, label) {
@@ -93,7 +108,9 @@ function validateCorpus(value, label) {
 }
 
 export function validateEnvironmentEvidenceReceipt(value) {
-  if (value?.schema_version !== 1 || value?.contract !== 'curriculum_release_environment_evidence_v1') {
+  const legacy = value?.schema_version === 1 && value?.contract === 'curriculum_release_environment_evidence_v1';
+  const current = value?.schema_version === 2 && value?.contract === 'curriculum_release_environment_evidence_v2';
+  if (!legacy && !current) {
     throw new Error('unsupported release environment evidence receipt');
   }
   if (value.generated_by !== 'scripts/collect-release-environment-evidence.mjs') {
@@ -119,6 +136,19 @@ export function validateEnvironmentEvidenceReceipt(value) {
       throw new Error(`${name} health evidence is invalid`);
     }
     validateCorpus(environment.corpus, name);
+    if (current) {
+      const desired = value.desired_release;
+      if (!desired || environment.asset_git_commit !== desired.git_head
+          || stableStringify(environment.desired_release) !== stableStringify(desired)
+          || environment.health?.release_git_commit !== desired.git_head
+          || environment.health?.release_id !== desired.release_id
+          || environment.health?.release_manifest_sha256 !== desired.release_manifest_sha256
+          || environment.health?.release_source_tree_sha256 !== desired.source_tree_sha256
+          || environment.health?.corpus_release_id !== desired.corpus_release_id
+          || environment.health?.corpus_manifest_sha256 !== desired.corpus_manifest_sha256) {
+        throw new Error(`${name} environment evidence does not pin the complete desired release`);
+      }
+    }
     if (!Array.isArray(environment.command_receipts)
       || environment.command_receipts.some((receipt) => receipt.exit_code !== 0
         || !SHA256_PATTERN.test(receipt.stdout_sha256)
@@ -170,6 +200,38 @@ async function fetchBytes(url) {
   return { response, bytes };
 }
 
+async function fetchCoordinatorPointer(config, coordinatorToken) {
+  if (!coordinatorToken) throw new Error('CURRICULUM_RELEASE_COORDINATOR_TOKEN is required');
+  const url = `${config.base_url}/api/admin/release-coordinate?operation=inspect-pointer`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${coordinatorToken}`,
+      'cache-control': 'no-store',
+    },
+  });
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (!response.ok) throw new Error(`release coordinator pointer inspection failed HTTP ${response.status}`);
+  let value;
+  try {
+    value = JSON.parse(bytes.toString('utf8'));
+  } catch (error) {
+    throw new Error(`release coordinator pointer inspection is not JSON: ${error.message}`);
+  }
+  return {
+    value,
+    receipt: {
+      id: 'release_coordinator_pointer',
+      command: `POST ${url}`,
+      exit_code: 0,
+      stdout_sha256: sha256(bytes),
+      stdout_bytes: bytes.length,
+      stderr_sha256: sha256(Buffer.alloc(0)),
+      stderr_bytes: 0,
+    },
+  };
+}
+
 function normalizeCorpus(health) {
   const corpus = health?.corpus;
   if (!corpus?.ready || !corpus.releaseId || !corpus.releaseFingerprintSha256
@@ -204,7 +266,7 @@ function normalizeCorpus(health) {
   };
 }
 
-async function collectEnvironment(root, name, assetCommit, observedAt) {
+async function collectEnvironment(root, name, assetCommit, observedAt, desiredRelease, coordinatorToken) {
   const config = ENVIRONMENTS[name];
   if (!config) throw new Error(`unsupported environment: ${name}`);
   assertGitCommitExists(root, assetCommit, `${name} asset commit`);
@@ -261,36 +323,23 @@ async function collectEnvironment(root, name, assetCommit, observedAt) {
     assets.push({ path, sha256: sha256(live.bytes), bytes: live.bytes.length });
   }
 
-  let pointer = { exists: false };
-  const pointerArguments = [
-    'r2', 'object', 'get', `${config.bucket}/release/current.json`, '--pipe', '--remote',
-  ];
-  const pointerResult = spawnSync('npx', ['--no-install', 'wrangler', ...pointerArguments], {
-    cwd: root, encoding: null, maxBuffer: 64 * 1024 * 1024,
-  });
-  if (pointerResult.status === 0) {
-    const bytes = Buffer.from(pointerResult.stdout || '');
-    const parsed = JSON.parse(bytes.toString('utf8'));
-    pointer = {
-      exists: true,
-      sha256: sha256(bytes),
-      bytes: bytes.length,
-      release_id: parsed.release_id,
-      release_manifest_key: parsed.release_manifest_key,
-    };
-    commandReceipts.push(commandReceipt('r2_current_pointer', pointerArguments, pointerResult));
-  } else {
-    const stderr = Buffer.from(pointerResult.stderr || '').toString('utf8');
-    if (!/(?:NoSuchKey|does not exist|not found|404|10007)/i.test(stderr)) {
-      throw new Error(`${name} R2 pointer read failed: ${stderr.trim().slice(0, 2000)}`);
-    }
-    const missingReceipt = commandReceipt('r2_current_pointer_absent', pointerArguments, pointerResult);
-    commandReceipts.push({ ...missingReceipt, exit_code: 0, observed_remote_absence: true });
-  }
+  const pointerInspection = await fetchCoordinatorPointer(config, coordinatorToken);
+  const pointer = pointerInspection.value;
+  commandReceipts.push(pointerInspection.receipt);
 
   const healthGitCommit = health.release?.gitCommit || null;
   if (healthGitCommit !== null && healthGitCommit !== assetCommit) {
     throw new Error(`${name} health Git commit ${healthGitCommit} differs from asset commit ${assetCommit}`);
+  }
+  for (const [field, actual] of [
+    ['release_id', health.release?.releaseId],
+    ['release_manifest_sha256', health.release?.releaseManifestSha256],
+    ['source_tree_sha256', health.release?.sourceTreeSha256],
+    ['corpus_release_id', health.release?.corpusReleaseId],
+    ['corpus_manifest_sha256', health.release?.corpusManifestSha256],
+  ]) {
+    const expected = desiredRelease[field];
+    if (actual !== expected) throw new Error(`${name} health ${field} differs from desired release`);
   }
   return {
     environment: name,
@@ -300,6 +349,7 @@ async function collectEnvironment(root, name, assetCommit, observedAt) {
     deployment_id: deploymentJson.id,
     deployment_created_on: deploymentJson.created_on,
     asset_git_commit: assetCommit,
+    desired_release: desiredRelease,
     asset_parity: { valid: true, method: 'five_live_assets_byte_equal_git_commit', assets },
     applied_migrations: appliedMigrations,
     pending_migrations: pendingMigrations,
@@ -328,16 +378,21 @@ export async function collectReleaseEnvironmentEvidence({
   root = DEFAULT_ROOT,
   output = DEFAULT_OUTPUT,
   environment,
-  assetCommit,
+  manifestPath = DEFAULT_MANIFEST,
+  assetCommit = null,
   observedAt = new Date().toISOString(),
+  coordinatorToken = process.env.CURRICULUM_RELEASE_COORDINATOR_TOKEN,
 } = {}) {
   if (!ENVIRONMENTS[environment]) throw new Error('--environment must be preview or production');
-  if (!assetCommit) {
-    const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' });
-    if (head.status !== 0) throw new Error('cannot resolve the current Git HEAD');
-    assetCommit = head.stdout.trim();
+  const artifact = parseDesiredReleaseManifestArtifact(await readFile(
+    projectRelativePath(root, manifestPath, 'desired release manifest'),
+  ));
+  const desiredRelease = desiredReleasePin(artifact);
+  if (assetCommit && assetCommit !== desiredRelease.git_head) {
+    throw new Error('--asset-commit must equal the desired release manifest Git HEAD');
   }
-  const outputPath = resolve(root, output);
+  assetCommit = desiredRelease.git_head;
+  const outputPath = projectRelativePath(root, output, 'release environment evidence output');
   let previous = null;
   try {
     previous = validateEnvironmentEvidenceReceipt(JSON.parse(await readFile(outputPath, 'utf8')));
@@ -345,27 +400,35 @@ export async function collectReleaseEnvironmentEvidence({
     if (error?.code !== 'ENOENT') throw error;
   }
   const environments = {
-    preview: previous?.environments?.preview || null,
-    production: previous?.environments?.production || null,
-    [environment]: await collectEnvironment(resolve(root), environment, assetCommit, observedAt),
+    preview: previous?.desired_release
+      && stableStringify(previous.desired_release) === stableStringify(desiredRelease)
+      ? previous.environments?.preview || null : null,
+    production: previous?.desired_release
+      && stableStringify(previous.desired_release) === stableStringify(desiredRelease)
+      ? previous.environments?.production || null : null,
+    [environment]: await collectEnvironment(
+      resolve(root), environment, assetCommit, observedAt, desiredRelease, coordinatorToken,
+    ),
   };
   const receipt = {
-    schema_version: 1,
-    contract: 'curriculum_release_environment_evidence_v1',
+    schema_version: 2,
+    contract: 'curriculum_release_environment_evidence_v2',
     generated_by: 'scripts/collect-release-environment-evidence.mjs',
     observed_at: observedAt,
+    desired_release: desiredRelease,
     environments,
   };
   const complete = validateEnvironmentEvidenceReceipt({
     ...receipt,
     receipt_sha256: sha256(stableStringify(receipt)),
   });
+  await mkdir(dirname(outputPath), { recursive: true, mode: 0o700 });
   await writeFile(outputPath, `${JSON.stringify(complete, null, 2)}\n`, 'utf8');
   return complete;
 }
 
 function parseArgs(argv) {
-  const result = { root: DEFAULT_ROOT, output: DEFAULT_OUTPUT };
+  const result = { root: DEFAULT_ROOT, output: DEFAULT_OUTPUT, manifestPath: DEFAULT_MANIFEST };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     const value = argv[index + 1];
@@ -374,6 +437,7 @@ function parseArgs(argv) {
     else if (key === '--asset-commit') result.assetCommit = value;
     else if (key === '--root') result.root = value;
     else if (key === '--output') result.output = value;
+    else if (key === '--manifest') result.manifestPath = value;
     else throw new Error(`unexpected argument: ${key}`);
     index += 1;
   }

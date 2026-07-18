@@ -13,6 +13,7 @@ import {
   validateCorpusManifestSourceBindings,
 } from './import-corpus.mjs';
 import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
+import { desiredReleaseManifestArtifact } from './lib/desired-release-manifest.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const DEFAULT_POLICY = 'data/release-assets-policy.json';
@@ -367,8 +368,8 @@ async function validateR2PolicyCoverage(root, policy) {
 
 function validatePublicationCoordination(policy) {
   const coordination = policy.r2?.publication_coordination;
-  if (!coordination || coordination.policy !== 'd1_single_writer_lease_v1') {
-    throw new Error('r2 publication coordination must use d1_single_writer_lease_v1');
+  if (!coordination || coordination.policy !== 'd1_fenced_r2_binding_v2') {
+    throw new Error('r2 publication coordination must use d1_fenced_r2_binding_v2');
   }
   const leaseKey = String(coordination.lease_key || '');
   if (!/^[a-z0-9][a-z0-9_:-]{2,127}$/.test(leaseKey)) {
@@ -380,20 +381,36 @@ function validatePublicationCoordination(policy) {
   }
   const bucketEnvironments = Object.keys(policy.r2?.buckets || {}).sort();
   const databaseEnvironments = Object.keys(coordination.databases || {}).sort();
+  const coordinatorEnvironments = Object.keys(coordination.coordinator_urls || {}).sort();
   assertExactSet(bucketEnvironments, databaseEnvironments, 'r2 publication coordination environment coverage');
+  assertExactSet(bucketEnvironments, coordinatorEnvironments, 'r2 coordinator environment coverage');
   const databases = {};
+  const coordinatorUrls = {};
   for (const environment of bucketEnvironments) {
     const database = String(coordination.databases[environment] || '');
     if (!/^[a-z0-9][a-z0-9-]{2,127}$/.test(database)) {
       throw new Error(`r2 publication coordination database is invalid for ${environment}`);
     }
     databases[environment] = database;
+    const coordinatorUrl = String(coordination.coordinator_urls[environment] || '');
+    let parsed;
+    try {
+      parsed = new URL(coordinatorUrl);
+    } catch {
+      throw new Error(`r2 publication coordinator URL is invalid for ${environment}`);
+    }
+    if (parsed.protocol !== 'https:' || parsed.pathname !== '/api/admin/release-coordinate'
+        || parsed.search || parsed.hash) {
+      throw new Error(`r2 publication coordinator URL is not canonical for ${environment}`);
+    }
+    coordinatorUrls[environment] = parsed.href;
   }
   return {
     policy: coordination.policy,
     lease_key: leaseKey,
     lease_ttl_seconds: ttl,
     databases,
+    coordinator_urls: coordinatorUrls,
   };
 }
 
@@ -538,31 +555,14 @@ function sameCorpusRelease(observed, expected) {
   return stableStringify(observed.counts) === stableStringify(expected.counts);
 }
 
-function downloadsReceiptIdentity(receipt) {
-  const { age_hours: _ageHours, fresh: _fresh, ...stable } = receipt;
-  return stable;
-}
-
-function environmentSnapshotIdentity(snapshot) {
-  return {
-    ...snapshot,
-    environments: Object.fromEntries(Object.entries(snapshot.environments).map(([name, environment]) => {
-      const {
-        evidence_age_hours: _evidenceAgeHours,
-        evidence_fresh: _evidenceFresh,
-        release_blockers: blockers = [],
-        ...stableEnvironment
-      } = environment;
-      return [name, {
-        ...stableEnvironment,
-        release_blockers: blockers.filter((blocker) => blocker.code !== 'environment_evidence_stale'),
-      }];
-    })),
-  };
+function pageEvidenceIdentity(pageEvidence) {
+  const { renderer_identity: _rendererIdentity, ...sourceBound } = pageEvidence || {};
+  return sourceBound;
 }
 
 export function corpusReleaseIdentity(corpusRelease) {
-  return corpusRelease;
+  const { generated_at: _generatedAt, ...stable } = corpusRelease;
+  return stable;
 }
 
 export function releaseIdFromIdentity(releaseIdentity) {
@@ -736,15 +736,20 @@ function verifyCrossAssetIntegrity(dataByRole, graphByRole) {
 
 export async function buildReleaseManifest({
   root = DEFAULT_ROOT,
+  repositoryRoot = root,
   policyPath = DEFAULT_POLICY,
   generatedAt = new Date().toISOString(),
   pageEvidencePromotion = false,
   rendererPath = null,
   projectAssetAuditor = auditProjectAssets,
   corpusSourceBindingValidator = validateCorpusManifestSourceBindings,
+  gitOverride = null,
+  sourceTreeOverride = null,
+  pageEvidenceOverride = null,
 } = {}) {
   const projectRoot = resolve(root);
-  const pageEvidence = validatePageEvidenceForRelease({
+  const gitRepositoryRoot = resolve(repositoryRoot);
+  const pageEvidence = pageEvidenceOverride || validatePageEvidenceForRelease({
     root: projectRoot,
     pageEvidencePromotion,
     rendererPath,
@@ -765,8 +770,8 @@ export async function buildReleaseManifest({
   const r2Objects = await validateR2PolicyCoverage(projectRoot, policy);
   const publicationCoordination = validatePublicationCoordination(policy);
   const dataInventory = await validateDataInventory(projectRoot, policy, r2Objects);
-  const gitStatus = gitValue(projectRoot, ['status', '--porcelain=v1', '--untracked-files=all']);
-  const git = {
+  const gitStatus = gitOverride ? null : gitValue(projectRoot, ['status', '--porcelain=v1', '--untracked-files=all']);
+  const git = gitOverride || {
     head: gitValue(projectRoot, ['rev-parse', 'HEAD']),
     branch: gitValue(projectRoot, ['branch', '--show-current']),
     upstream_head: gitValue(projectRoot, ['rev-parse', '@{upstream}'], { optional: true }),
@@ -775,7 +780,7 @@ export async function buildReleaseManifest({
     status_sha256: sha256(Buffer.from(gitStatus)),
   };
 
-  const sourceTree = await buildSourceTree(projectRoot, policy);
+  const sourceTree = sourceTreeOverride || await buildSourceTree(projectRoot, policy);
   const corpusRelease = await inspectCorpusRelease(projectRoot, corpusSourceBindingValidator);
   const dataAssets = [];
   const dataByRole = new Map();
@@ -893,7 +898,7 @@ export async function buildReleaseManifest({
     .map((file) => file.slice('migrations/'.length))
     .sort();
   const environmentState = buildEnvironmentState(
-    projectRoot,
+    gitRepositoryRoot,
     policy,
     git,
     migrationFiles,
@@ -922,13 +927,10 @@ export async function buildReleaseManifest({
     source_tree_sha256: sourceTree.sha256,
     data_inventory: dataInventory,
     corpus_release: corpusReleaseIdentity(corpusRelease),
-    page_evidence: pageEvidence,
-    downloads_asset_audit: downloadsReceiptIdentity(downloadsAssetAudit),
+    page_evidence: pageEvidenceIdentity(pageEvidence),
     data_assets: cleanDataAssets.map(({ role, source, key, sha256: hash, bytes }) => ({ role, source, key, sha256: hash, bytes })),
     graph_assets: cleanGraphAssets.map(({ role, source, deploy_path, sha256: hash, bytes, build_revision }) => ({ role, source, deploy_path, sha256: hash, bytes, build_revision })),
     static_assets: staticAssets.map(({ path, deploy_path, sha256: hash, bytes }) => ({ path, deploy_path, sha256: hash, bytes })),
-    environment_snapshot: environmentSnapshotIdentity(environmentState),
-    project_asset_audit: assetAuditSummary,
   };
   const releaseId = releaseIdFromIdentity(releaseIdentity);
   const releasePrefix = normalizeRelativePath(policy.r2.release_prefix, 'r2 release prefix');
@@ -1063,7 +1065,8 @@ async function main() {
     pageEvidencePromotion: args['page-evidence-promotion'] === true,
     rendererPath: args.renderer || null,
   });
-  const serialized = `${JSON.stringify(manifest, null, 2)}\n`;
+  const artifact = desiredReleaseManifestArtifact(manifest);
+  const serialized = artifact.buffer;
   if (args.output) {
     const output = resolve(args.output);
     const relativeOutput = relative(root, output).replaceAll('\\', '/');
@@ -1072,8 +1075,8 @@ async function main() {
       throw new Error(`output path is part of the governed source tree and would make the manifest self-referential: ${relativeOutput}`);
     }
     await mkdir(dirname(output), { recursive: true });
-    await writeFile(output, serialized, 'utf8');
-    process.stdout.write(`${manifest.release_id} assets=${manifest.static_assets.file_count + manifest.graph_assets.length} r2=${manifest.r2.managed_object_count} blockers=${manifest.release_blockers.length}\n`);
+    await writeFile(output, serialized);
+    process.stdout.write(`${manifest.release_id} manifest_sha256=${artifact.sha256} assets=${manifest.static_assets.file_count + manifest.graph_assets.length} r2=${manifest.r2.managed_object_count} blockers=${manifest.release_blockers.length}\n`);
   } else {
     process.stdout.write(serialized);
   }

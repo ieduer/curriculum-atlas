@@ -5,10 +5,8 @@ import { readFile } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import {
-  assertBufferParity,
-  buildReleaseManifest,
-} from './build-release-manifest.mjs';
+import { assertCleanReleaseSource } from './assert-clean-release-source.mjs';
+import { validateEnvironmentEvidenceReceipt } from './collect-release-environment-evidence.mjs';
 import { validateCorpusManifest } from './import-corpus.mjs';
 import {
   assertPageEvidenceReleaseMode,
@@ -18,8 +16,17 @@ import {
   createImmutableBufferSnapshot,
   createImmutableFileSnapshot,
 } from './lib/immutable-release-snapshot.mjs';
+import {
+  desiredReleaseManifest,
+  desiredReleaseManifestArtifact,
+  desiredReleasePin,
+  parseDesiredReleaseManifestArtifact,
+} from './lib/desired-release-manifest.mjs';
+import { readGitBlob } from './lib/git-release-source.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
+const DEFAULT_MANIFEST = '.wrangler/release-manifest.json';
+const DEFAULT_EVIDENCE = '.wrangler/release-environment-evidence.json';
 const MAX_OBJECT_BYTES = 64 * 1024 * 1024;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const RELEASE_ID_PATTERN = /^release-[a-f0-9]{32}$/;
@@ -31,7 +38,7 @@ function sha256(buffer) {
 function parseArgs(argv) {
   const args = new Map();
   const booleanArguments = new Set(['--remote', '--bootstrap', '--page-evidence-promotion']);
-  const valueArguments = new Set(['--bucket', '--environment', '--renderer']);
+  const valueArguments = new Set(['--bucket', '--environment', '--renderer', '--manifest', '--evidence']);
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (!key.startsWith('--')) throw new Error(`unexpected argument: ${key}`);
@@ -53,12 +60,7 @@ function safeCommandError(result, operation) {
   return new Error(`${operation} failed with exit ${result.status ?? 'unknown'}: ${stderr.trim().slice(0, 2000)}`);
 }
 
-function isMissingObjectError(result) {
-  const stderr = Buffer.isBuffer(result.stderr) ? result.stderr.toString('utf8') : String(result.stderr || '');
-  return /(?:404|10007|not[ -]?found|does not exist|NoSuchKey)/i.test(stderr);
-}
-
-function runWrangler(arguments_, { root, operation, allowMissing = false, runCommand = spawnSync }) {
+function runWrangler(arguments_, { root, operation, runCommand = spawnSync }) {
   const result = runCommand('npx', ['--no-install', 'wrangler', ...arguments_], {
     cwd: root,
     encoding: null,
@@ -66,47 +68,56 @@ function runWrangler(arguments_, { root, operation, allowMissing = false, runCom
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   if (result.status !== 0) {
-    if (allowMissing && isMissingObjectError(result)) return null;
     throw safeCommandError(result, operation);
   }
   return Buffer.isBuffer(result.stdout) ? result.stdout : Buffer.from(result.stdout || '');
 }
 
-function getRemoteObject(bucket, key, options) {
-  return runWrangler(['r2', 'object', 'get', `${bucket}/${key}`, '--pipe', '--remote'], {
-    ...options,
-    operation: `R2 get ${key}`,
-  });
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
 }
 
-function putRemoteObject(bucket, key, source, contentType, options) {
-  runWrangler([
-    'r2', 'object', 'put', `${bucket}/${key}`,
-    '--file', source,
-    '--content-type', contentType,
-    '--remote',
-  ], {
-    ...options,
-    operation: `R2 put ${key}`,
-  });
-}
-
-function runPublicationLeaseCommand({ database, environment, command, root, runCommand, operation }) {
+function runPublicationLeaseCommand({ database, environment, command, root, runCommand, operation, json = false }) {
   const arguments_ = ['d1', 'execute', database];
   if (environment === 'preview') arguments_.push('--env', 'preview');
   arguments_.push('--remote', '--command', command);
+  if (json) arguments_.push('--json');
   return runWrangler(arguments_, { root, runCommand, operation });
 }
 
-function sameOptionalBuffer(left, right) {
-  if (left === null || right === null) return left === right;
-  return left.byteLength === right.byteLength && left.equals(right);
+function findOwnerFence(value) {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findOwnerFence(item);
+      if (found !== null) return found;
+    }
+  } else if (value && typeof value === 'object') {
+    if (Object.hasOwn(value, 'owner_fence')) {
+      const fence = Number(value.owner_fence);
+      if (Number.isSafeInteger(fence) && fence > 0) return fence;
+    }
+    for (const item of Object.values(value)) {
+      const found = findOwnerFence(item);
+      if (found !== null) return found;
+    }
+  }
+  return null;
 }
 
-function canonicalIsoTimestamp(value) {
-  if (typeof value !== 'string') return false;
-  const epoch = Date.parse(value);
-  return Number.isFinite(epoch) && new Date(epoch).toISOString() === value;
+function parsePublicationFence(buffer) {
+  let value;
+  try {
+    value = JSON.parse(buffer.toString('utf8'));
+  } catch (error) {
+    throw new Error(`publication owner fence receipt is not JSON: ${error.message}`);
+  }
+  const fence = findOwnerFence(value);
+  if (fence === null) throw new Error('publication owner fence receipt is missing owner_fence');
+  return fence;
 }
 
 function environmentForBucket(manifest, bucket, requestedEnvironment) {
@@ -116,6 +127,134 @@ function environmentForBucket(manifest, bucket, requestedEnvironment) {
     throw new Error(`bucket ${bucket} belongs to ${configured}, not requested environment ${requestedEnvironment}`);
   }
   return configured;
+}
+
+function projectRelativePath(root, value, label) {
+  const projectRoot = resolve(root);
+  const target = resolve(projectRoot, String(value || ''));
+  const relation = relative(projectRoot, target);
+  if (!value || relation === '..' || relation.startsWith(`..${sep}`) || isAbsolute(relation)) {
+    throw new Error(`${label} must remain inside the project root`);
+  }
+  return target;
+}
+
+export async function loadDesiredReleaseArtifact({
+  root = DEFAULT_ROOT,
+  manifestPath = DEFAULT_MANIFEST,
+} = {}) {
+  const buffer = await readFile(projectRelativePath(root, manifestPath, 'desired release manifest'));
+  return parseDesiredReleaseManifestArtifact(buffer);
+}
+
+export function assertDesiredReleaseSourceReady(artifact, git) {
+  const head = artifact?.value?.git?.head;
+  if (!/^[a-f0-9]{40}$/.test(String(head || ''))) {
+    throw new Error('desired release source is missing an exact Git HEAD');
+  }
+  if (!git || git.head !== head || git.upstream !== head) {
+    throw new Error('desired release artifact does not match the clean pushed Git source gate');
+  }
+  return git;
+}
+
+function exactPolicyAtReleaseHead(root, artifact) {
+  const buffer = readGitBlob(root, artifact.value.git.head, 'data/release-assets-policy.json');
+  if (sha256(buffer) !== artifact.value.release_identity?.policy_sha256) {
+    throw new Error('desired release policy bytes differ from the exact Git HEAD');
+  }
+  let policy;
+  try {
+    policy = JSON.parse(buffer.toString('utf8'));
+  } catch (error) {
+    throw new Error(`desired release policy is not JSON: ${error.message}`);
+  }
+  return policy;
+}
+
+function exactMigrationSet(manifest) {
+  return (manifest.source_tree?.files || [])
+    .map((entry) => String(entry.path || ''))
+    .filter((path) => /^migrations\/\d{4}_.+\.sql$/.test(path))
+    .map((path) => path.slice('migrations/'.length))
+    .sort();
+}
+
+export async function assertDesiredEnvironmentReleaseReady({
+  root = DEFAULT_ROOT,
+  artifact,
+  environment,
+  evidencePath = null,
+  now = new Date().toISOString(),
+} = {}) {
+  if (!['preview', 'production'].includes(environment)) {
+    throw new Error(`desired release environment is invalid: ${environment || '<unset>'}`);
+  }
+  const policy = exactPolicyAtReleaseHead(root, artifact);
+  const source = evidencePath || DEFAULT_EVIDENCE;
+  const receiptBuffer = await readFile(projectRelativePath(root, source, 'release environment evidence'));
+  const receiptSnapshot = await createImmutableBufferSnapshot({
+    buffer: receiptBuffer,
+    label: `${environment} release environment evidence`,
+  });
+  try {
+    const receipt = validateEnvironmentEvidenceReceipt(JSON.parse(receiptBuffer.toString('utf8')));
+    if (receipt.schema_version !== 2 || receipt.contract !== 'curriculum_release_environment_evidence_v2') {
+      throw new Error(`${environment} release requires desired-release-bound environment evidence v2`);
+    }
+    const desired = desiredReleasePin(artifact);
+    if (stableStringify(receipt.desired_release) !== stableStringify(desired)) {
+      throw new Error(`${environment} environment evidence targets a different desired release`);
+    }
+    const state = receipt.environments?.[environment];
+    if (!state) throw new Error(`${environment} release environment evidence is absent`);
+    const blockers = [];
+    const maximumAgeHours = Number(policy.release_governance?.environment_evidence_max_age_hours);
+    const ageHours = (Date.parse(now) - Date.parse(state.observed_at)) / 3_600_000;
+    if (!Number.isFinite(maximumAgeHours) || maximumAgeHours <= 0
+        || !Number.isFinite(ageHours) || ageHours < -0.25 || ageHours > maximumAgeHours) {
+      blockers.push('environment_evidence_stale');
+    }
+    const migrations = exactMigrationSet(artifact.value);
+    if (stableStringify([...(state.applied_migrations || [])].sort()) !== stableStringify(migrations)
+        || (state.pending_migrations || []).length !== 0) {
+      blockers.push('pending_or_unbound_d1_migration');
+    }
+    const requiredMigration = String(policy.environment_snapshot?.required_migration || '');
+    if (!requiredMigration || !state.applied_migrations.includes(requiredMigration)) {
+      blockers.push('required_release_fence_migration_missing');
+    }
+    const requiredReader = String(policy.environment_snapshot?.required_r2_release_reader || '');
+    if (!requiredReader || state.r2_release_reader !== requiredReader) {
+      blockers.push('versioned_fenced_r2_reader_missing');
+    }
+    if (state.asset_git_commit !== desired.git_head || state.asset_parity?.valid !== true) {
+      blockers.push('worker_asset_git_parity_missing');
+    }
+    if (state.health?.http_status !== 200 || state.health?.ok !== true
+        || state.health?.release_git_commit !== desired.git_head
+        || state.health?.release_id !== desired.release_id
+        || state.health?.release_manifest_sha256 !== desired.release_manifest_sha256
+        || state.health?.release_source_tree_sha256 !== desired.source_tree_sha256
+        || state.health?.corpus_release_id !== desired.corpus_release_id
+        || state.health?.corpus_manifest_sha256 !== desired.corpus_manifest_sha256) {
+      blockers.push('worker_health_desired_release_mismatch');
+    }
+    if (state.corpus?.ready !== true
+        || state.corpus.release_id !== artifact.value.corpus_release.release_id
+        || state.corpus.release_fingerprint_sha256 !== artifact.value.corpus_release.release_fingerprint_sha256
+        || state.corpus.manifest_sha256 !== artifact.value.corpus_release.manifest_sha256
+        || stableStringify(state.corpus.counts) !== stableStringify(artifact.value.corpus_release.counts)) {
+      blockers.push('d1_corpus_desired_release_mismatch');
+    }
+    if (blockers.length) {
+      throw new Error(`${environment} release is blocked before remote mutation: ${blockers.join(', ')}`);
+    }
+    await receiptSnapshot.verify();
+    return { ...state, evidence_age_hours: ageHours, release_ready: true };
+  } finally {
+    await receiptSnapshot.cleanup();
+  }
 }
 
 export function assertEnvironmentReleaseReady(manifest, environment) {
@@ -163,51 +302,12 @@ function validateVersionedManifest(manifest) {
   if (releaseKeys.includes(manifest.r2.release_manifest_key)) throw new Error('managed object collides with versioned release manifest key');
 }
 
-function parseCurrentPointer(buffer, pointerKey, releasePrefix) {
-  let parsed;
-  try {
-    parsed = JSON.parse(buffer.toString('utf8'));
-  } catch (error) {
-    throw new Error(`remote ${pointerKey} is not valid JSON: ${error.message}`);
-  }
-  if (
-    parsed.schema_version !== 1
-    || !RELEASE_ID_PATTERN.test(String(parsed.release_id || ''))
-    || parsed.release_manifest_key !== `${releasePrefix}/${parsed.release_id}/manifest.json`
-    || !SHA256_PATTERN.test(String(parsed.release_manifest_sha256 || ''))
-    || !Number.isSafeInteger(parsed.release_manifest_bytes)
-    || parsed.release_manifest_bytes <= 0
-    || !Number.isSafeInteger(parsed.managed_object_count)
-    || parsed.managed_object_count <= 0
-    || !canonicalIsoTimestamp(parsed.published_at)
-  ) throw new Error(`remote ${pointerKey} is not a supported release pointer`);
-  return parsed;
-}
-
 export function immutableVersionedManifest(manifest) {
-  return {
-    schema_version: manifest.schema_version,
-    policy: manifest.policy,
-    release_id: manifest.release_id,
-    release_identity: manifest.release_identity,
-    git: { head: manifest.git?.head || null },
-    source_tree: manifest.source_tree,
-    corpus_release: manifest.corpus_release,
-    page_evidence: manifest.page_evidence,
-    data_assets: manifest.data_assets,
-    graph_assets: manifest.graph_assets,
-    static_assets: manifest.static_assets,
-    r2: manifest.r2,
-  };
+  return desiredReleaseManifest(manifest);
 }
 
 export function immutableVersionedManifestArtifact(manifest) {
-  const buffer = Buffer.from(`${JSON.stringify(immutableVersionedManifest(manifest), null, 2)}\n`);
-  return {
-    buffer,
-    sha256: sha256(buffer),
-    bytes: buffer.length,
-  };
+  return desiredReleaseManifestArtifact(manifest);
 }
 
 function sql(value) {
@@ -216,8 +316,8 @@ function sql(value) {
 
 function normalizePublicationCoordination(manifest, environment) {
   const coordination = manifest.r2?.publication_coordination;
-  if (!coordination || coordination.policy !== 'd1_single_writer_lease_v1') {
-    throw new Error('release manifest lacks d1_single_writer_lease_v1 publication coordination');
+  if (!coordination || coordination.policy !== 'd1_fenced_r2_binding_v2') {
+    throw new Error('release manifest lacks d1_fenced_r2_binding_v2 publication coordination');
   }
   if (!['preview', 'production'].includes(environment)) {
     throw new Error(`publication environment is invalid: ${environment || '<unset>'}`);
@@ -234,61 +334,81 @@ function normalizePublicationCoordination(manifest, environment) {
   if (!Number.isSafeInteger(ttl) || ttl < 60 || ttl > 7200) {
     throw new Error('publication coordination lease TTL is invalid');
   }
-  return { database, lease_key: leaseKey, lease_ttl_seconds: ttl };
+  const coordinatorUrl = String(coordination.coordinator_urls?.[environment] || '');
+  if (!/^https:\/\/[^/]+\/api\/admin\/release-coordinate$/.test(coordinatorUrl)) {
+    throw new Error(`publication coordinator URL is invalid for ${environment}`);
+  }
+  return { database, lease_key: leaseKey, lease_ttl_seconds: ttl, coordinator_url: coordinatorUrl };
 }
 
-export function buildPublicationLeaseAcquireSql({ leaseKey, token, releaseId, ttlSeconds }) {
+function publicationTokenHash(token) {
+  const value = String(token || '');
+  if (!/^[A-Za-z0-9._:-]{16,200}$/.test(value)) throw new Error('publication owner token is invalid');
+  return sha256(Buffer.from(value));
+}
+
+export function buildPublicationLeaseAcquireSql({ token, releaseId, manifestSha256, ttlSeconds }) {
+  const tokenHash = publicationTokenHash(token);
+  if (!SHA256_PATTERN.test(String(manifestSha256 || ''))) throw new Error('publication manifest SHA-256 is invalid');
   const now = "CAST(strftime('%s','now') AS INTEGER)";
-  return `DELETE FROM corpus_import_guards WHERE guard_key='r2_publication_lease';
+  return `DELETE FROM corpus_import_guards WHERE guard_key='r2_publication_owner_acquire';
 INSERT INTO corpus_import_guards(guard_key,ok)
-SELECT 'r2_publication_lease',CASE WHEN
-  NOT EXISTS(SELECT 1 FROM site_meta WHERE key=${sql(leaseKey)})
+SELECT 'r2_publication_owner_acquire',CASE WHEN
+  NOT EXISTS(SELECT 1 FROM release_publication_ownership WHERE id=1)
   OR EXISTS(
-    SELECT 1 FROM site_meta WHERE key=${sql(leaseKey)}
-      AND json_valid(value)
-      AND json_extract(value,'$.policy')='d1_single_writer_lease_v1'
-      AND (
-        json_extract(value,'$.token')=${sql(token)}
-        OR CAST(json_extract(value,'$.expires_unix') AS INTEGER)<=${now}
+    SELECT 1 FROM release_publication_ownership WHERE id=1 AND (
+      expires_unix<=${now}
+      OR (
+        release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
+        AND owner_token_sha256=${sql(tokenHash)} AND expires_unix>${now}
       )
+    )
   )
 THEN 1 ELSE 0 END;
-INSERT INTO site_meta(key,value) VALUES(
-  ${sql(leaseKey)},
-  json_object(
-    'policy','d1_single_writer_lease_v1',
-    'token',${sql(token)},
-    'release_id',${sql(releaseId)},
-    'expires_unix',${now}+${ttlSeconds}
-  )
-) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;
-DELETE FROM corpus_import_guards WHERE guard_key='r2_publication_lease';`;
+UPDATE release_publication_fence_state SET last_fence=last_fence+1
+WHERE id=1 AND (
+  NOT EXISTS(SELECT 1 FROM release_publication_ownership WHERE id=1)
+  OR EXISTS(SELECT 1 FROM release_publication_ownership WHERE id=1 AND expires_unix<=${now})
+);
+INSERT INTO release_publication_ownership(
+  id,release_id,manifest_sha256,owner_token_sha256,owner_fence,expires_unix,updated_at
+) VALUES(
+  1,${sql(releaseId)},${sql(manifestSha256)},${sql(tokenHash)},
+  (SELECT last_fence FROM release_publication_fence_state WHERE id=1),${now}+${ttlSeconds},CURRENT_TIMESTAMP
+) ON CONFLICT(id) DO UPDATE SET
+  release_id=excluded.release_id,manifest_sha256=excluded.manifest_sha256,
+  owner_token_sha256=excluded.owner_token_sha256,
+  owner_fence=CASE WHEN release_publication_ownership.expires_unix<=${now}
+    THEN excluded.owner_fence ELSE release_publication_ownership.owner_fence END,
+  expires_unix=excluded.expires_unix,updated_at=CURRENT_TIMESTAMP;
+DELETE FROM corpus_import_guards WHERE guard_key='r2_publication_owner_acquire';
+SELECT owner_fence FROM release_publication_ownership
+WHERE id=1 AND release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
+  AND owner_token_sha256=${sql(tokenHash)} AND expires_unix>${now};`;
 }
 
-export function buildPublicationLeaseRenewSql({ leaseKey, token, releaseId, ttlSeconds }) {
+export function buildPublicationLeaseRenewSql({ token, releaseId, manifestSha256, ownerFence, ttlSeconds }) {
+  const tokenHash = publicationTokenHash(token);
   const now = "CAST(strftime('%s','now') AS INTEGER)";
   return `DELETE FROM corpus_import_guards WHERE guard_key='r2_publication_lease';
 INSERT INTO corpus_import_guards(guard_key,ok)
 SELECT 'r2_publication_lease',CASE WHEN EXISTS(
-  SELECT 1 FROM site_meta WHERE key=${sql(leaseKey)}
-    AND json_valid(value)
-    AND json_extract(value,'$.policy')='d1_single_writer_lease_v1'
-    AND json_extract(value,'$.token')=${sql(token)}
-    AND json_extract(value,'$.release_id')=${sql(releaseId)}
-    AND CAST(json_extract(value,'$.expires_unix') AS INTEGER)>${now}
+  SELECT 1 FROM release_publication_ownership WHERE id=1
+    AND release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
+    AND owner_token_sha256=${sql(tokenHash)} AND owner_fence=${ownerFence}
+    AND expires_unix>${now}
 ) THEN 1 ELSE 0 END;
-UPDATE site_meta SET value=json_set(value,'$.expires_unix',${now}+${ttlSeconds}),updated_at=CURRENT_TIMESTAMP
-WHERE key=${sql(leaseKey)} AND json_extract(value,'$.token')=${sql(token)};
+UPDATE release_publication_ownership SET expires_unix=${now}+${ttlSeconds},updated_at=CURRENT_TIMESTAMP
+WHERE id=1 AND release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
+  AND owner_token_sha256=${sql(tokenHash)} AND owner_fence=${ownerFence} AND expires_unix>${now};
 DELETE FROM corpus_import_guards WHERE guard_key='r2_publication_lease';`;
 }
 
-export function buildPublicationLeaseReleaseSql({ leaseKey, token, releaseId }) {
-  return `DELETE FROM site_meta
-WHERE key=${sql(leaseKey)}
-  AND json_valid(value)
-  AND json_extract(value,'$.policy')='d1_single_writer_lease_v1'
-  AND json_extract(value,'$.token')=${sql(token)}
-  AND json_extract(value,'$.release_id')=${sql(releaseId)};`;
+export function buildPublicationLeaseReleaseSql({ token, releaseId, manifestSha256, ownerFence }) {
+  return `UPDATE release_publication_ownership
+SET expires_unix=CAST(strftime('%s','now') AS INTEGER),updated_at=CURRENT_TIMESTAMP
+WHERE id=1 AND release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
+  AND owner_token_sha256=${sql(publicationTokenHash(token))} AND owner_fence=${ownerFence};`;
 }
 
 async function snapshotLocalCorpusEnvelope(root, expected) {
@@ -329,38 +449,140 @@ async function snapshotLocalCorpusEnvelope(root, expected) {
   }
 }
 
-function inspectImmutableRemoteObject(bucket, key, expected, options) {
-  const remote = getRemoteObject(bucket, key, { ...options, allowMissing: true });
-  if (remote === null) return false;
-  assertBufferParity(expected, remote, `immutable remote object ${key}`);
+async function coordinatorJson({
+  url,
+  operation,
+  method = 'POST',
+  coordinatorToken,
+  ownerToken = null,
+  headers = {},
+  body = null,
+  fetchImpl = fetch,
+}) {
+  if (!coordinatorToken) throw new Error('CURRICULUM_RELEASE_COORDINATOR_TOKEN is required');
+  const target = new URL(url);
+  target.searchParams.set('operation', operation);
+  const requestHeaders = new Headers(headers);
+  requestHeaders.set('authorization', `Bearer ${coordinatorToken}`);
+  requestHeaders.set('cache-control', 'no-store');
+  if (ownerToken) requestHeaders.set('x-release-owner-token', ownerToken);
+  const response = await fetchImpl(target, { method, headers: requestHeaders, body });
+  const text = await response.text();
+  let value;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    throw new Error(`release coordinator returned non-JSON HTTP ${response.status}`);
+  }
+  if (!response.ok) throw new Error(`release coordinator ${operation} failed HTTP ${response.status}: ${value.error || 'unknown error'}`);
+  return value;
+}
+
+async function coordinatorCreate({
+  coordination,
+  coordinatorToken,
+  ownerToken,
+  ownerFence,
+  manifest,
+  manifestSha256,
+  key,
+  contentType,
+  snapshot,
+  fetchImpl,
+}) {
+  await snapshot.verify();
+  const body = await readFile(snapshot.path);
+  const target = new URL(coordination.coordinator_url);
+  target.searchParams.set('key', key);
+  const result = await coordinatorJson({
+    url: target.href,
+    operation: 'create',
+    method: 'PUT',
+    coordinatorToken,
+    ownerToken,
+    fetchImpl,
+    headers: {
+      'content-type': contentType,
+      'content-length': String(body.length),
+      'x-content-sha256': snapshot.sha256,
+      'x-release-id': manifest.release_id,
+      'x-release-manifest-sha256': manifestSha256,
+      'x-release-owner-fence': String(ownerFence),
+    },
+    body,
+  });
+  await snapshot.verify();
+  return result;
+}
+
+function assertExactReleaseInventory(manifest, manifestArtifact, inventory) {
+  const expected = [...manifest.r2.objects.map((object) => object.release_key), manifest.r2.release_manifest_key].sort();
+  const actual = (inventory.objects || []).map((object) => object.key).sort();
+  if (JSON.stringify(expected) !== JSON.stringify(actual)) {
+    throw new Error(`release prefix inventory is not exact; expected=${expected.length} actual=${actual.length}`);
+  }
+  const expectedByKey = new Map([
+    ...manifest.r2.objects.map((object) => [object.release_key, object]),
+    [manifest.r2.release_manifest_key, manifestArtifact],
+  ]);
+  for (const object of inventory.objects) {
+    const expectedObject = expectedByKey.get(object.key);
+    if (!expectedObject || object.bytes !== expectedObject.bytes || object.sha256 !== expectedObject.sha256
+        || object.metadata_sha256 !== expectedObject.sha256
+        || object.metadata_bytes !== String(expectedObject.bytes)
+        || object.metadata_release_id !== manifest.release_id
+        || object.metadata_manifest_sha256 !== manifestArtifact.sha256) {
+      throw new Error(`release prefix inventory parity failure: ${object.key}`);
+    }
+  }
   return true;
 }
 
-async function verifyVersionedObjects(bucket, objects, options) {
-  for (const object of objects) {
-    const remote = getRemoteObject(bucket, object.release_key, options);
-    assertBufferParity(object, remote, `remote staged object ${object.release_key}`);
-    process.stdout.write(`[verified] ${object.release_key} sha256=${object.sha256} bytes=${object.bytes}\n`);
+async function verifyPostActivation({ coordination, coordinatorToken, manifest, manifestArtifact, fetchImpl = fetch }) {
+  const pointer = await coordinatorJson({
+    url: coordination.coordinator_url,
+    operation: 'inspect-pointer',
+    coordinatorToken,
+    fetchImpl,
+  });
+  const healthUrl = new URL('/api/health', coordination.coordinator_url);
+  healthUrl.searchParams.set('release-verification', manifest.release_id);
+  const healthResponse = await fetchImpl(healthUrl, { headers: { 'cache-control': 'no-store' } });
+  const health = await healthResponse.json();
+  if (!healthResponse.ok || health?.release?.gitCommit !== manifest.git.head
+      || health?.release?.releaseId !== manifest.release_id
+      || health?.release?.releaseManifestSha256 !== manifestArtifact.sha256
+      || health?.release?.sourceTreeSha256 !== manifest.source_tree.sha256
+      || health?.release?.corpusReleaseId !== manifest.corpus_release.release_id
+      || health?.release?.corpusManifestSha256 !== manifest.corpus_release.manifest_sha256) {
+    throw new Error('post-activation Worker proof does not match the desired release');
   }
+  if (!pointer.exists || pointer.value?.release_id !== manifest.release_id
+      || pointer.value?.release_manifest_sha256 !== manifestArtifact.sha256) {
+    throw new Error('post-activation R2 pointer does not match the desired release');
+  }
+  return { pointer, health };
 }
 
 export async function publishVersionedRelease({
   manifest,
+  manifestArtifact = null,
   bucket,
   environment = null,
   bootstrap = false,
   root = DEFAULT_ROOT,
   runCommand = spawnSync,
-  publishedAt = new Date().toISOString(),
   pageEvidencePromotion = false,
   rendererPath = null,
   pageEvidenceValidator = validatePageEvidenceForRelease,
+  coordinatorToken = process.env.CURRICULUM_RELEASE_COORDINATOR_TOKEN,
+  fetchImpl = fetch,
+  postActivationVerifier = verifyPostActivation,
 } = {}) {
   if (!bucket) throw new Error('--bucket is required');
   validateVersionedManifest(manifest);
   assertPageEvidenceReleaseMode(manifest.page_evidence, { pageEvidencePromotion });
   const projectRoot = resolve(root);
-  const commandOptions = { root: projectRoot, runCommand };
   const selectedEnvironment = environment || environmentForBucket(manifest, bucket, null);
   const coordination = normalizePublicationCoordination(manifest, selectedEnvironment);
   const currentPageEvidence = await pageEvidenceValidator({
@@ -379,23 +601,31 @@ export async function publishVersionedRelease({
   );
   const objectSnapshots = [];
   let manifestSnapshot = null;
-  let pointerSnapshot = null;
   let leaseAcquired = false;
+  let ownerFence = null;
   let caughtError = null;
   const token = randomUUID();
+  const canonicalManifestFile = immutableVersionedManifestArtifact(manifest);
+  if (manifestArtifact && (!manifestArtifact.buffer?.equals(canonicalManifestFile.buffer)
+      || manifestArtifact.sha256 !== canonicalManifestFile.sha256
+      || manifestArtifact.bytes !== canonicalManifestFile.bytes)) {
+    throw new Error('provided desired release artifact differs from its canonical manifest value');
+  }
+  const manifestFile = manifestArtifact || canonicalManifestFile;
   const leaseOptions = {
-    leaseKey: coordination.lease_key,
     token,
     releaseId: manifest.release_id,
+    manifestSha256: manifestFile.sha256,
     ttlSeconds: coordination.lease_ttl_seconds,
   };
-  const leaseCommand = (command, operation) => runPublicationLeaseCommand({
+  const leaseCommand = (command, operation, json = false) => runPublicationLeaseCommand({
     database: coordination.database,
     environment: selectedEnvironment,
     command,
     root: projectRoot,
     runCommand,
     operation,
+    json,
   });
   try {
     for (const object of manifest.r2.objects) {
@@ -409,7 +639,6 @@ export async function publishVersionedRelease({
         }),
       });
     }
-    const manifestFile = immutableVersionedManifestArtifact(manifest);
     manifestSnapshot = await createImmutableBufferSnapshot({
       buffer: manifestFile.buffer,
       label: 'immutable versioned release manifest',
@@ -419,150 +648,89 @@ export async function publishVersionedRelease({
     await manifestSnapshot.verify();
     process.stdout.write(`[preflight] private fixed snapshots sealed for ${manifest.r2.objects.length} objects\n`);
 
-    leaseCommand(buildPublicationLeaseAcquireSql(leaseOptions), 'acquire D1 publication lease');
+    ownerFence = parsePublicationFence(leaseCommand(
+      buildPublicationLeaseAcquireSql(leaseOptions),
+      'acquire D1 publication owner fence',
+      true,
+    ));
     leaseAcquired = true;
     const renewLease = () => leaseCommand(
-      buildPublicationLeaseRenewSql(leaseOptions),
-      'renew D1 publication lease',
+      buildPublicationLeaseRenewSql({ ...leaseOptions, ownerFence }),
+      'renew D1 publication owner fence',
     );
 
-    const previousPointerBuffer = getRemoteObject(bucket, manifest.r2.current_pointer_key, {
-      ...commandOptions,
-      allowMissing: true,
+    const previousPointer = await coordinatorJson({
+      url: coordination.coordinator_url,
+      operation: 'inspect-pointer',
+      coordinatorToken,
+      fetchImpl,
     });
-    if (previousPointerBuffer === null && !bootstrap) {
+    if (!previousPointer.exists && !bootstrap) {
       throw new Error(`remote ${manifest.r2.current_pointer_key} is missing; first versioned publish requires explicit --bootstrap`);
     }
-    let previousPointer = null;
-    if (previousPointerBuffer !== null) {
-      previousPointer = parseCurrentPointer(
-        previousPointerBuffer,
-        manifest.r2.current_pointer_key,
-        manifest.r2.release_prefix,
-      );
-      const previousManifest = getRemoteObject(bucket, previousPointer.release_manifest_key, commandOptions);
-      assertBufferParity({
-        sha256: previousPointer.release_manifest_sha256,
-        bytes: previousPointer.release_manifest_bytes,
-      }, previousManifest, `currently published release manifest ${previousPointer.release_manifest_key}`);
-      process.stdout.write(`[preflight] current pointer remains valid at ${previousPointer.release_id}\n`);
-    }
-
-    const alreadyStaged = new Set();
-    for (const object of manifest.r2.objects) {
-      if (inspectImmutableRemoteObject(bucket, object.release_key, object, commandOptions)) {
-        alreadyStaged.add(object.release_key);
-        process.stdout.write(`[preflight] immutable object already exact ${object.release_key}\n`);
-      } else {
-        process.stdout.write(`[preflight] immutable object missing ${object.release_key}\n`);
-      }
-    }
-    let manifestAlreadyStaged = inspectImmutableRemoteObject(
-      bucket,
-      manifest.r2.release_manifest_key,
-      manifestFile,
-      commandOptions,
-    );
-    process.stdout.write(`[preflight] immutable manifest ${manifestAlreadyStaged ? 'already exact' : 'missing'} ${manifest.r2.release_manifest_key}\n`);
 
     let uploadedObjects = 0;
     for (const [index, { object, snapshot }] of objectSnapshots.entries()) {
-      if (alreadyStaged.has(object.release_key)) continue;
       renewLease();
-      if (inspectImmutableRemoteObject(bucket, object.release_key, object, commandOptions)) {
-        alreadyStaged.add(object.release_key);
-        continue;
-      }
-      await snapshot.verify();
       process.stdout.write(`[stage ${index + 1}/${manifest.r2.objects.length}] ${object.release_key}\n`);
-      putRemoteObject(bucket, object.release_key, snapshot.path, object.content_type, commandOptions);
-      await snapshot.verify();
-      const remote = getRemoteObject(bucket, object.release_key, commandOptions);
-      assertBufferParity(object, remote, `remote staged object ${object.release_key}`);
-      uploadedObjects += 1;
+      const staged = await coordinatorCreate({
+        coordination, coordinatorToken, ownerToken: token, ownerFence,
+        manifest, manifestSha256: manifestFile.sha256,
+        key: object.release_key, contentType: object.content_type, snapshot, fetchImpl,
+      });
+      if (staged.created) uploadedObjects += 1;
     }
-    await verifyVersionedObjects(bucket, manifest.r2.objects, commandOptions);
-
-    if (!manifestAlreadyStaged) {
-      renewLease();
-      manifestAlreadyStaged = inspectImmutableRemoteObject(
-        bucket,
-        manifest.r2.release_manifest_key,
-        manifestFile,
-        commandOptions,
-      );
-      if (!manifestAlreadyStaged) {
-        await manifestSnapshot.verify();
-        putRemoteObject(
-          bucket,
-          manifest.r2.release_manifest_key,
-          manifestSnapshot.path,
-          'application/json',
-          commandOptions,
-        );
-        await manifestSnapshot.verify();
-      }
-    }
-    const remoteManifest = getRemoteObject(bucket, manifest.r2.release_manifest_key, commandOptions);
-    assertBufferParity(manifestFile, remoteManifest, `remote staged manifest ${manifest.r2.release_manifest_key}`);
-
-    const alreadyActivated = previousPointer
-      && previousPointer.release_id === manifest.release_id
-      && previousPointer.release_manifest_key === manifest.r2.release_manifest_key
-      && previousPointer.release_manifest_sha256 === manifestFile.sha256
-      && previousPointer.release_manifest_bytes === manifestFile.bytes
-      && previousPointer.managed_object_count === manifest.r2.objects.length;
-    if (!alreadyActivated) {
-      renewLease();
-      const pointerImmediatelyBeforeActivation = getRemoteObject(
-        bucket,
-        manifest.r2.current_pointer_key,
-        { ...commandOptions, allowMissing: true },
-      );
-      if (!sameOptionalBuffer(previousPointerBuffer, pointerImmediatelyBeforeActivation)) {
-        throw new Error('current pointer changed after lease acquisition; refusing lost-update activation');
-      }
-      const pointer = {
-        schema_version: 1,
+    renewLease();
+    await coordinatorCreate({
+      coordination, coordinatorToken, ownerToken: token, ownerFence,
+      manifest, manifestSha256: manifestFile.sha256,
+      key: manifest.r2.release_manifest_key, contentType: 'application/json', snapshot: manifestSnapshot, fetchImpl,
+    });
+    const inventory = await coordinatorJson({
+      url: coordination.coordinator_url,
+      operation: 'inventory',
+      coordinatorToken,
+      ownerToken: token,
+      fetchImpl,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
         release_id: manifest.release_id,
-        release_manifest_key: manifest.r2.release_manifest_key,
+        manifest_sha256: manifestFile.sha256,
+        owner_fence: ownerFence,
+      }),
+    });
+    assertExactReleaseInventory(manifest, manifestFile, inventory);
+    renewLease();
+    const activation = await coordinatorJson({
+      url: coordination.coordinator_url,
+      operation: 'activate',
+      coordinatorToken,
+      ownerToken: token,
+      fetchImpl,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        release_id: manifest.release_id,
         release_manifest_sha256: manifestFile.sha256,
         release_manifest_bytes: manifestFile.bytes,
         managed_object_count: manifest.r2.objects.length,
-        published_at: publishedAt,
-      };
-      const pointerBuffer = Buffer.from(`${JSON.stringify(pointer, null, 2)}\n`);
-      pointerSnapshot = await createImmutableBufferSnapshot({
-        buffer: pointerBuffer,
-        label: 'R2 current release pointer',
-      });
-      await pointerSnapshot.verify();
-      putRemoteObject(
-        bucket,
-        manifest.r2.current_pointer_key,
-        pointerSnapshot.path,
-        'application/json',
-        commandOptions,
-      );
-      await pointerSnapshot.verify();
-      const remotePointer = getRemoteObject(bucket, manifest.r2.current_pointer_key, commandOptions);
-      assertBufferParity(pointerSnapshot, remotePointer, `remote current pointer ${manifest.r2.current_pointer_key}`);
-      const parsedPointer = parseCurrentPointer(
-        remotePointer,
-        manifest.r2.current_pointer_key,
-        manifest.r2.release_prefix,
-      );
-      if (parsedPointer.release_id !== manifest.release_id || parsedPointer.release_manifest_key !== manifest.r2.release_manifest_key) {
-        throw new Error('current pointer does not identify the staged release');
-      }
-    }
-    process.stdout.write(`[activated] ${manifest.r2.current_pointer_key} release=${manifest.release_id}${alreadyActivated ? ' already-exact' : ''}\n`);
+        owner_fence: ownerFence,
+        predecessor: previousPointer.exists
+          ? { exists: true, etag: previousPointer.etag, version: previousPointer.version }
+          : { exists: false },
+      }),
+    });
+    const postActivation = await postActivationVerifier({
+      coordination, coordinatorToken, manifest, manifestArtifact: manifestFile, fetchImpl,
+    });
+    process.stdout.write(`[activated] ${manifest.r2.current_pointer_key} release=${manifest.release_id}${activation.exact ? ' already-exact' : ''} fence=${ownerFence}\n`);
 
     return {
       release_id: manifest.release_id,
       uploaded_objects: uploadedObjects,
       current_pointer_key: manifest.r2.current_pointer_key,
-      coordination: 'd1_single_writer_lease_v1',
+      owner_fence: ownerFence,
+      coordination: 'd1_fenced_r2_binding_v2',
+      post_activation_pointer_sha256: postActivation.pointer.sha256,
     };
   } catch (error) {
     caughtError = error;
@@ -571,7 +739,10 @@ export async function publishVersionedRelease({
     let releaseError = null;
     if (leaseAcquired) {
       try {
-        leaseCommand(buildPublicationLeaseReleaseSql(leaseOptions), 'release D1 publication lease');
+        leaseCommand(
+          buildPublicationLeaseReleaseSql({ ...leaseOptions, ownerFence }),
+          'release D1 publication owner fence',
+        );
       } catch (error) {
         releaseError = error;
       }
@@ -580,7 +751,6 @@ export async function publishVersionedRelease({
       corpusSnapshot.cleanup(),
       ...objectSnapshots.map(({ snapshot }) => snapshot.cleanup()),
       manifestSnapshot?.cleanup(),
-      pointerSnapshot?.cleanup(),
     ].filter(Boolean));
     if (releaseError && !caughtError) throw releaseError;
   }
@@ -592,25 +762,37 @@ export async function publishMetadata({
   remote = false,
   bootstrap = false,
   root = DEFAULT_ROOT,
+  manifestPath = DEFAULT_MANIFEST,
+  evidencePath = null,
   runCommand = spawnSync,
   pageEvidencePromotion = false,
   rendererPath = null,
+  cleanSourceValidator = assertCleanReleaseSource,
+  artifactLoader = loadDesiredReleaseArtifact,
+  environmentReadinessValidator = assertDesiredEnvironmentReleaseReady,
+  coordinatorToken = process.env.CURRICULUM_RELEASE_COORDINATOR_TOKEN,
+  fetchImpl = fetch,
+  postActivationVerifier = verifyPostActivation,
 } = {}) {
   if (!bucket) throw new Error('--bucket is required');
   if (!remote) throw new Error('refusing remote mutation without explicit --remote');
 
   const projectRoot = resolve(root);
-  const manifest = await buildReleaseManifest({
-    root: projectRoot,
-    pageEvidencePromotion,
-    rendererPath,
-  });
-  assertReleaseSourceReady(manifest);
+  const artifact = await artifactLoader({ root: projectRoot, manifestPath });
+  const manifest = artifact.value;
+  const git = cleanSourceValidator({ root: projectRoot, requireUpstream: true, runCommand });
+  assertDesiredReleaseSourceReady(artifact, git);
   const selectedEnvironment = environmentForBucket(manifest, bucket, environment);
-  const environmentState = assertEnvironmentReleaseReady(manifest, selectedEnvironment);
-  process.stdout.write(`[release] ${manifest.release_id} environment=${selectedEnvironment} worker=${environmentState.worker_revision} version=${environmentState.worker_version_id || 'local'}\n`);
+  const environmentState = await environmentReadinessValidator({
+    root: projectRoot,
+    artifact,
+    environment: selectedEnvironment,
+    evidencePath,
+  });
+  process.stdout.write(`[release] ${manifest.release_id} manifest_sha256=${artifact.sha256} environment=${selectedEnvironment} worker=${environmentState.worker_name || 'unknown'} version=${environmentState.worker_version_id}\n`);
   const result = await publishVersionedRelease({
     manifest,
+    manifestArtifact: artifact,
     bucket,
     environment: selectedEnvironment,
     bootstrap,
@@ -618,6 +800,9 @@ export async function publishMetadata({
     runCommand,
     pageEvidencePromotion,
     rendererPath,
+    coordinatorToken,
+    fetchImpl,
+    postActivationVerifier,
   });
   return { ...result, environment: selectedEnvironment };
 }
@@ -629,6 +814,8 @@ async function main() {
     environment: args.get('environment'),
     remote: args.get('remote') === true,
     bootstrap: args.get('bootstrap') === true,
+    manifestPath: args.get('manifest') || DEFAULT_MANIFEST,
+    evidencePath: args.get('evidence') || null,
     pageEvidencePromotion: args.get('page-evidence-promotion') === true,
     rendererPath: args.get('renderer') || null,
   });

@@ -27,7 +27,10 @@
       "tsconfig.json",
       "wrangler.jsonc"
     ],
-    "excluded_paths": []
+    "excluded_paths": [
+      "data/downloads-asset-audit-receipt.json",
+      "data/release-environment-evidence.json"
+    ]
   },
   "release_governance": {
     "downloads_receipt_source": "data/downloads-asset-audit-receipt.json",
@@ -78,7 +81,7 @@
       { "path": "data/page-publication-manifest.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "publication_gate"] },
       { "path": "data/page-publication-manifest.schema.json", "disposition": "r2_public_metadata", "consumers": ["publication_gate"] },
       { "path": "data/release-assets-policy.json", "disposition": "r2_public_metadata", "consumers": ["release_manifest"] },
-      { "path": "data/release-environment-evidence.json", "disposition": "r2_public_metadata", "consumers": ["release_manifest", "metadata_publisher"] },
+      { "path": "data/release-environment-evidence.json", "disposition": "release_governance_receipt", "consumers": ["release_readiness", "environment_evidence_collector"] },
       { "path": "data/semantic-publication-policy.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "semantic_gate"] },
       { "path": "data/semantic-publication-policy.schema.json", "disposition": "r2_public_metadata", "consumers": ["semantic_gate"] },
       { "path": "data/subject-insights.json", "disposition": "d1_build_input", "consumers": ["corpus_builder", "concept_builder"] },
@@ -107,12 +110,16 @@
       "production": "bdfz-curriculum-atlas-sources"
     },
     "publication_coordination": {
-      "policy": "d1_single_writer_lease_v1",
+      "policy": "d1_fenced_r2_binding_v2",
       "lease_key": "r2_release_publication_lease",
       "lease_ttl_seconds": 3600,
       "databases": {
         "preview": "bdfz-curriculum-atlas-preview",
         "production": "bdfz-curriculum-atlas"
+      },
+      "coordinator_urls": {
+        "preview": "https://bdfz-curriculum-atlas-preview.bdfz.workers.dev/api/admin/release-coordinate",
+        "production": "https://curriculum.bdfz.net/api/admin/release-coordinate"
       }
     },
     "governed_source_files": [
@@ -120,8 +127,7 @@
       "data/catalog.json",
       "data/ingest-manifest.json",
       "data/ocr-queue.json",
-      "data/release-assets-policy.json",
-      "data/release-environment-evidence.json"
+      "data/release-assets-policy.json"
     ],
     "governed_source_prefixes": [
       "data/online-verification",
@@ -224,24 +230,18 @@
         "source": "data/release-assets-policy.json",
         "key": "release/release-assets-policy.json",
         "content_type": "application/json"
-      },
-      {
-        "role": "release_environment_evidence",
-        "source": "data/release-environment-evidence.json",
-        "key": "release/release-environment-evidence.json",
-        "content_type": "application/json"
       }
     ]
   },
   "environment_snapshot": {
-    "required_migration": "0007_document_taxonomy_contract.sql",
-    "required_r2_release_reader": "versioned_manifest_v1",
+    "required_migration": "0008_release_ownership_fences.sql",
+    "required_r2_release_reader": "versioned_manifest_v2_fenced",
     "local": {
       "worker_revision": "working-tree-v10",
       "worker_version_id": null,
       "asset_git_commit": "$git_head",
       "migration_state": "source_inventory_only",
-      "r2_release_reader": "versioned_manifest_v1",
+      "r2_release_reader": "versioned_manifest_v2_fenced",
       "applied_migrations": null
     }
   }

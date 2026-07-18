@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
@@ -15,11 +15,13 @@ import {
 import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 import { loadDocumentClassificationResolver } from './document-classification.mjs';
 import { computeCorpusReleaseFingerprint } from './lib/corpus-release-fingerprint.mjs';
-import { createImmutableFileSnapshot } from './lib/immutable-release-snapshot.mjs';
+import { createImmutableBufferSnapshot } from './lib/immutable-release-snapshot.mjs';
+import { createCorpusSourceSnapshot } from './lib/corpus-source-snapshot.mjs';
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const RELEASE_ID_PATTERN = /^corpus-[a-f0-9]{24}$/;
 const CANONICAL_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const DEFAULT_OWNER_TTL_SECONDS = 3600;
 export const CORPUS_MANIFEST_PROJECTION_KEYS = [
   'generated_at',
   'schema_version',
@@ -547,8 +549,144 @@ export async function verifyCorpusSqlFiles(manifestInput, directory) {
   return manifest;
 }
 
-export function buildCorpusImportStartSql(manifestInput, { resume = false } = {}) {
+function ownerTokenSha256(ownerToken, label = 'corpus import owner token') {
+  const token = String(ownerToken || '');
+  if (!/^[A-Za-z0-9._:-]{16,200}$/.test(token)) throw new Error(`${label} is invalid`);
+  return createHash('sha256').update(token).digest('hex');
+}
+
+function ownerFence(value) {
+  if (!Number.isSafeInteger(value) || value <= 0) throw new Error('corpus import owner fence must be a positive integer');
+  return value;
+}
+
+function ownerTtl(value) {
+  if (!Number.isSafeInteger(value) || value < 60 || value > 7200) {
+    throw new Error('corpus import owner TTL must be between 60 and 7200 seconds');
+  }
+  return value;
+}
+
+function prechangeReceipt(value) {
+  const raw = Buffer.from(String(value?.raw_json || ''), 'utf8');
+  if (!value || !SHA256_PATTERN.test(String(value.sha256 || ''))
+      || !Number.isSafeInteger(value.bytes) || value.bytes <= 0
+      || typeof value.bookmark !== 'string' || !value.bookmark
+      || typeof value.timestamp !== 'string' || Number.isNaN(Date.parse(value.timestamp))
+      || raw.length !== value.bytes
+      || createHash('sha256').update(raw).digest('hex') !== value.sha256) {
+    throw new Error('corpus import requires an exact prechange D1 Time Travel receipt');
+  }
+  try {
+    JSON.parse(raw.toString('utf8'));
+  } catch {
+    throw new Error('corpus import prechange D1 Time Travel receipt is not JSON');
+  }
+  return value;
+}
+
+function importOwnerGuardSql({ manifest, ownerToken, ownerFence: fence, ttlSeconds, guardKey }) {
+  const tokenHash = ownerTokenSha256(ownerToken);
+  const exactFence = ownerFence(fence);
+  const ttl = ownerTtl(ttlSeconds);
+  const now = "CAST(strftime('%s','now') AS INTEGER)";
+  return {
+    tokenHash,
+    fence: exactFence,
+    now,
+    prefix: `DELETE FROM corpus_import_guards WHERE guard_key=${sql(guardKey)};
+INSERT INTO corpus_import_guards(guard_key,ok)
+SELECT ${sql(guardKey)},CASE WHEN EXISTS(
+  SELECT 1 FROM corpus_import_ownership
+  WHERE id=1
+    AND release_id=${sql(manifest.release_id)}
+    AND manifest_sha256=${sql(manifest.manifest_sha256)}
+    AND owner_token_sha256=${sql(tokenHash)}
+    AND owner_fence=${exactFence}
+    AND expires_unix>${now}
+) THEN 1 ELSE 0 END;`,
+    renew: `UPDATE corpus_import_ownership
+SET expires_unix=${now}+${ttl},updated_at=CURRENT_TIMESTAMP
+WHERE id=1 AND release_id=${sql(manifest.release_id)}
+  AND manifest_sha256=${sql(manifest.manifest_sha256)}
+  AND owner_token_sha256=${sql(tokenHash)} AND owner_fence=${exactFence}
+  AND expires_unix>${now};`,
+    suffix: `DELETE FROM corpus_import_guards WHERE guard_key=${sql(guardKey)};`,
+  };
+}
+
+export function buildCorpusImportOwnerAcquireSql(manifestInput, {
+  ownerToken,
+  ttlSeconds = DEFAULT_OWNER_TTL_SECONDS,
+} = {}) {
   const manifest = validateCorpusManifest(manifestInput);
+  const tokenHash = ownerTokenSha256(ownerToken);
+  const ttl = ownerTtl(ttlSeconds);
+  const now = "CAST(strftime('%s','now') AS INTEGER)";
+  return `DELETE FROM corpus_import_guards WHERE guard_key='corpus_import_owner_acquire';
+INSERT INTO corpus_import_guards(guard_key,ok)
+SELECT 'corpus_import_owner_acquire',CASE WHEN
+  NOT EXISTS(SELECT 1 FROM corpus_import_ownership WHERE id=1)
+  OR EXISTS(
+    SELECT 1 FROM corpus_import_ownership WHERE id=1 AND (
+      expires_unix<=${now}
+      OR (
+        release_id=${sql(manifest.release_id)}
+        AND manifest_sha256=${sql(manifest.manifest_sha256)}
+        AND owner_token_sha256=${sql(tokenHash)}
+        AND expires_unix>${now}
+      )
+    )
+  )
+THEN 1 ELSE 0 END;
+UPDATE corpus_import_fence_state SET last_fence=last_fence+1
+WHERE id=1 AND (
+  NOT EXISTS(SELECT 1 FROM corpus_import_ownership WHERE id=1)
+  OR EXISTS(SELECT 1 FROM corpus_import_ownership WHERE id=1 AND expires_unix<=${now})
+);
+INSERT INTO corpus_import_ownership(
+  id,release_id,manifest_sha256,owner_token_sha256,owner_fence,expires_unix,updated_at
+) VALUES(
+  1,${sql(manifest.release_id)},${sql(manifest.manifest_sha256)},${sql(tokenHash)},
+  (SELECT last_fence FROM corpus_import_fence_state WHERE id=1),${now}+${ttl},CURRENT_TIMESTAMP
+) ON CONFLICT(id) DO UPDATE SET
+  release_id=excluded.release_id,
+  manifest_sha256=excluded.manifest_sha256,
+  owner_token_sha256=excluded.owner_token_sha256,
+  owner_fence=CASE
+    WHEN corpus_import_ownership.expires_unix<=${now} THEN excluded.owner_fence
+    ELSE corpus_import_ownership.owner_fence
+  END,
+  expires_unix=excluded.expires_unix,
+  updated_at=CURRENT_TIMESTAMP;
+DELETE FROM corpus_import_guards WHERE guard_key='corpus_import_owner_acquire';
+SELECT owner_fence FROM corpus_import_ownership
+WHERE id=1 AND release_id=${sql(manifest.release_id)}
+  AND manifest_sha256=${sql(manifest.manifest_sha256)}
+  AND owner_token_sha256=${sql(tokenHash)} AND expires_unix>${now};`;
+}
+
+export function buildCorpusImportOwnerReadSql(manifestInput, { ownerToken } = {}) {
+  const manifest = validateCorpusManifest(manifestInput);
+  return `SELECT owner_fence FROM corpus_import_ownership
+WHERE id=1 AND release_id=${sql(manifest.release_id)}
+  AND manifest_sha256=${sql(manifest.manifest_sha256)}
+  AND owner_token_sha256=${sql(ownerTokenSha256(ownerToken))}
+  AND expires_unix>CAST(strftime('%s','now') AS INTEGER);`;
+}
+
+export function buildCorpusImportStartSql(manifestInput, {
+  resume = false,
+  ownerToken,
+  ownerFence: fence,
+  ttlSeconds = DEFAULT_OWNER_TTL_SECONDS,
+  prechange: prechangeInput,
+} = {}) {
+  const manifest = validateCorpusManifest(manifestInput);
+  const owner = importOwnerGuardSql({
+    manifest, ownerToken, ownerFence: fence, ttlSeconds, guardKey: resume ? 'corpus_import_resume' : 'corpus_import_start',
+  });
+  const prechange = prechangeReceipt(prechangeInput);
   const expectedCoreCountsJson = JSON.stringify(manifest.core_table_counts);
   const resumeGuard = resume
     ? `AND EXISTS(
@@ -562,7 +700,8 @@ export function buildCorpusImportStartSql(manifestInput, { resume = false } = {}
   const resetReceipts = resume
     ? ''
     : `DELETE FROM corpus_import_chunks WHERE release_id=${sql(manifest.release_id)};\n`;
-  return `DELETE FROM corpus_import_guards WHERE guard_key='start';
+  return `${owner.prefix}
+DELETE FROM corpus_import_guards WHERE guard_key='start';
 INSERT INTO corpus_import_guards(guard_key,ok)
 SELECT 'start',CASE WHEN NOT EXISTS(
   SELECT 1 FROM corpus_import_releases
@@ -579,12 +718,16 @@ INSERT INTO corpus_import_releases(
   release_id,release_fingerprint_sha256,manifest_sha256,state,expected_documents,expected_paragraphs,
   expected_fts_rows,expected_page_gates,expected_displayed_paragraphs,accepted_ocr_documents,
   expected_chunks,expected_core_counts_json,actual_documents,actual_paragraphs,actual_fts_rows,actual_page_gates,actual_displayed_paragraphs,actual_chunks,actual_core_counts_json,
-  started_at,updated_at,ready_at,failure_reason
+  started_at,updated_at,ready_at,failure_reason,
+  owner_token_sha256,owner_fence,owner_expires_unix,
+  prechange_bookmark,prechange_timestamp,prechange_receipt_sha256,prechange_receipt_bytes,prechange_receipt_json
 ) VALUES(${[
     manifest.release_id, manifest.release_fingerprint_sha256, manifest.manifest_sha256, 'in_progress', manifest.documents,
     manifest.paragraphs, manifest.fts_rows, manifest.page_publication_gates,
     manifest.displayed_paragraphs, manifest.accepted_ocr_documents, manifest.sql_chunks, expectedCoreCountsJson,
-  ].map(sql).join(',')},NULL,NULL,NULL,NULL,NULL,NULL,NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL,NULL)
+  ].map(sql).join(',')},NULL,NULL,NULL,NULL,NULL,NULL,NULL,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL,NULL,
+  ${sql(owner.tokenHash)},${owner.fence},${owner.now}+${ownerTtl(ttlSeconds)},
+  ${sql(prechange.bookmark)},${sql(prechange.timestamp)},${sql(prechange.sha256)},${prechange.bytes},${sql(prechange.raw_json)})
 ON CONFLICT(release_id) DO UPDATE SET
   release_fingerprint_sha256=excluded.release_fingerprint_sha256,
   manifest_sha256=excluded.manifest_sha256,
@@ -600,54 +743,148 @@ ON CONFLICT(release_id) DO UPDATE SET
   actual_documents=NULL,actual_paragraphs=NULL,actual_fts_rows=NULL,
   actual_page_gates=NULL,actual_displayed_paragraphs=NULL,actual_chunks=NULL,
   actual_core_counts_json=NULL,
-  updated_at=CURRENT_TIMESTAMP,ready_at=NULL,failure_reason=NULL;
+  owner_token_sha256=excluded.owner_token_sha256,
+  owner_fence=excluded.owner_fence,
+  owner_expires_unix=excluded.owner_expires_unix,
+  prechange_bookmark=COALESCE(corpus_import_releases.prechange_bookmark,excluded.prechange_bookmark),
+  prechange_timestamp=COALESCE(corpus_import_releases.prechange_timestamp,excluded.prechange_timestamp),
+  prechange_receipt_sha256=COALESCE(corpus_import_releases.prechange_receipt_sha256,excluded.prechange_receipt_sha256),
+  prechange_receipt_bytes=COALESCE(corpus_import_releases.prechange_receipt_bytes,excluded.prechange_receipt_bytes),
+  prechange_receipt_json=COALESCE(corpus_import_releases.prechange_receipt_json,excluded.prechange_receipt_json),
+  updated_at=CURRENT_TIMESTAMP,ready_at=NULL,failure_reason=NULL
+WHERE corpus_import_releases.state!='ready';
 ${resetReceipts}INSERT INTO site_meta(key,value) VALUES('corpus_import_state','in_progress')
   ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;
 INSERT INTO site_meta(key,value) VALUES('current_corpus_release_id',${sql(manifest.release_id)})
   ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;
 INSERT INTO site_meta(key,value) VALUES('current_corpus_manifest_sha256',${sql(manifest.manifest_sha256)})
   ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;
-DELETE FROM corpus_import_guards WHERE guard_key='start';`;
+DELETE FROM corpus_import_guards WHERE guard_key='start';
+${owner.renew}
+${owner.suffix}`;
 }
 
-export function buildCorpusChunkReceiptSql(manifestInput, chunkName, executed = null) {
+export function buildCorpusChunkReceiptSql(manifestInput, chunkName, executed = null, {
+  ownerToken,
+  ownerFence: fence,
+  ttlSeconds = DEFAULT_OWNER_TTL_SECONDS,
+} = {}) {
   const manifest = validateCorpusManifest(manifestInput);
+  const owner = importOwnerGuardSql({
+    manifest, ownerToken, ownerFence: fence, ttlSeconds, guardKey: `corpus_import_receipt:${chunkName}`,
+  });
   const chunk = manifest.sql_files.find((entry) => entry.name === chunkName);
   if (!chunk) throw new Error(`chunk is not declared by corpus manifest: ${chunkName}`);
   const actual = executed || chunk;
   if (actual.sha256 !== chunk.sha256 || actual.bytes !== chunk.bytes) {
     throw new Error(`executed chunk bytes do not match corpus manifest: ${chunkName}`);
   }
-  return `INSERT INTO corpus_import_chunks(release_id,chunk_name,chunk_sha256,chunk_bytes,imported_at)
-VALUES(${sql(manifest.release_id)},${sql(chunk.name)},${sql(actual.sha256)},${sql(actual.bytes)},CURRENT_TIMESTAMP)
+  return `${owner.prefix}
+INSERT INTO corpus_import_chunks(release_id,chunk_name,chunk_sha256,chunk_bytes,imported_at,owner_fence)
+VALUES(${sql(manifest.release_id)},${sql(chunk.name)},${sql(actual.sha256)},${sql(actual.bytes)},CURRENT_TIMESTAMP,${owner.fence})
 ON CONFLICT(release_id,chunk_name) DO UPDATE SET
-  chunk_sha256=excluded.chunk_sha256,chunk_bytes=excluded.chunk_bytes,imported_at=CURRENT_TIMESTAMP;`;
+  chunk_sha256=excluded.chunk_sha256,chunk_bytes=excluded.chunk_bytes,
+  imported_at=CURRENT_TIMESTAMP,owner_fence=excluded.owner_fence;
+${owner.renew}
+${owner.suffix}`;
 }
 
-export function buildCorpusImportFailureSql(manifestInput, reason = 'corpus_import_failed') {
+export function buildOwnedCorpusChunkSql(manifestInput, chunkName, chunkBuffer, ownerOptions = {}) {
   const manifest = validateCorpusManifest(manifestInput);
+  const chunk = manifest.sql_files.find((entry) => entry.name === chunkName);
+  if (!chunk || !Buffer.isBuffer(chunkBuffer)) throw new Error(`owned corpus chunk is invalid: ${chunkName}`);
+  const executed = { sha256: createHash('sha256').update(chunkBuffer).digest('hex'), bytes: chunkBuffer.length };
+  if (executed.sha256 !== chunk.sha256 || executed.bytes !== chunk.bytes) {
+    throw new Error(`executed chunk bytes do not match corpus manifest: ${chunkName}`);
+  }
+  const owner = importOwnerGuardSql({
+    manifest,
+    ownerToken: ownerOptions.ownerToken,
+    ownerFence: ownerOptions.ownerFence,
+    ttlSeconds: ownerOptions.ttlSeconds ?? DEFAULT_OWNER_TTL_SECONDS,
+    guardKey: `corpus_import_chunk:${chunkName}`,
+  });
+  const chunkSql = chunkBuffer.toString('utf8');
+  if (Buffer.from(chunkSql, 'utf8').length !== chunkBuffer.length) {
+    throw new Error(`corpus SQL chunk is not canonical UTF-8: ${chunkName}`);
+  }
+  return Buffer.from(`${owner.prefix}\n${chunkSql.trimEnd()}\nINSERT INTO corpus_import_chunks(
+  release_id,chunk_name,chunk_sha256,chunk_bytes,imported_at,owner_fence
+) VALUES(
+  ${sql(manifest.release_id)},${sql(chunk.name)},${sql(executed.sha256)},${executed.bytes},CURRENT_TIMESTAMP,${owner.fence}
+) ON CONFLICT(release_id,chunk_name) DO UPDATE SET
+  chunk_sha256=excluded.chunk_sha256,chunk_bytes=excluded.chunk_bytes,
+  imported_at=CURRENT_TIMESTAMP,owner_fence=excluded.owner_fence;
+${owner.renew}
+${owner.suffix}\n`);
+}
+
+export function buildCorpusImportFailureSql(manifestInput, reason = 'corpus_import_failed', {
+  ownerToken,
+  ownerFence: fence,
+  ttlSeconds = DEFAULT_OWNER_TTL_SECONDS,
+} = {}) {
+  const manifest = validateCorpusManifest(manifestInput);
+  const owner = importOwnerGuardSql({
+    manifest, ownerToken, ownerFence: fence, ttlSeconds, guardKey: 'corpus_import_failure',
+  });
   const safeReason = String(reason).slice(0, 240);
-  return `UPDATE corpus_import_releases
+  return `${owner.prefix}
+UPDATE corpus_import_releases
 SET state='failed',failure_reason=${sql(safeReason)},updated_at=CURRENT_TIMESTAMP
-WHERE release_id=${sql(manifest.release_id)} AND state!='ready';
+WHERE release_id=${sql(manifest.release_id)} AND state!='ready'
+  AND owner_token_sha256=${sql(owner.tokenHash)} AND owner_fence=${owner.fence};
 UPDATE site_meta SET value='failed',updated_at=CURRENT_TIMESTAMP
 WHERE key='corpus_import_state'
   AND (SELECT value FROM site_meta WHERE key='current_corpus_release_id')=${sql(manifest.release_id)}
   AND EXISTS(
     SELECT 1 FROM corpus_import_releases
     WHERE release_id=${sql(manifest.release_id)} AND state='failed'
-  );`;
+  );
+UPDATE corpus_import_ownership SET expires_unix=${owner.now},updated_at=CURRENT_TIMESTAMP
+WHERE id=1 AND release_id=${sql(manifest.release_id)}
+  AND manifest_sha256=${sql(manifest.manifest_sha256)}
+  AND owner_token_sha256=${sql(owner.tokenHash)} AND owner_fence=${owner.fence};
+UPDATE corpus_import_releases SET owner_expires_unix=${owner.now},updated_at=CURRENT_TIMESTAMP
+WHERE release_id=${sql(manifest.release_id)}
+  AND owner_token_sha256=${sql(owner.tokenHash)} AND owner_fence=${owner.fence};
+${owner.suffix}`;
 }
 
-export function buildCorpusImportFinalizeSql(manifestInput) {
+export function buildCorpusImportOwnerReleaseSql(manifestInput, {
+  ownerToken,
+  ownerFence: fence,
+} = {}) {
   const manifest = validateCorpusManifest(manifestInput);
+  const tokenHash = ownerTokenSha256(ownerToken);
+  const exactFence = ownerFence(fence);
+  const now = "CAST(strftime('%s','now') AS INTEGER)";
+  return `UPDATE corpus_import_ownership SET expires_unix=${now},updated_at=CURRENT_TIMESTAMP
+WHERE id=1 AND release_id=${sql(manifest.release_id)}
+  AND manifest_sha256=${sql(manifest.manifest_sha256)}
+  AND owner_token_sha256=${sql(tokenHash)} AND owner_fence=${exactFence};
+UPDATE corpus_import_releases SET owner_expires_unix=${now},updated_at=CURRENT_TIMESTAMP
+WHERE release_id=${sql(manifest.release_id)}
+  AND owner_token_sha256=${sql(tokenHash)} AND owner_fence=${exactFence};`;
+}
+
+export function buildCorpusImportFinalizeSql(manifestInput, {
+  ownerToken,
+  ownerFence: fence,
+  ttlSeconds = DEFAULT_OWNER_TTL_SECONDS,
+} = {}) {
+  const manifest = validateCorpusManifest(manifestInput);
+  const owner = importOwnerGuardSql({
+    manifest, ownerToken, ownerFence: fence, ttlSeconds, guardKey: 'corpus_import_finalize_owner',
+  });
   const releaseId = sql(manifest.release_id);
   const manifestSha256 = sql(manifest.manifest_sha256);
   const chunkValues = manifest.sql_files.map((chunk) => `(${[
     chunk.name, chunk.sha256, chunk.bytes,
   ].map(sql).join(',')})`).join(',\n    ');
   const coreChecks = coreCountChecks(manifest, releaseId).map((check) => `  AND ${check}`).join('\n');
-  return `DELETE FROM corpus_import_guards WHERE guard_key='finalize';
+  return `${owner.prefix}
+DELETE FROM corpus_import_guards WHERE guard_key='finalize';
 INSERT INTO corpus_import_guards(guard_key,ok)
 SELECT 'finalize',CASE WHEN
   (SELECT value FROM site_meta WHERE key='corpus_import_state')='in_progress'
@@ -658,6 +895,7 @@ SELECT 'finalize',CASE WHEN
     WHERE release_id=${releaseId}
       AND release_fingerprint_sha256=${sql(manifest.release_fingerprint_sha256)}
       AND manifest_sha256=${manifestSha256} AND state='in_progress'
+      AND owner_token_sha256=${sql(owner.tokenHash)} AND owner_fence=${owner.fence}
   )
 THEN 1 ELSE 0 END;
 
@@ -755,11 +993,19 @@ UPDATE corpus_import_releases SET
   actual_chunks=(SELECT COUNT(*) FROM corpus_import_chunks WHERE release_id=${releaseId}),
   actual_core_counts_json=${coreCountsJsonSql(releaseId)},
   updated_at=CURRENT_TIMESTAMP,ready_at=CURRENT_TIMESTAMP,failure_reason=NULL
-WHERE release_id=${releaseId};
+WHERE release_id=${releaseId}
+  AND owner_token_sha256=${sql(owner.tokenHash)} AND owner_fence=${owner.fence};
 INSERT INTO site_meta(key,value) VALUES('accepted_ocr_document_count',${sql(String(manifest.accepted_ocr_documents))})
   ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;
 UPDATE site_meta SET value='ready',updated_at=CURRENT_TIMESTAMP WHERE key='corpus_import_state';
-DELETE FROM corpus_import_guards WHERE guard_key='finalize';`;
+UPDATE corpus_import_ownership SET expires_unix=${owner.now},updated_at=CURRENT_TIMESTAMP
+WHERE id=1 AND release_id=${releaseId} AND manifest_sha256=${manifestSha256}
+  AND owner_token_sha256=${sql(owner.tokenHash)} AND owner_fence=${owner.fence};
+UPDATE corpus_import_releases SET owner_expires_unix=${owner.now},updated_at=CURRENT_TIMESTAMP
+WHERE release_id=${releaseId}
+  AND owner_token_sha256=${sql(owner.tokenHash)} AND owner_fence=${owner.fence};
+DELETE FROM corpus_import_guards WHERE guard_key='finalize';
+${owner.suffix}`;
 }
 
 function parseArgs(argv) {
@@ -781,10 +1027,96 @@ function parseArgs(argv) {
 }
 
 function runWrangler(root, database, environment, commandArgs, stdio = 'inherit') {
-  const command = ['wrangler', 'd1', 'execute', database];
+  const command = ['--no-install', 'wrangler', 'd1', 'execute', database];
   if (environment) command.push('--env', environment);
   command.push('--remote', ...commandArgs);
-  return spawnSync('npx', command, { cwd: root.pathname, stdio });
+  return spawnSync('npx', command, { cwd: root.pathname, stdio, encoding: stdio === 'pipe' ? 'utf8' : undefined });
+}
+
+function findField(value, names) {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findField(item, names);
+      if (found !== undefined) return found;
+    }
+  } else if (value && typeof value === 'object') {
+    for (const name of names) if (Object.hasOwn(value, name)) return value[name];
+    for (const item of Object.values(value)) {
+      const found = findField(item, names);
+      if (found !== undefined) return found;
+    }
+  }
+  return undefined;
+}
+
+export function parseD1TimeTravelReceipt(stdout, observedAt) {
+  const buffer = Buffer.isBuffer(stdout) ? stdout : Buffer.from(String(stdout || ''));
+  let value;
+  try {
+    value = JSON.parse(buffer.toString('utf8'));
+  } catch (error) {
+    throw new Error(`D1 Time Travel receipt is not JSON: ${error.message}`);
+  }
+  const bookmark = String(findField(value, ['bookmark']) || '');
+  if (!bookmark) throw new Error('D1 Time Travel receipt lacks a bookmark');
+  const timestamp = canonicalTimestamp(observedAt, 'D1 Time Travel receipt observed_at');
+  return {
+    bookmark,
+    timestamp,
+    sha256: createHash('sha256').update(buffer).digest('hex'),
+    bytes: buffer.length,
+    raw_json: buffer.toString('utf8'),
+  };
+}
+
+export function collectD1TimeTravelReceipt({
+  root,
+  database,
+  environment,
+  runCommand = spawnSync,
+  now = () => new Date(),
+} = {}) {
+  const args = ['--no-install', 'wrangler', 'd1', 'time-travel', 'info', database];
+  if (environment) args.push('--env', environment);
+  args.push('--json');
+  const observedAt = now().toISOString();
+  const result = runCommand('npx', args, {
+    cwd: root instanceof URL ? root.pathname : String(root),
+    encoding: null,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (result.status !== 0) {
+    throw new Error(`D1 Time Travel prechange receipt failed with exit ${result.status ?? 'unknown'}`);
+  }
+  return parseD1TimeTravelReceipt(result.stdout, observedAt);
+}
+
+function parseOwnerFence(stdout) {
+  const buffer = Buffer.isBuffer(stdout) ? stdout : Buffer.from(String(stdout || ''));
+  let value;
+  try {
+    value = JSON.parse(buffer.toString('utf8'));
+  } catch (error) {
+    throw new Error(`corpus import owner fence receipt is not JSON: ${error.message}`);
+  }
+  const fence = Number(findField(value, ['owner_fence']));
+  return ownerFence(fence);
+}
+
+export function acquireCorpusImportOwner({
+  root,
+  database,
+  environment,
+  manifest,
+  ownerToken,
+  ttlSeconds = DEFAULT_OWNER_TTL_SECONDS,
+  runCommand = runWrangler,
+} = {}) {
+  const result = runCommand(root, database, environment, [
+    '--command', buildCorpusImportOwnerAcquireSql(manifest, { ownerToken, ttlSeconds }), '--json',
+  ], 'pipe');
+  if (result.status !== 0) throw new Error('corpus import ownership acquisition failed');
+  return parseOwnerFence(result.stdout);
 }
 
 export function runCorpusFinalization({
@@ -793,21 +1125,26 @@ export function runCorpusFinalization({
   environment,
   manifest,
   resume = false,
+  ownerToken,
+  ownerFence: fence,
+  prechange,
+  ttlSeconds = DEFAULT_OWNER_TTL_SECONDS,
   runCommand = runWrangler,
 } = {}) {
+  const ownerOptions = { ownerToken, ownerFence: fence, prechange, ttlSeconds };
   if (resume) {
     const resumed = runCommand(root, database, environment, [
-      '--command', buildCorpusImportStartSql(manifest, { resume: true }),
+      '--command', buildCorpusImportStartSql(manifest, { resume: true, ...ownerOptions }),
     ]);
     if (resumed.status !== 0) return { status: resumed.status || 1, phase: 'resume' };
   }
 
   const finalized = runCommand(root, database, environment, [
-    '--command', buildCorpusImportFinalizeSql(manifest),
+    '--command', buildCorpusImportFinalizeSql(manifest, ownerOptions),
   ]);
   if (finalized.status !== 0) {
     runCommand(root, database, environment, [
-      '--command', buildCorpusImportFailureSql(manifest, 'finalize_invariant_failed'),
+      '--command', buildCorpusImportFailureSql(manifest, 'finalize_invariant_failed', ownerOptions),
     ]);
     return { status: finalized.status || 1, phase: 'finalize' };
   }
@@ -824,7 +1161,12 @@ export async function runCorpusImport({
   coreOnly = false,
   finalizeOnly = false,
   pageEvidencePromotion = false,
+  ownerToken = process.env.CURRICULUM_CORPUS_IMPORT_OWNER_TOKEN || randomUUID(),
+  ownerTtlSeconds = DEFAULT_OWNER_TTL_SECONDS,
   runCommand = runWrangler,
+  timeTravelCollector = collectD1TimeTravelReceipt,
+  ownerAcquirer = acquireCorpusImportOwner,
+  corpusSnapshotFactory = createCorpusSourceSnapshot,
   pageEvidenceValidator = validatePageEvidenceForRelease,
   sourceBindingValidator = validateCorpusManifestSourceBindings,
 } = {}) {
@@ -833,6 +1175,9 @@ export async function runCorpusImport({
   if (!remote) throw new Error('refusing remote mutation without explicit --remote');
   from = Math.max(0, Number(from || 0));
   to = Math.max(from, Number(to ?? Number.MAX_SAFE_INTEGER));
+  if (finalizeOnly && (coreOnly || from > 0 || to !== Number.MAX_SAFE_INTEGER)) {
+    throw new Error('--finalize-only cannot be combined with --core-only, --from, or --to');
+  }
   const rootUrl = root instanceof URL
     ? root
     : pathToFileURL(`${path.resolve(String(root))}${path.sep}`);
@@ -840,50 +1185,108 @@ export async function runCorpusImport({
     root: rootUrl,
     pageEvidencePromotion: Boolean(pageEvidencePromotion),
   });
-  const directory = new URL('data/corpus-chunks/', rootUrl);
-  const allFiles = (await readdir(directory))
+  const liveDirectory = new URL('data/corpus-chunks/', rootUrl);
+  const liveFiles = (await readdir(liveDirectory))
     .filter((name) => /^\d{3}-(?:core|paragraphs)\.sql$/.test(name))
     .sort();
-  const manifest = await verifyCorpusSqlFiles(
-    validateCorpusManifest(
-      JSON.parse(await readFile(new URL('manifest.json', directory), 'utf8')),
-      allFiles.length,
-    ),
-    directory,
+  const liveManifest = validateCorpusManifest(
+    JSON.parse(await readFile(new URL('manifest.json', liveDirectory), 'utf8')),
+    liveFiles.length,
   );
-  await sourceBindingValidator(manifest, { root: rootUrl });
-  if (finalizeOnly) {
-    if (coreOnly || from > 0 || to !== Number.MAX_SAFE_INTEGER) {
-      throw new Error('--finalize-only cannot be combined with --core-only, --from, or --to');
-    }
-    const outcome = runCorpusFinalization({
-      root: rootUrl, database, environment, manifest, resume: true, runCommand,
+  const corpusSnapshot = await corpusSnapshotFactory({ root: rootUrl.pathname, manifest: liveManifest });
+  let snapshotRoot;
+  let directory;
+  let allFiles;
+  let manifest;
+  let prechange;
+  let fence;
+  try {
+    snapshotRoot = pathToFileURL(`${corpusSnapshot.root}${path.sep}`);
+    directory = new URL('data/corpus-chunks/', snapshotRoot);
+    allFiles = (await readdir(directory))
+      .filter((name) => /^\d{3}-(?:core|paragraphs)\.sql$/.test(name)).sort();
+    manifest = await verifyCorpusSqlFiles(
+      validateCorpusManifest(JSON.parse(await readFile(new URL('manifest.json', directory), 'utf8')), allFiles.length),
+      directory,
+    );
+    await corpusSnapshot.verify();
+    await sourceBindingValidator(manifest, { root: snapshotRoot });
+    prechange = timeTravelCollector({ root: rootUrl, database, environment });
+    fence = ownerAcquirer({
+      root: rootUrl,
+      database,
+      environment,
+      manifest,
+      ownerToken,
+      ttlSeconds: ownerTtlSeconds,
+      runCommand,
     });
-    if (outcome.status === 0) process.stdout.write(`release ${manifest.release_id} ready\n`);
-    return outcome;
+  } catch (error) {
+    await corpusSnapshot.cleanup();
+    throw error;
+  }
+  const ownerOptions = {
+    ownerToken,
+    ownerFence: fence,
+    ttlSeconds: ownerTtlSeconds,
+    prechange,
+  };
+  const releaseOwner = () => runCommand(rootUrl, database, environment, [
+    '--command', buildCorpusImportOwnerReleaseSql(manifest, ownerOptions),
+  ]);
+  const releaseOwnerSafely = (message) => {
+    try {
+      const result = releaseOwner();
+      return result.status === 0 ? null : new Error(`${message} with exit ${result.status ?? 'unknown'}`);
+    } catch (error) {
+      return new Error(message, { cause: error });
+    }
+  };
+  if (finalizeOnly) {
+    let caughtError = null;
+    try {
+      const outcome = runCorpusFinalization({
+        root: rootUrl, database, environment, manifest, resume: true, runCommand, ...ownerOptions,
+      });
+      if (outcome.status === 0) process.stdout.write(`release ${manifest.release_id} ready\n`);
+      return outcome;
+    } catch (error) {
+      caughtError = error;
+      throw error;
+    } finally {
+      const releaseError = releaseOwnerSafely('corpus import owner release failed after finalization');
+      await corpusSnapshot.cleanup();
+      if (releaseError && !caughtError) throw releaseError;
+    }
   }
   let files = coreOnly ? allFiles.filter((name) => name.startsWith('000-')) : allFiles;
   files = files.filter((name) => {
     const index = Number(name.slice(0, 3));
     return index >= from && index <= to;
   });
-  if (!files.length) throw new Error('no corpus SQL files selected');
+  if (!files.length) {
+    const releaseError = releaseOwnerSafely('corpus import owner release failed after empty selection');
+    await corpusSnapshot.cleanup();
+    if (releaseError) throw releaseError;
+    throw new Error('no corpus SQL files selected');
+  }
 
   const snapshots = [];
+  let caughtError = null;
   try {
     for (const file of files) {
       const declared = manifest.sql_files.find((entry) => entry.name === file);
-      snapshots.push(await createImmutableFileSnapshot({
-        root: directory,
-        source: file,
-        expected: declared,
-        label: `corpus SQL chunk ${file}`,
+      const chunkBuffer = await readFile(new URL(file, directory));
+      const ownedBuffer = buildOwnedCorpusChunkSql(manifest, file, chunkBuffer, ownerOptions);
+      snapshots.push(await createImmutableBufferSnapshot({
+        buffer: ownedBuffer,
+        label: `owned atomic corpus SQL chunk ${file}`,
       }));
     }
     for (const snapshot of snapshots) await snapshot.verify();
 
     const start = runCommand(rootUrl, database, environment, [
-      '--command', buildCorpusImportStartSql(manifest, { resume: from > 0 }),
+      '--command', buildCorpusImportStartSql(manifest, { resume: from > 0, ...ownerOptions }),
     ]);
     if (start.status !== 0) return { status: start.status || 1, phase: 'start' };
 
@@ -899,7 +1302,7 @@ export async function runCorpusImport({
       } catch (error) {
         try {
           runCommand(rootUrl, database, environment, [
-            '--command', buildCorpusImportFailureSql(manifest, `chunk_snapshot_unstable:${file}`),
+            '--command', buildCorpusImportFailureSql(manifest, `chunk_snapshot_unstable:${file}`, ownerOptions),
           ]);
         } catch {
           // Preserve the snapshot-integrity error even if the best-effort failure receipt also fails.
@@ -910,20 +1313,10 @@ export async function runCorpusImport({
       }
       if (result.status !== 0) {
         runCommand(rootUrl, database, environment, [
-          '--command', buildCorpusImportFailureSql(manifest, `chunk_failed:${file}`),
+          '--command', buildCorpusImportFailureSql(manifest, `chunk_failed:${file}`, ownerOptions),
         ]);
         process.stderr.write(`import stopped at ${file}; rerun with --from ${file.slice(0, 3)}\n`);
         return { status: result.status || 1, phase: 'chunk', chunk: file };
-      }
-      const receipt = runCommand(rootUrl, database, environment, [
-        '--command', buildCorpusChunkReceiptSql(manifest, file, executed),
-      ]);
-      if (receipt.status !== 0) {
-        runCommand(rootUrl, database, environment, [
-          '--command', buildCorpusImportFailureSql(manifest, `chunk_receipt_failed:${file}`),
-        ]);
-        process.stderr.write(`chunk imported but receipt failed at ${file}; rerun with --from ${file.slice(0, 3)}\n`);
-        return { status: receipt.status || 1, phase: 'receipt', chunk: file };
       }
     }
 
@@ -935,12 +1328,20 @@ export async function runCorpusImport({
     }
 
     const outcome = runCorpusFinalization({
-      root: rootUrl, database, environment, manifest, runCommand,
+      root: rootUrl, database, environment, manifest, runCommand, ...ownerOptions,
     });
     if (outcome.status === 0) process.stdout.write(`release ${manifest.release_id} ready\n`);
     return outcome;
+  } catch (error) {
+    caughtError = error;
+    throw error;
   } finally {
-    await Promise.allSettled(snapshots.map((snapshot) => snapshot.cleanup()));
+    const releaseError = releaseOwnerSafely('corpus import owner release failed');
+    await Promise.allSettled([
+      ...snapshots.map((snapshot) => snapshot.cleanup()),
+      corpusSnapshot.cleanup(),
+    ]);
+    if (releaseError && !caughtError) throw releaseError;
   }
 }
 

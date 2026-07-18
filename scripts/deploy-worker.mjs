@@ -8,8 +8,10 @@ import { buildReleaseManifest } from './build-release-manifest.mjs';
 import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 import { createImmutableTreeSnapshot } from './lib/immutable-release-snapshot.mjs';
 import { immutableVersionedManifestArtifact } from './publish-metadata.mjs';
+import { prepareRelease } from './prepare-release.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
+const DEFAULT_MANIFEST = '.wrangler/release-manifest.json';
 
 function exactSha256(value, label) {
   const text = String(value || '');
@@ -59,10 +61,30 @@ export async function deployWorker({
   pageEvidenceValidator = validatePageEvidenceForRelease,
   cleanSourceValidator = assertCleanReleaseSource,
   manifestBuilder = buildReleaseManifest,
+  releasePreparer = prepareRelease,
 } = {}) {
-  pageEvidenceValidator({ root, pageEvidencePromotion, rendererPath });
-  const git = cleanSourceValidator({ root, requireUpstream: true, runCommand });
-  const manifest = await manifestBuilder({ root, pageEvidencePromotion, rendererPath });
+  let prepared = null;
+  let sourceRoot = root;
+  let git;
+  let manifest;
+  if (manifestBuilder === buildReleaseManifest) {
+    prepared = await releasePreparer({
+      root,
+      output: DEFAULT_MANIFEST,
+      pageEvidencePromotion,
+      rendererPath,
+      runCommand,
+      pageEvidenceValidator,
+      cleanSourceValidator,
+    });
+    sourceRoot = prepared.source.root;
+    git = { head: prepared.manifest.git.head };
+    manifest = prepared.manifest;
+  } else {
+    pageEvidenceValidator({ root, pageEvidencePromotion, rendererPath });
+    git = cleanSourceValidator({ root, requireUpstream: true, runCommand });
+    manifest = await manifestBuilder({ root, pageEvidencePromotion, rendererPath });
+  }
   assertManifestSourceGates(manifest);
   if (manifest.git?.head !== git.head) throw new Error('release manifest Git HEAD differs from the clean source gate');
 
@@ -90,14 +112,15 @@ export async function deployWorker({
     throw new Error('release manifest source tree digest is internally inconsistent');
   }
 
-  const snapshot = await createImmutableTreeSnapshot({
-    root,
-    files: [...inventory.values()],
-    label: 'Worker deployment source',
-  });
+  let snapshot = null;
   try {
+    snapshot = await createImmutableTreeSnapshot({
+      root: sourceRoot,
+      files: [...inventory.values()],
+      label: 'Worker deployment source',
+    });
     await snapshot.verify();
-    const manifestArtifact = immutableVersionedManifestArtifact(manifest);
+    const manifestArtifact = prepared?.artifact || immutableVersionedManifestArtifact(manifest);
     const arguments_ = wranglerDeployArgs(environment, {
       git_head: git.head,
       snapshot_root: snapshot.root,
@@ -119,7 +142,8 @@ export async function deployWorker({
       deployment_snapshot_sha256: snapshot.sha256,
     };
   } finally {
-    await snapshot.cleanup();
+    await snapshot?.cleanup();
+    await prepared?.cleanup();
   }
 }
 

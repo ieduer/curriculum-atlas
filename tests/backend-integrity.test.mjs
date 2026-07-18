@@ -525,6 +525,7 @@ test('source manifest follows the integrity-checked immutable release pointer', 
   const assetKey = `releases/${releaseId}/catalog/ingest-manifest.json`;
   const releaseManifestKey = `releases/${releaseId}/manifest.json`;
   const releaseManifestBytes = Buffer.from(`${JSON.stringify({
+    manifest_contract: 'curriculum_desired_release_v2',
     schema_version: 1,
     release_id: releaseId,
     r2: {
@@ -540,12 +541,13 @@ test('source manifest follows the integrity-checked immutable release pointer', 
     },
   })}\n`);
   const pointerBytes = Buffer.from(`${JSON.stringify({
-    schema_version: 1,
+    schema_version: 2,
     release_id: releaseId,
     release_manifest_key: releaseManifestKey,
     release_manifest_sha256: sha256(releaseManifestBytes),
     release_manifest_bytes: releaseManifestBytes.byteLength,
     managed_object_count: 1,
+    fence: 1,
   })}\n`);
   const calls = [];
   const objects = new Map([
@@ -567,6 +569,33 @@ test('source manifest follows the integrity-checked immutable release pointer', 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { entries: [{ id: 'versioned' }] });
   assert.deepEqual(calls, ['release/current.json', releaseManifestKey, assetKey]);
+});
+
+test('source manifest rejects coerced schema-2 pointers before reading a release manifest', async () => {
+  const worker = await loadWorker();
+  const releaseId = `release-${'7'.repeat(32)}`;
+  const pointerBytes = Buffer.from(`${JSON.stringify({
+    schema_version: '2',
+    release_id: releaseId,
+    release_manifest_key: `releases/${releaseId}/manifest.json`,
+    release_manifest_sha256: '7'.repeat(64),
+    release_manifest_bytes: 100,
+    managed_object_count: 1,
+    fence: 1,
+  })}\n`);
+  const calls = [];
+  const { env } = makeCommentEnv({
+    sources: {
+      async get(key) {
+        calls.push(key);
+        return key === 'release/current.json' ? mockR2Object(pointerBytes) : null;
+      },
+    },
+  });
+  const response = await worker.fetch(new Request('https://curriculum.example/api/source-manifest'), env);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, '来源校验清单发布状态异常');
+  assert.deepEqual(calls, ['release/current.json']);
 });
 
 test('source manifest retains a stable-key bootstrap fallback only when no release pointer exists', async () => {

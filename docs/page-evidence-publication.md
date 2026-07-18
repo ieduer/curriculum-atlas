@@ -232,44 +232,54 @@ the generated fingerprint; import cannot validate a partial reconstruction.
 
 ## Fixed publication inputs and serialized activation
 
-Every mutating command consumes a private mode-0700 snapshot rather than a path
-that was merely checked earlier:
+Every mutating command consumes one immutable desired-release artifact and
+private snapshots rather than a path that was merely checked earlier:
 
-- the importer copies each validated SQL chunk to a mode-0400 regular file,
-  passes that path to Wrangler, then checks its device, inode, mode, SHA-256 and
-  byte length before and after execution; the D1 receipt records those executed
-  snapshot bytes;
-- the R2 publisher takes the same kind of snapshot for the raw corpus envelope,
-  every managed object, the stable immutable manifest projection and the
-  pointer; an existing immutable key is accepted only when its remote bytes are
-  already exact and is never intentionally overwritten;
-- the Worker deployer constructs a complete private tree from the release
-  manifest's source-tree and built-asset inventories, validates the tree and
-  deploys with Wrangler `--cwd` set to that snapshot. The deployment variables
-  bind the Git commit, release id, release manifest, source-tree and corpus
-  hashes that were used to construct it. Worker health stays 503 unless all six
-  pins are well formed and its corpus release id/manifest hash equal live D1.
+- `prepare-release.mjs` first requires a clean Git HEAD exactly equal to its
+  upstream, materializes every tracked source from that commit's Git blobs,
+  copies the hash-bound private text assets, builds `dist` inside that tree and
+  writes `.wrangler/release-manifest.json`. Git HEAD, source tree, corpus,
+  Worker deployment variables, R2 keys and environment evidence all pin those
+  exact artifact bytes;
+- the importer creates one complete snapshot containing the corpus manifest,
+  every builder input, every exact text asset and every SQL chunk. Each D1
+  chunk mutation and its receipt execute in one guarded batch carrying the
+  release owner token and monotonic fence. An expired-owner takeover gets a new
+  fence; the former owner cannot start, renew, fail, resume, write a chunk or
+  finalize afterward;
+- the Worker deployer makes a second read-only tree from the prepared Git tree
+  and invokes Wrangler only with that private `--cwd`. A worktree mutation
+  after preparation cannot enter `dist` or the deployed Assets;
+- the R2 publisher sends only sealed local bytes to the authenticated Worker
+  coordinator. Immutable objects use `If-None-Match: *`; an existing key is
+  accepted only when body, SHA-256, byte length and custom metadata are exact.
 
-The R2 publisher obtains the environment's D1
-`d1_single_writer_lease_v1` lease before reading the predecessor pointer or
-writing a release. It renews that lease throughout staging, compares the exact
-predecessor bytes again immediately before activation, and releases the lease
-in a finalizer. Two conforming publishers therefore serialize; a stale writer
-fails instead of losing a newer pointer update. This is a cooperative D1 lease,
-not an R2 conditional-write primitive. Direct/manual R2 writes bypass its
-protection and are forbidden during publication or rollback.
+Migration `0008_release_ownership_fences.sql` supplies independent corpus and
+publication owner/fence state. The publisher first acquires its D1 publication
+owner token and fence, then the coordinator revalidates that live ownership for
+every create, inventory and activation request. Before activation it lists the
+entire release prefix with pagination and re-GETs every object; missing, extra,
+polluted or metadata-mismatched keys fail closed. `release/current.json` is
+written through the R2 binding with `If-Match` on the observed ETag, or
+`If-None-Match: *` for an absent pointer, and the new fence must be greater than
+the predecessor fence. A stale publisher therefore cannot overwrite a newer
+activation even after its local checks passed. A legacy schema-1 predecessor
+may be adopted only when its referenced manifest body still matches the exact
+hash and byte length in that pointer; all new schema-2 predecessors additionally
+require the coordinator metadata pins.
 
 The immutable versioned manifest excludes volatile observation time, so the
 same release id always maps to identical manifest bytes. `published_at` belongs
 only to the mutable pointer. Re-running an already exact target is idempotent
 and does not rewrite that pointer. A collision with different bytes, a changed
-predecessor, an expired/lost lease or a snapshot identity change fails closed.
+predecessor, an expired/lost owner fence or a snapshot identity change fails closed.
 
-Recovery starts with remote readback under the same single-writer procedure.
-Leave verified but unreferenced immutable objects in place. Rollback is a new,
-serialized forward publication of verified predecessor content; do not upload
-saved raw `current.json` bytes or delete the pointer outside a separately
-reviewed maintenance procedure that first proves all publishers are quiescent.
+Recovery starts from the prechange D1 Time Travel receipt and authenticated
+coordinator pointer inspection. Leave verified but unreferenced immutable
+objects in place. Rollback is a new, higher-fence forward publication of
+verified predecessor content; do not upload saved raw `current.json` bytes or
+delete the pointer outside a separately reviewed maintenance procedure that
+first proves all publishers are quiescent.
 
 ## Test coverage
 
