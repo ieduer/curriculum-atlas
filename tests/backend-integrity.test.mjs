@@ -388,7 +388,7 @@ function makeCommentEnv({ parent = null, paragraph = null, embeddedItem = null, 
           };
           if (sql.includes('SELECT id FROM documents')) return { id: 'doc-a' };
           if (sql.includes('FROM embedded_items')) return embeddedItem;
-          if (sql.includes('SELECT id,document_id,embedded_item_id FROM comments')) return parent;
+          if (sql.includes('FROM comments WHERE id')) return parent;
           if (sql.includes('SELECT id,document_id,embedded_item_id,display_allowed FROM paragraphs')) return paragraph;
           if (sql.includes('INSERT INTO rate_limits')) return { count: 1 };
           throw new Error(`Unexpected first query: ${sql}`);
@@ -500,6 +500,45 @@ test('comment creation rejects missing and cross-document parent references befo
   }
 });
 
+test('comment creation rejects non-public and cross-paragraph parents before rate limiting', async (t) => {
+  const worker = await loadWorker();
+  const cases = [
+    {
+      name: 'pending parent',
+      parent: {
+        id: 'parent-1', document_id: 'doc-a', embedded_item_id: null,
+        paragraph_id: 12, status: 'pending',
+      },
+      paragraph: { id: 12, document_id: 'doc-a', embedded_item_id: null, display_allowed: 1 },
+      body: { parentId: 'parent-1', paragraphId: 12 },
+      status: 409,
+      error: '上级讨论当前不可回复',
+    },
+    {
+      name: 'parent from another paragraph',
+      parent: {
+        id: 'parent-1', document_id: 'doc-a', embedded_item_id: null,
+        paragraph_id: 13, status: 'approved',
+      },
+      paragraph: { id: 12, document_id: 'doc-a', embedded_item_id: null, display_allowed: 1 },
+      body: { parentId: 'parent-1', paragraphId: 12 },
+      status: 400,
+      error: '上级讨论不属于当前段落',
+    },
+  ];
+
+  for (const item of cases) {
+    await t.test(item.name, async () => {
+      const { env, state } = makeCommentEnv({ parent: item.parent, paragraph: item.paragraph });
+      const response = await worker.fetch(commentRequest(item.body), env);
+      assert.equal(response.status, item.status);
+      assert.equal((await response.json()).error, item.error);
+      assert.equal(state.queries.some((query) => query.sql.includes('INSERT INTO rate_limits')), false);
+      assert.equal(state.commentInsert, null);
+    });
+  }
+});
+
 test('comment creation rejects missing, cross-document, and hidden paragraph references before rate limiting', async (t) => {
   const worker = await loadWorker();
   const cases = [
@@ -552,7 +591,10 @@ test('comment creation rejects non-integer paragraph ids', async (t) => {
 test('comment creation accepts same-document references and preserves authenticated rate limiting', async () => {
   const worker = await loadWorker();
   const { env, state } = makeCommentEnv({
-    parent: { id: 'parent-1', document_id: 'doc-a', embedded_item_id: null },
+    parent: {
+      id: 'parent-1', document_id: 'doc-a', embedded_item_id: null,
+      paragraph_id: 12, status: 'approved',
+    },
     paragraph: { id: 12, document_id: 'doc-a', embedded_item_id: null, display_allowed: 1 },
   });
   const response = await worker.fetch(commentRequest({ parentId: 'parent-1', paragraphId: 12 }), env);
@@ -623,7 +665,10 @@ test('embedded-item comment creation rejects sibling parent and paragraph refere
     {
       name: 'parent belongs to sibling item',
       body: { embeddedItemId: 'embedded:item-a', parentId: 'parent-1' },
-      parent: { id: 'parent-1', document_id: 'doc-a', embedded_item_id: 'embedded:item-b' },
+      parent: {
+        id: 'parent-1', document_id: 'doc-a', embedded_item_id: 'embedded:item-b',
+        paragraph_id: null, status: 'approved',
+      },
       paragraph: null,
       error: '上级讨论不属于当前篇目',
     },
