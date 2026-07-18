@@ -141,7 +141,13 @@ The machine-readable policy is `data/online-verification-standard.json`; databas
 
 Repeated headers and printed-page footers are not removed merely because they recur. A comparison-only filter is usable only when a manually reviewed approval ledger is still bound to the exact source-PDF SHA-256, the exact complete Vision-sidecar snapshot and stratified rendered-image hashes, and a separate activation ledger is bound to the exact approval-ledger bytes. `data/ocr-page-furniture-activation.json` activates eight already reviewed footer rules for `moe-2022-03`; the 99 covered pages keep their raw text and hashes unchanged. Header rules remain inactive because the current repeated-first-line candidates include both real running headers and genuine body/section headings.
 
-Online adjudication is page- or item-scoped, never document-sampled. A `citation_allowed=true` page decision must bind the source PDF, rendered image, primary OCR, independent Vision text and accepted text by SHA-256; identify an HTTPS official or academic source with an exact-document/exact-edition locator; retain its locally captured text/PDF evidence beneath the decision-ledger directory; and match that snapshot's actual bytes to the declared content hash. A same-artifact mirror is never counted as independent evidence. A human scan review must resolve every engine conflict and high-risk field. Table pages additionally require a cell-by-cell check. Stable-fact or different-edition evidence is retained as a scoped decision but cannot promote the page wording. A warning decision must retain its uncertainty note and remains unavailable to citation-locked AI.
+Online adjudication is page- or item-scoped, never document-sampled. Authority is not accepted from the decision ledger. The decision ledger pins the exact bytes of a separately supplied `ocr-online-source-registry-v1`; that controlled registry alone binds each source ID to a reviewed publisher, authority record, authority class, exact HTTPS host and allowed URL prefixes. `data/ocr-online-source-registry.json` is the fail-closed committed registry and intentionally starts empty. Adding a source requires a reviewed registry change and a source-identity SHA-256 over those fields.
+
+A `citation_allowed=true` page decision must bind the source PDF, rendered image, primary OCR, independent Vision text, accepted text, page type and any table manifest by SHA-256. Every online snapshot is a local UTF-8 page/item text or identified excerpt beneath the decision-ledger directory. Its actual bytes and text hash are recomputed, its locator/scope must match the whole page, `embedded_item_id`, or stable fact/span ID, and its normalized relationship to `accepted_text` is recomputed. A real wording difference requires a structured receipt binding both normalized texts and the rendered scan used to resolve it. The source PDF itself cannot be reused as the online-text snapshot.
+
+PDF containers are not presumed independent merely because their file hashes differ. Evidence classified as a different artifact requires a hash-bound artifact receipt containing both the source and online page/image-asset sequence identities and counts. Equal sequences force `same_artifact_mirror` and `independent_for_decision=false`; a repackaged mirror can never promote citation. A human scan review must resolve every engine conflict and high-risk field. HTML tables, Markdown pipe tables and flattened multi-column tables all force an explicit page type plus a complete row-major cell manifest whose dimensions, text hashes, accepted-text cells and manifest hash are checked. Stable-fact or different-edition evidence is retained as a scoped decision but cannot promote page wording. A warning decision retains its uncertainty note and remains unavailable to citation-locked AI.
+
+All source, ledger, primary, Vision, image, online-snapshot and artifact-receipt reads use the shared pinned-evidence reader. It rejects symlink leaves, verifies containment only after resolving the real root and parent, and checks root/parent/file device and inode identities before and after the read together with file size and modification metadata. The legacy page-furniture validator uses the same reader. Audit output is resolved and identity-checked separately: it cannot replace or alias the source PDF or a ledger, enter primary/Witness roots, or enter any online evidence directory. Output remains mode `0600` and atomic. These additions do not change the OCR supervisor's schema-1 audit or its release semantics.
 
 Example comparison-only run:
 
@@ -159,6 +165,15 @@ npm run ocr:audit:triangulate -- \
 ```
 
 Add `--decisions <HASH_BOUND_DECISION_LEDGER.json>` only after the exact online source and human review have been recorded. The consumer fails on any source, sidecar, image, OCR, accepted-text or approval-ledger drift. It never lets an online text silently replace the scan and never changes the original schema-1 audit used by the OCR supervisor.
+
+When a decision ledger contains online evidence, also pass the independently selected controlled registry:
+
+```bash
+  --decisions <HASH_BOUND_DECISION_LEDGER.json> \
+  --online-source-registry data/ocr-online-source-registry.json
+```
+
+The decision policy must pin the exact registry bytes. An operator checkpoint, a manual-image-review gate or a stable-fact decision never automatically publishes a page and never grants citation by itself.
 
 ### Remote whole-document import gate
 
