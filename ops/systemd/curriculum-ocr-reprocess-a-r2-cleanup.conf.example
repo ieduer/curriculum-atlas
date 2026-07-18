@@ -1,7 +1,0 @@
-# Non-secret, owner-maintained values for the A2 completion cleanup verifier.
-# Install as ~/.config/bdfz/curriculum-ocr-reprocess-a-r2-cleanup.conf with mode 0600.
-BDFZ_OCR_A2_CLEANUP_SCRIPT=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2/scripts/cleanup-remote-ocr-completion.mjs
-BDFZ_OCR_A2_OUTPUT_ROOT=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2
-BDFZ_OCR_A2_LIFECYCLE_LOCK=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/.a2-lifecycle.lock
-BDFZ_OCR_A2_WORKER_UNIT=curriculum-ocr-reprocess-a-r2.service
-BDFZ_OCR_A2_LLAMA_UNIT=curriculum-ocr-llama.service
