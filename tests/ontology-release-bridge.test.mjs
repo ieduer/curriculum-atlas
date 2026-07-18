@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
@@ -14,11 +15,13 @@ const manifest = JSON.parse(await readFile(new URL('data/ontology-release-manife
 const context = await loadOntologyReleaseContext(new URL('.', root).pathname);
 const text = (report) => report.errors.join('\n');
 const copy = (value) => structuredClone(value);
+const digest = (value) => createHash('sha256').update(value, 'utf8').digest('hex');
+const PARAGRAPH = '核心素养是课程育人价值的集中体现，并统领课程目标与课程内容。';
+const NODE_LABEL = '核心素养';
+const NODE_DEFINITION = '课程育人价值的集中体现';
 const SHA = Object.freeze({
   page: '1'.repeat(64),
-  text: '2'.repeat(64),
   bundle: '3'.repeat(64),
-  asserted: '4'.repeat(64),
   coverage: '5'.repeat(64),
 });
 
@@ -33,8 +36,24 @@ function withArtifact(baseContext, key, json) {
   };
 }
 
-function acceptedPageManifest(pageNumber = 11) {
+function acceptedPageFixture(pageNumber = 11, paragraph = PARAGRAPH) {
+  const pages = Array.from({ length: 109 }, (_, index) => {
+    const number = index + 1;
+    const accepted = number === pageNumber;
+    return {
+      page_number: number,
+      source_page_sha256: accepted ? SHA.page : digest(`source-page-${number}`),
+      final_text_sha256: accepted ? digest(paragraph) : digest(`unreleased-page-${number}`),
+      evidence_bundle_sha256: accepted ? SHA.bundle : digest(`evidence-bundle-${number}`),
+      stable_locator: `moe-2022-03:page:${number}`,
+      review_status: accepted ? 'accepted' : 'unresolved_fail_closed',
+      display_allowed: accepted,
+      citation_allowed: accepted,
+      uncertainty_note: accepted ? null : 'synthetic page remains fail closed',
+    };
+  });
   return {
+    manifest: {
     $schema: './page-publication-manifest.schema.json',
     schema_version: 1,
     policy: 'fail_closed_page_publication_v1',
@@ -44,25 +63,34 @@ function acceptedPageManifest(pageNumber = 11) {
       acceptance_status: 'accepted_page_manifest',
       reviewed_by: 'reviewer:test-page',
       reviewed_at: '2026-07-18T00:00:00Z',
-      pages: [{
-        page_number: pageNumber,
-        source_page_sha256: SHA.page,
-        final_text_sha256: SHA.text,
-        evidence_bundle_sha256: SHA.bundle,
-        stable_locator: `moe-2022-03:physical-page:${pageNumber}`,
-        review_status: 'accepted',
-        display_allowed: true,
-        citation_allowed: true,
-        uncertainty_note: null,
-      }],
+      pages,
     }],
+    },
+    paragraph: {
+      document_id: 'moe-2022-03',
+      ordinal: 1,
+      physical_page: pageNumber,
+      body: paragraph,
+      body_sha256: digest(paragraph),
+      source_artifact_sha256: manifest.input_fingerprints.source_artifact_sha256,
+      source_page_sha256: SHA.page,
+      final_text_sha256: digest(paragraph),
+      evidence_bundle_sha256: SHA.bundle,
+      display_allowed: true,
+      citation_allowed: true,
+    },
   };
 }
 
-function reviewedFixture(pageNumber = 11) {
+function reviewedFixture(pageNumber = 11, paragraph = PARAGRAPH) {
   const release = copy(manifest);
-  const replaced = withArtifact(context, 'page_publication', acceptedPageManifest(pageNumber));
-  release.input_fingerprints.page_publication.sha256 = replaced.artifact.sha256;
+  const pageFixture = acceptedPageFixture(pageNumber, paragraph);
+  const pageReplacement = withArtifact(context, 'page_publication', pageFixture.manifest);
+  const catalog = copy(pageReplacement.context.artifacts.catalog.json);
+  catalog.documents.find((record) => record.id === 'moe-2022-03').citation_allowed = true;
+  const catalogReplacement = withArtifact(pageReplacement.context, 'catalog', catalog);
+  release.input_fingerprints.page_publication.sha256 = pageReplacement.artifact.sha256;
+  release.input_fingerprints.catalog.sha256 = catalogReplacement.artifact.sha256;
   release.publication_state = 'reviewed_release';
   release.builder_input_allowed = true;
   release.public_data_update_allowed = true;
@@ -75,11 +103,22 @@ function reviewedFixture(pageNumber = 11) {
     physical_page: pageNumber,
     paragraph_ordinal: 1,
     start_offset: 0,
-    end_offset: 4,
+    end_offset: paragraph.length,
+    candidate_anchor_id: 'anchor:zh-compulsory-2022-core-competency-p011-p012',
+    paragraph_body_sha256: digest(paragraph),
     source_page_sha256: SHA.page,
-    final_text_sha256: SHA.text,
+    final_text_sha256: digest(paragraph),
     evidence_bundle_sha256: SHA.bundle,
-    asserted_text_sha256: SHA.asserted,
+    asserted_text_sha256: digest(paragraph),
+    node_binding: {
+      node_id: 'ontology:zh-compulsory-2022-core-competencies',
+      candidate_node_id: 'candidate:zh-compulsory-2022-core-competency',
+      node_type: 'competency_framework',
+      label_start_offset: paragraph.indexOf(NODE_LABEL),
+      label_end_offset: paragraph.indexOf(NODE_LABEL) + NODE_LABEL.length,
+      definition_start_offset: paragraph.indexOf(NODE_DEFINITION),
+      definition_end_offset: paragraph.indexOf(NODE_DEFINITION) + NODE_DEFINITION.length,
+    },
     online_claim_ids: ['claim:core-competencies'],
     independent_online_source_ids: [
       'source:moe-2022-qa',
@@ -97,6 +136,7 @@ function reviewedFixture(pageNumber = 11) {
   }];
   release.nodes = [{
     id: 'ontology:zh-compulsory-2022-core-competencies',
+    candidate_node_id: 'candidate:zh-compulsory-2022-core-competency',
     scope_id: 'scope:zh-compulsory-2022-ordinary',
     node_type: 'competency_framework',
     label: '核心素养',
@@ -104,7 +144,8 @@ function reviewedFixture(pageNumber = 11) {
     normative_role: 'official_curriculum_structure',
     parent_id: null,
     lexical_concept_id: 'core-competency',
-    definition: null,
+    definition: NODE_DEFINITION,
+    field_binding_assertion_id: 'assertion:zh-compulsory-2022-core-competencies-p011',
     source_assertion_ids: ['assertion:zh-compulsory-2022-core-competencies-p011'],
     review_status: 'editor_reviewed',
     citation_allowed: true,
@@ -121,7 +162,55 @@ function reviewedFixture(pageNumber = 11) {
     reviewed_at: '2026-07-18T00:02:00Z',
     reason_codes: ['manual_release_review_complete'],
   };
-  return { release, context: replaced.context };
+  return {
+    release,
+    context: {
+      ...catalogReplacement.context,
+      canonical_paragraphs: new Map([[
+        `moe-2022-03\u00001`,
+        pageFixture.paragraph,
+      ]]),
+    },
+  };
+}
+
+function addLanguageUseChild(fixture) {
+  const paragraph = fixture.context.canonical_paragraphs.get('moe-2022-03\u00001').body;
+  const label = '语言运用';
+  const definition = '通过语言实践落实';
+  assert.ok(paragraph.includes(label) && paragraph.includes(definition));
+  const assertion = copy(fixture.release.assertions[0]);
+  assertion.assertion_id = 'assertion:zh-compulsory-2022-language-use-p011';
+  assertion.assertion_type = 'student_ability';
+  assertion.node_binding = {
+    node_id: 'ontology:zh-compulsory-2022-language-use',
+    candidate_node_id: 'candidate:zh-compulsory-2022-language-use',
+    node_type: 'core_competency_dimension',
+    label_start_offset: paragraph.indexOf(label),
+    label_end_offset: paragraph.indexOf(label) + label.length,
+    definition_start_offset: paragraph.indexOf(definition),
+    definition_end_offset: paragraph.indexOf(definition) + definition.length,
+  };
+  fixture.release.assertions.push(assertion);
+  fixture.release.nodes.push({
+    id: 'ontology:zh-compulsory-2022-language-use',
+    candidate_node_id: 'candidate:zh-compulsory-2022-language-use',
+    scope_id: 'scope:zh-compulsory-2022-ordinary',
+    node_type: 'core_competency_dimension',
+    label,
+    label_kind: 'official_term',
+    normative_role: 'official_core_competency_dimension',
+    parent_id: 'ontology:zh-compulsory-2022-core-competencies',
+    lexical_concept_id: 'language-use',
+    definition,
+    field_binding_assertion_id: assertion.assertion_id,
+    source_assertion_ids: [assertion.assertion_id],
+    review_status: 'editor_reviewed',
+    citation_allowed: true,
+  });
+  fixture.release.release_gate.candidate_nodes_promoted = 2;
+  fixture.release.release_gate.accepted_leaf_nodes = 1;
+  return fixture;
 }
 
 test('canonical bridge is schema-valid, empty, fail-closed and preserves 169 public ontology nodes', () => {
@@ -176,9 +265,110 @@ test('a synthetic fully reviewed positive assertion passes the bridge without ch
   assert.equal(report.counts.public_ontology_nodes, 169);
 });
 
+test('every node field and candidate anchor is bound to the accepted canonical substring', async (t) => {
+  const cases = [
+    ['asserted substring hash', (fixture) => {
+      fixture.release.assertions[0].asserted_text_sha256 = '0'.repeat(64);
+    }, /asserted_text_hash_mismatch/],
+    ['paragraph ordinal', (fixture) => {
+      fixture.release.assertions[0].paragraph_ordinal = 2;
+    }, /canonical_paragraph_missing/],
+    ['candidate node provenance', (fixture) => {
+      fixture.release.nodes[0].candidate_node_id = 'candidate:missing-node';
+      fixture.release.assertions[0].node_binding.candidate_node_id = 'candidate:missing-node';
+    }, /candidate_node_missing/],
+    ['candidate anchor provenance', (fixture) => {
+      fixture.release.assertions[0].candidate_anchor_id = 'anchor:zh-compulsory-2022-toc-p006';
+    }, /candidate_anchor_not_bound_to_node|candidate_anchor_page_mismatch/],
+    ['node label', (fixture) => {
+      fixture.release.nodes[0].label = '伪造核心素养';
+    }, /candidate_label_drift|node_label_not_in_canonical_text/],
+    ['node definition', (fixture) => {
+      fixture.release.nodes[0].definition = '未出现在课标正文中的定义';
+    }, /node_definition_not_in_canonical_text/],
+    ['node type', (fixture) => {
+      fixture.release.nodes[0].node_type = 'quality_framework';
+    }, /node_type_binding_mismatch/],
+  ];
+  for (const [name, mutate, expected] of cases) {
+    await t.test(name, () => {
+      const fixture = reviewedFixture();
+      mutate(fixture);
+      const report = validateOntologyRelease(fixture.release, fixture.context);
+      assert.equal(report.valid, false);
+      assert.match(text(report), expected);
+    });
+  }
+});
+
+test('internal nodes are held to the same accepted provenance gate as leaves', () => {
+  const body = '核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。';
+  const fixture = addLanguageUseChild(reviewedFixture(11, body));
+  const valid = validateOntologyRelease(fixture.release, fixture.context);
+  assert.equal(valid.valid, true, text(valid));
+  assert.equal(valid.publishable, true);
+  assert.equal(valid.counts.nodes, 2);
+  assert.equal(valid.counts.leaves, 1);
+
+  fixture.release.nodes[0].field_binding_assertion_id = fixture.release.nodes[1].field_binding_assertion_id;
+  const report = validateOntologyRelease(fixture.release, fixture.context);
+  assert.equal(report.valid, false);
+  assert.match(text(report), /node_binding_id_mismatch|node_without_accepted_provenance/);
+});
+
+test('relations require exact content-level endpoint and statement evidence', () => {
+  const body = '核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。';
+  const fixture = addLanguageUseChild(reviewedFixture(11, body));
+  const basis = '核心素养通过语言运用落实';
+  fixture.release.relations = [{
+    id: 'relation:zh-compulsory-2022-core-to-language-use',
+    relation_type: 'supports',
+    source: fixture.release.nodes[0].id,
+    target: fixture.release.nodes[1].id,
+    scope_ids: [fixture.release.scopes[0].scope_id],
+    assertion_basis: basis,
+    assertion_basis_sha256: digest(basis),
+    evidence_assertion_ids: fixture.release.assertions.map((assertion) => assertion.assertion_id),
+    content_bindings: [{
+      assertion_id: fixture.release.assertions[0].assertion_id,
+      evidence_role: 'source_endpoint',
+      text_start_offset: 0,
+      text_end_offset: body.length,
+      text_sha256: digest(body),
+    }, {
+      assertion_id: fixture.release.assertions[1].assertion_id,
+      evidence_role: 'target_endpoint',
+      text_start_offset: 0,
+      text_end_offset: body.length,
+      text_sha256: digest(body),
+    }, {
+      assertion_id: fixture.release.assertions[0].assertion_id,
+      evidence_role: 'relation_statement',
+      text_start_offset: 0,
+      text_end_offset: body.length,
+      text_sha256: digest(body),
+    }],
+    review_status: 'editor_reviewed',
+    reviewer: {
+      reviewer_id: 'reviewer:test-relation',
+      reviewed_at: '2026-07-18T00:03:00Z',
+      method: 'manual_source_image_review',
+    },
+    semantic_relation_allowed: true,
+  }];
+  const valid = validateOntologyRelease(fixture.release, fixture.context);
+  assert.equal(valid.valid, true, text(valid));
+
+  fixture.release.relations[0].content_bindings[1].text_sha256 = '0'.repeat(64);
+  const report = validateOntologyRelease(fixture.release, fixture.context);
+  assert.equal(report.valid, false);
+  assert.match(text(report), /relation_content_hash_mismatch/);
+});
+
 test('input fingerprints bind candidate, page publication, online verification and graph artifacts', async (t) => {
   for (const key of [
     'candidate', 'page_publication', 'online_verification',
+    'catalog', 'semantic_publication',
     'formal_ontology', 'public_core', 'public_academic',
   ]) {
     await t.test(key, () => {
@@ -189,6 +379,22 @@ test('input fingerprints bind candidate, page publication, online verification a
       assert.match(text(report), /fingerprint_sha256_mismatch/);
     });
   }
+});
+
+test('coordinated public graph and self-reported manifest mutation cannot move the reviewed baseline', () => {
+  const changed = copy(manifest);
+  let changedContext = context;
+  for (const key of ['formal_ontology', 'public_core', 'public_academic']) {
+    const json = copy(changedContext.artifacts[key].json);
+    json.coordinated_mutation = `synthetic-${key}`;
+    const replacement = withArtifact(changedContext, key, json);
+    changedContext = replacement.context;
+    changed.input_fingerprints[key].sha256 = replacement.artifact.sha256;
+  }
+  const report = validateOntologyRelease(changed, changedContext);
+  assert.equal(report.valid, false);
+  assert.match(text(report), /public_graph_baseline_hash_mismatch|public_graph_baseline_declaration_mismatch/);
+  assert.equal(report.counts.public_ontology_nodes, 169);
 });
 
 test('scope lock rejects subject, stage, school type, edition and source hash drift', async (t) => {
@@ -224,8 +430,11 @@ test('unaccepted page, unresolved assertion and blocked physical page are reject
   await t.test('page review is not accepted', () => {
     const fixture = reviewedFixture();
     const pageJson = copy(fixture.context.artifacts.page_publication.json);
-    pageJson.documents[0].pages[0].review_status = 'unresolved_fail_closed';
-    pageJson.documents[0].pages[0].citation_allowed = false;
+    const page = pageJson.documents[0].pages.find((entry) => entry.page_number === 11);
+    page.review_status = 'unresolved_fail_closed';
+    page.display_allowed = false;
+    page.citation_allowed = false;
+    page.uncertainty_note = 'synthetic unresolved page';
     const replacement = withArtifact(fixture.context, 'page_publication', pageJson);
     fixture.release.input_fingerprints.page_publication.sha256 = replacement.artifact.sha256;
     const report = validateOntologyRelease(fixture.release, replacement.context);
@@ -332,11 +541,9 @@ test('dangling parent, cross-scope parent and cycles are rejected', async (t) =>
 
 test('a reviewed release with no accepted scholarly leaf is rejected', () => {
   const fixture = reviewedFixture();
-  fixture.release.assertions = [];
   fixture.release.nodes[0].label_kind = 'navigation_container';
   fixture.release.nodes[0].review_status = 'reviewed_inference';
   fixture.release.nodes[0].citation_allowed = false;
-  fixture.release.nodes[0].source_assertion_ids = [];
   fixture.release.release_gate.accepted_leaf_nodes = 0;
   const report = validateOntologyRelease(fixture.release, fixture.context);
   assert.equal(report.valid, false);
@@ -353,20 +560,37 @@ test('cross-version semantic relation needs accepted evidence and review from bo
   secondAssertion.assertion_id = 'assertion:zh-compulsory-2022-revision';
   secondAssertion.scope_id = secondScope.scope_id;
   secondAssertion.edition_id = secondScope.edition_id;
+  secondAssertion.node_binding.node_id = 'ontology:zh-compulsory-2022-revision';
   fixture.release.assertions.push(secondAssertion);
   const secondNode = copy(fixture.release.nodes[0]);
   secondNode.id = 'ontology:zh-compulsory-2022-revision';
   secondNode.scope_id = secondScope.scope_id;
+  secondNode.field_binding_assertion_id = secondAssertion.assertion_id;
   secondNode.source_assertion_ids = [secondAssertion.assertion_id];
   fixture.release.nodes.push(secondNode);
+  const basis = 'deliberately incomplete negative fixture';
   fixture.release.relations = [{
     id: 'relation:zh-compulsory-2022-one-sided-reframe',
     relation_type: 'reframed_by',
     source: fixture.release.nodes[0].id,
     target: secondNode.id,
     scope_ids: [fixture.release.scopes[0].scope_id, secondScope.scope_id],
-    assertion_basis: 'deliberately incomplete negative fixture',
+    assertion_basis: basis,
+    assertion_basis_sha256: digest(basis),
     evidence_assertion_ids: [fixture.release.assertions[0].assertion_id],
+    content_bindings: [{
+      assertion_id: fixture.release.assertions[0].assertion_id,
+      evidence_role: 'source_endpoint',
+      text_start_offset: 0,
+      text_end_offset: PARAGRAPH.length,
+      text_sha256: digest(PARAGRAPH),
+    }, {
+      assertion_id: fixture.release.assertions[0].assertion_id,
+      evidence_role: 'relation_statement',
+      text_start_offset: 0,
+      text_end_offset: PARAGRAPH.length,
+      text_sha256: digest(PARAGRAPH),
+    }],
     review_status: 'editor_reviewed',
     reviewer: {
       reviewer_id: 'reviewer:test-cross-version',

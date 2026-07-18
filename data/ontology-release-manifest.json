@@ -19,6 +19,14 @@
       "path": "data/online-verification/zh-compulsory-2022-claims.json",
       "sha256": "15a725818645e5f699da7415f9636ca1b0e33d0423c58709a02bbd822b178e0e"
     },
+    "catalog": {
+      "path": "data/catalog.json",
+      "sha256": "75c64afb87aff147014ca2613b1d425ee956473d917586ac006a929f1a9743ce"
+    },
+    "semantic_publication": {
+      "path": "data/semantic-publication-policy.json",
+      "sha256": "6bf7017b3804d8aa905b4449826d71a9b087df6f6ae0377a9b4108e7948d859a"
+    },
     "formal_ontology": {
       "path": "data/concept-ontology.json",
       "sha256": "98b185f71afe4c70f880cd42725f16450e2df4b720bf6d47b221b91f7a04c687",

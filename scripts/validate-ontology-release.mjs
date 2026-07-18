@@ -3,10 +3,30 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import {
+  bindAcceptedOcrDocument,
+  isNativeTextRecord,
+  validatePagePublicationManifest,
+} from './page-publication-gate.mjs';
+import {
+  applySemanticPagePublication,
+  createSemanticPublicationGate,
+  semanticDocumentDisposition,
+} from './semantic-publication-gate.mjs';
+import {
+  canonicalParagraphBody,
+  canonicalParagraphBodySha256,
+  isCanonicalParagraphBody,
+} from './canonical-paragraph-text.mjs';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_MANIFEST = 'data/ontology-release-manifest.json';
 const EXPECTED_PUBLIC_ONTOLOGY_NODES = 169;
+const PUBLIC_GRAPH_BASELINE = Object.freeze({
+  formal_ontology: '98b185f71afe4c70f880cd42725f16450e2df4b720bf6d47b221b91f7a04c687',
+  public_core: '0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8',
+  public_academic: '65d8ab2662d0d5c00aad67455ba78d4878b30a7c1f075a735cd364de9658b72f',
+});
 const SUBJECT_FACETS = Object.freeze([
   '语文',
   '数学',
@@ -25,6 +45,8 @@ const INPUT_PATHS = Object.freeze({
   candidate: 'data/ontology-candidates/zh-compulsory-2022.json',
   page_publication: 'data/page-publication-manifest.json',
   online_verification: 'data/online-verification/zh-compulsory-2022-claims.json',
+  catalog: 'data/catalog.json',
+  semantic_publication: 'data/semantic-publication-policy.json',
   formal_ontology: 'data/concept-ontology.json',
   public_core: 'public/data/concept-evolution.json',
   public_academic: 'public/data/concept-evolution-academic.json',
@@ -35,6 +57,45 @@ const CROSS_VERSION_RELATIONS = new Set([
   'merged_from',
   'replaced_by',
 ]);
+const NODE_TYPE_ASSERTION_TYPES = Object.freeze({
+  subject_model: ['official_structure'],
+  competency_framework: ['official_structure'],
+  core_competency_dimension: ['official_structure', 'student_ability'],
+  course_goal: ['course_goal'],
+  practice_framework: ['official_structure'],
+  practice_domain: ['practice_domain'],
+  content_organizer: ['official_structure', 'task_group'],
+  task_group: ['task_group'],
+  task_requirement: ['task_requirement'],
+  student_ability: ['student_ability'],
+  ability_descriptor: ['student_ability', 'performance_indicator'],
+  language_activity: ['practice_domain', 'student_ability'],
+  quality_framework: ['official_structure'],
+  quality_level: ['quality_context', 'performance_indicator'],
+  quality_context: ['quality_context'],
+  quality_dimension: ['quality_dimension'],
+  performance_indicator: ['performance_indicator'],
+  official_term: ['presence', 'definition'],
+  curriculum_construct: ['definition', 'official_structure'],
+  editorial_container: ['official_structure'],
+});
+const CANDIDATE_TYPE_NODE_TYPES = Object.freeze({
+  subject_model_candidate: ['subject_model'],
+  competency_candidate: ['competency_framework', 'core_competency_dimension'],
+  overall_goal_candidate: ['course_goal', 'student_ability'],
+  practice_domain_candidate: ['practice_framework', 'practice_domain', 'language_activity'],
+  content_theme_candidate: ['content_organizer', 'official_term'],
+  task_group_candidate: ['content_organizer', 'task_group', 'task_requirement'],
+  quality_structure_candidate: [
+    'quality_framework',
+    'quality_level',
+    'quality_context',
+    'quality_dimension',
+    'performance_indicator',
+  ],
+  stage_requirement_candidate: ['task_requirement', 'student_ability', 'ability_descriptor'],
+  stage_practice_requirement_cluster_candidate: ['task_requirement', 'student_ability', 'ability_descriptor'],
+});
 const EMPTY_REASON_CODES = Object.freeze([
   'empty_release',
   'no_accepted_leaf_nodes',
@@ -168,14 +229,87 @@ async function readArtifact(root, relativePath) {
   };
 }
 
+function paragraphKey(documentId, ordinal) {
+  return `${documentId}\u0000${ordinal}`;
+}
+
+async function loadCanonicalParagraphs(root, artifacts) {
+  const pageManifest = validatePagePublicationManifest(artifacts.page_publication.json);
+  const records = artifacts.catalog.json.documents || [];
+  const recordById = new Map(records.map((record) => [record.id, record]));
+  const semanticGate = createSemanticPublicationGate({
+    policy: artifacts.semantic_publication.json,
+    records,
+  });
+  const paragraphs = new Map();
+
+  for (const document of pageManifest.documents) {
+    const record = recordById.get(document.document_id);
+    if (!record) throw new Error(`ontology release canonical text: unknown catalog document ${document.document_id}`);
+    if (isNativeTextRecord(record)) {
+      throw new Error(`ontology release canonical text: OCR page manifest cannot replace native text ${record.id}`);
+    }
+    if (semanticDocumentDisposition(semanticGate, record).excluded) {
+      throw new Error(`ontology release canonical text: exact duplicate alias is excluded ${record.id}`);
+    }
+    if (record.checksum_sha256 !== document.source_artifact_sha256) {
+      throw new Error(`ontology release canonical text: source artifact drift for ${record.id}`);
+    }
+
+    const raw = await readFile(path.join(root, '.cache/text', `${record.id}.txt`), 'utf8');
+    const rawPages = raw.split('\f');
+    const acceptedPages = bindAcceptedOcrDocument({
+      record,
+      sourceArtifactSha256: record.checksum_sha256,
+      rawPages,
+      manifestDocument: document,
+      documentCitationAllowed: record.citation_allowed === true,
+    }).map((page, index) => applySemanticPagePublication({
+      gate: semanticGate,
+      record,
+      page,
+      rawText: rawPages[index],
+    }));
+
+    let ordinal = 0;
+    for (let pageIndex = 0; pageIndex < rawPages.length; pageIndex += 1) {
+      const page = acceptedPages[pageIndex];
+      if (page.semantic_excluded) continue;
+      const blocks = rawPages[pageIndex].split(/\n\s*\n/);
+      for (const block of blocks) {
+        const body = canonicalParagraphBody(block);
+        if (!isCanonicalParagraphBody(body)) continue;
+        ordinal += 1;
+        paragraphs.set(paragraphKey(record.id, ordinal), {
+          document_id: record.id,
+          ordinal,
+          physical_page: page.page_number,
+          body,
+          body_sha256: canonicalParagraphBodySha256(body),
+          source_artifact_sha256: page.source_artifact_sha256,
+          source_page_sha256: page.source_page_sha256,
+          final_text_sha256: page.page_final_text_sha256,
+          evidence_bundle_sha256: page.evidence_bundle_sha256,
+          display_allowed: page.display_allowed === true,
+          citation_allowed: page.citation_allowed === true,
+        });
+      }
+    }
+  }
+  return { page_manifest: pageManifest, canonical_paragraphs: paragraphs };
+}
+
 export async function loadOntologyReleaseContext(root = PROJECT_ROOT) {
   const entries = await Promise.all(Object.entries(INPUT_PATHS)
     .map(async ([key, relativePath]) => [key, await readArtifact(root, relativePath)]));
+  const artifacts = Object.fromEntries(entries);
+  const canonical = await loadCanonicalParagraphs(root, artifacts);
   return {
     root,
     schema: JSON.parse(await readFile(path.join(root, 'data/ontology-release.schema.json'), 'utf8')),
-    artifacts: Object.fromEntries(entries),
+    artifacts,
     builder_source: await readFile(path.join(root, 'scripts/build-concept-evolution.mjs'), 'utf8'),
+    ...canonical,
   };
 }
 
@@ -185,6 +319,13 @@ function validateFingerprints(manifest, context, errors) {
     const artifact = context.artifacts[key];
     issue(errors, declared.path === expectedPath, 'fingerprint_path_drift', `${key} must bind ${expectedPath}`);
     issue(errors, declared.sha256 === artifact.sha256, 'fingerprint_sha256_mismatch', `${key} bytes do not match the manifest`);
+  }
+
+  for (const [key, baselineSha256] of Object.entries(PUBLIC_GRAPH_BASELINE)) {
+    issue(errors, context.artifacts[key].sha256 === baselineSha256,
+      'public_graph_baseline_hash_mismatch', `${key} differs from the code-reviewed immutable baseline`);
+    issue(errors, manifest.input_fingerprints[key].sha256 === baselineSha256,
+      'public_graph_baseline_declaration_mismatch', `${key} manifest digest differs from the immutable baseline`);
   }
 
   const formalCount = context.artifacts.formal_ontology.json.nodes?.length;
@@ -259,6 +400,18 @@ function validateSourceLock(manifest, context, errors) {
 
 function candidateNodes(candidate) {
   return (candidate.node_groups || []).flatMap((group) => group.nodes || []);
+}
+
+function candidateProvenance(candidate, errors) {
+  const nodes = new Map();
+  for (const group of candidate.node_groups || []) {
+    for (const node of group.nodes || []) {
+      if (nodes.has(node.id)) errors.push(`duplicate_candidate_node_id: ${node.id}`);
+      else nodes.set(node.id, { ...node, group_id: group.group_id, candidate_node_type: group.node_type });
+    }
+  }
+  const anchors = uniqueMap(candidate.evidence_anchors, 'id', errors, 'candidate_anchor_id');
+  return { nodes, anchors };
 }
 
 function validateFacetCoverage(manifest, context, errors) {
@@ -337,9 +490,9 @@ function validateOnlineEvidenceInvariant(online, errors) {
   return sources;
 }
 
-function validateAssertions(manifest, context, scopes, errors) {
+function validateAssertions(manifest, context, scopes, pageManifest, provenance, errors) {
   const assertions = uniqueMap(manifest.assertions, 'assertion_id', errors, 'assertion_id');
-  const pageManifest = context.artifacts.page_publication.json;
+  const resolved = new Map();
   const online = context.artifacts.online_verification.json;
   const onlineSources = validateOnlineEvidenceInvariant(online, errors);
   const claims = uniqueMap(online.claims, 'claim_id', errors, 'online_claim_id');
@@ -347,6 +500,7 @@ function validateAssertions(manifest, context, scopes, errors) {
   const blockedPages = new Set((context.artifacts.candidate.json.excluded_page_controls || [])
     .map((control) => control.physical_page));
   const pageDocuments = new Map((pageManifest.documents || []).map((document) => [document.document_id, document]));
+  const catalogRecords = new Map((context.artifacts.catalog.json.documents || []).map((record) => [record.id, record]));
 
   for (const assertion of assertions.values()) {
     const scope = scopes.get(assertion.scope_id);
@@ -362,6 +516,17 @@ function validateAssertions(manifest, context, scopes, errors) {
       'assertion_offset_error', `${assertion.assertion_id} end_offset must exceed start_offset`);
     issue(errors, !blockedPages.has(assertion.physical_page),
       'blocked_page_reference', `${assertion.assertion_id} references unresolved physical page ${assertion.physical_page}`);
+
+    const candidateNode = provenance.nodes.get(assertion.node_binding.candidate_node_id);
+    const candidateAnchor = provenance.anchors.get(assertion.candidate_anchor_id);
+    issue(errors, Boolean(candidateNode), 'candidate_node_missing', `${assertion.assertion_id} candidate node is unknown`);
+    issue(errors, Boolean(candidateAnchor), 'candidate_anchor_missing', `${assertion.assertion_id} candidate anchor is unknown`);
+    if (candidateNode && candidateAnchor) {
+      issue(errors, candidateNode.evidence_anchor_ids?.includes(candidateAnchor.id),
+        'candidate_anchor_not_bound_to_node', `${candidateAnchor.id} does not support ${candidateNode.id}`);
+      issue(errors, candidateAnchor.physical_pages?.includes(assertion.physical_page),
+        'candidate_anchor_page_mismatch', `${candidateAnchor.id} does not cover page ${assertion.physical_page}`);
+    }
 
     if (manifest.publication_state === 'reviewed_release') {
       issue(errors, assertion.adjudication === 'accepted',
@@ -379,6 +544,18 @@ function validateAssertions(manifest, context, scopes, errors) {
         'page_document_not_accepted', `${assertion.assertion_id} document acceptance status is invalid`);
       issue(errors, pageDocument.source_artifact_sha256 === scope.source_artifact_sha256,
         'page_document_source_mismatch', `${assertion.assertion_id} document hash differs from its scope`);
+      const record = catalogRecords.get(assertion.document_id);
+      issue(errors, Boolean(record), 'catalog_document_missing', `${assertion.assertion_id} document is absent from the catalog`);
+      if (record) {
+        issue(errors, record.checksum_sha256 === scope.source_artifact_sha256,
+          'catalog_source_mismatch', `${assertion.assertion_id} catalog artifact differs from its scope`);
+        issue(errors, record.page_count === pageDocument.pages.length,
+          'catalog_page_count_mismatch', `${assertion.assertion_id} accepted page manifest is not the complete document`);
+        if (manifest.publication_state === 'reviewed_release') {
+          issue(errors, record.citation_allowed === true,
+            'catalog_citation_gate_closed', `${assertion.assertion_id} catalog document remains non-citable`);
+        }
+      }
       const page = (pageDocument.pages || []).find((entry) => entry.page_number === assertion.physical_page);
       issue(errors, Boolean(page), 'page_not_accepted', `${assertion.assertion_id} physical page is absent`);
       if (page) {
@@ -391,6 +568,51 @@ function validateAssertions(manifest, context, scopes, errors) {
         issue(errors, page.evidence_bundle_sha256 === assertion.evidence_bundle_sha256,
           'evidence_bundle_hash_mismatch', `${assertion.assertion_id} evidence bundle hash differs`);
       }
+    }
+
+    const paragraph = context.canonical_paragraphs?.get(paragraphKey(
+      assertion.document_id,
+      assertion.paragraph_ordinal,
+    ));
+    issue(errors, Boolean(paragraph), 'canonical_paragraph_missing', `${assertion.assertion_id} paragraph is absent from canonical final text`);
+    if (paragraph) {
+      issue(errors, paragraph.physical_page === assertion.physical_page,
+        'canonical_paragraph_page_mismatch', `${assertion.assertion_id} ordinal resolves to page ${paragraph.physical_page}`);
+      issue(errors, paragraph.display_allowed === true && paragraph.citation_allowed === true,
+        'canonical_paragraph_gate_closed', `${assertion.assertion_id} canonical paragraph is not display-and-citation accepted`);
+      issue(errors, paragraph.source_artifact_sha256 === scope.source_artifact_sha256,
+        'canonical_paragraph_source_mismatch', `${assertion.assertion_id} canonical paragraph source differs`);
+      issue(errors, paragraph.source_page_sha256 === assertion.source_page_sha256,
+        'canonical_paragraph_page_hash_mismatch', `${assertion.assertion_id} canonical page image differs`);
+      issue(errors, paragraph.final_text_sha256 === assertion.final_text_sha256,
+        'canonical_paragraph_final_text_mismatch', `${assertion.assertion_id} canonical final text differs`);
+      issue(errors, paragraph.evidence_bundle_sha256 === assertion.evidence_bundle_sha256,
+        'canonical_paragraph_evidence_mismatch', `${assertion.assertion_id} canonical evidence bundle differs`);
+      const bodySha256 = canonicalParagraphBodySha256(paragraph.body);
+      issue(errors, paragraph.body_sha256 === bodySha256 && assertion.paragraph_body_sha256 === bodySha256,
+        'canonical_paragraph_body_hash_mismatch', `${assertion.assertion_id} paragraph body bytes are not bound`);
+
+      const assertionRangeValid = assertion.start_offset >= 0
+        && assertion.end_offset > assertion.start_offset
+        && assertion.end_offset <= paragraph.body.length;
+      issue(errors, assertionRangeValid,
+        'assertion_offset_error', `${assertion.assertion_id} offsets leave the canonical paragraph`);
+      const assertedText = assertionRangeValid
+        ? paragraph.body.slice(assertion.start_offset, assertion.end_offset)
+        : '';
+      issue(errors, sha256(assertedText) === assertion.asserted_text_sha256,
+        'asserted_text_hash_mismatch', `${assertion.assertion_id} digest does not match the canonical substring`);
+
+      const binding = assertion.node_binding;
+      const labelRangeValid = binding.label_start_offset >= assertion.start_offset
+        && binding.label_end_offset > binding.label_start_offset
+        && binding.label_end_offset <= assertion.end_offset;
+      const definitionRangeValid = binding.definition_start_offset >= assertion.start_offset
+        && binding.definition_end_offset > binding.definition_start_offset
+        && binding.definition_end_offset <= assertion.end_offset;
+      issue(errors, labelRangeValid, 'node_label_offset_error', `${assertion.assertion_id} label offsets leave its accepted assertion`);
+      issue(errors, definitionRangeValid, 'node_definition_offset_error', `${assertion.assertion_id} definition offsets leave its accepted assertion`);
+      resolved.set(assertion.assertion_id, { assertion, paragraph, asserted_text: assertedText });
     }
 
     for (const claimId of assertion.online_claim_ids || []) {
@@ -421,16 +643,30 @@ function validateAssertions(manifest, context, scopes, errors) {
         'version_mismatch_source_used', `${sourceId} is quarantined by version mismatch controls`);
     }
   }
-  return assertions;
+  return { assertions, resolved };
 }
 
-function validateNodes(manifest, scopes, assertions, errors) {
+function validateNodes(manifest, scopes, assertionResult, provenance, errors) {
+  const { assertions, resolved } = assertionResult;
   const nodes = uniqueMap(manifest.nodes, 'id', errors, 'node_id');
   const childCounts = new Map([...nodes.keys()].map((id) => [id, 0]));
+  const releasedByCandidateId = new Map();
 
   for (const node of nodes.values()) {
     issue(errors, scopes.has(node.scope_id), 'node_scope_missing', `${node.id} scope is unknown`);
     issue(errors, !node.id.startsWith('candidate:'), 'candidate_id_promoted_directly', `${node.id} reuses a candidate identity`);
+    const candidate = provenance.nodes.get(node.candidate_node_id);
+    issue(errors, Boolean(candidate), 'candidate_node_missing', `${node.id} candidate provenance is unknown`);
+    if (releasedByCandidateId.has(node.candidate_node_id)) {
+      errors.push(`duplicate_candidate_promotion: ${node.candidate_node_id}`);
+    } else releasedByCandidateId.set(node.candidate_node_id, node);
+    if (candidate) {
+      issue(errors, candidate.label === node.label,
+        'candidate_label_drift', `${node.id} label differs from ${candidate.id}`);
+      issue(errors, CANDIDATE_TYPE_NODE_TYPES[candidate.candidate_node_type]?.includes(node.node_type),
+        'candidate_node_type_mismatch', `${node.id} type is incompatible with ${candidate.candidate_node_type}`);
+    }
+
     for (const assertionId of node.source_assertion_ids || []) {
       const assertion = assertions.get(assertionId);
       issue(errors, Boolean(assertion), 'node_assertion_missing', `${node.id} references ${assertionId}`);
@@ -441,12 +677,42 @@ function validateNodes(manifest, scopes, assertions, errors) {
           'node_assertion_unaccepted', `${node.id} references a non-accepted assertion`);
       }
     }
+    const fieldBinding = resolved.get(node.field_binding_assertion_id);
+    issue(errors, Boolean(fieldBinding),
+      'node_field_binding_missing', `${node.id} has no resolved field-binding assertion`);
+    issue(errors, node.source_assertion_ids.includes(node.field_binding_assertion_id),
+      'node_field_binding_not_in_sources', `${node.id} field binding is absent from source_assertion_ids`);
+    if (fieldBinding) {
+      const binding = fieldBinding.assertion.node_binding;
+      issue(errors, binding.node_id === node.id,
+        'node_binding_id_mismatch', `${node.id} binding points to ${binding.node_id}`);
+      issue(errors, binding.candidate_node_id === node.candidate_node_id,
+        'node_binding_candidate_mismatch', `${node.id} binding candidate differs`);
+      issue(errors, binding.node_type === node.node_type,
+        'node_type_binding_mismatch', `${node.id} type is not bound by its accepted assertion`);
+      issue(errors, NODE_TYPE_ASSERTION_TYPES[node.node_type]?.includes(fieldBinding.assertion.assertion_type),
+        'node_type_assertion_mismatch', `${node.id} type is incompatible with assertion class ${fieldBinding.assertion.assertion_type}`);
+      const label = fieldBinding.paragraph.body.slice(binding.label_start_offset, binding.label_end_offset);
+      const definition = fieldBinding.paragraph.body.slice(
+        binding.definition_start_offset,
+        binding.definition_end_offset,
+      );
+      issue(errors, label === node.label,
+        'node_label_not_in_canonical_text', `${node.id} label is not the bound canonical substring`);
+      issue(errors, definition === node.definition,
+        'node_definition_not_in_canonical_text', `${node.id} definition is not the bound canonical substring`);
+    }
+
     if (node.parent_id !== null) {
       const parent = nodes.get(node.parent_id);
       issue(errors, Boolean(parent), 'dangling_parent', `${node.id} parent ${node.parent_id} does not exist`);
       if (parent) {
         issue(errors, parent.scope_id === node.scope_id,
           'cross_scope_parent', `${node.id} parent belongs to ${parent.scope_id}`);
+        if (candidate) {
+          issue(errors, candidate.parent_id === parent.candidate_node_id,
+            'candidate_parent_mismatch', `${node.id} parent does not follow candidate provenance`);
+        }
         childCounts.set(parent.id, (childCounts.get(parent.id) || 0) + 1);
       }
     }
@@ -469,23 +735,30 @@ function validateNodes(manifest, scopes, assertions, errors) {
   for (const id of nodes.keys()) visit(id);
 
   const leaves = [...nodes.values()].filter((node) => (childCounts.get(node.id) || 0) === 0);
-  const acceptedLeaves = leaves.filter((node) => node.citation_allowed === true
+  const acceptedNodes = [...nodes.values()].filter((node) => node.citation_allowed === true
     && node.review_status === 'editor_reviewed'
     && node.label_kind === 'official_term'
     && node.source_assertion_ids.length > 0
-    && node.source_assertion_ids.every((id) => assertions.get(id)?.adjudication === 'accepted'));
+    && node.source_assertion_ids.every((id) => assertions.get(id)?.adjudication === 'accepted')
+    && resolved.has(node.field_binding_assertion_id));
+  const acceptedLeaves = leaves.filter((node) => acceptedNodes.includes(node));
 
   if (manifest.publication_state === 'reviewed_release') {
+    for (const node of nodes.values()) {
+      issue(errors, acceptedNodes.includes(node),
+        'node_without_accepted_provenance', `${node.id} is not fully candidate-and-assertion bound`);
+    }
     for (const leaf of leaves) {
       issue(errors, acceptedLeaves.includes(leaf), 'leaf_without_accepted_assertion', `${leaf.id} is not an accepted scholarly leaf`);
     }
     issue(errors, acceptedLeaves.length > 0, 'no_accepted_leaf_nodes', 'reviewed releases need at least one accepted leaf');
   }
 
-  return { nodes, leaves, acceptedLeaves };
+  return { nodes, leaves, acceptedNodes, acceptedLeaves };
 }
 
-function validateRelations(manifest, scopes, assertions, nodes, errors) {
+function validateRelations(manifest, scopes, assertionResult, nodes, errors) {
+  const { assertions, resolved } = assertionResult;
   const relations = uniqueMap(manifest.relations, 'id', errors, 'relation_id');
   for (const relation of relations.values()) {
     const source = nodes.get(relation.source);
@@ -496,10 +769,49 @@ function validateRelations(manifest, scopes, assertions, nodes, errors) {
     for (const scopeId of relation.scope_ids || []) {
       issue(errors, scopes.has(scopeId), 'relation_scope_missing', `${relation.id} references ${scopeId}`);
     }
+    issue(errors, sha256(relation.assertion_basis) === relation.assertion_basis_sha256,
+      'relation_basis_hash_mismatch', `${relation.id} assertion basis bytes are not bound`);
     const relationAssertions = (relation.evidence_assertion_ids || []).map((id) => assertions.get(id));
     issue(errors, relationAssertions.every(Boolean), 'relation_assertion_missing', `${relation.id} has dangling evidence`);
     issue(errors, relationAssertions.every((entry) => entry?.adjudication === 'accepted'),
       'relation_assertion_unaccepted', `${relation.id} has non-accepted evidence`);
+
+    const boundAssertionIds = [...new Set((relation.content_bindings || []).map((binding) => binding.assertion_id))];
+    issue(errors, exactSet(boundAssertionIds, relation.evidence_assertion_ids),
+      'relation_content_evidence_set_mismatch', `${relation.id} evidence ids and content bindings differ`);
+    const roles = new Set();
+    for (const binding of relation.content_bindings || []) {
+      roles.add(binding.evidence_role);
+      const resolvedAssertion = resolved.get(binding.assertion_id);
+      issue(errors, Boolean(resolvedAssertion),
+        'relation_content_assertion_unresolved', `${relation.id}/${binding.assertion_id} lacks canonical text`);
+      if (!resolvedAssertion) continue;
+      const { assertion, paragraph } = resolvedAssertion;
+      const rangeValid = binding.text_start_offset >= assertion.start_offset
+        && binding.text_end_offset > binding.text_start_offset
+        && binding.text_end_offset <= assertion.end_offset;
+      issue(errors, rangeValid,
+        'relation_content_offset_error', `${relation.id}/${binding.assertion_id} leaves the accepted assertion`);
+      const boundText = rangeValid
+        ? paragraph.body.slice(binding.text_start_offset, binding.text_end_offset)
+        : '';
+      issue(errors, sha256(boundText) === binding.text_sha256,
+        'relation_content_hash_mismatch', `${relation.id}/${binding.assertion_id} digest differs from canonical text`);
+      if (binding.evidence_role === 'source_endpoint' && source) {
+        issue(errors, binding.assertion_id === source.field_binding_assertion_id && boundText.includes(source.label),
+          'relation_source_content_mismatch', `${relation.id} source endpoint is not content-bound`);
+      }
+      if (binding.evidence_role === 'target_endpoint' && target) {
+        issue(errors, binding.assertion_id === target.field_binding_assertion_id && boundText.includes(target.label),
+          'relation_target_content_mismatch', `${relation.id} target endpoint is not content-bound`);
+      }
+      if (binding.evidence_role === 'relation_statement' && source && target) {
+        issue(errors, boundText.includes(source.label) && boundText.includes(target.label),
+          'relation_statement_content_mismatch', `${relation.id} canonical statement does not name both endpoints`);
+      }
+    }
+    issue(errors, roles.has('source_endpoint') && roles.has('target_endpoint'),
+      'relation_endpoint_content_missing', `${relation.id} needs canonical content for both endpoints`);
 
     if (!source || !target) continue;
     const endpointScopes = [...new Set([source.scope_id, target.scope_id])];
@@ -516,6 +828,8 @@ function validateRelations(manifest, scopes, assertions, nodes, errors) {
       issue(errors, relation.reviewer?.method === 'manual_cross_version_review',
         'cross_version_manual_review_required', `${relation.id} lacks an explicit cross-version reviewer`);
     } else {
+      issue(errors, roles.has('relation_statement'),
+        'relation_statement_content_missing', `${relation.id} needs an exact canonical relation statement`);
       issue(errors, endpointScopes.length === 1 && relation.scope_ids.length === 1
         && relation.scope_ids[0] === endpointScopes[0],
       'within_scope_relation_mismatch', `${relation.id} must stay inside one scope`);
@@ -592,13 +906,21 @@ export function validateOntologyRelease(manifest, context) {
     };
   }
 
+  let pageManifest = { documents: [] };
+  try {
+    pageManifest = validatePagePublicationManifest(context.artifacts.page_publication.json);
+  } catch (error) {
+    errors.push(`page_manifest_contract_invalid: ${error.message}`);
+  }
+
   validateFingerprints(manifest, context, errors);
   const scopes = validateSourceLock(manifest, context, errors);
   validateFacetCoverage(manifest, context, errors);
   validateBuilderIsolation(manifest, context, errors);
-  const assertions = validateAssertions(manifest, context, scopes, errors);
-  const nodeResult = validateNodes(manifest, scopes, assertions, errors);
-  const relations = validateRelations(manifest, scopes, assertions, nodeResult.nodes, errors);
+  const provenance = candidateProvenance(context.artifacts.candidate.json, errors);
+  const assertionResult = validateAssertions(manifest, context, scopes, pageManifest, provenance, errors);
+  const nodeResult = validateNodes(manifest, scopes, assertionResult, provenance, errors);
+  const relations = validateRelations(manifest, scopes, assertionResult, nodeResult.nodes, errors);
 
   issue(errors, manifest.negative_historical_assertions.length === 0,
     'negative_historical_assertion_forbidden', 'v1 requires complete coverage before a new policy can admit negative claims');
@@ -620,7 +942,7 @@ export function validateOntologyRelease(manifest, context) {
     publication_state: manifest.publication_state,
     counts: {
       scopes: scopes.size,
-      assertions: assertions.size,
+      assertions: assertionResult.assertions.size,
       nodes: nodeResult.nodes.size,
       leaves: nodeResult.leaves.length,
       accepted_leaves: nodeResult.acceptedLeaves.length,
@@ -631,6 +953,37 @@ export function validateOntologyRelease(manifest, context) {
     builder_isolated: !/ontology-candidates|ontology-release(?:-manifest|\.schema)?/.test(context.builder_source),
     errors,
   };
+}
+
+export function assertOntologyReleaseGate(report, { requirePublishable = false } = {}) {
+  if (!report?.valid) {
+    const error = new Error(`ontology release bridge is invalid: ${(report?.errors || ['missing report']).join('; ')}`);
+    error.report = report;
+    throw error;
+  }
+  if (requirePublishable && !report.publishable) {
+    const error = new Error('ontology release bridge is valid but not publishable');
+    error.report = report;
+    throw error;
+  }
+  return true;
+}
+
+export async function validateOntologyReleaseFile({
+  root = PROJECT_ROOT,
+  manifest = DEFAULT_MANIFEST,
+  requirePublishable = false,
+} = {}) {
+  const resolvedRoot = path.resolve(root);
+  const manifestPath = path.resolve(resolvedRoot, manifest);
+  if (manifestPath !== resolvedRoot && !manifestPath.startsWith(`${resolvedRoot}${path.sep}`)) {
+    throw new Error('ontology release manifest must remain inside the project root');
+  }
+  const value = JSON.parse(await readFile(manifestPath, 'utf8'));
+  const context = await loadOntologyReleaseContext(resolvedRoot);
+  const report = validateOntologyRelease(value, context);
+  assertOntologyReleaseGate(report, { requirePublishable });
+  return report;
 }
 
 function parseArgs(argv) {
@@ -650,12 +1003,17 @@ function parseArgs(argv) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const manifestPath = path.resolve(PROJECT_ROOT, options.manifest);
-  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-  const context = await loadOntologyReleaseContext(PROJECT_ROOT);
-  const report = validateOntologyRelease(manifest, context);
-  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-  if (!report.valid || (options.requirePublishable && !report.publishable)) process.exitCode = 2;
+  try {
+    const report = await validateOntologyReleaseFile({
+      root: PROJECT_ROOT,
+      manifest: options.manifest,
+      requirePublishable: options.requirePublishable,
+    });
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  } catch (error) {
+    if (error.report) process.stdout.write(`${JSON.stringify(error.report, null, 2)}\n`);
+    throw error;
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
