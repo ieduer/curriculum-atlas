@@ -460,6 +460,140 @@ test('reviewed-looking adversarial provenance cannot substitute ids for exact se
   });
 });
 
+test('coordinated mutable evidence cannot self-certify an ontology promotion', async (t) => {
+  await t.test('a coordinated source SHA replacement cannot substitute different PDF bytes', () => {
+    const fixture = reviewedFixture();
+    const forgedSha = '8'.repeat(64);
+    const candidate = copy(fixture.context.artifacts.candidate.json);
+    candidate.source_identity.source_artifact_sha256 = forgedSha;
+    let replacement = withArtifact(fixture.context, 'candidate', candidate);
+    fixture.context = replacement.context;
+    fixture.release.input_fingerprints.candidate.sha256 = replacement.artifact.sha256;
+    const online = copy(fixture.context.artifacts.online_verification.json);
+    online.document_identity.source_artifact_sha256 = forgedSha;
+    replacement = withArtifact(fixture.context, 'online_verification', online);
+    fixture.context = replacement.context;
+    fixture.release.input_fingerprints.online_verification.sha256 = replacement.artifact.sha256;
+    const catalog = copy(fixture.context.artifacts.catalog.json);
+    catalog.documents.find((record) => record.id === 'moe-2022-03').checksum_sha256 = forgedSha;
+    replacement = withArtifact(fixture.context, 'catalog', catalog);
+    fixture.context = replacement.context;
+    fixture.release.input_fingerprints.catalog.sha256 = replacement.artifact.sha256;
+    const pageManifest = copy(fixture.context.artifacts.page_publication.json);
+    pageManifest.documents[0].source_artifact_sha256 = forgedSha;
+    replacement = withArtifact(fixture.context, 'page_publication', pageManifest);
+    fixture.context = replacement.context;
+    fixture.release.input_fingerprints.page_publication.sha256 = replacement.artifact.sha256;
+    fixture.release.input_fingerprints.source_artifact_sha256 = forgedSha;
+    fixture.release.scopes[0].source_artifact_sha256 = forgedSha;
+    fixture.context.canonical_paragraphs.get('moe-2022-03\u00001').source_artifact_sha256 = forgedSha;
+    const report = validateOntologyRelease(fixture.release, fixture.context);
+    assert.equal(report.valid, false);
+    assert.match(text(report), /promotion_source_pdf_hash_mismatch/);
+  });
+
+  await t.test('arbitrary accepted page, final text, and evidence hashes are not self-authenticating', () => {
+    const fixture = reviewedFixture();
+    const page = fixture.context.artifacts.page_publication.json.documents[0].pages[10];
+    page.source_page_sha256 = 'a'.repeat(64);
+    page.final_text_sha256 = 'b'.repeat(64);
+    page.evidence_bundle_sha256 = 'c'.repeat(64);
+    const replacement = withArtifact(fixture.context, 'page_publication', fixture.context.artifacts.page_publication.json);
+    fixture.context = replacement.context;
+    fixture.release.input_fingerprints.page_publication.sha256 = replacement.artifact.sha256;
+    const paragraph = fixture.context.canonical_paragraphs.get('moe-2022-03\u00001');
+    paragraph.source_page_sha256 = page.source_page_sha256;
+    paragraph.final_text_sha256 = page.final_text_sha256;
+    paragraph.evidence_bundle_sha256 = page.evidence_bundle_sha256;
+    Object.assign(fixture.release.assertions[0], {
+      source_page_sha256: page.source_page_sha256,
+      final_text_sha256: page.final_text_sha256,
+      evidence_bundle_sha256: page.evidence_bundle_sha256,
+    });
+    const report = validateOntologyRelease(fixture.release, fixture.context);
+    assert.equal(report.valid, false);
+    assert.match(text(report), /promotion_page_evidence_not_frozen/);
+  });
+
+  await t.test('coordinated lexical replacement still differs from frozen candidate bytes', () => {
+    const fixture = reviewedFixture();
+    const candidate = copy(fixture.context.artifacts.candidate.json);
+    candidate.node_groups.flatMap((group) => group.nodes)
+      .find((node) => node.id === fixture.release.nodes[0].candidate_node_id)
+      .lexical_concept_id = 'physical-fitness';
+    const replacement = withArtifact(fixture.context, 'candidate', candidate);
+    fixture.context = replacement.context;
+    fixture.release.input_fingerprints.candidate.sha256 = replacement.artifact.sha256;
+    fixture.release.nodes[0].lexical_concept_id = 'physical-fitness';
+    fixture.release.assertions[0].node_binding.lexical_concept_id = 'physical-fitness';
+    const report = validateOntologyRelease(fixture.release, fixture.context);
+    assert.equal(report.valid, false);
+    assert.match(text(report), /promotion_candidate_baseline_mismatch/);
+  });
+
+  await t.test('coordinated normative-role replacement still differs from frozen candidate bytes', () => {
+    const fixture = reviewedFixture();
+    const candidate = copy(fixture.context.artifacts.candidate.json);
+    candidate.node_groups.flatMap((group) => group.nodes)
+      .find((node) => node.id === fixture.release.nodes[0].candidate_node_id)
+      .normative_role_candidate = 'mandatory_exam_scoring_rule';
+    const replacement = withArtifact(fixture.context, 'candidate', candidate);
+    fixture.context = replacement.context;
+    fixture.release.input_fingerprints.candidate.sha256 = replacement.artifact.sha256;
+    fixture.release.nodes[0].normative_role = 'mandatory_exam_scoring_rule';
+    fixture.release.nodes[0].candidate_normative_role = 'mandatory_exam_scoring_rule';
+    fixture.release.assertions[0].node_binding.candidate_normative_role = 'mandatory_exam_scoring_rule';
+    const report = validateOntologyRelease(fixture.release, fixture.context);
+    assert.equal(report.valid, false);
+    assert.match(text(report), /promotion_candidate_baseline_mismatch/);
+  });
+
+  await t.test('dropping the real candidate parent cannot be frozen by the release itself', () => {
+    const fixture = reviewedFixture();
+    const originalCandidate = context.artifacts.candidate.json.node_groups
+      .flatMap((group) => group.nodes)
+      .find((node) => node.id === fixture.release.nodes[0].candidate_node_id);
+    const forgedCandidate = fixture.context.artifacts.candidate.json.node_groups
+      .flatMap((group) => group.nodes)
+      .find((node) => node.id === fixture.release.nodes[0].candidate_node_id);
+    assert.equal(originalCandidate.parent_id, 'candidate:zh-compulsory-2022');
+    assert.equal(forgedCandidate.parent_id, null);
+    const report = validateOntologyRelease(fixture.release, fixture.context);
+    assert.equal(report.valid, false);
+    assert.match(text(report), /promotion_candidate_baseline_mismatch/);
+  });
+
+  await t.test('an unrelated source cannot become exact support by coordinated relabeling', () => {
+    const fixture = reviewedFixture();
+    const online = copy(fixture.context.artifacts.online_verification.json);
+    const unrelated = online.sources.find((source) => source.source_id === 'source:moe-2022-release');
+    unrelated.evidence_role = 'independent_text';
+    unrelated.independent_text_decision = true;
+    const claim = online.claims.find((entry) => entry.claim_id === 'claim:core-competencies');
+    claim.crosschecks = claim.crosschecks.filter((entry) => entry.source_id !== 'source:moe-2022-qa');
+    claim.crosschecks.push({
+      source_id: unrelated.source_id,
+      role: 'independent_exact_support',
+      independent_for_claim: true,
+      support_scope: 'coordinated forged support',
+    });
+    const replacement = withArtifact(fixture.context, 'online_verification', online);
+    fixture.context = replacement.context;
+    fixture.release.input_fingerprints.online_verification.sha256 = replacement.artifact.sha256;
+    fixture.release.assertions[0].independent_online_source_ids = [
+      unrelated.source_id,
+      'source:jyb-video-20220720',
+    ];
+    fixture.release.assertions[0].online_evidence_bindings[0].independent_source_ids = [
+      unrelated.source_id,
+      'source:jyb-video-20220720',
+    ];
+    const report = validateOntologyRelease(fixture.release, fixture.context);
+    assert.equal(report.valid, false);
+    assert.match(text(report), /online_source_quote_not_frozen|promotion_online_baseline_mismatch/);
+  });
+});
+
 test('relation type and direction need an exact canonical predicate, not paragraph co-occurrence', async (t) => {
   await t.test('co-occurrence with exact hashes is insufficient', () => {
     const body = '核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。';
@@ -493,6 +627,22 @@ test('relation type and direction need an exact canonical predicate, not paragra
     const report = validateOntologyRelease(fixture.release, fixture.context);
     assert.equal(report.valid, false);
     assert.match(text(report), /relation_semantics_not_supported/);
+  });
+
+  await t.test('endpoint names and an unrelated predicate in different sentences cannot be stitched together', () => {
+    const body = '核心素养是课程育人价值的集中体现。学校支持教师发展。语言运用通过语言实践落实课程目标与课程内容。';
+    const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)));
+    const report = validateOntologyRelease(fixture.release, fixture.context);
+    assert.equal(report.valid, false);
+    assert.match(text(report), /relation_statement_clause_error|relation_semantics_not_supported/);
+  });
+
+  await t.test('post-predicate denial cannot masquerade as positive support', () => {
+    const body = '核心素养支持语言运用的说法并不成立；核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。';
+    const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)));
+    const report = validateOntologyRelease(fixture.release, fixture.context);
+    assert.equal(report.valid, false);
+    assert.match(text(report), /relation_polarity_not_positive|relation_semantics_not_supported/);
   });
 });
 
