@@ -20,6 +20,9 @@ import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import {
+  canonicalJson,
+  copyTreeStrict,
+  inspectTree,
   LOCAL_REPROCESS_SNAPSHOT_MODE,
   validateLocalReprocessSnapshot,
 } from './lib/remote-ocr-local-snapshot.mjs';
@@ -33,6 +36,13 @@ const expectedManifestType = 'curriculum_remote_whole_document_ocr_offload_plan'
 const maxDocumentAttempts = 5;
 const documentRetryBackoffMilliseconds = Object.freeze([2_000, 10_000, 30_000, 60_000]);
 const quarantineExitCode = 12;
+const seedReceiptType = 'curriculum_remote_ocr_hash_bound_output_seed';
+const seedMode = 'hash_bound_output_seed';
+const seedConfigurationScope = 'active_writer_with_hash_bound_seed_exceptions';
+const seedPredecessorEvidenceDirectory = 'seed-predecessor-evidence';
+const seedPredecessorEvidenceType = 'curriculum_remote_ocr_seed_predecessor_controls';
+const seedAllowedPredecessorStatuses = new Set(['complete', 'interrupted', 'pending', 'retry_wait']);
+const legacyB1RunnerScriptSha256 = 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55';
 const llamaHealthTimeoutMilliseconds = 10_000;
 const pythonRuntimeProbeTimeoutMilliseconds = 15 * 60 * 1_000;
 const requiredPythonPackages = Object.freeze([
@@ -162,6 +172,7 @@ function parseArguments(argv) {
     ['--llama-url', 'llamaUrl'],
     ['--runtime-device', 'runtimeDevice'],
     ['--paddlex-cache-home', 'paddlexCacheHome'],
+    ['--seed-from-output-root', 'seedFromOutputRoot'],
   ]);
   const integerOptions = new Map([
     ['--vl-rec-max-concurrency', 'vlRecMaxConcurrency'],
@@ -182,6 +193,14 @@ function parseArguments(argv) {
     }
     if (argument === '--use-queues') {
       options.useQueues = true;
+      continue;
+    }
+    if (argument === '--seed-dry-run') {
+      options.seedDryRun = true;
+      continue;
+    }
+    if (argument === '--seed-only') {
+      options.seedOnly = true;
       continue;
     }
     const target = stringOptions.get(argument) || integerOptions.get(argument);
@@ -212,6 +231,10 @@ function parseArguments(argv) {
   if (options.microBatch > 1 && !options.useQueues) {
     throw new Error('--micro-batch greater than 1 requires --use-queues');
   }
+  if ((options.seedDryRun || options.seedOnly) && !options.seedFromOutputRoot) {
+    throw new Error('--seed-dry-run and --seed-only require --seed-from-output-root');
+  }
+  if (options.seedDryRun) options.seedOnly = true;
   requireLoopbackLlamaUrl(options.llamaUrl);
   validateLlamaSystemdUnitName(options.llamaSystemdUnit);
   return options;
@@ -451,6 +474,10 @@ export function probePythonOcrRuntime(
     maxBuffer: 16 * 1024 * 1024,
     timeout: pythonRuntimeProbeTimeoutMilliseconds,
   });
+  return parsePythonRuntimeProbeResult(result);
+}
+
+function parsePythonRuntimeProbeResult(result) {
   if (result?.error) throw new Error(`Python OCR runtime probe failed: ${result.error.message}`);
   if (result?.status !== 0) {
     throw new Error(`Python OCR runtime probe failed: ${String(result?.stderr || '').trim() || `exit ${result?.status ?? 'unknown'}`}`);
@@ -467,6 +494,37 @@ export function probePythonOcrRuntime(
     throw new Error(`Python OCR runtime probe returned invalid JSON: ${error.message}`);
   }
   return validatePythonRuntimeIdentity(parsed);
+}
+
+export function probePythonPackageRuntime(
+  python,
+  { paddlexCacheHome },
+  { runCommand = spawnSync } = {},
+) {
+  const probe = [
+    'import importlib.metadata as metadata',
+    'import json',
+    'import platform',
+    `packages = {name: metadata.version(name) for name in ${JSON.stringify(requiredPythonPackages)}}`,
+    'value = {',
+    '    "schema_version": 1,',
+    '    "implementation": platform.python_implementation(),',
+    '    "python_version": platform.python_version(),',
+    '    "packages": packages,',
+    '}',
+    'print("REMOTE_OCR_RUNTIME_JSON=" + json.dumps(value, sort_keys=True))',
+  ].join('\n');
+  const result = runCommand(python, ['-c', probe], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PADDLE_PDX_CACHE_HOME: paddlexCacheHome,
+      PYTHONUNBUFFERED: '1',
+    },
+    maxBuffer: 1024 * 1024,
+    timeout: 60_000,
+  });
+  return parsePythonRuntimeProbeResult(result);
 }
 
 function excludedCacheEntry(relativePath) {
@@ -825,6 +883,88 @@ function exactIntegerSet(values, pageCount, label) {
   return [...unique].sort((left, right) => left - right);
 }
 
+function stateConfigurationContract(runtime, workerConfiguration) {
+  validatePythonRuntimeIdentity(workerConfiguration.python_runtime);
+  return {
+    pipeline: runtime.pipeline,
+    pipeline_version: runtime.pipeline_version,
+    layout_model: 'PP-DocLayoutV3',
+    recognizer: 'PaddleOCR-VL-1.6-0.9B official GGUF',
+    recognizer_backend: 'llama-cpp-server',
+    recognizer_server_url: workerConfiguration.llama_url,
+    dpi: runtime.render_dpi,
+    device: workerConfiguration.runtime_device,
+    python: workerConfiguration.python_runtime.python_version,
+    paddlepaddle: workerConfiguration.python_runtime.packages.paddlepaddle,
+    paddleocr: workerConfiguration.python_runtime.packages.paddleocr,
+    paddlex: workerConfiguration.python_runtime.packages.paddlex,
+    vl_rec_max_concurrency: workerConfiguration.vl_rec_max_concurrency,
+    server_parallel: workerConfiguration.server_parallel,
+    micro_batch: workerConfiguration.micro_batch,
+    use_queues: workerConfiguration.use_queues,
+  };
+}
+
+function validateStateSeedLineage(document, state, completedPages) {
+  if (state.seed_lineage === undefined) {
+    if (state.configuration_scope !== undefined) {
+      throw new Error(`${document.id}: OCR configuration scope exists without seed lineage`);
+    }
+    for (const page of completedPages) {
+      if (state.pages[String(page)]?.seed_provenance !== undefined) {
+        throw new Error(`${document.id}: unseeded OCR page ${page} contains seed provenance`);
+      }
+    }
+    return null;
+  }
+  const lineage = requireObject(state.seed_lineage, `${document.id} seed_lineage`);
+  if (state.configuration_scope !== seedConfigurationScope
+    || lineage.schema_version !== 1
+    || lineage.mode !== seedMode
+    || lineage.citation_allowed !== false) {
+    throw new Error(`${document.id}: seeded OCR state scope or lineage identity is invalid`);
+  }
+  requireSha256(lineage.seed_id, `${document.id} seed_lineage.seed_id`);
+  requireSha256(
+    lineage.predecessor_run_identity_sha256,
+    `${document.id} seed_lineage.predecessor_run_identity_sha256`,
+  );
+  requireSha256(
+    lineage.predecessor_configuration_sha256,
+    `${document.id} seed_lineage.predecessor_configuration_sha256`,
+  );
+  const inheritedPages = exactIntegerSet(
+    lineage.inherited_completed_pages,
+    document.page_count,
+    `${document.id}.seed_lineage.inherited_completed_pages`,
+  );
+  if (!sameJsonValue(inheritedPages, lineage.inherited_completed_pages)
+    || inheritedPages.some((page) => !completedPages.includes(page))) {
+    throw new Error(`${document.id}: seeded OCR inherited page set is invalid`);
+  }
+  const inherited = new Set(inheritedPages);
+  for (const page of completedPages) {
+    const provenance = state.pages[String(page)]?.seed_provenance;
+    if (!inherited.has(page)) {
+      if (provenance !== undefined) {
+        throw new Error(`${document.id}: newly written page ${page} must not carry seed provenance`);
+      }
+      continue;
+    }
+    if (!provenance
+      || provenance.seed_id !== lineage.seed_id
+      || provenance.predecessor_run_identity_sha256 !== lineage.predecessor_run_identity_sha256
+      || provenance.predecessor_configuration_sha256 !== lineage.predecessor_configuration_sha256) {
+      throw new Error(`${document.id}: inherited page ${page} seed provenance mismatch`);
+    }
+  }
+  return lineage;
+}
+
+function sameJsonValue(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
 export async function validateOcrDocumentOutput(
   document,
   documentRoot,
@@ -846,19 +986,7 @@ export async function validateOcrDocumentOutput(
   if (configuration.dpi !== runtime.render_dpi) throw new Error(`${document.id}: OCR render DPI mismatch`);
   if (configuration.recognizer_backend !== 'llama-cpp-server') throw new Error(`${document.id}: OCR recognizer backend mismatch`);
   requireObject(workerConfiguration, `${document.id} expected worker configuration`);
-  validatePythonRuntimeIdentity(workerConfiguration.python_runtime);
-  const configurationContract = {
-    recognizer_server_url: workerConfiguration.llama_url,
-    vl_rec_max_concurrency: workerConfiguration.vl_rec_max_concurrency,
-    server_parallel: workerConfiguration.server_parallel,
-    micro_batch: workerConfiguration.micro_batch,
-    use_queues: workerConfiguration.use_queues,
-    device: workerConfiguration.runtime_device,
-    python: workerConfiguration.python_runtime.python_version,
-    paddlepaddle: workerConfiguration.python_runtime.packages.paddlepaddle,
-    paddleocr: workerConfiguration.python_runtime.packages.paddleocr,
-    paddlex: workerConfiguration.python_runtime.packages.paddlex,
-  };
+  const configurationContract = stateConfigurationContract(runtime, workerConfiguration);
   for (const [key, expected] of Object.entries(configurationContract)) {
     if (configuration[key] !== expected) throw new Error(`${document.id}: OCR worker configuration mismatch for ${key}`);
   }
@@ -876,6 +1004,7 @@ export async function validateOcrDocumentOutput(
   if (JSON.stringify(pageKeys) !== JSON.stringify(completedPages.map(String))) {
     throw new Error(`${document.id}: OCR page metadata set differs from completed_pages`);
   }
+  validateStateSeedLineage(document, state, completedPages);
 
   const pageArtifacts = [];
   for (const pageNumber of completedPages) {
@@ -967,6 +1096,1011 @@ async function verifySha256Sidecar(pathname, label) {
   return actual;
 }
 
+function jsonContents(value) {
+  return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+async function writeJsonWithSidecar(pathname, value) {
+  const contents = jsonContents(value);
+  await atomicWrite(pathname, contents);
+  const digest = sha256Value(contents);
+  await atomicWrite(`${pathname}.sha256`, `${digest}  ${path.basename(pathname)}\n`);
+  return digest;
+}
+
+async function requireRealDirectory(pathname, label) {
+  const info = await lstat(pathname).catch((error) => {
+    if (error?.code === 'ENOENT') throw new Error(`${label} is missing`);
+    throw error;
+  });
+  if (!info.isDirectory() || info.isSymbolicLink()) {
+    throw new Error(`${label} must be a real directory`);
+  }
+  return realpath(pathname);
+}
+
+async function requireRegularFile(pathname, label) {
+  const info = await lstat(pathname).catch((error) => {
+    if (error?.code === 'ENOENT') throw new Error(`${label} is missing`);
+    throw error;
+  });
+  if (!info.isFile() || info.isSymbolicLink()) {
+    throw new Error(`${label} must be a regular non-symlink file`);
+  }
+  return info;
+}
+
+async function requireContainedRealDirectory(root, pathname, label) {
+  const resolved = await requireRealDirectory(pathname, label);
+  if (resolved !== path.resolve(pathname) || !isWithin(root, resolved)) {
+    throw new Error(`${label} must resolve directly inside its owned root`);
+  }
+  return resolved;
+}
+
+async function readStrictFile(root, pathname, label) {
+  await requireRegularFile(pathname, label);
+  const resolved = await realpath(pathname);
+  if (resolved !== path.resolve(pathname) || !isWithin(root, resolved)) {
+    throw new Error(`${label} must resolve directly inside its owned root`);
+  }
+  return readFile(resolved);
+}
+
+function parseSha256Sidecar(raw, pathname, label) {
+  const sidecar = raw.toString('utf8');
+  const expectedLine = /^([a-f0-9]{64})  ([^\r\n]+)\n$/u.exec(sidecar);
+  if (!expectedLine || expectedLine[2] !== path.basename(pathname)) {
+    throw new Error(`${label} SHA-256 sidecar has an invalid format`);
+  }
+  return expectedLine[1];
+}
+
+async function readStrictFileWithSidecar(root, pathname, label) {
+  const [raw, sidecarRaw] = await Promise.all([
+    readStrictFile(root, pathname, label),
+    readStrictFile(root, `${pathname}.sha256`, `${label} SHA-256 sidecar`),
+  ]);
+  const expected = parseSha256Sidecar(sidecarRaw, pathname, label);
+  const digest = sha256Value(raw);
+  if (digest !== expected) throw new Error(`${label} SHA-256 sidecar mismatch`);
+  return { raw, sidecarRaw, digest };
+}
+
+function seedProgressRecord(progress, document) {
+  requireObject(progress, `${document.id} predecessor run status`);
+  if (!seedAllowedPredecessorStatuses.has(progress.status)) {
+    throw new Error(`${document.id}: predecessor status ${progress.status} is not seedable`);
+  }
+  if (!Number.isSafeInteger(progress.attempts)
+    || progress.attempts < 0
+    || progress.attempts > maxDocumentAttempts
+    || progress.page_count !== document.page_count) {
+    throw new Error(`${document.id}: predecessor attempt or page-count identity is invalid`);
+  }
+  if (progress.status === 'pending' && progress.attempts !== 0) {
+    throw new Error(`${document.id}: pending predecessor cannot have attempts`);
+  }
+  if (progress.status !== 'pending' && progress.attempts < 1) {
+    throw new Error(`${document.id}: attempted predecessor status requires a positive attempt floor`);
+  }
+  return progress;
+}
+
+function classifySeedPredecessorStatus(identity, progress, status, statusSha256, document) {
+  if (progress.status_json_sha256 !== statusSha256
+    || status.schema_version !== 1
+    || status.document_id !== document.id
+    || status.status !== progress.status
+    || status.citation_allowed !== false) {
+    throw new Error(`${document.id}: predecessor document status identity mismatch`);
+  }
+  const keys = Object.keys(status).sort();
+  const retryWaitKeys = [
+    'attempt',
+    'citation_allowed',
+    'document_id',
+    'error',
+    'failed_at',
+    'max_attempts',
+    'next_retry_at',
+    'page_count',
+    'retry_delay_seconds',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'status',
+  ].sort();
+  if (progress.status === 'retry_wait'
+    && sameJsonValue(keys, retryWaitKeys)
+    && status.attempt === progress.attempts
+    && status.max_attempts === maxDocumentAttempts
+    && status.page_count === document.page_count
+    && status.runtime_fingerprint_sha256 === identity.runtime_fingerprint_sha256
+    && status.next_retry_at === progress.next_retry_at
+    && status.error === progress.error
+    && status.failed_at === progress.failed_at
+    && documentRetryBackoffMilliseconds.includes(status.retry_delay_seconds * 1_000)) {
+    return 'complete_identity_v1';
+  }
+  if (identity.runner_script_sha256 !== legacyB1RunnerScriptSha256) {
+    throw new Error(`${document.id}: incomplete predecessor status identity is not from the exact B-r1 runner`);
+  }
+  const legacyCompleteKeys = [
+    'artifacts',
+    'citation_allowed',
+    'document_id',
+    'page_count',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'source_sha256',
+    'status',
+    'verified_at',
+    'whole_document_atomic',
+  ].sort();
+  if (progress.status === 'complete'
+    && sameJsonValue(keys, legacyCompleteKeys)
+    && status.attempt === undefined
+    && status.max_attempts === undefined
+    && status.page_count === document.page_count
+    && status.runtime_fingerprint_sha256 === identity.runtime_fingerprint_sha256
+    && status.source_sha256 === document.source_sha256
+    && status.whole_document_atomic === true
+    && typeof status.verified_at === 'string'
+    && status.verified_at === progress.verified_at) {
+    return 'legacy_b1_complete_reverified';
+  }
+  const legacyInterruptedKeys = [
+    'attempt',
+    'citation_allowed',
+    'document_id',
+    'interrupted_at',
+    'max_attempts',
+    'schema_version',
+    'status',
+  ].sort();
+  if (progress.status === 'interrupted'
+    && sameJsonValue(keys, legacyInterruptedKeys)
+    && status.attempt === progress.attempts
+    && status.max_attempts === maxDocumentAttempts
+    && status.page_count === undefined
+    && status.runtime_fingerprint_sha256 === undefined
+    && typeof status.interrupted_at === 'string'
+    && status.interrupted_at === progress.interrupted_at) {
+    return 'legacy_b1_interrupted';
+  }
+  throw new Error(`${document.id}: predecessor document status identity mismatch`);
+}
+
+async function captureSeedPredecessor(predecessorRoot, manifest, manifestSha256) {
+  const root = await requireRealDirectory(predecessorRoot, 'seed predecessor output root');
+  const [documentsRoot, statusRoot] = await Promise.all([
+    requireContainedRealDirectory(root, path.join(root, 'documents'), 'seed predecessor documents root'),
+    requireContainedRealDirectory(root, path.join(root, 'status'), 'seed predecessor status root'),
+  ]);
+  const identityPath = path.join(root, 'run-identity.json');
+  const runStatusPath = path.join(root, 'run-status.json');
+  const [identityRaw, runStatusEvidence] = await Promise.all([
+    readStrictFile(root, identityPath, 'seed predecessor run identity'),
+    readStrictFileWithSidecar(root, runStatusPath, 'seed predecessor run status'),
+  ]);
+  const runStatusRaw = runStatusEvidence.raw;
+  const runStatusSidecarRaw = runStatusEvidence.sidecarRaw;
+  const runStatusSha256 = runStatusEvidence.digest;
+  let identity;
+  let runStatus;
+  try {
+    identity = JSON.parse(identityRaw);
+    runStatus = JSON.parse(runStatusRaw);
+  } catch (error) {
+    throw new Error(`seed predecessor control JSON is invalid: ${error.message}`);
+  }
+  requireObject(identity, 'seed predecessor run identity');
+  requireObject(runStatus, 'seed predecessor run status');
+  if (identity.schema_version !== 1
+    || identity.manifest_sha256 !== manifestSha256
+    || !sameJsonValue(identity.runtime, manifest.runtime)
+    || identity.citation_allowed !== false
+    || identity.whole_document_atomic !== true) {
+    throw new Error('seed predecessor run identity differs from the exact manifest or fail-closed contract');
+  }
+  if (identity.seed_lineage !== undefined || runStatus.seed_lineage !== undefined) {
+    throw new Error('seed predecessor must be an unseeded first-generation run');
+  }
+  requireSha256(identity.runtime_fingerprint_sha256, 'seed predecessor runtime fingerprint SHA-256');
+  requireSha256(identity.runner_script_sha256, 'seed predecessor runner script SHA-256');
+  requireSha256(identity.ocr_script_sha256, 'seed predecessor OCR script SHA-256');
+  if (identity.runner_script_sha256 !== legacyB1RunnerScriptSha256) {
+    throw new Error('seed predecessor is not bound to the exact B-r1 runner');
+  }
+  if (identity.runtime_fingerprint_sha256 !== sha256Value(`${JSON.stringify(identity.runtime_fingerprint)}\n`)) {
+    throw new Error('seed predecessor runtime fingerprint SHA-256 mismatch');
+  }
+  requireObject(identity.worker_configuration, 'seed predecessor worker configuration');
+  requireObject(identity.document_recovery, 'seed predecessor recovery policy');
+  if (runStatus.schema_version !== 1
+    || runStatus.manifest_sha256 !== manifestSha256
+    || runStatus.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
+    || !sameJsonValue(runStatus.document_recovery, identity.document_recovery)
+    || runStatus.citation_allowed !== false) {
+    throw new Error('seed predecessor run status differs from its run identity');
+  }
+  const statusDocuments = requireObject(runStatus.documents, 'seed predecessor run status documents');
+  const expectedIds = manifest.documents.map((document) => document.id).sort();
+  if (!sameJsonValue(Object.keys(statusDocuments).sort(), expectedIds)) {
+    throw new Error('seed predecessor document set differs from the exact manifest');
+  }
+  const expectedRunCounts = seedRunCounts(runStatus);
+  if (!sameJsonValue(runStatus.counts, expectedRunCounts)
+    || runStatus.finished !== (expectedRunCounts.complete === expectedRunCounts.total)
+    || runStatus.settled !== (expectedRunCounts.complete + expectedRunCounts.quarantined === expectedRunCounts.total)) {
+    throw new Error('seed predecessor run counts or terminal flags differ from document states');
+  }
+
+  const documents = [];
+  const artifactRecords = [];
+  let completedPages = 0;
+  for (const document of manifest.documents) {
+    const progress = seedProgressRecord(statusDocuments[document.id], document);
+    const documentRoot = path.join(documentsRoot, document.id);
+    const statusPath = path.join(statusRoot, `${document.id}.json`);
+    if (progress.status === 'pending') {
+      if (await lstat(documentRoot).then(() => true, (error) => {
+        if (error?.code === 'ENOENT') return false;
+        throw error;
+      })) {
+        throw new Error(`${document.id}: pending predecessor unexpectedly has a document tree`);
+      }
+      if (await lstat(statusPath).then(() => true, (error) => {
+        if (error?.code === 'ENOENT') return false;
+        throw error;
+      })) {
+        throw new Error(`${document.id}: pending predecessor unexpectedly has a status file`);
+      }
+      documents.push({
+        document_id: document.id,
+        page_count: document.page_count,
+        predecessor_status: progress.status,
+        predecessor_status_format: 'pending_no_status',
+        inherited_attempts: progress.attempts,
+        completed_pages: [],
+        failed_pages: [],
+        predecessor_document_tree: null,
+        predecessor_pages_tree: null,
+        predecessor_state_sha256: null,
+        predecessor_configuration_sha256: sha256Value(canonicalJson(identity.worker_configuration)),
+        predecessor_status_sha256: null,
+        predecessor_status_sidecar_sha256: null,
+        inherited_page_artifacts: [],
+        inherited_page_artifacts_sha256: sha256Value(canonicalJson([])),
+        state_raw: null,
+        status_raw: null,
+        status_sidecar_raw: null,
+      });
+      continue;
+    }
+
+    await requireContainedRealDirectory(documentsRoot, documentRoot, `${document.id} predecessor document tree`);
+    const validation = await validateOcrDocumentOutput(
+      document,
+      documentRoot,
+      manifest.runtime,
+      {
+        requireComplete: progress.status === 'complete',
+        workerConfiguration: identity.worker_configuration,
+      },
+    );
+    const statePath = path.join(documentRoot, 'state.json');
+    const stateRaw = await readStrictFile(documentRoot, statePath, `${document.id} predecessor state`);
+    const state = JSON.parse(stateRaw);
+    if (Object.keys(requireObject(state.failed_pages, `${document.id} predecessor failed_pages`)).length !== 0) {
+      throw new Error(`${document.id}: predecessor failed_pages must be empty before seed`);
+    }
+    const completed = exactIntegerSet(
+      state.completed_pages,
+      document.page_count,
+      `${document.id} predecessor completed_pages`,
+    );
+    const documentRootEntries = (await readdir(documentRoot, { withFileTypes: true }))
+      .map((entry) => {
+        if (entry.isSymbolicLink()) throw new Error(`${document.id}: predecessor document root contains a symlink`);
+        return `${entry.isDirectory() ? 'D' : entry.isFile() ? 'F' : 'X'}:${entry.name}`;
+      })
+      .sort();
+    if (!sameJsonValue(documentRootEntries, ['D:pages', 'F:state.json'])) {
+      throw new Error(`${document.id}: predecessor document root contains unexpected entries`);
+    }
+    const physicalPageEntries = (await readdir(path.join(documentRoot, 'pages'), { withFileTypes: true }))
+      .map((entry) => {
+        if (!entry.isDirectory() || entry.isSymbolicLink() || !/^\d{4}$/u.test(entry.name)) {
+          throw new Error(`${document.id}: predecessor pages tree contains an invalid entry: ${entry.name}`);
+        }
+        return Number(entry.name);
+      })
+      .sort((left, right) => left - right);
+    if (!sameJsonValue(physicalPageEntries, completed)) {
+      throw new Error(`${document.id}: predecessor physical page directories differ from completed_pages`);
+    }
+    const pageArtifacts = [];
+    for (const page of completed) {
+      const statePage = state.pages[String(page)];
+      const pageRoot = path.join(documentRoot, 'pages', String(page).padStart(4, '0'));
+      const pageTree = await inspectTree(pageRoot);
+      const record = {
+        physical_pdf_page: page,
+        rendered_image_sha256: statePage.rendered_image_sha256,
+        result_json_sha256: statePage.result_json_sha256,
+        content_markdown_sha256: statePage.content_markdown_sha256,
+        page_tree_sha256: pageTree.tree_sha256,
+        page_tree_files: pageTree.files,
+        page_tree_bytes: pageTree.bytes,
+        citation_allowed: false,
+      };
+      pageArtifacts.push(record);
+      artifactRecords.push({ document_id: document.id, ...record });
+    }
+    completedPages += completed.length;
+    const [documentTree, pagesTree, statusEvidence] = await Promise.all([
+      inspectTree(documentRoot),
+      inspectTree(path.join(documentRoot, 'pages')),
+      readStrictFileWithSidecar(statusRoot, statusPath, `${document.id} predecessor status`),
+    ]);
+    const statusRaw = statusEvidence.raw;
+    const statusSidecarRaw = statusEvidence.sidecarRaw;
+    const statusSha256 = statusEvidence.digest;
+    const status = JSON.parse(statusRaw);
+    const predecessorStatusFormat = classifySeedPredecessorStatus(
+      identity,
+      progress,
+      status,
+      statusSha256,
+      document,
+    );
+    if (progress.status === 'complete') {
+      const artifacts = requireObject(status.artifacts, `${document.id} predecessor complete artifacts`);
+      if (artifacts.state_sha256 !== validation.state_sha256
+        || artifacts.page_artifacts_sha256 !== validation.page_artifacts_sha256) {
+        throw new Error(`${document.id}: predecessor complete status artifacts mismatch`);
+      }
+    }
+    documents.push({
+      document_id: document.id,
+      page_count: document.page_count,
+      predecessor_status: progress.status,
+      predecessor_status_format: predecessorStatusFormat,
+      inherited_attempts: progress.attempts,
+      completed_pages: completed,
+      failed_pages: [],
+      predecessor_document_tree: documentTree,
+      predecessor_pages_tree: pagesTree,
+      predecessor_state_sha256: sha256Value(stateRaw),
+      predecessor_configuration_sha256: sha256Value(canonicalJson(state.configuration)),
+      predecessor_status_sha256: statusSha256,
+      predecessor_status_sidecar_sha256: sha256Value(statusSidecarRaw),
+      inherited_page_artifacts: pageArtifacts,
+      inherited_page_artifacts_sha256: sha256Value(canonicalJson(pageArtifacts)),
+      state,
+      status,
+      state_raw: stateRaw,
+      status_raw: statusRaw,
+      status_sidecar_raw: statusSidecarRaw,
+    });
+  }
+  const evidence = {
+    root,
+    manifest_sha256: manifestSha256,
+    run_identity_sha256: sha256Value(identityRaw),
+    run_status_sha256: runStatusSha256,
+    run_status_sidecar_sha256: sha256Value(runStatusSidecarRaw),
+    runtime_fingerprint_sha256: identity.runtime_fingerprint_sha256,
+    worker_configuration_sha256: sha256Value(canonicalJson(identity.worker_configuration)),
+    document_recovery_sha256: sha256Value(canonicalJson(identity.document_recovery)),
+    completed_pages: completedPages,
+    failed_pages: 0,
+    quarantined_documents: 0,
+    page_artifacts_sha256: sha256Value(canonicalJson(artifactRecords)),
+    documents,
+    identity,
+    runStatus,
+    identityRaw,
+    runStatusRaw,
+    runStatusSidecarRaw,
+  };
+  evidence.snapshot_sha256 = sha256Value(canonicalJson({
+    manifest_sha256: evidence.manifest_sha256,
+    run_identity_sha256: evidence.run_identity_sha256,
+    run_status_sha256: evidence.run_status_sha256,
+    run_status_sidecar_sha256: evidence.run_status_sidecar_sha256,
+    runtime_fingerprint_sha256: evidence.runtime_fingerprint_sha256,
+    worker_configuration_sha256: evidence.worker_configuration_sha256,
+    document_recovery_sha256: evidence.document_recovery_sha256,
+    completed_pages: evidence.completed_pages,
+    failed_pages: evidence.failed_pages,
+    quarantined_documents: evidence.quarantined_documents,
+    page_artifacts_sha256: evidence.page_artifacts_sha256,
+    documents: documents.map(publicPredecessorDocument),
+  }));
+  return evidence;
+}
+
+function validateSeedConfigurationDelta(predecessor, successor) {
+  const predecessorWorker = requireObject(predecessor.identity.worker_configuration, 'predecessor worker configuration');
+  const successorWorker = requireObject(successor.workerConfiguration, 'successor worker configuration');
+  if (predecessor.identity.runtime_fingerprint_sha256 !== successor.runtimeFingerprintSha256
+    || !sameJsonValue(predecessor.identity.runtime_fingerprint, successor.runtimeFingerprint)
+    || !sameJsonValue(predecessor.identity.runtime, successor.runtime)
+    || !sameJsonValue(predecessor.identity.llama_server_attestation, successor.llamaServerAttestation)
+    || predecessor.identity.input_root !== successor.inputRoot
+    || predecessor.identity.python_invocation_path !== successor.pythonInvocationPath
+    || predecessor.identity.python_resolved_target !== successor.pythonResolvedTarget) {
+    throw new Error('seed predecessor runtime, model, Python, device, input, or llama attestation differs from successor');
+  }
+  const expectedKeys = [
+    'llama_url',
+    'vl_rec_max_concurrency',
+    'server_parallel',
+    'micro_batch',
+    'use_queues',
+    'runtime_device',
+    'paddlex_cache_home',
+    'python_runtime',
+    'paddlex_layout_model_cache_sha256',
+  ].sort();
+  if (!sameJsonValue(Object.keys(predecessorWorker).sort(), expectedKeys)
+    || !sameJsonValue(Object.keys(successorWorker).sort(), expectedKeys)) {
+    throw new Error('seed worker configuration field set differs from the audited contract');
+  }
+  if (predecessorWorker.vl_rec_max_concurrency !== 4 || successorWorker.vl_rec_max_concurrency !== 1) {
+    throw new Error('seed permits only vl_rec_max_concurrency 4 to 1');
+  }
+  if (predecessorWorker.server_parallel !== 4
+    || successorWorker.server_parallel !== 4
+    || predecessorWorker.micro_batch !== 16
+    || successorWorker.micro_batch !== 16
+    || predecessorWorker.use_queues !== true
+    || successorWorker.use_queues !== true) {
+    throw new Error('seed must preserve server_parallel=4, micro_batch=16, and use_queues=true');
+  }
+  for (const key of expectedKeys.filter((key) => !['vl_rec_max_concurrency', 'paddlex_cache_home'].includes(key))) {
+    if (!sameJsonValue(predecessorWorker[key], successorWorker[key])) {
+      throw new Error(`seed worker configuration delta is forbidden for ${key}`);
+    }
+  }
+  if (predecessorWorker.paddlex_cache_home !== successorWorker.paddlex_cache_home
+    && predecessorWorker.paddlex_layout_model_cache_sha256 !== successorWorker.paddlex_layout_model_cache_sha256) {
+    throw new Error('seed cache path may differ only when the cache tree SHA-256 is identical');
+  }
+  const predecessorRecovery = structuredClone(predecessor.identity.document_recovery);
+  const successorRecovery = structuredClone(successor.documentRecovery);
+  const predecessorIdle = predecessorRecovery.child_monitoring?.idle_timeout_seconds;
+  const successorIdle = successorRecovery.child_monitoring?.idle_timeout_seconds;
+  if (predecessorIdle !== 300 || successorIdle !== 1200) {
+    throw new Error('seed permits only child idle timeout 300 to 1200 seconds');
+  }
+  delete predecessorRecovery.child_monitoring.idle_timeout_seconds;
+  delete successorRecovery.child_monitoring.idle_timeout_seconds;
+  if (!sameJsonValue(predecessorRecovery, successorRecovery)) {
+    throw new Error('seed document recovery delta exceeds the audited idle-timeout exception');
+  }
+  return {
+    schema_version: 1,
+    vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
+    paddlex_cache_home: {
+      predecessor: predecessorWorker.paddlex_cache_home,
+      successor: successorWorker.paddlex_cache_home,
+      tree_sha256: successorWorker.paddlex_layout_model_cache_sha256,
+    },
+    child_idle_timeout_seconds: { predecessor: 300, successor: 1200 },
+  };
+}
+
+function seedRunCounts(runStatus) {
+  const statuses = Object.values(runStatus.documents).map((document) => document.status);
+  return {
+    total: statuses.length,
+    complete: statuses.filter((status) => status === 'complete').length,
+    failed: statuses.filter((status) => status === 'failed').length,
+    interrupted: statuses.filter((status) => status === 'interrupted').length,
+    pending: statuses.filter((status) => status === 'pending').length,
+    running: statuses.filter((status) => status === 'running').length,
+    retry_wait: statuses.filter((status) => status === 'retry_wait').length,
+    quarantined: statuses.filter((status) => status === 'quarantined').length,
+  };
+}
+
+function publicPredecessorDocument(document) {
+  const {
+    state,
+    status,
+    state_raw: _stateRaw,
+    status_raw: _statusRaw,
+    status_sidecar_raw: _statusSidecarRaw,
+    ...value
+  } = document;
+  return value;
+}
+
+function seedEvidenceFileRecord(relativePath, raw) {
+  if (!Buffer.isBuffer(raw)) throw new Error(`seed predecessor evidence ${relativePath} is not raw bytes`);
+  return {
+    path: relativePath,
+    bytes: raw.byteLength,
+    sha256: sha256Value(raw),
+  };
+}
+
+function seedEvidenceDocumentInventory(document) {
+  const statePath = `documents/${document.document_id}/state.json`;
+  const statusPath = `status/${document.document_id}.json`;
+  const statusSidecarPath = `${statusPath}.sha256`;
+  if (document.predecessor_status === 'pending') {
+    return {
+      document_id: document.document_id,
+      predecessor_status: 'pending',
+      state: { present: false, path: statePath },
+      status: { present: false, path: statusPath, sidecar_path: statusSidecarPath },
+    };
+  }
+  return {
+    document_id: document.document_id,
+    predecessor_status: document.predecessor_status,
+    state: {
+      present: true,
+      ...seedEvidenceFileRecord(statePath, document.state_raw),
+    },
+    status: {
+      present: true,
+      ...seedEvidenceFileRecord(statusPath, document.status_raw),
+      sidecar: seedEvidenceFileRecord(statusSidecarPath, document.status_sidecar_raw),
+    },
+  };
+}
+
+async function stageSeedPredecessorEvidence(outputRoot, predecessor, manifest) {
+  const evidenceRoot = path.join(
+    outputRoot,
+    `.seed-predecessor-evidence-candidate-${randomUUID()}`,
+  );
+  await mkdir(evidenceRoot, { mode: 0o700 });
+  try {
+    const rawFiles = [
+      ['run-identity.json', predecessor.identityRaw],
+      ['run-status.json', predecessor.runStatusRaw],
+      ['run-status.json.sha256', predecessor.runStatusSidecarRaw],
+    ];
+    for (const document of predecessor.documents) {
+      if (document.predecessor_status === 'pending') continue;
+      rawFiles.push(
+        [`documents/${document.document_id}/state.json`, document.state_raw],
+        [`status/${document.document_id}.json`, document.status_raw],
+        [`status/${document.document_id}.json.sha256`, document.status_sidecar_raw],
+      );
+    }
+    rawFiles.sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
+    for (const [relativePath, raw] of rawFiles) {
+      await atomicWrite(path.join(evidenceRoot, relativePath), raw);
+    }
+    const documents = manifest.documents.map((document) => {
+      const predecessorDocument = predecessor.documents.find(
+        (item) => item.document_id === document.id,
+      );
+      return seedEvidenceDocumentInventory(predecessorDocument);
+    });
+    const inventory = {
+      schema_version: 1,
+      evidence_type: seedPredecessorEvidenceType,
+      manifest_sha256: predecessor.manifest_sha256,
+      runner_script_sha256: predecessor.identity.runner_script_sha256,
+      files: rawFiles.map(([relativePath, raw]) => seedEvidenceFileRecord(relativePath, raw)),
+      documents,
+      citation_allowed: false,
+    };
+    const inventoryPath = path.join(evidenceRoot, 'inventory.json');
+    await atomicJson(inventoryPath, inventory);
+    const fingerprint = await inspectTree(evidenceRoot);
+    return {
+      root: evidenceRoot,
+      contract: {
+        schema_version: 1,
+        directory: seedPredecessorEvidenceDirectory,
+        inventory_sha256: await sha256File(inventoryPath),
+        tree_sha256: fingerprint.tree_sha256,
+        files: fingerprint.files,
+        bytes: fingerprint.bytes,
+      },
+    };
+  } catch (error) {
+    await rm(evidenceRoot, { recursive: true, force: true }).catch(() => {});
+    throw error;
+  }
+}
+
+async function prepareHashBoundSeed({
+  predecessorRoot,
+  outputRoot,
+  manifest,
+  manifestSha256,
+  successor,
+  dryRun = false,
+}) {
+  const predecessor = await captureSeedPredecessor(predecessorRoot, manifest, manifestSha256);
+  if (isWithin(predecessor.root, outputRoot) || isWithin(outputRoot, predecessor.root)) {
+    throw new Error('seed predecessor and successor output roots must be disjoint and non-nested');
+  }
+  const allowedConfigurationDelta = validateSeedConfigurationDelta(predecessor, successor);
+  const predecessorEvidence = await stageSeedPredecessorEvidence(outputRoot, predecessor, manifest);
+  const predecessorContract = {
+    manifest_sha256: predecessor.manifest_sha256,
+    run_identity_sha256: predecessor.run_identity_sha256,
+    run_status_sha256: predecessor.run_status_sha256,
+    run_status_sidecar_sha256: predecessor.run_status_sidecar_sha256,
+    runtime: predecessor.identity.runtime,
+    runtime_fingerprint: predecessor.identity.runtime_fingerprint,
+    runtime_fingerprint_sha256: predecessor.runtime_fingerprint_sha256,
+    runner_script_sha256: predecessor.identity.runner_script_sha256,
+    ocr_script_sha256: predecessor.identity.ocr_script_sha256,
+    worker_configuration: predecessor.identity.worker_configuration,
+    worker_configuration_sha256: predecessor.worker_configuration_sha256,
+    document_recovery: predecessor.identity.document_recovery,
+    document_recovery_sha256: predecessor.document_recovery_sha256,
+    snapshot_sha256: predecessor.snapshot_sha256,
+    completed_pages: predecessor.completed_pages,
+    failed_pages: predecessor.failed_pages,
+    quarantined_documents: predecessor.quarantined_documents,
+    page_artifacts_sha256: predecessor.page_artifacts_sha256,
+    control_evidence: predecessorEvidence.contract,
+  };
+  const successorContract = {
+    runtime: successor.runtime,
+    runtime_fingerprint: successor.runtimeFingerprint,
+    runtime_fingerprint_sha256: successor.runtimeFingerprintSha256,
+    worker_configuration: successor.workerConfiguration,
+    worker_configuration_sha256: sha256Value(canonicalJson(successor.workerConfiguration)),
+    document_recovery: successor.documentRecovery,
+    document_recovery_sha256: sha256Value(canonicalJson(successor.documentRecovery)),
+    runner_script_sha256: successor.runnerScriptSha256,
+    ocr_script_sha256: successor.ocrScriptSha256,
+    citation_allowed: false,
+  };
+  const seedBasis = {
+    schema_version: 1,
+    mode: seedMode,
+    manifest_sha256: manifestSha256,
+    predecessor: predecessorContract,
+    successor_contract: successorContract,
+    allowed_configuration_delta: allowedConfigurationDelta,
+    documents: predecessor.documents.map(publicPredecessorDocument),
+    citation_allowed: false,
+  };
+  const seedId = sha256Value(canonicalJson(seedBasis));
+  const canonicalStageRoot = path.join(outputRoot, `.seed-stage-${seedId}`);
+  const canonicalStageExists = await lstat(canonicalStageRoot).then(() => true, (error) => {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  });
+  const stageRoot = canonicalStageExists
+    ? `${canonicalStageRoot}.candidate-${randomUUID()}`
+    : canonicalStageRoot;
+  try {
+    await mkdir(path.join(stageRoot, 'documents'), { recursive: true, mode: 0o700 });
+    await mkdir(path.join(stageRoot, 'status'), { recursive: true, mode: 0o700 });
+    await rename(
+      predecessorEvidence.root,
+      path.join(stageRoot, seedPredecessorEvidenceDirectory),
+    );
+  } catch (error) {
+    await rm(predecessorEvidence.root, { recursive: true, force: true }).catch(() => {});
+    await rm(stageRoot, { recursive: true, force: true }).catch(() => {});
+    throw error;
+  }
+
+  try {
+    const runStatus = structuredClone(predecessor.runStatus);
+    runStatus.runtime_fingerprint_sha256 = successor.runtimeFingerprintSha256;
+    runStatus.document_recovery = successor.documentRecovery;
+    runStatus.citation_allowed = false;
+    runStatus.seed_lineage = {
+      schema_version: 1,
+      mode: seedMode,
+      seed_id: seedId,
+      predecessor_run_identity_sha256: predecessor.run_identity_sha256,
+      predecessor_run_status_sha256: predecessor.run_status_sha256,
+      citation_allowed: false,
+    };
+    const receiptDocuments = [];
+
+    for (const document of manifest.documents) {
+      const predecessorDocument = predecessor.documents.find((item) => item.document_id === document.id);
+      const predecessorProgress = predecessor.runStatus.documents[document.id];
+      const progress = structuredClone(predecessorProgress);
+      progress.predecessor_status = predecessorProgress.status;
+      progress.inherited_attempts = predecessorProgress.attempts;
+      progress.seed_id = seedId;
+      runStatus.documents[document.id] = progress;
+      const receiptDocument = {
+        ...publicPredecessorDocument(predecessorDocument),
+        successor_document_tree: null,
+        successor_state_sha256: null,
+        successor_status_sha256: null,
+      };
+      if (predecessorProgress.status === 'pending') {
+        receiptDocuments.push(receiptDocument);
+        continue;
+      }
+
+      const sourceDocumentRoot = path.join(predecessor.root, 'documents', document.id);
+      const stagedDocumentRoot = path.join(stageRoot, 'documents', document.id);
+      await copyTreeStrict(sourceDocumentRoot, stagedDocumentRoot);
+      const copiedPagesTree = await inspectTree(path.join(stagedDocumentRoot, 'pages'));
+      if (!sameJsonValue(copiedPagesTree, predecessorDocument.predecessor_pages_tree)) {
+        throw new Error(`${document.id}: seeded page bytes differ from predecessor before state tagging`);
+      }
+      const statePath = path.join(stagedDocumentRoot, 'state.json');
+      const state = JSON.parse(await readFile(statePath, 'utf8'));
+      state.configuration = stateConfigurationContract(successor.runtime, successor.workerConfiguration);
+      state.configuration_scope = seedConfigurationScope;
+      state.seed_lineage = {
+        schema_version: 1,
+        mode: seedMode,
+        seed_id: seedId,
+        predecessor_run_identity_sha256: predecessor.run_identity_sha256,
+        predecessor_configuration_sha256: predecessorDocument.predecessor_configuration_sha256,
+        inherited_completed_pages: predecessorDocument.completed_pages,
+        citation_allowed: false,
+      };
+      for (const page of predecessorDocument.completed_pages) {
+        state.pages[String(page)].seed_provenance = {
+          seed_id: seedId,
+          predecessor_run_identity_sha256: predecessor.run_identity_sha256,
+          predecessor_configuration_sha256: predecessorDocument.predecessor_configuration_sha256,
+        };
+      }
+      await atomicJson(statePath, state);
+      const pagesTreeAfter = await inspectTree(path.join(stagedDocumentRoot, 'pages'));
+      if (!sameJsonValue(pagesTreeAfter, predecessorDocument.predecessor_pages_tree)) {
+        throw new Error(`${document.id}: seed state tagging changed inherited page bytes`);
+      }
+      const validation = await validateOcrDocumentOutput(
+        document,
+        stagedDocumentRoot,
+        successor.runtime,
+        {
+          requireComplete: predecessorProgress.status === 'complete',
+          workerConfiguration: successor.workerConfiguration,
+        },
+      );
+      const successorDocumentTree = await inspectTree(stagedDocumentRoot);
+
+      const successorStatus = structuredClone(predecessorDocument.status);
+      successorStatus.runtime_fingerprint_sha256 = successor.runtimeFingerprintSha256;
+      successorStatus.seed_lineage = {
+        schema_version: 1,
+        seed_id: seedId,
+        predecessor_status_sha256: predecessorDocument.predecessor_status_sha256,
+        inherited_attempts: predecessorDocument.inherited_attempts,
+        citation_allowed: false,
+      };
+      if (successorStatus.status === 'complete') successorStatus.artifacts = validation;
+      const stagedStatusPath = path.join(stageRoot, 'status', `${document.id}.json`);
+      const successorStatusSha256 = await writeJsonWithSidecar(stagedStatusPath, successorStatus);
+      progress.status_json_sha256 = successorStatusSha256;
+      receiptDocument.successor_document_tree = successorDocumentTree;
+      receiptDocument.successor_state_sha256 = validation.state_sha256;
+      receiptDocument.successor_status_sha256 = successorStatusSha256;
+      receiptDocuments.push(receiptDocument);
+    }
+
+    runStatus.counts = seedRunCounts(runStatus);
+    runStatus.finished = runStatus.counts.complete === runStatus.counts.total;
+    runStatus.settled = runStatus.counts.complete + runStatus.counts.quarantined === runStatus.counts.total;
+    const initialRunStatusSha256 = sha256Value(jsonContents(runStatus));
+    const predecessorAfter = await captureSeedPredecessor(predecessorRoot, manifest, manifestSha256);
+    if (predecessorAfter.snapshot_sha256 !== predecessor.snapshot_sha256) {
+      throw new Error('seed predecessor changed while the successor stage was copied');
+    }
+    const inheritedPageCount = receiptDocuments.reduce(
+      (sum, document) => sum + document.completed_pages.length,
+      0,
+    );
+    const receipt = {
+      schema_version: 1,
+      receipt_type: seedReceiptType,
+      status: 'prepared_commit_marker_required',
+      seed_id: seedId,
+      seed_basis_sha256: sha256Value(canonicalJson(seedBasis)),
+      manifest_sha256: manifestSha256,
+      predecessor: predecessorContract,
+      successor: {
+        ...successorContract,
+        initial_run_status_sha256: initialRunStatusSha256,
+      },
+      allowed_configuration_delta: allowedConfigurationDelta,
+      counts: {
+        documents: manifest.documents.length,
+        inherited_documents: receiptDocuments.filter((document) => document.completed_pages.length > 0).length,
+        inherited_pages: inheritedPageCount,
+        failed_pages: 0,
+        quarantined_documents: 0,
+      },
+      documents: receiptDocuments,
+      citation_allowed: false,
+    };
+    const receiptPath = path.join(stageRoot, 'seed-receipt.json');
+    const receiptSha256 = await writeJsonWithSidecar(receiptPath, receipt);
+    return {
+      dryRun,
+      stageRoot,
+      canonicalStageRoot,
+      seedId,
+      receipt,
+      receiptSha256,
+      runStatus,
+      predecessor,
+    };
+  } catch (error) {
+    await rm(stageRoot, { recursive: true, force: true }).catch(() => {});
+    throw error;
+  }
+}
+
+async function seedInstallItemFingerprint(pathname, type) {
+  if (type === 'directory') return inspectTree(pathname);
+  await requireRegularFile(pathname, `seed install item ${pathname}`);
+  const info = await stat(pathname);
+  return { sha256: await sha256File(pathname), bytes: info.size };
+}
+
+async function verifyOrRepairExactJsonSidecar(root, pathname, expected, label) {
+  const expectedContents = jsonContents(expected);
+  const actualContents = (await readStrictFile(root, pathname, label)).toString('utf8');
+  if (actualContents !== expectedContents) {
+    throw new Error(`${label} differs from the exact prepared seed transaction`);
+  }
+  const expectedSha256 = sha256Value(expectedContents);
+  const sidecarPath = `${pathname}.sha256`;
+  const sidecarExists = await lstat(sidecarPath).then(() => true, (error) => {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  });
+  if (!sidecarExists) {
+    await atomicWrite(sidecarPath, `${expectedSha256}  ${path.basename(pathname)}\n`);
+    return expectedSha256;
+  }
+  const actualSha256 = (await readStrictFileWithSidecar(root, pathname, label)).digest;
+  if (actualSha256 !== expectedSha256) {
+    throw new Error(`${label} SHA-256 differs from the exact prepared seed transaction`);
+  }
+  return actualSha256;
+}
+
+async function installHashBoundSeed(prepared, identity, outputRoot, dependencies = {}) {
+  const identityPath = path.join(prepared.stageRoot, 'run-identity.json');
+  await atomicJson(identityPath, identity);
+  const runStatusPath = path.join(prepared.stageRoot, 'run-status.json');
+  const runStatusSha256 = await writeJsonWithSidecar(runStatusPath, prepared.runStatus);
+  if (runStatusSha256 !== prepared.receipt.successor.initial_run_status_sha256) {
+    throw new Error('seed initial run status hash differs from its receipt');
+  }
+  const specifications = [
+    { name: 'documents', type: 'directory' },
+    { name: 'status', type: 'directory' },
+    { name: seedPredecessorEvidenceDirectory, type: 'directory' },
+    { name: 'seed-receipt.json', type: 'file' },
+    { name: 'seed-receipt.json.sha256', type: 'file' },
+    { name: 'run-identity.json', type: 'file' },
+    { name: 'run-status.json', type: 'file' },
+    { name: 'run-status.json.sha256', type: 'file' },
+  ];
+  const items = [];
+  for (const specification of specifications) {
+    const source = path.join(prepared.stageRoot, specification.name);
+    items.push({
+      ...specification,
+      fingerprint: await seedInstallItemFingerprint(source, specification.type),
+    });
+  }
+  const identitySha256 = items.find((item) => item.name === 'run-identity.json').fingerprint.sha256;
+  const journalPath = path.join(outputRoot, '.seed-journal.json');
+  const markerPath = path.join(outputRoot, 'seed-commit.json');
+  const journal = {
+    schema_version: 1,
+    journal_type: 'curriculum_remote_ocr_hash_bound_seed_install',
+    seed_id: prepared.seedId,
+    seed_receipt_sha256: prepared.receiptSha256,
+    run_identity_sha256: identitySha256,
+    initial_run_status_sha256: runStatusSha256,
+    items,
+    citation_allowed: false,
+  };
+  const marker = {
+    schema_version: 1,
+    marker_type: 'curriculum_remote_ocr_hash_bound_seed_commit',
+    seed_id: prepared.seedId,
+    seed_receipt_sha256: prepared.receiptSha256,
+    run_identity_sha256: identitySha256,
+    initial_run_status_sha256: runStatusSha256,
+    installed_items: items,
+    installed_items_sha256: sha256Value(canonicalJson(items)),
+    citation_allowed: false,
+  };
+
+  const markerExists = await lstat(markerPath).then(() => true, (error) => {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  });
+  if (markerExists) {
+    await verifyOrRepairExactJsonSidecar(outputRoot, markerPath, marker, 'seed commit marker');
+    for (const item of items) {
+      if (![
+        seedPredecessorEvidenceDirectory,
+        'seed-receipt.json',
+        'seed-receipt.json.sha256',
+        'run-identity.json',
+      ].includes(item.name)) continue;
+      const installedFingerprint = await seedInstallItemFingerprint(
+        path.join(outputRoot, item.name),
+        item.type,
+      );
+      if (!sameJsonValue(installedFingerprint, item.fingerprint)) {
+        throw new Error(`committed seed item ${item.name} differs from the exact prepared receipt`);
+      }
+    }
+    await rm(prepared.stageRoot, { recursive: true, force: true });
+    return { marker, runStatus: await readJson(path.join(outputRoot, 'run-status.json'), 'seeded run status') };
+  }
+
+  const journalExists = await lstat(journalPath).then(() => true, (error) => {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  });
+  if (journalExists) {
+    await verifyOrRepairExactJsonSidecar(outputRoot, journalPath, journal, 'seed install journal');
+  } else {
+    for (const item of items) {
+      const destination = path.join(outputRoot, item.name);
+      const existsAlready = await lstat(destination).then(() => true, (error) => {
+        if (error?.code === 'ENOENT') return false;
+        throw error;
+      });
+      if (existsAlready) {
+        throw new Error(`fresh seed output root already contains ${item.name}`);
+      }
+    }
+    await writeJsonWithSidecar(journalPath, journal);
+  }
+
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    await dependencies.beforeSeedInstallItem?.(item.name, index);
+    const source = path.join(prepared.stageRoot, item.name);
+    const destination = path.join(outputRoot, item.name);
+    const destinationExists = await lstat(destination).then(() => true, (error) => {
+      if (error?.code === 'ENOENT') return false;
+      throw error;
+    });
+    if (destinationExists) {
+      const existingFingerprint = await seedInstallItemFingerprint(destination, item.type);
+      if (!sameJsonValue(existingFingerprint, item.fingerprint)) {
+        throw new Error(`partially installed seed item ${item.name} differs from the exact receipt`);
+      }
+      await rm(source, { recursive: item.type === 'directory', force: true });
+      continue;
+    }
+    await rename(source, destination);
+    const installedFingerprint = await seedInstallItemFingerprint(destination, item.type);
+    if (!sameJsonValue(installedFingerprint, item.fingerprint)) {
+      throw new Error(`installed seed item ${item.name} hash mismatch`);
+    }
+  }
+  await writeJsonWithSidecar(markerPath, marker);
+  await rm(prepared.stageRoot, { recursive: true, force: true });
+  for (const entry of await readdir(outputRoot, { withFileTypes: true })) {
+    if (entry.isDirectory() && entry.name.startsWith(`.seed-stage-${prepared.seedId}`)) {
+      await rm(path.join(outputRoot, entry.name), { recursive: true, force: true });
+    }
+  }
+  return { marker, runStatus: prepared.runStatus };
+}
+
 async function acquireLock(outputRoot) {
   const lockPath = path.join(outputRoot, '.remote-ocr-orchestrator.lock');
   const owner = { pid: process.pid, token: randomUUID(), created_at: isoNow() };
@@ -1012,7 +2146,7 @@ async function acquireLock(outputRoot) {
   throw new Error('could not acquire orchestrator lock');
 }
 
-function validateExistingRunStatus(runStatus, identity, documents) {
+function validateExistingRunStatus(runStatus, identity, documents, seedDocumentById = null) {
   requireObject(runStatus, 'run status');
   if (runStatus.schema_version !== 1) throw new Error('run status schema_version must equal 1');
   if (runStatus.manifest_sha256 !== identity.manifest_sha256) throw new Error('run status manifest fingerprint mismatch');
@@ -1023,6 +2157,20 @@ function validateExistingRunStatus(runStatus, identity, documents) {
     throw new Error('run status document recovery policy mismatch');
   }
   if (runStatus.citation_allowed !== false) throw new Error('run status citation_allowed must equal false');
+  const seedLineage = identity.seed_lineage === undefined
+    ? null
+    : requireObject(identity.seed_lineage, 'run identity seed_lineage');
+  if (seedLineage) {
+    if (seedLineage.schema_version !== 1
+      || seedLineage.mode !== seedMode
+      || seedLineage.citation_allowed !== false
+      || runStatus.seed_lineage?.seed_id !== seedLineage.seed_id
+      || runStatus.seed_lineage?.predecessor_run_identity_sha256 !== seedLineage.predecessor_run_identity_sha256) {
+      throw new Error('run status seed lineage differs from run identity');
+    }
+  } else if (runStatus.seed_lineage !== undefined) {
+    throw new Error('unseeded run status unexpectedly contains seed lineage');
+  }
   const statuses = requireObject(runStatus.documents, 'run status documents');
   const expectedIds = documents.map((document) => document.id).sort();
   if (JSON.stringify(Object.keys(statuses).sort()) !== JSON.stringify(expectedIds)) {
@@ -1056,6 +2204,23 @@ function validateExistingRunStatus(runStatus, identity, documents) {
       }
     }
     if (progress.page_count !== document.page_count) throw new Error(`${document.id}: run status page count mismatch`);
+    if (seedLineage) {
+      const seedDocument = seedDocumentById?.get(document.id);
+      if (!seedDocument
+        || !seedAllowedPredecessorStatuses.has(progress.predecessor_status)
+        || !Number.isSafeInteger(progress.inherited_attempts)
+        || progress.inherited_attempts < 0
+        || progress.inherited_attempts !== seedDocument.inherited_attempts
+        || progress.predecessor_status !== seedDocument.predecessor_status
+        || progress.attempts < progress.inherited_attempts
+        || progress.seed_id !== seedLineage.seed_id) {
+        throw new Error(`${document.id}: seeded attempt floor or predecessor status is invalid`);
+      }
+    } else if (progress.predecessor_status !== undefined
+      || progress.inherited_attempts !== undefined
+      || progress.seed_id !== undefined) {
+      throw new Error(`${document.id}: unseeded progress unexpectedly contains seed fields`);
+    }
   }
   return runStatus;
 }
@@ -1233,16 +2398,48 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
   requirePositiveInteger(options.microBatch, '--micro-batch');
   if (options.microBatch > 16) throw new Error('--micro-batch must be between 1 and 16');
   if (options.microBatch > 1 && !options.useQueues) throw new Error('--micro-batch greater than 1 requires --use-queues');
+  if ((options.seedDryRun || options.seedOnly) && !options.seedFromOutputRoot) {
+    throw new Error('--seed-dry-run and --seed-only require --seed-from-output-root');
+  }
   const monitoringContract = childMonitoringPolicy(options, 1);
   delete monitoringContract.wall_timeout_seconds;
   const manifestPath = await realpath(options.manifest);
   const manifestRaw = await readFile(manifestPath);
   const manifest = validateRemoteOcrManifest(JSON.parse(manifestRaw));
+  const manifestSha256 = sha256Value(manifestRaw);
   const inputRoot = await realpath(options.inputRoot);
-  await mkdir(options.outputRoot, { recursive: true, mode: 0o700 });
-  const outputRoot = await realpath(options.outputRoot);
+  const requestedOutputRoot = path.resolve(options.outputRoot);
+  let seedPredecessorRoot = null;
+  if (options.seedFromOutputRoot) {
+    seedPredecessorRoot = await requireRealDirectory(
+      options.seedFromOutputRoot,
+      'seed predecessor output root',
+    );
+    const outputParent = await requireRealDirectory(
+      path.dirname(requestedOutputRoot),
+      'successor output parent',
+    );
+    const prospectiveOutputRoot = path.join(outputParent, path.basename(requestedOutputRoot));
+    if (isWithin(seedPredecessorRoot, prospectiveOutputRoot)
+      || isWithin(prospectiveOutputRoot, seedPredecessorRoot)) {
+      throw new Error('seed predecessor and successor output roots must be disjoint and non-nested');
+    }
+  }
+  if (seedPredecessorRoot) {
+    await mkdir(requestedOutputRoot, { recursive: false, mode: 0o700 }).catch(async (error) => {
+      if (error?.code !== 'EEXIST') throw error;
+      await requireRealDirectory(requestedOutputRoot, 'successor output root');
+    });
+  } else {
+    await mkdir(requestedOutputRoot, { recursive: true, mode: 0o700 });
+  }
+  const outputRoot = await requireRealDirectory(requestedOutputRoot, 'successor output root');
   if (isWithin(inputRoot, outputRoot) || isWithin(outputRoot, inputRoot)) {
     throw new Error('input and output roots must be disjoint');
+  }
+  if (seedPredecessorRoot
+    && (isWithin(seedPredecessorRoot, outputRoot) || isWithin(outputRoot, seedPredecessorRoot))) {
+    throw new Error('seed predecessor and successor output roots must be disjoint and non-nested');
   }
   const releaseLock = await acquireLock(outputRoot);
   try {
@@ -1251,9 +2448,34 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
     realpath(options.ocrScript),
   ]);
   const python = pythonExecutable.invocationPath;
-  const paddlexCacheHome = path.resolve(options.paddlexCacheHome || path.join(outputRoot, 'paddlex-cache'));
-  if (!isWithin(outputRoot, paddlexCacheHome)) throw new Error('--paddlex-cache-home must stay inside the isolated output root');
-  await mkdir(paddlexCacheHome, { recursive: true, mode: 0o700 });
+  const requestedPaddlexCacheHome = path.resolve(
+    options.paddlexCacheHome || path.join(outputRoot, 'paddlex-cache'),
+  );
+  if (!isWithin(outputRoot, requestedPaddlexCacheHome)) {
+    throw new Error('--paddlex-cache-home must stay inside the isolated output root');
+  }
+  const paddlexCacheParent = await requireContainedRealDirectory(
+    outputRoot,
+    path.dirname(requestedPaddlexCacheHome),
+    'PaddleX cache parent',
+  );
+  if (path.join(paddlexCacheParent, path.basename(requestedPaddlexCacheHome))
+    !== requestedPaddlexCacheHome) {
+    throw new Error('--paddlex-cache-home cannot traverse a symbolic-link ancestor');
+  }
+  await mkdir(requestedPaddlexCacheHome, { recursive: false, mode: 0o700 }).catch(async (error) => {
+    if (error?.code !== 'EEXIST') throw error;
+    await requireContainedRealDirectory(
+      outputRoot,
+      requestedPaddlexCacheHome,
+      'PaddleX cache root',
+    );
+  });
+  const paddlexCacheHome = await requireContainedRealDirectory(
+    outputRoot,
+    requestedPaddlexCacheHome,
+    'PaddleX cache root',
+  );
   const runtime = dependencies.runtime || await verifyPinnedRuntime(manifest.runtime, options);
   if (JSON.stringify(runtime) !== JSON.stringify(manifest.runtime)) throw new Error('injected runtime differs from manifest runtime');
   requireLoopbackLlamaUrl(options.llamaUrl);
@@ -1291,11 +2513,13 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
     };
   };
   const pythonRuntime = validatePythonRuntimeIdentity(
-    dependencies.pythonRuntime || probePythonOcrRuntime(python, {
-      llamaUrl: options.llamaUrl,
-      vlRecMaxConcurrency: options.vlRecMaxConcurrency,
-      paddlexCacheHome,
-    }),
+    dependencies.pythonRuntime || (options.seedOnly
+      ? probePythonPackageRuntime(python, { paddlexCacheHome })
+      : probePythonOcrRuntime(python, {
+        llamaUrl: options.llamaUrl,
+        vlRecMaxConcurrency: options.vlRecMaxConcurrency,
+        paddlexCacheHome,
+      })),
   );
   const paddlexLayoutModelCache = validatePaddlexLayoutModelCacheIdentity(
     dependencies.paddlexLayoutModelCache || await fingerprintPaddlexLayoutModelCache(paddlexCacheHome),
@@ -1317,6 +2541,14 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
     paddlex_cache_home: paddlexCacheHome,
     python_runtime: pythonRuntime,
     paddlex_layout_model_cache_sha256: paddlexLayoutModelCache.tree_sha256,
+  };
+  const runtimeFingerprintSha256 = sha256Value(`${JSON.stringify(runtimeFingerprint)}\n`);
+  const documentRecovery = {
+    max_attempts: maxDocumentAttempts,
+    backoff_seconds: documentRetryBackoffMilliseconds.map((milliseconds) => milliseconds / 1_000),
+    terminal_status: 'quarantined',
+    terminal_exit_code: quarantineExitCode,
+    child_monitoring: monitoringContract,
   };
   const revalidateSharedRuntime = async () => {
     try {
@@ -1370,12 +2602,12 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
       );
     }
   };
-  const identity = {
+  let identity = {
     schema_version: 1,
-    manifest_sha256: sha256Value(manifestRaw),
+    manifest_sha256: manifestSha256,
     runtime,
     runtime_fingerprint: runtimeFingerprint,
-    runtime_fingerprint_sha256: sha256Value(`${JSON.stringify(runtimeFingerprint)}\n`),
+    runtime_fingerprint_sha256: runtimeFingerprintSha256,
     llama_server_attestation: llamaServerAttestation,
     llama_server_attestation_sha256: llamaServerAttestationSha256,
     runner_script_sha256: runnerScriptSha256,
@@ -1384,28 +2616,96 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
     python_invocation_path: python,
     python_resolved_target: pythonExecutable.targetPath,
     worker_configuration: workerConfiguration,
-    document_recovery: {
-      max_attempts: maxDocumentAttempts,
-      backoff_seconds: documentRetryBackoffMilliseconds.map((milliseconds) => milliseconds / 1_000),
-      terminal_status: 'quarantined',
-      terminal_exit_code: quarantineExitCode,
-      child_monitoring: monitoringContract,
-    },
+    document_recovery: documentRecovery,
     whole_document_atomic: true,
     citation_allowed: false,
   };
-  const identityPath = path.join(outputRoot, 'run-identity.json');
-  try {
-    await access(identityPath);
-    const existingIdentity = await readJson(identityPath, 'run identity');
-    if (JSON.stringify(existingIdentity) !== JSON.stringify(identity)) {
-      throw new Error('run identity differs from the existing output root; use a new output root');
+  let preparedSeed = null;
+  let seededRunStatus = null;
+  let seedDocumentById = null;
+  if (options.seedFromOutputRoot) {
+    preparedSeed = await prepareHashBoundSeed({
+      predecessorRoot: seedPredecessorRoot,
+      outputRoot,
+      manifest,
+      manifestSha256,
+      successor: {
+        runtime,
+        runtimeFingerprint,
+        runtimeFingerprintSha256,
+        workerConfiguration,
+        documentRecovery,
+        runnerScriptSha256,
+        ocrScriptSha256,
+        llamaServerAttestation,
+        inputRoot,
+        pythonInvocationPath: python,
+        pythonResolvedTarget: pythonExecutable.targetPath,
+      },
+      dryRun: options.seedDryRun === true,
+    });
+    identity = {
+      ...identity,
+      seed_lineage: {
+        schema_version: 1,
+        mode: seedMode,
+        seed_id: preparedSeed.seedId,
+        seed_receipt_sha256: preparedSeed.receiptSha256,
+        predecessor_run_identity_sha256: preparedSeed.predecessor.run_identity_sha256,
+        predecessor_run_status_sha256: preparedSeed.predecessor.run_status_sha256,
+        predecessor_snapshot_sha256: preparedSeed.predecessor.snapshot_sha256,
+        inherited_pages: preparedSeed.receipt.counts.inherited_pages,
+        citation_allowed: false,
+      },
+    };
+    seedDocumentById = new Map(
+      preparedSeed.receipt.documents.map((document) => [document.document_id, document]),
+    );
+    if (options.seedDryRun) {
+      await rm(preparedSeed.stageRoot, { recursive: true, force: true });
+      return {
+        exitCode: 0,
+        seedDryRun: true,
+        seedReceipt: preparedSeed.receipt,
+        seedReceiptSha256: preparedSeed.receiptSha256,
+        runStatus: preparedSeed.runStatus,
+        runStatusSha256: preparedSeed.receipt.successor.initial_run_status_sha256,
+      };
     }
-  } catch (error) {
-    if (error?.code === 'ENOENT') await atomicJson(identityPath, identity);
-    else throw error;
+    const installed = await installHashBoundSeed(preparedSeed, identity, outputRoot, dependencies);
+    seededRunStatus = installed.runStatus;
+  } else {
+    const identityPath = path.join(outputRoot, 'run-identity.json');
+    try {
+      await access(identityPath);
+      const existingIdentity = await readJson(identityPath, 'run identity');
+      if (JSON.stringify(existingIdentity) !== JSON.stringify(identity)) {
+        throw new Error('run identity differs from the existing output root; use a new output root');
+      }
+    } catch (error) {
+      if (error?.code === 'ENOENT') await atomicJson(identityPath, identity);
+      else throw error;
+    }
   }
   await mkdir(path.join(outputRoot, 'logs'), { recursive: true, mode: 0o700 });
+
+  if (options.seedOnly) {
+    const runStatusSha256 = await verifySha256Sidecar(path.join(outputRoot, 'run-status.json'), 'seeded run status');
+    const runStatus = validateExistingRunStatus(
+      seededRunStatus || await readJson(path.join(outputRoot, 'run-status.json'), 'seeded run status'),
+      identity,
+      manifest.documents,
+      seedDocumentById,
+    );
+    return {
+      exitCode: 0,
+      seedOnly: true,
+      seedReceipt: preparedSeed.receipt,
+      seedReceiptSha256: preparedSeed.receiptSha256,
+      runStatus,
+      runStatusSha256,
+    };
+  }
 
   let activeChild = null;
   let externalTermination = null;
@@ -1444,7 +2744,12 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
     try {
       await access(runStatusPath);
       await verifySha256Sidecar(runStatusPath, 'run status');
-      runStatus = validateExistingRunStatus(await readJson(runStatusPath, 'run status'), identity, manifest.documents);
+      runStatus = validateExistingRunStatus(
+        await readJson(runStatusPath, 'run status'),
+        identity,
+        manifest.documents,
+        seedDocumentById,
+      );
     } catch (error) {
       if (error?.code !== 'ENOENT') throw error;
       runStatus = {
@@ -1571,6 +2876,8 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
             schema_version: 1,
             document_id: document.id,
             status: 'complete',
+            attempt: progress.attempts,
+            max_attempts: maxDocumentAttempts,
             source_sha256: source.sourceSha256,
             page_count: source.pageCount,
             runtime_fingerprint_sha256: identity.runtime_fingerprint_sha256,
@@ -1638,6 +2945,14 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
           '--runtime-device', options.runtimeDevice,
         ];
         if (options.useQueues) commandArguments.push('--use-queues');
+        if (identity.seed_lineage) {
+          const seedDocument = seedDocumentById.get(document.id);
+          commandArguments.push(
+            '--seed-id', identity.seed_lineage.seed_id,
+            '--seed-predecessor-run-identity-sha256', identity.seed_lineage.predecessor_run_identity_sha256,
+            '--seed-predecessor-configuration-sha256', seedDocument.predecessor_configuration_sha256,
+          );
+        }
         let childResult;
         let invocationError;
         try {
@@ -1674,6 +2989,8 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
             status: 'interrupted',
             attempt: progress.attempts,
             max_attempts: maxDocumentAttempts,
+            page_count: document.page_count,
+            runtime_fingerprint_sha256: identity.runtime_fingerprint_sha256,
             citation_allowed: false,
             interrupted_at: progress.interrupted_at,
           });
@@ -1737,6 +3054,7 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
           document_id: document.id,
           status: 'complete',
           attempt: progress.attempts,
+          max_attempts: maxDocumentAttempts,
           source_sha256: source.sourceSha256,
           page_count: source.pageCount,
           runtime_fingerprint_sha256: identity.runtime_fingerprint_sha256,
@@ -1828,6 +3146,9 @@ function usage() {
     '  --use-queues                    Enable Paddle queued list prediction.',
     '  --runtime-device LABEL          Exact device label written into OCR state and runtime identity.',
     '  --paddlex-cache-home DIR        Default: OUTPUT_ROOT/paddlex-cache.',
+    '  --seed-from-output-root DIR      Hash-verify and stage an immutable predecessor into this new output root.',
+    '  --seed-dry-run                   Validate the exact seed receipt without installing it; implies --seed-only.',
+    '  --seed-only                      Commit the seed transaction and exit before starting OCR.',
     '  --llama-server-bin PATH         Running pinned llama-server executable under --llama-repo.',
     '  --llama-systemd-unit UNIT       Active user .service unit whose MainPID owns the server.',
     '  --child-startup-timeout-seconds N  Default: 180.',
@@ -1856,6 +3177,10 @@ async function main() {
     finished: result.runStatus.finished,
     counts: result.runStatus.counts,
     run_status_sha256: result.runStatusSha256,
+    seed_id: result.seedReceipt?.seed_id || null,
+    seed_receipt_sha256: result.seedReceiptSha256 || null,
+    seed_only: result.seedOnly === true,
+    seed_dry_run: result.seedDryRun === true,
   })}\n`);
   process.exitCode = result.exitCode;
 }

@@ -8,6 +8,7 @@ import {
   mkdir,
   readFile,
   realpath,
+  rename,
   rm,
   stat,
   symlink,
@@ -20,6 +21,7 @@ import {
   preflightDocument,
   fingerprintPaddlexLayoutModelCache,
   invokeOcrChild,
+  probePythonPackageRuntime,
   probePythonOcrRuntime,
   runRemoteOcrOffload,
   terminateOwnedChild,
@@ -29,7 +31,11 @@ import {
   verifyLlamaServerAttestation,
   verifyPinnedRuntime,
 } from '../scripts/run-remote-ocr-offload.mjs';
-import { captureLocalReprocessSnapshot } from '../scripts/lib/remote-ocr-local-snapshot.mjs';
+import { receiveRemoteOcrOffload } from '../scripts/receive-remote-ocr-offload.mjs';
+import {
+  captureLocalReprocessSnapshot,
+  inspectTree,
+} from '../scripts/lib/remote-ocr-local-snapshot.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const runtime = Object.freeze({
@@ -189,10 +195,18 @@ function offloadOptions({ manifestPath, inputRoot, outputRoot, ocrScript, python
   };
 }
 
-async function createCompletedOutput(outputRoot, document, { citationEligible = false } = {}) {
+async function createCompletedOutput(
+  outputRoot,
+  document,
+  {
+    citationEligible = false,
+    worker = workerConfiguration,
+    completedPageCount = document.page_count,
+  } = {},
+) {
   const documentRoot = path.join(outputRoot, 'documents', document.id);
   const pages = {};
-  for (let pageNumber = 1; pageNumber <= document.page_count; pageNumber += 1) {
+  for (let pageNumber = 1; pageNumber <= completedPageCount; pageNumber += 1) {
     const pageRoot = path.join(documentRoot, 'pages', String(pageNumber).padStart(4, '0'));
     await mkdir(pageRoot, { recursive: true });
     const result = `${JSON.stringify({ page: pageNumber })}\n`;
@@ -209,6 +223,7 @@ async function createCompletedOutput(outputRoot, document, { citationEligible = 
     };
   }
   const selectedPages = Array.from({ length: document.page_count }, (_, index) => index + 1);
+  const completedPages = Array.from({ length: completedPageCount }, (_, index) => index + 1);
   await writeFile(path.join(documentRoot, 'state.json'), `${JSON.stringify({
     schema_version: 1,
     document_id: document.id,
@@ -220,29 +235,29 @@ async function createCompletedOutput(outputRoot, document, { citationEligible = 
       layout_model: 'PP-DocLayoutV3',
       recognizer: 'PaddleOCR-VL-1.6-0.9B official GGUF',
       recognizer_backend: 'llama-cpp-server',
-      recognizer_server_url: workerConfiguration.llama_url,
+      recognizer_server_url: worker.llama_url,
       dpi: runtime.render_dpi,
-      device: runtimeDevice,
-      python: pythonRuntime.python_version,
-      paddlepaddle: pythonRuntime.packages.paddlepaddle,
-      paddleocr: pythonRuntime.packages.paddleocr,
-      paddlex: pythonRuntime.packages.paddlex,
-      vl_rec_max_concurrency: workerConfiguration.vl_rec_max_concurrency,
-      server_parallel: workerConfiguration.server_parallel,
-      micro_batch: workerConfiguration.micro_batch,
-      use_queues: workerConfiguration.use_queues,
+      device: worker.runtime_device,
+      python: worker.python_runtime.python_version,
+      paddlepaddle: worker.python_runtime.packages.paddlepaddle,
+      paddleocr: worker.python_runtime.packages.paddleocr,
+      paddlex: worker.python_runtime.packages.paddlex,
+      vl_rec_max_concurrency: worker.vl_rec_max_concurrency,
+      server_parallel: worker.server_parallel,
+      micro_batch: worker.micro_batch,
+      use_queues: worker.use_queues,
     },
-    completed_pages: selectedPages,
+    completed_pages: completedPages,
     failed_pages: {},
     pages,
     selected_pages: selectedPages,
-    selected_pages_complete: true,
+    selected_pages_complete: completedPageCount === document.page_count,
   }, null, 2)}\n`);
   return documentRoot;
 }
 
-async function createPartialOutput(outputRoot, document) {
-  const documentRoot = await createCompletedOutput(outputRoot, document);
+async function createPartialOutput(outputRoot, document, { worker = workerConfiguration } = {}) {
+  const documentRoot = await createCompletedOutput(outputRoot, document, { worker });
   const statePath = path.join(documentRoot, 'state.json');
   const state = JSON.parse(await readFile(statePath, 'utf8'));
   state.completed_pages = [1];
@@ -254,6 +269,168 @@ async function createPartialOutput(outputRoot, document) {
   return {
     documentRoot,
     completedPageHash: sha256(await readFile(path.join(documentRoot, 'pages/0001/content.md'))),
+  };
+}
+
+function nativePaddleResult(pageNumber) {
+  return `${JSON.stringify({
+    input_path: `/tmp/page-${String(pageNumber).padStart(4, '0')}.png`,
+    page_index: null,
+    page_count: null,
+    width: 1600,
+    height: 2200,
+    model_settings: {
+      use_doc_preprocessor: false,
+      use_layout_detection: true,
+    },
+    parsing_res_list: [],
+    layout_det_res: {
+      input_path: null,
+      page_index: null,
+      boxes: [],
+    },
+  }, null, 2)}\n`;
+}
+
+async function addReceiverNativePageArtifacts(documentRoot, completedPages) {
+  const statePath = path.join(documentRoot, 'state.json');
+  const state = JSON.parse(await readFile(statePath, 'utf8'));
+  for (let offset = 0; offset < completedPages.length; offset += 64) {
+    await Promise.all(completedPages.slice(offset, offset + 64).map(async (pageNumber) => {
+      const pageName = String(pageNumber).padStart(4, '0');
+      const pageRoot = path.join(documentRoot, 'pages', pageName);
+      const markdown = await readFile(path.join(pageRoot, 'content.md'));
+      const result = nativePaddleResult(pageNumber);
+      const markdownRoot = path.join(pageRoot, 'markdown');
+      await mkdir(markdownRoot, { recursive: true });
+      await Promise.all([
+        writeFile(path.join(pageRoot, 'result.json'), result),
+        writeFile(path.join(markdownRoot, `page-${pageName}.md`), markdown),
+      ]);
+      state.pages[String(pageNumber)].result_json_sha256 = sha256(result);
+    }));
+  }
+  await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`);
+}
+
+async function completeSeededOutput(outputRoot, document) {
+  const documentRoot = path.join(outputRoot, 'documents', document.id);
+  const statePath = path.join(documentRoot, 'state.json');
+  const [identity, receipt] = await Promise.all([
+    readFile(path.join(outputRoot, 'run-identity.json'), 'utf8').then(JSON.parse),
+    readFile(path.join(outputRoot, 'seed-receipt.json'), 'utf8').then(JSON.parse),
+  ]);
+  const receiptDocument = receipt.documents.find((item) => item.document_id === document.id);
+  let state;
+  try {
+    state = JSON.parse(await readFile(statePath, 'utf8'));
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    const worker = identity.worker_configuration;
+    state = {
+      schema_version: 1,
+      document_id: document.id,
+      source_sha256: document.source_sha256,
+      page_count: document.page_count,
+      configuration: {
+        pipeline: runtime.pipeline,
+        pipeline_version: runtime.pipeline_version,
+        layout_model: 'PP-DocLayoutV3',
+        recognizer: 'PaddleOCR-VL-1.6-0.9B official GGUF',
+        recognizer_backend: 'llama-cpp-server',
+        recognizer_server_url: worker.llama_url,
+        dpi: runtime.render_dpi,
+        device: worker.runtime_device,
+        python: worker.python_runtime.python_version,
+        paddlepaddle: worker.python_runtime.packages.paddlepaddle,
+        paddleocr: worker.python_runtime.packages.paddleocr,
+        paddlex: worker.python_runtime.packages.paddlex,
+        vl_rec_max_concurrency: worker.vl_rec_max_concurrency,
+        server_parallel: worker.server_parallel,
+        micro_batch: worker.micro_batch,
+        use_queues: worker.use_queues,
+      },
+      configuration_scope: 'active_writer_with_hash_bound_seed_exceptions',
+      seed_lineage: {
+        schema_version: 1,
+        mode: 'hash_bound_output_seed',
+        seed_id: receipt.seed_id,
+        predecessor_run_identity_sha256: receipt.predecessor.run_identity_sha256,
+        predecessor_configuration_sha256: receiptDocument.predecessor_configuration_sha256,
+        inherited_completed_pages: [],
+        citation_allowed: false,
+      },
+      completed_pages: [],
+      failed_pages: {},
+      pages: {},
+      selected_pages: Array.from({ length: document.page_count }, (_, index) => index + 1),
+      selected_pages_complete: false,
+    };
+  }
+  const missingPages = [];
+  for (let pageNumber = 1; pageNumber <= document.page_count; pageNumber += 1) {
+    if (state.pages[String(pageNumber)]) continue;
+    const result = nativePaddleResult(pageNumber);
+    const markdown = `page ${pageNumber}\n`;
+    state.pages[String(pageNumber)] = {
+      status: 'ocr_complete_pending_audit',
+      physical_pdf_page: pageNumber,
+      rendered_image_sha256: String(pageNumber).padStart(64, '0'),
+      result_json_sha256: sha256(result),
+      content_markdown_sha256: sha256(markdown),
+      citation_eligible: false,
+    };
+    missingPages.push({ pageNumber, result, markdown });
+  }
+  for (let offset = 0; offset < missingPages.length; offset += 64) {
+    await Promise.all(missingPages.slice(offset, offset + 64).map(async ({
+      pageNumber,
+      result,
+      markdown,
+    }) => {
+      const pageRoot = path.join(
+        documentRoot,
+        'pages',
+        String(pageNumber).padStart(4, '0'),
+      );
+      const pageName = String(pageNumber).padStart(4, '0');
+      const markdownRoot = path.join(pageRoot, 'markdown');
+      await mkdir(markdownRoot, { recursive: true });
+      await Promise.all([
+        writeFile(path.join(pageRoot, 'result.json'), result),
+        writeFile(path.join(pageRoot, 'content.md'), markdown),
+        writeFile(path.join(markdownRoot, `page-${pageName}.md`), markdown),
+      ]);
+    }));
+  }
+  state.completed_pages = Array.from({ length: document.page_count }, (_, index) => index + 1);
+  state.failed_pages = {};
+  state.selected_pages = [...state.completed_pages];
+  state.selected_pages_complete = true;
+  await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`);
+}
+
+async function writeJsonSidecar(pathname, value) {
+  const contents = `${JSON.stringify(value, null, 2)}\n`;
+  await writeFile(pathname, contents);
+  await writeFile(`${pathname}.sha256`, `${sha256(contents)}  ${path.basename(pathname)}\n`);
+  return sha256(contents);
+}
+
+function recoveryPolicy(idleTimeoutSeconds) {
+  return {
+    max_attempts: 5,
+    backoff_seconds: [2, 10, 30, 60],
+    terminal_status: 'quarantined',
+    terminal_exit_code: 12,
+    child_monitoring: {
+      startup_timeout_seconds: 180,
+      idle_timeout_seconds: idleTimeoutSeconds,
+      wall_floor_seconds: 1200,
+      wall_seconds_per_page: 25,
+      terminate_grace_seconds: 15,
+      poll_interval_seconds: 5,
+    },
   };
 }
 
@@ -432,6 +609,29 @@ test('Python OCR runtime probe initializes PaddleOCR-VL and pins Python plus all
     }),
     /pypdfium2 has no version/,
   );
+});
+
+test('seed-only Python package probe is lightweight and never initializes PaddleOCR-VL', () => {
+  let invocation;
+  const result = probePythonPackageRuntime('/venv/bin/python', {
+    paddlexCacheHome: '/isolated/paddlex',
+  }, {
+    runCommand: (command, arguments_, options) => {
+      invocation = { command, arguments_, options };
+      return {
+        status: 0,
+        stdout: `REMOTE_OCR_RUNTIME_JSON=${JSON.stringify(pythonRuntime)}\n`,
+        stderr: '',
+      };
+    },
+  });
+  assert.deepEqual(result, pythonRuntime);
+  assert.equal(invocation.command, '/venv/bin/python');
+  assert.doesNotMatch(invocation.arguments_[1], /PaddleOCRVL|from paddleocr|import paddle|import paddlex/u);
+  assert.match(invocation.arguments_[1], /importlib\.metadata/u);
+  assert.equal(invocation.arguments_.length, 2);
+  assert.equal(invocation.options.env.PADDLE_PDX_CACHE_HOME, '/isolated/paddlex');
+  assert.equal(invocation.options.timeout, 60_000);
 });
 
 test('PaddleX layout cache fingerprint covers stable official model files and excludes locks or AppleDouble noise', async (t) => {
@@ -763,6 +963,649 @@ test('runner processes only manifest documents, resumes completed work, and pins
     }),
     /run identity differs/,
   );
+});
+
+test('hash-bound seed dry-run, commit, crash resume, attempt floor, and page provenance are fail-closed', async (t) => {
+  const { root, inputRoot, ocrScript } = await fixture(t);
+  const predecessorRoot = path.join(root, 'predecessor');
+  const outputRoot = path.join(root, 'successor');
+  const dryRunRoot = path.join(root, 'dry-run-successor');
+  const resumedRoot = path.join(root, 'resumed-successor');
+  await mkdir(predecessorRoot, { recursive: true });
+  const source = 'seeded source';
+  await writeFile(path.join(inputRoot, 'pdfs/a.pdf'), source);
+  const document = documentFor('doc-seeded', 'pdfs/a.pdf', source, 2);
+  const manifest = manifestFor([document]);
+  const manifestPath = path.join(root, 'manifest.json');
+  const manifestContents = `${JSON.stringify(manifest, null, 2)}\n`;
+  await writeFile(manifestPath, manifestContents);
+  const manifestSha256 = sha256(manifestContents);
+  const attestation = {
+    ...llamaServerAttestation,
+    parallel: 4,
+    production_command_contract: {
+      values: { '--host': '127.0.0.1', '--port': '8112', '--parallel': '4' },
+      flags: ['--mmproj-offload'],
+    },
+  };
+  const attestationSha256 = sha256(`${JSON.stringify(attestation)}\n`);
+  const runtimeFingerprint = {
+    ...runtime,
+    runtime_device: runtimeDevice,
+    llama_server_attestation_sha256: attestationSha256,
+    python_runtime: pythonRuntime,
+    paddlex_layout_model_cache: paddlexLayoutModelCache,
+  };
+  const runtimeFingerprintSha256 = sha256(`${JSON.stringify(runtimeFingerprint)}\n`);
+  const predecessorWorker = {
+    llama_url: workerConfiguration.llama_url,
+    vl_rec_max_concurrency: 4,
+    server_parallel: 4,
+    micro_batch: 16,
+    use_queues: true,
+    runtime_device: runtimeDevice,
+    paddlex_cache_home: path.join(predecessorRoot, 'paddlex-cache'),
+    python_runtime: pythonRuntime,
+    paddlex_layout_model_cache_sha256: paddlexLayoutModelCache.tree_sha256,
+  };
+  const predecessorRecovery = recoveryPolicy(300);
+  const { documentRoot } = await createPartialOutput(predecessorRoot, document, { worker: predecessorWorker });
+  const predecessorStatePath = path.join(documentRoot, 'state.json');
+  const predecessorState = JSON.parse(await readFile(predecessorStatePath, 'utf8'));
+  predecessorState.failed_pages = {};
+  await writeFile(predecessorStatePath, `${JSON.stringify(predecessorState, null, 2)}\n`);
+  const predecessorStatus = {
+    schema_version: 1,
+    document_id: document.id,
+    status: 'retry_wait',
+    attempt: 2,
+    max_attempts: 5,
+    retry_delay_seconds: 10,
+    next_retry_at: '2026-07-16T00:00:10.000Z',
+    page_count: document.page_count,
+    runtime_fingerprint_sha256: runtimeFingerprintSha256,
+    citation_allowed: false,
+    error: 'interrupted after inherited page',
+    failed_at: '2026-07-16T00:00:00.000Z',
+  };
+  await mkdir(path.join(predecessorRoot, 'status'), { recursive: true });
+  const predecessorStatusSha256 = await writeJsonSidecar(
+    path.join(predecessorRoot, 'status', `${document.id}.json`),
+    predecessorStatus,
+  );
+  const predecessorIdentity = {
+    schema_version: 1,
+    manifest_sha256: manifestSha256,
+    runtime,
+    runtime_fingerprint: runtimeFingerprint,
+    runtime_fingerprint_sha256: runtimeFingerprintSha256,
+    llama_server_attestation: attestation,
+    llama_server_attestation_sha256: attestationSha256,
+    runner_script_sha256: 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55',
+    ocr_script_sha256: '8'.repeat(64),
+    input_root: await realpath(inputRoot),
+    python_invocation_path: process.execPath,
+    python_resolved_target: await realpath(process.execPath),
+    worker_configuration: predecessorWorker,
+    document_recovery: predecessorRecovery,
+    whole_document_atomic: true,
+    citation_allowed: false,
+  };
+  await writeFile(
+    path.join(predecessorRoot, 'run-identity.json'),
+    `${JSON.stringify(predecessorIdentity, null, 2)}\n`,
+  );
+  const predecessorRunStatus = {
+    schema_version: 1,
+    manifest_sha256: manifestSha256,
+    runtime_fingerprint_sha256: runtimeFingerprintSha256,
+    document_recovery: predecessorRecovery,
+    citation_allowed: false,
+    started_at: '2026-07-16T00:00:00.000Z',
+    documents: {
+      [document.id]: {
+        status: 'retry_wait',
+        attempts: 2,
+        page_count: 2,
+        next_retry_at: '2026-07-16T00:00:10.000Z',
+        failed_at: '2026-07-16T00:00:00.000Z',
+        error: 'interrupted after inherited page',
+        status_json_sha256: predecessorStatusSha256,
+      },
+    },
+    counts: {
+      total: 1,
+      complete: 0,
+      failed: 0,
+      interrupted: 0,
+      pending: 0,
+      running: 0,
+      retry_wait: 1,
+      quarantined: 0,
+    },
+    finished: false,
+    settled: false,
+  };
+  await writeJsonSidecar(path.join(predecessorRoot, 'run-status.json'), predecessorRunStatus);
+  const predecessorPageBefore = await stat(path.join(documentRoot, 'pages/0001/content.md'));
+  const predecessorStateBefore = await readFile(predecessorStatePath);
+
+  const optionsFor = (successorRoot, extra = {}) => ({
+    manifest: manifestPath,
+    inputRoot,
+    outputRoot: successorRoot,
+    python: process.execPath,
+    ocrScript,
+    model: '/unused/model',
+    mmproj: '/unused/mmproj',
+    llamaRepo: '/unused/llama',
+    llamaServerBin,
+    llamaSystemdUnit,
+    llamaUrl: workerConfiguration.llama_url,
+    runtimeDevice,
+    vlRecMaxConcurrency: 1,
+    serverParallel: 4,
+    microBatch: 16,
+    useQueues: true,
+    childIdleTimeoutSeconds: 1200,
+    seedFromOutputRoot: predecessorRoot,
+    seedOnly: true,
+    ...extra,
+  });
+  const dependencies = {
+    pageCounter: () => 2,
+    runtime,
+    llamaServerAttestation: attestation,
+    pythonRuntime,
+    paddlexLayoutModelCache,
+    handleSignals: false,
+  };
+
+  const dryRun = await runRemoteOcrOffload(
+    optionsFor(dryRunRoot, { seedDryRun: true }),
+    dependencies,
+  );
+  assert.equal(dryRun.seedDryRun, true);
+  assert.equal(dryRun.seedReceipt.counts.inherited_pages, 1);
+  await assert.rejects(readFile(path.join(dryRunRoot, 'seed-receipt.json')), /ENOENT/);
+  await assert.rejects(readFile(path.join(dryRunRoot, 'seed-commit.json')), /ENOENT/);
+
+  const seeded = await runRemoteOcrOffload(optionsFor(outputRoot), dependencies);
+  assert.equal(seeded.seedOnly, true);
+  assert.equal(seeded.runStatus.documents[document.id].attempts, 2);
+  assert.equal(seeded.runStatus.documents[document.id].inherited_attempts, 2);
+  assert.equal(seeded.runStatus.documents[document.id].predecessor_status, 'retry_wait');
+  const state = JSON.parse(await readFile(path.join(outputRoot, 'documents', document.id, 'state.json'), 'utf8'));
+  assert.equal(state.schema_version, 1);
+  assert.equal(state.configuration.vl_rec_max_concurrency, 1);
+  assert.equal(state.configuration.server_parallel, 4);
+  assert.equal(state.configuration.micro_batch, 16);
+  assert.equal(state.configuration_scope, 'active_writer_with_hash_bound_seed_exceptions');
+  assert.deepEqual(state.seed_lineage.inherited_completed_pages, [1]);
+  assert.equal(state.pages['1'].seed_provenance.seed_id, seeded.seedReceipt.seed_id);
+  assert.equal(await readFile(predecessorStatePath).then((value) => value.equals(predecessorStateBefore)), true);
+  const successorPage = await stat(path.join(outputRoot, 'documents', document.id, 'pages/0001/content.md'));
+  assert.notEqual(successorPage.ino, predecessorPageBefore.ino, 'seeded page must be copied, never hard-linked');
+  assert.match(await readFile(path.join(outputRoot, 'seed-receipt.json.sha256'), 'utf8'), /^[a-f0-9]{64}  seed-receipt\.json\n$/);
+  assert.match(await readFile(path.join(outputRoot, 'seed-commit.json.sha256'), 'utf8'), /^[a-f0-9]{64}  seed-commit\.json\n$/);
+  const seededEvidenceRoot = path.join(outputRoot, 'seed-predecessor-evidence');
+  const seededEvidenceBefore = await inspectTree(seededEvidenceRoot);
+  const markerReentry = await runRemoteOcrOffload(optionsFor(outputRoot), dependencies);
+  assert.equal(markerReentry.seedReceiptSha256, seeded.seedReceiptSha256);
+  assert.deepEqual(await inspectTree(seededEvidenceRoot), seededEvidenceBefore);
+  const rawEvidencePath = path.join(seededEvidenceRoot, 'run-status.json');
+  const rawEvidenceBefore = await readFile(rawEvidencePath);
+  await writeFile(rawEvidencePath, Buffer.concat([rawEvidenceBefore, Buffer.from('tamper\n')]));
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(outputRoot), dependencies),
+    /committed seed item seed-predecessor-evidence differs from the exact prepared receipt/,
+  );
+  await writeFile(rawEvidencePath, rawEvidenceBefore);
+  assert.deepEqual(await inspectTree(seededEvidenceRoot), seededEvidenceBefore);
+
+  let interrupted = false;
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(resumedRoot), {
+      ...dependencies,
+      beforeSeedInstallItem: async (_name, index) => {
+        if (!interrupted && index === 3) {
+          interrupted = true;
+          throw new Error('synthetic seed install interruption');
+        }
+      },
+    }),
+    /synthetic seed install interruption/,
+  );
+  await assert.rejects(readFile(path.join(resumedRoot, 'seed-commit.json')), /ENOENT/);
+  assert.match(await readFile(path.join(resumedRoot, '.seed-journal.json.sha256'), 'utf8'), /^[a-f0-9]{64}/);
+  const interruptedJournal = JSON.parse(await readFile(path.join(resumedRoot, '.seed-journal.json'), 'utf8'));
+  const journalEvidence = interruptedJournal.items.find(
+    (item) => item.name === 'seed-predecessor-evidence',
+  );
+  assert.deepEqual(journalEvidence.fingerprint, seededEvidenceBefore);
+  assert.deepEqual(
+    await inspectTree(path.join(resumedRoot, 'seed-predecessor-evidence')),
+    seededEvidenceBefore,
+  );
+  const resumed = await runRemoteOcrOffload(optionsFor(resumedRoot), dependencies);
+  assert.equal(resumed.seedOnly, true);
+  assert.equal(resumed.seedReceiptSha256, interruptedJournal.seed_receipt_sha256);
+  assert.deepEqual(
+    await inspectTree(path.join(resumedRoot, 'seed-predecessor-evidence')),
+    seededEvidenceBefore,
+  );
+
+  const tamperedRunStatusPath = path.join(outputRoot, 'run-status.json');
+  const tamperedRunStatus = JSON.parse(await readFile(tamperedRunStatusPath, 'utf8'));
+  const loweredAttemptFloor = structuredClone(tamperedRunStatus);
+  loweredAttemptFloor.documents[document.id].attempts = 1;
+  loweredAttemptFloor.documents[document.id].inherited_attempts = 1;
+  await writeJsonSidecar(tamperedRunStatusPath, loweredAttemptFloor);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(outputRoot), dependencies),
+    /attempt floor/,
+  );
+  const changedPredecessorStatus = structuredClone(tamperedRunStatus);
+  changedPredecessorStatus.documents[document.id].predecessor_status = 'interrupted';
+  await writeJsonSidecar(tamperedRunStatusPath, changedPredecessorStatus);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(outputRoot), dependencies),
+    /predecessor status/,
+  );
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(path.join(root, 'bad-delta')), {
+      ...dependencies,
+      llamaServerAttestation: { ...attestation, proc_cmdline_sha256: '6'.repeat(64) },
+    }),
+    /runtime.*differs|attestation differs/,
+  );
+  const nestedSuccessor = path.join(predecessorRoot, 'nested-successor');
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(nestedSuccessor), dependencies),
+    /disjoint and non-nested/,
+  );
+  await assert.rejects(stat(nestedSuccessor), /ENOENT/);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(root), dependencies),
+    /disjoint and non-nested/,
+  );
+
+  const cacheEscapeTarget = path.join(root, 'cache-escape-target');
+  const cacheEscapeSuccessor = path.join(root, 'cache-escape-successor');
+  await mkdir(cacheEscapeTarget);
+  await mkdir(cacheEscapeSuccessor);
+  await symlink(cacheEscapeTarget, path.join(cacheEscapeSuccessor, 'paddlex-cache'));
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(cacheEscapeSuccessor, {
+      paddlexCacheHome: path.join(cacheEscapeSuccessor, 'paddlex-cache'),
+    }), dependencies),
+    /paddlex-cache-home must stay inside|PaddleX cache root must be a real directory|symbolic-link ancestor/,
+  );
+
+  const markerPath = path.join(resumedRoot, 'seed-commit.json');
+  const realMarkerPath = path.join(resumedRoot, 'seed-commit-real.json');
+  await rename(markerPath, realMarkerPath);
+  await symlink(realMarkerPath, markerPath);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(resumedRoot), dependencies),
+    /seed commit marker must be a regular non-symlink file/,
+  );
+
+  const predecessorDocumentsRoot = path.join(predecessorRoot, 'documents');
+  const escapedDocumentsRoot = path.join(root, 'escaped-predecessor-documents');
+  await rename(predecessorDocumentsRoot, escapedDocumentsRoot);
+  await symlink(escapedDocumentsRoot, predecessorDocumentsRoot);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(path.join(root, 'documents-symlink-reject')), dependencies),
+    /seed predecessor documents root must be a real directory/,
+  );
+  await rm(predecessorDocumentsRoot);
+  await rename(escapedDocumentsRoot, predecessorDocumentsRoot);
+
+  const predecessorStatusPath = path.join(predecessorRoot, 'status', `${document.id}.json`);
+  const escapedStatusPath = path.join(root, 'escaped-predecessor-status.json');
+  await rename(predecessorStatusPath, escapedStatusPath);
+  await symlink(escapedStatusPath, predecessorStatusPath);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(path.join(root, 'status-symlink-reject')), dependencies),
+    /predecessor status must be a regular non-symlink file/,
+  );
+});
+
+test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and predecessor-immutable', async (t) => {
+  const { root, inputRoot, ocrScript } = await fixture(t);
+  const predecessorRoot = path.join(root, 'b-r1');
+  const successorRoot = path.join(root, 'b-r2');
+  await mkdir(path.join(predecessorRoot, 'documents'), { recursive: true });
+  await mkdir(path.join(predecessorRoot, 'status'), { recursive: true });
+  const specifications = [
+    ['legacy-compendium-arts-labor', 491, 491, 'complete', 1],
+    ['legacy-compendium-chemistry', 458, 384, 'retry_wait', 2],
+    ['legacy-compendium-chinese', 568, 32, 'retry_wait', 1],
+    ['legacy-compendium-history', 765, 352, 'interrupted', 1],
+    ['legacy-compendium-physics', 477, 0, 'pending', 0],
+    ['legacy-compendium-plans', 423, 0, 'pending', 0],
+  ];
+  const documents = [];
+  for (const [id, pageCount] of specifications) {
+    const source = `source:${id}`;
+    const sourcePath = `pdfs/${id}.pdf`;
+    await writeFile(path.join(inputRoot, sourcePath), source);
+    documents.push(documentFor(id, sourcePath, source, pageCount));
+  }
+  const manifestPath = path.join(inputRoot, 'b-shard.json');
+  const manifestContents = `${JSON.stringify(manifestFor(documents), null, 2)}\n`;
+  await writeFile(manifestPath, manifestContents);
+  const manifestSha256 = sha256(manifestContents);
+  const attestation = {
+    ...llamaServerAttestation,
+    parallel: 4,
+    production_command_contract: {
+      values: { '--host': '127.0.0.1', '--port': '8112', '--parallel': '4' },
+      flags: ['--mmproj-offload'],
+    },
+  };
+  const attestationSha256 = sha256(`${JSON.stringify(attestation)}\n`);
+  const runtimeFingerprint = {
+    ...runtime,
+    runtime_device: runtimeDevice,
+    llama_server_attestation_sha256: attestationSha256,
+    python_runtime: pythonRuntime,
+    paddlex_layout_model_cache: paddlexLayoutModelCache,
+  };
+  const runtimeFingerprintSha256 = sha256(`${JSON.stringify(runtimeFingerprint)}\n`);
+  const predecessorWorker = {
+    llama_url: workerConfiguration.llama_url,
+    vl_rec_max_concurrency: 4,
+    server_parallel: 4,
+    micro_batch: 16,
+    use_queues: true,
+    runtime_device: runtimeDevice,
+    paddlex_cache_home: path.join(predecessorRoot, 'paddlex-cache'),
+    python_runtime: pythonRuntime,
+    paddlex_layout_model_cache_sha256: paddlexLayoutModelCache.tree_sha256,
+  };
+  const predecessorRecovery = recoveryPolicy(300);
+  const progressById = {};
+  const statusHashes = new Map();
+  for (const [id, pageCount, completedPageCount, status, attempts] of specifications) {
+    const document = documents.find((item) => item.id === id);
+    if (status === 'pending') {
+      progressById[id] = { status, attempts, page_count: pageCount };
+      continue;
+    }
+    const documentRoot = await createCompletedOutput(predecessorRoot, document, {
+      worker: predecessorWorker,
+      completedPageCount,
+    });
+    await addReceiverNativePageArtifacts(
+      documentRoot,
+      Array.from({ length: completedPageCount }, (_, index) => index + 1),
+    );
+    const artifacts = await validateOcrDocumentOutput(document, documentRoot, runtime, {
+      requireComplete: status === 'complete',
+      workerConfiguration: predecessorWorker,
+    });
+    let statusRecord;
+    if (status === 'complete') {
+      statusRecord = {
+        schema_version: 1,
+        document_id: id,
+        status,
+        source_sha256: document.source_sha256,
+        page_count: pageCount,
+        runtime_fingerprint_sha256: runtimeFingerprintSha256,
+        citation_allowed: false,
+        whole_document_atomic: true,
+        artifacts,
+        verified_at: '2026-07-17T00:00:00.000Z',
+      };
+      progressById[id] = {
+        status,
+        attempts,
+        page_count: pageCount,
+        verified_at: statusRecord.verified_at,
+      };
+    } else if (status === 'interrupted') {
+      statusRecord = {
+        schema_version: 1,
+        document_id: id,
+        status,
+        attempt: attempts,
+        max_attempts: 5,
+        citation_allowed: false,
+        interrupted_at: '2026-07-17T00:01:00.000Z',
+      };
+      progressById[id] = {
+        status,
+        attempts,
+        page_count: pageCount,
+        interrupted_at: statusRecord.interrupted_at,
+        signal: 'SIGTERM',
+      };
+    } else {
+      statusRecord = {
+        schema_version: 1,
+        document_id: id,
+        status,
+        attempt: attempts,
+        max_attempts: 5,
+        retry_delay_seconds: attempts === 1 ? 2 : 10,
+        next_retry_at: '2026-07-17T00:02:00.000Z',
+        page_count: pageCount,
+        runtime_fingerprint_sha256: runtimeFingerprintSha256,
+        citation_allowed: false,
+        error: 'bounded synthetic retry',
+        failed_at: '2026-07-17T00:01:30.000Z',
+      };
+      progressById[id] = {
+        status,
+        attempts,
+        page_count: pageCount,
+        next_retry_at: statusRecord.next_retry_at,
+        error: statusRecord.error,
+        failed_at: statusRecord.failed_at,
+      };
+    }
+    statusHashes.set(
+      id,
+      await writeJsonSidecar(path.join(predecessorRoot, 'status', `${id}.json`), statusRecord),
+    );
+    progressById[id].status_json_sha256 = statusHashes.get(id);
+  }
+  const predecessorIdentity = {
+    schema_version: 1,
+    manifest_sha256: manifestSha256,
+    runtime,
+    runtime_fingerprint: runtimeFingerprint,
+    runtime_fingerprint_sha256: runtimeFingerprintSha256,
+    llama_server_attestation: attestation,
+    llama_server_attestation_sha256: attestationSha256,
+    runner_script_sha256: 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55',
+    ocr_script_sha256: 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53aff3ebeae48d9b048',
+    input_root: await realpath(inputRoot),
+    python_invocation_path: process.execPath,
+    python_resolved_target: await realpath(process.execPath),
+    worker_configuration: predecessorWorker,
+    document_recovery: predecessorRecovery,
+    whole_document_atomic: true,
+    citation_allowed: false,
+  };
+  await writeFile(
+    path.join(predecessorRoot, 'run-identity.json'),
+    `${JSON.stringify(predecessorIdentity, null, 2)}\n`,
+  );
+  const predecessorRunStatus = {
+    schema_version: 1,
+    manifest_sha256: manifestSha256,
+    runtime_fingerprint_sha256: runtimeFingerprintSha256,
+    document_recovery: predecessorRecovery,
+    citation_allowed: false,
+    started_at: '2026-07-17T00:00:00.000Z',
+    documents: progressById,
+    counts: {
+      total: 6,
+      complete: 1,
+      failed: 0,
+      interrupted: 1,
+      pending: 2,
+      running: 0,
+      retry_wait: 2,
+      quarantined: 0,
+    },
+    finished: false,
+    settled: false,
+  };
+  await writeJsonSidecar(path.join(predecessorRoot, 'run-status.json'), predecessorRunStatus);
+  const predecessorBefore = await inspectTree(predecessorRoot);
+  const artsBefore = await stat(path.join(
+    predecessorRoot,
+    'documents/legacy-compendium-arts-labor/pages/0001/content.md',
+  ));
+  const options = {
+    manifest: manifestPath,
+    inputRoot,
+    outputRoot: successorRoot,
+    python: process.execPath,
+    ocrScript,
+    model: '/unused/model',
+    mmproj: '/unused/mmproj',
+    llamaRepo: '/unused/llama',
+    llamaServerBin,
+    llamaSystemdUnit,
+    llamaUrl: workerConfiguration.llama_url,
+    runtimeDevice,
+    vlRecMaxConcurrency: 1,
+    serverParallel: 4,
+    microBatch: 16,
+    useQueues: true,
+    childIdleTimeoutSeconds: 1200,
+    seedFromOutputRoot: predecessorRoot,
+    seedOnly: true,
+  };
+  const seeded = await runRemoteOcrOffload(options, {
+    pageCounter: (_python, sourcePath) => documents.find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+    runtime,
+    llamaServerAttestation: attestation,
+    pythonRuntime,
+    paddlexLayoutModelCache,
+    runnerScriptSha256: 'e'.repeat(64),
+    handleSignals: false,
+  });
+  assert.equal(seeded.seedOnly, true);
+  assert.equal(seeded.seedReceipt.counts.documents, 6);
+  assert.equal(seeded.seedReceipt.counts.inherited_pages, 1_259);
+  assert.deepEqual(
+    seeded.seedReceipt.documents.map((document) => [
+      document.document_id,
+      document.predecessor_status,
+      document.predecessor_status_format,
+      document.inherited_attempts,
+      document.completed_pages.length,
+    ]),
+    [
+      ['legacy-compendium-arts-labor', 'complete', 'legacy_b1_complete_reverified', 1, 491],
+      ['legacy-compendium-chemistry', 'retry_wait', 'complete_identity_v1', 2, 384],
+      ['legacy-compendium-chinese', 'retry_wait', 'complete_identity_v1', 1, 32],
+      ['legacy-compendium-history', 'interrupted', 'legacy_b1_interrupted', 1, 352],
+      ['legacy-compendium-physics', 'pending', 'pending_no_status', 0, 0],
+      ['legacy-compendium-plans', 'pending', 'pending_no_status', 0, 0],
+    ],
+  );
+  const predecessorEvidenceRoot = path.join(successorRoot, 'seed-predecessor-evidence');
+  const predecessorEvidenceInventory = JSON.parse(await readFile(
+    path.join(predecessorEvidenceRoot, 'inventory.json'),
+    'utf8',
+  ));
+  assert.equal(predecessorEvidenceInventory.files.length, 15);
+  assert.equal((await inspectTree(predecessorEvidenceRoot)).files, 16);
+  assert.deepEqual(
+    predecessorEvidenceInventory.documents.map((document) => [
+      document.document_id,
+      document.state.present,
+      document.status.present,
+    ]),
+    specifications.map(([id, _pages, _completed, status]) => [
+      id,
+      status !== 'pending',
+      status !== 'pending',
+    ]),
+  );
+  for (const id of ['legacy-compendium-physics', 'legacy-compendium-plans']) {
+    assert.equal(await stat(path.join(predecessorEvidenceRoot, 'documents', id)).then(
+      () => true,
+      (error) => error?.code === 'ENOENT' ? false : Promise.reject(error),
+    ), false);
+    assert.equal(await stat(path.join(predecessorEvidenceRoot, 'status', `${id}.json`)).then(
+      () => true,
+      (error) => error?.code === 'ENOENT' ? false : Promise.reject(error),
+    ), false);
+  }
+  assert.deepEqual(await inspectTree(predecessorRoot), predecessorBefore);
+  const artsAfter = await stat(path.join(
+    successorRoot,
+    'documents/legacy-compendium-arts-labor/pages/0001/content.md',
+  ));
+  assert.notEqual(artsAfter.ino, artsBefore.ino, 'runner-to-receiver fixture must not hard-link B-r1 pages');
+  await assert.rejects(
+    receiveRemoteOcrOffload({
+      manifest: manifestPath,
+      shards: [{ manifestPath, root: successorRoot }],
+      projectRoot: inputRoot,
+      productionRoot: path.join(inputRoot, 'local-production'),
+      textRoot: path.join(inputRoot, 'local-text'),
+      supervisorRoot: path.join(inputRoot, 'local-supervisor'),
+      receiptRoot: path.join(inputRoot, 'receipts'),
+      python: process.execPath,
+    }, {
+      pageCounter: () => assert.fail('unsettled seeded shard must fail before local source preflight'),
+    }),
+    /run status is not settled/,
+  );
+  let completedInvocations = 0;
+  const completed = await runRemoteOcrOffload({ ...options, seedOnly: false }, {
+    invokeOcr: async (_python, commandArguments) => {
+      const document = documents.find((item) => item.id === commandArguments[1]);
+      assert.ok(document, `unexpected OCR document ${commandArguments[1]}`);
+      await completeSeededOutput(successorRoot, document);
+      completedInvocations += 1;
+      return { code: 0, signal: null };
+    },
+    pageCounter: (_python, sourcePath) => documents.find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+    runtime,
+    llamaServerAttestation: attestation,
+    pythonRuntime,
+    paddlexLayoutModelCache,
+    runnerScriptSha256: 'e'.repeat(64),
+    nowMilliseconds: () => Date.parse('2026-07-18T00:00:00.000Z'),
+    handleSignals: false,
+  });
+  assert.equal(completed.exitCode, 0);
+  assert.equal(completed.runStatus.finished, true);
+  assert.equal(completedInvocations, 5);
+  const received = await receiveRemoteOcrOffload({
+    manifest: manifestPath,
+    shards: [{ manifestPath, root: successorRoot }],
+    projectRoot: inputRoot,
+    productionRoot: path.join(inputRoot, 'local-production'),
+    textRoot: path.join(inputRoot, 'local-text'),
+    supervisorRoot: path.join(inputRoot, 'local-supervisor'),
+    receiptRoot: path.join(inputRoot, 'receipts'),
+    python: process.execPath,
+  }, {
+    pageCounter: (_python, sourcePath) => documents.find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+  });
+  assert.equal(received.status, 'dry_run_validated');
+  assert.equal(received.counts.documents, 6);
+  assert.equal(received.counts.pages, 3_182);
+  assert.equal(received.source_shards[0].seed_id, seeded.seedReceipt.seed_id);
+  assert.deepEqual(await inspectTree(predecessorRoot), predecessorBefore);
 });
 
 test('output-root owner lock blocks a concurrent runner before identity or cache initialization', async (t) => {

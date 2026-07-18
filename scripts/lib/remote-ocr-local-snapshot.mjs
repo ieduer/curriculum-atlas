@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { lstat, readFile, readdir } from 'node:fs/promises';
+import { constants as fsConstants } from 'node:fs';
+import { copyFile, lstat, mkdir, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 const sha256Pattern = /^[a-f0-9]{64}$/;
@@ -36,7 +37,7 @@ function canonicalize(value) {
   );
 }
 
-function canonicalJson(value) {
+export function canonicalJson(value) {
   return JSON.stringify(canonicalize(value));
 }
 
@@ -71,7 +72,7 @@ async function requireRegularNonSymlink(pathname, label) {
   return info;
 }
 
-async function inspectTree(root) {
+export async function inspectTreeInventory(root) {
   const rootInfo = await lstat(root).catch((error) => {
     if (error?.code === 'ENOENT') throw new Error(`local OCR document tree is missing: ${root}`);
     throw error;
@@ -110,7 +111,43 @@ async function inspectTree(root) {
     tree_sha256: sha256(entries.join('')),
     files,
     bytes,
+    entries,
   };
+}
+
+export async function inspectTree(root) {
+  const { entries: _entries, ...fingerprint } = await inspectTreeInventory(root);
+  return fingerprint;
+}
+
+export async function copyTreeStrict(source, destination) {
+  const info = await lstat(source);
+  if (!info.isDirectory() || info.isSymbolicLink()) {
+    throw new Error(`copy source is not a real directory: ${source}`);
+  }
+  await mkdir(destination, { mode: 0o700 });
+  const children = await readdir(source, { withFileTypes: true });
+  children.sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
+  for (const child of children) {
+    const sourcePath = path.join(source, child.name);
+    const destinationPath = path.join(destination, child.name);
+    const childInfo = await lstat(sourcePath);
+    if (childInfo.isSymbolicLink()) throw new Error(`copy source contains a symbolic link: ${sourcePath}`);
+    if (childInfo.isDirectory()) {
+      await copyTreeStrict(sourcePath, destinationPath);
+    } else if (childInfo.isFile()) {
+      await copyFile(sourcePath, destinationPath, fsConstants.COPYFILE_EXCL);
+      const destinationInfo = await lstat(destinationPath);
+      if (!destinationInfo.isFile() || destinationInfo.isSymbolicLink()) {
+        throw new Error(`strict copy produced a non-regular file: ${destinationPath}`);
+      }
+      if (destinationInfo.dev === childInfo.dev && destinationInfo.ino === childInfo.ino) {
+        throw new Error(`strict copy must not create a hard link: ${destinationPath}`);
+      }
+    } else {
+      throw new Error(`copy source contains a non-regular file: ${sourcePath}`);
+    }
+  }
 }
 
 function retryLedgerSnapshot(documentId, documentRetries, pageRetries) {

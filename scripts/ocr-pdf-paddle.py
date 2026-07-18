@@ -5,6 +5,7 @@ import importlib.metadata
 import json
 import os
 import platform
+import re
 import shutil
 import tempfile
 import time
@@ -13,6 +14,9 @@ from pathlib import Path
 
 
 DEFAULT_RUNTIME_DEVICE = "cpu+Metal llama.cpp"
+SEED_CONFIGURATION_SCOPE = "active_writer_with_hash_bound_seed_exceptions"
+SEED_MODE = "hash_bound_output_seed"
+SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 
 
 class QueuedResultContractError(ValueError):
@@ -80,6 +84,124 @@ def ensure_runtime_device(configuration: dict, runtime_device: str) -> None:
         raise RuntimeError(
             f"Runtime device changed from {existing!r} to {runtime_device!r}; refusing to mix OCR runs."
         )
+
+
+def expected_configuration(
+    *,
+    llama_url: str,
+    dpi: int,
+    runtime_device: str,
+    vl_rec_max_concurrency: int,
+    server_parallel: int,
+    micro_batch: int,
+    use_queues: bool,
+    paddle_version: str,
+    paddleocr_version: str,
+    paddlex_version: str,
+) -> dict:
+    return {
+        "pipeline": "PaddleOCR-VL",
+        "pipeline_version": "v1.6",
+        "layout_model": "PP-DocLayoutV3",
+        "recognizer": "PaddleOCR-VL-1.6-0.9B official GGUF",
+        "recognizer_backend": "llama-cpp-server",
+        "recognizer_server_url": llama_url,
+        "dpi": dpi,
+        "device": runtime_device,
+        "python": platform.python_version(),
+        "paddlepaddle": paddle_version,
+        "paddleocr": paddleocr_version,
+        "paddlex": paddlex_version,
+        "vl_rec_max_concurrency": vl_rec_max_concurrency,
+        "server_parallel": server_parallel,
+        "micro_batch": micro_batch,
+        "use_queues": use_queues,
+    }
+
+
+def validate_seed_arguments(args) -> dict | None:
+    values = {
+        "seed_id": args.seed_id,
+        "predecessor_run_identity_sha256": args.seed_predecessor_run_identity_sha256,
+        "predecessor_configuration_sha256": args.seed_predecessor_configuration_sha256,
+    }
+    supplied = [value is not None for value in values.values()]
+    if any(supplied) and not all(supplied):
+        raise ValueError("Seed identity arguments must be supplied together.")
+    if not any(supplied):
+        return None
+    for label, value in values.items():
+        if not SHA256_PATTERN.fullmatch(value):
+            raise ValueError(f"--{label.replace('_', '-')} must be a lowercase SHA-256.")
+    return values
+
+
+def validate_existing_state(
+    state: dict,
+    *,
+    document_id: str,
+    source_sha256: str,
+    page_count: int,
+    configuration: dict,
+    seed_identity: dict | None,
+    force_reprocess: bool,
+) -> None:
+    if (
+        state.get("schema_version") != 1
+        or state.get("document_id") != document_id
+        or state.get("source_sha256") != source_sha256
+        or state.get("page_count") != page_count
+    ):
+        raise RuntimeError("Existing OCR state identity differs from the active document.")
+    if state.get("configuration") != configuration:
+        raise RuntimeError("Existing OCR configuration differs from the complete active writer contract.")
+    lineage = state.get("seed_lineage")
+    if lineage is None:
+        if seed_identity is not None or "configuration_scope" in state:
+            raise RuntimeError("Seeded writer cannot adopt an unbound existing OCR state.")
+        return
+    if seed_identity is None:
+        raise RuntimeError("Seeded OCR state requires the exact seed writer identity.")
+    if force_reprocess:
+        raise RuntimeError("--force-reprocess is forbidden for hash-bound seeded OCR state.")
+    inherited_pages = lineage.get("inherited_completed_pages")
+    if (
+        state.get("configuration_scope") != SEED_CONFIGURATION_SCOPE
+        or lineage.get("schema_version") != 1
+        or lineage.get("mode") != SEED_MODE
+        or lineage.get("citation_allowed") is not False
+        or lineage.get("seed_id") != seed_identity["seed_id"]
+        or lineage.get("predecessor_run_identity_sha256")
+        != seed_identity["predecessor_run_identity_sha256"]
+        or lineage.get("predecessor_configuration_sha256")
+        != seed_identity["predecessor_configuration_sha256"]
+        or not isinstance(inherited_pages, list)
+        or inherited_pages != sorted(set(inherited_pages))
+        or any(not isinstance(page, int) or page < 1 or page > page_count for page in inherited_pages)
+    ):
+        raise RuntimeError("Seeded OCR state lineage differs from the exact hash-bound contract.")
+    completed_pages = state.get("completed_pages")
+    pages = state.get("pages")
+    if not isinstance(completed_pages, list) or not isinstance(pages, dict):
+        raise RuntimeError("Seeded OCR state page indexes are invalid.")
+    inherited = set(inherited_pages)
+    if not inherited.issubset(set(completed_pages)):
+        raise RuntimeError("Seeded inherited pages are missing from completed_pages.")
+    expected_tag = {
+        "seed_id": seed_identity["seed_id"],
+        "predecessor_run_identity_sha256": seed_identity["predecessor_run_identity_sha256"],
+        "predecessor_configuration_sha256": seed_identity["predecessor_configuration_sha256"],
+    }
+    for page in completed_pages:
+        page_state = pages.get(str(page))
+        if not isinstance(page_state, dict):
+            raise RuntimeError(f"OCR page {page} metadata is missing.")
+        tag = page_state.get("seed_provenance")
+        if page in inherited:
+            if tag != expected_tag:
+                raise RuntimeError(f"Inherited OCR page {page} seed provenance mismatch.")
+        elif tag is not None:
+            raise RuntimeError(f"New OCR page {page} must not carry seed provenance.")
 
 
 def normalized_input_path(value: str | os.PathLike[str]) -> str:
@@ -168,19 +290,24 @@ def main() -> None:
     parser.add_argument("--micro-batch", type=int, default=1, help="Pages per queued Paddle call (1-16; requires --use-queues above 1).")
     parser.add_argument("--use-queues", action="store_true", help="Explicitly enable queued list prediction with temperature=0.")
     parser.add_argument("--runtime-device", default=DEFAULT_RUNTIME_DEVICE, help="Immutable runtime provenance label stored in state.json.")
+    parser.add_argument("--seed-id", help="Hash-bound seed transaction id supplied by the orchestrator.")
+    parser.add_argument("--seed-predecessor-run-identity-sha256")
+    parser.add_argument("--seed-predecessor-configuration-sha256")
     args = parser.parse_args()
     try:
         micro_batch = effective_micro_batch(args.micro_batch, args.use_queues)
         runtime_device = validated_runtime_device(args.runtime_device)
+        seed_identity = validate_seed_arguments(args)
     except ValueError as error:
         parser.error(str(error))
+    if seed_identity is not None and args.force_reprocess:
+        parser.error("--force-reprocess is forbidden for hash-bound seeded OCR runs.")
 
     input_pdf = Path(args.input_pdf).resolve()
     if not input_pdf.is_file():
         raise FileNotFoundError(input_pdf)
     output_dir = Path(args.output_root).resolve() / args.document_id
     pages_dir = output_dir / "pages"
-    pages_dir.mkdir(parents=True, exist_ok=True)
     state_path = output_dir / "state.json"
     source_sha256 = sha256(input_pdf)
 
@@ -190,18 +317,32 @@ def main() -> None:
     if args.limit is not None:
         selected = selected[: max(0, args.limit)]
 
+    configuration = expected_configuration(
+        llama_url=args.llama_url,
+        dpi=args.dpi,
+        runtime_device=runtime_device,
+        vl_rec_max_concurrency=args.vl_rec_max_concurrency,
+        server_parallel=args.server_parallel,
+        micro_batch=micro_batch,
+        use_queues=args.use_queues,
+        paddle_version=paddle.__version__,
+        paddleocr_version=importlib.metadata.version("paddleocr"),
+        paddlex_version=importlib.metadata.version("paddlex"),
+    )
+
     if state_path.is_file():
         state = json.loads(state_path.read_text(encoding="utf-8"))
-        if state.get("source_sha256") != source_sha256:
-            raise RuntimeError("Source checksum changed; refusing to mix OCR runs.")
-        state.setdefault("failed_pages", {})
-        configuration = state.setdefault("configuration", {})
-        ensure_runtime_device(configuration, runtime_device)
-        configuration["vl_rec_max_concurrency"] = args.vl_rec_max_concurrency
-        configuration["server_parallel"] = args.server_parallel
-        configuration["micro_batch"] = micro_batch
-        configuration["use_queues"] = args.use_queues
-        atomic_json(state_path, state)
+        validate_existing_state(
+            state,
+            document_id=args.document_id,
+            source_sha256=source_sha256,
+            page_count=page_count,
+            configuration=configuration,
+            seed_identity=seed_identity,
+            force_reprocess=args.force_reprocess,
+        )
+        if not isinstance(state.get("failed_pages"), dict):
+            raise RuntimeError("Existing OCR failed_pages must be an object.")
     else:
         state = {
             "schema_version": 1,
@@ -210,29 +351,23 @@ def main() -> None:
             "source_sha256": source_sha256,
             "page_count": page_count,
             "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "configuration": {
-                "pipeline": "PaddleOCR-VL",
-                "pipeline_version": "v1.6",
-                "layout_model": "PP-DocLayoutV3",
-                "recognizer": "PaddleOCR-VL-1.6-0.9B official GGUF",
-                "recognizer_backend": "llama-cpp-server",
-                "recognizer_server_url": args.llama_url,
-                "dpi": args.dpi,
-                "device": runtime_device,
-                "python": platform.python_version(),
-                "paddlepaddle": paddle.__version__,
-                "paddleocr": importlib.metadata.version("paddleocr"),
-                "paddlex": importlib.metadata.version("paddlex"),
-                "vl_rec_max_concurrency": args.vl_rec_max_concurrency,
-                "server_parallel": args.server_parallel,
-                "micro_batch": micro_batch,
-                "use_queues": args.use_queues,
-            },
+            "configuration": configuration,
             "completed_pages": [],
             "failed_pages": {},
             "pages": {},
         }
+        if seed_identity is not None:
+            state["configuration_scope"] = SEED_CONFIGURATION_SCOPE
+            state["seed_lineage"] = {
+                "schema_version": 1,
+                "mode": SEED_MODE,
+                **seed_identity,
+                "inherited_completed_pages": [],
+                "citation_allowed": False,
+            }
         atomic_json(state_path, state)
+
+    pages_dir.mkdir(parents=True, exist_ok=True)
 
     pipeline = PaddleOCRVL(
         pipeline_version="v1.6",

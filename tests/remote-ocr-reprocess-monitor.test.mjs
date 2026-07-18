@@ -452,10 +452,20 @@ test('shard snapshot verifies the run-status sidecar and aggregates state withou
     schema_version: 1,
     manifest_sha256: 'a'.repeat(64),
     citation_allowed: false,
+    seed_lineage: {
+      schema_version: 1,
+      mode: 'hash_bound_output_seed',
+      seed_id: 'b'.repeat(64),
+      predecessor_run_identity_sha256: 'c'.repeat(64),
+      citation_allowed: false,
+    },
     documents: {
       'doc-one': {
         status: 'running',
         attempts: 1,
+        inherited_attempts: 1,
+        predecessor_status: 'interrupted',
+        seed_id: 'b'.repeat(64),
         page_count: 4,
       },
     },
@@ -485,6 +495,7 @@ test('shard snapshot verifies the run-status sidecar and aggregates state withou
   assert.equal(result.expected_pages, 4);
   assert.equal(result.progress_age_seconds, 120);
   assert.equal(JSON.stringify(result).includes('doc-one'), false);
+  assert.equal(JSON.stringify(result).includes('b'.repeat(64)), false, 'monitor output must not expose seed ids');
 
   await writeFile(path.join(output, 'run-status.json.sha256'), `${'0'.repeat(64)}  run-status.json\n`);
   await assert.rejects(

@@ -17,7 +17,11 @@ import {
   parseReceiverArguments,
   receiveRemoteOcrOffload,
 } from '../scripts/receive-remote-ocr-offload.mjs';
-import { captureLocalReprocessSnapshot } from '../scripts/lib/remote-ocr-local-snapshot.mjs';
+import {
+  canonicalJson,
+  captureLocalReprocessSnapshot,
+  inspectTree,
+} from '../scripts/lib/remote-ocr-local-snapshot.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const runtime = Object.freeze({
@@ -193,7 +197,7 @@ function runIdentity(manifestSha256) {
     runtime_fingerprint_sha256: runtimeFingerprintSha256,
     llama_server_attestation: attestation,
     llama_server_attestation_sha256: attestationSha256,
-    runner_script_sha256: 'e'.repeat(64),
+    runner_script_sha256: 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55',
     ocr_script_sha256: 'f'.repeat(64),
     input_root: '/fixture/input',
     python_invocation_path: '/fixture/python',
@@ -487,6 +491,7 @@ async function createShard({
           runtime_fingerprint_sha256: runtimeFingerprintSha256,
           citation_allowed: false,
           whole_document_atomic: true,
+          verified_at: '2026-07-16T00:30:00.000Z',
           artifacts: {
             state_sha256: stateWritten.sha256,
             page_artifacts_sha256: sha256(`${JSON.stringify(pageArtifacts)}\n`),
@@ -512,6 +517,7 @@ async function createShard({
       attempts: status === 'complete' ? 1 : 5,
       page_count: document.page_count,
       status_json_sha256: statusWritten.sha256,
+      ...(status === 'complete' ? { verified_at: statusValue.verified_at } : {}),
     };
     countByStatus[status] += 1;
   }
@@ -564,6 +570,428 @@ async function createShard({
     shardRoot,
     repairManifestPath: repair?.manifestPath || null,
   };
+}
+
+async function convertShardToHashBoundSeed(shard, { tamper = null } = {}) {
+  const identityPath = path.join(shard.shardRoot, 'run-identity.json');
+  const runStatusPath = path.join(shard.shardRoot, 'run-status.json');
+  const identityRaw = await readFile(identityPath);
+  const predecessorIdentity = JSON.parse(identityRaw);
+  const predecessorRunStatusRaw = await readFile(runStatusPath);
+  const predecessorRunStatus = JSON.parse(predecessorRunStatusRaw);
+  const predecessorRunStatusSidecar = await readFile(`${runStatusPath}.sha256`);
+  const successorRunnerScriptSha256 = 'e'.repeat(64);
+  const shardManifestRaw = await readFile(shard.manifestPath);
+  const shardManifest = JSON.parse(shardManifestRaw);
+  const successorWorker = {
+    ...workerConfiguration,
+    vl_rec_max_concurrency: 1,
+    paddlex_cache_home: '/fixture/paddlex-cache-r2',
+  };
+  const successorRecovery = {
+    ...recovery,
+    child_monitoring: {
+      ...recovery.child_monitoring,
+      idle_timeout_seconds: 1200,
+    },
+  };
+  const predecessorDocuments = [];
+  const documentContexts = [];
+
+  for (const document of shardManifest.documents) {
+    const documentRoot = path.join(shard.shardRoot, 'documents', document.id);
+    const statePath = path.join(documentRoot, 'state.json');
+    if (tamper === 'raw_state_configuration'
+      && document.id === shardManifest.documents[0].id) {
+      const reboundState = JSON.parse(await readFile(statePath, 'utf8'));
+      reboundState.configuration.device = `${reboundState.configuration.device} coherent-rebind`;
+      await writeJson(statePath, reboundState);
+    }
+    const stateRaw = await readFile(statePath);
+    const state = JSON.parse(stateRaw);
+    const predecessorConfigurationSha256 = sha256(canonicalJson(state.configuration));
+    const statusPath = path.join(shard.shardRoot, 'status', `${document.id}.json`);
+    const statusRaw = await readFile(statusPath);
+    const statusSidecarRaw = await readFile(`${statusPath}.sha256`);
+    const status = JSON.parse(statusRaw);
+    const predecessorDocumentTree = await inspectTree(documentRoot);
+    const predecessorPagesTree = await inspectTree(path.join(documentRoot, 'pages'));
+    const inheritedPageArtifacts = [];
+    for (const page of state.completed_pages) {
+      const statePage = state.pages[String(page)];
+      const pageTree = await inspectTree(path.join(documentRoot, 'pages', String(page).padStart(4, '0')));
+      inheritedPageArtifacts.push({
+        physical_pdf_page: page,
+        rendered_image_sha256: statePage.rendered_image_sha256,
+        result_json_sha256: statePage.result_json_sha256,
+        content_markdown_sha256: statePage.content_markdown_sha256,
+        page_tree_sha256: pageTree.tree_sha256,
+        page_tree_files: pageTree.files,
+        page_tree_bytes: pageTree.bytes,
+        citation_allowed: false,
+      });
+    }
+    predecessorDocuments.push({
+      document_id: document.id,
+      page_count: document.page_count,
+      predecessor_status: predecessorRunStatus.documents[document.id].status,
+      predecessor_status_format: 'legacy_b1_complete_reverified',
+      inherited_attempts: predecessorRunStatus.documents[document.id].attempts,
+      completed_pages: state.completed_pages,
+      failed_pages: [],
+      predecessor_document_tree: predecessorDocumentTree,
+      predecessor_pages_tree: predecessorPagesTree,
+      predecessor_state_sha256: sha256(stateRaw),
+      predecessor_configuration_sha256: predecessorConfigurationSha256,
+      predecessor_status_sha256: sha256(statusRaw),
+      predecessor_status_sidecar_sha256: sha256(statusSidecarRaw),
+      inherited_page_artifacts: inheritedPageArtifacts,
+      inherited_page_artifacts_sha256: sha256(canonicalJson(inheritedPageArtifacts)),
+    });
+    documentContexts.push({
+      document,
+      documentRoot,
+      statePath,
+      state,
+      stateRaw,
+      statusPath,
+      status,
+      statusRaw,
+      statusSidecarRaw,
+      predecessorConfigurationSha256,
+    });
+  }
+
+  if (tamper === 'duplicate_artifact_page') {
+    const document = predecessorDocuments.find((item) => item.inherited_page_artifacts.length > 1);
+    assert.ok(document, 'tamper fixture requires a multi-page predecessor');
+    document.inherited_page_artifacts[1] = structuredClone(document.inherited_page_artifacts[0]);
+    document.inherited_page_artifacts_sha256 = sha256(canonicalJson(document.inherited_page_artifacts));
+  }
+
+  const manifestSha256 = sha256(shardManifestRaw);
+  const runIdentitySha256 = sha256(identityRaw);
+  const runStatusSha256 = sha256(predecessorRunStatusRaw);
+  const inheritedPages = predecessorDocuments.reduce(
+    (sum, document) => sum + document.completed_pages.length,
+    0,
+  );
+  const pageArtifactsSha256 = sha256(canonicalJson(predecessorDocuments.flatMap(
+    (document) => document.inherited_page_artifacts.map(
+      (page) => ({ document_id: document.document_id, ...page }),
+    ),
+  )));
+  const predecessorEvidenceRoot = path.join(shard.shardRoot, 'seed-predecessor-evidence');
+  const evidenceRawFiles = [
+    ['run-identity.json', identityRaw],
+    ['run-status.json', predecessorRunStatusRaw],
+    ['run-status.json.sha256', predecessorRunStatusSidecar],
+  ];
+  for (const context of documentContexts) {
+    evidenceRawFiles.push(
+      [`documents/${context.document.id}/state.json`, context.stateRaw],
+      [`status/${context.document.id}.json`, context.statusRaw],
+      [`status/${context.document.id}.json.sha256`, context.statusSidecarRaw],
+    );
+  }
+  evidenceRawFiles.sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
+  for (const [relativePath, raw] of evidenceRawFiles) {
+    const pathname = path.join(predecessorEvidenceRoot, relativePath);
+    await mkdir(path.dirname(pathname), { recursive: true });
+    await writeFile(pathname, raw);
+  }
+  const evidenceRecord = (relativePath, raw) => ({
+    path: relativePath,
+    bytes: raw.length,
+    sha256: sha256(raw),
+  });
+  const evidenceDocuments = documentContexts.map((context) => ({
+    document_id: context.document.id,
+    predecessor_status: predecessorRunStatus.documents[context.document.id].status,
+    state: {
+      present: true,
+      ...evidenceRecord(`documents/${context.document.id}/state.json`, context.stateRaw),
+    },
+    status: {
+      present: true,
+      ...evidenceRecord(`status/${context.document.id}.json`, context.statusRaw),
+      sidecar: evidenceRecord(
+        `status/${context.document.id}.json.sha256`,
+        context.statusSidecarRaw,
+      ),
+    },
+  }));
+  const evidenceInventoryWritten = await writeJson(
+    path.join(predecessorEvidenceRoot, 'inventory.json'),
+    {
+      schema_version: 1,
+      evidence_type: 'curriculum_remote_ocr_seed_predecessor_controls',
+      manifest_sha256: manifestSha256,
+      runner_script_sha256: predecessorIdentity.runner_script_sha256,
+      files: evidenceRawFiles.map(([relativePath, raw]) => evidenceRecord(relativePath, raw)),
+      documents: evidenceDocuments,
+      citation_allowed: false,
+    },
+  );
+  const evidenceTree = await inspectTree(predecessorEvidenceRoot);
+  const controlEvidence = {
+    schema_version: 1,
+    directory: 'seed-predecessor-evidence',
+    inventory_sha256: evidenceInventoryWritten.sha256,
+    tree_sha256: evidenceTree.tree_sha256,
+    files: evidenceTree.files,
+    bytes: evidenceTree.bytes,
+  };
+  const predecessorContractWithoutSnapshot = {
+    manifest_sha256: manifestSha256,
+    run_identity_sha256: runIdentitySha256,
+    run_status_sha256: runStatusSha256,
+    run_status_sidecar_sha256: sha256(predecessorRunStatusSidecar),
+    runtime,
+    runtime_fingerprint: runtimeFingerprint,
+    runtime_fingerprint_sha256: runtimeFingerprintSha256,
+    runner_script_sha256: predecessorIdentity.runner_script_sha256,
+    ocr_script_sha256: predecessorIdentity.ocr_script_sha256,
+    worker_configuration: workerConfiguration,
+    worker_configuration_sha256: sha256(canonicalJson(workerConfiguration)),
+    document_recovery: recovery,
+    document_recovery_sha256: sha256(canonicalJson(recovery)),
+    completed_pages: inheritedPages,
+    failed_pages: 0,
+    quarantined_documents: 0,
+    page_artifacts_sha256: pageArtifactsSha256,
+    control_evidence: controlEvidence,
+  };
+  if (tamper === 'predecessor_runtime_fingerprint') {
+    predecessorContractWithoutSnapshot.runtime_fingerprint = {
+      ...predecessorContractWithoutSnapshot.runtime_fingerprint,
+      runtime_device: `${runtimeDevice} drift`,
+    };
+    predecessorContractWithoutSnapshot.runtime_fingerprint_sha256 = sha256(
+      `${JSON.stringify(predecessorContractWithoutSnapshot.runtime_fingerprint)}\n`,
+    );
+  }
+  const predecessorSnapshot = {
+    manifest_sha256: predecessorContractWithoutSnapshot.manifest_sha256,
+    run_identity_sha256: predecessorContractWithoutSnapshot.run_identity_sha256,
+    run_status_sha256: predecessorContractWithoutSnapshot.run_status_sha256,
+    run_status_sidecar_sha256: predecessorContractWithoutSnapshot.run_status_sidecar_sha256,
+    runtime_fingerprint_sha256: predecessorContractWithoutSnapshot.runtime_fingerprint_sha256,
+    worker_configuration_sha256: predecessorContractWithoutSnapshot.worker_configuration_sha256,
+    document_recovery_sha256: predecessorContractWithoutSnapshot.document_recovery_sha256,
+    completed_pages: predecessorContractWithoutSnapshot.completed_pages,
+    failed_pages: predecessorContractWithoutSnapshot.failed_pages,
+    quarantined_documents: predecessorContractWithoutSnapshot.quarantined_documents,
+    page_artifacts_sha256: predecessorContractWithoutSnapshot.page_artifacts_sha256,
+    documents: predecessorDocuments,
+  };
+  const predecessorContract = {
+    ...predecessorContractWithoutSnapshot,
+    snapshot_sha256: sha256(canonicalJson(predecessorSnapshot)),
+  };
+  const successorContract = {
+    runtime,
+    runtime_fingerprint: runtimeFingerprint,
+    runtime_fingerprint_sha256: runtimeFingerprintSha256,
+    worker_configuration: successorWorker,
+    worker_configuration_sha256: sha256(canonicalJson(successorWorker)),
+    document_recovery: successorRecovery,
+    document_recovery_sha256: sha256(canonicalJson(successorRecovery)),
+    runner_script_sha256: successorRunnerScriptSha256,
+    ocr_script_sha256: predecessorIdentity.ocr_script_sha256,
+    citation_allowed: false,
+  };
+  const allowedConfigurationDelta = {
+    schema_version: 1,
+    vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
+    paddlex_cache_home: {
+      predecessor: workerConfiguration.paddlex_cache_home,
+      successor: successorWorker.paddlex_cache_home,
+      tree_sha256: layoutCache.tree_sha256,
+    },
+    child_idle_timeout_seconds: { predecessor: 300, successor: 1200 },
+  };
+  const seedBasis = {
+    schema_version: 1,
+    mode: 'hash_bound_output_seed',
+    manifest_sha256: manifestSha256,
+    predecessor: predecessorContract,
+    successor_contract: successorContract,
+    allowed_configuration_delta: allowedConfigurationDelta,
+    documents: predecessorDocuments,
+    citation_allowed: false,
+  };
+  const seedId = sha256(canonicalJson(seedBasis));
+  const successorStatuses = new Map();
+  const receiptDocuments = [];
+
+  for (const context of documentContexts) {
+    const {
+      document,
+      documentRoot,
+      statePath,
+      state,
+      statusPath,
+      status,
+      statusRaw,
+      predecessorConfigurationSha256,
+    } = context;
+    state.configuration = {
+      ...state.configuration,
+      vl_rec_max_concurrency: 1,
+    };
+    state.configuration_scope = 'active_writer_with_hash_bound_seed_exceptions';
+    state.seed_lineage = {
+      schema_version: 1,
+      mode: 'hash_bound_output_seed',
+      seed_id: seedId,
+      predecessor_run_identity_sha256: runIdentitySha256,
+      predecessor_configuration_sha256: predecessorConfigurationSha256,
+      inherited_completed_pages: state.completed_pages,
+      citation_allowed: false,
+    };
+    for (const page of state.completed_pages) {
+      state.pages[String(page)].seed_provenance = {
+        seed_id: seedId,
+        predecessor_run_identity_sha256: runIdentitySha256,
+        predecessor_configuration_sha256: predecessorConfigurationSha256,
+      };
+    }
+    const successorStateWritten = await writeJson(statePath, state);
+    const pageArtifacts = state.completed_pages.map((page) => ({
+      page_number: page,
+      rendered_image_sha256: state.pages[String(page)].rendered_image_sha256,
+      result_json_sha256: state.pages[String(page)].result_json_sha256,
+      content_markdown_sha256: state.pages[String(page)].content_markdown_sha256,
+      citation_eligible: false,
+    }));
+    status.runtime_fingerprint_sha256 = runtimeFingerprintSha256;
+    status.seed_lineage = {
+      schema_version: 1,
+      seed_id: seedId,
+      predecessor_status_sha256: sha256(statusRaw),
+      inherited_attempts: predecessorRunStatus.documents[document.id].attempts,
+      citation_allowed: false,
+    };
+    status.artifacts = {
+      state_sha256: successorStateWritten.sha256,
+      page_artifacts_sha256: sha256(`${JSON.stringify(pageArtifacts)}\n`),
+      page_artifacts: pageArtifacts,
+    };
+    const successorStatusWritten = await writeJson(statusPath, status);
+    await writeSidecar(statusPath, successorStatusWritten.sha256);
+    successorStatuses.set(document.id, successorStatusWritten.sha256);
+    const predecessorDocument = predecessorDocuments.find(
+      (value) => value.document_id === document.id,
+    );
+    receiptDocuments.push({
+      ...predecessorDocument,
+      successor_document_tree: await inspectTree(documentRoot),
+      successor_state_sha256: successorStateWritten.sha256,
+      successor_status_sha256: successorStatusWritten.sha256,
+    });
+  }
+
+  const successorRunStatus = structuredClone(predecessorRunStatus);
+  successorRunStatus.document_recovery = successorRecovery;
+  successorRunStatus.seed_lineage = {
+    schema_version: 1,
+    mode: 'hash_bound_output_seed',
+    seed_id: seedId,
+    predecessor_run_identity_sha256: runIdentitySha256,
+    predecessor_run_status_sha256: runStatusSha256,
+    citation_allowed: false,
+  };
+  for (const document of shardManifest.documents) {
+    const progress = successorRunStatus.documents[document.id];
+    progress.predecessor_status = progress.status;
+    progress.inherited_attempts = progress.attempts;
+    progress.seed_id = seedId;
+    progress.status_json_sha256 = successorStatuses.get(document.id);
+  }
+  const successorRunStatusWritten = await writeJson(runStatusPath, successorRunStatus);
+  await writeSidecar(runStatusPath, successorRunStatusWritten.sha256);
+  const receipt = {
+    schema_version: 1,
+    receipt_type: 'curriculum_remote_ocr_hash_bound_output_seed',
+    status: 'prepared_commit_marker_required',
+    seed_id: seedId,
+    seed_basis_sha256: seedId,
+    manifest_sha256: manifestSha256,
+    predecessor: predecessorContract,
+    successor: {
+      ...successorContract,
+      initial_run_status_sha256: successorRunStatusWritten.sha256,
+    },
+    allowed_configuration_delta: allowedConfigurationDelta,
+    counts: {
+      documents: shardManifest.documents.length,
+      inherited_documents: receiptDocuments.filter(
+        (document) => document.completed_pages.length > 0,
+      ).length + (tamper === 'inherited_document_count' ? 1 : 0),
+      inherited_pages: inheritedPages,
+      failed_pages: 0,
+      quarantined_documents: 0,
+    },
+    documents: receiptDocuments,
+    citation_allowed: false,
+  };
+  const receiptPath = path.join(shard.shardRoot, 'seed-receipt.json');
+  const receiptWritten = await writeJson(receiptPath, receipt);
+  await writeSidecar(receiptPath, receiptWritten.sha256);
+  const successorIdentity = {
+    ...predecessorIdentity,
+    runner_script_sha256: successorRunnerScriptSha256,
+    worker_configuration: successorWorker,
+    document_recovery: successorRecovery,
+    seed_lineage: {
+      schema_version: 1,
+      mode: 'hash_bound_output_seed',
+      seed_id: seedId,
+      seed_receipt_sha256: receiptWritten.sha256,
+      predecessor_run_identity_sha256: runIdentitySha256,
+      predecessor_run_status_sha256: runStatusSha256,
+      predecessor_snapshot_sha256: predecessorContract.snapshot_sha256,
+      inherited_pages: inheritedPages,
+      citation_allowed: false,
+    },
+  };
+  const successorIdentityWritten = await writeJson(identityPath, successorIdentity);
+  const installedItemSpecifications = [
+    { name: 'documents', type: 'directory' },
+    { name: 'status', type: 'directory' },
+    { name: 'seed-predecessor-evidence', type: 'directory' },
+    { name: 'seed-receipt.json', type: 'file' },
+    { name: 'seed-receipt.json.sha256', type: 'file' },
+    { name: 'run-identity.json', type: 'file' },
+    { name: 'run-status.json', type: 'file' },
+    { name: 'run-status.json.sha256', type: 'file' },
+  ];
+  const installedItems = [];
+  for (const specification of installedItemSpecifications) {
+    const pathname = path.join(shard.shardRoot, specification.name);
+    const fingerprint = specification.type === 'directory'
+      ? await inspectTree(pathname)
+      : await readFile(pathname).then((raw) => ({ sha256: sha256(raw), bytes: raw.length }));
+    installedItems.push({ ...specification, fingerprint });
+  }
+  if (tamper === 'initial_run_status_inventory') {
+    installedItems.find((item) => item.name === 'run-status.json').fingerprint.sha256 = '0'.repeat(64);
+  }
+  const markerPath = path.join(shard.shardRoot, 'seed-commit.json');
+  const markerWritten = await writeJson(markerPath, {
+    schema_version: 1,
+    marker_type: 'curriculum_remote_ocr_hash_bound_seed_commit',
+    seed_id: seedId,
+    seed_receipt_sha256: receiptWritten.sha256,
+    run_identity_sha256: successorIdentityWritten.sha256,
+    initial_run_status_sha256: successorRunStatusWritten.sha256,
+    installed_items: installedItems,
+    installed_items_sha256: sha256(canonicalJson(installedItems)),
+    citation_allowed: false,
+  });
+  await writeSidecar(markerPath, markerWritten.sha256);
+  return { seedId, receiptPath, markerPath, predecessorEvidenceRoot };
 }
 
 async function createLocalPartialSnapshot({
@@ -802,6 +1230,111 @@ test('dry-run validates the exact shard union without writing destination or rec
   const docA = result.documents.find((item) => item.document_id === 'doc-a');
   assert.equal(docA.joined_text_sha256, sha256('alpha page one\n\f'));
   assert.equal(docA.previous_text_sha256, sha256('existing placeholder\n'));
+});
+
+test('receiver independently verifies seeded lineage, attempt floors, and archives exact receipt evidence', async (t) => {
+  await t.test('valid seeded shard is fingerprinted and archived on apply', async (t) => {
+    const value = await fixture(t);
+    const seed = await convertShardToHashBoundSeed(value.shardA);
+    const dryRun = await receiveRemoteOcrOffload(value.options, value.dependencies);
+    const seededShard = dryRun.source_shards.find((shard) => shard.seed_id);
+    assert.equal(seededShard.seed_id, seed.seedId);
+    assert.match(seededShard.seed_receipt_sha256, /^[a-f0-9]{64}$/);
+    assert.match(seededShard.seed_commit_marker_sha256, /^[a-f0-9]{64}$/);
+    const applied = await receiveRemoteOcrOffload({ ...value.options, apply: true }, value.dependencies);
+    const archived = applied.source_evidence.shards[0].seed_lineage;
+    assert.equal(await pathExists(archived.receipt.path), true);
+    assert.equal(await pathExists(`${archived.receipt.path}.sha256`), true);
+    assert.equal(await pathExists(archived.commit_marker.path), true);
+    assert.equal(await pathExists(`${archived.commit_marker.path}.sha256`), true);
+    assert.equal(await readFile(archived.receipt.path).then(sha256), archived.receipt.sha256);
+    assert.equal(await pathExists(archived.predecessor_controls.path), true);
+    const [sourceControls, archivedControls] = await Promise.all([
+      inspectTree(seed.predecessorEvidenceRoot),
+      inspectTree(archived.predecessor_controls.path),
+    ]);
+    assert.deepEqual(archivedControls, sourceControls);
+    assert.equal(archived.predecessor_controls.tree_sha256, sourceControls.tree_sha256);
+    assert.equal(
+      await readFile(path.join(archived.predecessor_controls.path, 'inventory.json')).then(sha256),
+      archived.predecessor_controls.inventory_sha256,
+    );
+  });
+
+  for (const [mutation, pattern] of [
+    ['missing', /seed predecessor evidence tree differs from the receipt contract/],
+    ['extra', /seed predecessor evidence tree differs from the receipt contract/],
+    ['symlink', /symbolic link/],
+    ['tamper', /seed predecessor evidence tree differs from the receipt contract/],
+  ]) {
+    await t.test(`raw predecessor evidence ${mutation} is rejected before local writes`, async (t) => {
+      const value = await fixture(t);
+      const seed = await convertShardToHashBoundSeed(value.shardA);
+      const statusSidecar = path.join(seed.predecessorEvidenceRoot, 'run-status.json.sha256');
+      if (mutation === 'missing') {
+        await rm(statusSidecar);
+      } else if (mutation === 'extra') {
+        await writeFile(path.join(seed.predecessorEvidenceRoot, 'unexpected.txt'), 'unexpected\n');
+      } else if (mutation === 'symlink') {
+        await rm(statusSidecar);
+        await symlink('run-identity.json', statusSidecar);
+      } else {
+        const raw = await readFile(statusSidecar);
+        await writeFile(statusSidecar, Buffer.concat([raw, Buffer.from('tamper\n')]));
+      }
+      await assert.rejects(
+        receiveRemoteOcrOffload(value.options, value.dependencies),
+        pattern,
+      );
+      assert.equal(await pathExists(value.receiptRoot), false);
+    });
+  }
+
+  await t.test('attempt reset below inherited floor is rejected even with a valid status sidecar', async (t) => {
+    const value = await fixture(t);
+    await convertShardToHashBoundSeed(value.shardA);
+    const runStatusPath = path.join(value.shardA.shardRoot, 'run-status.json');
+    const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+    runStatus.documents['doc-a'].attempts = 0;
+    const written = await writeJson(runStatusPath, runStatus);
+    await writeSidecar(runStatusPath, written.sha256);
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /attempt floor/,
+    );
+  });
+
+  await t.test('inherited page tag drift is rejected before local writes', async (t) => {
+    const value = await fixture(t);
+    await convertShardToHashBoundSeed(value.shardA);
+    const statePath = path.join(value.shardA.shardRoot, 'documents/doc-a/state.json');
+    const state = JSON.parse(await readFile(statePath, 'utf8'));
+    state.pages['1'].seed_provenance.seed_id = '2'.repeat(64);
+    await writeJson(statePath, state);
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /seed provenance mismatch|seed artifact identity changed/,
+    );
+    assert.equal(await pathExists(value.receiptRoot), false);
+  });
+
+  for (const [tamper, pattern] of [
+    ['predecessor_runtime_fingerprint', /predecessor or successor contract differs/],
+    ['duplicate_artifact_page', /artifact sequence differs from completed_pages/],
+    ['inherited_document_count', /counts or fail-closed gates are invalid/],
+    ['initial_run_status_inventory', /run-status\.json is not cross-bound/],
+    ['raw_state_configuration', /raw predecessor state identity or page set is invalid/],
+  ]) {
+    await t.test(`coherently rebound ${tamper} tamper is independently rejected`, async (t) => {
+      const value = await fixture(t);
+      await convertShardToHashBoundSeed(value.shardA, { tamper });
+      await assert.rejects(
+        receiveRemoteOcrOffload(value.options, value.dependencies),
+        pattern,
+      );
+      assert.equal(await pathExists(value.receiptRoot), false);
+    });
+  }
 });
 
 test('receiver resolves destination roots and rejects a symlink escape before validation or writes', async (t) => {

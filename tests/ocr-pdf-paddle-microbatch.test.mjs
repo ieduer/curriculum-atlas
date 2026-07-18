@@ -18,12 +18,15 @@ test('queued micro-batching is explicit, bounded, deterministic, and path-mapped
   assert.match(source, /predict_pages_individually\(pipeline, page_images\)/);
 });
 
-test('runtime provenance defaults locally and rejects mixed-device continuation', () => {
+test('runtime provenance is complete and immutable before any resumed state write', () => {
   assert.match(source, /DEFAULT_RUNTIME_DEVICE = "cpu\+Metal llama\.cpp"/);
   assert.match(source, /parser\.add_argument\("--runtime-device", default=DEFAULT_RUNTIME_DEVICE/);
-  assert.match(source, /ensure_runtime_device\(configuration, runtime_device\)/);
-  assert.match(source, /refusing to mix OCR runs/);
-  assert.match(source, /"device": runtime_device/);
+  assert.match(source, /def expected_configuration\(/);
+  assert.match(source, /state\.get\("configuration"\) != configuration/);
+  assert.match(source, /complete active writer contract/);
+  assert.doesNotMatch(source, /configuration\["vl_rec_max_concurrency"\] = args\.vl_rec_max_concurrency/);
+  assert.match(source, /--force-reprocess is forbidden for hash-bound seeded OCR runs/);
+  assert.match(source, /New OCR page \{page\} must not carry seed provenance/);
 });
 
 test('per-page evidence and publication gates remain intact', () => {

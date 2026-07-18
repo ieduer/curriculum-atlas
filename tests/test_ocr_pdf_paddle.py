@@ -40,6 +40,89 @@ class OcrPdfPaddleHelpersTest(unittest.TestCase):
         configuration = {}
         MODULE.ensure_runtime_device(configuration, "Kali CUDA llama.cpp")
         self.assertEqual(configuration["device"], "Kali CUDA llama.cpp")
+
+    def test_seeded_state_requires_exact_configuration_attempt_identity_and_new_pages_without_tags(self):
+        configuration = MODULE.expected_configuration(
+            llama_url="http://127.0.0.1:8112/v1",
+            dpi=240,
+            runtime_device="Kali CUDA llama.cpp",
+            vl_rec_max_concurrency=1,
+            server_parallel=4,
+            micro_batch=16,
+            use_queues=True,
+            paddle_version="3.3.1",
+            paddleocr_version="3.7.0",
+            paddlex_version="3.7.2",
+        )
+        seed_identity = {
+            "seed_id": "1" * 64,
+            "predecessor_run_identity_sha256": "2" * 64,
+            "predecessor_configuration_sha256": "3" * 64,
+        }
+        tag = dict(seed_identity)
+        state = {
+            "schema_version": 1,
+            "document_id": "doc",
+            "source_sha256": "4" * 64,
+            "page_count": 2,
+            "configuration": configuration,
+            "configuration_scope": MODULE.SEED_CONFIGURATION_SCOPE,
+            "seed_lineage": {
+                "schema_version": 1,
+                "mode": MODULE.SEED_MODE,
+                **seed_identity,
+                "inherited_completed_pages": [1],
+                "citation_allowed": False,
+            },
+            "completed_pages": [1, 2],
+            "failed_pages": {},
+            "pages": {
+                "1": {"seed_provenance": tag},
+                "2": {"status": "ocr_complete_pending_audit"},
+            },
+        }
+        MODULE.validate_existing_state(
+            state,
+            document_id="doc",
+            source_sha256="4" * 64,
+            page_count=2,
+            configuration=configuration,
+            seed_identity=seed_identity,
+            force_reprocess=False,
+        )
+        with self.assertRaisesRegex(RuntimeError, "force-reprocess is forbidden"):
+            MODULE.validate_existing_state(
+                state,
+                document_id="doc",
+                source_sha256="4" * 64,
+                page_count=2,
+                configuration=configuration,
+                seed_identity=seed_identity,
+                force_reprocess=True,
+            )
+        changed_configuration = dict(configuration)
+        changed_configuration["vl_rec_max_concurrency"] = 4
+        with self.assertRaisesRegex(RuntimeError, "complete active writer contract"):
+            MODULE.validate_existing_state(
+                state,
+                document_id="doc",
+                source_sha256="4" * 64,
+                page_count=2,
+                configuration=changed_configuration,
+                seed_identity=seed_identity,
+                force_reprocess=False,
+            )
+        state["pages"]["2"]["seed_provenance"] = tag
+        with self.assertRaisesRegex(RuntimeError, "New OCR page 2"):
+            MODULE.validate_existing_state(
+                state,
+                document_id="doc",
+                source_sha256="4" * 64,
+                page_count=2,
+                configuration=configuration,
+                seed_identity=seed_identity,
+                force_reprocess=False,
+            )
         MODULE.ensure_runtime_device(configuration, "Kali CUDA llama.cpp")
         with self.assertRaisesRegex(RuntimeError, "refusing to mix OCR runs"):
             MODULE.ensure_runtime_device(configuration, "cpu+Metal llama.cpp")
@@ -217,8 +300,21 @@ class OcrPdfPaddleHelpersTest(unittest.TestCase):
                 json.dumps(
                     {
                         "schema_version": 1,
+                        "document_id": "doc",
                         "source_sha256": MODULE.sha256(input_pdf),
-                        "configuration": {"device": MODULE.DEFAULT_RUNTIME_DEVICE},
+                        "page_count": 32,
+                        "configuration": MODULE.expected_configuration(
+                            llama_url="http://127.0.0.1:8112/v1",
+                            dpi=240,
+                            runtime_device=MODULE.DEFAULT_RUNTIME_DEVICE,
+                            vl_rec_max_concurrency=1,
+                            server_parallel=1,
+                            micro_batch=16,
+                            use_queues=True,
+                            paddle_version="test",
+                            paddleocr_version="test",
+                            paddlex_version="test",
+                        ),
                         "completed_pages": [],
                         "failed_pages": {"8": {"error": "prior PEG-native 500"}},
                         "pages": {},
@@ -333,8 +429,21 @@ class OcrPdfPaddleHelpersTest(unittest.TestCase):
                 json.dumps(
                     {
                         "schema_version": 1,
+                        "document_id": "doc",
                         "source_sha256": MODULE.sha256(input_pdf),
-                        "configuration": {},
+                        "page_count": 1,
+                        "configuration": MODULE.expected_configuration(
+                            llama_url="http://127.0.0.1:8112/v1",
+                            dpi=240,
+                            runtime_device=MODULE.DEFAULT_RUNTIME_DEVICE,
+                            vl_rec_max_concurrency=1,
+                            server_parallel=1,
+                            micro_batch=1,
+                            use_queues=False,
+                            paddle_version="test",
+                            paddleocr_version="test",
+                            paddlex_version="test",
+                        ),
                         "completed_pages": [1],
                         "failed_pages": {},
                         "pages": {"1": {"status": "ocr_complete_pending_audit"}},
@@ -349,7 +458,7 @@ class OcrPdfPaddleHelpersTest(unittest.TestCase):
             def fail_completion_write(path, value):
                 nonlocal state_writes
                 state_writes += 1
-                if state_writes == 3:
+                if state_writes == 2:
                     raise OSError("injected state commit failure")
                 real_atomic_json(path, value)
 
