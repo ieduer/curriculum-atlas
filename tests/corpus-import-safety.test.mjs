@@ -626,6 +626,54 @@ test('remote importer treats an exact ready release as a metadata-preserving no-
   }
 });
 
+test('ready-state preflight failure releases its acquired owner and fixed snapshots', async () => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'corpus-import-ready-check-failure-fixture-'));
+  const chunkDirectory = join(fixtureRoot, 'data', 'corpus-chunks');
+  let snapshotRoot = null;
+  try {
+    await mkdir(chunkDirectory, { recursive: true });
+    const sqlBytes = Buffer.from('SELECT 1;\n');
+    const sealed = manifest({
+      sql_files: [{
+        name: '000-core.sql',
+        sha256: createHash('sha256').update(sqlBytes).digest('hex'),
+        bytes: sqlBytes.length,
+      }],
+    });
+    await writeFile(join(chunkDirectory, '000-core.sql'), sqlBytes);
+    await writeFile(join(chunkDirectory, 'manifest.json'), `${JSON.stringify(sealed, null, 2)}\n`);
+    const calls = [];
+    await assert.rejects(runCorpusImport({
+      root: fixtureRoot,
+      database: 'fixture',
+      environment: 'preview',
+      remote: true,
+      runCommand: (_root, _database, _environment, args) => {
+        calls.push(args);
+        return { status: 0 };
+      },
+      ownerToken: ['fixture', 'corpus', 'owner', 'preflight'].join('-'),
+      timeTravelCollector: () => prechange(),
+      ownerAcquirer: () => 8,
+      corpusSnapshotFactory: async (options) => {
+        const snapshot = await minimalCorpusSnapshotFactory(options);
+        snapshotRoot = snapshot.root;
+        return snapshot;
+      },
+      pageEvidenceValidator: () => ({ valid: true, publishable: false }),
+      sourceBindingValidator: async () => sealed,
+      desiredReleaseArtifactLoader: fixedDesiredReleaseLoader,
+      desiredCorpusBindingValidator: () => true,
+      readyReleaseChecker: () => { throw new Error('injected ready-state preflight failure'); },
+    }), /injected ready-state preflight failure/);
+    assert.ok(calls.some((args) => args[0] === '--command'
+      && /UPDATE corpus_import_ownership SET expires_unix/.test(args[1])));
+    assert.equal(existsSync(snapshotRoot), false, 'failed ready preflight corpus snapshot must be removed');
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
 test('empty chunk selection releases the acquired owner and removes the corpus snapshot', async () => {
   const fixtureRoot = await mkdtemp(join(tmpdir(), 'corpus-import-empty-selection-fixture-'));
   const chunkDirectory = join(fixtureRoot, 'data', 'corpus-chunks');

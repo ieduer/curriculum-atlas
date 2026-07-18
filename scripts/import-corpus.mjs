@@ -1395,13 +1395,23 @@ export async function runCorpusImport({
       return new Error(message, { cause: error });
     }
   };
-  const alreadyReady = readyReleaseChecker({
-    root: rootUrl,
-    database,
-    environment,
-    manifest,
-    runCommand,
-  });
+  let alreadyReady;
+  try {
+    alreadyReady = readyReleaseChecker({
+      root: rootUrl,
+      database,
+      environment,
+      manifest,
+      runCommand,
+    });
+  } catch (error) {
+    const releaseError = releaseOwnerSafely('corpus import owner release failed after ready-state preflight');
+    await Promise.allSettled([corpusSnapshot.cleanup(), desiredRelease.snapshot.cleanup()]);
+    if (releaseError) {
+      throw new AggregateError([error, releaseError], 'corpus ready-state preflight and owner release both failed');
+    }
+    throw error;
+  }
   if (alreadyReady) {
     const releaseError = releaseOwnerSafely('corpus import owner release failed after exact ready no-op');
     await Promise.allSettled([corpusSnapshot.cleanup(), desiredRelease.snapshot.cleanup()]);
