@@ -27,6 +27,8 @@ import {
 import {
   fingerprintPaddlexLayoutModelCache,
   validateCompleteProgressContract,
+  validateRunIdentitySeedLineageContract,
+  validateRunStatusSeedLineageContract,
 } from './run-remote-ocr-offload.mjs';
 
 const execFile = promisify(execFileCallback);
@@ -2875,17 +2877,26 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
     throw new Error('B2 run identity contract is invalid');
   }
   const lineage = requireObject(identity.seed_lineage, 'B2 run identity seed lineage');
-  if (lineage.schema_version !== 1
-    || lineage.mode !== seedMode
-    || lineage.seed_id !== seedId
-    || lineage.seed_receipt_sha256 !== receiptRecord.sha256
-    || lineage.predecessor_run_identity_sha256 !== predecessor.anchors.identity_sha256
-    || lineage.predecessor_run_status_sha256 !== predecessor.anchors.run_status_sha256
-    || lineage.predecessor_snapshot_sha256 !== predecessor.snapshot_sha256
-    || lineage.inherited_pages !== receipt.counts?.inherited_pages
-    || lineage.citation_allowed !== false) {
-    throw new Error('B2 run identity is not bound to the exact seed receipt and B1');
-  }
+  const lineageTimeoutRecovery = receipt.timeout_recovery_grant ? {
+    grantId: receipt.timeout_recovery_grant.grant_id,
+    grantSha256: receipt.timeout_recovery_grant.raw_sha256,
+    ledgerId: receipt.timeout_recovery_consumption?.ledger_id,
+    claimSha256: receipt.timeout_recovery_consumption?.claim_sha256,
+    issuanceClaimKey: receipt.timeout_recovery_issuance?.claim_key,
+    issuanceSha256: receipt.timeout_recovery_issuance?.raw_sha256,
+    documentIds: (receipt.timeout_recovery_grant.documents || []).map(
+      (document) => document.document_id,
+    ),
+  } : null;
+  validateRunIdentitySeedLineageContract(lineage, {
+    seedId,
+    seedReceiptSha256: receiptRecord.sha256,
+    predecessorRunIdentitySha256: predecessor.anchors.identity_sha256,
+    predecessorRunStatusSha256: predecessor.anchors.run_status_sha256,
+    predecessorSnapshotSha256: predecessor.snapshot_sha256,
+    inheritedPages: receipt.counts?.inherited_pages,
+    timeoutRecovery: lineageTimeoutRecovery,
+  }, 'B2 run identity seed lineage');
   if (!sameJson(successorContract.runtime, identity.runtime)
     || !sameJson(successorContract.runtime_fingerprint, identity.runtime_fingerprint)
     || successorContract.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
@@ -2952,27 +2963,13 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
     throw new Error('B2 run status differs from its run identity');
   }
   const runLineage = requireObject(runStatus.seed_lineage, 'B2 run status seed lineage');
-  if (runLineage.schema_version !== 1
-    || runLineage.mode !== seedMode
-    || runLineage.seed_id !== seedId
-    || runLineage.predecessor_run_identity_sha256 !== predecessor.anchors.identity_sha256
-    || runLineage.predecessor_run_status_sha256 !== predecessor.anchors.run_status_sha256
-    || runLineage.citation_allowed !== false) {
-    throw new Error('B2 run status seed lineage differs from identity');
-  }
-  if (timeoutRecoveryEvidence) {
-    if (runLineage.timeout_recovery_grant_id !== lineage.timeout_recovery_grant_id
-      || runLineage.timeout_recovery_grant_sha256 !== lineage.timeout_recovery_grant_sha256
-      || !sameJson(runLineage.timeout_recovery_documents, lineage.timeout_recovery_documents)
-      || runLineage.timeout_recovery_ledger_id !== lineage.timeout_recovery_ledger_id
-      || runLineage.timeout_recovery_claim_sha256 !== lineage.timeout_recovery_claim_sha256
-      || runLineage.timeout_recovery_issuance_claim_key
-        !== lineage.timeout_recovery_issuance_claim_key
-      || runLineage.timeout_recovery_issuance_sha256
-        !== lineage.timeout_recovery_issuance_sha256) {
-      throw new Error('B2 run status timeout recovery lineage differs from identity');
-    }
-  } else {
+  validateRunStatusSeedLineageContract(runLineage, {
+    seedId,
+    predecessorRunIdentitySha256: predecessor.anchors.identity_sha256,
+    predecessorRunStatusSha256: predecessor.anchors.run_status_sha256,
+    timeoutRecovery: lineageTimeoutRecovery,
+  }, 'B2 run status seed lineage');
+  if (!timeoutRecoveryEvidence) {
     const strayRecoveryLineage = [identity, runStatus, lineage, runLineage]
       .some(containsTimeoutRecoveryKey);
     if (strayRecoveryLineage) throw new Error('B2 no-grant seed contains timeout recovery lineage');

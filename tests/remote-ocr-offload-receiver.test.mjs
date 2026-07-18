@@ -2922,6 +2922,33 @@ test('receiver rejects noncanonical legacy predecessor completion timestamps', a
   );
 });
 
+test('receiver rejects a legacy successor verified before its predecessor', async (t) => {
+  const value = await fixture(t);
+  await convertShardToHashBoundSeed(value.shardA, { transition: seedAwareTransition });
+  await convertShardToHashBoundSeed(value.shardB, { transition: seedAwareTransition });
+
+  const statusPath = path.join(value.shardA.shardRoot, 'status', 'doc-a.json');
+  const status = JSON.parse(await readFile(statusPath, 'utf8'));
+  status.attempt = 1;
+  status.max_attempts = 5;
+  status.verified_at = '2026-07-16T00:29:00.000Z';
+  delete status.seed_lineage;
+  const statusWritten = await writeJson(statusPath, status);
+  await writeSidecar(statusPath, statusWritten.sha256);
+
+  const runStatusPath = path.join(value.shardA.shardRoot, 'run-status.json');
+  const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+  runStatus.documents['doc-a'].verified_at = status.verified_at;
+  runStatus.documents['doc-a'].status_json_sha256 = statusWritten.sha256;
+  const runStatusWritten = await writeJson(runStatusPath, runStatus);
+  await writeSidecar(runStatusPath, runStatusWritten.sha256);
+
+  await assert.rejects(
+    receiveRemoteOcrOffload(value.options, value.dependencies),
+    /verified_at.*predecessor|predecessor.*verified_at|timestamp.*predecessor/u,
+  );
+});
+
 test('receiver rejects completed_at before started_at', async (t) => {
   const value = await fixture(t);
   const completedAt = '2026-07-16T00:20:00.000Z';

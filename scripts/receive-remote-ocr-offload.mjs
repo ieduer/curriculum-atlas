@@ -26,6 +26,8 @@ import {
   validateCompleteTimestampOrder,
   validateOcrDocumentOutput,
   validateRemoteOcrManifest,
+  validateRunIdentitySeedLineageContract,
+  validateRunStatusSeedLineageContract,
 } from './run-remote-ocr-offload.mjs';
 import { validateRepairManifest as validateRemoteRepairManifest } from './apply-remote-ocr-repair.mjs';
 import {
@@ -69,7 +71,7 @@ const legacyB1OcrScriptSha256 = 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53
 const seedAwareOcrScriptSha256 = '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3';
 const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca';
 const fixedB3RunnerScriptSha256 = '58a1e3826aca807bf62f4546f237597c305334ba1b0a56a8f47cacfaa5cfeaa7';
-const a1CompletedStatusRunnerScriptSha256 = 'c562ee6363cfac390454700be92dc7a38b4c08946520d0e7b4991c792c23b34c';
+const a1CompletedStatusRunnerScriptSha256 = '5fef39bc67a0114f71b44f47cadc23391ecd02b9c3054847ee47621fa1b1760c';
 const directedRunnerCompatibilityType = 'curriculum_remote_ocr_directed_runner_compatibility';
 const directedRunnerCompatibilityTransition = 'a1_completed_status_to_fixed_b3_union_v1';
 const paddleMarkdownAssetPattern = /^img_in_(header_image_box|image_box|footer_image_box|chart_box)_(\d+)_(\d+)_(\d+)_(\d+)\.jpg$/u;
@@ -2813,6 +2815,23 @@ async function loadSeedEvidence(shardRoot, identity, identitySha256, shardManife
   }
   const predecessor = requireObject(receipt.predecessor, 'seed receipt predecessor');
   const successor = requireObject(receipt.successor, 'seed receipt successor');
+  validateRunIdentitySeedLineageContract(lineage, {
+    seedId: receipt.seed_id,
+    seedReceiptSha256: receiptSha256,
+    predecessorRunIdentitySha256: predecessor.run_identity_sha256,
+    predecessorRunStatusSha256: predecessor.run_status_sha256,
+    predecessorSnapshotSha256: predecessor.snapshot_sha256,
+    inheritedPages: receipt.counts?.inherited_pages,
+    timeoutRecovery: timeoutRecovery ? {
+      grantId: timeoutRecovery.grant.grant_id,
+      grantSha256: timeoutRecovery.rawSha256,
+      ledgerId: timeoutRecoveryConsumption.ledger.ledger_id,
+      claimSha256: timeoutRecoveryConsumption.claimSha256,
+      issuanceClaimKey: timeoutRecoveryIssuance.claim.claim_key,
+      issuanceSha256: timeoutRecoveryIssuance.rawSha256,
+      documentIds: timeoutRecovery.grant.documents.map((document) => document.document_id),
+    } : null,
+  });
   const predecessorRuntimeContractValid = p4ToP1
     ? predecessor.runtime_fingerprint_sha256
       === sha256(`${JSON.stringify(predecessor.runtime_fingerprint)}\n`)
@@ -3055,35 +3074,25 @@ function validateRunStatus(runStatus, identity, shardManifest, seed = null) {
   }
   if (runStatus.citation_allowed !== false) throw new Error('run status citation_allowed must equal false');
   if (seed) {
-    if (runStatus.seed_lineage?.seed_id !== seed.receipt.seed_id
-      || runStatus.seed_lineage?.predecessor_run_identity_sha256
-        !== seed.receipt.predecessor.run_identity_sha256) {
-      throw new Error('run status seed lineage differs from the verified seed receipt');
-    }
-    const recoveryIds = seed.timeoutRecovery?.grant.documents.map((document) => document.document_id);
-    if (seed.timeoutRecovery) {
-      if (runStatus.seed_lineage.timeout_recovery_grant_id !== seed.timeoutRecovery.grant.grant_id
-        || runStatus.seed_lineage.timeout_recovery_grant_sha256 !== seed.timeoutRecovery.rawSha256
-        || runStatus.seed_lineage.timeout_recovery_ledger_id
-          !== seed.timeoutRecoveryConsumption.ledger.ledger_id
-        || runStatus.seed_lineage.timeout_recovery_claim_sha256
-          !== seed.timeoutRecoveryConsumption.claimSha256
-        || runStatus.seed_lineage.timeout_recovery_issuance_claim_key
-          !== seed.timeoutRecoveryIssuance.claim.claim_key
-        || runStatus.seed_lineage.timeout_recovery_issuance_sha256
-          !== seed.timeoutRecoveryIssuance.rawSha256
-        || !sameJson(runStatus.seed_lineage.timeout_recovery_documents, recoveryIds)) {
-        throw new Error('run status timeout recovery lineage differs from the verified grant');
-      }
-    } else if (runStatus.seed_lineage.timeout_recovery_grant_id !== undefined
-      || runStatus.seed_lineage.timeout_recovery_grant_sha256 !== undefined
-      || runStatus.seed_lineage.timeout_recovery_ledger_id !== undefined
-      || runStatus.seed_lineage.timeout_recovery_claim_sha256 !== undefined
-      || runStatus.seed_lineage.timeout_recovery_issuance_claim_key !== undefined
-      || runStatus.seed_lineage.timeout_recovery_issuance_sha256 !== undefined
-      || runStatus.seed_lineage.timeout_recovery_documents !== undefined) {
-      throw new Error('run status declares timeout recovery without a verified grant');
-    }
+    validateRunStatusSeedLineageContract(
+      requireObject(runStatus.seed_lineage, 'run status seed lineage'),
+      {
+        seedId: seed.receipt.seed_id,
+        predecessorRunIdentitySha256: seed.receipt.predecessor.run_identity_sha256,
+        predecessorRunStatusSha256: seed.receipt.predecessor.run_status_sha256,
+        timeoutRecovery: seed.timeoutRecovery ? {
+          grantId: seed.timeoutRecovery.grant.grant_id,
+          grantSha256: seed.timeoutRecovery.rawSha256,
+          ledgerId: seed.timeoutRecoveryConsumption.ledger.ledger_id,
+          claimSha256: seed.timeoutRecoveryConsumption.claimSha256,
+          issuanceClaimKey: seed.timeoutRecoveryIssuance.claim.claim_key,
+          issuanceSha256: seed.timeoutRecoveryIssuance.rawSha256,
+          documentIds: seed.timeoutRecovery.grant.documents.map(
+            (document) => document.document_id,
+          ),
+        } : null,
+      },
+    );
   } else if (runStatus.seed_lineage !== undefined) {
     throw new Error('unseeded run status unexpectedly contains seed lineage');
   }
