@@ -345,6 +345,10 @@
         "node_id",
         "candidate_node_id",
         "node_type",
+        "lexical_concept_id",
+        "candidate_normative_role",
+        "candidate_parent_id",
+        "candidate_parent_relation",
         "label_start_offset",
         "label_end_offset",
         "definition_start_offset",
@@ -362,6 +366,34 @@
         "node_type": {
           "$ref": "#/$defs/ontologyNodeType"
         },
+        "lexical_concept_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "candidate_normative_role": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "candidate_parent_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^candidate:[a-z0-9][a-z0-9:-]*$"
+        },
+        "candidate_parent_relation": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "contains_candidate",
+            "editorial_cluster_candidate",
+            null
+          ]
+        },
         "label_start_offset": {
           "type": "integer",
           "minimum": 0
@@ -377,6 +409,74 @@
         "definition_end_offset": {
           "type": "integer",
           "minimum": 1
+        }
+      }
+    },
+    "onlineTermBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "term",
+        "start_offset",
+        "end_offset",
+        "text_sha256"
+      ],
+      "properties": {
+        "term": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "start_offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_offset": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "text_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "onlineEvidenceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "source_image_page",
+        "candidate_anchor_id",
+        "term_bindings",
+        "independent_source_ids"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "pattern": "^claim:[a-z0-9][a-z0-9:-]*$"
+        },
+        "source_image_page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "candidate_anchor_id": {
+          "type": "string",
+          "pattern": "^anchor:[a-z0-9][a-z0-9:-]*$"
+        },
+        "term_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/onlineTermBinding"
+          }
+        },
+        "independent_source_ids": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^source:[a-z0-9][a-z0-9:-]*$"
+          }
         }
       }
     },
@@ -402,6 +502,7 @@
         "node_binding",
         "online_claim_ids",
         "independent_online_source_ids",
+        "online_evidence_bindings",
         "version_relation",
         "adjudication",
         "uncertainty_note",
@@ -496,6 +597,14 @@
             "pattern": "^source:[a-z0-9][a-z0-9:-]*$"
           }
         },
+        "online_evidence_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/onlineEvidenceBinding"
+          }
+        },
         "version_relation": {
           "const": "exact_document_exact_edition"
         },
@@ -528,7 +637,10 @@
         "label",
         "label_kind",
         "normative_role",
+        "candidate_normative_role",
         "parent_id",
+        "candidate_parent_id",
+        "candidate_parent_relation",
         "lexical_concept_id",
         "definition",
         "field_binding_assertion_id",
@@ -565,12 +677,33 @@
         "normative_role": {
           "$ref": "#/$defs/nonEmptyString"
         },
+        "candidate_normative_role": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
         "parent_id": {
           "type": [
             "string",
             "null"
           ],
           "pattern": "^ontology:[a-z0-9][a-z0-9:-]*$"
+        },
+        "candidate_parent_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^candidate:[a-z0-9][a-z0-9:-]*$"
+        },
+        "candidate_parent_relation": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "contains_candidate",
+            "editorial_cluster_candidate",
+            null
+          ]
         },
         "lexical_concept_id": {
           "type": [
@@ -654,6 +787,7 @@
         "assertion_basis_sha256",
         "evidence_assertion_ids",
         "content_bindings",
+        "provenance_mode",
         "review_status",
         "reviewer",
         "semantic_relation_allowed"
@@ -713,6 +847,9 @@
           "items": {
             "$ref": "#/$defs/relationContentBinding"
           }
+        },
+        "provenance_mode": {
+          "const": "explicit_canonical_statement_v1"
         },
         "review_status": {
           "const": "editor_reviewed"

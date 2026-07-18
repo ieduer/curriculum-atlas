@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -22,11 +23,7 @@ import {
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_MANIFEST = 'data/ontology-release-manifest.json';
 const EXPECTED_PUBLIC_ONTOLOGY_NODES = 169;
-const PUBLIC_GRAPH_BASELINE = Object.freeze({
-  formal_ontology: '98b185f71afe4c70f880cd42725f16450e2df4b720bf6d47b221b91f7a04c687',
-  public_core: '0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8',
-  public_academic: '65d8ab2662d0d5c00aad67455ba78d4878b30a7c1f075a735cd364de9658b72f',
-});
+const PUBLIC_BASELINE_ARTIFACT_PATH = 'data/release-baselines/ontology-public-v1.json';
 const SUBJECT_FACETS = Object.freeze([
   '语文',
   '数学',
@@ -229,6 +226,110 @@ async function readArtifact(root, relativePath) {
   };
 }
 
+function runGit(root, args, { allowFailure = false } = {}) {
+  const result = spawnSync('git', ['-C', root, ...args], {
+    encoding: null,
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0 && !allowFailure) {
+    const detail = Buffer.from(result.stderr || '').toString('utf8').trim();
+    throw new Error(`immutable ontology baseline Git read failed (${args.join(' ')}): ${detail || `exit ${result.status}`}`);
+  }
+  return result;
+}
+
+function exactObjectKeys(value, expected) {
+  return isObject(value) && exactSet(Object.keys(value).sort(), [...expected].sort());
+}
+
+function ontologyNodeCount(key, json) {
+  if (key === 'formal_ontology') return json.nodes?.length;
+  return json.ontology_nodes?.length;
+}
+
+export function loadImmutablePublicBaseline(root = PROJECT_ROOT) {
+  const additionCommits = runGit(root, [
+    'log', '--format=%H', '--diff-filter=A', '--', PUBLIC_BASELINE_ARTIFACT_PATH,
+  ]).stdout.toString('utf8').trim().split(/\s+/).filter(Boolean);
+  if (additionCommits.length !== 1) {
+    throw new Error(`immutable ontology baseline needs one addition commit; found ${additionCommits.length}`);
+  }
+  const anchorCommit = additionCommits[0];
+  const head = runGit(root, ['rev-parse', 'HEAD']).stdout.toString('utf8').trim();
+  if (!/^[0-9a-f]{40}$/.test(anchorCommit) || !/^[0-9a-f]{40}$/.test(head)) {
+    throw new Error('immutable ontology baseline requires exact Git commit ids');
+  }
+  const anchorAncestor = runGit(root, ['merge-base', '--is-ancestor', anchorCommit, head], {
+    allowFailure: true,
+  });
+  if (anchorAncestor.status !== 0 || anchorCommit === head) {
+    throw new Error('immutable ontology baseline must be committed before the validating release code');
+  }
+
+  const raw = runGit(root, ['show', `${anchorCommit}:${PUBLIC_BASELINE_ARTIFACT_PATH}`]).stdout;
+  let baseline;
+  try {
+    baseline = JSON.parse(raw.toString('utf8'));
+  } catch (error) {
+    throw new Error(`immutable ontology baseline is not valid JSON: ${error.message}`);
+  }
+  if (!exactObjectKeys(baseline, [
+    'schema_version', 'baseline_id', 'policy', 'source_commit', 'source_tree', 'artifacts',
+  ])
+    || baseline.schema_version !== 1
+    || baseline.policy !== 'immutable_git_object_v1'
+    || baseline.baseline_id !== `ontology-public-baseline:${baseline.source_commit}`
+    || !/^[0-9a-f]{40}$/.test(baseline.source_commit)
+    || !/^[0-9a-f]{40}$/.test(baseline.source_tree)
+    || !exactObjectKeys(baseline.artifacts, ['formal_ontology', 'public_core', 'public_academic'])) {
+    throw new Error('immutable ontology baseline contract is invalid');
+  }
+  const sourceAncestor = runGit(root, [
+    'merge-base', '--is-ancestor', baseline.source_commit, anchorCommit,
+  ], { allowFailure: true });
+  if (sourceAncestor.status !== 0) {
+    throw new Error('immutable ontology baseline source is not an ancestor of its frozen artifact');
+  }
+  const sourceTree = runGit(root, ['rev-parse', `${baseline.source_commit}^{tree}`])
+    .stdout.toString('utf8').trim();
+  if (sourceTree !== baseline.source_tree) {
+    throw new Error('immutable ontology baseline source tree does not match its Git object');
+  }
+
+  const artifacts = {};
+  for (const key of ['formal_ontology', 'public_core', 'public_academic']) {
+    const entry = baseline.artifacts[key];
+    const expectedPath = INPUT_PATHS[key];
+    if (!exactObjectKeys(entry, ['path', 'sha256', 'ontology_node_count'])
+      || entry.path !== expectedPath
+      || !/^[0-9a-f]{64}$/.test(entry.sha256)
+      || entry.ontology_node_count !== EXPECTED_PUBLIC_ONTOLOGY_NODES) {
+      throw new Error(`immutable ontology baseline ${key} contract is invalid`);
+    }
+    const sourceRaw = runGit(root, ['show', `${baseline.source_commit}:${entry.path}`]).stdout;
+    let sourceJson;
+    try {
+      sourceJson = JSON.parse(sourceRaw.toString('utf8'));
+    } catch (error) {
+      throw new Error(`immutable ontology baseline ${key} source JSON is invalid: ${error.message}`);
+    }
+    if (sha256(sourceRaw) !== entry.sha256
+      || ontologyNodeCount(key, sourceJson) !== entry.ontology_node_count) {
+      throw new Error(`immutable ontology baseline ${key} does not match source commit bytes`);
+    }
+    artifacts[key] = Object.freeze({ ...entry });
+  }
+  return Object.freeze({
+    path: PUBLIC_BASELINE_ARTIFACT_PATH,
+    anchor_commit: anchorCommit,
+    artifact_sha256: sha256(raw),
+    source_commit: baseline.source_commit,
+    source_tree: baseline.source_tree,
+    artifacts: Object.freeze(artifacts),
+  });
+}
+
 function paragraphKey(documentId, ordinal) {
   return `${documentId}\u0000${ordinal}`;
 }
@@ -308,6 +409,7 @@ export async function loadOntologyReleaseContext(root = PROJECT_ROOT) {
     root,
     schema: JSON.parse(await readFile(path.join(root, 'data/ontology-release.schema.json'), 'utf8')),
     artifacts,
+    public_baseline: loadImmutablePublicBaseline(root),
     builder_source: await readFile(path.join(root, 'scripts/build-concept-evolution.mjs'), 'utf8'),
     ...canonical,
   };
@@ -321,10 +423,14 @@ function validateFingerprints(manifest, context, errors) {
     issue(errors, declared.sha256 === artifact.sha256, 'fingerprint_sha256_mismatch', `${key} bytes do not match the manifest`);
   }
 
-  for (const [key, baselineSha256] of Object.entries(PUBLIC_GRAPH_BASELINE)) {
-    issue(errors, context.artifacts[key].sha256 === baselineSha256,
+  const baseline = context.public_baseline?.artifacts || {};
+  for (const key of ['formal_ontology', 'public_core', 'public_academic']) {
+    const baselineEntry = baseline[key];
+    issue(errors, Boolean(baselineEntry), 'public_graph_immutable_baseline_missing', `${key} has no frozen Git-object baseline`);
+    if (!baselineEntry) continue;
+    issue(errors, context.artifacts[key].sha256 === baselineEntry.sha256,
       'public_graph_baseline_hash_mismatch', `${key} differs from the code-reviewed immutable baseline`);
-    issue(errors, manifest.input_fingerprints[key].sha256 === baselineSha256,
+    issue(errors, manifest.input_fingerprints[key].sha256 === baselineEntry.sha256,
       'public_graph_baseline_declaration_mismatch', `${key} manifest digest differs from the immutable baseline`);
   }
 
@@ -404,14 +510,24 @@ function candidateNodes(candidate) {
 
 function candidateProvenance(candidate, errors) {
   const nodes = new Map();
+  const children = new Map();
   for (const group of candidate.node_groups || []) {
     for (const node of group.nodes || []) {
       if (nodes.has(node.id)) errors.push(`duplicate_candidate_node_id: ${node.id}`);
-      else nodes.set(node.id, { ...node, group_id: group.group_id, candidate_node_type: group.node_type });
+      else nodes.set(node.id, {
+        ...node,
+        group_id: group.group_id,
+        candidate_node_type: group.node_type,
+        parent_relation_policy: group.parent_relation_policy,
+      });
+      if (node.parent_id !== null) {
+        if (!children.has(node.parent_id)) children.set(node.parent_id, []);
+        children.get(node.parent_id).push(node.id);
+      }
     }
   }
   const anchors = uniqueMap(candidate.evidence_anchors, 'id', errors, 'candidate_anchor_id');
-  return { nodes, anchors };
+  return { nodes, anchors, children };
 }
 
 function validateFacetCoverage(manifest, context, errors) {
@@ -615,19 +731,66 @@ function validateAssertions(manifest, context, scopes, pageManifest, provenance,
       resolved.set(assertion.assertion_id, { assertion, paragraph, asserted_text: assertedText });
     }
 
-    for (const claimId of assertion.online_claim_ids || []) {
-      const claim = claims.get(claimId);
-      issue(errors, Boolean(claim), 'online_claim_missing', `${assertion.assertion_id} references ${claimId}`);
+    const onlineBindings = assertion.online_evidence_bindings || [];
+    const bindingClaimIds = onlineBindings.map((binding) => binding.claim_id);
+    const bindingSourceIds = [...new Set(onlineBindings
+      .flatMap((binding) => binding.independent_source_ids || []))];
+    issue(errors, exactSet(bindingClaimIds, assertion.online_claim_ids),
+      'online_claim_binding_set_mismatch', `${assertion.assertion_id} claim ids are not exactly content-bound`);
+    issue(errors, exactSet(bindingSourceIds, assertion.independent_online_source_ids),
+      'online_source_binding_set_mismatch', `${assertion.assertion_id} source ids are not exactly claim-bound`);
+
+    for (const binding of onlineBindings) {
+      const claim = claims.get(binding.claim_id);
+      issue(errors, Boolean(claim), 'online_claim_missing', `${assertion.assertion_id} references ${binding.claim_id}`);
       if (!claim) continue;
       issue(errors, claim.verification_status === 'independently_crosschecked',
-        'online_claim_unresolved', `${claimId} is ${claim.verification_status}`);
+        'online_claim_unresolved', `${binding.claim_id} is ${claim.verification_status}`);
+      issue(errors, claim.normative === true,
+        'online_claim_not_normative', `${binding.claim_id} is not a normative source-text claim`);
+      issue(errors, binding.source_image_page === assertion.physical_page
+        && claim.source_image_pages?.includes(assertion.physical_page),
+      'online_claim_page_mismatch', `${binding.claim_id} is not verified on physical page ${assertion.physical_page}`);
+      issue(errors, binding.candidate_anchor_id === assertion.candidate_anchor_id,
+        'online_claim_anchor_mismatch', `${binding.claim_id} is not bound to ${assertion.candidate_anchor_id}`);
       const exactSupport = new Set((claim.crosschecks || [])
         .filter((entry) => entry.role === 'independent_exact_support' && entry.independent_for_claim === true)
         .map((entry) => entry.source_id));
-      const selected = (assertion.independent_online_source_ids || [])
+      const selected = (binding.independent_source_ids || [])
         .filter((sourceId) => exactSupport.has(sourceId));
-      issue(errors, selected.length >= 2,
-        'insufficient_independent_online_evidence', `${assertion.assertion_id}/${claimId} has ${selected.length} exact independent sources`);
+      issue(errors, selected.length >= 2 && selected.length === binding.independent_source_ids.length,
+        'insufficient_independent_online_evidence', `${assertion.assertion_id}/${binding.claim_id} has ${selected.length} exactly bound independent sources`);
+
+      const resolvedAssertion = resolved.get(assertion.assertion_id);
+      const semanticTerms = new Set([candidateNode?.label]);
+      for (const childId of provenance.children.get(candidateNode?.id) || []) {
+        semanticTerms.add(provenance.nodes.get(childId)?.label);
+      }
+      const exactTerms = new Set(claim.exact_terms || []);
+      const anchorTerms = new Set(candidateAnchor?.candidate_terms || []);
+      const boundTerms = new Set();
+      for (const termBinding of binding.term_bindings || []) {
+        const rangeValid = Boolean(resolvedAssertion)
+          && termBinding.start_offset >= assertion.start_offset
+          && termBinding.end_offset > termBinding.start_offset
+          && termBinding.end_offset <= assertion.end_offset;
+        issue(errors, rangeValid,
+          'online_term_offset_error', `${assertion.assertion_id}/${binding.claim_id}/${termBinding.term} leaves the accepted assertion`);
+        const boundText = rangeValid
+          ? resolvedAssertion.paragraph.body.slice(termBinding.start_offset, termBinding.end_offset)
+          : '';
+        issue(errors, boundText === termBinding.term && sha256(boundText) === termBinding.text_sha256,
+          'online_term_text_mismatch', `${assertion.assertion_id}/${binding.claim_id}/${termBinding.term} is not the canonical substring`);
+        issue(errors, exactTerms.has(termBinding.term),
+          'online_term_not_in_claim', `${termBinding.term} is absent from ${binding.claim_id}.exact_terms`);
+        issue(errors, anchorTerms.has(termBinding.term),
+          'online_term_not_in_candidate_anchor', `${termBinding.term} is absent from ${assertion.candidate_anchor_id}.candidate_terms`);
+        issue(errors, semanticTerms.has(termBinding.term),
+          'online_claim_candidate_semantic_mismatch', `${termBinding.term} is not ${candidateNode?.id} or one of its direct candidate members`);
+        boundTerms.add(termBinding.term);
+      }
+      issue(errors, boundTerms.size > 0,
+        'online_claim_without_exact_term', `${assertion.assertion_id}/${binding.claim_id} has no exact canonical term binding`);
     }
 
     for (const sourceId of assertion.independent_online_source_ids || []) {
@@ -665,6 +828,19 @@ function validateNodes(manifest, scopes, assertionResult, provenance, errors) {
         'candidate_label_drift', `${node.id} label differs from ${candidate.id}`);
       issue(errors, CANDIDATE_TYPE_NODE_TYPES[candidate.candidate_node_type]?.includes(node.node_type),
         'candidate_node_type_mismatch', `${node.id} type is incompatible with ${candidate.candidate_node_type}`);
+      issue(errors, candidate.lexical_concept_id === node.lexical_concept_id,
+        'candidate_lexical_concept_mismatch', `${node.id} lexical identity differs from ${candidate.id}`);
+      issue(errors, typeof candidate.normative_role_candidate === 'string'
+        && candidate.normative_role_candidate === node.normative_role
+        && node.candidate_normative_role === candidate.normative_role_candidate,
+      'candidate_normative_role_mismatch', `${node.id} normative role is not exactly candidate-bound`);
+      const expectedCandidateParentRelation = candidate.parent_id === null
+        ? null
+        : candidate.parent_relation_policy?.relation_type_candidate;
+      issue(errors, node.candidate_parent_id === candidate.parent_id,
+        'candidate_parent_id_mismatch', `${node.id} candidate parent provenance differs from ${candidate.id}`);
+      issue(errors, node.candidate_parent_relation === expectedCandidateParentRelation,
+        'candidate_parent_relation_mismatch', `${node.id} candidate parent relation provenance differs from ${candidate.id}`);
     }
 
     for (const assertionId of node.source_assertion_ids || []) {
@@ -690,6 +866,15 @@ function validateNodes(manifest, scopes, assertionResult, provenance, errors) {
         'node_binding_candidate_mismatch', `${node.id} binding candidate differs`);
       issue(errors, binding.node_type === node.node_type,
         'node_type_binding_mismatch', `${node.id} type is not bound by its accepted assertion`);
+      issue(errors, binding.lexical_concept_id === node.lexical_concept_id,
+        'node_lexical_binding_mismatch', `${node.id} lexical identity is not bound by its accepted assertion`);
+      issue(errors, binding.candidate_normative_role === node.candidate_normative_role
+        && binding.candidate_normative_role === node.normative_role,
+      'node_normative_binding_mismatch', `${node.id} normative role is not bound by its accepted assertion`);
+      issue(errors, binding.candidate_parent_id === node.candidate_parent_id,
+        'node_candidate_parent_binding_mismatch', `${node.id} candidate parent id is not assertion-bound`);
+      issue(errors, binding.candidate_parent_relation === node.candidate_parent_relation,
+        'node_candidate_parent_relation_binding_mismatch', `${node.id} candidate parent relation is not assertion-bound`);
       issue(errors, NODE_TYPE_ASSERTION_TYPES[node.node_type]?.includes(fieldBinding.assertion.assertion_type),
         'node_type_assertion_mismatch', `${node.id} type is incompatible with assertion class ${fieldBinding.assertion.assertion_type}`);
       const label = fieldBinding.paragraph.body.slice(binding.label_start_offset, binding.label_end_offset);
@@ -703,16 +888,27 @@ function validateNodes(manifest, scopes, assertionResult, provenance, errors) {
         'node_definition_not_in_canonical_text', `${node.id} definition is not the bound canonical substring`);
     }
 
+  }
+
+  for (const node of nodes.values()) {
+    const candidate = provenance.nodes.get(node.candidate_node_id);
+    if (candidate?.parent_id === null) {
+      issue(errors, node.parent_id === null,
+        'candidate_root_parent_fabricated', `${node.id} adds a parent absent from candidate provenance`);
+    } else if (candidate) {
+      const releasedCandidateParent = releasedByCandidateId.get(candidate.parent_id);
+      issue(errors, Boolean(releasedCandidateParent),
+        'candidate_parent_not_promoted', `${node.id} cannot drop candidate parent ${candidate.parent_id}`);
+      issue(errors, node.parent_id === releasedCandidateParent?.id,
+        'candidate_parent_mismatch', `${node.id} parent does not exactly follow candidate provenance`);
+    }
+
     if (node.parent_id !== null) {
       const parent = nodes.get(node.parent_id);
       issue(errors, Boolean(parent), 'dangling_parent', `${node.id} parent ${node.parent_id} does not exist`);
       if (parent) {
         issue(errors, parent.scope_id === node.scope_id,
           'cross_scope_parent', `${node.id} parent belongs to ${parent.scope_id}`);
-        if (candidate) {
-          issue(errors, candidate.parent_id === parent.candidate_node_id,
-            'candidate_parent_mismatch', `${node.id} parent does not follow candidate provenance`);
-        }
         childCounts.set(parent.id, (childCounts.get(parent.id) || 0) + 1);
       }
     }
@@ -757,6 +953,38 @@ function validateNodes(manifest, scopes, assertionResult, provenance, errors) {
   return { nodes, leaves, acceptedNodes, acceptedLeaves };
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function canonicalStatementSupportsRelation(relationType, statement, sourceLabel, targetLabel) {
+  const text = statement.replace(/\s+/g, '');
+  const source = escapeRegExp(sourceLabel.replace(/\s+/g, ''));
+  const target = escapeRegExp(targetLabel.replace(/\s+/g, ''));
+  const between = '.{0,64}';
+  const tests = {
+    supports: [
+      new RegExp(`${source}${between}(?:支持|支撑|促进|保障|有助于|服务于)${between}${target}`),
+      new RegExp(`${target}${between}(?:依托|基于|以)${between}${source}${between}(?:为基础|为支撑|为保障)`),
+    ],
+    related_to: [
+      new RegExp(`${source}${between}(?:与|和)${between}${target}${between}(?:相关|联系|相互作用)`),
+      new RegExp(`${target}${between}(?:与|和)${between}${source}${between}(?:相关|联系|相互作用)`),
+    ],
+    reframed_by: [
+      new RegExp(`${source}${between}(?:被|由)${between}${target}${between}(?:重构|重述|重新表述)`),
+      new RegExp(`${target}${between}(?:重构|重述|重新表述)${between}${source}`),
+    ],
+    split_into: [new RegExp(`${source}${between}(?:拆分|分化|细分)${between}(?:为|成)${between}${target}`)],
+    merged_from: [new RegExp(`${source}${between}(?:合并|整合)${between}(?:自|于|来自)${between}${target}`)],
+    replaced_by: [
+      new RegExp(`${source}${between}(?:被|由)${between}${target}${between}(?:取代|替代)`),
+      new RegExp(`${target}${between}(?:取代|替代)${between}${source}`),
+    ],
+  };
+  return (tests[relationType] || []).some((pattern) => pattern.test(text));
+}
+
 function validateRelations(manifest, scopes, assertionResult, nodes, errors) {
   const { assertions, resolved } = assertionResult;
   const relations = uniqueMap(manifest.relations, 'id', errors, 'relation_id');
@@ -780,6 +1008,7 @@ function validateRelations(manifest, scopes, assertionResult, nodes, errors) {
     issue(errors, exactSet(boundAssertionIds, relation.evidence_assertion_ids),
       'relation_content_evidence_set_mismatch', `${relation.id} evidence ids and content bindings differ`);
     const roles = new Set();
+    const relationStatements = [];
     for (const binding of relation.content_bindings || []) {
       roles.add(binding.evidence_role);
       const resolvedAssertion = resolved.get(binding.assertion_id);
@@ -798,20 +1027,35 @@ function validateRelations(manifest, scopes, assertionResult, nodes, errors) {
       issue(errors, sha256(boundText) === binding.text_sha256,
         'relation_content_hash_mismatch', `${relation.id}/${binding.assertion_id} digest differs from canonical text`);
       if (binding.evidence_role === 'source_endpoint' && source) {
-        issue(errors, binding.assertion_id === source.field_binding_assertion_id && boundText.includes(source.label),
+        issue(errors, binding.assertion_id === source.field_binding_assertion_id && boundText === source.label,
           'relation_source_content_mismatch', `${relation.id} source endpoint is not content-bound`);
       }
       if (binding.evidence_role === 'target_endpoint' && target) {
-        issue(errors, binding.assertion_id === target.field_binding_assertion_id && boundText.includes(target.label),
+        issue(errors, binding.assertion_id === target.field_binding_assertion_id && boundText === target.label,
           'relation_target_content_mismatch', `${relation.id} target endpoint is not content-bound`);
       }
       if (binding.evidence_role === 'relation_statement' && source && target) {
+        relationStatements.push(boundText);
         issue(errors, boundText.includes(source.label) && boundText.includes(target.label),
           'relation_statement_content_mismatch', `${relation.id} canonical statement does not name both endpoints`);
       }
     }
     issue(errors, roles.has('source_endpoint') && roles.has('target_endpoint'),
       'relation_endpoint_content_missing', `${relation.id} needs canonical content for both endpoints`);
+    issue(errors, relation.provenance_mode === 'explicit_canonical_statement_v1',
+      'relation_provenance_mode_invalid', `${relation.id} lacks controlled relation provenance`);
+    issue(errors, relationStatements.length === 1,
+      'relation_statement_cardinality_error', `${relation.id} needs exactly one canonical relation statement`);
+    if (source && target && relationStatements.length === 1) {
+      issue(errors, relation.assertion_basis === relationStatements[0],
+        'relation_basis_not_canonical_statement', `${relation.id} assertion_basis is not the exact canonical relation statement`);
+      issue(errors, canonicalStatementSupportsRelation(
+        relation.relation_type,
+        relationStatements[0],
+        source.label,
+        target.label,
+      ), 'relation_semantics_not_supported', `${relation.id} type or direction is not explicitly stated in canonical text`);
+    }
 
     if (!source || !target) continue;
     const endpointScopes = [...new Set([source.scope_id, target.scope_id])];
@@ -951,6 +1195,12 @@ export function validateOntologyRelease(manifest, context) {
     },
     facet_coverage: manifest.facet_coverage,
     builder_isolated: !/ontology-candidates|ontology-release(?:-manifest|\.schema)?/.test(context.builder_source),
+    immutable_public_baseline: {
+      artifact_path: context.public_baseline?.path || null,
+      anchor_commit: context.public_baseline?.anchor_commit || null,
+      source_commit: context.public_baseline?.source_commit || null,
+      artifact_sha256: context.public_baseline?.artifact_sha256 || null,
+    },
     errors,
   };
 }
