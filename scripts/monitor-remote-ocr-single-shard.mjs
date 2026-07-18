@@ -1000,6 +1000,245 @@ function predecessorStatusFormat(identity, progress, status, statusSha256, state
   throw new Error(`${state.document_id}: B1 predecessor document status shape is not exact`);
 }
 
+function validateInheritedCompleteProgressKeys(progress, format, phase, documentId) {
+  const required = new Set([
+    'attempts',
+    'inherited_attempts',
+    'page_count',
+    'predecessor_status',
+    'seed_id',
+    'status',
+    'status_json_sha256',
+  ]);
+  const optional = new Set(['started_at']);
+  if (format === 'complete_identity_v1') required.add('completed_at');
+  else if (format === 'legacy_b1_complete_reverified') {
+    required.add('verified_at');
+    optional.add('completed_at');
+  } else {
+    throw new Error(`${documentId}: B2 inherited complete progress format is invalid`);
+  }
+  if (phase === 'full') required.add('verified_at');
+  const keys = Object.keys(progress);
+  if ([...required].some((key) => !Object.hasOwn(progress, key))
+    || keys.some((key) => !required.has(key) && !optional.has(key))) {
+    throw new Error(`${documentId}: B2 inherited complete progress field set differs`);
+  }
+}
+
+function validateInitialCompleteStatus({
+  receiptDocument,
+  progress,
+  status,
+  statusSha256,
+  state,
+  stateSha256,
+  pageArtifacts,
+  seedId,
+  identity,
+}) {
+  if (receiptDocument.predecessor_status !== 'complete'
+    || status.max_attempts !== undefined) return false;
+  const modern = receiptDocument.predecessor_status_format === 'complete_identity_v1';
+  const legacy = receiptDocument.predecessor_status_format === 'legacy_b1_complete_reverified';
+  if (!modern && !legacy) {
+    throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status format is invalid`);
+  }
+  validateInheritedCompleteProgressKeys(
+    progress,
+    receiptDocument.predecessor_status_format,
+    'initial',
+    receiptDocument.document_id,
+  );
+  const expectedStatusKeys = [
+    'artifacts',
+    'citation_allowed',
+    'document_id',
+    'page_count',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'seed_lineage',
+    'source_sha256',
+    'status',
+    'whole_document_atomic',
+    ...(modern ? ['attempt', 'completed_at'] : ['verified_at']),
+  ].sort();
+  if (!sameJson(Object.keys(status).sort(), expectedStatusKeys)) {
+    throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status field set differs`);
+  }
+  const lineage = requireObject(
+    status.seed_lineage,
+    `${receiptDocument.document_id} B2 initial inherited complete status seed lineage`,
+  );
+  const expectedLineageKeys = [
+    'citation_allowed',
+    'inherited_attempts',
+    'predecessor_status_sha256',
+    'schema_version',
+    'seed_id',
+  ].sort();
+  if (!sameJson(Object.keys(lineage).sort(), expectedLineageKeys)) {
+    throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status seed lineage field set differs`);
+  }
+  const artifacts = requireObject(
+    status.artifacts,
+    `${receiptDocument.document_id} B2 initial inherited complete status artifacts`,
+  );
+  const expectedArtifactKeys = [
+    'page_artifacts',
+    'page_artifacts_sha256',
+    'state_sha256',
+  ].sort();
+  if (!sameJson(Object.keys(artifacts).sort(), expectedArtifactKeys)) {
+    throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status artifacts field set differs`);
+  }
+  if (artifacts.state_sha256 !== stateSha256
+    || artifacts.page_artifacts_sha256 !== sha256(`${JSON.stringify(pageArtifacts)}\n`)
+    || !sameJson(artifacts.page_artifacts, pageArtifacts)) {
+    throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status artifacts differ from state`);
+  }
+  const timestampField = modern ? 'completed_at' : 'verified_at';
+  if (progress.status !== 'complete'
+    || progress.attempts !== receiptDocument.inherited_attempts
+    || status.schema_version !== 1
+    || status.document_id !== receiptDocument.document_id
+    || status.status !== 'complete'
+    || status.citation_allowed !== false
+    || status.page_count !== receiptDocument.page_count
+    || status.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
+    || status.source_sha256 !== state.source_sha256
+    || status.whole_document_atomic !== true
+    || typeof status[timestampField] !== 'string'
+    || !Number.isFinite(Date.parse(status[timestampField]))
+    || new Date(Date.parse(status[timestampField])).toISOString() !== status[timestampField]
+    || status[timestampField] !== progress[timestampField]
+    || (modern && status.attempt !== progress.attempts)
+    || lineage.schema_version !== 1
+    || lineage.seed_id !== seedId
+    || lineage.predecessor_status_sha256 !== receiptDocument.predecessor_status_sha256
+    || lineage.inherited_attempts !== receiptDocument.inherited_attempts
+    || lineage.citation_allowed !== false) {
+    throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status identity differs`);
+  }
+  if (statusSha256 !== receiptDocument.successor_status_sha256
+    || progress.status_json_sha256 !== statusSha256
+    || stateSha256 !== receiptDocument.successor_state_sha256) {
+    throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status or state SHA differs from seed receipt`);
+  }
+  return true;
+}
+
+function validateFullCompleteStatus({
+  receiptDocument,
+  progress,
+  status,
+  state,
+  stateSha256,
+  pageArtifacts,
+  seedId,
+  identity,
+  attemptCeiling,
+}) {
+  if (progress.status !== 'complete' || status.max_attempts === undefined) return false;
+  const hasCompletedAt = Object.hasOwn(status, 'completed_at');
+  const hasVerifiedAt = Object.hasOwn(status, 'verified_at');
+  if (hasCompletedAt === hasVerifiedAt) {
+    throw new Error(`${receiptDocument.document_id}: B2 full complete status timestamp field is not exact`);
+  }
+  const timestampField = hasCompletedAt ? 'completed_at' : 'verified_at';
+  if (receiptDocument.predecessor_status === 'complete') {
+    if (timestampField !== 'verified_at') {
+      throw new Error(`${receiptDocument.document_id}: B2 inherited full complete status timestamp is invalid`);
+    }
+    validateInheritedCompleteProgressKeys(
+      progress,
+      receiptDocument.predecessor_status_format,
+      'full',
+      receiptDocument.document_id,
+    );
+  }
+  const expectedStatusKeys = [
+    'artifacts',
+    'attempt',
+    'citation_allowed',
+    'document_id',
+    'max_attempts',
+    'page_count',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'source_sha256',
+    'status',
+    timestampField,
+    'whole_document_atomic',
+    ...(receiptDocument.timeout_recovery ? ['seed_lineage'] : []),
+  ].sort();
+  if (!sameJson(Object.keys(status).sort(), expectedStatusKeys)) {
+    throw new Error(`${receiptDocument.document_id}: B2 full complete status field set differs`);
+  }
+  const artifacts = requireObject(
+    status.artifacts,
+    `${receiptDocument.document_id} B2 full complete status artifacts`,
+  );
+  if (!sameJson(Object.keys(artifacts).sort(), [
+    'page_artifacts',
+    'page_artifacts_sha256',
+    'state_sha256',
+  ])) {
+    throw new Error(`${receiptDocument.document_id}: B2 full complete status artifacts field set differs`);
+  }
+  if (artifacts.state_sha256 !== stateSha256
+    || artifacts.page_artifacts_sha256 !== sha256(`${JSON.stringify(pageArtifacts)}\n`)
+    || !sameJson(artifacts.page_artifacts, pageArtifacts)) {
+    throw new Error(`${receiptDocument.document_id}: B2 full complete status artifacts differ from state`);
+  }
+  if (status.schema_version !== 1
+    || status.document_id !== receiptDocument.document_id
+    || status.status !== 'complete'
+    || status.attempt !== progress.attempts
+    || status.max_attempts !== attemptCeiling
+    || status.page_count !== receiptDocument.page_count
+    || status.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
+    || status.source_sha256 !== state.source_sha256
+    || status.citation_allowed !== false
+    || status.whole_document_atomic !== true
+    || typeof status[timestampField] !== 'string'
+    || !Number.isFinite(Date.parse(status[timestampField]))
+    || new Date(Date.parse(status[timestampField])).toISOString() !== status[timestampField]
+    || status[timestampField] !== progress[timestampField]) {
+    throw new Error(`${receiptDocument.document_id}: B2 full complete status identity differs`);
+  }
+  if (receiptDocument.timeout_recovery) {
+    const lineage = requireObject(
+      status.seed_lineage,
+      `${receiptDocument.document_id} B2 full complete status seed lineage`,
+    );
+    const expectedLineageKeys = [
+      'citation_allowed',
+      'granted_attempt',
+      'inherited_attempts',
+      'predecessor_status_sha256',
+      'schema_version',
+      'seed_id',
+      'timeout_recovery_first_missing_page',
+      'timeout_recovery_grant_id',
+      'timeout_recovery_grant_sha256',
+    ].sort();
+    if (!sameJson(Object.keys(lineage).sort(), expectedLineageKeys)
+      || lineage.schema_version !== 1
+      || lineage.seed_id !== seedId
+      || lineage.predecessor_status_sha256 !== receiptDocument.predecessor_status_sha256
+      || lineage.inherited_attempts !== receiptDocument.inherited_attempts
+      || lineage.timeout_recovery_grant_id !== receiptDocument.timeout_recovery.grant_id
+      || lineage.timeout_recovery_grant_sha256 !== receiptDocument.timeout_recovery.grant_raw_sha256
+      || lineage.timeout_recovery_first_missing_page !== receiptDocument.timeout_recovery.first_missing_page
+      || lineage.granted_attempt !== attemptCeiling
+      || lineage.citation_allowed !== false) {
+      throw new Error(`${receiptDocument.document_id}: B2 full complete status seed lineage differs`);
+    }
+  }
+  return true;
+}
+
 async function inspectPageTree(root, documentId, page, statePage) {
   const pageRoot = path.join(root, 'documents', documentId, 'pages', String(page).padStart(4, '0'));
   const tree = await inspectTreeStrict(pageRoot);
@@ -2865,21 +3104,25 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
         if (!sameJson(publicArtifact, expectedArtifact)) throw new Error('B2 inherited page artifact identity drifted');
       }
     }
+    const pageArtifacts = stateSummary.completedPages.map((page) => ({
+      page_number: page,
+      rendered_image_sha256: stateSummary.pages[String(page)].rendered_image_sha256,
+      result_json_sha256: stateSummary.pages[String(page)].result_json_sha256,
+      content_markdown_sha256: stateSummary.pages[String(page)].content_markdown_sha256,
+      citation_eligible: false,
+    }));
     const status = requireObject(statusRecord.value, 'B2 document status');
-    const legacyCompleteInitial = receiptDocument.predecessor_status_format === 'legacy_b1_complete_reverified'
-      && progress.status === 'complete'
-      && progress.attempts === receiptDocument.inherited_attempts
-      && status.attempt === undefined
-      && status.max_attempts === undefined
-      && status.page_count === receiptDocument.page_count;
-    const completedIdentityInitial = receiptDocument.predecessor_status_format === 'complete_identity_v1'
-      && receiptDocument.predecessor_status === 'complete'
-      && progress.status === 'complete'
-      && progress.attempts === receiptDocument.inherited_attempts
-      && status.attempt === progress.attempts
-      && status.max_attempts === undefined
-      && status.page_count === receiptDocument.page_count
-      && status.completed_at === progress.completed_at;
+    const initialCompleteStatus = validateInitialCompleteStatus({
+      receiptDocument,
+      progress,
+      status,
+      statusSha256: statusRecord.sha256,
+      state,
+      stateSha256: stateRecord.sha256,
+      pageArtifacts,
+      seedId,
+      identity,
+    });
     const legacyInterruptedInitial = receiptDocument.predecessor_status_format === 'legacy_b1_interrupted'
       && progress.status === 'interrupted'
       && progress.attempts === receiptDocument.inherited_attempts
@@ -2889,9 +3132,22 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
     const documentAttemptCeiling = receiptDocument.timeout_recovery
       ? maxDocumentAttempts + 1
       : maxDocumentAttempts;
-    const fullSuccessorStatus = status.attempt === progress.attempts
-      && status.max_attempts === documentAttemptCeiling
-      && status.page_count === receiptDocument.page_count;
+    const fullCompleteStatus = validateFullCompleteStatus({
+      receiptDocument,
+      progress,
+      status,
+      state,
+      stateSha256: stateRecord.sha256,
+      pageArtifacts,
+      seedId,
+      identity,
+      attemptCeiling: documentAttemptCeiling,
+    });
+    const fullSuccessorStatus = fullCompleteStatus
+      || (progress.status !== 'complete'
+        && status.attempt === progress.attempts
+        && status.max_attempts === documentAttemptCeiling
+        && status.page_count === receiptDocument.page_count);
     const normalizedRecoveryStatus = validateNormalizedRecoveryStatus(
       receiptDocument,
       progress,
@@ -2905,8 +3161,7 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
       || status.citation_allowed !== false
       || !((rawStatusMatchesProgress
         && (fullSuccessorStatus
-          || completedIdentityInitial
-          || legacyCompleteInitial
+          || initialCompleteStatus
           || legacyInterruptedInitial))
         || normalizedRecoveryStatus)
       || status.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256) {
@@ -2960,13 +3215,6 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
         throw new Error('B2 document status contains stray timeout recovery lineage');
       }
     }
-    const pageArtifacts = stateSummary.completedPages.map((page) => ({
-      page_number: page,
-      rendered_image_sha256: stateSummary.pages[String(page)].rendered_image_sha256,
-      result_json_sha256: stateSummary.pages[String(page)].result_json_sha256,
-      content_markdown_sha256: stateSummary.pages[String(page)].content_markdown_sha256,
-      citation_eligible: false,
-    }));
     if (receiptDocument.timeout_recovery
       && stateSummary.completedPages.length === receiptDocument.page_count
       && stateSummary.failedPageNumbers.length === 0
