@@ -28,6 +28,10 @@ attempts without converting a healthy monitor into a lock-contention failure.
 The kernel releases the lock automatically when a process exits or crashes, so
 a stale directory cannot permanently suppress alerting.
 
+Both entrypoints verify `alert-runtime/SHA256SUMS` before loading the notifier.
+The deployed manifest uses the notifier's absolute remote path so the same
+check works from the monitor workspace and the alert-runtime working directory.
+
 ## Delivery and deduplication
 
 Before a sender is called, the notifier persists an immutable, privacy-safe

@@ -777,6 +777,8 @@ test('B-r3 systemd templates preserve exit 10, stay reusable, and never auto-sto
   assert.match(handler, /^ExecStartPre=\/usr\/bin\/test -d /mu);
   assert.match(handler, /^ExecStartPre=\/usr\/bin\/test -x \/usr\/bin\/flock$/mu);
   assert.match(dropIn, /^ExecStartPre=\/usr\/bin\/test -x \/usr\/bin\/flock$/mu);
+  assert.match(handler, /^ExecStartPre=\/usr\/bin\/sha256sum --check --strict %h\/curriculum-ocr-offload\/alert-runtime\/SHA256SUMS$/mu);
+  assert.match(dropIn, /^ExecStartPre=\/usr\/bin\/sha256sum --check --strict %h\/curriculum-ocr-offload\/alert-runtime\/SHA256SUMS$/mu);
   assert.match(handler, /^ExecStart=\/usr\/bin\/flock --exclusive --wait 60 --conflict-exit-code 75 /mu);
   assert.match(dropIn, /^ExecStartPost=\/usr\/bin\/flock --exclusive --wait 60 --conflict-exit-code 75 /mu);
   assert.match(`${handler}\n${dropIn}`, /\.state\.lock/u);
