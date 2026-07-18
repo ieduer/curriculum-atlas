@@ -33,6 +33,7 @@ import {
 } from '../scripts/run-remote-ocr-offload.mjs';
 import { receiveRemoteOcrOffload } from '../scripts/receive-remote-ocr-offload.mjs';
 import {
+  canonicalJson,
   captureLocalReprocessSnapshot,
   inspectTree,
 } from '../scripts/lib/remote-ocr-local-snapshot.mjs';
@@ -432,6 +433,277 @@ function recoveryPolicy(idleTimeoutSeconds) {
       poll_interval_seconds: 5,
     },
   };
+}
+
+async function createTimeoutRecoveryLedger(ledgerRoot) {
+  await mkdir(ledgerRoot, { recursive: true });
+  const identityBasis = {
+    schema_version: 1,
+    ledger_type: 'curriculum_remote_ocr_timeout_recovery_consumption_ledger',
+    ledger_nonce: sha256(`ledger:${ledgerRoot}`),
+    citation_allowed: false,
+  };
+  const identity = {
+    schema_version: identityBasis.schema_version,
+    ledger_type: identityBasis.ledger_type,
+    ledger_nonce: identityBasis.ledger_nonce,
+    ledger_id: sha256(canonicalJson(identityBasis)),
+    citation_allowed: false,
+  };
+  await writeJsonSidecar(path.join(ledgerRoot, 'ledger-identity.json'), identity);
+  return identity;
+}
+
+async function createTimeoutRecoveryPredecessor({
+  inputRoot,
+  predecessorRoot,
+  manifestPath,
+  specifications,
+  attestation,
+  receiverNativeArtifacts = false,
+}) {
+  const ledgerRoot = path.join(
+    path.dirname(predecessorRoot),
+    `${path.basename(predecessorRoot)}-timeout-recovery-ledger`,
+  );
+  const ledgerIdentity = await createTimeoutRecoveryLedger(ledgerRoot);
+  const [ledgerAuthorityRoot, ledgerInfo] = await Promise.all([
+    realpath(ledgerRoot),
+    stat(ledgerRoot, { bigint: true }),
+  ]);
+  await mkdir(path.join(predecessorRoot, 'documents'), { recursive: true });
+  await mkdir(path.join(predecessorRoot, 'status'), { recursive: true });
+  await mkdir(path.join(predecessorRoot, 'logs'), { recursive: true });
+  const documents = [];
+  for (const [id, pageCount] of specifications) {
+    const source = `source:${id}`;
+    const sourcePath = `pdfs/${id}.pdf`;
+    await writeFile(path.join(inputRoot, sourcePath), source);
+    documents.push(documentFor(id, sourcePath, source, pageCount));
+  }
+  const manifestContents = `${JSON.stringify(manifestFor(documents), null, 2)}\n`;
+  await writeFile(manifestPath, manifestContents);
+  const manifestSha256 = sha256(manifestContents);
+  const attestationSha256 = sha256(`${JSON.stringify(attestation)}\n`);
+  const runtimeFingerprint = {
+    ...runtime,
+    runtime_device: runtimeDevice,
+    llama_server_attestation_sha256: attestationSha256,
+    python_runtime: pythonRuntime,
+    paddlex_layout_model_cache: paddlexLayoutModelCache,
+  };
+  const runtimeFingerprintSha256 = sha256(`${JSON.stringify(runtimeFingerprint)}\n`);
+  const predecessorWorker = {
+    llama_url: workerConfiguration.llama_url,
+    vl_rec_max_concurrency: 4,
+    server_parallel: 4,
+    micro_batch: 16,
+    use_queues: true,
+    runtime_device: runtimeDevice,
+    paddlex_cache_home: path.join(predecessorRoot, 'paddlex-cache'),
+    python_runtime: pythonRuntime,
+    paddlex_layout_model_cache_sha256: paddlexLayoutModelCache.tree_sha256,
+  };
+  const predecessorRecovery = recoveryPolicy(300);
+  const progressById = {};
+  const grantDocuments = [];
+  for (const [id, pageCount, completedPageCount, status, attempts] of specifications) {
+    const document = documents.find((item) => item.id === id);
+    const documentRoot = await createCompletedOutput(predecessorRoot, document, {
+      worker: predecessorWorker,
+      completedPageCount,
+    });
+    if (receiverNativeArtifacts) {
+      await addReceiverNativePageArtifacts(
+        documentRoot,
+        Array.from({ length: completedPageCount }, (_, index) => index + 1),
+      );
+    }
+    const statePath = path.join(documentRoot, 'state.json');
+    const state = JSON.parse(await readFile(statePath, 'utf8'));
+    state.failed_pages = {};
+    await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`);
+    const artifacts = await validateOcrDocumentOutput(document, documentRoot, runtime, {
+      requireComplete: status === 'complete',
+      workerConfiguration: predecessorWorker,
+    });
+    let statusRecord;
+    if (status === 'complete') {
+      statusRecord = {
+        schema_version: 1,
+        document_id: id,
+        status,
+        source_sha256: document.source_sha256,
+        page_count: pageCount,
+        runtime_fingerprint_sha256: runtimeFingerprintSha256,
+        citation_allowed: false,
+        whole_document_atomic: true,
+        artifacts,
+        verified_at: '2026-07-17T04:10:00.000Z',
+      };
+      progressById[id] = {
+        status,
+        attempts,
+        page_count: pageCount,
+        started_at: '2026-07-16T15:00:00.000Z',
+        completed_at: statusRecord.verified_at,
+        verified_at: statusRecord.verified_at,
+      };
+    } else {
+      const quarantinedAt = `2026-07-17T04:${String(grantDocuments.length).padStart(2, '0')}:00.000Z`;
+      const error = `OCR child idle_timeout after ${305 + grantDocuments.length}s; terminated with SIGTERM`;
+      statusRecord = {
+        schema_version: 1,
+        document_id: id,
+        status: 'quarantined',
+        attempt: 5,
+        max_attempts: 5,
+        page_count: pageCount,
+        runtime_fingerprint_sha256: runtimeFingerprintSha256,
+        citation_allowed: false,
+        quarantine_reason: 'attempt_budget_exhausted',
+        error,
+        quarantined_at: quarantinedAt,
+      };
+      progressById[id] = {
+        status: 'quarantined',
+        attempts: 5,
+        page_count: pageCount,
+        started_at: '2026-07-17T03:00:00.000Z',
+        failed_at: '2026-07-17T03:50:00.000Z',
+        quarantined_at: quarantinedAt,
+        quarantine_reason: 'attempt_budget_exhausted',
+        error,
+      };
+    }
+    const statusSha256 = await writeJsonSidecar(
+      path.join(predecessorRoot, 'status', `${id}.json`),
+      statusRecord,
+    );
+    progressById[id].status_json_sha256 = statusSha256;
+    if (status === 'quarantined') {
+      const logContents = `bounded predecessor log for ${id}\n`;
+      const logPath = path.join(predecessorRoot, 'logs', `${id}.log`);
+      await writeFile(logPath, logContents);
+      grantDocuments.push({
+        document_id: id,
+        predecessor_status_sha256: statusSha256,
+        predecessor_state_sha256: sha256(await readFile(statePath)),
+        inherited_attempts: 5,
+        granted_attempt: 6,
+        first_missing_page: completedPageCount + 1,
+        completed_pages_sha256: sha256(canonicalJson(state.completed_pages)),
+        failed_pages_sha256: sha256(canonicalJson(state.failed_pages)),
+        quarantine_reason: 'attempt_budget_exhausted',
+        error_sha256: sha256(statusRecord.error),
+        classification: 'child_idle_timeout_only',
+        timeout_log: {
+          path: `logs/${id}.log`,
+          bytes: Buffer.byteLength(logContents),
+          sha256: sha256(logContents),
+        },
+      });
+    }
+  }
+  const predecessorIdentity = {
+    schema_version: 1,
+    manifest_sha256: manifestSha256,
+    runtime,
+    runtime_fingerprint: runtimeFingerprint,
+    runtime_fingerprint_sha256: runtimeFingerprintSha256,
+    llama_server_attestation: attestation,
+    llama_server_attestation_sha256: attestationSha256,
+    runner_script_sha256: 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55',
+    ocr_script_sha256: '8'.repeat(64),
+    input_root: await realpath(inputRoot),
+    python_invocation_path: process.execPath,
+    python_resolved_target: await realpath(process.execPath),
+    worker_configuration: predecessorWorker,
+    document_recovery: predecessorRecovery,
+    whole_document_atomic: true,
+    citation_allowed: false,
+  };
+  const identityContents = `${JSON.stringify(predecessorIdentity, null, 2)}\n`;
+  await writeFile(path.join(predecessorRoot, 'run-identity.json'), identityContents);
+  const counts = {
+    total: specifications.length,
+    complete: specifications.filter((specification) => specification[3] === 'complete').length,
+    failed: 0,
+    interrupted: 0,
+    pending: 0,
+    running: 0,
+    retry_wait: 0,
+    quarantined: grantDocuments.length,
+  };
+  const predecessorRunStatus = {
+    schema_version: 1,
+    manifest_sha256: manifestSha256,
+    runtime_fingerprint_sha256: runtimeFingerprintSha256,
+    document_recovery: predecessorRecovery,
+    citation_allowed: false,
+    started_at: '2026-07-16T15:00:00.000Z',
+    documents: progressById,
+    counts,
+    finished: counts.complete === counts.total,
+    settled: true,
+  };
+  const runStatusSha256 = await writeJsonSidecar(
+    path.join(predecessorRoot, 'run-status.json'),
+    predecessorRunStatus,
+  );
+  const grantBasis = {
+    schema_version: 1,
+    grant_type: 'curriculum_remote_ocr_timeout_recovery_grant',
+    mode: 'one_additional_attempt_per_document',
+    predecessor: {
+      manifest_sha256: manifestSha256,
+      run_identity_sha256: sha256(identityContents),
+      run_status_sha256: runStatusSha256,
+    },
+    policy: {
+      required_status: 'quarantined',
+      required_inherited_attempts: 5,
+      granted_attempt: 6,
+      additional_attempts_per_document: 1,
+      automatic_attempt_7: false,
+      scope: 'all_timeout_quarantined_documents',
+    },
+    consumption: {
+      ledger_id: ledgerIdentity.ledger_id,
+      ledger_root: ledgerAuthorityRoot,
+      ledger_device: String(ledgerInfo.dev),
+      ledger_inode: String(ledgerInfo.ino),
+      claim_mode: 'atomic_single_claim',
+    },
+    documents: grantDocuments,
+    citation_allowed: false,
+  };
+  const grant = {
+    schema_version: grantBasis.schema_version,
+    grant_type: grantBasis.grant_type,
+    mode: grantBasis.mode,
+    grant_id: sha256(canonicalJson(grantBasis)),
+    predecessor: grantBasis.predecessor,
+    policy: grantBasis.policy,
+    consumption: grantBasis.consumption,
+    documents: grantBasis.documents,
+    citation_allowed: false,
+  };
+  return {
+    documents,
+    grant,
+    manifestSha256,
+    predecessorWorker,
+    ledgerRoot,
+    ledgerIdentity,
+  };
+}
+
+async function writeTimeoutRecoveryGrant(predecessorRoot, grant) {
+  return writeJsonSidecar(
+    path.join(predecessorRoot, 'timeout-recovery-grant.json'),
+    grant,
+  );
 }
 
 test('manifest validation requires whole untouched documents and citation fail-closed gates', () => {
@@ -1606,6 +1878,398 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
   assert.equal(received.counts.pages, 3_182);
   assert.equal(received.source_shards[0].seed_id, seeded.seedReceipt.seed_id);
   assert.deepEqual(await inspectTree(predecessorRoot), predecessorBefore);
+});
+
+test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an exact 6364-page union', async (t) => {
+  const { root, inputRoot, ocrScript } = await fixture(t);
+  const predecessorRoot = path.join(root, 'a-r1');
+  const successorRoot = path.join(root, 'a-r2');
+  const specifications = [
+    ['moe-2011-01', 83, 83, 'complete', 1],
+    ['moe-2022-03', 109, 109, 'complete', 1],
+    ['legacy-compendium-biology', 462, 462, 'complete', 1],
+    ['legacy-compendium-english', 649, 192, 'quarantined', 5],
+    ['legacy-compendium-general-primary', 242, 242, 'complete', 5],
+    ['legacy-compendium-geography', 518, 48, 'quarantined', 5],
+    ['legacy-compendium-mathematics', 697, 336, 'quarantined', 5],
+    ['legacy-compendium-politics', 422, 96, 'quarantined', 5],
+  ];
+  const manifestPath = path.join(inputRoot, 'a-shard.json');
+  const attestation = {
+    ...llamaServerAttestation,
+    parallel: 4,
+    production_command_contract: {
+      values: { '--host': '127.0.0.1', '--port': '8112', '--parallel': '4' },
+      flags: ['--mmproj-offload'],
+    },
+  };
+  const { documents, grant, ledgerRoot, ledgerIdentity } = await createTimeoutRecoveryPredecessor({
+    inputRoot,
+    predecessorRoot,
+    manifestPath,
+    specifications,
+    attestation,
+    receiverNativeArtifacts: true,
+  });
+  const optionsFor = (outputRoot, extra = {}) => ({
+    manifest: manifestPath,
+    inputRoot,
+    outputRoot,
+    python: process.execPath,
+    ocrScript,
+    model: '/unused/model',
+    mmproj: '/unused/mmproj',
+    llamaRepo: '/unused/llama',
+    llamaServerBin,
+    llamaSystemdUnit,
+    llamaUrl: workerConfiguration.llama_url,
+    runtimeDevice,
+    vlRecMaxConcurrency: 1,
+    serverParallel: 4,
+    microBatch: 16,
+    useQueues: true,
+    childIdleTimeoutSeconds: 1200,
+    seedFromOutputRoot: predecessorRoot,
+    timeoutRecoveryLedger: ledgerRoot,
+    seedOnly: true,
+    ...extra,
+  });
+  const dependencies = {
+    pageCounter: (_python, sourcePath) => documents.find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+    runtime,
+    llamaServerAttestation: attestation,
+    pythonRuntime,
+    paddlexLayoutModelCache,
+    runnerScriptSha256: 'e'.repeat(64),
+    nowMilliseconds: () => Date.parse('2026-07-18T06:00:00.000Z'),
+    handleSignals: false,
+  };
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(path.join(root, 'no-grant')), dependencies),
+    /requires timeout-recovery-grant\.json/,
+  );
+  await writeTimeoutRecoveryGrant(predecessorRoot, grant);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(path.join(root, 'missing-ledger'), {
+      timeoutRecoveryLedger: undefined,
+    }), dependencies),
+    /requires --timeout-recovery-ledger/,
+  );
+  const wrongLedgerRoot = path.join(root, 'wrong-timeout-recovery-ledger');
+  await createTimeoutRecoveryLedger(wrongLedgerRoot);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(path.join(root, 'wrong-ledger'), {
+      timeoutRecoveryLedger: wrongLedgerRoot,
+    }), dependencies),
+    /bound to a different consumption ledger/,
+  );
+  const clonedLedgerRoot = path.join(root, 'cloned-timeout-recovery-ledger');
+  await mkdir(clonedLedgerRoot, { recursive: true });
+  await writeJsonSidecar(
+    path.join(clonedLedgerRoot, 'ledger-identity.json'),
+    ledgerIdentity,
+  );
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(path.join(root, 'cloned-ledger'), {
+      timeoutRecoveryLedger: clonedLedgerRoot,
+    }), dependencies),
+    /bound to a different ledger authority/,
+  );
+  const predecessorBefore = await inspectTree(predecessorRoot);
+  const seeded = await runRemoteOcrOffload(optionsFor(successorRoot), dependencies);
+  assert.equal(seeded.seedOnly, true);
+  assert.equal(seeded.seedReceipt.counts.inherited_pages, 1_568);
+  assert.equal(seeded.seedReceipt.counts.predecessor_complete_documents, 4);
+  assert.equal(seeded.seedReceipt.counts.predecessor_quarantined_documents, 4);
+  assert.equal(seeded.seedReceipt.counts.recovery_granted_documents, 4);
+  assert.equal(seeded.seedReceipt.timeout_recovery_grant.grant_id, grant.grant_id);
+  assert.equal(seeded.seedReceipt.timeout_recovery_consumption.ledger_id, ledgerIdentity.ledger_id);
+  assert.match(seeded.seedReceipt.timeout_recovery_consumption.claim_sha256, /^[a-f0-9]{64}$/);
+  assert.deepEqual(
+    seeded.seedReceipt.timeout_recovery_grant.documents.map(
+      (document) => [document.document_id, document.first_missing_page],
+    ),
+    [
+      ['legacy-compendium-english', 193],
+      ['legacy-compendium-geography', 49],
+      ['legacy-compendium-mathematics', 337],
+      ['legacy-compendium-politics', 97],
+    ],
+  );
+  const recoveryDocuments = seeded.seedReceipt.documents.filter((document) => document.timeout_recovery);
+  assert.equal(recoveryDocuments.length, 4);
+  for (const receiptDocument of recoveryDocuments) {
+    const progress = seeded.runStatus.documents[receiptDocument.document_id];
+    assert.equal(progress.status, 'retry_wait');
+    assert.equal(progress.attempts, 5);
+    assert.equal(progress.inherited_attempts, 5);
+    assert.equal(progress.attempt_ceiling, 6);
+    assert.equal(progress.timeout_recovery_grant_id, grant.grant_id);
+    assert.equal(
+      receiptDocument.timeout_recovery.predecessor_log.path,
+      `seed-predecessor-evidence/logs/${receiptDocument.document_id}.log`,
+    );
+  }
+  const marker = JSON.parse(await readFile(path.join(successorRoot, 'seed-commit.json'), 'utf8'));
+  assert.deepEqual(marker.installed_items.map((item) => item.name), [
+    'documents',
+    'status',
+    'seed-predecessor-evidence',
+    'seed-receipt.json',
+    'seed-receipt.json.sha256',
+    'timeout-recovery-grant.json',
+    'timeout-recovery-grant.json.sha256',
+    'timeout-recovery-ledger-identity.json',
+    'timeout-recovery-ledger-identity.json.sha256',
+    'timeout-recovery-consumption-claim.json',
+    'timeout-recovery-consumption-claim.json.sha256',
+    'run-identity.json',
+    'run-status.json',
+    'run-status.json.sha256',
+  ]);
+  assert.equal(
+    await readFile(path.join(successorRoot, 'timeout-recovery-grant.json'), 'utf8'),
+    await readFile(path.join(predecessorRoot, 'timeout-recovery-grant.json'), 'utf8'),
+  );
+  const evidenceInventory = JSON.parse(await readFile(
+    path.join(successorRoot, 'seed-predecessor-evidence/inventory.json'),
+    'utf8',
+  ));
+  assert.equal(evidenceInventory.documents.filter((document) => document.timeout_log).length, 4);
+  const claimPath = path.join(ledgerRoot, `${grant.grant_id}.claim.json`);
+  const claim = JSON.parse(await readFile(claimPath, 'utf8'));
+  assert.equal(claim.grant_raw_sha256, seeded.seedReceipt.timeout_recovery_grant.raw_sha256);
+  assert.equal(claim.successor.seed_id, seeded.seedReceipt.seed_id);
+  assert.equal(claim.successor.output_root, await realpath(successorRoot));
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(path.join(root, 'a-r2-replay')), {
+      ...dependencies,
+      invokeOcr: async () => assert.fail('a consumed grant must fail before OCR invocation'),
+    }),
+    /already consumed by a different successor/,
+  );
+
+  const invocationCounts = new Map();
+  const completed = await runRemoteOcrOffload(optionsFor(successorRoot, { seedOnly: false }), {
+    ...dependencies,
+    invokeOcr: async (_python, commandArguments) => {
+      const document = documents.find((item) => item.id === commandArguments[1]);
+      assert.ok(recoveryDocuments.some((item) => item.document_id === document.id));
+      assert.equal(commandArguments[commandArguments.indexOf('--seed-id') + 1], seeded.seedReceipt.seed_id);
+      invocationCounts.set(document.id, (invocationCounts.get(document.id) || 0) + 1);
+      await completeSeededOutput(successorRoot, document);
+      return { code: 0, signal: null };
+    },
+  });
+  assert.equal(completed.exitCode, 0);
+  assert.equal(completed.runStatus.finished, true);
+  assert.deepEqual([...invocationCounts.values()], [1, 1, 1, 1]);
+  for (const receiptDocument of recoveryDocuments) {
+    const progress = completed.runStatus.documents[receiptDocument.document_id];
+    assert.equal(progress.status, 'complete');
+    assert.equal(progress.attempts, 6);
+    const status = JSON.parse(await readFile(
+      path.join(successorRoot, 'status', `${receiptDocument.document_id}.json`),
+      'utf8',
+    ));
+    assert.equal(status.attempt, 6);
+    assert.equal(status.max_attempts, 6);
+    assert.equal(status.seed_lineage.granted_attempt, 6);
+    assert.equal(status.seed_lineage.timeout_recovery_grant_id, grant.grant_id);
+  }
+  const restart = await runRemoteOcrOffload(optionsFor(successorRoot, { seedOnly: false }), {
+    ...dependencies,
+    invokeOcr: async () => assert.fail('successful granted attempt 6 must not run again'),
+  });
+  assert.equal(restart.exitCode, 0);
+  const received = await receiveRemoteOcrOffload({
+    manifest: manifestPath,
+    shards: [{ manifestPath, root: successorRoot }],
+    projectRoot: inputRoot,
+    productionRoot: path.join(inputRoot, 'local-production'),
+    textRoot: path.join(inputRoot, 'local-text'),
+    supervisorRoot: path.join(inputRoot, 'local-supervisor'),
+    receiptRoot: path.join(inputRoot, 'receipts'),
+    python: process.execPath,
+  }, {
+    pageCounter: (_python, sourcePath) => documents.find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+  });
+  assert.equal(received.status, 'dry_run_validated');
+  assert.equal(received.counts.documents, 8);
+  assert.equal(received.counts.pages, 3_182);
+  assert.equal(
+    received.source_shards[0].timeout_recovery_grant_sha256,
+    seeded.seedReceipt.timeout_recovery_grant.raw_sha256,
+  );
+
+  const bPredecessorRoot = path.join(root, 'b-r1-union');
+  const bSuccessorRoot = path.join(root, 'b-r2-union');
+  const bManifestPath = path.join(inputRoot, 'b-union-shard.json');
+  const bSpecifications = [
+    ['legacy-compendium-arts-labor', 491, 491, 'complete', 1],
+    ['legacy-compendium-chemistry', 458, 458, 'complete', 2],
+    ['legacy-compendium-chinese', 568, 568, 'complete', 1],
+    ['legacy-compendium-history', 765, 765, 'complete', 1],
+    ['legacy-compendium-physics', 477, 477, 'complete', 1],
+    ['legacy-compendium-plans', 423, 423, 'complete', 1],
+  ];
+  const { documents: bDocuments } = await createTimeoutRecoveryPredecessor({
+    inputRoot,
+    predecessorRoot: bPredecessorRoot,
+    manifestPath: bManifestPath,
+    specifications: bSpecifications,
+    attestation,
+    receiverNativeArtifacts: true,
+  });
+  const bSeeded = await runRemoteOcrOffload({
+    ...optionsFor(bSuccessorRoot),
+    manifest: bManifestPath,
+    seedFromOutputRoot: bPredecessorRoot,
+    timeoutRecoveryLedger: undefined,
+  }, {
+    ...dependencies,
+    pageCounter: (_python, sourcePath) => bDocuments.find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+  });
+  assert.equal(bSeeded.seedReceipt.counts.inherited_pages, 3_182);
+  assert.equal(bSeeded.seedReceipt.timeout_recovery_grant, undefined);
+  const unionManifestPath = path.join(inputRoot, 'a-b-r2-union.json');
+  await writeFile(
+    unionManifestPath,
+    `${JSON.stringify(manifestFor([...documents, ...bDocuments]), null, 2)}\n`,
+  );
+  const union = await receiveRemoteOcrOffload({
+    manifest: unionManifestPath,
+    shards: [
+      { manifestPath, root: successorRoot },
+      { manifestPath: bManifestPath, root: bSuccessorRoot },
+    ],
+    projectRoot: inputRoot,
+    productionRoot: path.join(inputRoot, 'union-local-production'),
+    textRoot: path.join(inputRoot, 'union-local-text'),
+    supervisorRoot: path.join(inputRoot, 'union-local-supervisor'),
+    receiptRoot: path.join(inputRoot, 'union-receipts'),
+    python: process.execPath,
+  }, {
+    pageCounter: (_python, sourcePath) => [...documents, ...bDocuments].find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+  });
+  assert.equal(union.status, 'dry_run_validated');
+  assert.equal(union.counts.documents, 14);
+  assert.equal(union.counts.pages, 6364);
+  assert.equal(union.source_shards.filter((shard) => shard.timeout_recovery_grant_sha256).length, 1);
+  assert.equal(union.documents.filter((document) => document.timeout_recovery).length, 4);
+  assert.deepEqual(await inspectTree(predecessorRoot), predecessorBefore);
+});
+
+test('timeout grant rejects drift and a failed granted attempt 6 is quarantined without attempt 7', async (t) => {
+  const { root, inputRoot, ocrScript } = await fixture(t);
+  const predecessorRoot = path.join(root, 'a-r1-small');
+  const successorRoot = path.join(root, 'a-r2-small');
+  const manifestPath = path.join(inputRoot, 'a-small.json');
+  const specifications = [
+    ['doc-timeout-fails', 2, 1, 'quarantined', 5],
+    ['doc-timeout-recovers', 2, 1, 'quarantined', 5],
+  ];
+  const attestation = {
+    ...llamaServerAttestation,
+    parallel: 4,
+    production_command_contract: {
+      values: { '--host': '127.0.0.1', '--port': '8112', '--parallel': '4' },
+      flags: ['--mmproj-offload'],
+    },
+  };
+  const { documents, grant, ledgerRoot } = await createTimeoutRecoveryPredecessor({
+    inputRoot,
+    predecessorRoot,
+    manifestPath,
+    specifications,
+    attestation,
+  });
+  const optionsFor = (outputRoot, extra = {}) => ({
+    manifest: manifestPath,
+    inputRoot,
+    outputRoot,
+    python: process.execPath,
+    ocrScript,
+    model: '/unused/model',
+    mmproj: '/unused/mmproj',
+    llamaRepo: '/unused/llama',
+    llamaServerBin,
+    llamaSystemdUnit,
+    llamaUrl: workerConfiguration.llama_url,
+    runtimeDevice,
+    vlRecMaxConcurrency: 1,
+    serverParallel: 4,
+    microBatch: 16,
+    useQueues: true,
+    childIdleTimeoutSeconds: 1200,
+    seedFromOutputRoot: predecessorRoot,
+    timeoutRecoveryLedger: ledgerRoot,
+    seedOnly: true,
+    ...extra,
+  });
+  const dependencies = {
+    pageCounter: () => 2,
+    runtime,
+    llamaServerAttestation: attestation,
+    pythonRuntime,
+    paddlexLayoutModelCache,
+    runnerScriptSha256: 'e'.repeat(64),
+    nowMilliseconds: () => Date.parse('2026-07-18T06:00:00.000Z'),
+    handleSignals: false,
+  };
+  const driftedGrant = structuredClone(grant);
+  driftedGrant.documents[0].first_missing_page = 1;
+  const driftedBasis = structuredClone(driftedGrant);
+  delete driftedBasis.grant_id;
+  driftedGrant.grant_id = sha256(canonicalJson(driftedBasis));
+  await writeTimeoutRecoveryGrant(predecessorRoot, driftedGrant);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(path.join(root, 'frontier-drift')), dependencies),
+    /grant document identity mismatch/,
+  );
+  await writeTimeoutRecoveryGrant(predecessorRoot, grant);
+  const timeoutLogPath = path.join(predecessorRoot, 'logs/doc-timeout-fails.log');
+  const originalTimeoutLog = await readFile(timeoutLogPath);
+  await writeFile(timeoutLogPath, Buffer.concat([originalTimeoutLog, Buffer.from('drift\n')]));
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(path.join(root, 'log-drift')), dependencies),
+    /timeout recovery log identity mismatch/,
+  );
+  await writeFile(timeoutLogPath, originalTimeoutLog);
+  await runRemoteOcrOffload(optionsFor(successorRoot), dependencies);
+
+  const invocations = [];
+  const first = await runRemoteOcrOffload(optionsFor(successorRoot, { seedOnly: false }), {
+    ...dependencies,
+    invokeOcr: async (_python, commandArguments) => {
+      const id = commandArguments[1];
+      invocations.push(id);
+      if (id === 'doc-timeout-recovers') {
+        await completeSeededOutput(successorRoot, documents.find((document) => document.id === id));
+      }
+      return { code: 0, signal: null };
+    },
+  });
+  assert.equal(first.exitCode, 12);
+  assert.deepEqual(invocations, ['doc-timeout-fails', 'doc-timeout-recovers']);
+  assert.equal(first.runStatus.documents['doc-timeout-fails'].status, 'quarantined');
+  assert.equal(first.runStatus.documents['doc-timeout-fails'].attempts, 6);
+  assert.equal(first.runStatus.documents['doc-timeout-recovers'].status, 'complete');
+  assert.equal(first.runStatus.documents['doc-timeout-recovers'].attempts, 6);
+  const retry = await runRemoteOcrOffload(optionsFor(successorRoot, { seedOnly: false }), {
+    ...dependencies,
+    invokeOcr: async () => assert.fail('attempt 7 must never be invoked'),
+  });
+  assert.equal(retry.exitCode, 12);
+  assert.equal(retry.runStatus.documents['doc-timeout-fails'].attempts, 6);
 });
 
 test('output-root owner lock blocks a concurrent runner before identity or cache initialization', async (t) => {
