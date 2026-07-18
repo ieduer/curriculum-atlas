@@ -13,6 +13,7 @@ import {
   buildCorpusImportOwnerAcquireSql,
   buildCorpusImportStartSql,
   buildCorpusChunkReceiptSql,
+  assertCorpusManifestMatchesDesiredRelease,
   collectD1TimeTravelReceipt,
   CORE_TABLE_COUNT_KEYS,
   parseD1TimeTravelReceipt,
@@ -27,6 +28,16 @@ import { createImmutableTreeSnapshot } from '../scripts/lib/immutable-release-sn
 const root = new URL('../', import.meta.url);
 const builder = await readFile(new URL('scripts/build-corpus.mjs', root), 'utf8');
 const worker = await readFile(new URL('src/index.ts', root), 'utf8');
+
+const fixedDesiredReleaseLoader = async () => ({
+  artifact: { value: {} },
+  snapshot: { verify: async () => true, cleanup: async () => {} },
+});
+const testImportReleaseBindings = {
+  desiredReleaseArtifactLoader: fixedDesiredReleaseLoader,
+  desiredCorpusBindingValidator: () => true,
+  readyReleaseChecker: () => false,
+};
 
 function manifest(overrides = {}) {
   const projection = {
@@ -85,6 +96,33 @@ function rawAuditManifest(overrides = {}) {
     ...overrides,
   };
 }
+
+test('desired-release corpus identity rejects a live corpus substitution before any remote command', () => {
+  const live = manifest({
+    release_id: `corpus-${'b'.repeat(24)}`,
+    release_fingerprint_sha256: 'b'.repeat(64),
+  });
+  const bytes = Buffer.from(`${JSON.stringify(live, null, 2)}\n`);
+  const desired = {
+    value: {
+      corpus_release: {
+        source: 'data/corpus-chunks/manifest.json',
+        sha256: 'a'.repeat(64),
+        bytes: bytes.length,
+        release_id: `corpus-${'a'.repeat(24)}`,
+        release_fingerprint_sha256: 'a'.repeat(64),
+        manifest_sha256: 'a'.repeat(64),
+        audit: {},
+        counts: {},
+        chunks: [],
+      },
+    },
+  };
+  assert.throws(
+    () => assertCorpusManifestMatchesDesiredRelease(desired, live, bytes, live.sql_files),
+    /desired release corpus identity mismatch/,
+  );
+});
 
 async function database() {
   const db = new DatabaseSync(':memory:');
@@ -520,12 +558,69 @@ test('remote importer executes a private fixed SQL inode and receipts those exac
       corpusSnapshotFactory: minimalCorpusSnapshotFactory,
       pageEvidenceValidator: () => ({ valid: true, publishable: false }),
       sourceBindingValidator: async () => sealed,
+      ...testImportReleaseBindings,
     });
     assert.deepEqual(outcome, { status: 0, phase: 'ready' });
     assert.ok(snapshotPath);
     assert.equal(existsSync(snapshotPath), false, 'private SQL snapshot must be removed after import');
     assert.match(executedSql, new RegExp(sqlSha256));
     assert.match(executedSql, new RegExp(`${sqlBytes.length},CURRENT_TIMESTAMP`));
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test('remote importer treats an exact ready release as a metadata-preserving no-op', async () => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'corpus-import-ready-noop-fixture-'));
+  const chunkDirectory = join(fixtureRoot, 'data', 'corpus-chunks');
+  let snapshotRoot = null;
+  try {
+    await mkdir(chunkDirectory, { recursive: true });
+    const sqlBytes = Buffer.from('SELECT 1;\n');
+    const sealed = manifest({
+      sql_files: [{
+        name: '000-core.sql',
+        sha256: createHash('sha256').update(sqlBytes).digest('hex'),
+        bytes: sqlBytes.length,
+      }],
+    });
+    await writeFile(join(chunkDirectory, '000-core.sql'), sqlBytes);
+    await writeFile(join(chunkDirectory, 'manifest.json'), `${JSON.stringify(sealed, null, 2)}\n`);
+    const calls = [];
+    const outcome = await runCorpusImport({
+      root: fixtureRoot,
+      database: 'fixture',
+      environment: 'preview',
+      remote: true,
+      runCommand: (_root, _database, _environment, args) => {
+        calls.push(args);
+        return { status: 0 };
+      },
+      ownerToken: ['fixture', 'corpus', 'owner', 'ready'].join('-'),
+      timeTravelCollector: () => prechange(),
+      ownerAcquirer: () => 7,
+      corpusSnapshotFactory: async (options) => {
+        const snapshot = await minimalCorpusSnapshotFactory(options);
+        snapshotRoot = snapshot.root;
+        return snapshot;
+      },
+      pageEvidenceValidator: () => ({ valid: true, publishable: false }),
+      sourceBindingValidator: async () => sealed,
+      desiredReleaseArtifactLoader: fixedDesiredReleaseLoader,
+      desiredCorpusBindingValidator: () => true,
+      readyReleaseChecker: () => true,
+    });
+    assert.deepEqual(outcome, {
+      status: 0,
+      phase: 'already_ready',
+      release_id: sealed.release_id,
+    });
+    assert.equal(calls.some((args) => args[0] === '--file'), false);
+    assert.equal(calls.some((args) => args[0] === '--command'
+      && /INSERT INTO corpus_import_releases|DELETE FROM corpus_import_chunks/.test(args[1])), false);
+    assert.ok(calls.some((args) => args[0] === '--command'
+      && /UPDATE corpus_import_ownership SET expires_unix/.test(args[1])));
+    assert.equal(existsSync(snapshotRoot), false, 'ready no-op corpus snapshot must be removed');
   } finally {
     await rm(fixtureRoot, { recursive: true, force: true });
   }
@@ -568,6 +663,7 @@ test('empty chunk selection releases the acquired owner and removes the corpus s
       },
       pageEvidenceValidator: () => ({ valid: true, publishable: false }),
       sourceBindingValidator: async () => sealed,
+      ...testImportReleaseBindings,
     }), /no corpus SQL files selected/);
     assert.ok(calls.some((args) => args[0] === '--command'
       && /UPDATE corpus_import_ownership SET expires_unix/.test(args[1])));
@@ -616,6 +712,7 @@ test('remote importer fails the release when its private SQL snapshot changes du
       corpusSnapshotFactory: minimalCorpusSnapshotFactory,
       pageEvidenceValidator: () => ({ valid: true, publishable: false }),
       sourceBindingValidator: async () => sealed,
+      ...testImportReleaseBindings,
     }), /private SQL snapshot became unstable/);
     assert.ok(snapshotPath);
     assert.equal(existsSync(snapshotPath), false, 'unstable private SQL snapshot must be removed');

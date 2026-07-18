@@ -34,6 +34,8 @@
     "metadata:publish:production": "node scripts/publish-metadata.mjs --bucket bdfz-curriculum-atlas-sources --remote --evidence .wrangler/release-environment-evidence.json",
     "metadata:publish:page-evidence:preview": "node scripts/publish-metadata.mjs --bucket bdfz-curriculum-atlas-sources-preview --remote --evidence .wrangler/release-environment-evidence.json --page-evidence-promotion",
     "metadata:publish:page-evidence:production": "node scripts/publish-metadata.mjs --bucket bdfz-curriculum-atlas-sources --remote --evidence .wrangler/release-environment-evidence.json --page-evidence-promotion",
+    "metadata:rollback:preview": "node scripts/publish-metadata.mjs --bucket bdfz-curriculum-atlas-sources-preview --remote --evidence .wrangler/release-environment-evidence.json --rollback-pointer-receipt .wrangler/rollback-pointer-receipt.json",
+    "metadata:rollback:production": "node scripts/publish-metadata.mjs --bucket bdfz-curriculum-atlas-sources --remote --evidence .wrangler/release-environment-evidence.json --rollback-pointer-receipt .wrangler/rollback-pointer-receipt.json",
     "check": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "test:python": "/Users/ylsuen/.venv/bin/python -m unittest tests/test_ocr_pdf_paddle.py",

@@ -43,6 +43,16 @@ CREATE TABLE IF NOT EXISTS release_publication_ownership (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS release_publication_activation_claim (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  release_id TEXT NOT NULL,
+  manifest_sha256 TEXT NOT NULL CHECK (length(manifest_sha256) = 64),
+  owner_token_sha256 TEXT NOT NULL CHECK (length(owner_token_sha256) = 64),
+  owner_fence INTEGER NOT NULL CHECK (owner_fence > 0),
+  expires_unix INTEGER NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 INSERT OR REPLACE INTO site_meta(key,value) VALUES
   ('corpus_import_ownership_schema_version','2'),
-  ('release_publication_coordination_schema_version','2');
+  ('release_publication_coordination_schema_version','3');

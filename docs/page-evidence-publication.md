@@ -246,7 +246,11 @@ private snapshots rather than a path that was merely checked earlier:
   chunk mutation and its receipt execute in one guarded batch carrying the
   release owner token and monotonic fence. An expired-owner takeover gets a new
   fence; the former owner cannot start, renew, fail, resume, write a chunk or
-  finalize afterward;
+  finalize afterward. Before the first remote command, both the live envelope
+  and the fixed snapshot must exactly match the corpus pin inside the one
+  desired-release artifact. An exact release that is already `ready` returns
+  `already_ready` without rewriting release metadata, chunk receipts or current
+  corpus metadata;
 - the Worker deployer makes a second read-only tree from the prepared Git tree
   and invokes Wrangler only with that private `--cwd`. A worktree mutation
   after preparation cannot enter `dist` or the deployed Assets;
@@ -255,14 +259,19 @@ private snapshots rather than a path that was merely checked earlier:
   accepted only when body, SHA-256, byte length and custom metadata are exact.
 
 Migration `0008_release_ownership_fences.sql` supplies independent corpus and
-publication owner/fence state. The publisher first acquires its D1 publication
-owner token and fence, then the coordinator revalidates that live ownership for
-every create, inventory and activation request. Before activation it lists the
-entire release prefix with pagination and re-GETs every object; missing, extra,
-polluted or metadata-mismatched keys fail closed. `release/current.json` is
-written through the R2 binding with `If-Match` on the observed ETag, or
-`If-None-Match: *` for an absent pointer, and the new fence must be greater than
-the predecessor fence. A stale publisher therefore cannot overwrite a newer
+publication owner/fence state plus coordination-schema-3 activation claims.
+The publisher first acquires its D1 publication owner token and fence, then the
+coordinator revalidates that live ownership for every create, inventory and
+activation request. Before pointer mutation, activation acquires a bounded
+600-second D1 claim that blocks every supported competing owner acquisition or
+early owner release, lists the entire release prefix with pagination and
+re-GETs every object. Missing, extra, polluted, body/hash/byte-mismatched,
+HTTP-Content-Type-mismatched or custom-metadata-mismatched keys fail closed.
+`release/current.json` is written through the R2 binding with `If-Match` on the
+observed ETag, or `If-None-Match: *` for an absent pointer, and the new fence
+must be greater than the predecessor fence. If claim cleanup fails, supported
+takeover remains blocked until its bounded expiry; direct D1/R2/dashboard
+writes are forbidden. A stale publisher therefore cannot overwrite a newer
 activation even after its local checks passed. A legacy schema-1 predecessor
 may be adopted only when its referenced manifest body still matches the exact
 hash and byte length in that pointer; all new schema-2 predecessors additionally
@@ -276,10 +285,16 @@ predecessor, an expired/lost owner fence or a snapshot identity change fails clo
 
 Recovery starts from the prechange D1 Time Travel receipt and authenticated
 coordinator pointer inspection. Leave verified but unreferenced immutable
-objects in place. Rollback is a new, higher-fence forward publication of
-verified predecessor content; do not upload saved raw `current.json` bytes or
-delete the pointer outside a separately reviewed maintenance procedure that
-first proves all publishers are quiescent.
+objects in place. Save the exact schema-2 `inspect-pointer` JSON as
+`.wrangler/rollback-pointer-receipt.json`; the rollback parser verifies its
+canonical inner pointer hash/bytes before owner acquisition. With the current
+desired Worker/D1 environment still healthy, run
+`npm run metadata:rollback:preview` or
+`npm run metadata:rollback:production`. This creates a higher-fence conditional
+pointer transition only after the coordinator has revalidated the historical
+immutable target. Do not upload saved raw `current.json` bytes or delete the
+pointer outside a separately reviewed maintenance procedure that first proves
+all publishers are quiescent.
 
 ## Test coverage
 

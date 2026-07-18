@@ -9,10 +9,13 @@ import {
   buildCorpusImportFinalizeSql,
   buildCorpusImportOwnerAcquireSql,
   buildCorpusImportStartSql,
+  buildCorpusChunkReceiptSql,
   buildOwnedCorpusChunkSql,
   sealCorpusManifest,
 } from '../scripts/import-corpus.mjs';
 import {
+  buildPublicationActivationClaimAcquireSql,
+  buildPublicationActivationClaimReleaseSql,
   buildPublicationLeaseAcquireSql,
   buildPublicationLeaseRenewSql,
 } from '../scripts/publish-metadata.mjs';
@@ -198,6 +201,66 @@ test('SQLite publication lease serializes same and different releases and reject
     const current = db.prepare('SELECT release_id,owner_fence FROM release_publication_ownership WHERE id=1').get();
     assert.equal(current.release_id, releaseB);
     assert.equal(Number(current.owner_fence), 2);
+  } finally {
+    db.close();
+  }
+});
+
+test('an exact ready corpus rerun is an idempotent no-op', async () => {
+  const db = await database();
+  try {
+    const chunk = Buffer.from("INSERT INTO site_meta(key,value) VALUES('ready_marker','ok') ON CONFLICT(key) DO UPDATE SET value=excluded.value;\n");
+    const release = manifest('c', chunk);
+    db.exec(buildCorpusImportOwnerAcquireSql(release, { ownerToken: ownerA, ttlSeconds: 3600 }));
+    db.exec(buildCorpusImportStartSql(release, {
+      ownerToken: ownerA, ownerFence: 1, ttlSeconds: 3600, prechange: prechange('ready-first'),
+    }));
+    db.exec(buildCorpusChunkReceiptSql(release, '000-core.sql', null, {
+      ownerToken: ownerA, ownerFence: 1, ttlSeconds: 3600,
+    }));
+    db.exec(`UPDATE corpus_import_releases SET state='ready' WHERE release_id='${release.release_id}'`);
+    db.exec("UPDATE site_meta SET value='ready' WHERE key='corpus_import_state'");
+    db.exec('UPDATE corpus_import_ownership SET expires_unix=0 WHERE id=1');
+    db.exec(buildCorpusImportOwnerAcquireSql(release, { ownerToken: ownerB, ttlSeconds: 3600 }));
+    const nextFence = fence(db, 'corpus_import_ownership');
+    db.exec(buildCorpusImportStartSql(release, {
+      ownerToken: ownerB, ownerFence: nextFence, ttlSeconds: 3600, prechange: prechange('ready-rerun'),
+    }));
+    assert.deepEqual({
+      state: db.prepare('SELECT state FROM corpus_import_releases WHERE release_id=?').get(release.release_id).state,
+      siteState: db.prepare("SELECT value FROM site_meta WHERE key='corpus_import_state'").get().value,
+      receipts: Number(db.prepare('SELECT COUNT(*) AS count FROM corpus_import_chunks WHERE release_id=?').get(release.release_id).count),
+    }, { state: 'ready', siteState: 'ready', receipts: 1 });
+  } finally {
+    db.close();
+  }
+});
+
+test('an active R2 activation claim blocks owner takeover until guarded release', async () => {
+  const db = await database();
+  try {
+    const releaseA = `release-${'a'.repeat(32)}`;
+    const releaseB = `release-${'b'.repeat(32)}`;
+    const hashA = 'a'.repeat(64);
+    const hashB = 'b'.repeat(64);
+    db.exec(buildPublicationLeaseAcquireSql({
+      token: ownerA, releaseId: releaseA, manifestSha256: hashA, ttlSeconds: 3600,
+    }));
+    db.exec(buildPublicationActivationClaimAcquireSql({
+      token: ownerA, releaseId: releaseA, manifestSha256: hashA, ownerFence: 1, ttlSeconds: 600,
+    }));
+    db.exec('UPDATE release_publication_ownership SET expires_unix=0 WHERE id=1');
+    assert.throws(() => db.exec(buildPublicationLeaseAcquireSql({
+      token: ownerB, releaseId: releaseB, manifestSha256: hashB, ttlSeconds: 3600,
+    })), /CHECK constraint failed/);
+    assert.equal(fence(db, 'release_publication_ownership'), 1);
+    db.exec(buildPublicationActivationClaimReleaseSql({
+      token: ownerA, releaseId: releaseA, manifestSha256: hashA, ownerFence: 1,
+    }));
+    db.exec(buildPublicationLeaseAcquireSql({
+      token: ownerB, releaseId: releaseB, manifestSha256: hashB, ttlSeconds: 3600,
+    }));
+    assert.equal(fence(db, 'release_publication_ownership'), 2);
   } finally {
     db.close();
   }

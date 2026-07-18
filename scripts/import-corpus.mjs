@@ -17,11 +17,13 @@ import { loadDocumentClassificationResolver } from './document-classification.mj
 import { computeCorpusReleaseFingerprint } from './lib/corpus-release-fingerprint.mjs';
 import { createImmutableBufferSnapshot } from './lib/immutable-release-snapshot.mjs';
 import { createCorpusSourceSnapshot } from './lib/corpus-source-snapshot.mjs';
+import { parseDesiredReleaseManifestArtifact } from './lib/desired-release-manifest.mjs';
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const RELEASE_ID_PATTERN = /^corpus-[a-f0-9]{24}$/;
 const CANONICAL_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const DEFAULT_OWNER_TTL_SECONDS = 3600;
+const DEFAULT_DESIRED_RELEASE_MANIFEST = '.wrangler/release-manifest.json';
 export const CORPUS_MANIFEST_PROJECTION_KEYS = [
   'generated_at',
   'schema_version',
@@ -73,6 +75,79 @@ function sql(value) {
   if (value === null || value === undefined) return 'NULL';
   if (typeof value === 'number') return String(value);
   return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function desiredCorpusProjection(manifest, manifestBuffer, sqlFiles) {
+  return {
+    source: 'data/corpus-chunks/manifest.json',
+    sha256: createHash('sha256').update(manifestBuffer).digest('hex'),
+    bytes: manifestBuffer.length,
+    release_id: manifest.release_id,
+    release_fingerprint_sha256: manifest.release_fingerprint_sha256,
+    manifest_sha256: manifest.manifest_sha256,
+    audit: {
+      closed_ocr_paragraphs: manifest.closed_ocr_paragraphs,
+      skipped_ocr_documents: manifest.skipped_ocr_documents,
+      excluded_exact_duplicate_alias_documents: manifest.excluded_exact_duplicate_alias_documents,
+      semantic_excluded_pages: manifest.semantic_excluded_pages,
+      page_publication_schema_version: manifest.page_publication_schema_version,
+      semantic_publication_schema_version: manifest.semantic_publication_schema_version,
+      semantic_publication_revision_sha256: manifest.semantic_publication_revision_sha256,
+    },
+    counts: {
+      documents: manifest.documents,
+      paragraphs: manifest.paragraphs,
+      fts_rows: manifest.fts_rows,
+      page_publication_gates: manifest.page_publication_gates,
+      displayed_paragraphs: manifest.displayed_paragraphs,
+      accepted_ocr_documents: manifest.accepted_ocr_documents,
+      chunks: manifest.sql_chunks,
+      core_table_counts: manifest.core_table_counts,
+    },
+    chunks: sqlFiles.map((entry) => ({
+      source: `data/corpus-chunks/${entry.name}`,
+      name: entry.name,
+      sha256: entry.sha256,
+      bytes: entry.bytes,
+    })),
+  };
+}
+
+export function assertCorpusManifestMatchesDesiredRelease(artifact, manifestInput, manifestBuffer, sqlFiles) {
+  const manifest = validateCorpusManifest(manifestInput, sqlFiles.length);
+  if (!Buffer.isBuffer(manifestBuffer) || !Array.isArray(sqlFiles)) {
+    throw new Error('desired release corpus identity requires fixed manifest bytes and SQL inventory');
+  }
+  const expected = artifact?.value?.corpus_release;
+  const actual = desiredCorpusProjection(manifest, manifestBuffer, sqlFiles);
+  if (!expected || stableStringify(expected) !== stableStringify(actual)) {
+    throw new Error('desired release corpus identity mismatch');
+  }
+  return actual;
+}
+
+async function loadDesiredReleaseForCorpusImport({ root, manifestPath = DEFAULT_DESIRED_RELEASE_MANIFEST } = {}) {
+  const rootUrl = root instanceof URL ? root : pathToFileURL(`${path.resolve(String(root))}${path.sep}`);
+  const normalized = String(manifestPath || '').replaceAll('\\', '/');
+  if (!normalized || normalized.startsWith('/') || normalized === '..' || normalized.startsWith('../')
+      || normalized.includes('/../') || normalized.split('/').some((part) => !part || part === '.' || part === '..')) {
+    throw new Error('desired release manifest path must remain inside the project root');
+  }
+  const buffer = await readFile(new URL(normalized, rootUrl));
+  const artifact = parseDesiredReleaseManifestArtifact(buffer);
+  const snapshot = await createImmutableBufferSnapshot({
+    buffer,
+    label: 'desired release artifact for corpus import',
+  });
+  return { artifact, snapshot };
 }
 
 export function buildParagraphIdentityGuardSql(rows, chunkName) {
@@ -688,6 +763,12 @@ export function buildCorpusImportStartSql(manifestInput, {
   });
   const prechange = prechangeReceipt(prechangeInput);
   const expectedCoreCountsJson = JSON.stringify(manifest.core_table_counts);
+  const exactReady = `EXISTS(
+  SELECT 1 FROM corpus_import_releases
+  WHERE release_id=${sql(manifest.release_id)}
+    AND release_fingerprint_sha256=${sql(manifest.release_fingerprint_sha256)}
+    AND manifest_sha256=${sql(manifest.manifest_sha256)} AND state='ready'
+)`;
   const resumeGuard = resume
     ? `AND EXISTS(
   SELECT 1 FROM corpus_import_releases
@@ -699,7 +780,7 @@ export function buildCorpusImportStartSql(manifestInput, {
     : '';
   const resetReceipts = resume
     ? ''
-    : `DELETE FROM corpus_import_chunks WHERE release_id=${sql(manifest.release_id)};\n`;
+    : `DELETE FROM corpus_import_chunks WHERE release_id=${sql(manifest.release_id)} AND NOT ${exactReady};\n`;
   return `${owner.prefix}
 DELETE FROM corpus_import_guards WHERE guard_key='start';
 INSERT INTO corpus_import_guards(guard_key,ok)
@@ -712,6 +793,12 @@ AND (SELECT COUNT(*) FROM periods)=${manifest.core_table_counts.periods}
 AND (SELECT COUNT(*) FROM document_relations)=0
 AND (SELECT COUNT(*) FROM chapters)=0
 AND (SELECT COUNT(*) FROM version_diffs)=0
+AND NOT EXISTS(
+  SELECT 1 FROM corpus_import_releases
+  WHERE release_id=${sql(manifest.release_id)} AND state='ready'
+    AND (release_fingerprint_sha256!=${sql(manifest.release_fingerprint_sha256)}
+      OR manifest_sha256!=${sql(manifest.manifest_sha256)})
+)
 ${resumeGuard}
 THEN 1 ELSE 0 END;
 INSERT INTO corpus_import_releases(
@@ -753,11 +840,14 @@ ON CONFLICT(release_id) DO UPDATE SET
   prechange_receipt_json=COALESCE(corpus_import_releases.prechange_receipt_json,excluded.prechange_receipt_json),
   updated_at=CURRENT_TIMESTAMP,ready_at=NULL,failure_reason=NULL
 WHERE corpus_import_releases.state!='ready';
-${resetReceipts}INSERT INTO site_meta(key,value) VALUES('corpus_import_state','in_progress')
+${resetReceipts}INSERT INTO site_meta(key,value)
+  SELECT 'corpus_import_state','in_progress' WHERE NOT ${exactReady}
   ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;
-INSERT INTO site_meta(key,value) VALUES('current_corpus_release_id',${sql(manifest.release_id)})
+INSERT INTO site_meta(key,value)
+  SELECT 'current_corpus_release_id',${sql(manifest.release_id)} WHERE NOT ${exactReady}
   ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;
-INSERT INTO site_meta(key,value) VALUES('current_corpus_manifest_sha256',${sql(manifest.manifest_sha256)})
+INSERT INTO site_meta(key,value)
+  SELECT 'current_corpus_manifest_sha256',${sql(manifest.manifest_sha256)} WHERE NOT ${exactReady}
   ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;
 DELETE FROM corpus_import_guards WHERE guard_key='start';
 ${owner.renew}
@@ -1119,6 +1209,36 @@ export function acquireCorpusImportOwner({
   return parseOwnerFence(result.stdout);
 }
 
+export function corpusImportReleaseReadySql(manifestInput) {
+  const manifest = validateCorpusManifest(manifestInput);
+  return `SELECT CASE WHEN EXISTS(
+  SELECT 1 FROM corpus_import_releases
+  WHERE release_id=${sql(manifest.release_id)}
+    AND release_fingerprint_sha256=${sql(manifest.release_fingerprint_sha256)}
+    AND manifest_sha256=${sql(manifest.manifest_sha256)} AND state='ready'
+) THEN 1 ELSE 0 END AS exact_ready;`;
+}
+
+export function checkCorpusImportReleaseReady({
+  root,
+  database,
+  environment,
+  manifest,
+  runCommand = runWrangler,
+} = {}) {
+  const result = runCommand(root, database, environment, [
+    '--command', corpusImportReleaseReadySql(manifest), '--json',
+  ], 'pipe');
+  if (result.status !== 0) throw new Error('corpus ready-state preflight failed');
+  let value;
+  try {
+    value = JSON.parse(Buffer.isBuffer(result.stdout) ? result.stdout.toString('utf8') : String(result.stdout || ''));
+  } catch (error) {
+    throw new Error(`corpus ready-state receipt is not JSON: ${error.message}`);
+  }
+  return Number(findField(value, ['exact_ready'])) === 1;
+}
+
 export function runCorpusFinalization({
   root,
   database,
@@ -1169,6 +1289,10 @@ export async function runCorpusImport({
   corpusSnapshotFactory = createCorpusSourceSnapshot,
   pageEvidenceValidator = validatePageEvidenceForRelease,
   sourceBindingValidator = validateCorpusManifestSourceBindings,
+  desiredReleaseManifestPath = DEFAULT_DESIRED_RELEASE_MANIFEST,
+  desiredReleaseArtifactLoader = loadDesiredReleaseForCorpusImport,
+  desiredCorpusBindingValidator = assertCorpusManifestMatchesDesiredRelease,
+  readyReleaseChecker = checkCorpusImportReleaseReady,
 } = {}) {
   database = String(database || '');
   if (!database) throw new Error('--database is required');
@@ -1181,19 +1305,40 @@ export async function runCorpusImport({
   const rootUrl = root instanceof URL
     ? root
     : pathToFileURL(`${path.resolve(String(root))}${path.sep}`);
-  pageEvidenceValidator({
+  const desiredRelease = await desiredReleaseArtifactLoader({
     root: rootUrl,
-    pageEvidencePromotion: Boolean(pageEvidencePromotion),
+    manifestPath: desiredReleaseManifestPath,
   });
-  const liveDirectory = new URL('data/corpus-chunks/', rootUrl);
-  const liveFiles = (await readdir(liveDirectory))
-    .filter((name) => /^\d{3}-(?:core|paragraphs)\.sql$/.test(name))
-    .sort();
-  const liveManifest = validateCorpusManifest(
-    JSON.parse(await readFile(new URL('manifest.json', liveDirectory), 'utf8')),
-    liveFiles.length,
-  );
-  const corpusSnapshot = await corpusSnapshotFactory({ root: rootUrl.pathname, manifest: liveManifest });
+  if (!desiredRelease?.artifact || !desiredRelease?.snapshot) {
+    throw new Error('desired release artifact loader returned an invalid fixed snapshot');
+  }
+  let corpusSnapshot;
+  try {
+    await desiredRelease.snapshot.verify();
+    pageEvidenceValidator({
+      root: rootUrl,
+      pageEvidencePromotion: Boolean(pageEvidencePromotion),
+    });
+    const liveDirectory = new URL('data/corpus-chunks/', rootUrl);
+    const liveFiles = (await readdir(liveDirectory))
+      .filter((name) => /^\d{3}-(?:core|paragraphs)\.sql$/.test(name))
+      .sort();
+    const liveManifestBuffer = await readFile(new URL('manifest.json', liveDirectory));
+    const liveManifest = validateCorpusManifest(
+      JSON.parse(liveManifestBuffer.toString('utf8')),
+      liveFiles.length,
+    );
+    desiredCorpusBindingValidator(
+      desiredRelease.artifact,
+      liveManifest,
+      liveManifestBuffer,
+      liveManifest.sql_files,
+    );
+    corpusSnapshot = await corpusSnapshotFactory({ root: rootUrl.pathname, manifest: liveManifest });
+  } catch (error) {
+    await desiredRelease.snapshot.cleanup();
+    throw error;
+  }
   let snapshotRoot;
   let directory;
   let allFiles;
@@ -1205,10 +1350,18 @@ export async function runCorpusImport({
     directory = new URL('data/corpus-chunks/', snapshotRoot);
     allFiles = (await readdir(directory))
       .filter((name) => /^\d{3}-(?:core|paragraphs)\.sql$/.test(name)).sort();
+    const snapshotManifestBuffer = await readFile(new URL('manifest.json', directory));
     manifest = await verifyCorpusSqlFiles(
-      validateCorpusManifest(JSON.parse(await readFile(new URL('manifest.json', directory), 'utf8')), allFiles.length),
+      validateCorpusManifest(JSON.parse(snapshotManifestBuffer.toString('utf8')), allFiles.length),
       directory,
     );
+    desiredCorpusBindingValidator(
+      desiredRelease.artifact,
+      manifest,
+      snapshotManifestBuffer,
+      manifest.sql_files,
+    );
+    await desiredRelease.snapshot.verify();
     await corpusSnapshot.verify();
     await sourceBindingValidator(manifest, { root: snapshotRoot });
     prechange = timeTravelCollector({ root: rootUrl, database, environment });
@@ -1222,7 +1375,7 @@ export async function runCorpusImport({
       runCommand,
     });
   } catch (error) {
-    await corpusSnapshot.cleanup();
+    await Promise.allSettled([corpusSnapshot.cleanup(), desiredRelease.snapshot.cleanup()]);
     throw error;
   }
   const ownerOptions = {
@@ -1242,6 +1395,19 @@ export async function runCorpusImport({
       return new Error(message, { cause: error });
     }
   };
+  const alreadyReady = readyReleaseChecker({
+    root: rootUrl,
+    database,
+    environment,
+    manifest,
+    runCommand,
+  });
+  if (alreadyReady) {
+    const releaseError = releaseOwnerSafely('corpus import owner release failed after exact ready no-op');
+    await Promise.allSettled([corpusSnapshot.cleanup(), desiredRelease.snapshot.cleanup()]);
+    if (releaseError) throw releaseError;
+    return { status: 0, phase: 'already_ready', release_id: manifest.release_id };
+  }
   if (finalizeOnly) {
     let caughtError = null;
     try {
@@ -1255,7 +1421,7 @@ export async function runCorpusImport({
       throw error;
     } finally {
       const releaseError = releaseOwnerSafely('corpus import owner release failed after finalization');
-      await corpusSnapshot.cleanup();
+      await Promise.allSettled([corpusSnapshot.cleanup(), desiredRelease.snapshot.cleanup()]);
       if (releaseError && !caughtError) throw releaseError;
     }
   }
@@ -1266,7 +1432,7 @@ export async function runCorpusImport({
   });
   if (!files.length) {
     const releaseError = releaseOwnerSafely('corpus import owner release failed after empty selection');
-    await corpusSnapshot.cleanup();
+    await Promise.allSettled([corpusSnapshot.cleanup(), desiredRelease.snapshot.cleanup()]);
     if (releaseError) throw releaseError;
     throw new Error('no corpus SQL files selected');
   }
@@ -1340,6 +1506,7 @@ export async function runCorpusImport({
     await Promise.allSettled([
       ...snapshots.map((snapshot) => snapshot.cleanup()),
       corpusSnapshot.cleanup(),
+      desiredRelease.snapshot.cleanup(),
     ]);
     if (releaseError && !caughtError) throw releaseError;
   }

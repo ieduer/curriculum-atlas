@@ -18,6 +18,7 @@ function releaseFixture(character) {
   const objectBody = Buffer.from(`${JSON.stringify({ release: releaseId, value: character })}\n`);
   const object = {
     release_key: `releases/${releaseId}/quality/asset.json`,
+    content_type: 'application/json',
     sha256: sha256(objectBody),
     bytes: objectBody.length,
   };
@@ -74,6 +75,7 @@ test('Miniflare enforces immutable R2 creates, exact inventory, predecessor CAS,
       'CREATE TABLE release_publication_fence_state (id INTEGER PRIMARY KEY CHECK (id = 1), last_fence INTEGER NOT NULL CHECK (last_fence >= 0))',
       'INSERT INTO release_publication_fence_state(id,last_fence) VALUES(1,0)',
       'CREATE TABLE release_publication_ownership (id INTEGER PRIMARY KEY CHECK (id = 1), release_id TEXT NOT NULL, manifest_sha256 TEXT NOT NULL, owner_token_sha256 TEXT NOT NULL, owner_fence INTEGER NOT NULL, expires_unix INTEGER NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+      'CREATE TABLE release_publication_activation_claim (id INTEGER PRIMARY KEY CHECK (id = 1), release_id TEXT NOT NULL, manifest_sha256 TEXT NOT NULL, owner_token_sha256 TEXT NOT NULL, owner_fence INTEGER NOT NULL, expires_unix INTEGER NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
     ]) await database.prepare(statement).run();
 
     const acquire = async (fixture, token) => {
@@ -196,7 +198,7 @@ test('Miniflare enforces immutable R2 creates, exact inventory, predecessor CAS,
       version: activatedB.value.version,
     });
     assert.equal(staleA.response.status, 409);
-    assert.match(staleA.value.error, /ownership or fence is stale/);
+    assert.match(staleA.value.error, /ownership|activation claim/);
     assert.equal((await inspect()).value.value.release_id, releaseB.releaseId);
 
     const lowerToken = 'publication-owner-lower-fence-20260718';
@@ -245,6 +247,24 @@ test('Miniflare enforces immutable R2 creates, exact inventory, predecessor CAS,
     assert.equal(missingMetadata.response.status, 409);
     assert.match(missingMetadata.value.error, /immutable key collision/);
     assert.equal((await inspect()).value.value.release_id, releaseB.releaseId);
+
+    await bucket.delete(releaseD.object.release_key);
+    await bucket.put(releaseD.object.release_key, releaseD.objectBody, {
+      httpMetadata: { contentType: 'text/html' },
+      customMetadata: {
+        release_id: releaseD.releaseId,
+        manifest_sha256: releaseD.manifestSha256,
+        sha256: releaseD.object.sha256,
+        bytes: String(releaseD.object.bytes),
+        content_type: 'text/html',
+        fence: String(fenceD),
+      },
+    });
+    const wrongContentType = await create(
+      releaseD, tokenD, fenceD, releaseD.object.release_key, releaseD.objectBody,
+    );
+    assert.equal(wrongContentType.response.status, 409);
+    assert.match(wrongContentType.value.error, /immutable key collision/);
 
     const observedPointer = await bucket.get('release/current.json');
     assert.ok(observedPointer);

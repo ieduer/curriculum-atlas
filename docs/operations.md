@@ -94,16 +94,23 @@ D1 使用 Time Travel；发布前保存 bookmark 和用户数据基线。Product
 
 Production Worker v7 `7d1766b2-32be-4ce1-9528-f6c69bb2a092` 与 D1 prechange bookmark 是耦合回滚锚点：v7 不兼容 taxonomy schema 2，单独回 Worker 会返回 503。只有 forward repair 失败且确认无后续合法用户写入时，才同时回 D1 + Worker，并完成全套 API/browser regression。
 
-正常 R2-only 回滚不改 corpus 数据或 Worker，但必须把已核验 predecessor
-内容作为新的 forward release，取得对应环境 D1 的新 publication owner 与
-更高 fence，并通过 coordinator 条件激活。备份的 pointer 原始 bytes 只作取证，
-不得直接覆盖回去；也不得在正式 publisher 外删除 `release/current.json`。
-历史 immutable objects 不删除；恢复后核对 pointer、完整 prefix、manifest
-与 ingest object 的 hash/bytes/metadata。需要直接删除 pointer 以启用
+正常 R2-only 回滚不改 corpus 数据或 Worker，而是把已核验 predecessor
+release 作为一次新的 higher-fence pointer transition，经 coordinator 条件激活。
+发布前保存的 `inspect-pointer` 原始 JSON 必须通过 canonical schema-2
+hash/bytes 核验并放在 `.wrangler/rollback-pointer-receipt.json`；当前 desired
+release 的 Worker、D1 migrations、corpus 与 environment evidence 也必须仍然
+健康。随后分别运行 `npm run metadata:rollback:preview` 或
+`npm run metadata:rollback:production`。Publisher 会取得新 owner/higher fence，
+coordinator 会在最长 600 秒 activation claim 内重验旧 release 的完整 prefix、
+manifest、body hash/bytes、HTTP Content-Type 与 custom metadata，再用当前
+pointer ETag/version 条件激活。备份的 pointer 原始 bytes 不得直接覆盖回去；
+也不得在正式 publisher 外删除 `release/current.json`。历史 immutable objects
+不删除；恢复后核对 pointer、新 fence、完整 prefix、manifest 与 ingest object。
+需要直接删除 pointer 以启用
 stable-key fallback 的灾难恢复，必须另行审批、冻结所有 publisher 并证明
 owner/写入者静默。
 
-Publisher 中断后先经 coordinator 读取远端 pointer/manifest/exact prefix。Pointer 未切换时旧 release 仍在线，已上传对象可安全保持未引用；pointer 已切换时先完成 readback。恢复必须重新取得 owner/higher fence，并以新的 predecessor ETag/version 开始；两种情况都不得盲目重跑。
+Publisher 中断后先经 coordinator 读取远端 pointer/manifest/exact prefix。Pointer 未切换时旧 release 仍在线，已上传对象可安全保持未引用；pointer 已切换时先完成 readback。恢复必须重新取得 owner/higher fence，并以新的 predecessor ETag/version 开始；两种情况都不得盲目重跑。Coordination schema 3 的 activation claim 阻止受支持的 owner 在 validation 与 conditional put 之间接管；cleanup 失败时 claim 最多 600 秒后自动失效，期间不绕过、不手工清表。
 
 ## 8. Last verified
 

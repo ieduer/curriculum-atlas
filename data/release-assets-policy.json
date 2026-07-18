@@ -110,7 +110,7 @@
       "production": "bdfz-curriculum-atlas-sources"
     },
     "publication_coordination": {
-      "policy": "d1_fenced_r2_binding_v2",
+      "policy": "d1_activation_claimed_r2_binding_v3",
       "lease_key": "r2_release_publication_lease",
       "lease_ttl_seconds": 3600,
       "databases": {

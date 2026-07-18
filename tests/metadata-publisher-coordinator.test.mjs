@@ -7,7 +7,11 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import { sealCorpusManifest } from '../scripts/import-corpus.mjs';
-import { publishVersionedRelease } from '../scripts/publish-metadata.mjs';
+import {
+  parseRollbackPointerReceipt,
+  publishVersionedRelease,
+  rollbackVersionedReleasePointer,
+} from '../scripts/publish-metadata.mjs';
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
@@ -67,7 +71,7 @@ test('metadata publisher stages the sealed local bytes only through the fenced c
         release_prefix: 'releases', current_pointer_key: 'release/current.json',
         release_manifest_key: `releases/${releaseId}/manifest.json`, managed_object_count: 1,
         publication_coordination: {
-          policy: 'd1_fenced_r2_binding_v2', lease_key: 'fixture', lease_ttl_seconds: 3600,
+          policy: 'd1_activation_claimed_r2_binding_v3', lease_key: 'fixture', lease_ttl_seconds: 3600,
           databases: { preview: 'fixture-preview', production: 'fixture-production' },
           coordinator_urls: {
             preview: 'https://preview.example.test/api/admin/release-coordinate',
@@ -115,6 +119,8 @@ test('metadata publisher stages the sealed local bytes only through the fenced c
             metadata_bytes: String(value.bytes),
             metadata_release_id: value.releaseId,
             metadata_manifest_sha256: value.manifestSha256,
+            content_type: 'application/json',
+            metadata_content_type: 'application/json',
           })),
         });
       }
@@ -136,10 +142,107 @@ test('metadata publisher stages the sealed local bytes only through the fenced c
       fetchImpl,
       postActivationVerifier: async () => ({ pointer: { sha256: '9'.repeat(64) }, health: { ok: true } }),
     });
-    assert.equal(result.coordination, 'd1_fenced_r2_binding_v2');
+    assert.equal(result.coordination, 'd1_activation_claimed_r2_binding_v3');
     assert.equal(result.owner_fence, 1);
     assert.deepEqual(staged.get(object.release_key).body, original);
     assert.notDeepEqual(staged.get(object.release_key).body, Buffer.from('{"asset":"mutated"}\n'));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('higher-fence pointer rollback uses a canonical predecessor receipt and coordinator only', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'curriculum-coordinator-rollback-'));
+  try {
+    const targetReleaseId = `release-${'a'.repeat(32)}`;
+    const targetManifestSha256 = 'a'.repeat(64);
+    const targetValue = {
+      schema_version: 2,
+      release_id: targetReleaseId,
+      release_manifest_key: `releases/${targetReleaseId}/manifest.json`,
+      release_manifest_sha256: targetManifestSha256,
+      release_manifest_bytes: 321,
+      managed_object_count: 3,
+      fence: 3,
+      published_at: '2026-07-18T00:00:00.000Z',
+    };
+    const targetBytes = Buffer.from(`${JSON.stringify(targetValue, null, 2)}\n`);
+    const receipt = {
+      exists: true,
+      etag: 'old-etag',
+      version: 'old-version',
+      sha256: sha256(targetBytes),
+      bytes: targetBytes.length,
+      value: targetValue,
+    };
+    await writeFile(join(root, 'rollback.json'), `${JSON.stringify(receipt, null, 2)}\n`);
+    assert.equal(parseRollbackPointerReceipt(Buffer.from(`${JSON.stringify(receipt, null, 2)}\n`)).release_id, targetReleaseId);
+
+    const manifest = {
+      r2: {
+        publication_coordination: {
+          policy: 'd1_activation_claimed_r2_binding_v3',
+          lease_key: 'fixture-rollback',
+          lease_ttl_seconds: 3600,
+          databases: { preview: 'fixture-preview', production: 'fixture-production' },
+          coordinator_urls: {
+            preview: 'https://preview.example.test/api/admin/release-coordinate',
+            production: 'https://production.example.test/api/admin/release-coordinate',
+          },
+        },
+      },
+    };
+    const commands = [];
+    const runCommand = (_command, args) => {
+      commands.push(args);
+      assert.equal(args.includes('r2'), false);
+      return args.includes('--json')
+        ? { status: 0, stdout: Buffer.from('[{"results":[{"owner_fence":9}]}]'), stderr: Buffer.alloc(0) }
+        : { status: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+    };
+    let inspectCount = 0;
+    const fetchImpl = async (input, init) => {
+      const operation = new URL(input).searchParams.get('operation');
+      if (operation === 'inspect-pointer') {
+        inspectCount += 1;
+        if (inspectCount === 1) {
+          return Response.json({
+            exists: true,
+            etag: 'current-etag',
+            version: 'current-version',
+            value: { release_id: `release-${'b'.repeat(32)}`, fence: 8 },
+          });
+        }
+        return Response.json({
+          exists: true,
+          etag: 'rollback-etag',
+          version: 'rollback-version',
+          value: { release_id: targetReleaseId, release_manifest_sha256: targetManifestSha256, fence: 9 },
+        });
+      }
+      if (operation === 'inventory') return Response.json({ objects: [] });
+      if (operation === 'activate') {
+        const body = JSON.parse(String(init.body));
+        assert.equal(body.release_id, targetReleaseId);
+        assert.equal(body.owner_fence, 9);
+        assert.deepEqual(body.predecessor, { exists: true, etag: 'current-etag', version: 'current-version' });
+        return Response.json({ activated: true, etag: 'rollback-etag', version: 'rollback-version' });
+      }
+      throw new Error(`unexpected coordinator operation: ${operation}`);
+    };
+    const result = await rollbackVersionedReleasePointer({
+      manifest,
+      receiptPath: 'rollback.json',
+      environment: 'preview',
+      root,
+      runCommand,
+      coordinatorToken: 'fixture-coordinator-token',
+      fetchImpl,
+    });
+    assert.equal(result.rollback, true);
+    assert.equal(result.release_id, targetReleaseId);
+    assert.equal(result.owner_fence, 9);
+    assert.equal(commands.length, 2, 'rollback must acquire and release exactly one D1 owner');
   } finally {
     await rm(root, { recursive: true, force: true });
   }

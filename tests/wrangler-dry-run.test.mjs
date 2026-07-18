@@ -22,7 +22,7 @@ test('Wrangler production CLI bundles the real Worker and assets without remote 
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
     const bundle = await readFile(join(output, 'index.js'), 'utf8');
     assert.match(bundle, /release-coordinate/);
-    assert.match(bundle, /d1_fenced_r2_binding_v2|versioned_manifest_v2_fenced/);
+    assert.match(bundle, /d1_activation_claimed_r2_binding_v3|versioned_manifest_v2_fenced/);
   } finally {
     await rm(output, { recursive: true, force: true });
   }

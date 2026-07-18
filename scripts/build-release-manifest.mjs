@@ -368,8 +368,8 @@ async function validateR2PolicyCoverage(root, policy) {
 
 function validatePublicationCoordination(policy) {
   const coordination = policy.r2?.publication_coordination;
-  if (!coordination || coordination.policy !== 'd1_fenced_r2_binding_v2') {
-    throw new Error('r2 publication coordination must use d1_fenced_r2_binding_v2');
+  if (!coordination || coordination.policy !== 'd1_activation_claimed_r2_binding_v3') {
+    throw new Error('r2 publication coordination must use d1_activation_claimed_r2_binding_v3');
   }
   const leaseKey = String(coordination.lease_key || '');
   if (!/^[a-z0-9][a-z0-9_:-]{2,127}$/.test(leaseKey)) {

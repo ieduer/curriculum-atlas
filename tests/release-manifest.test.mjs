@@ -33,7 +33,7 @@ const FIXTURE_RELEASE_ID = `release-${'f'.repeat(32)}`;
 
 function publicationCoordination() {
   return {
-    policy: 'd1_fenced_r2_binding_v2',
+    policy: 'd1_activation_claimed_r2_binding_v3',
     lease_key: 'r2_release_publication_lease',
     lease_ttl_seconds: 3600,
     databases: { preview: 'fixture-preview', production: 'fixture-production' },
@@ -271,6 +271,11 @@ test('D1 publication lease serializes different owners even for the same release
     CREATE TABLE release_publication_fence_state(id INTEGER PRIMARY KEY,last_fence INTEGER NOT NULL);
     INSERT INTO release_publication_fence_state(id,last_fence) VALUES(1,0);
     CREATE TABLE release_publication_ownership(
+      id INTEGER PRIMARY KEY,release_id TEXT NOT NULL,manifest_sha256 TEXT NOT NULL,
+      owner_token_sha256 TEXT NOT NULL,owner_fence INTEGER NOT NULL,expires_unix INTEGER NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE release_publication_activation_claim(
       id INTEGER PRIMARY KEY,release_id TEXT NOT NULL,manifest_sha256 TEXT NOT NULL,
       owner_token_sha256 TEXT NOT NULL,owner_fence INTEGER NOT NULL,expires_unix INTEGER NOT NULL,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP

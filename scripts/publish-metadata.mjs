@@ -38,7 +38,7 @@ function sha256(buffer) {
 function parseArgs(argv) {
   const args = new Map();
   const booleanArguments = new Set(['--remote', '--bootstrap', '--page-evidence-promotion']);
-  const valueArguments = new Set(['--bucket', '--environment', '--renderer', '--manifest', '--evidence']);
+  const valueArguments = new Set(['--bucket', '--environment', '--renderer', '--manifest', '--evidence', '--rollback-pointer-receipt']);
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (!key.startsWith('--')) throw new Error(`unexpected argument: ${key}`);
@@ -79,6 +79,39 @@ function stableStringify(value) {
     return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
   }
   return JSON.stringify(value);
+}
+
+export function parseRollbackPointerReceipt(buffer) {
+  if (!Buffer.isBuffer(buffer)) throw new Error('rollback pointer receipt must be a Buffer');
+  let receipt;
+  try {
+    receipt = JSON.parse(buffer.toString('utf8'));
+  } catch (error) {
+    throw new Error(`rollback pointer receipt is not JSON: ${error.message}`);
+  }
+  const value = receipt?.value;
+  const releaseId = String(value?.release_id || '');
+  const manifestSha256 = String(value?.release_manifest_sha256 || '');
+  const manifestBytes = Number(value?.release_manifest_bytes);
+  const managedObjectCount = Number(value?.managed_object_count);
+  const fence = Number(value?.fence);
+  const canonical = Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+  if (receipt?.exists !== true || value?.schema_version !== 2
+      || !RELEASE_ID_PATTERN.test(releaseId) || !SHA256_PATTERN.test(manifestSha256)
+      || value.release_manifest_key !== `releases/${releaseId}/manifest.json`
+      || !Number.isSafeInteger(manifestBytes) || manifestBytes <= 0
+      || !Number.isSafeInteger(managedObjectCount) || managedObjectCount <= 0
+      || !Number.isSafeInteger(fence) || fence <= 0
+      || receipt.sha256 !== sha256(canonical) || receipt.bytes !== canonical.length) {
+    throw new Error('rollback pointer receipt identity is invalid or non-canonical');
+  }
+  return {
+    release_id: releaseId,
+    release_manifest_sha256: manifestSha256,
+    release_manifest_bytes: manifestBytes,
+    managed_object_count: managedObjectCount,
+    source_fence: fence,
+  };
 }
 
 function runPublicationLeaseCommand({ database, environment, command, root, runCommand, operation, json = false }) {
@@ -316,8 +349,8 @@ function sql(value) {
 
 function normalizePublicationCoordination(manifest, environment) {
   const coordination = manifest.r2?.publication_coordination;
-  if (!coordination || coordination.policy !== 'd1_fenced_r2_binding_v2') {
-    throw new Error('release manifest lacks d1_fenced_r2_binding_v2 publication coordination');
+  if (!coordination || coordination.policy !== 'd1_activation_claimed_r2_binding_v3') {
+    throw new Error('release manifest lacks d1_activation_claimed_r2_binding_v3 publication coordination');
   }
   if (!['preview', 'production'].includes(environment)) {
     throw new Error(`publication environment is invalid: ${environment || '<unset>'}`);
@@ -354,16 +387,26 @@ export function buildPublicationLeaseAcquireSql({ token, releaseId, manifestSha2
   return `DELETE FROM corpus_import_guards WHERE guard_key='r2_publication_owner_acquire';
 INSERT INTO corpus_import_guards(guard_key,ok)
 SELECT 'r2_publication_owner_acquire',CASE WHEN
-  NOT EXISTS(SELECT 1 FROM release_publication_ownership WHERE id=1)
-  OR EXISTS(
-    SELECT 1 FROM release_publication_ownership WHERE id=1 AND (
-      expires_unix<=${now}
-      OR (
-        release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
-        AND owner_token_sha256=${sql(tokenHash)} AND expires_unix>${now}
+  (
+    NOT EXISTS(SELECT 1 FROM release_publication_ownership WHERE id=1)
+    OR EXISTS(
+      SELECT 1 FROM release_publication_ownership WHERE id=1 AND (
+        expires_unix<=${now}
+        OR (
+          release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
+          AND owner_token_sha256=${sql(tokenHash)} AND expires_unix>${now}
+        )
       )
     )
   )
+AND NOT EXISTS(
+  SELECT 1 FROM release_publication_activation_claim
+  WHERE id=1 AND expires_unix>${now}
+    AND NOT (
+      release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
+      AND owner_token_sha256=${sql(tokenHash)}
+    )
+)
 THEN 1 ELSE 0 END;
 UPDATE release_publication_fence_state SET last_fence=last_fence+1
 WHERE id=1 AND (
@@ -408,7 +451,71 @@ export function buildPublicationLeaseReleaseSql({ token, releaseId, manifestSha2
   return `UPDATE release_publication_ownership
 SET expires_unix=CAST(strftime('%s','now') AS INTEGER),updated_at=CURRENT_TIMESTAMP
 WHERE id=1 AND release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
-  AND owner_token_sha256=${sql(publicationTokenHash(token))} AND owner_fence=${ownerFence};`;
+  AND owner_token_sha256=${sql(publicationTokenHash(token))} AND owner_fence=${ownerFence}
+  AND NOT EXISTS(
+    SELECT 1 FROM release_publication_activation_claim
+    WHERE id=1 AND release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
+      AND owner_token_sha256=${sql(publicationTokenHash(token))} AND owner_fence=${ownerFence}
+      AND expires_unix>CAST(strftime('%s','now') AS INTEGER)
+  );`;
+}
+
+export function buildPublicationActivationClaimAcquireSql({
+  token,
+  releaseId,
+  manifestSha256,
+  ownerFence,
+  ttlSeconds = 600,
+}) {
+  const tokenHash = publicationTokenHash(token);
+  if (!RELEASE_ID_PATTERN.test(String(releaseId || '')) || !SHA256_PATTERN.test(String(manifestSha256 || ''))
+      || !Number.isSafeInteger(ownerFence) || ownerFence <= 0
+      || !Number.isSafeInteger(ttlSeconds) || ttlSeconds < 60 || ttlSeconds > 900) {
+    throw new Error('publication activation claim identity is invalid');
+  }
+  const now = "CAST(strftime('%s','now') AS INTEGER)";
+  return `DELETE FROM corpus_import_guards WHERE guard_key='r2_publication_activation_claim';
+INSERT INTO corpus_import_guards(guard_key,ok)
+SELECT 'r2_publication_activation_claim',CASE WHEN EXISTS(
+  SELECT 1 FROM release_publication_ownership
+  WHERE id=1 AND release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
+    AND owner_token_sha256=${sql(tokenHash)} AND owner_fence=${ownerFence} AND expires_unix>${now}
+)
+AND (
+  NOT EXISTS(SELECT 1 FROM release_publication_activation_claim WHERE id=1 AND expires_unix>${now})
+  OR EXISTS(
+    SELECT 1 FROM release_publication_activation_claim
+    WHERE id=1 AND release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
+      AND owner_token_sha256=${sql(tokenHash)} AND owner_fence=${ownerFence} AND expires_unix>${now}
+  )
+) THEN 1 ELSE 0 END;
+INSERT INTO release_publication_activation_claim(
+  id,release_id,manifest_sha256,owner_token_sha256,owner_fence,expires_unix,updated_at
+) VALUES(
+  1,${sql(releaseId)},${sql(manifestSha256)},${sql(tokenHash)},${ownerFence},${now}+${ttlSeconds},CURRENT_TIMESTAMP
+) ON CONFLICT(id) DO UPDATE SET
+  release_id=excluded.release_id,manifest_sha256=excluded.manifest_sha256,
+  owner_token_sha256=excluded.owner_token_sha256,owner_fence=excluded.owner_fence,
+  expires_unix=excluded.expires_unix,updated_at=CURRENT_TIMESTAMP
+WHERE release_publication_activation_claim.expires_unix<=${now}
+  OR (
+    release_publication_activation_claim.release_id=excluded.release_id
+    AND release_publication_activation_claim.manifest_sha256=excluded.manifest_sha256
+    AND release_publication_activation_claim.owner_token_sha256=excluded.owner_token_sha256
+    AND release_publication_activation_claim.owner_fence=excluded.owner_fence
+  );
+DELETE FROM corpus_import_guards WHERE guard_key='r2_publication_activation_claim';`;
+}
+
+export function buildPublicationActivationClaimReleaseSql({ token, releaseId, manifestSha256, ownerFence }) {
+  const tokenHash = publicationTokenHash(token);
+  if (!RELEASE_ID_PATTERN.test(String(releaseId || '')) || !SHA256_PATTERN.test(String(manifestSha256 || ''))
+      || !Number.isSafeInteger(ownerFence) || ownerFence <= 0) {
+    throw new Error('publication activation claim release identity is invalid');
+  }
+  return `DELETE FROM release_publication_activation_claim
+WHERE id=1 AND release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
+  AND owner_token_sha256=${sql(tokenHash)} AND owner_fence=${ownerFence};`;
 }
 
 async function snapshotLocalCorpusEnvelope(root, expected) {
@@ -523,7 +630,7 @@ function assertExactReleaseInventory(manifest, manifestArtifact, inventory) {
   }
   const expectedByKey = new Map([
     ...manifest.r2.objects.map((object) => [object.release_key, object]),
-    [manifest.r2.release_manifest_key, manifestArtifact],
+    [manifest.r2.release_manifest_key, { ...manifestArtifact, content_type: 'application/json' }],
   ]);
   for (const object of inventory.objects) {
     const expectedObject = expectedByKey.get(object.key);
@@ -531,7 +638,9 @@ function assertExactReleaseInventory(manifest, manifestArtifact, inventory) {
         || object.metadata_sha256 !== expectedObject.sha256
         || object.metadata_bytes !== String(expectedObject.bytes)
         || object.metadata_release_id !== manifest.release_id
-        || object.metadata_manifest_sha256 !== manifestArtifact.sha256) {
+        || object.metadata_manifest_sha256 !== manifestArtifact.sha256
+        || object.content_type !== expectedObject.content_type
+        || object.metadata_content_type !== expectedObject.content_type) {
       throw new Error(`release prefix inventory parity failure: ${object.key}`);
     }
   }
@@ -562,6 +671,138 @@ async function verifyPostActivation({ coordination, coordinatorToken, manifest, 
     throw new Error('post-activation R2 pointer does not match the desired release');
   }
   return { pointer, health };
+}
+
+export async function rollbackVersionedReleasePointer({
+  manifest,
+  receiptPath,
+  environment,
+  root = DEFAULT_ROOT,
+  runCommand = spawnSync,
+  coordinatorToken = process.env.CURRICULUM_RELEASE_COORDINATOR_TOKEN,
+  fetchImpl = fetch,
+} = {}) {
+  if (!receiptPath) throw new Error('rollback requires --rollback-pointer-receipt');
+  const projectRoot = resolve(root);
+  const coordination = normalizePublicationCoordination(manifest, environment);
+  const receiptSource = projectRelativePath(projectRoot, receiptPath, 'rollback pointer receipt');
+  const receiptBuffer = await readFile(receiptSource);
+  const receiptSnapshot = await createImmutableFileSnapshot({
+    root: projectRoot,
+    source: relative(projectRoot, receiptSource),
+    expected: { sha256: sha256(receiptBuffer), bytes: receiptBuffer.length },
+    label: 'verified predecessor pointer receipt',
+  });
+  const target = parseRollbackPointerReceipt(receiptBuffer);
+  const token = randomUUID();
+  const leaseOptions = {
+    token,
+    releaseId: target.release_id,
+    manifestSha256: target.release_manifest_sha256,
+    ttlSeconds: coordination.lease_ttl_seconds,
+  };
+  const leaseCommand = (command, operation, json = false) => runPublicationLeaseCommand({
+    database: coordination.database,
+    environment,
+    command,
+    root: projectRoot,
+    runCommand,
+    operation,
+    json,
+  });
+  let ownerFence = null;
+  let leaseAcquired = false;
+  let caughtError = null;
+  try {
+    await receiptSnapshot.verify();
+    ownerFence = parsePublicationFence(leaseCommand(
+      buildPublicationLeaseAcquireSql(leaseOptions),
+      'acquire higher-fence rollback owner',
+      true,
+    ));
+    leaseAcquired = true;
+    const current = await coordinatorJson({
+      url: coordination.coordinator_url,
+      operation: 'inspect-pointer',
+      coordinatorToken,
+      fetchImpl,
+    });
+    if (!current.exists) throw new Error('rollback refuses an absent current pointer');
+    if (current.value?.release_id === target.release_id
+        && current.value?.release_manifest_sha256 === target.release_manifest_sha256) {
+      throw new Error('rollback target is already the current release');
+    }
+    if (!Number.isSafeInteger(ownerFence) || ownerFence <= Number(current.value?.fence || 0)) {
+      throw new Error('rollback owner fence is not strictly newer than the current pointer');
+    }
+    await coordinatorJson({
+      url: coordination.coordinator_url,
+      operation: 'inventory',
+      coordinatorToken,
+      ownerToken: token,
+      fetchImpl,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        release_id: target.release_id,
+        manifest_sha256: target.release_manifest_sha256,
+        owner_fence: ownerFence,
+      }),
+    });
+    await receiptSnapshot.verify();
+    const activation = await coordinatorJson({
+      url: coordination.coordinator_url,
+      operation: 'activate',
+      coordinatorToken,
+      ownerToken: token,
+      fetchImpl,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        release_id: target.release_id,
+        release_manifest_sha256: target.release_manifest_sha256,
+        release_manifest_bytes: target.release_manifest_bytes,
+        managed_object_count: target.managed_object_count,
+        owner_fence: ownerFence,
+        predecessor: { exists: true, etag: current.etag, version: current.version },
+      }),
+    });
+    const readback = await coordinatorJson({
+      url: coordination.coordinator_url,
+      operation: 'inspect-pointer',
+      coordinatorToken,
+      fetchImpl,
+    });
+    if (!readback.exists || readback.value?.release_id !== target.release_id
+        || readback.value?.release_manifest_sha256 !== target.release_manifest_sha256
+        || readback.value?.fence !== ownerFence) {
+      throw new Error('rollback pointer readback does not match the higher-fence target');
+    }
+    return {
+      rollback: true,
+      release_id: target.release_id,
+      replaced_release_id: current.value?.release_id || null,
+      owner_fence: ownerFence,
+      pointer_etag: readback.etag,
+      pointer_version: readback.version,
+      activation,
+    };
+  } catch (error) {
+    caughtError = error;
+    throw error;
+  } finally {
+    let releaseError = null;
+    if (leaseAcquired) {
+      try {
+        leaseCommand(
+          buildPublicationLeaseReleaseSql({ ...leaseOptions, ownerFence }),
+          'release higher-fence rollback owner',
+        );
+      } catch (error) {
+        releaseError = error;
+      }
+    }
+    await receiptSnapshot.cleanup();
+    if (releaseError && !caughtError) throw releaseError;
+  }
 }
 
 export async function publishVersionedRelease({
@@ -729,7 +970,7 @@ export async function publishVersionedRelease({
       uploaded_objects: uploadedObjects,
       current_pointer_key: manifest.r2.current_pointer_key,
       owner_fence: ownerFence,
-      coordination: 'd1_fenced_r2_binding_v2',
+      coordination: 'd1_activation_claimed_r2_binding_v3',
       post_activation_pointer_sha256: postActivation.pointer.sha256,
     };
   } catch (error) {
@@ -773,6 +1014,7 @@ export async function publishMetadata({
   coordinatorToken = process.env.CURRICULUM_RELEASE_COORDINATOR_TOKEN,
   fetchImpl = fetch,
   postActivationVerifier = verifyPostActivation,
+  rollbackPointerReceipt = null,
 } = {}) {
   if (!bucket) throw new Error('--bucket is required');
   if (!remote) throw new Error('refusing remote mutation without explicit --remote');
@@ -790,6 +1032,18 @@ export async function publishMetadata({
     evidencePath,
   });
   process.stdout.write(`[release] ${manifest.release_id} manifest_sha256=${artifact.sha256} environment=${selectedEnvironment} worker=${environmentState.worker_name || 'unknown'} version=${environmentState.worker_version_id}\n`);
+  if (rollbackPointerReceipt) {
+    const rollback = await rollbackVersionedReleasePointer({
+      manifest,
+      receiptPath: rollbackPointerReceipt,
+      environment: selectedEnvironment,
+      root: projectRoot,
+      runCommand,
+      coordinatorToken,
+      fetchImpl,
+    });
+    return { ...rollback, environment: selectedEnvironment };
+  }
   const result = await publishVersionedRelease({
     manifest,
     manifestArtifact: artifact,
@@ -818,6 +1072,7 @@ async function main() {
     evidencePath: args.get('evidence') || null,
     pageEvidencePromotion: args.get('page-evidence-promotion') === true,
     rendererPath: args.get('renderer') || null,
+    rollbackPointerReceipt: args.get('rollback-pointer-receipt') || null,
   });
 }
 
