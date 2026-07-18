@@ -2,10 +2,13 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
   access,
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
   readdir,
+  realpath,
+  rename,
   rm,
   symlink,
   writeFile,
@@ -18,6 +21,9 @@ import {
   receiveRemoteOcrOffload,
   validateP4ToP1SeedDelta,
 } from '../scripts/receive-remote-ocr-offload.mjs';
+import {
+  fingerprintPaddlexLayoutModelCache,
+} from '../scripts/run-remote-ocr-offload.mjs';
 import {
   canonicalJson,
   captureLocalReprocessSnapshot,
@@ -45,14 +51,39 @@ const pythonRuntime = Object.freeze({
     pypdfium2: '5.12.0',
   },
 });
+const layoutCacheFiles = Object.freeze({
+  'inference.json': '{"fixture":true}\n',
+  'inference.pdiparams': 'fixture-parameters\n',
+  'inference.yml': 'fixture: true\n',
+});
+const layoutCacheEntries = Object.entries(layoutCacheFiles).map(([name, contents]) => ({
+  path: `PP-DocLayoutV3/${name}`,
+  bytes: Buffer.byteLength(contents),
+  sha256: sha256(contents),
+})).sort((left, right) => left.path.localeCompare(right.path));
 const layoutCache = Object.freeze({
   schema_version: 1,
   model_name: 'PP-DocLayoutV3',
   relative_root: 'official_models',
-  file_count: 17,
-  total_bytes: 100,
-  tree_sha256: 'd'.repeat(64),
+  file_count: layoutCacheEntries.length,
+  total_bytes: layoutCacheEntries.reduce((sum, entry) => sum + entry.bytes, 0),
+  tree_sha256: sha256(`${JSON.stringify(layoutCacheEntries)}\n`),
 });
+
+async function materializeLayoutCache(shardRoot) {
+  const layoutModelRoot = path.join(
+    shardRoot,
+    'paddlex-cache/official_models/PP-DocLayoutV3',
+  );
+  await mkdir(layoutModelRoot, { recursive: true });
+  await Promise.all(Object.entries(layoutCacheFiles).map(
+    ([name, contents]) => writeFile(path.join(layoutModelRoot, name), contents),
+  ));
+  assert.deepEqual(
+    await fingerprintPaddlexLayoutModelCache(path.join(shardRoot, 'paddlex-cache')),
+    layoutCache,
+  );
+}
 function llamaAttestation(parallel, procCharacter) {
   return {
     schema_version: 1,
@@ -275,7 +306,7 @@ function nativeAsset(name, contents = Buffer.from('fixture Paddle JPEG bytes')) 
   };
 }
 
-function runIdentity(manifestSha256) {
+function runIdentity(manifestSha256, shardRoot) {
   return {
     schema_version: 1,
     manifest_sha256: manifestSha256,
@@ -289,7 +320,10 @@ function runIdentity(manifestSha256) {
     input_root: '/fixture/input',
     python_invocation_path: '/fixture/python',
     python_resolved_target: '/fixture/python3.13',
-    worker_configuration: workerConfiguration,
+    worker_configuration: {
+      ...workerConfiguration,
+      paddlex_cache_home: path.join(shardRoot, 'paddlex-cache'),
+    },
     document_recovery: recovery,
     whole_document_atomic: true,
     citation_allowed: false,
@@ -384,6 +418,7 @@ async function createShard({
   const shardManifest = manifestFor(documents);
   const manifestWritten = await writeJson(manifestPath, shardManifest);
   await mkdir(shardRoot, { recursive: true });
+  const canonicalShardRoot = await realpath(shardRoot);
   const repair = await createRepairManifest(
     shardRoot,
     repairPages,
@@ -391,7 +426,10 @@ async function createShard({
     pageTexts,
     { finalTextMismatch: repairFinalTextMismatch },
   );
-  await writeJson(path.join(shardRoot, 'run-identity.json'), runIdentity(manifestWritten.sha256));
+  await writeJson(
+    path.join(shardRoot, 'run-identity.json'),
+    runIdentity(manifestWritten.sha256, canonicalShardRoot),
+  );
   const runDocuments = {};
   const countByStatus = { complete: 0, quarantined: 0 };
   const repairReceiptDocuments = [];
@@ -664,8 +702,10 @@ async function convertShardToHashBoundSeed(shard, {
   timeoutRecovery = null,
   transition = null,
   successorRunnerScriptSha256 = 'e'.repeat(64),
-  successorPaddlexCacheHome = '/fixture/paddlex-cache-r2',
+  successorPaddlexCacheHome = null,
 } = {}) {
+  const canonicalShardRoot = await realpath(shard.shardRoot);
+  await materializeLayoutCache(canonicalShardRoot);
   const identityPath = path.join(shard.shardRoot, 'run-identity.json');
   const runStatusPath = path.join(shard.shardRoot, 'run-status.json');
   const identityRaw = await readFile(identityPath);
@@ -687,7 +727,7 @@ async function convertShardToHashBoundSeed(shard, {
     ...workerConfiguration,
     vl_rec_max_concurrency: 1,
     server_parallel: p4ToP1 ? 1 : 4,
-    paddlex_cache_home: successorPaddlexCacheHome,
+    paddlex_cache_home: successorPaddlexCacheHome || path.join(canonicalShardRoot, 'paddlex-cache'),
   };
   const successorRecovery = {
     ...recovery,
@@ -873,8 +913,8 @@ async function convertShardToHashBoundSeed(shard, {
     runtime_fingerprint_sha256: runtimeFingerprintSha256,
     runner_script_sha256: predecessorIdentity.runner_script_sha256,
     ocr_script_sha256: predecessorIdentity.ocr_script_sha256,
-    worker_configuration: workerConfiguration,
-    worker_configuration_sha256: sha256(canonicalJson(workerConfiguration)),
+    worker_configuration: predecessorIdentity.worker_configuration,
+    worker_configuration_sha256: sha256(canonicalJson(predecessorIdentity.worker_configuration)),
     document_recovery: recovery,
     document_recovery_sha256: sha256(canonicalJson(recovery)),
     completed_pages: inheritedPages,
@@ -1041,7 +1081,7 @@ async function convertShardToHashBoundSeed(shard, {
     vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
     server_parallel: { predecessor: 4, successor: 1 },
     paddlex_cache_home: {
-      predecessor: workerConfiguration.paddlex_cache_home,
+      predecessor: predecessorIdentity.worker_configuration.paddlex_cache_home,
       successor: successorWorker.paddlex_cache_home,
       tree_sha256: layoutCache.tree_sha256,
     },
@@ -1064,7 +1104,7 @@ async function convertShardToHashBoundSeed(shard, {
     schema_version: 1,
     vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
     paddlex_cache_home: {
-      predecessor: workerConfiguration.paddlex_cache_home,
+      predecessor: predecessorIdentity.worker_configuration.paddlex_cache_home,
       successor: successorWorker.paddlex_cache_home,
       tree_sha256: layoutCache.tree_sha256,
     },
@@ -1564,6 +1604,14 @@ async function convertShardToTimeoutRecoverySeed(shard, {
   };
   const finalRunStatusWritten = await writeJson(runStatusPath, finalRunStatus);
   await writeSidecar(runStatusPath, finalRunStatusWritten.sha256);
+  await Promise.all([
+    'timeout-recovery-grant.json',
+    'timeout-recovery-grant.json.sha256',
+    'timeout-recovery-ledger-identity.json',
+    'timeout-recovery-ledger-identity.json.sha256',
+    'timeout-recovery-consumption-claim.json',
+    'timeout-recovery-consumption-claim.json.sha256',
+  ].map((name) => chmod(path.join(shard.shardRoot, name), 0o600)));
   return seed;
 }
 
@@ -1805,6 +1853,49 @@ test('dry-run validates the exact shard union without writing destination or rec
   assert.equal(docA.previous_text_sha256, sha256('existing placeholder\n'));
 });
 
+test('receiver rejects missing, drifted, or symlinked shard PaddleX caches before any write', async (t) => {
+  const cases = [
+    {
+      name: 'missing cache',
+      mutate: (cacheRoot) => rm(cacheRoot, { recursive: true }),
+      error: /shard PaddleX cache is missing/,
+    },
+    {
+      name: 'cache tree drift',
+      mutate: (cacheRoot) => writeFile(
+        path.join(cacheRoot, 'official_models/PP-DocLayoutV3/inference.yml'),
+        'fixture: drifted\n',
+      ),
+      error: /shard PaddleX cache differs from the run identity/,
+    },
+    {
+      name: 'symlinked cache root',
+      mutate: async (cacheRoot) => {
+        const realCacheRoot = `${cacheRoot}-real`;
+        await rename(cacheRoot, realCacheRoot);
+        await symlink(realCacheRoot, cacheRoot);
+      },
+      error: /shard PaddleX cache must be a canonical real directory/,
+    },
+  ];
+  for (const value of cases) {
+    await t.test(value.name, async (t) => {
+      const fixtureValue = await fixture(t);
+      await convertShardToHashBoundSeed(
+        fixtureValue.shardA,
+        { transition: 'p4_to_p1_v1' },
+      );
+      await value.mutate(path.join(fixtureValue.shardA.shardRoot, 'paddlex-cache'));
+      await assert.rejects(
+        receiveRemoteOcrOffload(fixtureValue.options, fixtureValue.dependencies),
+        value.error,
+      );
+      assert.equal(await pathExists(fixtureValue.productionRoot), false);
+      assert.equal(await pathExists(fixtureValue.receiptRoot), false);
+    });
+  }
+});
+
 test('receiver independently verifies seeded lineage, attempt floors, and archives exact receipt evidence', async (t) => {
   await t.test('exact p4-to-p1 shards pass only as one p1/p1 union', async (t) => {
     const value = await fixture(t);
@@ -1821,9 +1912,34 @@ test('receiver independently verifies seeded lineage, attempt floors, and archiv
   await t.test('a mixed p4/p1 shard union is rejected', async (t) => {
     const value = await fixture(t);
     await convertShardToHashBoundSeed(value.shardA, { transition: 'p4_to_p1_v1' });
+    const shardBIdentityPath = path.join(value.shardB.shardRoot, 'run-identity.json');
+    const shardBRunStatusPath = path.join(value.shardB.shardRoot, 'run-status.json');
+    const shardBIdentity = JSON.parse(await readFile(shardBIdentityPath, 'utf8'));
+    shardBIdentity.llama_server_attestation = structuredClone(p1Attestation);
+    shardBIdentity.llama_server_attestation_sha256 = p1AttestationSha256;
+    shardBIdentity.runtime_fingerprint = structuredClone(p1RuntimeFingerprint);
+    shardBIdentity.runtime_fingerprint_sha256 = p1RuntimeFingerprintSha256;
+    shardBIdentity.worker_configuration = {
+      ...shardBIdentity.worker_configuration,
+      vl_rec_max_concurrency: 1,
+      server_parallel: 1,
+    };
+    shardBIdentity.document_recovery = {
+      ...shardBIdentity.document_recovery,
+      child_monitoring: {
+        ...shardBIdentity.document_recovery.child_monitoring,
+        idle_timeout_seconds: 1200,
+      },
+    };
+    await writeJson(shardBIdentityPath, shardBIdentity);
+    const shardBRunStatus = JSON.parse(await readFile(shardBRunStatusPath, 'utf8'));
+    shardBRunStatus.runtime_fingerprint_sha256 = p1RuntimeFingerprintSha256;
+    shardBRunStatus.document_recovery = structuredClone(shardBIdentity.document_recovery);
+    const shardBRunStatusWritten = await writeJson(shardBRunStatusPath, shardBRunStatus);
+    await writeSidecar(shardBRunStatusPath, shardBRunStatusWritten.sha256);
     await assert.rejects(
       receiveRemoteOcrOffload(value.options, value.dependencies),
-      /runtime fingerprints differ/,
+      /mixes audited p4-to-p1 and legacy execution contracts/,
     );
   });
 
@@ -1845,13 +1961,21 @@ test('receiver independently verifies seeded lineage, attempt floors, and archiv
 
   await t.test('p1 shard union permits shard-local cache paths only with the same cache tree', async (t) => {
     const value = await fixture(t);
+    const shardARoot = await realpath(value.shardA.shardRoot);
+    const shardBRoot = await realpath(value.shardB.shardRoot);
+    const shardACache = path.join(shardARoot, 'runtime-cache', 'paddlex');
+    const shardBCache = path.join(shardBRoot, 'runtime-cache', 'paddlex');
+    await materializeLayoutCache(path.dirname(shardACache));
+    await materializeLayoutCache(path.dirname(shardBCache));
+    await rename(path.join(path.dirname(shardACache), 'paddlex-cache'), shardACache);
+    await rename(path.join(path.dirname(shardBCache), 'paddlex-cache'), shardBCache);
     await convertShardToHashBoundSeed(value.shardA, {
       transition: 'p4_to_p1_v1',
-      successorPaddlexCacheHome: '/fixture/p1-a/paddlex-cache',
+      successorPaddlexCacheHome: shardACache,
     });
     await convertShardToHashBoundSeed(value.shardB, {
       transition: 'p4_to_p1_v1',
-      successorPaddlexCacheHome: '/fixture/p1-b/paddlex-cache',
+      successorPaddlexCacheHome: shardBCache,
     });
     const result = await receiveRemoteOcrOffload(value.options, value.dependencies);
     assert.equal(result.status, 'dry_run_validated');
@@ -2006,173 +2130,17 @@ test('receiver independently verifies seeded lineage, attempt floors, and archiv
   }
 });
 
-test('receiver independently verifies one-shot timeout recovery grants and attempt 6 completion', async (t) => {
-  await t.test('valid recovery is fingerprinted, archived with raw logs, and idempotent', async (t) => {
-    const value = await fixture(t);
-    const seed = await convertShardToTimeoutRecoverySeed(value.shardA, {
-      firstMissingPageById: new Map([['doc-a', 2]]),
-    });
-    const dryRun = await receiveRemoteOcrOffload(value.options, value.dependencies);
-    const seededShard = dryRun.source_shards.find((shard) => shard.seed_id === seed.seedId);
-    assert.equal(
-      seededShard.timeout_recovery_grant_sha256,
-      seed.timeoutRecoveryEvidence.grantRawSha256,
-    );
-    const dryRunDocument = dryRun.documents.find((document) => document.document_id === 'doc-a');
-    assert.deepEqual(dryRunDocument.timeout_recovery, {
-      grant_id: seed.timeoutRecoveryEvidence.grant.grant_id,
-      grant_raw_sha256: seed.timeoutRecoveryEvidence.grantRawSha256,
-      granted_attempt: 6,
-      first_missing_page: 2,
-      predecessor_log: {
-        path: 'seed-predecessor-evidence/logs/doc-a.log',
-        bytes: 0,
-        sha256: sha256(Buffer.from('')),
-      },
-    });
-    const applied = await receiveRemoteOcrOffload(
-      { ...value.options, apply: true },
-      value.dependencies,
-    );
-    const archived = applied.source_evidence.shards[0].seed_lineage;
-    assert.equal(archived.timeout_recovery.grant_id, seed.timeoutRecoveryEvidence.grant.grant_id);
-    assert.equal(
-      await readFile(archived.timeout_recovery.grant.path).then(sha256),
-      seed.timeoutRecoveryEvidence.grantRawSha256,
-    );
-    assert.equal(
-      await readFile(archived.timeout_recovery.sidecar.path).then(sha256),
-      seed.timeoutRecoveryEvidence.grantSidecarSha256,
-    );
-    assert.equal(
-      await readFile(archived.timeout_recovery.ledger_identity.path).then(sha256),
-      seed.timeoutRecoveryConsumptionEvidence.ledgerSha256,
-    );
-    assert.equal(
-      await readFile(archived.timeout_recovery.claim.path).then(sha256),
-      seed.timeoutRecoveryConsumptionEvidence.claimSha256,
-    );
-    assert.equal(
-      await readFile(path.join(archived.predecessor_controls.path, 'logs/doc-a.log')).then(sha256),
-      sha256(Buffer.from('')),
-    );
-    const appliedDocument = applied.documents.find((document) => document.document_id === 'doc-a');
-    assert.deepEqual(appliedDocument.timeout_recovery, dryRunDocument.timeout_recovery);
-    const repeated = await receiveRemoteOcrOffload(
-      { ...value.options, apply: true },
-      value.dependencies,
-    );
-    assert.equal(repeated.status, 'verified_idempotent');
-    assert.equal(repeated.receipt_path, applied.receipt_path);
+test('receiver rejects schema-v1 timeout recovery before any local write', async (t) => {
+  const value = await fixture(t);
+  await convertShardToTimeoutRecoverySeed(value.shardA, {
+    firstMissingPageById: new Map([['doc-a', 2]]),
   });
-
-  for (const mutation of ['archived-grant', 'archived-claim', 'archived-timeout-log']) {
-    await t.test(`${mutation} drift is rejected on idempotent replay`, async (t) => {
-      const value = await fixture(t);
-      await convertShardToTimeoutRecoverySeed(value.shardA, {
-        firstMissingPageById: new Map([['doc-a', 2]]),
-      });
-      const applied = await receiveRemoteOcrOffload(
-        { ...value.options, apply: true },
-        value.dependencies,
-      );
-      const archived = applied.source_evidence.shards[0].seed_lineage;
-      if (mutation === 'archived-grant') {
-        await rm(archived.timeout_recovery.grant.path);
-      } else if (mutation === 'archived-claim') {
-        await writeFile(archived.timeout_recovery.claim.path, 'tampered archived claim\n');
-      } else {
-        await writeFile(
-          path.join(archived.predecessor_controls.path, 'logs/doc-a.log'),
-          'tampered archived timeout log\n',
-        );
-      }
-      await assert.rejects(
-        receiveRemoteOcrOffload({ ...value.options, apply: true }, value.dependencies),
-        /archived timeout recovery grant is missing|archived timeout recovery consumption claim differs|archived timeout recovery predecessor controls differ/,
-      );
-    });
-  }
-
-  for (const [mutation, pattern] of [
-    ['grant-sidecar', /timeout recovery grant SHA-256 sidecar mismatch/],
-    ['claim-sidecar', /timeout recovery consumption claim SHA-256 sidecar mismatch/],
-    ['predecessor-log', /seed predecessor evidence tree differs from the receipt contract/],
-    ['attempt-7', /exact attempt 6 complete|exact granted attempt 6 completion/],
-    ['state-lineage', /state timeout recovery lineage differs/],
-  ]) {
-    await t.test(`${mutation} drift is rejected before receiver writes`, async (t) => {
-      const value = await fixture(t);
-      await convertShardToTimeoutRecoverySeed(value.shardA, {
-        firstMissingPageById: new Map([['doc-a', 2]]),
-      });
-      if (mutation === 'grant-sidecar') {
-        await writeFile(
-          path.join(value.shardA.shardRoot, 'timeout-recovery-grant.json.sha256'),
-          `${'0'.repeat(64)}  timeout-recovery-grant.json\n`,
-        );
-      } else if (mutation === 'claim-sidecar') {
-        await writeFile(
-          path.join(value.shardA.shardRoot, 'timeout-recovery-consumption-claim.json.sha256'),
-          `${'0'.repeat(64)}  timeout-recovery-consumption-claim.json\n`,
-        );
-      } else if (mutation === 'predecessor-log') {
-        await writeFile(
-          path.join(value.shardA.shardRoot, 'seed-predecessor-evidence/logs/doc-a.log'),
-          'tampered timeout log\n',
-        );
-      } else if (mutation === 'attempt-7') {
-        const runStatusPath = path.join(value.shardA.shardRoot, 'run-status.json');
-        const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
-        runStatus.documents['doc-a'].attempts = 7;
-        const runStatusWritten = await writeJson(runStatusPath, runStatus);
-        await writeSidecar(runStatusPath, runStatusWritten.sha256);
-      } else {
-        const statePath = path.join(value.shardA.shardRoot, 'documents/doc-a/state.json');
-        const state = JSON.parse(await readFile(statePath, 'utf8'));
-        state.seed_lineage.timeout_recovery_first_missing_page = 3;
-        const stateWritten = await writeJson(statePath, state);
-        const statusPath = path.join(value.shardA.shardRoot, 'status/doc-a.json');
-        const status = JSON.parse(await readFile(statusPath, 'utf8'));
-        status.artifacts.state_sha256 = stateWritten.sha256;
-        const statusWritten = await writeJson(statusPath, status);
-        await writeSidecar(statusPath, statusWritten.sha256);
-        const runStatusPath = path.join(value.shardA.shardRoot, 'run-status.json');
-        const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
-        runStatus.documents['doc-a'].status_json_sha256 = statusWritten.sha256;
-        const runStatusWritten = await writeJson(runStatusPath, runStatus);
-        await writeSidecar(runStatusPath, runStatusWritten.sha256);
-      }
-      await assert.rejects(
-        receiveRemoteOcrOffload(value.options, value.dependencies),
-        pattern,
-      );
-      assert.equal(await pathExists(value.receiptRoot), false);
-    });
-  }
-
-  await t.test('an ungranted document cannot coherently exceed the global attempt ceiling', async (t) => {
-    const value = await fixture(t);
-    await convertShardToTimeoutRecoverySeed(value.shardA, {
-      firstMissingPageById: new Map([['doc-a', 2]]),
-    });
-    const statusPath = path.join(value.shardB.shardRoot, 'status/doc-b.json');
-    const status = JSON.parse(await readFile(statusPath, 'utf8'));
-    status.attempt = 7;
-    status.max_attempts = 7;
-    const statusWritten = await writeJson(statusPath, status);
-    await writeSidecar(statusPath, statusWritten.sha256);
-    const runStatusPath = path.join(value.shardB.shardRoot, 'run-status.json');
-    const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
-    runStatus.documents['doc-b'].attempts = 7;
-    runStatus.documents['doc-b'].status_json_sha256 = statusWritten.sha256;
-    const runStatusWritten = await writeJson(runStatusPath, runStatus);
-    await writeSidecar(runStatusPath, runStatusWritten.sha256);
-    await assert.rejects(
-      receiveRemoteOcrOffload(value.options, value.dependencies),
-      /exceeds the granted attempt ceiling 5/,
-    );
-  });
+  await assert.rejects(
+    receiveRemoteOcrOffload(value.options, value.dependencies),
+    /timeout recovery is permitted only for the schema-v2 p4-to-p1 transition/,
+  );
+  assert.equal(await pathExists(value.productionRoot), false);
+  assert.equal(await pathExists(value.receiptRoot), false);
 });
 
 test('receiver resolves destination roots and rejects a symlink escape before validation or writes', async (t) => {

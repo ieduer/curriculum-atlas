@@ -23,16 +23,72 @@ import {
   inspectPredecessorB1,
   inspectSuccessorB2,
   inspectTreeStrict,
+  parseInactiveSystemdShow,
   parseSingleShardMonitorArgs,
   privacySafeSingleShardEvent,
   validateP4ToP1MonitorDelta,
   writeSingleShardMonitorOutputs,
 } from '../scripts/monitor-remote-ocr-single-shard.mjs';
 import { fingerprintPaddlexLayoutModelCache } from '../scripts/run-remote-ocr-offload.mjs';
+import { parseSystemdShow } from '../scripts/monitor-remote-ocr-reprocess.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const hash = (character) => character.repeat(64);
 const legacyB1RunnerScriptSha256 = 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55';
+
+function systemdShow(overrides = {}) {
+  const fields = {
+    LoadState: 'masked',
+    ActiveState: 'inactive',
+    SubState: 'dead',
+    NRestarts: '0',
+    ExecMainStatus: '0',
+    MainPID: '0',
+    Result: 'success',
+    ...overrides,
+  };
+  return `${Object.entries(fields).map(([key, value]) => `${key}=${value}`).join('\n')}\n`;
+}
+
+test('inactive probes accept only exact safe masked state while active probes remain loaded-only', () => {
+  assert.deepEqual(parseInactiveSystemdShow(systemdShow()), {
+    active_state: 'inactive',
+    sub_state: 'dead',
+    n_restarts: 0,
+    exec_main_status: 0,
+    main_pid: 0,
+    result: 'success',
+  });
+  assert.deepEqual(parseInactiveSystemdShow(systemdShow({ LoadState: 'loaded' })), {
+    active_state: 'inactive',
+    sub_state: 'dead',
+    n_restarts: 0,
+    exec_main_status: 0,
+    main_pid: 0,
+    result: 'success',
+  });
+  assert.throws(() => parseSystemdShow(systemdShow()), /not loaded/);
+  for (const mutation of [
+    { ActiveState: 'active', SubState: 'running', MainPID: '12' },
+    { MainPID: '12' },
+    { NRestarts: '1' },
+    { NRestarts: 'not-a-number' },
+    { ExecMainStatus: '1' },
+    { Result: 'failed' },
+  ]) assert.throws(() => parseInactiveSystemdShow(systemdShow(mutation)), /masked systemd|numeric status/);
+  assert.throws(
+    () => parseInactiveSystemdShow(`${systemdShow()}MainPID=0\n`),
+    /repeats MainPID/,
+  );
+  assert.throws(
+    () => parseInactiveSystemdShow(`${systemdShow()}Unexpected=value\n`),
+    /field set is not exact/,
+  );
+  assert.throws(
+    () => parseInactiveSystemdShow(systemdShow().replace('Result=success\n', '')),
+    /field set is not exact/,
+  );
+});
 
 async function writeJson(pathname, value) {
   const raw = Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
@@ -1376,7 +1432,10 @@ test('sidecar, root, and PaddleX cache drift are rejected', async (t) => {
     const identity = JSON.parse(await readFile(identityPath, 'utf8'));
     identity.worker_configuration.paddlex_cache_home = path.join(fixture.root, 'foreign-cache');
     await writeJson(identityPath, identity);
-    await assert.rejects(inspectPredecessorB1(fixture.b1), /paddlex_cache_home must equal/);
+    await assert.rejects(
+      inspectPredecessorB1(fixture.b1),
+      /paddlex_cache_home must be canonical and contained/,
+    );
   });
   await t.test('B2 audited cache tree differs from its declared identity', async (t) => {
     const fixture = await createFixture(t);

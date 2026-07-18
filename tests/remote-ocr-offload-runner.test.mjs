@@ -5,6 +5,7 @@ import { symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import {
   chmod,
   cp,
+  link,
   mkdtemp,
   mkdir,
   readFile,
@@ -37,7 +38,13 @@ import {
   receiveRemoteOcrOffload,
   validateP4ToP1SeedDelta,
 } from '../scripts/receive-remote-ocr-offload.mjs';
-import { validateP4ToP1MonitorDelta } from '../scripts/monitor-remote-ocr-single-shard.mjs';
+import {
+  inspectPredecessorB1,
+  inspectSuccessorB2,
+  validateP4ToP1MonitorDelta,
+} from '../scripts/monitor-remote-ocr-single-shard.mjs';
+import { prepareTimeoutRecoveryGrant } from '../scripts/prepare-timeout-recovery-grant.mjs';
+import { provisionTimeoutRecoveryAuthority } from '../scripts/provision-timeout-recovery-authority.mjs';
 import {
   canonicalJson,
   captureLocalReprocessSnapshot,
@@ -549,6 +556,7 @@ async function createTimeoutRecoveryPredecessor({
   attestation,
   receiverNativeArtifacts = false,
   ocrScriptSha256 = '8'.repeat(64),
+  materializePaddlexCache = false,
 }) {
   const ledgerRoot = path.join(path.dirname(await realpath(inputRoot)), 'timeout-recovery-authority-v1');
   const ledgerIdentity = await createTimeoutRecoveryLedger(ledgerRoot, inputRoot);
@@ -569,13 +577,29 @@ async function createTimeoutRecoveryPredecessor({
   const manifestContents = `${JSON.stringify(manifestFor(documents), null, 2)}\n`;
   await writeFile(manifestPath, manifestContents);
   const manifestSha256 = sha256(manifestContents);
+  let fixturePaddlexLayoutModelCache = paddlexLayoutModelCache;
+  if (materializePaddlexCache) {
+    const modelRoot = path.join(
+      predecessorRoot,
+      'paddlex-cache/official_models/PP-DocLayoutV3',
+    );
+    await mkdir(modelRoot, { recursive: true });
+    await Promise.all([
+      writeFile(path.join(modelRoot, 'inference.json'), '{"fixture":true}\n'),
+      writeFile(path.join(modelRoot, 'inference.pdiparams'), 'fixture-parameters\n'),
+      writeFile(path.join(modelRoot, 'inference.yml'), 'fixture: true\n'),
+    ]);
+    fixturePaddlexLayoutModelCache = await fingerprintPaddlexLayoutModelCache(
+      path.join(predecessorRoot, 'paddlex-cache'),
+    );
+  }
   const attestationSha256 = sha256(`${JSON.stringify(attestation)}\n`);
   const runtimeFingerprint = {
     ...runtime,
     runtime_device: runtimeDevice,
     llama_server_attestation_sha256: attestationSha256,
     python_runtime: pythonRuntime,
-    paddlex_layout_model_cache: paddlexLayoutModelCache,
+    paddlex_layout_model_cache: fixturePaddlexLayoutModelCache,
   };
   const runtimeFingerprintSha256 = sha256(`${JSON.stringify(runtimeFingerprint)}\n`);
   const predecessorWorker = {
@@ -587,7 +611,7 @@ async function createTimeoutRecoveryPredecessor({
     runtime_device: runtimeDevice,
     paddlex_cache_home: path.join(predecessorRoot, 'paddlex-cache'),
     python_runtime: pythonRuntime,
-    paddlex_layout_model_cache_sha256: paddlexLayoutModelCache.tree_sha256,
+    paddlex_layout_model_cache_sha256: fixturePaddlexLayoutModelCache.tree_sha256,
   };
   const predecessorRecovery = recoveryPolicy(300);
   const progressById = {};
@@ -857,6 +881,7 @@ async function createTimeoutRecoveryPredecessor({
     ledgerRoot,
     ledgerIdentity,
     issuance,
+    paddlexLayoutModelCache: fixturePaddlexLayoutModelCache,
   };
 }
 
@@ -2007,6 +2032,19 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
   const successorRoot = path.join(root, 'b-r2');
   await mkdir(path.join(predecessorRoot, 'documents'), { recursive: true });
   await mkdir(path.join(predecessorRoot, 'status'), { recursive: true });
+  const modelRoot = path.join(
+    predecessorRoot,
+    'paddlex-cache/official_models/PP-DocLayoutV3',
+  );
+  await mkdir(modelRoot, { recursive: true });
+  await Promise.all([
+    writeFile(path.join(modelRoot, 'inference.json'), '{"fixture":true}\n'),
+    writeFile(path.join(modelRoot, 'inference.pdiparams'), 'fixture-parameters\n'),
+    writeFile(path.join(modelRoot, 'inference.yml'), 'fixture: true\n'),
+  ]);
+  const fixturePaddlexLayoutModelCache = await fingerprintPaddlexLayoutModelCache(
+    path.join(predecessorRoot, 'paddlex-cache'),
+  );
   const specifications = [
     ['legacy-compendium-arts-labor', 491, 491, 'complete', 1],
     ['legacy-compendium-chemistry', 458, 384, 'retry_wait', 2],
@@ -2040,7 +2078,7 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
     runtime_device: runtimeDevice,
     llama_server_attestation_sha256: attestationSha256,
     python_runtime: pythonRuntime,
-    paddlex_layout_model_cache: paddlexLayoutModelCache,
+    paddlex_layout_model_cache: fixturePaddlexLayoutModelCache,
   };
   const runtimeFingerprintSha256 = sha256(`${JSON.stringify(runtimeFingerprint)}\n`);
   const predecessorWorker = {
@@ -2052,7 +2090,7 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
     runtime_device: runtimeDevice,
     paddlex_cache_home: path.join(predecessorRoot, 'paddlex-cache'),
     python_runtime: pythonRuntime,
-    paddlex_layout_model_cache_sha256: paddlexLayoutModelCache.tree_sha256,
+    paddlex_layout_model_cache_sha256: fixturePaddlexLayoutModelCache.tree_sha256,
   };
   const predecessorRecovery = recoveryPolicy(300);
   const progressById = {};
@@ -2219,10 +2257,16 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
     runtime,
     llamaServerAttestation: attestation,
     pythonRuntime,
-    paddlexLayoutModelCache,
+    paddlexLayoutModelCache: fixturePaddlexLayoutModelCache,
     runnerScriptSha256: 'e'.repeat(64),
     handleSignals: false,
   });
+  await rm(path.join(successorRoot, 'paddlex-cache'), { recursive: true, force: true });
+  await cp(
+    path.join(predecessorRoot, 'paddlex-cache'),
+    path.join(successorRoot, 'paddlex-cache'),
+    { recursive: true },
+  );
   assert.equal(seeded.seedOnly, true);
   assert.equal(seeded.seedReceipt.counts.documents, 6);
   assert.equal(seeded.seedReceipt.counts.inherited_pages, 1_259);
@@ -2308,7 +2352,7 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
     runtime,
     llamaServerAttestation: attestation,
     pythonRuntime,
-    paddlexLayoutModelCache,
+    paddlexLayoutModelCache: fixturePaddlexLayoutModelCache,
     runnerScriptSha256: 'e'.repeat(64),
     nowMilliseconds: () => Date.parse('2026-07-18T00:00:00.000Z'),
     handleSignals: false,
@@ -2339,8 +2383,9 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
 
 test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an exact 6364-page union', async (t) => {
   const { root, inputRoot, ocrScript } = await fixture(t);
-  const predecessorRoot = path.join(root, 'a-r1');
-  const successorRoot = path.join(root, 'a-r2');
+  const canonicalRoot = await realpath(root);
+  const predecessorRoot = path.join(canonicalRoot, 'a-r1');
+  const successorRoot = path.join(canonicalRoot, 'a-r2');
   const specifications = [
     ['moe-2011-01', 83, 83, 'complete', 1],
     ['moe-2022-03', 109, 109, 'complete', 1],
@@ -2352,22 +2397,30 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     ['legacy-compendium-politics', 422, 96, 'quarantined', 5],
   ];
   const manifestPath = path.join(inputRoot, 'a-shard.json');
-  const attestation = {
-    ...llamaServerAttestation,
-    parallel: 4,
-    production_command_contract: {
-      values: { '--host': '127.0.0.1', '--port': '8112', '--parallel': '4' },
-      flags: ['--mmproj-offload'],
-    },
-  };
-  const { documents, grant, ledgerRoot, ledgerIdentity } = await createTimeoutRecoveryPredecessor({
+  const predecessorAttestation = llamaAttestationForParallel(4);
+  const successorAttestation = llamaAttestationForParallel(1);
+  const ocrScriptSha256 = sha256(await readFile(ocrScript));
+  const {
+    documents,
+    grant,
+    ledgerRoot,
+    ledgerIdentity,
+    paddlexLayoutModelCache: fixturePaddlexLayoutModelCache,
+  } = await createTimeoutRecoveryPredecessor({
     inputRoot,
     predecessorRoot,
     manifestPath,
     specifications,
-    attestation,
+    attestation: predecessorAttestation,
     receiverNativeArtifacts: true,
+    ocrScriptSha256,
+    materializePaddlexCache: true,
   });
+  const provisioned = await provisionTimeoutRecoveryAuthority({
+    inputRoot: await realpath(inputRoot),
+    apply: true,
+  });
+  assert.equal(provisioned.authority_root, ledgerRoot);
   const optionsFor = (outputRoot, extra = {}) => ({
     manifest: manifestPath,
     inputRoot,
@@ -2382,7 +2435,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     llamaUrl: workerConfiguration.llama_url,
     runtimeDevice,
     vlRecMaxConcurrency: 1,
-    serverParallel: 4,
+    serverParallel: 1,
     microBatch: 16,
     useQueues: true,
     childIdleTimeoutSeconds: 1200,
@@ -2396,9 +2449,9 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
       (document) => path.basename(document.source_path) === path.basename(sourcePath),
     ).page_count,
     runtime,
-    llamaServerAttestation: attestation,
+    llamaServerAttestation: successorAttestation,
     pythonRuntime,
-    paddlexLayoutModelCache,
+    paddlexLayoutModelCache: fixturePaddlexLayoutModelCache,
     runnerScriptSha256: 'e'.repeat(64),
     nowMilliseconds: () => Date.parse('2026-07-18T06:00:00.000Z'),
     handleSignals: false,
@@ -2409,7 +2462,16 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     }), dependencies),
     /requires timeout-recovery-grant\.json/,
   );
-  await writeTimeoutRecoveryGrant(predecessorRoot, grant);
+  const preparedGrant = await prepareTimeoutRecoveryGrant({
+    manifest: await realpath(manifestPath),
+    predecessorRoot: await realpath(predecessorRoot),
+    ledgerRoot: await realpath(ledgerRoot),
+    apply: true,
+  });
+  assert.equal(preparedGrant.grant.grant_id, grant.grant_id);
+  assert.equal(preparedGrant.grant.raw_sha256, sha256(await readFile(
+    path.join(predecessorRoot, 'timeout-recovery-grant.json'),
+  )));
   await assert.rejects(
     runRemoteOcrOffload(optionsFor(path.join(root, 'missing-ledger'), {
       timeoutRecoveryLedger: undefined,
@@ -2438,6 +2500,12 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   );
   const predecessorBefore = await inspectTree(predecessorRoot);
   const seeded = await runRemoteOcrOffload(optionsFor(successorRoot), dependencies);
+  await rm(path.join(successorRoot, 'paddlex-cache'), { recursive: true, force: true });
+  await cp(
+    path.join(predecessorRoot, 'paddlex-cache'),
+    path.join(successorRoot, 'paddlex-cache'),
+    { recursive: true },
+  );
   assert.equal(seeded.seedOnly, true);
   assert.equal(seeded.seedReceipt.counts.inherited_pages, 1_568);
   assert.equal(seeded.seedReceipt.counts.predecessor_complete_documents, 4);
@@ -2480,6 +2548,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     'seed-receipt.json.sha256',
     'timeout-recovery-grant.json',
     'timeout-recovery-grant.json.sha256',
+    'timeout-recovery-issuance',
     'timeout-recovery-ledger-identity.json',
     'timeout-recovery-ledger-identity.json.sha256',
     'timeout-recovery-consumption-claim.json',
@@ -2497,6 +2566,73 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     'utf8',
   ));
   assert.equal(evidenceInventory.documents.filter((document) => document.timeout_log).length, 4);
+  assert.equal(evidenceInventory.documents.filter((document) => document.timeout_incident).length, 4);
+  const monitoredPredecessor = await inspectPredecessorB1(predecessorRoot);
+  const authorityNegativeProductionRoot = path.join(inputRoot, 'authority-negative-production');
+  const authorityNegativeReceiptRoot = path.join(inputRoot, 'authority-negative-receipts');
+  const authorityReceiveOptions = {
+    manifest: manifestPath,
+    shards: [{ manifestPath, root: successorRoot }],
+    projectRoot: inputRoot,
+    productionRoot: authorityNegativeProductionRoot,
+    textRoot: path.join(inputRoot, 'authority-negative-text'),
+    supervisorRoot: path.join(inputRoot, 'authority-negative-supervisor'),
+    receiptRoot: authorityNegativeReceiptRoot,
+    python: process.execPath,
+  };
+  const authorityReceiveDependencies = {
+    pageCounter: (_python, sourcePath) => documents.find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+  };
+  const archivedIssuancePath = path.join(
+    successorRoot,
+    seeded.seedReceipt.timeout_recovery_issuance.path,
+  );
+  const archivedIssuanceSidecarPath = `${archivedIssuancePath}.sha256`;
+  const [archivedIssuanceRaw, archivedIssuanceSidecarRaw] = await Promise.all([
+    readFile(archivedIssuancePath),
+    readFile(archivedIssuanceSidecarPath),
+  ]);
+  const issuanceValue = JSON.parse(archivedIssuanceRaw);
+  const reorderedIssuance = Object.fromEntries(Object.entries(issuanceValue).reverse());
+  const noncanonicalIssuanceRaw = Buffer.from(`${JSON.stringify(reorderedIssuance, null, 2)}\n`);
+  await writeFile(archivedIssuancePath, noncanonicalIssuanceRaw, { mode: 0o600 });
+  await writeFile(
+    archivedIssuanceSidecarPath,
+    `${sha256(noncanonicalIssuanceRaw)}  ${path.basename(archivedIssuancePath)}\n`,
+    { mode: 0o600 },
+  );
+  await assert.rejects(
+    receiveRemoteOcrOffload(authorityReceiveOptions, authorityReceiveDependencies),
+    /timeout recovery issuance claim field order is not canonical/u,
+  );
+  await assert.rejects(
+    inspectSuccessorB2(successorRoot, monitoredPredecessor),
+    /timeout recovery issuance claim field order is not canonical/u,
+  );
+  await writeFile(archivedIssuancePath, archivedIssuanceRaw, { mode: 0o600 });
+  await writeFile(archivedIssuanceSidecarPath, archivedIssuanceSidecarRaw, { mode: 0o600 });
+
+  const archivedGrantPath = path.join(successorRoot, 'timeout-recovery-grant.json');
+  const externalGrantHardlink = path.join(root, 'external-timeout-recovery-grant-hardlink.json');
+  await link(archivedGrantPath, externalGrantHardlink);
+  await assert.rejects(
+    receiveRemoteOcrOffload(authorityReceiveOptions, authorityReceiveDependencies),
+    /timeout recovery grant must be a current-UID\/GID mode-0600 single-link file/u,
+  );
+  await rm(externalGrantHardlink);
+  assert.equal(await stat(authorityNegativeProductionRoot).then(
+    () => true,
+    (error) => error?.code === 'ENOENT' ? false : Promise.reject(error),
+  ), false);
+  assert.equal(await stat(authorityNegativeReceiptRoot).then(
+    () => true,
+    (error) => error?.code === 'ENOENT' ? false : Promise.reject(error),
+  ), false);
+  const monitoredSeed = await inspectSuccessorB2(successorRoot, monitoredPredecessor);
+  assert.equal(monitoredSeed.configuration_transition, 'p4_to_p1_v1');
+  assert.equal(monitoredSeed.complete, false);
   const claimFilename = (await readdir(ledgerRoot)).find((entry) => entry.endsWith('.claim.json'));
   assert.ok(claimFilename);
   const claimPath = path.join(ledgerRoot, claimFilename);
@@ -2554,21 +2690,83 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     supervisorRoot: path.join(inputRoot, 'local-supervisor'),
     receiptRoot: path.join(inputRoot, 'receipts'),
     python: process.execPath,
+    apply: true,
   }, {
     pageCounter: (_python, sourcePath) => documents.find(
       (document) => path.basename(document.source_path) === path.basename(sourcePath),
     ).page_count,
   });
-  assert.equal(received.status, 'dry_run_validated');
+  assert.equal(received.status, 'applied');
   assert.equal(received.counts.documents, 8);
   assert.equal(received.counts.pages, 3_182);
   assert.equal(
     received.source_shards[0].timeout_recovery_grant_sha256,
     seeded.seedReceipt.timeout_recovery_grant.raw_sha256,
   );
+  const monitoredComplete = await inspectSuccessorB2(successorRoot, monitoredPredecessor);
+  assert.equal(monitoredComplete.complete, true);
+  await chmod(archivedGrantPath, 0o644);
+  await assert.rejects(
+    inspectSuccessorB2(successorRoot, monitoredPredecessor),
+    /timeout recovery grant must be a current-UID\/GID mode-0600 single-link file/u,
+  );
+  await chmod(archivedGrantPath, 0o600);
+  const appliedReceipt = JSON.parse(await readFile(received.receipt_path, 'utf8'));
+  const archivedRecovery = appliedReceipt.source_evidence.shards[0].seed_lineage.timeout_recovery;
+  assert.equal(await stat(archivedRecovery.issuance.path).then((info) => info.isFile()), true);
+  assert.equal(await stat(archivedRecovery.issuance_sidecar.path).then((info) => info.isFile()), true);
+  const archivedControls = appliedReceipt.source_evidence.shards[0].seed_lineage.predecessor_controls.path;
+  assert.equal(
+    await stat(path.join(
+      archivedControls,
+      'timeout-incidents/legacy-compendium-english/attempt-0005.json',
+    )).then((info) => info.isFile()),
+    true,
+  );
+  const repeatedReceive = await receiveRemoteOcrOffload({
+    manifest: manifestPath,
+    shards: [{ manifestPath, root: successorRoot }],
+    projectRoot: inputRoot,
+    productionRoot: path.join(inputRoot, 'local-production'),
+    textRoot: path.join(inputRoot, 'local-text'),
+    supervisorRoot: path.join(inputRoot, 'local-supervisor'),
+    receiptRoot: path.join(inputRoot, 'receipts'),
+    python: process.execPath,
+    apply: true,
+  }, {
+    pageCounter: (_python, sourcePath) => documents.find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+  });
+  assert.equal(repeatedReceive.status, 'verified_idempotent');
+  assert.equal(repeatedReceive.receipt_path, received.receipt_path);
+  const archivedTimeoutLog = path.join(
+    archivedControls,
+    'logs/legacy-compendium-english.log',
+  );
+  await chmod(archivedTimeoutLog, 0o644);
+  await assert.rejects(
+    receiveRemoteOcrOffload({
+      manifest: manifestPath,
+      shards: [{ manifestPath, root: successorRoot }],
+      projectRoot: inputRoot,
+      productionRoot: path.join(inputRoot, 'local-production'),
+      textRoot: path.join(inputRoot, 'local-text'),
+      supervisorRoot: path.join(inputRoot, 'local-supervisor'),
+      receiptRoot: path.join(inputRoot, 'receipts'),
+      python: process.execPath,
+      apply: true,
+    }, {
+      pageCounter: (_python, sourcePath) => documents.find(
+        (document) => path.basename(document.source_path) === path.basename(sourcePath),
+      ).page_count,
+    }),
+    /archived timeout recovery log must be a current-UID\/GID mode-0600 single-link file/u,
+  );
+  await chmod(archivedTimeoutLog, 0o600);
 
-  const bPredecessorRoot = path.join(root, 'b-r1-union');
-  const bSuccessorRoot = path.join(root, 'b-r2-union');
+  const bPredecessorRoot = path.join(canonicalRoot, 'b-r1-union');
+  const bSuccessorRoot = path.join(canonicalRoot, 'b-r2-union');
   const bManifestPath = path.join(inputRoot, 'b-union-shard.json');
   const bSpecifications = [
     ['legacy-compendium-arts-labor', 491, 491, 'complete', 1],
@@ -2578,13 +2776,18 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     ['legacy-compendium-physics', 477, 477, 'complete', 1],
     ['legacy-compendium-plans', 423, 423, 'complete', 1],
   ];
-  const { documents: bDocuments } = await createTimeoutRecoveryPredecessor({
+  const {
+    documents: bDocuments,
+    paddlexLayoutModelCache: bFixturePaddlexLayoutModelCache,
+  } = await createTimeoutRecoveryPredecessor({
     inputRoot,
     predecessorRoot: bPredecessorRoot,
     manifestPath: bManifestPath,
     specifications: bSpecifications,
-    attestation,
+    attestation: predecessorAttestation,
     receiverNativeArtifacts: true,
+    ocrScriptSha256,
+    materializePaddlexCache: true,
   });
   const bSeeded = await runRemoteOcrOffload({
     ...optionsFor(bSuccessorRoot),
@@ -2593,12 +2796,23 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     timeoutRecoveryLedger: undefined,
   }, {
     ...dependencies,
+    paddlexLayoutModelCache: bFixturePaddlexLayoutModelCache,
     pageCounter: (_python, sourcePath) => bDocuments.find(
       (document) => path.basename(document.source_path) === path.basename(sourcePath),
     ).page_count,
   });
+  await rm(path.join(bSuccessorRoot, 'paddlex-cache'), { recursive: true, force: true });
+  await cp(
+    path.join(bPredecessorRoot, 'paddlex-cache'),
+    path.join(bSuccessorRoot, 'paddlex-cache'),
+    { recursive: true },
+  );
   assert.equal(bSeeded.seedReceipt.counts.inherited_pages, 3_182);
   assert.equal(bSeeded.seedReceipt.timeout_recovery_grant, undefined);
+  const monitoredBPredecessor = await inspectPredecessorB1(bPredecessorRoot);
+  const monitoredB = await inspectSuccessorB2(bSuccessorRoot, monitoredBPredecessor);
+  assert.equal(monitoredB.configuration_transition, 'p4_to_p1_v1');
+  assert.equal(monitoredB.complete, true);
   const unionManifestPath = path.join(inputRoot, 'a-b-r2-union.json');
   await writeFile(
     unionManifestPath,
