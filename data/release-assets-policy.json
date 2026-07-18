@@ -51,6 +51,8 @@
     "files": [
       { "path": "data/artifact-registry.json", "disposition": "r2_public_metadata", "consumers": ["asset_audit", "release_manifest"] },
       { "path": "data/catalog.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "concept_builder", "d1_import"] },
+      { "path": "data/compendium-item-boundaries.json", "disposition": "r2_public_metadata", "consumers": ["concept_builder", "compendium_boundary_validator", "release_manifest"] },
+      { "path": "data/compendium-item-boundaries.schema.json", "disposition": "r2_public_metadata", "consumers": ["compendium_boundary_validator", "release_manifest"] },
       { "path": "data/concept-evolution-quality.json", "disposition": "static_build_input", "consumers": ["concept_validator"] },
       { "path": "data/concept-lexicon.json", "disposition": "static_build_input", "consumers": ["concept_builder"] },
       { "path": "data/concept-model-v2.json", "disposition": "static_build_input", "consumers": ["concept_builder"] },
@@ -109,6 +111,8 @@
     "governed_source_files": [
       "data/artifact-registry.json",
       "data/catalog.json",
+      "data/compendium-item-boundaries.json",
+      "data/compendium-item-boundaries.schema.json",
       "data/ingest-manifest.json",
       "data/ocr-queue.json",
       "data/release-assets-policy.json",
@@ -131,6 +135,18 @@
         "source": "data/catalog.json",
         "key": "catalog/catalog.json",
         "content_type": "application/json"
+      },
+      {
+        "role": "compendium_item_boundaries",
+        "source": "data/compendium-item-boundaries.json",
+        "key": "quality/compendium-item-boundaries.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "compendium_item_boundaries_schema",
+        "source": "data/compendium-item-boundaries.schema.json",
+        "key": "quality/compendium-item-boundaries.schema.json",
+        "content_type": "application/schema+json"
       },
       {
         "role": "ingest_manifest",

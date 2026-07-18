@@ -66,12 +66,12 @@ Production current 为 `release-9cb02f77c06ee0535e7981a22b312373`；preview curr
 | `concept_senses` | 一个尚未分义的概念种子 | 编辑分义前每个 concept 仅有一个 `undifferentiated_unresolved` sense；学科/版本语境留在 occurrence/episode |
 | `surface_forms` | 一个可检索词形 | 正字/词汇变体可自动匹配；历史相关或语义相关形式默认关闭自动匹配 |
 | `curriculum_lines` | 学科、学段、学校类型/子类、文件类型、发布机构 | 盲校、聋校、培智与普通教育不得合并 |
-| `works` | 一个目录文档或一个内嵌页片段 | 当前采用 `document_scoped_not_deduplicated`，不自动判定同一作品 |
+| `works` | 一个目录文档或一个已核完整汇编篇目 | 目录文档采用 `document_scoped_not_deduplicated`；汇编篇目只有在完整边界门通过后才建立独立 work |
 | `editions`, `revisions` | 文档版次与显式修订事件 | “2017年版2020年修订”分别保存基础版年和修订年；生效日期未知时为 `null` |
-| `embedded_items` | 一张已定位的汇编页片段 | 不把相邻页静默合并成完整篇目，完整性恒为 false |
+| `embedded_items` | 一个完整、逐页放行的汇编篇目 | 目录只生成候选；正文标题、下一篇标题或卷末、全部页证据和当前 corpus release 均绑定后才显示；同篇同版在线全文核对后才可引文 |
 | `occurrences` | 一次精确词面命中 | 保存词形、义项、版本、页/段、起止偏移、复用簇；章节和规范角色未知时为 `unknown`/`null` |
 | `relations`, `relation_reviews` | 两个 episode 之间的关系及其审核状态 | 自动关系只允许非语义 `next_observed`、`co_observed`，两端均须有证据，不允许影响/因果结论 |
-| `coverage_cells` | 一个版次或页片段的覆盖单元 | 显式保存分母、缺口和引文闸门；`negative_claim_eligible=false` |
+| `coverage_cells` | 一个版次或完整汇编篇目的覆盖单元 | 显式保存分母、页数、缺口和引文闸门；只有完整篇目可 `complete=true`，但 `negative_claim_eligible` 仍固定为 false |
 | `editorial_audit` | 一项构建或主张政策 | 保存机器生成边界与尚未发生的编辑审核，不伪造审核者和时间 |
 
 完整约束和学科分类决定见 `docs/concept-evolution-academic-model.md`。

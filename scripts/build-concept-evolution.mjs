@@ -4,6 +4,7 @@ import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isNativeTextRecord } from './page-publication-gate.mjs';
+import { validateCorpusManifest } from './import-corpus.mjs';
 import {
   acceptedConceptPages,
   bindConceptDocumentText,
@@ -13,6 +14,13 @@ import {
   conceptOcrObservationPolicy,
   createConceptPublicationGate,
 } from './concept-page-publication.mjs';
+import {
+  validateCompendiumItemBoundaries,
+} from './validate-compendium-item-boundaries.mjs';
+import {
+  verifyCompendiumHeadingEvidence,
+  verifyCompendiumItemPageEvidence,
+} from './compendium-item-publication.mjs';
 import { semanticDocumentDisposition } from './semantic-publication-gate.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -44,6 +52,8 @@ const [
   ingestManifest,
   pagePublicationManifest,
   semanticPublicationPolicy,
+  compendiumItemBoundaries,
+  onlineVerificationSamples,
 ] = await Promise.all([
   readJson('data/catalog.json'),
   readJson('data/concept-lexicon.json'),
@@ -53,6 +63,8 @@ const [
   readOptionalJson('data/ingest-manifest.json', { entries: [] }),
   readJson('data/page-publication-manifest.json'),
   readJson('data/semantic-publication-policy.json'),
+  readJson('data/compendium-item-boundaries.json'),
+  readJson('data/online-verification-samples.json'),
 ]);
 
 if (model.schema_version !== 2) throw new Error('data/concept-model-v2.json must use schema_version 2');
@@ -66,6 +78,14 @@ const catalogById = new Map(catalog.documents.map((record) => [record.id, record
 const queueById = new Map(queue.documents.map((record) => [record.id, record]));
 const ingestById = new Map((ingestManifest.entries || []).map((entry) => [entry.id, entry]));
 const conceptById = new Map(lexicon.concepts.map((concept) => [concept.id, concept]));
+const compendiumBoundaryValidation = validateCompendiumItemBoundaries(compendiumItemBoundaries, {
+  catalog,
+  queue,
+  onlineVerifications: onlineVerificationSamples,
+});
+if (!compendiumBoundaryValidation.valid) {
+  throw new Error(`Compendium item boundary gate failed: ${JSON.stringify(compendiumBoundaryValidation.errors)}`);
+}
 const conceptPublicationGate = createConceptPublicationGate({
   manifest: pagePublicationManifest,
   semanticPolicy: semanticPublicationPolicy,
@@ -90,6 +110,11 @@ const inputFingerprints = {
     ['page_publication_gate_sha256', 'scripts/page-publication-gate.mjs'],
     ['semantic_publication_policy_sha256', 'data/semantic-publication-policy.json'],
     ['semantic_publication_gate_sha256', 'scripts/semantic-publication-gate.mjs'],
+    ['compendium_item_boundaries_sha256', 'data/compendium-item-boundaries.json'],
+    ['compendium_item_boundary_gate_sha256', 'scripts/validate-compendium-item-boundaries.mjs'],
+    ['compendium_item_publication_gate_sha256', 'scripts/compendium-item-publication.mjs'],
+    ['online_verification_samples_sha256', 'data/online-verification-samples.json'],
+    ['corpus_manifest_gate_sha256', 'scripts/import-corpus.mjs'],
     ['validator_sha256', 'scripts/validate-concept-evolution.mjs'],
   ].map(async ([key, relativePath]) => [key, sha256Bytes(await readFile(path.join(root, relativePath)))]))),
   ocr_concept_publication_sha256: conceptPublicationGate.revision_sha256,
@@ -928,73 +953,163 @@ for (const document of eligibleDocuments) {
 }
 
 const embeddedItems = [];
-for (const [documentId, queueRecord] of queueById) {
-  const parentRecord = catalogById.get(documentId) || queueRecord;
-  if (semanticDocumentDisposition(semanticPublicationGate, parentRecord).excluded) continue;
+const publishableCompendiumItems = compendiumItemBoundaries.documents
+  .flatMap((document) => document.items
+    .filter((item) => item.display_allowed)
+    .map((item) => ({ document, item })));
+let currentCorpusReleaseId = null;
+if (publishableCompendiumItems.length > 0) {
+  const rawCorpusManifest = await readOptionalJson('data/corpus-chunks/manifest.json', null);
+  let corpusManifest;
+  try {
+    corpusManifest = validateCorpusManifest(rawCorpusManifest);
+  } catch (error) {
+    throw new Error(`Publishable compendium items require a sealed corpus manifest: ${error.message}`);
+  }
+  if (!/^corpus-[a-f0-9]{24}$/.test(corpusManifest.release_id)
+    || corpusManifest.accepted_ocr_documents < 1) {
+    throw new Error('Publishable compendium items require the current sealed corpus release manifest');
+  }
+  currentCorpusReleaseId = corpusManifest.release_id;
+}
+
+const compendiumPageAssetCache = new Map();
+async function readCompendiumPageAsset(documentId, pageNumber) {
+  const key = `${documentId}:${pageNumber}`;
+  if (compendiumPageAssetCache.has(key)) return compendiumPageAssetCache.get(key);
+  const contentPath = path.join(ocrRoot, documentId, 'pages', String(pageNumber).padStart(4, '0'), 'content.md');
+  const witnessPath = path.join(root, '.cache/ocr-witness', documentId, 'vision', `page-${String(pageNumber).padStart(3, '0')}.json`);
+  const [primaryBytes, witnessBytes] = await Promise.all([readFile(contentPath), readFile(witnessPath)]);
+  const asset = {
+    primary_bytes: primaryBytes,
+    witness_bytes: witnessBytes,
+    raw_text: primaryBytes.toString('utf8'),
+    primary_ocr_sha256: sha256Bytes(primaryBytes),
+    witness_sha256: sha256Bytes(witnessBytes),
+    witness: JSON.parse(witnessBytes.toString('utf8')),
+  };
+  compendiumPageAssetCache.set(key, asset);
+  return asset;
+}
+
+async function verifyCompendiumHeading(documentBoundary, item, acceptedPage = null) {
+  const asset = await readCompendiumPageAsset(
+    documentBoundary.document_id,
+    item.body_heading.physical_page,
+  );
+  verifyCompendiumHeadingEvidence({
+    documentBoundary,
+    item,
+    primaryBytes: asset.primary_bytes,
+    witnessBytes: asset.witness_bytes,
+    acceptedPage,
+  });
+  return asset;
+}
+
+for (const documentBoundary of compendiumItemBoundaries.documents) {
+  const items = documentBoundary.items.filter((item) => item.display_allowed);
+  if (items.length === 0) continue;
+  const documentId = documentBoundary.document_id;
+  const parentRecord = catalogById.get(documentId);
+  const queueRecord = queueById.get(documentId);
+  if (!parentRecord || !queueRecord || semanticDocumentDisposition(semanticPublicationGate, parentRecord).excluded) {
+    throw new Error(`${documentId}: publishable compendium is absent or semantically excluded`);
+  }
+  if (sourceArtifactSha256For(parentRecord) !== documentBoundary.source_artifact_sha256) {
+    throw new Error(`${documentId}: compendium source identity drifted`);
+  }
   const acceptedPages = acceptedConceptPages({
     gate: conceptPublicationGate,
     record: parentRecord,
     sourceArtifactSha256: sourceArtifactSha256For(parentRecord),
     documentCitationAllowed: effectiveCitationAllowed(parentRecord),
   });
-  if (acceptedPages.length === 0) continue;
   const acceptedPageByNumber = new Map(acceptedPages.map((page) => [page.page_number, page]));
   const statePath = path.join(ocrRoot, documentId, 'state.json');
-  if (!(await exists(statePath))) continue;
   const state = JSON.parse(await readFile(statePath, 'utf8'));
-  for (const rawPageNumber of state.completed_pages || []) {
-    const pageNumber = Number(rawPageNumber);
-    const acceptedPage = acceptedPageByNumber.get(pageNumber);
-    if (!acceptedPage) continue;
-    const contentPath = path.join(ocrRoot, documentId, 'pages', String(pageNumber).padStart(4, '0'), 'content.md');
-    if (!(await exists(contentPath))) continue;
-    const rawBody = await readFile(contentPath, 'utf8');
-    const boundPage = bindConceptPageText(acceptedPage, rawBody, {
-      semanticGate: semanticPublicationGate,
-      record: parentRecord,
+  const completedPages = new Set((state.completed_pages || []).map(Number));
+  const parentEdition = editionByDocumentId.get(documentId);
+  if (!parentEdition) throw new Error(`${documentId}: parent edition is missing`);
+
+  for (const item of items) {
+    const pageNumbers = Array.from(
+      { length: item.candidate_physical_page_end - item.candidate_physical_page_start + 1 },
+      (_, index) => item.candidate_physical_page_start + index,
+    );
+    if (!pageNumbers.every((pageNumber) => completedPages.has(pageNumber) && acceptedPageByNumber.has(pageNumber))) {
+      throw new Error(`${item.item_id}: every page in the verified item range must be complete and display-accepted`);
+    }
+    const boundPages = [];
+    const rawPages = [];
+    for (const pageNumber of pageNumbers) {
+      const asset = await readCompendiumPageAsset(documentId, pageNumber);
+      const boundPage = bindConceptPageText(acceptedPageByNumber.get(pageNumber), asset.raw_text, {
+        semanticGate: semanticPublicationGate,
+        record: parentRecord,
+      });
+      if (!boundPage.display_allowed) throw new Error(`${item.item_id}: semantic publication closed page ${pageNumber}`);
+      rawPages.push(asset.raw_text);
+      boundPages.push(boundPage);
+    }
+    await verifyCompendiumHeading(documentBoundary, item, boundPages[0]);
+    const nextItem = documentBoundary.items[item.sequence];
+    if (nextItem) await verifyCompendiumHeading(documentBoundary, nextItem);
+
+    const { page_set_sha256: pageSetSha256 } = verifyCompendiumItemPageEvidence({
+      documentBoundary,
+      item,
+      boundPages,
+      rawPages,
+      currentCorpusReleaseId,
     });
-    if (!boundPage.display_allowed) continue;
-    const body = normalizeBlock(boundPage.raw_text);
-    const firstLine = rawBody.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || '';
-    if (/目录/.test(firstLine)) continue;
-    if (!/^#{1,3}\s+/.test(firstLine)) continue;
-    const yearMatch = body.slice(0, 1200).match(/(?:^|[^\d])((?:18|19|20)\d{2})(?:\s*年|[）)])/);
-    if (!yearMatch) continue;
-    const year = Number(yearMatch[1]);
+
     const entity = subjectEntity(parentRecord);
-    const title = firstLine.replace(/^#{1,6}\s*/, '') || `第${pageNumber}页篇目`;
-    const stage = /蒙学堂/.test(body) ? '蒙学堂' : /小学堂|小学/.test(body) ? '小学' : /中学堂|中学/.test(body) ? '中学' : 'unknown';
-    const line = curriculumLineFor({ ...parentRecord, title, stage, document_type: 'embedded_item' }, entity, true, stage);
-    const embeddedItemId = `embedded:${documentId}:p${pageNumber}`;
+    const stage = item.section;
+    const line = curriculumLineFor(
+      { ...parentRecord, title: item.title, stage, document_type: 'embedded_item' },
+      entity,
+      true,
+      stage,
+    );
+    const embeddedItemId = item.item_id;
     const workId = `work:${embeddedItemId}`;
     const editionId = `edition:${embeddedItemId}`;
-    const parentEdition = editionByDocumentId.get(documentId);
-    const parentWorkId = parentEdition?.work_id || null;
-    const embeddedItem = {
+    const parentWorkId = parentEdition.work_id;
+    embeddedItems.push({
       id: embeddedItemId,
       parent_document_id: documentId,
       parent_work_id: parentWorkId,
-      title,
-      identity_status: 'display_accepted_page_fragment_not_full_item',
-      physical_page_start: pageNumber,
-      physical_page_end: pageNumber,
-      printed_page: null,
-      display_year: year,
-      year_basis: 'display_year_observed_in_page_fragment',
+      parent_item_id: item.parent_item_id,
+      item_kind: item.item_kind,
+      title: item.title,
+      raw_title: item.raw_title,
+      identity_status: 'verified_full_item',
+      physical_page_start: item.candidate_physical_page_start,
+      physical_page_end: item.candidate_physical_page_end,
+      printed_page_start: item.printed_page_start,
+      display_year: item.display_year,
+      year_basis: item.year_basis,
       stage,
-      uncertainty_note: boundPage.uncertainty_note || 'Page-fragment boundary and exact edition identity are not editor-verified.',
-    };
-    embeddedItems.push(embeddedItem);
+      end_boundary_basis: nextItem ? 'next_verified_body_heading' : 'source_artifact_document_end',
+      page_publication_release_id: currentCorpusReleaseId,
+      page_set_sha256: pageSetSha256,
+      online_verification_status: item.online_verification.verification_status,
+      online_source_ids: item.online_verification.source_ids,
+      citation_allowed: item.citation_allowed,
+      semantic_claim_allowed: item.semantic_claim_allowed,
+      uncertainty_note: item.uncertainty_note,
+    });
     worksById.set(workId, {
       id: workId,
-      canonical_title: title,
+      canonical_title: item.title,
       subject: entity,
       course_entity: entity.entity_kind === 'curriculum_course' ? entity : null,
       curriculum_line_id: line.id,
-      issuer: null,
+      issuer: parentRecord.issued_by || null,
       jurisdiction: parentRecord.country || '中国',
       document_ids: [documentId],
-      identity_status: 'embedded_page_fragment_not_deduplicated',
+      identity_status: 'verified_compendium_item_boundary',
       parent_work_id: parentWorkId,
     });
     const edition = {
@@ -1002,21 +1117,22 @@ for (const [documentId, queueRecord] of queueById) {
       work_id: workId,
       curriculum_line_id: line.id,
       document_id: documentId,
-      version_label: null,
-      base_edition_year: year,
+      version_label: item.title,
+      base_edition_year: item.display_year,
       revision_year: null,
-      observation_year: year,
-      observation_year_basis: 'embedded_item_display_year',
+      observation_year: item.display_year,
+      observation_year_basis: item.year_basis,
       issued_date: null,
       published_date: null,
       effective_date: null,
-      source_artifact_sha256: boundPage.source_artifact_sha256,
-      identity_status: 'embedded_page_fragment_not_full_edition',
+      source_artifact_sha256: documentBoundary.source_artifact_sha256,
+      identity_status: 'verified_compendium_item_edition_boundary',
       alternate_document_ids: [],
       embedded_item_id: embeddedItemId,
     };
     editionsById.set(editionId, edition);
-    const pageCharacters = meaningfulCharacters(body);
+    const normalizedPages = boundPages.map((page) => ({ page, body: normalizeBlock(page.raw_text) }));
+    const itemCharacters = normalizedPages.reduce((sum, page) => sum + meaningfulCharacters(page.body), 0);
     const coverageCell = {
       id: `coverage:${editionId}`,
       entity_kind: entity.entity_kind,
@@ -1038,109 +1154,135 @@ for (const [documentId, queueRecord] of queueById) {
       work_id: workId,
       edition_id: editionId,
       embedded_item_id: embeddedItemId,
-      expected_pages: null,
-      usable_pages: 1,
-      meaningful_characters: pageCharacters,
-      eligible_meaningful_characters: pageCharacters,
-      complete: false,
+      expected_pages: boundPages.length,
+      usable_pages: boundPages.length,
+      meaningful_characters: itemCharacters,
+      eligible_meaningful_characters: itemCharacters,
+      complete: true,
       alias_search_complete: false,
-      lexical_search_scope: 'automatic_surface_forms_only',
-      citation_gate: 'accepted_ocr_page_manifest_display_only_fragment',
+      lexical_search_scope: 'automatic_surface_forms_only_full_verified_item',
+      citation_gate: item.citation_allowed
+        ? 'verified_full_item_all_pages_and_same_edition_online'
+        : 'verified_full_item_display_only',
       negative_claim_eligible: false,
-      missing_reasons: ['full_embedded_item_boundary_not_established', 'exact_edition_online_text_not_established', 'semantic_surface_review_incomplete'],
+      missing_reasons: [
+        ...(!item.citation_allowed ? ['all_page_citation_or_same_edition_online_text_not_established'] : []),
+        'concept_sense_and_normative_role_not_inferred_from_lexical_match',
+      ],
     };
     coverageCellByEdition.set(editionId, coverageCell);
-    const matches = matchParagraph(body, entity);
-    const matchesByConcept = Map.groupBy(matches, (match) => match.concept.id);
-    const pageObservationPolicy = conceptOcrObservationPolicy(boundPage, { forceNonCitation: true });
-    const status = pageObservationPolicy.evidence_status;
-    for (const [conceptId, conceptMatches] of matchesByConcept) {
-      const concept = conceptById.get(conceptId);
-      const sense = senseByConcept.get(conceptId);
-      if (!sense) throw new Error(`missing undifferentiated concept sense for ${conceptId}`);
-      const evidenceId = `e:${documentId}:pdf${pageNumber}:${conceptId}`;
-      const occurrenceIds = [];
-      for (const match of conceptMatches) {
-        const occurrence = {
-          id: compactId('occ', `${documentId}|pdf${pageNumber}|${match.start}|${match.surface.id}`),
+
+    for (const { page: boundPage, body } of normalizedPages) {
+      const pageNumber = boundPage.page_number;
+      const pageCharacters = meaningfulCharacters(body);
+      const matchesByConcept = Map.groupBy(matchParagraph(body, entity), (match) => match.concept.id);
+      const pageObservationPolicy = conceptOcrObservationPolicy(boundPage, { forceNonCitation: !item.citation_allowed });
+      const status = pageObservationPolicy.evidence_status;
+      for (const [conceptId, conceptMatches] of matchesByConcept) {
+        const concept = conceptById.get(conceptId);
+        const sense = senseByConcept.get(conceptId);
+        if (!sense) throw new Error(`missing undifferentiated concept sense for ${conceptId}`);
+        const evidenceId = `e:${documentId}:pdf${pageNumber}:${embeddedItemId}:${conceptId}`;
+        const occurrenceIds = [];
+        for (const match of conceptMatches) {
+          const occurrence = {
+            id: compactId('occ', `${embeddedItemId}|pdf${pageNumber}|${match.start}|${match.surface.id}`),
+            concept_id: conceptId,
+            concept_sense_id: sense.id,
+            surface_form_id: match.surface.id,
+            curriculum_line_id: line.id,
+            work_id: workId,
+            edition_id: editionId,
+            embedded_item_id: embeddedItemId,
+            evidence_id: evidenceId,
+            document_id: documentId,
+            year: item.display_year,
+            position: { physical_page: pageNumber, paragraph_ordinal: null, start: match.start, end: match.end },
+            section_context: { chapter_path: null, section_heading: null, section_type: 'unknown', normative_role: 'unknown' },
+            match_type: 'exact_surface',
+            text_reuse_cluster_id: null,
+            status,
+            publication_basis: boundPage.publication_basis,
+            semantic_claim_allowed: false,
+          };
+          registerOccurrence(occurrence);
+          occurrenceIds.push(occurrence.id);
+        }
+        const first = conceptMatches[0];
+        registerEvidence({
+          id: evidenceId,
           concept_id: conceptId,
           concept_sense_id: sense.id,
-          surface_form_id: match.surface.id,
-          curriculum_line_id: line.id,
+          surface_form_ids: [...new Set(conceptMatches.map((match) => match.surface.id))],
+          occurrence_ids: occurrenceIds,
+          document_id: documentId,
+          document_title: item.title,
           work_id: workId,
           edition_id: editionId,
           embedded_item_id: embeddedItemId,
-          evidence_id: evidenceId,
-          document_id: documentId,
-          year,
-          position: { physical_page: pageNumber, paragraph_ordinal: null, start: match.start, end: match.end },
-          section_context: { chapter_path: null, section_heading: null, section_type: 'unknown', normative_role: 'unknown' },
+          parent_compendium_id: documentId,
+          physical_pdf_page: pageNumber,
+          printed_page: item.printed_page_start + pageNumber - item.candidate_physical_page_start,
+          paragraph_ordinal: null,
+          source_locator: boundPage.stable_locator,
+          body_sha256: sha256(body),
+          source_artifact_sha256: boundPage.source_artifact_sha256,
+          source_page_sha256: boundPage.source_page_sha256,
+          final_text_sha256: boundPage.final_text_sha256,
+          evidence_bundle_sha256: boundPage.evidence_bundle_sha256,
+          stable_locator: boundPage.stable_locator,
+          scan_image_sha256: boundPage.source_page_sha256,
+          primary_ocr_sha256: boundPage.final_text_sha256,
+          witness_sha256: (await readCompendiumPageAsset(documentId, pageNumber)).witness_sha256,
+          extraction_engine: 'accepted_ocr_final_text_verified_compendium_item',
+          matched_surface: first.surface.form,
+          match_offsets: conceptMatches.map((match) => ({ surface_form_id: match.surface.id, start: match.start, end: match.end })),
+          snippet: excerpt(body, first.start, first.surface.form.length),
           match_type: 'exact_surface',
+          section_context: { chapter_path: null, section_heading: null, section_type: 'unknown', normative_role: 'unknown' },
           text_reuse_cluster_id: null,
-          status,
+          evidence_status: status,
+          edition_match_status: item.online_verification.version_relation || 'source_artifact_hash_bound',
+          online_verification_id: item.online_verification.source_ids[0] || null,
+          online_stable_fact_witness_count: item.online_verification.source_ids.length,
+          citation_gate: {
+            document_allowed: effectiveCitationAllowed(parentRecord),
+            paragraph_allowed: pageObservationPolicy.quotation_allowed,
+            basis: item.citation_allowed
+              ? 'verified_full_compendium_item_same_edition_online'
+              : 'verified_full_compendium_item_display_only',
+          },
+          citation_allowed: pageObservationPolicy.quotation_allowed,
           publication_basis: boundPage.publication_basis,
           semantic_claim_allowed: false,
-        };
-        registerOccurrence(occurrence);
-        occurrenceIds.push(occurrence.id);
+          uncertainty_note: item.uncertainty_note
+            || 'Automatic exact-surface observation does not establish concept sense or normative role.',
+        });
+        const observation = ensureObservation({
+          concept,
+          sense,
+          subject: episodeSubject(entity),
+          scope_entity: entity,
+          line,
+          work: worksById.get(workId),
+          edition,
+          embedded_item_id: embeddedItemId,
+          year: item.display_year,
+          time_basis: item.year_basis,
+          status,
+          coverageCell,
+          observation_class: pageObservationPolicy.observation_class,
+          eligible_meaningful_characters: itemCharacters,
+        });
+        observation.evidence_ids.add(evidenceId);
+        observation.occurrence_ids.push(...occurrenceIds);
+        for (const match of conceptMatches) observation.surface_form_ids.add(match.surface.id);
+        observation.mention_count += conceptMatches.length;
+        observation.local_unique_mention_count += conceptMatches.length;
       }
-      const first = conceptMatches[0];
-      registerEvidence({
-        id: evidenceId,
-        concept_id: conceptId,
-        concept_sense_id: sense.id,
-        surface_form_ids: [...new Set(conceptMatches.map((match) => match.surface.id))],
-        occurrence_ids: occurrenceIds,
-        document_id: documentId,
-        document_title: parentRecord.title,
-        work_id: workId,
-        edition_id: editionId,
-        embedded_item_id: embeddedItemId,
-        parent_compendium_id: documentId,
-        physical_pdf_page: pageNumber,
-        printed_page: null,
-        paragraph_ordinal: null,
-        source_locator: boundPage.stable_locator,
-        body_sha256: sha256(body),
-        source_artifact_sha256: boundPage.source_artifact_sha256,
-        source_page_sha256: boundPage.source_page_sha256,
-        final_text_sha256: boundPage.final_text_sha256,
-        evidence_bundle_sha256: boundPage.evidence_bundle_sha256,
-        stable_locator: boundPage.stable_locator,
-        scan_image_sha256: boundPage.source_page_sha256,
-        primary_ocr_sha256: boundPage.final_text_sha256,
-        witness_sha256: null,
-        extraction_engine: 'accepted_ocr_final_text',
-        matched_surface: first.surface.form,
-        match_offsets: conceptMatches.map((match) => ({ surface_form_id: match.surface.id, start: match.start, end: match.end })),
-        snippet: excerpt(body, first.start, first.surface.form.length),
-        match_type: 'exact_surface',
-        section_context: { chapter_path: null, section_heading: null, section_type: 'unknown', normative_role: 'unknown' },
-        text_reuse_cluster_id: null,
-        evidence_status: status,
-        edition_match_status: 'source_artifact_hash_bound',
-        online_verification_id: null,
-        online_stable_fact_witness_count: 0,
-        citation_gate: { document_allowed: effectiveCitationAllowed(parentRecord), paragraph_allowed: false, basis: 'accepted_ocr_page_manifest_display_only_fragment' },
-        citation_allowed: false,
-        publication_basis: boundPage.publication_basis,
-        semantic_claim_allowed: false,
-        uncertainty_note: boundPage.uncertainty_note || 'OCR page is display-accepted, but the embedded-item identity remains non-citable.',
-      });
-      const observation = ensureObservation({
-        concept, sense, subject: episodeSubject(entity), scope_entity: entity, line, work: worksById.get(workId), edition, embedded_item_id: embeddedItemId,
-        year,
-        time_basis: 'embedded_item_display_year',
-        status,
-        coverageCell,
-        observation_class: 'nonsemantic_candidate',
-        eligible_meaningful_characters: pageCharacters,
-      });
-      observation.evidence_ids.add(evidenceId);
-      observation.occurrence_ids.push(...occurrenceIds);
-      for (const match of conceptMatches) observation.surface_form_ids.add(match.surface.id);
-      observation.mention_count += conceptMatches.length;
-      observation.local_unique_mention_count += conceptMatches.length;
+      if (pageCharacters === 0 && body.length > 0) {
+        throw new Error(`${item.item_id}: page ${pageNumber} has no meaningful characters after normalization`);
+      }
     }
   }
 }
@@ -1345,6 +1487,11 @@ const inputRevision = sha256(JSON.stringify({
     builder: inputFingerprints.builder_sha256,
     concept_publication_gate: inputFingerprints.concept_publication_gate_sha256,
     page_publication_gate: inputFingerprints.page_publication_gate_sha256,
+    compendium_item_boundaries: inputFingerprints.compendium_item_boundaries_sha256,
+    compendium_item_boundary_gate: inputFingerprints.compendium_item_boundary_gate_sha256,
+    compendium_item_publication_gate: inputFingerprints.compendium_item_publication_gate_sha256,
+    online_verification_samples: inputFingerprints.online_verification_samples_sha256,
+    corpus_manifest_gate: inputFingerprints.corpus_manifest_gate_sha256,
   },
   concept_publication_sha256: conceptPublicationGate.revision_sha256,
   concept_published_ocr_pages: conceptPublishedOcrPages,
@@ -1398,6 +1545,14 @@ const editorialAudit = [
     status: 'enforced',
     assertion_boundary: 'Known OCR omissions, foreign-language Unicode anomalies, unresolved glossary row alignment, and exact duplicate aliases are excluded before corpus or concept derivation.',
   },
+  {
+    id: 'audit:compendium-item-boundary-publication',
+    audit_type: 'publication_gate',
+    actor: 'data/compendium-item-boundaries.json',
+    performed_at: null,
+    status: 'enforced',
+    assertion_boundary: 'A compendium item enters the graph only after its current and next body headings (or exact document end), complete accepted page range, source artifact, primary OCR, image witness, and current corpus release are mutually bound. Same-edition online comparison is additionally required for quotation.',
+  },
 ];
 
 const academicGraph = {
@@ -1422,6 +1577,10 @@ const academicGraph = {
     ocr_queue_pages: canonicalQueueDocuments.reduce((sum, record) => sum + (record.page_count || 0), 0),
     ocr_completed_pages: conceptPublishedOcrPages.length,
     ocr_display_accepted_pages: conceptPublishedOcrPages.length,
+    compendium_item_candidates: compendiumBoundaryValidation.counts.items,
+    compendium_display_verified_items: compendiumBoundaryValidation.counts.display_allowed,
+    compendium_citation_verified_items: compendiumBoundaryValidation.counts.citation_allowed,
+    compendium_semantic_reviewed_items: compendiumBoundaryValidation.counts.semantic_claim_allowed,
     citation_ready_episodes: episodes.filter((item) => item.observation.status === 'citation_ready').length,
     verified_non_citation_episodes: episodes.filter((item) => item.observation.status === 'verified_non_citation').length,
     source_text_candidate_episodes: episodes.filter((item) => item.observation.status === 'source_text_candidate').length,
@@ -1602,6 +1761,8 @@ const checks = [
     .every((item) => item.observation.semantic === false && item.claim_policy.semantic_relation_allowed === false
       && item.claim_policy.quotation_allowed === false && !relationEpisodeIds.has(item.id)) },
   { id: 'ocr_concept_publication_fingerprint_bound', passed: inputFingerprints.ocr_concept_publication_sha256 === conceptPublicationGate.revision_sha256 },
+  { id: 'compendium_items_exactly_bound', passed: embeddedItems.length === publishableCompendiumItems.length
+    && embeddedItems.every((item) => publishableCompendiumItems.some((boundary) => boundary.item.item_id === item.id)) },
   { id: 'no_negative_historical_claims', passed: episodes.every((item) => !item.coverage.negative_claim_eligible && !item.claim_policy.historical_superlative_allowed && !item.claim_policy.first_appearance_allowed && !item.claim_policy.disappearance_allowed) },
 ];
 const quality = {
@@ -1620,6 +1781,7 @@ const quality = {
   release_boundary: academicGraph.assertion_boundary,
   unresolved: [
     `${Math.max(0, queue.counts.pages - conceptPublishedOcrPages.length)} OCR pages remain outside the concept publication display gate`,
+    `${compendiumBoundaryValidation.counts.items - compendiumBoundaryValidation.counts.display_allowed} compendium items remain navigation-only until body/end boundaries and complete page evidence are verified`,
     'Concept-sense definitions and semantic rename, split, merge, replacement, and influence relations require editor-reviewed dual-ended evidence.',
     'Exact repeated-text clusters are marked rather than silently discarded; their editorial classification remains pending.',
     'Source-text candidates remain non-quotable until paragraph-level citation gates pass.',
