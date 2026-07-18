@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260716v15';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260718v16';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -6,7 +6,7 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260716v15';
+} from './subject-facets.js?v=20260718v16';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -103,7 +103,7 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const conceptGraph = await api('/data/concept-evolution.json?v=20260716v15');
+  const conceptGraph = await api('/data/concept-evolution.json?v=20260718v16');
   const [meta, documents, insights] = await Promise.all([
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
@@ -451,6 +451,16 @@ function activeOntologyContext() {
   return { activeSubject, root };
 }
 
+function reconcileOntologyInspectorSubject(visibleSubjects) {
+  if (!state.ontologyFocusId) return;
+  const focus = state.ontologyNodeById.get(state.ontologyFocusId);
+  const activeSubject = visibleSubjects.length === 1 ? visibleSubjects[0] : null;
+  if (focus && ontologyNodeSubject(focus) === activeSubject) return;
+  state.ontologyFocusId = null;
+  inspector.hidden = true;
+  state.cosmos?.setSelected(null);
+}
+
 function renderConceptLayers() {
   const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
   const visibleSubjects = state.hideAllSubjects ? [] : subjects.filter((subject) => !state.hiddenSubjects.has(subject));
@@ -546,7 +556,11 @@ function updateMapStatus({ fitVisible = false } = {}) {
     && (!state.query || `${episode.label}${(episode.aliases || []).join('')}${episodeEntityLabel(episode)}${episode.time.year}${episode.category}`.toLocaleLowerCase('zh-CN').includes(state.query)));
   const visibleIds = new Set(visibleEpisodes.map((episode) => episode.id));
   if (state.selectedEpisode && !visibleIds.has(state.selectedEpisode.id)) clearConceptInspector();
-  const visibleSubjectCount = state.hideAllSubjects ? 0 : controlledSubjects.filter((subject) => !state.hiddenSubjects.has(subject)).length;
+  const visibleSubjects = state.hideAllSubjects
+    ? []
+    : controlledSubjects.filter((subject) => !state.hiddenSubjects.has(subject));
+  const visibleSubjectCount = visibleSubjects.length;
+  reconcileOntologyInspectorSubject(visibleSubjects);
   state.cosmos?.setFilters(
     { hiddenSubjects: state.hiddenSubjects, hideAll: state.hideAllSubjects, maxYear: state.maxYear, query: state.query },
     { fitVisible, maxZoom: visibleSubjectCount === 1 ? 1.32 : 1 },

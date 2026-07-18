@@ -154,3 +154,19 @@ test('concept deep-dive preserves the selected subject and fails closed when no 
   assert.match(app, /const \{ activeSubject, root \} = activeOntologyContext\(\)/);
   assert.match(app, /深层模型尚未达到发布门槛/);
 });
+
+test('changing the isolated subject clears an ontology inspector from the previous subject', () => {
+  const reconcileStart = app.indexOf('function reconcileOntologyInspectorSubject(');
+  const reconcileEnd = app.indexOf('\n}\n\nfunction renderConceptLayers', reconcileStart) + 2;
+  assert.ok(reconcileStart >= 0 && reconcileEnd > reconcileStart, 'ontology inspector reconciliation is missing');
+  const reconcile = app.slice(reconcileStart, reconcileEnd);
+  assert.match(reconcile, /visibleSubjects\.length === 1 \? visibleSubjects\[0\] : null/);
+  assert.match(reconcile, /ontologyNodeSubject\(focus\) === activeSubject/);
+  assert.match(reconcile, /state\.ontologyFocusId = null/);
+  assert.match(reconcile, /inspector\.hidden = true/);
+
+  const statusStart = app.indexOf('function updateMapStatus(');
+  const statusEnd = app.indexOf('\n}\n\nfunction subjectButton', statusStart) + 2;
+  const update = app.slice(statusStart, statusEnd);
+  assert.match(update, /reconcileOntologyInspectorSubject\(visibleSubjects\)/);
+});
