@@ -35,6 +35,11 @@ const seedMode = 'hash_bound_output_seed';
 const seedReceiptType = 'curriculum_remote_ocr_hash_bound_output_seed';
 const legacyB1RunnerScriptSha256 = 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55';
 const p4ToP1Transition = 'p4_to_p1_v1';
+const p4ToP1SeedAwareOcrTransition = 'p4_to_p1_seed_aware_ocr_v2';
+const legacyToSeedAwareOcrScriptTransition = 'b1_legacy_to_seed_aware_v1';
+const legacyB1OcrScriptSha256 = 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53aff3ebeae48d9b048';
+const seedAwareOcrScriptSha256 = '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3';
+const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca';
 const timeoutRecoveryGrantFilename = 'timeout-recovery-grant.json';
 const timeoutRecoveryGrantType = 'curriculum_remote_ocr_timeout_recovery_grant';
 const timeoutRecoveryGrantMode = 'one_additional_attempt_per_document';
@@ -120,6 +125,44 @@ export function canonicalJson(value) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function isAuditedP4ToP1Transition(value) {
+  return value === p4ToP1Transition || value === p4ToP1SeedAwareOcrTransition;
+}
+
+function validateP4ToP1OcrScriptTransition(delta, predecessorSha256, successorSha256) {
+  requireSha256(predecessorSha256, 'p4 OCR script SHA-256');
+  requireSha256(successorSha256, 'p1 OCR script SHA-256');
+  if (delta.schema_version === 2 && delta.transition === p4ToP1Transition) {
+    if (predecessorSha256 !== successorSha256) {
+      throw new Error('schema-v2 p4-to-p1 requires an identical OCR script identity');
+    }
+    return null;
+  }
+  if (delta.schema_version !== 3 || delta.transition !== p4ToP1SeedAwareOcrTransition) {
+    throw new Error('seed receipt p4-to-p1 transition declaration is invalid');
+  }
+  if (predecessorSha256 !== legacyB1OcrScriptSha256
+    || successorSha256 !== seedAwareOcrScriptSha256) {
+    throw new Error('schema-v3 p4-to-p1 OCR script pair is not the exact audited transition');
+  }
+  const expected = {
+    schema_version: 1,
+    transition: legacyToSeedAwareOcrScriptTransition,
+    predecessor_sha256: legacyB1OcrScriptSha256,
+    successor_sha256: seedAwareOcrScriptSha256,
+    audited_common_inference_suffix_sha256: auditedCommonInferenceSuffixSha256,
+  };
+  const actual = requireObject(
+    delta.ocr_script_transition,
+    'seed receipt OCR script transition',
+  );
+  requireExactObjectKeys(actual, expected, 'seed receipt OCR script transition');
+  if (!sameJson(actual, expected)) {
+    throw new Error('seed receipt OCR script transition declaration is not exact');
+  }
+  return expected;
 }
 
 function requireExactObjectKeys(left, right, label) {
@@ -1775,9 +1818,6 @@ function validateLegacyAllowedSeedDelta(receipt, predecessor, identity) {
 
 export function validateP4ToP1MonitorDelta(receipt, predecessorIdentity, successorIdentity) {
   const delta = requireObject(receipt.allowed_configuration_delta, 'seed receipt allowed configuration delta');
-  if (delta.schema_version !== 2 || delta.transition !== p4ToP1Transition) {
-    throw new Error('seed receipt p4-to-p1 transition declaration is invalid');
-  }
   requireObject(predecessorIdentity, 'p4 predecessor identity');
   requireObject(successorIdentity, 'p1 successor identity');
   const predecessor = requireObject(receipt.predecessor, 'seed receipt predecessor');
@@ -1792,6 +1832,11 @@ export function validateP4ToP1MonitorDelta(receipt, predecessorIdentity, success
     [successorIdentity.ocr_script_sha256, 'p1 OCR script SHA-256'],
     [successorIdentity.runner_script_sha256, 'p1 runner script SHA-256'],
   ]) requireSha256(value, label);
+  const ocrScriptTransition = validateP4ToP1OcrScriptTransition(
+    delta,
+    predecessorIdentity.ocr_script_sha256,
+    successorIdentity.ocr_script_sha256,
+  );
   if (!sameJson(predecessor.runtime, predecessorIdentity.runtime)
     || !sameJson(predecessor.runtime_fingerprint, predecessorIdentity.runtime_fingerprint)
     || predecessor.runtime_fingerprint_sha256 !== predecessorIdentity.runtime_fingerprint_sha256
@@ -1810,9 +1855,8 @@ export function validateP4ToP1MonitorDelta(receipt, predecessorIdentity, success
   if (!sameJson(predecessorIdentity.runtime, successorIdentity.runtime)
     || predecessorIdentity.input_root !== successorIdentity.input_root
     || predecessorIdentity.python_invocation_path !== successorIdentity.python_invocation_path
-    || predecessorIdentity.python_resolved_target !== successorIdentity.python_resolved_target
-    || predecessorIdentity.ocr_script_sha256 !== successorIdentity.ocr_script_sha256) {
-    throw new Error('p4-to-p1 changes a forbidden model, DPI, input, Python, or OCR identity');
+    || predecessorIdentity.python_resolved_target !== successorIdentity.python_resolved_target) {
+    throw new Error('p4-to-p1 changes a forbidden model, DPI, input, or Python identity');
   }
 
   const predecessorHashes = requireRecomputedIdentityHashes(predecessorIdentity, 'p4 predecessor');
@@ -1976,9 +2020,7 @@ export function validateP4ToP1MonitorDelta(receipt, predecessorIdentity, success
     throw new Error('p4-to-p1 changes a forbidden document recovery field');
   }
 
-  const expectedDelta = {
-    schema_version: 2,
-    transition: p4ToP1Transition,
+  const commonDelta = {
     vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
     server_parallel: { predecessor: 4, successor: 1 },
     paddlex_cache_home: {
@@ -2002,10 +2044,20 @@ export function validateP4ToP1MonitorDelta(receipt, predecessorIdentity, success
       successor_sha256: successorHashes.runtimeFingerprintSha256,
     },
   };
+  const expectedDelta = ocrScriptTransition ? {
+    schema_version: 3,
+    transition: p4ToP1SeedAwareOcrTransition,
+    ocr_script_transition: ocrScriptTransition,
+    ...commonDelta,
+  } : {
+    schema_version: 2,
+    transition: p4ToP1Transition,
+    ...commonDelta,
+  };
   if (!sameJson(delta, expectedDelta)) {
     throw new Error('p4-to-p1 allowed configuration delta declaration is not exact');
   }
-  return p4ToP1Transition;
+  return delta.transition;
 }
 
 function validateAllowedSeedDelta(receipt, predecessor, identity) {
@@ -2049,8 +2101,8 @@ async function validateTimeoutRecoverySuccessorEvidence({
     if (declared) throw new Error('no-grant seed contains timeout recovery fields');
     return null;
   }
-  if (!declared || configurationTransition !== p4ToP1Transition) {
-    throw new Error('timeout recovery requires the exact schema-v2 p4-to-p1 transition');
+  if (!declared || !isAuditedP4ToP1Transition(configurationTransition)) {
+    throw new Error('timeout recovery requires an exact audited p4-to-p1 transition');
   }
   const grantRecord = await readHashBoundAuthorityJson(
     root,
@@ -3062,7 +3114,7 @@ export async function collectSingleShardMonitorSnapshot(config, dependencies = {
     : false;
   return {
     schema_version: 1,
-    monitor_type: successor.configuration_transition === p4ToP1Transition
+    monitor_type: isAuditedP4ToP1Transition(successor.configuration_transition)
       ? 'curriculum_remote_ocr_single_shard_p1'
       : 'curriculum_remote_ocr_single_shard_b2',
     run_id: path.basename(canonicalRunRoot),
@@ -3139,7 +3191,7 @@ export function classifySingleShardSnapshot(snapshot) {
   if (worker?.n_restarts > 0) issues.push(issue('B2_WORKER_RESTARTED'));
   if (successor.read_ok
     && successor.complete
-    && successor.configuration_transition === p4ToP1Transition) {
+    && isAuditedP4ToP1Transition(successor.configuration_transition)) {
     if (serviceActive(worker)) issues.push(issue('B2_WORKER_ACTIVE_AFTER_P1_COMPLETION'));
     if (worker?.exec_main_status !== 0 || worker?.result !== 'success') {
       issues.push(issue('B2_WORKER_UNCLEAN_AFTER_P1_COMPLETION'));

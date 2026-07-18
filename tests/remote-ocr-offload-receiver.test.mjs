@@ -32,6 +32,10 @@ import {
 } from '../scripts/lib/remote-ocr-local-snapshot.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+const legacyB1OcrScriptSha256 = 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53aff3ebeae48d9b048';
+const seedAwareOcrScriptSha256 = '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3';
+const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca';
+const seedAwareTransition = 'p4_to_p1_seed_aware_ocr_v2';
 const runtime = Object.freeze({
   pipeline: 'PaddleOCR-VL',
   pipeline_version: 'v1.6',
@@ -708,15 +712,24 @@ async function convertShardToHashBoundSeed(shard, {
   await materializeLayoutCache(canonicalShardRoot);
   const identityPath = path.join(shard.shardRoot, 'run-identity.json');
   const runStatusPath = path.join(shard.shardRoot, 'run-status.json');
-  const identityRaw = await readFile(identityPath);
+  let identityRaw = await readFile(identityPath);
   const predecessorIdentity = JSON.parse(identityRaw);
   const predecessorRunStatusRaw = await readFile(runStatusPath);
   const predecessorRunStatus = JSON.parse(predecessorRunStatusRaw);
   const predecessorRunStatusSidecar = await readFile(`${runStatusPath}.sha256`);
   const shardManifestRaw = await readFile(shard.manifestPath);
   const shardManifest = JSON.parse(shardManifestRaw);
-  const p4ToP1 = transition === 'p4_to_p1_v1';
-  assert.ok(transition === null || p4ToP1, 'fixture transition must be null or p4_to_p1_v1');
+  const seedAware = transition === seedAwareTransition;
+  const p4ToP1 = transition === 'p4_to_p1_v1' || seedAware;
+  assert.ok(
+    transition === null || p4ToP1,
+    'fixture transition must be null or an audited p4-to-p1 transition',
+  );
+  if (seedAware) {
+    predecessorIdentity.ocr_script_sha256 = legacyB1OcrScriptSha256;
+    identityRaw = Buffer.from(`${JSON.stringify(predecessorIdentity, null, 2)}\n`);
+    await writeFile(identityPath, identityRaw);
+  }
   const successorAttestation = p4ToP1 ? p1Attestation : attestation;
   const successorAttestationSha256 = p4ToP1 ? p1AttestationSha256 : attestationSha256;
   const successorRuntimeFingerprint = p4ToP1 ? p1RuntimeFingerprint : runtimeFingerprint;
@@ -1072,12 +1085,12 @@ async function convertShardToHashBoundSeed(shard, {
     document_recovery: successorRecovery,
     document_recovery_sha256: sha256(canonicalJson(successorRecovery)),
     runner_script_sha256: successorRunnerScriptSha256,
-    ocr_script_sha256: predecessorIdentity.ocr_script_sha256,
+    ocr_script_sha256: seedAware
+      ? seedAwareOcrScriptSha256
+      : predecessorIdentity.ocr_script_sha256,
     citation_allowed: false,
   };
-  const allowedConfigurationDelta = p4ToP1 ? {
-    schema_version: 2,
-    transition: 'p4_to_p1_v1',
+  const p4ToP1CommonDelta = {
     vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
     server_parallel: { predecessor: 4, successor: 1 },
     paddlex_cache_home: {
@@ -1100,6 +1113,22 @@ async function convertShardToHashBoundSeed(shard, {
       predecessor_sha256: runtimeFingerprintSha256,
       successor_sha256: successorRuntimeFingerprintSha256,
     },
+  };
+  const allowedConfigurationDelta = seedAware ? {
+    schema_version: 3,
+    transition: seedAwareTransition,
+    ocr_script_transition: {
+      schema_version: 1,
+      transition: 'b1_legacy_to_seed_aware_v1',
+      predecessor_sha256: legacyB1OcrScriptSha256,
+      successor_sha256: seedAwareOcrScriptSha256,
+      audited_common_inference_suffix_sha256: auditedCommonInferenceSuffixSha256,
+    },
+    ...p4ToP1CommonDelta,
+  } : p4ToP1 ? {
+    schema_version: 2,
+    transition: 'p4_to_p1_v1',
+    ...p4ToP1CommonDelta,
   } : {
     schema_version: 1,
     vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
@@ -1368,6 +1397,7 @@ async function convertShardToHashBoundSeed(shard, {
   const successorIdentity = {
     ...predecessorIdentity,
     runner_script_sha256: successorRunnerScriptSha256,
+    ocr_script_sha256: successorContract.ocr_script_sha256,
     runtime_fingerprint: successorRuntimeFingerprint,
     runtime_fingerprint_sha256: successorRuntimeFingerprintSha256,
     llama_server_attestation: successorAttestation,
@@ -1909,6 +1939,33 @@ test('receiver independently verifies seeded lineage, attempt floors, and archiv
     );
   });
 
+  await t.test('exact schema-v3 B1-to-seed-aware shards pass only as one v3/v3 union', async (t) => {
+    const value = await fixture(t);
+    await convertShardToHashBoundSeed(value.shardA, { transition: seedAwareTransition });
+    await convertShardToHashBoundSeed(value.shardB, { transition: seedAwareTransition });
+    const result = await receiveRemoteOcrOffload(value.options, value.dependencies);
+    assert.equal(result.status, 'dry_run_validated');
+    const successorHashes = await Promise.all(
+      [value.shardA, value.shardB].map((shard) => readFile(
+        path.join(shard.shardRoot, 'run-identity.json'),
+        'utf8',
+      ).then((raw) => JSON.parse(raw).ocr_script_sha256)),
+    );
+    assert.deepEqual(successorHashes, [seedAwareOcrScriptSha256, seedAwareOcrScriptSha256]);
+  });
+
+  await t.test('a schema-v2/schema-v3 A/B union is rejected before publication', async (t) => {
+    const value = await fixture(t);
+    await convertShardToHashBoundSeed(value.shardA, { transition: seedAwareTransition });
+    await convertShardToHashBoundSeed(value.shardB, { transition: 'p4_to_p1_v1' });
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /mixes different audited OCR script transition contracts/,
+    );
+    assert.equal(await pathExists(value.productionRoot), false);
+    assert.equal(await pathExists(value.receiptRoot), false);
+  });
+
   await t.test('a mixed p4/p1 shard union is rejected', async (t) => {
     const value = await fixture(t);
     await convertShardToHashBoundSeed(value.shardA, { transition: 'p4_to_p1_v1' });
@@ -2022,8 +2079,62 @@ test('receiver independently verifies seeded lineage, attempt floors, and archiv
     ocrDriftReceipt.successor.ocr_script_sha256 = ocrDrift.ocr_script_sha256;
     assert.throws(
       () => validateP4ToP1SeedDelta(ocrDriftReceipt, predecessorIdentity, ocrDrift),
-      /OCR identity/,
+      /identical OCR script identity/,
     );
+  });
+
+  await t.test('schema-v3 OCR transition rejects pair, suffix, extra keys, schema downgrade, and v1 disguise', async (t) => {
+    const value = await fixture(t);
+    const seed = await convertShardToHashBoundSeed(
+      value.shardA,
+      { transition: seedAwareTransition },
+    );
+    const [receipt, predecessorIdentity, successorIdentity] = await Promise.all([
+      readFile(seed.receiptPath, 'utf8').then(JSON.parse),
+      readFile(path.join(seed.predecessorEvidenceRoot, 'run-identity.json'), 'utf8').then(JSON.parse),
+      readFile(path.join(value.shardA.shardRoot, 'run-identity.json'), 'utf8').then(JSON.parse),
+    ]);
+    assert.equal(
+      validateP4ToP1SeedDelta(receipt, predecessorIdentity, successorIdentity),
+      seedAwareTransition,
+    );
+
+    const cases = [
+      ['pair', (candidate, predecessor) => {
+        predecessor.ocr_script_sha256 = '0'.repeat(64);
+        candidate.predecessor.ocr_script_sha256 = predecessor.ocr_script_sha256;
+      }, /exact audited transition/],
+      ['suffix', (candidate) => {
+        candidate.allowed_configuration_delta.ocr_script_transition
+          .audited_common_inference_suffix_sha256 = '0'.repeat(64);
+      }, /declaration is not exact/],
+      ['nested extra', (candidate) => {
+        candidate.allowed_configuration_delta.ocr_script_transition.extra = true;
+      }, /field set differs/],
+      ['delta extra', (candidate) => {
+        candidate.allowed_configuration_delta.extra = true;
+      }, /allowed configuration delta declaration is not exact/],
+      ['schema downgrade', (candidate) => {
+        candidate.allowed_configuration_delta.schema_version = 2;
+      }, /transition declaration/],
+      ['v1 disguise', (candidate) => {
+        candidate.allowed_configuration_delta = {
+          schema_version: 1,
+          vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
+        };
+      }, /transition declaration/],
+    ];
+    for (const [name, mutate, pattern] of cases) {
+      const candidate = structuredClone(receipt);
+      const predecessor = structuredClone(predecessorIdentity);
+      const successor = structuredClone(successorIdentity);
+      mutate(candidate, predecessor, successor);
+      assert.throws(
+        () => validateP4ToP1SeedDelta(candidate, predecessor, successor),
+        pattern,
+        name,
+      );
+    }
   });
 
   await t.test('valid seeded shard is fingerprinted and archived on apply', async (t) => {
@@ -2137,7 +2248,7 @@ test('receiver rejects schema-v1 timeout recovery before any local write', async
   });
   await assert.rejects(
     receiveRemoteOcrOffload(value.options, value.dependencies),
-    /timeout recovery is permitted only for the schema-v2 p4-to-p1 transition/,
+    /timeout recovery is permitted only for an audited p4-to-p1 transition/,
   );
   assert.equal(await pathExists(value.productionRoot), false);
   assert.equal(await pathExists(value.receiptRoot), false);

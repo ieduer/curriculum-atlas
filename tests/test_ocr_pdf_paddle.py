@@ -123,10 +123,52 @@ class OcrPdfPaddleHelpersTest(unittest.TestCase):
                 seed_identity=seed_identity,
                 force_reprocess=False,
             )
+        tampered_lineage = json.loads(json.dumps(state))
+        tampered_lineage["pages"]["2"].pop("seed_provenance")
+        tampered_lineage["seed_lineage"]["seed_id"] = "9" * 64
+        with self.assertRaisesRegex(RuntimeError, "exact hash-bound contract"):
+            MODULE.validate_existing_state(
+                tampered_lineage,
+                document_id="doc",
+                source_sha256="4" * 64,
+                page_count=2,
+                configuration=configuration,
+                seed_identity=seed_identity,
+                force_reprocess=False,
+            )
         MODULE.ensure_runtime_device(configuration, "Kali CUDA llama.cpp")
         with self.assertRaisesRegex(RuntimeError, "refusing to mix OCR runs"):
             MODULE.ensure_runtime_device(configuration, "cpu+Metal llama.cpp")
         self.assertEqual(configuration["device"], "Kali CUDA llama.cpp")
+
+    def test_seed_arguments_are_atomic_and_hash_bound_before_state_or_inference(self):
+        complete = types.SimpleNamespace(
+            seed_id="1" * 64,
+            seed_predecessor_run_identity_sha256="2" * 64,
+            seed_predecessor_configuration_sha256="3" * 64,
+        )
+        self.assertEqual(
+            MODULE.validate_seed_arguments(complete),
+            {
+                "seed_id": "1" * 64,
+                "predecessor_run_identity_sha256": "2" * 64,
+                "predecessor_configuration_sha256": "3" * 64,
+            },
+        )
+        partial = types.SimpleNamespace(
+            seed_id="1" * 64,
+            seed_predecessor_run_identity_sha256=None,
+            seed_predecessor_configuration_sha256="3" * 64,
+        )
+        with self.assertRaisesRegex(ValueError, "supplied together"):
+            MODULE.validate_seed_arguments(partial)
+        malformed = types.SimpleNamespace(
+            seed_id="Z" * 64,
+            seed_predecessor_run_identity_sha256="2" * 64,
+            seed_predecessor_configuration_sha256="3" * 64,
+        )
+        with self.assertRaisesRegex(ValueError, "lowercase SHA-256"):
+            MODULE.validate_seed_arguments(malformed)
 
     def test_result_input_path_maps_out_of_order_results_to_physical_pages(self):
         with tempfile.TemporaryDirectory() as temporary:

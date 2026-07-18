@@ -20,6 +20,7 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import {
   preflightDocument,
   fingerprintPaddlexLayoutModelCache,
@@ -52,6 +53,10 @@ import {
 } from '../scripts/lib/remote-ocr-local-snapshot.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+const legacyB1OcrScriptSha256 = 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53aff3ebeae48d9b048';
+const seedAwareOcrScriptSha256 = '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3';
+const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca';
+const seedAwareTransition = 'p4_to_p1_seed_aware_ocr_v2';
 const runtime = Object.freeze({
   pipeline: 'PaddleOCR-VL',
   pipeline_version: 'v1.6',
@@ -497,6 +502,41 @@ async function writeJsonSidecar(pathname, value) {
   return sha256(contents);
 }
 
+async function resealCommittedSeedReceipt(outputRoot, mutateReceipt) {
+  const receiptPath = path.join(outputRoot, 'seed-receipt.json');
+  const identityPath = path.join(outputRoot, 'run-identity.json');
+  const markerPath = path.join(outputRoot, 'seed-commit.json');
+  const [receipt, identity, marker] = await Promise.all([
+    readFile(receiptPath, 'utf8').then(JSON.parse),
+    readFile(identityPath, 'utf8').then(JSON.parse),
+    readFile(markerPath, 'utf8').then(JSON.parse),
+  ]);
+  mutateReceipt(receipt);
+  const receiptRaw = Buffer.from(`${JSON.stringify(receipt, null, 2)}\n`);
+  const receiptSha256 = sha256(receiptRaw);
+  const receiptSidecarRaw = Buffer.from(`${receiptSha256}  seed-receipt.json\n`);
+  identity.seed_lineage.seed_receipt_sha256 = receiptSha256;
+  const identityRaw = Buffer.from(`${JSON.stringify(identity, null, 2)}\n`);
+  marker.seed_receipt_sha256 = receiptSha256;
+  marker.run_identity_sha256 = sha256(identityRaw);
+  const replacements = new Map([
+    ['seed-receipt.json', receiptRaw],
+    ['seed-receipt.json.sha256', receiptSidecarRaw],
+    ['run-identity.json', identityRaw],
+  ]);
+  for (const item of marker.installed_items) {
+    const raw = replacements.get(item.name);
+    if (raw) item.fingerprint = { sha256: sha256(raw), bytes: raw.byteLength };
+  }
+  marker.installed_items_sha256 = sha256(canonicalJson(marker.installed_items));
+  await Promise.all([
+    writeFile(receiptPath, receiptRaw, { mode: 0o600 }),
+    writeFile(`${receiptPath}.sha256`, receiptSidecarRaw, { mode: 0o600 }),
+    writeFile(identityPath, identityRaw, { mode: 0o600 }),
+  ]);
+  await writeJsonSidecar(markerPath, marker);
+}
+
 function recoveryPolicy(idleTimeoutSeconds) {
   return {
     max_attempts: 5,
@@ -659,7 +699,35 @@ async function createTimeoutRecoveryPredecessor({
         completed_at: statusRecord.verified_at,
         verified_at: statusRecord.verified_at,
       };
+    } else if (status === 'retry_wait') {
+      const failedAt = '2026-07-17T03:50:00.000Z';
+      const retryDelaySeconds = recoveryPolicy(300).backoff_seconds[Math.max(0, attempts - 1)];
+      const nextRetryAt = new Date(Date.parse(failedAt) + retryDelaySeconds * 1_000).toISOString();
+      const error = `transient OCR failure on attempt ${attempts}`;
+      statusRecord = {
+        schema_version: 1,
+        document_id: id,
+        status,
+        attempt: attempts,
+        max_attempts: 5,
+        retry_delay_seconds: retryDelaySeconds,
+        next_retry_at: nextRetryAt,
+        page_count: pageCount,
+        runtime_fingerprint_sha256: runtimeFingerprintSha256,
+        citation_allowed: false,
+        error,
+        failed_at: failedAt,
+      };
+      progressById[id] = {
+        status,
+        attempts,
+        page_count: pageCount,
+        next_retry_at: nextRetryAt,
+        failed_at: failedAt,
+        error,
+      };
     } else {
+      assert.equal(status, 'quarantined', `unsupported timeout predecessor fixture status: ${status}`);
       const quarantinedAt = `2026-07-17T04:${String(grantDocuments.length).padStart(2, '0')}:00.000Z`;
       const error = `OCR child idle_timeout after ${305 + grantDocuments.length}s; terminated with SIGTERM`;
       statusRecord = {
@@ -793,7 +861,7 @@ async function createTimeoutRecoveryPredecessor({
     interrupted: 0,
     pending: 0,
     running: 0,
-    retry_wait: 0,
+    retry_wait: specifications.filter((specification) => specification[3] === 'retry_wait').length,
     quarantined: grantDocuments.length,
   };
   const predecessorRunStatus = {
@@ -806,7 +874,7 @@ async function createTimeoutRecoveryPredecessor({
     documents: progressById,
     counts,
     finished: counts.complete === counts.total,
-    settled: true,
+    settled: counts.complete + counts.quarantined === counts.total,
   };
   const runStatusSha256 = await writeJsonSidecar(
     path.join(predecessorRoot, 'run-status.json'),
@@ -1841,6 +1909,86 @@ test('exact schema-v2 p4-to-p1 seeds preserve OCR identity and pass receiver and
   );
 });
 
+test('schema-v3 seed revalidates the active seed-aware writer before committing any successor state', async (t) => {
+  const { root, inputRoot } = await fixture(t);
+  const predecessorRoot = path.join(root, 'seed-aware-drift-p4');
+  const successorRoot = path.join(root, 'seed-aware-drift-p1');
+  const manifestPath = path.join(inputRoot, 'seed-aware-drift.json');
+  const sourceWriter = fileURLToPath(new URL('../scripts/ocr-pdf-paddle.py', import.meta.url));
+  const ocrScript = path.join(root, 'seed-aware-ocr.py');
+  await writeFile(ocrScript, await readFile(sourceWriter));
+  assert.equal(sha256(await readFile(ocrScript)), seedAwareOcrScriptSha256);
+  const predecessorAttestation = llamaAttestationForParallel(4);
+  const successorAttestation = llamaAttestationForParallel(1);
+  const { paddlexLayoutModelCache: fixtureCache } = await createTimeoutRecoveryPredecessor({
+    inputRoot,
+    predecessorRoot,
+    manifestPath,
+    specifications: [['doc-seed-aware-drift', 1, 1, 'complete', 1]],
+    attestation: predecessorAttestation,
+    receiverNativeArtifacts: true,
+    ocrScriptSha256: legacyB1OcrScriptSha256,
+    materializePaddlexCache: true,
+  });
+  const dependencies = {
+    pageCounter: () => 1,
+    runtime,
+    llamaServerAttestation: successorAttestation,
+    paddlexLayoutModelCache: fixtureCache,
+    runnerScriptSha256: 'e'.repeat(64),
+    handleSignals: false,
+  };
+  const optionsFor = (candidateRoot, candidateOcrScript = ocrScript) => ({
+    manifest: manifestPath,
+    inputRoot,
+    outputRoot: candidateRoot,
+    python: process.execPath,
+    ocrScript: candidateOcrScript,
+    model: '/unused/model',
+    mmproj: '/unused/mmproj',
+    llamaRepo: '/unused/llama',
+    llamaServerBin,
+    llamaSystemdUnit,
+    llamaUrl: workerConfiguration.llama_url,
+    runtimeDevice,
+    vlRecMaxConcurrency: 1,
+    serverParallel: 1,
+    microBatch: 16,
+    useQueues: true,
+    childIdleTimeoutSeconds: 1200,
+    seedFromOutputRoot: predecessorRoot,
+    seedOnly: true,
+  });
+  const unsupportedOcrScript = path.join(root, 'unsupported-ocr.py');
+  await writeFile(unsupportedOcrScript, '# unsupported OCR writer\n');
+  const unsupportedRoot = path.join(root, 'unsupported-ocr-successor');
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(unsupportedRoot, unsupportedOcrScript), {
+      ...dependencies,
+      pythonRuntime,
+    }),
+    /not the exact audited B1-to-seed-aware transition/,
+  );
+  for (const forbidden of ['seed-commit.json', 'seed-receipt.json', 'run-identity.json', 'run-status.json']) {
+    await assert.rejects(stat(path.join(unsupportedRoot, forbidden)), { code: 'ENOENT' });
+  }
+  Object.defineProperty(dependencies, 'pythonRuntime', {
+    configurable: false,
+    enumerable: true,
+    get() {
+      writeFileSync(ocrScript, '# drifted after initial writer hash\n');
+      return pythonRuntime;
+    },
+  });
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(successorRoot), dependencies),
+    /OCR script SHA-256 drifted/,
+  );
+  for (const forbidden of ['seed-commit.json', 'seed-receipt.json', 'run-identity.json', 'run-status.json']) {
+    await assert.rejects(stat(path.join(successorRoot, forbidden)), { code: 'ENOENT' });
+  }
+});
+
 test('schema-v2 timeout seed verifies and archives canonical issuance plus structured incident before one claim', async (t) => {
   const { root, inputRoot, ocrScript } = await fixture(t);
   const predecessorRoot = path.join(root, 'timeout-p4');
@@ -2382,7 +2530,8 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
 });
 
 test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an exact 6364-page union', async (t) => {
-  const { root, inputRoot, ocrScript } = await fixture(t);
+  const { root, inputRoot } = await fixture(t);
+  const ocrScript = fileURLToPath(new URL('../scripts/ocr-pdf-paddle.py', import.meta.url));
   const canonicalRoot = await realpath(root);
   const predecessorRoot = path.join(canonicalRoot, 'a-r1');
   const successorRoot = path.join(canonicalRoot, 'a-r2');
@@ -2400,6 +2549,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   const predecessorAttestation = llamaAttestationForParallel(4);
   const successorAttestation = llamaAttestationForParallel(1);
   const ocrScriptSha256 = sha256(await readFile(ocrScript));
+  assert.equal(ocrScriptSha256, seedAwareOcrScriptSha256);
   const {
     documents,
     grant,
@@ -2413,7 +2563,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     specifications,
     attestation: predecessorAttestation,
     receiverNativeArtifacts: true,
-    ocrScriptSha256,
+    ocrScriptSha256: legacyB1OcrScriptSha256,
     materializePaddlexCache: true,
   });
   const provisioned = await provisionTimeoutRecoveryAuthority({
@@ -2507,6 +2657,15 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     { recursive: true },
   );
   assert.equal(seeded.seedOnly, true);
+  assert.deepEqual(seeded.seedReceipt.allowed_configuration_delta.ocr_script_transition, {
+    schema_version: 1,
+    transition: 'b1_legacy_to_seed_aware_v1',
+    predecessor_sha256: legacyB1OcrScriptSha256,
+    successor_sha256: seedAwareOcrScriptSha256,
+    audited_common_inference_suffix_sha256: auditedCommonInferenceSuffixSha256,
+  });
+  assert.equal(seeded.seedReceipt.allowed_configuration_delta.schema_version, 3);
+  assert.equal(seeded.seedReceipt.allowed_configuration_delta.transition, seedAwareTransition);
   assert.equal(seeded.seedReceipt.counts.inherited_pages, 1_568);
   assert.equal(seeded.seedReceipt.counts.predecessor_complete_documents, 4);
   assert.equal(seeded.seedReceipt.counts.predecessor_quarantined_documents, 4);
@@ -2631,7 +2790,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     (error) => error?.code === 'ENOENT' ? false : Promise.reject(error),
   ), false);
   const monitoredSeed = await inspectSuccessorB2(successorRoot, monitoredPredecessor);
-  assert.equal(monitoredSeed.configuration_transition, 'p4_to_p1_v1');
+  assert.equal(monitoredSeed.configuration_transition, seedAwareTransition);
   assert.equal(monitoredSeed.complete, false);
   const claimFilename = (await readdir(ledgerRoot)).find((entry) => entry.endsWith('.claim.json'));
   assert.ok(claimFilename);
@@ -2845,7 +3004,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     specifications: bSpecifications,
     attestation: predecessorAttestation,
     receiverNativeArtifacts: true,
-    ocrScriptSha256,
+    ocrScriptSha256: legacyB1OcrScriptSha256,
     materializePaddlexCache: true,
   });
   const bSeeded = await runRemoteOcrOffload({
@@ -2868,9 +3027,11 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   );
   assert.equal(bSeeded.seedReceipt.counts.inherited_pages, 3_182);
   assert.equal(bSeeded.seedReceipt.timeout_recovery_grant, undefined);
+  assert.equal(bSeeded.seedReceipt.allowed_configuration_delta.schema_version, 3);
+  assert.equal(bSeeded.seedReceipt.allowed_configuration_delta.transition, seedAwareTransition);
   const monitoredBPredecessor = await inspectPredecessorB1(bPredecessorRoot);
   const monitoredB = await inspectSuccessorB2(bSuccessorRoot, monitoredBPredecessor);
-  assert.equal(monitoredB.configuration_transition, 'p4_to_p1_v1');
+  assert.equal(monitoredB.configuration_transition, seedAwareTransition);
   assert.equal(monitoredB.complete, true);
   const unionManifestPath = path.join(inputRoot, 'a-b-r2-union.json');
   await writeFile(
@@ -3176,6 +3337,103 @@ test('post-child revalidation detects OCR script drift and preserves the documen
   assert.equal(runStatus.documents[document.id].failure_class, 'shared_runtime_configuration');
   assert.equal(runStatus.documents[document.id].attempts, 0);
   assert.equal(runStatus.documents[document.id].quarantine_reason, undefined);
+});
+
+test('seed-aware child receives exact seed arguments and post-child writer drift does not consume an inherited attempt', async (t) => {
+  const { root, inputRoot } = await fixture(t);
+  const predecessorRoot = path.join(root, 'seed-aware-child-p4');
+  const successorRoot = path.join(root, 'seed-aware-child-p1');
+  const manifestPath = path.join(inputRoot, 'seed-aware-child.json');
+  const sourceWriter = fileURLToPath(new URL('../scripts/ocr-pdf-paddle.py', import.meta.url));
+  const ocrScript = path.join(root, 'seed-aware-child-ocr.py');
+  await writeFile(ocrScript, await readFile(sourceWriter));
+  const predecessorAttestation = llamaAttestationForParallel(4);
+  const successorAttestation = llamaAttestationForParallel(1);
+  const { paddlexLayoutModelCache: fixtureCache } = await createTimeoutRecoveryPredecessor({
+    inputRoot,
+    predecessorRoot,
+    manifestPath,
+    specifications: [['doc-seed-aware-child', 2, 1, 'retry_wait', 1]],
+    attestation: predecessorAttestation,
+    receiverNativeArtifacts: true,
+    ocrScriptSha256: legacyB1OcrScriptSha256,
+    materializePaddlexCache: true,
+  });
+  const options = {
+    manifest: manifestPath,
+    inputRoot,
+    outputRoot: successorRoot,
+    python: process.execPath,
+    ocrScript,
+    model: '/unused/model',
+    mmproj: '/unused/mmproj',
+    llamaRepo: '/unused/llama',
+    llamaServerBin,
+    llamaSystemdUnit,
+    llamaUrl: workerConfiguration.llama_url,
+    runtimeDevice,
+    vlRecMaxConcurrency: 1,
+    serverParallel: 1,
+    microBatch: 16,
+    useQueues: true,
+    childIdleTimeoutSeconds: 1200,
+    seedFromOutputRoot: predecessorRoot,
+  };
+  let childInvocations = 0;
+  await assert.rejects(
+    runRemoteOcrOffload(options, {
+      pageCounter: () => 2,
+      runtime,
+      llamaServerAttestation: successorAttestation,
+      pythonRuntime,
+      paddlexLayoutModelCache: fixtureCache,
+      runnerScriptSha256: 'e'.repeat(64),
+      invokeOcr: async (_python, commandArguments) => {
+        childInvocations += 1;
+        for (const flag of [
+          '--seed-id',
+          '--seed-predecessor-run-identity-sha256',
+          '--seed-predecessor-configuration-sha256',
+        ]) {
+          const index = commandArguments.indexOf(flag);
+          assert.notEqual(index, -1, flag);
+          assert.match(commandArguments[index + 1], /^[a-f0-9]{64}$/u, flag);
+        }
+        writeFileSync(ocrScript, '# drifted after seeded child invocation\n');
+        return { code: 1, signal: null };
+      },
+      revalidateSharedRuntime: healthySharedRuntimeRevalidation,
+      handleSignals: false,
+    }),
+    /shared runtime revalidation failed.*OCR script SHA-256 drifted/,
+  );
+  assert.equal(childInvocations, 1);
+  const runStatus = JSON.parse(await readFile(path.join(successorRoot, 'run-status.json'), 'utf8'));
+  const progress = runStatus.documents['doc-seed-aware-child'];
+  assert.equal(progress.failure_class, 'shared_runtime_configuration');
+  assert.equal(progress.inherited_attempts, 1);
+  assert.equal(progress.attempts, 1);
+  assert.equal(progress.quarantine_reason, undefined);
+  await writeFile(ocrScript, await readFile(sourceWriter));
+  await resealCommittedSeedReceipt(successorRoot, (receipt) => {
+    receipt.allowed_configuration_delta.schema_version = 2;
+    receipt.allowed_configuration_delta.transition = 'p4_to_p1_v1';
+    delete receipt.allowed_configuration_delta.ocr_script_transition;
+  });
+  await assert.rejects(
+    runRemoteOcrOffload(options, {
+      pageCounter: () => 2,
+      runtime,
+      llamaServerAttestation: successorAttestation,
+      pythonRuntime,
+      paddlexLayoutModelCache: fixtureCache,
+      runnerScriptSha256: 'e'.repeat(64),
+      invokeOcr: async () => assert.fail('resealed schema downgrade must fail before OCR'),
+      revalidateSharedRuntime: healthySharedRuntimeRevalidation,
+      handleSignals: false,
+    }),
+    /schema-v2 p4-to-p1 requires an identical OCR script identity|allowed configuration delta is not the exact audited transition/,
+  );
 });
 
 test('external termination escalates an owned child from TERM to KILL after the configured grace', () => {

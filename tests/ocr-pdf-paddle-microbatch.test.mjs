@@ -1,8 +1,47 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const source = readFileSync(new URL('../scripts/ocr-pdf-paddle.py', import.meta.url), 'utf8');
+const legacyB1Source = readFileSync(
+  new URL('./fixtures/remote-ocr/b1/ocr-pdf-paddle.py', import.meta.url),
+  'utf8',
+);
+const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+
+test('B1-to-seed-aware source transition is hash-bound and leaves the inference/artifact suffix byte-identical', () => {
+  assert.equal(
+    sha256(legacyB1Source),
+    'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53aff3ebeae48d9b048',
+  );
+  assert.equal(
+    sha256(source),
+    '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3',
+  );
+  const suffixMarker = '    pipeline = PaddleOCRVL(';
+  const legacySuffixOffset = legacyB1Source.indexOf(suffixMarker);
+  const currentSuffixOffset = source.indexOf(suffixMarker);
+  assert.notEqual(legacySuffixOffset, -1);
+  assert.notEqual(currentSuffixOffset, -1);
+  const legacySuffix = legacyB1Source.slice(legacySuffixOffset);
+  const currentSuffix = source.slice(currentSuffixOffset);
+  assert.equal(Buffer.byteLength(legacySuffix), 11_430);
+  assert.equal(Buffer.byteLength(currentSuffix), 11_430);
+  assert.equal(
+    sha256(currentSuffix),
+    '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca',
+  );
+  assert.equal(currentSuffix, legacySuffix);
+  for (const writer of [legacyB1Source, source]) {
+    assert.match(writer, /parser\.add_argument\("--dpi", type=int, default=240\)/);
+  }
+  assert.match(currentSuffix, /PaddleOCRVL\([\s\S]*pipeline_version="v1\.6"/);
+  assert.match(currentSuffix, /vl_rec_backend="llama-cpp-server"/);
+  assert.match(currentSuffix, /device="cpu"/);
+  assert.match(currentSuffix, /page\.render\(scale=args\.dpi \/ 72\)/);
+  assert.match(currentSuffix, /"citation_eligible": False/);
+});
 
 test('queued micro-batching is explicit, bounded, deterministic, and path-mapped', () => {
   assert.match(source, /parser\.add_argument\("--micro-batch", type=int, default=1/);

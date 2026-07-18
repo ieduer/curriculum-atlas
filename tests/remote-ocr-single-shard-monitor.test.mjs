@@ -33,6 +33,10 @@ import { fingerprintPaddlexLayoutModelCache } from '../scripts/run-remote-ocr-of
 import { parseSystemdShow } from '../scripts/monitor-remote-ocr-reprocess.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+const legacyB1OcrScriptSha256 = 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53aff3ebeae48d9b048';
+const seedAwareOcrScriptSha256 = '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3';
+const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca';
+const seedAwareTransition = 'p4_to_p1_seed_aware_ocr_v2';
 const hash = (character) => character.repeat(64);
 const legacyB1RunnerScriptSha256 = 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55';
 
@@ -245,7 +249,10 @@ async function pageArtifacts(root, content = 'page one\n') {
   };
 }
 
-async function createPredecessor(root, { legacyInterrupted = false } = {}) {
+async function createPredecessor(root, {
+  legacyInterrupted = false,
+  seedAwareTransition: useSeedAwareTransition = false,
+} = {}) {
   const b1 = path.join(root, 'output/b1');
   const documentRoot = path.join(b1, 'documents/doc-one');
   const pageRoot = path.join(documentRoot, 'pages/0001');
@@ -357,7 +364,9 @@ async function createPredecessor(root, { legacyInterrupted = false } = {}) {
     llama_server_attestation: attestation,
     llama_server_attestation_sha256: attestationSha256,
     runner_script_sha256: legacyB1RunnerScriptSha256,
-    ocr_script_sha256: hash('9'),
+    ocr_script_sha256: useSeedAwareTransition
+      ? legacyB1OcrScriptSha256
+      : hash('9'),
     input_root: '/input',
     python_invocation_path: '/venv/bin/python',
     python_resolved_target: '/usr/bin/python3.13',
@@ -445,7 +454,8 @@ async function createFixture(t, options = {}) {
     path.join(b2, 'documents/doc-one/pages/0001/content.md'),
   );
   const controlEvidence = await createPredecessorEvidence(b2, predecessor);
-  const p4ToP1 = options.p4ToP1 === true;
+  const seedAware = options.seedAwareTransition === true;
+  const p4ToP1 = options.p4ToP1 === true || seedAware;
   const successorWorker = workerConfiguration(
     1,
     successorCacheHome,
@@ -495,12 +505,12 @@ async function createFixture(t, options = {}) {
     document_recovery: successorRecovery,
     document_recovery_sha256: sha256(canonicalJson(successorRecovery)),
     runner_script_sha256: successorRunnerScriptSha256,
-    ocr_script_sha256: predecessor.identity.ocr_script_sha256,
+    ocr_script_sha256: seedAware
+      ? seedAwareOcrScriptSha256
+      : predecessor.identity.ocr_script_sha256,
     citation_allowed: false,
   };
-  const allowedConfigurationDelta = p4ToP1 ? {
-    schema_version: 2,
-    transition: 'p4_to_p1_v1',
+  const p4ToP1CommonDelta = {
     vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
     server_parallel: { predecessor: 4, successor: 1 },
     paddlex_cache_home: {
@@ -523,6 +533,22 @@ async function createFixture(t, options = {}) {
       predecessor_sha256: predecessor.identity.runtime_fingerprint_sha256,
       successor_sha256: successorRuntimeFingerprintSha256,
     },
+  };
+  const allowedConfigurationDelta = seedAware ? {
+    schema_version: 3,
+    transition: seedAwareTransition,
+    ocr_script_transition: {
+      schema_version: 1,
+      transition: 'b1_legacy_to_seed_aware_v1',
+      predecessor_sha256: legacyB1OcrScriptSha256,
+      successor_sha256: seedAwareOcrScriptSha256,
+      audited_common_inference_suffix_sha256: auditedCommonInferenceSuffixSha256,
+    },
+    ...p4ToP1CommonDelta,
+  } : p4ToP1 ? {
+    schema_version: 2,
+    transition: 'p4_to_p1_v1',
+    ...p4ToP1CommonDelta,
   } : {
     schema_version: 1,
     vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
@@ -642,6 +668,7 @@ async function createFixture(t, options = {}) {
   const identity = {
     ...predecessor.identity,
     runner_script_sha256: successorRunnerScriptSha256,
+    ocr_script_sha256: successorContract.ocr_script_sha256,
     runtime_fingerprint: successorRuntimeFingerprint,
     runtime_fingerprint_sha256: successorRuntimeFingerprintSha256,
     llama_server_attestation: successorAttestation,
@@ -1202,6 +1229,51 @@ test('real p4-to-p1 receipt recomputes both identities and exposes the transitio
   assert.equal(successor.complete, false);
 });
 
+test('schema-v3 monitor accepts only the exact B1-to-seed-aware OCR transition declaration', async (t) => {
+  const fixture = await createFixture(t, { seedAwareTransition: true });
+  assert.equal(
+    validateP4ToP1MonitorDelta(fixture.receipt, fixture.predecessor.identity, fixture.identity),
+    seedAwareTransition,
+  );
+  const successor = await inspectSuccessorB2(fixture.b2, fixture.predecessor);
+  assert.equal(successor.configuration_transition, seedAwareTransition);
+  assert.equal(successor.complete, false);
+
+  const cases = [
+    ['pair', (receipt, predecessor) => {
+      predecessor.ocr_script_sha256 = hash('0');
+      receipt.predecessor.ocr_script_sha256 = predecessor.ocr_script_sha256;
+    }, /exact audited transition/],
+    ['suffix', (receipt) => {
+      receipt.allowed_configuration_delta.ocr_script_transition
+        .audited_common_inference_suffix_sha256 = hash('0');
+    }, /declaration is not exact/],
+    ['nested extra', (receipt) => {
+      receipt.allowed_configuration_delta.ocr_script_transition.extra = true;
+    }, /field set differs/],
+    ['delta extra', (receipt) => {
+      receipt.allowed_configuration_delta.extra = true;
+    }, /allowed configuration delta declaration is not exact/],
+    ['schema downgrade', (receipt) => {
+      receipt.allowed_configuration_delta.schema_version = 2;
+    }, /transition declaration/],
+    ['v1 disguise', (receipt) => {
+      receipt.allowed_configuration_delta = { schema_version: 1 };
+    }, /transition declaration/],
+  ];
+  for (const [name, mutate, pattern] of cases) {
+    const receipt = structuredClone(fixture.receipt);
+    const predecessor = structuredClone(fixture.predecessor.identity);
+    const identity = structuredClone(fixture.identity);
+    mutate(receipt, predecessor, identity);
+    assert.throws(
+      () => validateP4ToP1MonitorDelta(receipt, predecessor, identity),
+      pattern,
+      name,
+    );
+  }
+});
+
 test('p4-to-p1 validator rejects coherently rebound forbidden deltas and declaration tampering', async (t) => {
   const fixture = await createFixture(t, { p4ToP1: true });
   const rebind = (receipt, identity) => {
@@ -1266,7 +1338,7 @@ test('p4-to-p1 validator rejects coherently rebound forbidden deltas and declara
     }, /field set differs/],
     ['OCR script', (_receipt, identity) => {
       identity.ocr_script_sha256 = hash('0');
-    }, /OCR identity/],
+    }, /identical OCR script identity/],
     ['proc command did not change', (_receipt, identity) => {
       identity.llama_server_attestation.proc_cmdline_sha256
         = fixture.predecessor.identity.llama_server_attestation.proc_cmdline_sha256;

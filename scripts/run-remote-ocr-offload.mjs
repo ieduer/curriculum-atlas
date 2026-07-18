@@ -61,6 +61,11 @@ const timeoutRecoveryIssuanceClaimType = 'curriculum_remote_ocr_timeout_recovery
 const timeoutRecoveryAuthorityDirectoryName = 'timeout-recovery-authority-v1';
 const timeoutRecoveryPredecessorClaimKeyType = 'curriculum_remote_ocr_timeout_recovery_predecessor_claim_key';
 const p4ToP1Transition = 'p4_to_p1_v1';
+const p4ToP1SeedAwareOcrTransition = 'p4_to_p1_seed_aware_ocr_v2';
+const legacyToSeedAwareOcrScriptTransition = 'b1_legacy_to_seed_aware_v1';
+const legacyB1OcrScriptSha256 = 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53aff3ebeae48d9b048';
+const seedAwareOcrScriptSha256 = '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3';
+const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca';
 const legacyB1RunnerScriptSha256 = 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55';
 const llamaHealthTimeoutMilliseconds = 10_000;
 const pythonRuntimeProbeTimeoutMilliseconds = 15 * 60 * 1_000;
@@ -117,6 +122,28 @@ function requirePositiveInteger(value, label) {
 function requireSha256(value, label) {
   if (!sha256Pattern.test(String(value || ''))) throw new Error(`${label} must be lowercase SHA-256`);
   return value;
+}
+
+function exactSeedAwareOcrScriptTransition(predecessorSha256, successorSha256) {
+  requireSha256(predecessorSha256, 'p4 predecessor OCR script SHA-256');
+  requireSha256(successorSha256, 'p1 successor OCR script SHA-256');
+  if (predecessorSha256 === successorSha256) return null;
+  if (predecessorSha256 !== legacyB1OcrScriptSha256
+    || successorSha256 !== seedAwareOcrScriptSha256) {
+    throw new Error('p4-to-p1 OCR script drift is not the exact audited B1-to-seed-aware transition');
+  }
+  return {
+    schema_version: 1,
+    transition: legacyToSeedAwareOcrScriptTransition,
+    predecessor_sha256: legacyB1OcrScriptSha256,
+    successor_sha256: seedAwareOcrScriptSha256,
+    audited_common_inference_suffix_sha256: auditedCommonInferenceSuffixSha256,
+  };
+}
+
+function isAuditedP4ToP1Delta(delta) {
+  return delta?.schema_version === 2 && delta.transition === p4ToP1Transition
+    || delta?.schema_version === 3 && delta.transition === p4ToP1SeedAwareOcrTransition;
 }
 
 function requireGitCommit(value, label) {
@@ -2937,12 +2964,15 @@ function validateP4ToP1SeedConfigurationDelta(predecessor, successor) {
     || predecessorIdentity.seed_lineage !== undefined) {
     throw new Error('p4-to-p1 predecessor is not the exact legacy unseeded runner');
   }
+  const ocrScriptTransition = exactSeedAwareOcrScriptTransition(
+    predecessorIdentity.ocr_script_sha256,
+    successor.ocrScriptSha256,
+  );
   if (!sameJsonValue(predecessorIdentity.runtime, successorIdentity.runtime)
     || predecessorIdentity.input_root !== successorIdentity.input_root
     || predecessorIdentity.python_invocation_path !== successorIdentity.python_invocation_path
-    || predecessorIdentity.python_resolved_target !== successorIdentity.python_resolved_target
-    || predecessorIdentity.ocr_script_sha256 !== successor.ocrScriptSha256) {
-    throw new Error('p4-to-p1 changes a forbidden model, DPI, input, Python, or OCR script identity');
+    || predecessorIdentity.python_resolved_target !== successorIdentity.python_resolved_target) {
+    throw new Error('p4-to-p1 changes a forbidden model, DPI, input, or Python identity');
   }
 
   const predecessorHashes = requireRecomputedSeedRuntimeHashes(predecessorIdentity, 'p4 predecessor');
@@ -3114,9 +3144,7 @@ function validateP4ToP1SeedConfigurationDelta(predecessor, successor) {
     throw new Error('p4-to-p1 changes a forbidden document recovery field');
   }
 
-  return {
-    schema_version: 2,
-    transition: p4ToP1Transition,
+  const commonDelta = {
     vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
     server_parallel: { predecessor: 4, successor: 1 },
     paddlex_cache_home: {
@@ -3139,6 +3167,16 @@ function validateP4ToP1SeedConfigurationDelta(predecessor, successor) {
       predecessor_sha256: predecessorHashes.runtimeFingerprintSha256,
       successor_sha256: successorHashes.runtimeFingerprintSha256,
     },
+  };
+  return ocrScriptTransition ? {
+    schema_version: 3,
+    transition: p4ToP1SeedAwareOcrTransition,
+    ocr_script_transition: ocrScriptTransition,
+    ...commonDelta,
+  } : {
+    schema_version: 2,
+    transition: p4ToP1Transition,
+    ...commonDelta,
   };
 }
 
@@ -3435,7 +3473,7 @@ async function prepareHashBoundSeed({
     timeoutRecoveryLedger,
   );
   const includeTimeoutRecoveryEvidence = Boolean(
-    predecessor.timeoutRecoveryGrant && allowedConfigurationDelta.schema_version === 2,
+    predecessor.timeoutRecoveryGrant && isAuditedP4ToP1Delta(allowedConfigurationDelta),
   );
   const timeoutRecoveryIssuance = includeTimeoutRecoveryEvidence
     ? timeoutRecoveryIssuanceSummary(predecessor, timeoutRecoveryAuthority)
@@ -4051,6 +4089,34 @@ async function resumeCommittedSeed(outputRoot, expectedIdentity, manifest) {
     verifyCommittedSeedImmutableItem(outputRoot, marker, 'seed-receipt.json.sha256', 'file'),
     verifyCommittedSeedImmutableItem(outputRoot, marker, 'run-identity.json', 'file'),
   ]);
+  const predecessorIdentityEvidence = await readStrictJsonEvidence(
+    outputRoot,
+    path.join(outputRoot, seedPredecessorEvidenceDirectory, 'run-identity.json'),
+    'committed seed predecessor run identity',
+    { sidecar: false },
+  );
+  if (sha256Value(predecessorIdentityEvidence.raw) !== receipt.predecessor?.run_identity_sha256) {
+    throw new Error('committed seed predecessor run identity differs from the receipt');
+  }
+  const recomputedAllowedConfigurationDelta = validateSeedConfigurationDelta(
+    { identity: predecessorIdentityEvidence.value },
+    {
+      runtime: identity.runtime,
+      runtimeFingerprint: identity.runtime_fingerprint,
+      runtimeFingerprintSha256: identity.runtime_fingerprint_sha256,
+      workerConfiguration: identity.worker_configuration,
+      documentRecovery: identity.document_recovery,
+      runnerScriptSha256: identity.runner_script_sha256,
+      ocrScriptSha256: identity.ocr_script_sha256,
+      llamaServerAttestation: identity.llama_server_attestation,
+      inputRoot: identity.input_root,
+      pythonInvocationPath: identity.python_invocation_path,
+      pythonResolvedTarget: identity.python_resolved_target,
+    },
+  );
+  if (!sameJsonValue(receipt.allowed_configuration_delta, recomputedAllowedConfigurationDelta)) {
+    throw new Error('committed seed allowed configuration delta is not the exact audited transition');
+  }
 
   const recoveryGrant = receipt.timeout_recovery_grant || null;
   const recoveryIssuance = receipt.timeout_recovery_issuance || null;
@@ -4665,7 +4731,9 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
     } catch {
       throw new Error('committed seed receipt is not valid JSON');
     }
-    selfContainedSeedCandidate = committedReceipt.allowed_configuration_delta?.schema_version === 2;
+    selfContainedSeedCandidate = isAuditedP4ToP1Delta(
+      committedReceipt.allowed_configuration_delta,
+    );
   }
   let seedPredecessorRoot = null;
   if (options.seedFromOutputRoot && !selfContainedSeedCandidate) {
@@ -4925,6 +4993,7 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
       dryRun: options.seedDryRun === true,
     });
       try {
+        await verifyInvocationProvenance();
         const timeoutRecoveryConsumption = await claimTimeoutRecoveryGrant({
         prepared: preparedSeed,
         outputRoot,
@@ -4985,8 +5054,14 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
         runStatusSha256: preparedSeed.receipt.successor.initial_run_status_sha256,
         };
       }
-      const installed = await installHashBoundSeed(preparedSeed, identity, outputRoot, dependencies);
-      seededRunStatus = installed.runStatus;
+      try {
+        await verifyInvocationProvenance();
+        const installed = await installHashBoundSeed(preparedSeed, identity, outputRoot, dependencies);
+        seededRunStatus = installed.runStatus;
+      } catch (error) {
+        await rm(preparedSeed.stageRoot, { recursive: true, force: true }).catch(() => {});
+        throw error;
+      }
     }
   } else {
     const identityPath = path.join(outputRoot, 'run-identity.json');
