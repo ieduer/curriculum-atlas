@@ -25,6 +25,7 @@ import {
   inspectTreeStrict,
   parseSingleShardMonitorArgs,
   privacySafeSingleShardEvent,
+  validateP4ToP1MonitorDelta,
   writeSingleShardMonitorOutputs,
 } from '../scripts/monitor-remote-ocr-single-shard.mjs';
 import { fingerprintPaddlexLayoutModelCache } from '../scripts/run-remote-ocr-offload.mjs';
@@ -57,11 +58,11 @@ async function copyExact(source, destination) {
   await copyFile(source, destination);
 }
 
-function workerConfiguration(concurrency, cacheRoot, cacheTreeSha256) {
+function workerConfiguration(concurrency, cacheRoot, cacheTreeSha256, serverParallel = 4) {
   return {
     llama_url: 'http://127.0.0.1:8112',
     vl_rec_max_concurrency: concurrency,
-    server_parallel: 4,
+    server_parallel: serverParallel,
     micro_batch: 16,
     use_queues: true,
     runtime_device: 'gpu:0',
@@ -76,6 +77,51 @@ function workerConfiguration(concurrency, cacheRoot, cacheTreeSha256) {
       },
     },
     paddlex_layout_model_cache_sha256: cacheTreeSha256,
+  };
+}
+
+function llamaAttestation(runtime, parallel, procCharacter) {
+  return {
+    schema_version: 1,
+    systemd_unit: 'curriculum-ocr-llama.service',
+    active_state: 'active',
+    sub_state: 'running',
+    binary_path: '/fixture/llama-server',
+    binary_sha256: hash('5'),
+    version_sha256: hash('6'),
+    llama_commit_prefix: runtime.llama_commit.slice(0, 8),
+    proc_cmdline_sha256: hash(procCharacter),
+    model_path: '/fixture/model.gguf',
+    model_sha256: runtime.model_sha256,
+    mmproj_path: '/fixture/mmproj.gguf',
+    mmproj_sha256: runtime.mmproj_sha256,
+    host: '127.0.0.1',
+    port: 8112,
+    parallel,
+    production_command_contract: {
+      values: {
+        '--host': '127.0.0.1',
+        '--port': '8112',
+        '--parallel': String(parallel),
+        '--temp': '0',
+        '--ctx-size': '32768',
+        '--n-gpu-layers': 'all',
+        '--flash-attn': 'auto',
+        '--cache-type-k': 'f16',
+        '--cache-type-v': 'f16',
+        '--batch-size': '2048',
+        '--ubatch-size': '512',
+        '--fit': 'off',
+        '--timeout': '3600',
+        '--threads': '8',
+        '--threads-batch': '16',
+      },
+      flags: ['--mmproj-offload', '--cont-batching', '--no-webui', '--metrics'],
+    },
+    health_url: 'http://127.0.0.1:8112/health',
+    health_status_code: 200,
+    health_status: 'ok',
+    health_body_sha256: hash('7'),
   };
 }
 
@@ -155,14 +201,17 @@ async function createPredecessor(root, { legacyInterrupted = false } = {}) {
     render_dpi: 240,
     model_sha256: hash('1'),
     mmproj_sha256: hash('2'),
+    llama_commit: '3'.repeat(40),
   };
   const cacheHome = path.join(await realpath(b1), 'paddlex-cache');
   const cacheFingerprint = await createPaddlexCache(cacheHome);
   const worker = workerConfiguration(4, cacheHome, cacheFingerprint.tree_sha256);
+  const attestation = llamaAttestation(runtime, 4, '8');
+  const attestationSha256 = sha256(`${JSON.stringify(attestation)}\n`);
   const runtimeFingerprint = {
     ...runtime,
     runtime_device: worker.runtime_device,
-    llama_server_attestation_sha256: hash('6'),
+    llama_server_attestation_sha256: attestationSha256,
     python_runtime: worker.python_runtime,
     paddlex_layout_model_cache: cacheFingerprint,
   };
@@ -249,8 +298,8 @@ async function createPredecessor(root, { legacyInterrupted = false } = {}) {
     runtime,
     runtime_fingerprint: runtimeFingerprint,
     runtime_fingerprint_sha256: runtimeFingerprintSha256,
-    llama_server_attestation: { schema_version: 1, binary_sha256: hash('5') },
-    llama_server_attestation_sha256: hash('6'),
+    llama_server_attestation: attestation,
+    llama_server_attestation_sha256: attestationSha256,
     runner_script_sha256: legacyB1RunnerScriptSha256,
     ocr_script_sha256: hash('9'),
     input_root: '/input',
@@ -340,13 +389,26 @@ async function createFixture(t, options = {}) {
     path.join(b2, 'documents/doc-one/pages/0001/content.md'),
   );
   const controlEvidence = await createPredecessorEvidence(b2, predecessor);
+  const p4ToP1 = options.p4ToP1 === true;
   const successorWorker = workerConfiguration(
     1,
     successorCacheHome,
     successorCacheFingerprint.tree_sha256,
+    p4ToP1 ? 1 : 4,
   );
   const successorRecovery = documentRecovery(1200);
   const successorRunnerScriptSha256 = hash('a');
+  const successorAttestation = p4ToP1
+    ? llamaAttestation(predecessor.identity.runtime, 1, '9')
+    : predecessor.identity.llama_server_attestation;
+  const successorAttestationSha256 = sha256(`${JSON.stringify(successorAttestation)}\n`);
+  const successorRuntimeFingerprint = p4ToP1 ? {
+    ...predecessor.identity.runtime_fingerprint,
+    llama_server_attestation_sha256: successorAttestationSha256,
+  } : predecessor.identity.runtime_fingerprint;
+  const successorRuntimeFingerprintSha256 = sha256(
+    `${JSON.stringify(successorRuntimeFingerprint)}\n`,
+  );
   const predecessorContract = {
     manifest_sha256: predecessor.identity.manifest_sha256,
     run_identity_sha256: predecessor.anchors.identity_sha256,
@@ -370,8 +432,8 @@ async function createFixture(t, options = {}) {
   };
   const successorContract = {
     runtime: predecessor.identity.runtime,
-    runtime_fingerprint: predecessor.identity.runtime_fingerprint,
-    runtime_fingerprint_sha256: predecessor.identity.runtime_fingerprint_sha256,
+    runtime_fingerprint: successorRuntimeFingerprint,
+    runtime_fingerprint_sha256: successorRuntimeFingerprintSha256,
     worker_configuration: successorWorker,
     worker_configuration_sha256: sha256(canonicalJson(successorWorker)),
     document_recovery: successorRecovery,
@@ -380,7 +442,32 @@ async function createFixture(t, options = {}) {
     ocr_script_sha256: predecessor.identity.ocr_script_sha256,
     citation_allowed: false,
   };
-  const allowedConfigurationDelta = {
+  const allowedConfigurationDelta = p4ToP1 ? {
+    schema_version: 2,
+    transition: 'p4_to_p1_v1',
+    vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
+    server_parallel: { predecessor: 4, successor: 1 },
+    paddlex_cache_home: {
+      predecessor: source.worker.paddlex_cache_home,
+      successor: successorWorker.paddlex_cache_home,
+      tree_sha256: successorCacheFingerprint.tree_sha256,
+    },
+    child_idle_timeout_seconds: { predecessor: 300, successor: 1200 },
+    llama_server_attestation: {
+      predecessor_sha256: predecessor.identity.llama_server_attestation_sha256,
+      successor_sha256: successorAttestationSha256,
+      proc_cmdline_sha256: {
+        predecessor: predecessor.identity.llama_server_attestation.proc_cmdline_sha256,
+        successor: successorAttestation.proc_cmdline_sha256,
+      },
+      parallel: { predecessor: 4, successor: 1 },
+      production_command_parallel: { predecessor: '4', successor: '1' },
+    },
+    runtime_fingerprint: {
+      predecessor_sha256: predecessor.identity.runtime_fingerprint_sha256,
+      successor_sha256: successorRuntimeFingerprintSha256,
+    },
+  } : {
     schema_version: 1,
     vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
     paddlex_cache_home: {
@@ -433,7 +520,7 @@ async function createFixture(t, options = {}) {
   const predecessorStatus = JSON.parse(await readFile(path.join(source.b1, 'status/doc-one.json'), 'utf8'));
   const successorStatus = {
     ...predecessorStatus,
-    runtime_fingerprint_sha256: predecessor.identity.runtime_fingerprint_sha256,
+    runtime_fingerprint_sha256: successorRuntimeFingerprintSha256,
     seed_lineage: {
       schema_version: 1,
       seed_id: seedId,
@@ -444,6 +531,7 @@ async function createFixture(t, options = {}) {
   };
   const successorStatusWritten = await writeHashBoundJson(path.join(b2, 'status/doc-one.json'), successorStatus);
   const successorRunStatus = structuredClone(predecessor.run_status);
+  successorRunStatus.runtime_fingerprint_sha256 = successorRuntimeFingerprintSha256;
   successorRunStatus.document_recovery = successorRecovery;
   successorRunStatus.seed_lineage = {
     schema_version: 1,
@@ -498,6 +586,10 @@ async function createFixture(t, options = {}) {
   const identity = {
     ...predecessor.identity,
     runner_script_sha256: successorRunnerScriptSha256,
+    runtime_fingerprint: successorRuntimeFingerprint,
+    runtime_fingerprint_sha256: successorRuntimeFingerprintSha256,
+    llama_server_attestation: successorAttestation,
+    llama_server_attestation_sha256: successorAttestationSha256,
     worker_configuration: successorWorker,
     document_recovery: successorRecovery,
     seed_lineage: {
@@ -563,6 +655,8 @@ async function createFixture(t, options = {}) {
     predecessor,
     seedId,
     cacheFingerprint: successorCacheFingerprint,
+    receipt,
+    identity,
   };
 }
 
@@ -762,6 +856,7 @@ test('CLI fixes B2 to one disjoint successor and requires all five B1 anchors', 
     '--worker-unit', 'curriculum-ocr-b2.service',
     '--old-worker-unit', 'a=curriculum-ocr-old@a.service',
     '--old-worker-unit', 'b=curriculum-ocr-old@b.service',
+    '--inactive-worker-unit', 'b-r2=curriculum-ocr-reprocess-b-r2.service',
     '--b1-identity-sha256', hash('1'),
     '--b1-run-status-sha256', hash('2'),
     '--b1-state-hashset-sha256', hash('3'),
@@ -772,6 +867,10 @@ test('CLI fixes B2 to one disjoint successor and requires all five B1 anchors', 
   assert.equal(parsed.thresholds.stall_seconds, 1500);
   assert.equal(parsed.thresholds.memory_min_gib, 2);
   assert.equal(parsed.predecessorAnchors.artifact_hashset_sha256, hash('5'));
+  assert.equal(
+    parsed.inactiveWorkerUnits.get('b-r2'),
+    'curriculum-ocr-reprocess-b-r2.service',
+  );
   assert.throws(
     () => parseSingleShardMonitorArgs(arguments_.filter((value, index) => index < arguments_.length - 2)),
     /artifact_hashset_sha256/,
@@ -779,6 +878,17 @@ test('CLI fixes B2 to one disjoint successor and requires all five B1 anchors', 
   const nested = [...arguments_];
   nested[nested.indexOf('/run/monitor-b2')] = '/run/output/b2/monitor';
   assert.throws(() => parseSingleShardMonitorArgs(nested), /disjoint/);
+  assert.throws(
+    () => parseSingleShardMonitorArgs([
+      ...arguments_,
+      '--inactive-worker-unit', 'b-r2=curriculum-ocr-other.service',
+    ]),
+    /duplicate inactive worker label/,
+  );
+  const duplicateUnit = [...arguments_];
+  duplicateUnit[duplicateUnit.indexOf('b-r2=curriculum-ocr-reprocess-b-r2.service')]
+    = 'b-r2=curriculum-ocr-b2.service';
+  assert.throws(() => parseSingleShardMonitorArgs(duplicateUnit), /must be distinct/);
 });
 
 test('healthy running is 10 and a complete shard permits inactive B2 and llama services', () => {
@@ -815,6 +925,63 @@ test('healthy running is 10 and a complete shard permits inactive B2 and llama s
   assert.deepEqual(classifySingleShardSnapshot(completed), {
     state: 'completed', exit_code: 0, issues: [],
   });
+});
+
+test('p1 requires active services while running and stopped services after completion', () => {
+  const running = baseSnapshot({
+    successor: {
+      ...baseSnapshot().successor,
+      configuration_transition: 'p4_to_p1_v1',
+    },
+    services: {
+      ...baseSnapshot().services,
+      inactive_workers: {
+        'b-r2': service({ active_state: 'inactive', sub_state: 'dead', main_pid: 0 }),
+      },
+    },
+  });
+  assert.deepEqual(classifySingleShardSnapshot(running), {
+    state: 'healthy_running', exit_code: 10, issues: [],
+  });
+
+  const complete = {
+    ...running,
+    successor: {
+      ...running.successor,
+      complete: true,
+      expected_pages: 2,
+      completed_pages: 2,
+      status_counts: {
+        total: 1,
+        complete: 1,
+        failed: 0,
+        interrupted: 0,
+        pending: 0,
+        running: 0,
+        retry_wait: 0,
+        quarantined: 0,
+      },
+    },
+  };
+  const activeAfterCompletion = classifySingleShardSnapshot(complete);
+  assert.deepEqual(
+    activeAfterCompletion.issues.map(({ code }) => code),
+    ['B2_WORKER_ACTIVE_AFTER_P1_COMPLETION', 'LLAMA_ACTIVE_AFTER_P1_COMPLETION'],
+  );
+  const stopped = structuredClone(complete);
+  stopped.services.worker = service({ active_state: 'inactive', sub_state: 'dead', main_pid: 0 });
+  stopped.services.llama = {
+    systemd: service({ active_state: 'inactive', sub_state: 'dead', main_pid: 0 }),
+    health: { healthy: false, http_status: null },
+  };
+  assert.deepEqual(classifySingleShardSnapshot(stopped), {
+    state: 'completed', exit_code: 0, issues: [],
+  });
+
+  stopped.services.inactive_workers['b-r2'] = service();
+  assert.ok(classifySingleShardSnapshot(stopped).issues.some(
+    ({ code }) => code === 'INACTIVE_WORKER_B_R2_ACTIVE',
+  ));
 });
 
 test('an interrupted seed backlog is recoverable only while the B2 worker is strictly running', () => {
@@ -922,6 +1089,7 @@ test('worker, llama, quarantine, B1 hash drift, stall, old workers, and resource
     ['hash drift', { predecessor: { ...baseSnapshot().predecessor, anchors_match: false } }, 'B1_HASH_DRIFT'],
     ['stall', { successor: { ...baseSnapshot().successor, progress_age_seconds: 1501 } }, 'B2_NO_PROGRESS'],
     ['old worker active', { services: { ...baseSnapshot().services, old_workers: { ...baseSnapshot().services.old_workers, a: service() } } }, 'OLD_WORKER_A_ACTIVE'],
+    ['inactive worker active', { services: { ...baseSnapshot().services, inactive_workers: { 'b-r2': service() } } }, 'INACTIVE_WORKER_B_R2_ACTIVE'],
     ['disk', { resources: { ...baseSnapshot().resources, disk: { available_gib: 49.999 } } }, 'DISK_BELOW_MINIMUM'],
     ['memory', { resources: { ...baseSnapshot().resources, memory: { available_gib: 1.999 } } }, 'MEMORY_BELOW_MINIMUM'],
     ['gpu', { resources: { ...baseSnapshot().resources, gpu: { max_temperature_c: 85.001 } } }, 'GPU_OVER_TEMPERATURE'],
@@ -956,6 +1124,106 @@ test('real B1 and B2 fixture validates receipt, marker, identity, counts, attemp
   assert.equal(completed.completed_pages, 2);
   assert.equal(completed.status_counts.complete, 1);
   assert.equal(completed.declared_counts_match, true);
+});
+
+test('real p4-to-p1 receipt recomputes both identities and exposes the transition', async (t) => {
+  const fixture = await createFixture(t, { p4ToP1: true });
+  assert.equal(
+    validateP4ToP1MonitorDelta(fixture.receipt, fixture.predecessor.identity, fixture.identity),
+    'p4_to_p1_v1',
+  );
+  const successor = await inspectSuccessorB2(fixture.b2, fixture.predecessor);
+  assert.equal(successor.configuration_transition, 'p4_to_p1_v1');
+  assert.equal(successor.status_counts.retry_wait, 1);
+  assert.equal(successor.complete, false);
+});
+
+test('p4-to-p1 validator rejects coherently rebound forbidden deltas and declaration tampering', async (t) => {
+  const fixture = await createFixture(t, { p4ToP1: true });
+  const rebind = (receipt, identity) => {
+    identity.llama_server_attestation_sha256 = sha256(
+      `${JSON.stringify(identity.llama_server_attestation)}\n`,
+    );
+    identity.runtime_fingerprint.llama_server_attestation_sha256
+      = identity.llama_server_attestation_sha256;
+    identity.runtime_fingerprint_sha256 = sha256(
+      `${JSON.stringify(identity.runtime_fingerprint)}\n`,
+    );
+    Object.assign(receipt.successor, {
+      runtime: structuredClone(identity.runtime),
+      runtime_fingerprint: structuredClone(identity.runtime_fingerprint),
+      runtime_fingerprint_sha256: identity.runtime_fingerprint_sha256,
+      worker_configuration: structuredClone(identity.worker_configuration),
+      worker_configuration_sha256: sha256(canonicalJson(identity.worker_configuration)),
+      document_recovery: structuredClone(identity.document_recovery),
+      document_recovery_sha256: sha256(canonicalJson(identity.document_recovery)),
+    });
+    Object.assign(receipt.allowed_configuration_delta.llama_server_attestation, {
+      successor_sha256: identity.llama_server_attestation_sha256,
+      proc_cmdline_sha256: {
+        ...receipt.allowed_configuration_delta.llama_server_attestation.proc_cmdline_sha256,
+        successor: identity.llama_server_attestation.proc_cmdline_sha256,
+      },
+    });
+    receipt.allowed_configuration_delta.runtime_fingerprint.successor_sha256
+      = identity.runtime_fingerprint_sha256;
+  };
+  const cases = [
+    ['runtime model', (receipt, identity) => {
+      identity.runtime.model_sha256 = hash('b');
+      identity.runtime_fingerprint.model_sha256 = hash('b');
+      identity.llama_server_attestation.model_sha256 = hash('b');
+    }, /forbidden model|runtime controls/],
+    ['systemd unit', (_receipt, identity) => {
+      identity.llama_server_attestation.systemd_unit = 'other.service';
+    }, /unit, host, port, or parallelism/],
+    ['production temp', (_receipt, identity) => {
+      identity.llama_server_attestation.production_command_contract.values['--temp'] = '0.1';
+    }, /forbidden production command value/],
+    ['production flags', (_receipt, identity) => {
+      identity.llama_server_attestation.production_command_contract.flags = ['--metrics'];
+    }, /production command flags/],
+    ['llama URL', (_receipt, identity) => {
+      identity.worker_configuration.llama_url = 'http://127.0.0.1:8113';
+    }, /must retain http:\/\/127\.0\.0\.1:8112|forbidden worker/],
+    ['micro batch', (_receipt, identity) => {
+      identity.worker_configuration.micro_batch = 8;
+    }, /exact concurrency delta/],
+    ['cache tree', (_receipt, identity) => {
+      identity.worker_configuration.paddlex_layout_model_cache_sha256 = hash('c');
+    }, /forbidden worker field|identical cache tree/],
+    ['recovery policy', (_receipt, identity) => {
+      identity.document_recovery.child_monitoring.wall_floor_seconds = 1300;
+    }, /forbidden document recovery field/],
+    ['runtime fingerprint field', (_receipt, identity) => {
+      identity.runtime_fingerprint.extra = true;
+    }, /field set differs/],
+    ['proc command did not change', (_receipt, identity) => {
+      identity.llama_server_attestation.proc_cmdline_sha256
+        = fixture.predecessor.identity.llama_server_attestation.proc_cmdline_sha256;
+    }, /proc cmdline SHA-256 did not change/],
+  ];
+  for (const [name, mutate, pattern] of cases) {
+    const receipt = structuredClone(fixture.receipt);
+    const identity = structuredClone(fixture.identity);
+    mutate(receipt, identity);
+    rebind(receipt, identity);
+    assert.throws(
+      () => validateP4ToP1MonitorDelta(receipt, fixture.predecessor.identity, identity),
+      pattern,
+      name,
+    );
+  }
+  const declaration = structuredClone(fixture.receipt);
+  declaration.allowed_configuration_delta.transition = 'p1_to_p1';
+  assert.throws(
+    () => validateP4ToP1MonitorDelta(
+      declaration,
+      fixture.predecessor.identity,
+      fixture.identity,
+    ),
+    /transition declaration/,
+  );
 });
 
 test('B2 derives live counts and validates exact runner recovery normalization', async (t) => {

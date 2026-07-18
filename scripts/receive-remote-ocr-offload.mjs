@@ -52,6 +52,7 @@ const timeoutRecoveryClaimType = 'curriculum_remote_ocr_timeout_recovery_consump
 const timeoutRecoveryClaimMode = 'atomic_single_claim';
 const maxDocumentAttempts = 5;
 const legacyB1RunnerScriptSha256 = 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55';
+const p4ToP1Transition = 'p4_to_p1_v1';
 const paddleMarkdownAssetPattern = /^img_in_(header_image_box|image_box|footer_image_box|chart_box)_(\d+)_(\d+)_(\d+)_(\d+)\.jpg$/u;
 const paddleAssetLabels = Object.freeze({
   header_image_box: 'header_image',
@@ -111,6 +112,41 @@ function requireSha256(value, label) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function requireExactObjectKeys(left, right, label) {
+  if (!sameJson(Object.keys(left).sort(), Object.keys(right).sort())) {
+    throw new Error(`${label} field set differs`);
+  }
+}
+
+function requireRecomputedIdentityHashes(identity, label) {
+  const attestation = requireObject(identity.llama_server_attestation, `${label} llama-server attestation`);
+  const attestationSha256 = sha256(`${JSON.stringify(attestation)}\n`);
+  if (identity.llama_server_attestation_sha256 !== attestationSha256) {
+    throw new Error(`${label} llama-server attestation SHA-256 is invalid`);
+  }
+  const runtimeFingerprint = requireObject(identity.runtime_fingerprint, `${label} runtime fingerprint`);
+  const runtimeFingerprintSha256 = sha256(`${JSON.stringify(runtimeFingerprint)}\n`);
+  if (identity.runtime_fingerprint_sha256 !== runtimeFingerprintSha256) {
+    throw new Error(`${label} runtime fingerprint SHA-256 is invalid`);
+  }
+  if (runtimeFingerprint.llama_server_attestation_sha256 !== attestationSha256) {
+    throw new Error(`${label} runtime fingerprint is not bound to its llama-server attestation`);
+  }
+  return { attestation, attestationSha256, runtimeFingerprint, runtimeFingerprintSha256 };
+}
+
+function requireCanonicalLoopback8112(value, label) {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${label} must be a valid URL`);
+  }
+  if (parsed.protocol !== 'http:' || parsed.hostname !== '127.0.0.1' || parsed.port !== '8112') {
+    throw new Error(`${label} must retain http://127.0.0.1:8112`);
+  }
 }
 
 function isWithin(parent, candidate) {
@@ -447,6 +483,231 @@ function validateSeedAllowedDelta(receipt) {
   if (!sameJson(receipt.allowed_configuration_delta, expectedDelta)) {
     throw new Error('seed receipt allowed delta declaration is not exact');
   }
+}
+
+export function validateP4ToP1SeedDelta(receipt, predecessorIdentity, successorIdentity) {
+  const delta = requireObject(receipt.allowed_configuration_delta, 'seed receipt allowed configuration delta');
+  if (delta.schema_version !== 2 || delta.transition !== p4ToP1Transition) {
+    throw new Error('seed receipt p4-to-p1 transition declaration is invalid');
+  }
+  requireObject(predecessorIdentity, 'p4 predecessor identity');
+  requireObject(successorIdentity, 'p1 successor identity');
+  const predecessor = requireObject(receipt.predecessor, 'seed receipt predecessor');
+  const successor = requireObject(receipt.successor, 'seed receipt successor');
+  if (predecessorIdentity.runner_script_sha256 !== legacyB1RunnerScriptSha256
+    || predecessor.runner_script_sha256 !== legacyB1RunnerScriptSha256) {
+    throw new Error('p4-to-p1 predecessor is not the exact legacy unseeded runner');
+  }
+  if (!sameJson(predecessor.runtime, predecessorIdentity.runtime)
+    || !sameJson(predecessor.runtime_fingerprint, predecessorIdentity.runtime_fingerprint)
+    || predecessor.runtime_fingerprint_sha256 !== predecessorIdentity.runtime_fingerprint_sha256
+    || !sameJson(predecessor.worker_configuration, predecessorIdentity.worker_configuration)
+    || !sameJson(predecessor.document_recovery, predecessorIdentity.document_recovery)
+    || !sameJson(successor.runtime, successorIdentity.runtime)
+    || !sameJson(successor.runtime_fingerprint, successorIdentity.runtime_fingerprint)
+    || successor.runtime_fingerprint_sha256 !== successorIdentity.runtime_fingerprint_sha256
+    || !sameJson(successor.worker_configuration, successorIdentity.worker_configuration)
+    || !sameJson(successor.document_recovery, successorIdentity.document_recovery)) {
+    throw new Error('p4-to-p1 receipt runtime controls differ from the raw identities');
+  }
+  if (!sameJson(predecessorIdentity.runtime, successorIdentity.runtime)
+    || predecessorIdentity.input_root !== successorIdentity.input_root
+    || predecessorIdentity.python_invocation_path !== successorIdentity.python_invocation_path
+    || predecessorIdentity.python_resolved_target !== successorIdentity.python_resolved_target) {
+    throw new Error('p4-to-p1 changes a forbidden model, DPI, input, or Python identity');
+  }
+
+  const predecessorHashes = requireRecomputedIdentityHashes(predecessorIdentity, 'p4 predecessor');
+  const successorHashes = requireRecomputedIdentityHashes(successorIdentity, 'p1 successor');
+  if (predecessorHashes.attestationSha256 === successorHashes.attestationSha256
+    || predecessorHashes.runtimeFingerprintSha256 === successorHashes.runtimeFingerprintSha256) {
+    throw new Error('p4-to-p1 must change the attestation and runtime fingerprint identities');
+  }
+  requireExactObjectKeys(
+    predecessorHashes.runtimeFingerprint,
+    successorHashes.runtimeFingerprint,
+    'p4-to-p1 runtime fingerprint',
+  );
+  const predecessorRuntime = structuredClone(predecessorHashes.runtimeFingerprint);
+  const successorRuntime = structuredClone(successorHashes.runtimeFingerprint);
+  delete predecessorRuntime.llama_server_attestation_sha256;
+  delete successorRuntime.llama_server_attestation_sha256;
+  if (!sameJson(predecessorRuntime, successorRuntime)) {
+    throw new Error('p4-to-p1 changes a forbidden runtime fingerprint field');
+  }
+
+  const predecessorAttestation = predecessorHashes.attestation;
+  const successorAttestation = successorHashes.attestation;
+  requireExactObjectKeys(predecessorAttestation, successorAttestation, 'p4-to-p1 llama attestation');
+  if (predecessorAttestation.systemd_unit !== 'curriculum-ocr-llama.service'
+    || successorAttestation.systemd_unit !== 'curriculum-ocr-llama.service'
+    || predecessorAttestation.host !== '127.0.0.1'
+    || successorAttestation.host !== '127.0.0.1'
+    || predecessorAttestation.port !== 8112
+    || successorAttestation.port !== 8112
+    || predecessorAttestation.parallel !== 4
+    || successorAttestation.parallel !== 1) {
+    throw new Error('p4-to-p1 llama unit, host, port, or parallelism is invalid');
+  }
+  requireSha256(predecessorAttestation.proc_cmdline_sha256, 'p4 proc cmdline SHA-256');
+  requireSha256(successorAttestation.proc_cmdline_sha256, 'p1 proc cmdline SHA-256');
+  if (predecessorAttestation.proc_cmdline_sha256 === successorAttestation.proc_cmdline_sha256) {
+    throw new Error('p4-to-p1 proc cmdline SHA-256 did not change');
+  }
+  const predecessorProduction = requireObject(
+    predecessorAttestation.production_command_contract,
+    'p4 production command contract',
+  );
+  const successorProduction = requireObject(
+    successorAttestation.production_command_contract,
+    'p1 production command contract',
+  );
+  requireExactObjectKeys(predecessorProduction, successorProduction, 'p4-to-p1 production command contract');
+  const predecessorValues = requireObject(predecessorProduction.values, 'p4 production command values');
+  const successorValues = requireObject(successorProduction.values, 'p1 production command values');
+  const productionValueKeys = [
+    '--batch-size',
+    '--cache-type-k',
+    '--cache-type-v',
+    '--ctx-size',
+    '--fit',
+    '--flash-attn',
+    '--host',
+    '--n-gpu-layers',
+    '--parallel',
+    '--port',
+    '--temp',
+    '--threads',
+    '--threads-batch',
+    '--timeout',
+    '--ubatch-size',
+  ].sort();
+  if (!sameJson(Object.keys(predecessorValues).sort(), productionValueKeys)
+    || !sameJson(Object.keys(successorValues).sort(), productionValueKeys)
+    || predecessorValues['--parallel'] !== '4'
+    || successorValues['--parallel'] !== '1') {
+    throw new Error('p4-to-p1 production command parallel declaration is invalid');
+  }
+  const expectedStableCommandValues = {
+    '--host': '127.0.0.1',
+    '--port': '8112',
+    '--temp': '0',
+    '--ctx-size': '32768',
+    '--n-gpu-layers': 'all',
+    '--flash-attn': 'auto',
+    '--cache-type-k': 'f16',
+    '--cache-type-v': 'f16',
+    '--batch-size': '2048',
+    '--ubatch-size': '512',
+    '--fit': 'off',
+    '--timeout': '3600',
+    '--threads': '8',
+    '--threads-batch': '16',
+  };
+  for (const [name, expected] of Object.entries(expectedStableCommandValues)) {
+    if (predecessorValues[name] !== expected || successorValues[name] !== expected) {
+      throw new Error(`p4-to-p1 changes forbidden production command value ${name}`);
+    }
+  }
+  const expectedFlags = ['--mmproj-offload', '--cont-batching', '--no-webui', '--metrics'];
+  if (!sameJson(predecessorProduction.flags, expectedFlags)
+    || !sameJson(successorProduction.flags, expectedFlags)) {
+    throw new Error('p4-to-p1 changes forbidden production command flags');
+  }
+  const predecessorAttestationStable = structuredClone(predecessorAttestation);
+  const successorAttestationStable = structuredClone(successorAttestation);
+  for (const value of [predecessorAttestationStable, successorAttestationStable]) {
+    delete value.proc_cmdline_sha256;
+    delete value.parallel;
+    delete value.production_command_contract;
+  }
+  if (!sameJson(predecessorAttestationStable, successorAttestationStable)) {
+    throw new Error('p4-to-p1 changes a forbidden llama-server attestation field');
+  }
+
+  const predecessorWorker = requireObject(predecessorIdentity.worker_configuration, 'p4 worker configuration');
+  const successorWorker = requireObject(successorIdentity.worker_configuration, 'p1 worker configuration');
+  const workerKeys = [
+    'llama_url',
+    'vl_rec_max_concurrency',
+    'server_parallel',
+    'micro_batch',
+    'use_queues',
+    'runtime_device',
+    'paddlex_cache_home',
+    'python_runtime',
+    'paddlex_layout_model_cache_sha256',
+  ].sort();
+  if (!sameJson(Object.keys(predecessorWorker).sort(), workerKeys)
+    || !sameJson(Object.keys(successorWorker).sort(), workerKeys)
+    || predecessorWorker.vl_rec_max_concurrency !== 4
+    || successorWorker.vl_rec_max_concurrency !== 1
+    || predecessorWorker.server_parallel !== 4
+    || successorWorker.server_parallel !== 1
+    || predecessorWorker.micro_batch !== 16
+    || successorWorker.micro_batch !== 16
+    || predecessorWorker.use_queues !== true
+    || successorWorker.use_queues !== true) {
+    throw new Error('p4-to-p1 worker configuration is outside the exact concurrency delta');
+  }
+  requireCanonicalLoopback8112(predecessorWorker.llama_url, 'p4 llama URL');
+  requireCanonicalLoopback8112(successorWorker.llama_url, 'p1 llama URL');
+  for (const key of workerKeys.filter((value) => ![
+    'vl_rec_max_concurrency',
+    'server_parallel',
+    'paddlex_cache_home',
+  ].includes(value))) {
+    if (!sameJson(predecessorWorker[key], successorWorker[key])) {
+      throw new Error(`p4-to-p1 changes forbidden worker field ${key}`);
+    }
+  }
+  if (predecessorWorker.paddlex_cache_home !== successorWorker.paddlex_cache_home
+    && predecessorWorker.paddlex_layout_model_cache_sha256
+      !== successorWorker.paddlex_layout_model_cache_sha256) {
+    throw new Error('p4-to-p1 cache path changed without an identical cache tree SHA-256');
+  }
+  const predecessorRecovery = structuredClone(predecessorIdentity.document_recovery);
+  const successorRecovery = structuredClone(successorIdentity.document_recovery);
+  if (predecessorRecovery.child_monitoring?.idle_timeout_seconds !== 300
+    || successorRecovery.child_monitoring?.idle_timeout_seconds !== 1200) {
+    throw new Error('p4-to-p1 child idle timeout is not the exact 300-to-1200 transition');
+  }
+  delete predecessorRecovery.child_monitoring.idle_timeout_seconds;
+  delete successorRecovery.child_monitoring.idle_timeout_seconds;
+  if (!sameJson(predecessorRecovery, successorRecovery)) {
+    throw new Error('p4-to-p1 changes a forbidden document recovery field');
+  }
+
+  const expectedDelta = {
+    schema_version: 2,
+    transition: p4ToP1Transition,
+    vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
+    server_parallel: { predecessor: 4, successor: 1 },
+    paddlex_cache_home: {
+      predecessor: predecessorWorker.paddlex_cache_home,
+      successor: successorWorker.paddlex_cache_home,
+      tree_sha256: successorWorker.paddlex_layout_model_cache_sha256,
+    },
+    child_idle_timeout_seconds: { predecessor: 300, successor: 1200 },
+    llama_server_attestation: {
+      predecessor_sha256: predecessorHashes.attestationSha256,
+      successor_sha256: successorHashes.attestationSha256,
+      proc_cmdline_sha256: {
+        predecessor: predecessorAttestation.proc_cmdline_sha256,
+        successor: successorAttestation.proc_cmdline_sha256,
+      },
+      parallel: { predecessor: 4, successor: 1 },
+      production_command_parallel: { predecessor: '4', successor: '1' },
+    },
+    runtime_fingerprint: {
+      predecessor_sha256: predecessorHashes.runtimeFingerprintSha256,
+      successor_sha256: successorHashes.runtimeFingerprintSha256,
+    },
+  };
+  if (!sameJson(delta, expectedDelta)) {
+    throw new Error('p4-to-p1 allowed configuration delta declaration is not exact');
+  }
+  return p4ToP1Transition;
 }
 
 function seedPredecessorDocument(record) {
@@ -1674,15 +1935,28 @@ async function loadSeedEvidence(shardRoot, identity, identitySha256, shardManife
   );
   const predecessor = requireObject(receipt.predecessor, 'seed receipt predecessor');
   const successor = requireObject(receipt.successor, 'seed receipt successor');
+  const allowedConfigurationDelta = requireObject(
+    receipt.allowed_configuration_delta,
+    'seed receipt allowed configuration delta',
+  );
+  const p4ToP1 = allowedConfigurationDelta.schema_version === 2
+    && allowedConfigurationDelta.transition === p4ToP1Transition;
+  if (allowedConfigurationDelta.schema_version !== 1 && !p4ToP1) {
+    throw new Error('seed receipt allowed configuration delta version or transition is invalid');
+  }
+  const predecessorRuntimeContractValid = p4ToP1
+    ? predecessor.runtime_fingerprint_sha256
+      === sha256(`${JSON.stringify(predecessor.runtime_fingerprint)}\n`)
+    : sameJson(predecessor.runtime_fingerprint, identity.runtime_fingerprint)
+      && predecessor.runtime_fingerprint_sha256
+        === sha256(`${JSON.stringify(predecessor.runtime_fingerprint)}\n`)
+      && predecessor.runtime_fingerprint_sha256 === identity.runtime_fingerprint_sha256;
   if (predecessor.run_identity_sha256 !== lineage.predecessor_run_identity_sha256
     || predecessor.run_status_sha256 !== lineage.predecessor_run_status_sha256
     || predecessor.snapshot_sha256 !== lineage.predecessor_snapshot_sha256
     || predecessor.manifest_sha256 !== manifestSha256
     || !sameJson(predecessor.runtime, shardManifest.runtime)
-    || !sameJson(predecessor.runtime_fingerprint, identity.runtime_fingerprint)
-    || predecessor.runtime_fingerprint_sha256
-      !== sha256(`${JSON.stringify(predecessor.runtime_fingerprint)}\n`)
-    || predecessor.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
+    || !predecessorRuntimeContractValid
     || !sameJson(successor.runtime, identity.runtime)
     || !sameJson(successor.runtime_fingerprint, identity.runtime_fingerprint)
     || successor.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
@@ -1714,7 +1988,7 @@ async function loadSeedEvidence(shardRoot, identity, identitySha256, shardManife
     || successor.document_recovery_sha256 !== sha256(canonicalJson(successor.document_recovery))) {
     throw new Error('seed receipt configuration or recovery fingerprints are invalid');
   }
-  validateSeedAllowedDelta(receipt);
+  if (!p4ToP1) validateSeedAllowedDelta(receipt);
   const expectedIds = shardManifest.documents.map((document) => document.id);
   const receiptIds = receipt.documents.map((document) => document?.document_id);
   if (new Set(receiptIds).size !== receiptIds.length || !sameJson(receiptIds, expectedIds)) {
@@ -1821,6 +2095,9 @@ async function loadSeedEvidence(shardRoot, identity, identitySha256, shardManife
     manifestSha256,
     timeoutRecovery,
   });
+  if (p4ToP1) {
+    validateP4ToP1SeedDelta(receipt, predecessorEvidence.identity, identity);
+  }
   const predecessorSnapshot = {
     manifest_sha256: predecessor.manifest_sha256,
     run_identity_sha256: predecessor.run_identity_sha256,

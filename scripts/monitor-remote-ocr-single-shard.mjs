@@ -33,6 +33,7 @@ const unitPattern = /^[A-Za-z0-9][A-Za-z0-9_.@:-]*\.service$/u;
 const seedMode = 'hash_bound_output_seed';
 const seedReceiptType = 'curriculum_remote_ocr_hash_bound_output_seed';
 const legacyB1RunnerScriptSha256 = 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55';
+const p4ToP1Transition = 'p4_to_p1_v1';
 const maxDocumentAttempts = 5;
 const documentRetryBackoffMilliseconds = Object.freeze([2_000, 10_000, 30_000, 60_000]);
 const allowedStatuses = new Set([
@@ -89,6 +90,37 @@ export function canonicalJson(value) {
 
 function sameJson(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function requireExactObjectKeys(left, right, label) {
+  if (!sameJson(Object.keys(left).sort(), Object.keys(right).sort())) {
+    throw new Error(`${label} field set differs`);
+  }
+}
+
+function requireRecomputedIdentityHashes(identity, label) {
+  const attestation = requireObject(identity.llama_server_attestation, `${label} llama-server attestation`);
+  const attestationSha256 = sha256(`${JSON.stringify(attestation)}\n`);
+  if (identity.llama_server_attestation_sha256 !== attestationSha256) {
+    throw new Error(`${label} llama-server attestation SHA-256 is invalid`);
+  }
+  const runtimeFingerprint = requireObject(identity.runtime_fingerprint, `${label} runtime fingerprint`);
+  const runtimeFingerprintSha256 = sha256(`${JSON.stringify(runtimeFingerprint)}\n`);
+  if (identity.runtime_fingerprint_sha256 !== runtimeFingerprintSha256) {
+    throw new Error(`${label} runtime fingerprint SHA-256 is invalid`);
+  }
+  if (runtimeFingerprint.llama_server_attestation_sha256 !== attestationSha256) {
+    throw new Error(`${label} runtime fingerprint is not bound to its llama-server attestation`);
+  }
+  return { attestation, attestationSha256, runtimeFingerprint, runtimeFingerprintSha256 };
+}
+
+function requireCanonicalLoopback8112(value, label) {
+  let parsed;
+  try { parsed = new URL(value); } catch { throw new Error(`${label} must be a valid URL`); }
+  if (parsed.protocol !== 'http:' || parsed.hostname !== '127.0.0.1' || parsed.port !== '8112') {
+    throw new Error(`${label} must retain http://127.0.0.1:8112`);
+  }
 }
 
 function compareText(left, right) {
@@ -148,6 +180,7 @@ function parsePair(value, label) {
 export function parseSingleShardMonitorArgs(argv) {
   const values = {
     oldWorkerUnits: new Map(),
+    inactiveWorkerUnits: new Map(),
     llamaUnit: 'curriculum-ocr-llama.service',
     llamaHealthUrl: 'http://127.0.0.1:8112/health',
     thresholds: { ...defaultThresholds },
@@ -177,6 +210,12 @@ export function parseSingleShardMonitorArgs(argv) {
     else if (argument === '--old-worker-unit') {
       const [label, unit] = parsePair(next(), '--old-worker-unit');
       values.oldWorkerUnits.set(label, unit);
+    } else if (argument === '--inactive-worker-unit') {
+      const [label, unit] = parsePair(next(), '--inactive-worker-unit');
+      if (values.inactiveWorkerUnits.has(label)) {
+        throw new Error(`duplicate inactive worker label: ${label}`);
+      }
+      values.inactiveWorkerUnits.set(label, unit);
     } else if (argument === '--llama-unit') values.llamaUnit = next();
     else if (argument === '--llama-health-url') values.llamaHealthUrl = next();
     else if (argument === '--stall-seconds') values.thresholds.stall_seconds = requirePositiveInteger(next(), argument);
@@ -221,8 +260,20 @@ export function parseSingleShardMonitorArgs(argv) {
   if ([...values.oldWorkerUnits.keys()].some((label) => !['a', 'b'].includes(label))) {
     throw new Error('only old worker labels a and b are allowed');
   }
-  if (new Set([values.workerUnit, values.llamaUnit, ...values.oldWorkerUnits.values()]).size !== 4) {
-    throw new Error('worker, old-worker, and llama units must be distinct');
+  for (const [label, unit] of values.inactiveWorkerUnits) {
+    if (!/^[a-z0-9][a-z0-9-]{0,31}$/u.test(label) || ['a', 'b'].includes(label)) {
+      throw new Error('inactive worker labels must be safe, unique, and distinct from legacy a/b');
+    }
+    if (!unitPattern.test(String(unit || ''))) throw new Error(`inactive worker ${label} unit is invalid`);
+  }
+  const allUnits = [
+    values.workerUnit,
+    values.llamaUnit,
+    ...values.oldWorkerUnits.values(),
+    ...values.inactiveWorkerUnits.values(),
+  ];
+  if (new Set(allUnits).size !== allUnits.length) {
+    throw new Error('worker, old-worker, inactive-worker, and llama units must be distinct');
   }
   if (!/^http:\/\/127\.0\.0\.1:\d+\/[A-Za-z0-9/_-]*$/u.test(values.llamaHealthUrl)) {
     throw new Error('--llama-health-url must be an explicit 127.0.0.1 HTTP endpoint');
@@ -989,7 +1040,7 @@ function validateNormalizedRecoveryStatus(receiptDocument, progress, status, sta
   return true;
 }
 
-function validateAllowedSeedDelta(receipt, predecessor, identity) {
+function validateLegacyAllowedSeedDelta(receipt, predecessor, identity) {
   if (!sameJson(predecessor.identity.runtime, identity.runtime)
     || !sameJson(predecessor.identity.runtime_fingerprint, identity.runtime_fingerprint)
     || predecessor.identity.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
@@ -1054,6 +1105,239 @@ function validateAllowedSeedDelta(receipt, predecessor, identity) {
   if (!sameJson(receipt.allowed_configuration_delta, expectedDelta)) {
     throw new Error('B2 receipt allowed configuration delta is invalid');
   }
+}
+
+export function validateP4ToP1MonitorDelta(receipt, predecessorIdentity, successorIdentity) {
+  const delta = requireObject(receipt.allowed_configuration_delta, 'seed receipt allowed configuration delta');
+  if (delta.schema_version !== 2 || delta.transition !== p4ToP1Transition) {
+    throw new Error('seed receipt p4-to-p1 transition declaration is invalid');
+  }
+  requireObject(predecessorIdentity, 'p4 predecessor identity');
+  requireObject(successorIdentity, 'p1 successor identity');
+  const predecessor = requireObject(receipt.predecessor, 'seed receipt predecessor');
+  const successor = requireObject(receipt.successor, 'seed receipt successor');
+  if (predecessorIdentity.runner_script_sha256 !== legacyB1RunnerScriptSha256
+    || predecessor.runner_script_sha256 !== legacyB1RunnerScriptSha256) {
+    throw new Error('p4-to-p1 predecessor is not the exact legacy unseeded runner');
+  }
+  if (!sameJson(predecessor.runtime, predecessorIdentity.runtime)
+    || !sameJson(predecessor.runtime_fingerprint, predecessorIdentity.runtime_fingerprint)
+    || predecessor.runtime_fingerprint_sha256 !== predecessorIdentity.runtime_fingerprint_sha256
+    || !sameJson(predecessor.worker_configuration, predecessorIdentity.worker_configuration)
+    || !sameJson(predecessor.document_recovery, predecessorIdentity.document_recovery)
+    || !sameJson(successor.runtime, successorIdentity.runtime)
+    || !sameJson(successor.runtime_fingerprint, successorIdentity.runtime_fingerprint)
+    || successor.runtime_fingerprint_sha256 !== successorIdentity.runtime_fingerprint_sha256
+    || !sameJson(successor.worker_configuration, successorIdentity.worker_configuration)
+    || !sameJson(successor.document_recovery, successorIdentity.document_recovery)) {
+    throw new Error('p4-to-p1 receipt runtime controls differ from the raw identities');
+  }
+  if (!sameJson(predecessorIdentity.runtime, successorIdentity.runtime)
+    || predecessorIdentity.input_root !== successorIdentity.input_root
+    || predecessorIdentity.python_invocation_path !== successorIdentity.python_invocation_path
+    || predecessorIdentity.python_resolved_target !== successorIdentity.python_resolved_target) {
+    throw new Error('p4-to-p1 changes a forbidden model, DPI, input, or Python identity');
+  }
+
+  const predecessorHashes = requireRecomputedIdentityHashes(predecessorIdentity, 'p4 predecessor');
+  const successorHashes = requireRecomputedIdentityHashes(successorIdentity, 'p1 successor');
+  if (predecessorHashes.attestationSha256 === successorHashes.attestationSha256
+    || predecessorHashes.runtimeFingerprintSha256 === successorHashes.runtimeFingerprintSha256) {
+    throw new Error('p4-to-p1 must change the attestation and runtime fingerprint identities');
+  }
+  requireExactObjectKeys(
+    predecessorHashes.runtimeFingerprint,
+    successorHashes.runtimeFingerprint,
+    'p4-to-p1 runtime fingerprint',
+  );
+  const predecessorRuntime = structuredClone(predecessorHashes.runtimeFingerprint);
+  const successorRuntime = structuredClone(successorHashes.runtimeFingerprint);
+  delete predecessorRuntime.llama_server_attestation_sha256;
+  delete successorRuntime.llama_server_attestation_sha256;
+  if (!sameJson(predecessorRuntime, successorRuntime)) {
+    throw new Error('p4-to-p1 changes a forbidden runtime fingerprint field');
+  }
+
+  const predecessorAttestation = predecessorHashes.attestation;
+  const successorAttestation = successorHashes.attestation;
+  requireExactObjectKeys(predecessorAttestation, successorAttestation, 'p4-to-p1 llama attestation');
+  if (predecessorAttestation.systemd_unit !== 'curriculum-ocr-llama.service'
+    || successorAttestation.systemd_unit !== 'curriculum-ocr-llama.service'
+    || predecessorAttestation.host !== '127.0.0.1'
+    || successorAttestation.host !== '127.0.0.1'
+    || predecessorAttestation.port !== 8112
+    || successorAttestation.port !== 8112
+    || predecessorAttestation.parallel !== 4
+    || successorAttestation.parallel !== 1) {
+    throw new Error('p4-to-p1 llama unit, host, port, or parallelism is invalid');
+  }
+  requireSha256(predecessorAttestation.proc_cmdline_sha256, 'p4 proc cmdline SHA-256');
+  requireSha256(successorAttestation.proc_cmdline_sha256, 'p1 proc cmdline SHA-256');
+  if (predecessorAttestation.proc_cmdline_sha256 === successorAttestation.proc_cmdline_sha256) {
+    throw new Error('p4-to-p1 proc cmdline SHA-256 did not change');
+  }
+  const predecessorProduction = requireObject(
+    predecessorAttestation.production_command_contract,
+    'p4 production command contract',
+  );
+  const successorProduction = requireObject(
+    successorAttestation.production_command_contract,
+    'p1 production command contract',
+  );
+  requireExactObjectKeys(predecessorProduction, successorProduction, 'p4-to-p1 production command contract');
+  const predecessorValues = requireObject(predecessorProduction.values, 'p4 production command values');
+  const successorValues = requireObject(successorProduction.values, 'p1 production command values');
+  const productionValueKeys = [
+    '--batch-size',
+    '--cache-type-k',
+    '--cache-type-v',
+    '--ctx-size',
+    '--fit',
+    '--flash-attn',
+    '--host',
+    '--n-gpu-layers',
+    '--parallel',
+    '--port',
+    '--temp',
+    '--threads',
+    '--threads-batch',
+    '--timeout',
+    '--ubatch-size',
+  ].sort();
+  if (!sameJson(Object.keys(predecessorValues).sort(), productionValueKeys)
+    || !sameJson(Object.keys(successorValues).sort(), productionValueKeys)
+    || predecessorValues['--parallel'] !== '4'
+    || successorValues['--parallel'] !== '1') {
+    throw new Error('p4-to-p1 production command parallel declaration is invalid');
+  }
+  const expectedStableCommandValues = {
+    '--host': '127.0.0.1',
+    '--port': '8112',
+    '--temp': '0',
+    '--ctx-size': '32768',
+    '--n-gpu-layers': 'all',
+    '--flash-attn': 'auto',
+    '--cache-type-k': 'f16',
+    '--cache-type-v': 'f16',
+    '--batch-size': '2048',
+    '--ubatch-size': '512',
+    '--fit': 'off',
+    '--timeout': '3600',
+    '--threads': '8',
+    '--threads-batch': '16',
+  };
+  for (const [name, expected] of Object.entries(expectedStableCommandValues)) {
+    if (predecessorValues[name] !== expected || successorValues[name] !== expected) {
+      throw new Error(`p4-to-p1 changes forbidden production command value ${name}`);
+    }
+  }
+  const expectedFlags = ['--mmproj-offload', '--cont-batching', '--no-webui', '--metrics'];
+  if (!sameJson(predecessorProduction.flags, expectedFlags)
+    || !sameJson(successorProduction.flags, expectedFlags)) {
+    throw new Error('p4-to-p1 changes forbidden production command flags');
+  }
+  const predecessorAttestationStable = structuredClone(predecessorAttestation);
+  const successorAttestationStable = structuredClone(successorAttestation);
+  for (const value of [predecessorAttestationStable, successorAttestationStable]) {
+    delete value.proc_cmdline_sha256;
+    delete value.parallel;
+    delete value.production_command_contract;
+  }
+  if (!sameJson(predecessorAttestationStable, successorAttestationStable)) {
+    throw new Error('p4-to-p1 changes a forbidden llama-server attestation field');
+  }
+
+  const predecessorWorker = requireObject(predecessorIdentity.worker_configuration, 'p4 worker configuration');
+  const successorWorker = requireObject(successorIdentity.worker_configuration, 'p1 worker configuration');
+  const workerKeys = [
+    'llama_url',
+    'vl_rec_max_concurrency',
+    'server_parallel',
+    'micro_batch',
+    'use_queues',
+    'runtime_device',
+    'paddlex_cache_home',
+    'python_runtime',
+    'paddlex_layout_model_cache_sha256',
+  ].sort();
+  if (!sameJson(Object.keys(predecessorWorker).sort(), workerKeys)
+    || !sameJson(Object.keys(successorWorker).sort(), workerKeys)
+    || predecessorWorker.vl_rec_max_concurrency !== 4
+    || successorWorker.vl_rec_max_concurrency !== 1
+    || predecessorWorker.server_parallel !== 4
+    || successorWorker.server_parallel !== 1
+    || predecessorWorker.micro_batch !== 16
+    || successorWorker.micro_batch !== 16
+    || predecessorWorker.use_queues !== true
+    || successorWorker.use_queues !== true) {
+    throw new Error('p4-to-p1 worker configuration is outside the exact concurrency delta');
+  }
+  requireCanonicalLoopback8112(predecessorWorker.llama_url, 'p4 llama URL');
+  requireCanonicalLoopback8112(successorWorker.llama_url, 'p1 llama URL');
+  for (const key of workerKeys.filter((value) => ![
+    'vl_rec_max_concurrency',
+    'server_parallel',
+    'paddlex_cache_home',
+  ].includes(value))) {
+    if (!sameJson(predecessorWorker[key], successorWorker[key])) {
+      throw new Error(`p4-to-p1 changes forbidden worker field ${key}`);
+    }
+  }
+  if (predecessorWorker.paddlex_cache_home !== successorWorker.paddlex_cache_home
+    && predecessorWorker.paddlex_layout_model_cache_sha256
+      !== successorWorker.paddlex_layout_model_cache_sha256) {
+    throw new Error('p4-to-p1 cache path changed without an identical cache tree SHA-256');
+  }
+  const predecessorRecovery = structuredClone(predecessorIdentity.document_recovery);
+  const successorRecovery = structuredClone(successorIdentity.document_recovery);
+  if (predecessorRecovery.child_monitoring?.idle_timeout_seconds !== 300
+    || successorRecovery.child_monitoring?.idle_timeout_seconds !== 1200) {
+    throw new Error('p4-to-p1 child idle timeout is not the exact 300-to-1200 transition');
+  }
+  delete predecessorRecovery.child_monitoring.idle_timeout_seconds;
+  delete successorRecovery.child_monitoring.idle_timeout_seconds;
+  if (!sameJson(predecessorRecovery, successorRecovery)) {
+    throw new Error('p4-to-p1 changes a forbidden document recovery field');
+  }
+
+  const expectedDelta = {
+    schema_version: 2,
+    transition: p4ToP1Transition,
+    vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
+    server_parallel: { predecessor: 4, successor: 1 },
+    paddlex_cache_home: {
+      predecessor: predecessorWorker.paddlex_cache_home,
+      successor: successorWorker.paddlex_cache_home,
+      tree_sha256: successorWorker.paddlex_layout_model_cache_sha256,
+    },
+    child_idle_timeout_seconds: { predecessor: 300, successor: 1200 },
+    llama_server_attestation: {
+      predecessor_sha256: predecessorHashes.attestationSha256,
+      successor_sha256: successorHashes.attestationSha256,
+      proc_cmdline_sha256: {
+        predecessor: predecessorAttestation.proc_cmdline_sha256,
+        successor: successorAttestation.proc_cmdline_sha256,
+      },
+      parallel: { predecessor: 4, successor: 1 },
+      production_command_parallel: { predecessor: '4', successor: '1' },
+    },
+    runtime_fingerprint: {
+      predecessor_sha256: predecessorHashes.runtimeFingerprintSha256,
+      successor_sha256: successorHashes.runtimeFingerprintSha256,
+    },
+  };
+  if (!sameJson(delta, expectedDelta)) {
+    throw new Error('p4-to-p1 allowed configuration delta declaration is not exact');
+  }
+  return p4ToP1Transition;
+}
+
+function validateAllowedSeedDelta(receipt, predecessor, identity) {
+  if (receipt.allowed_configuration_delta?.schema_version === 1) {
+    validateLegacyAllowedSeedDelta(receipt, predecessor, identity);
+    return null;
+  }
+  return validateP4ToP1MonitorDelta(receipt, predecessor.identity, identity);
 }
 
 function markerItemsByName(marker) {
@@ -1197,7 +1481,7 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
   if (!sameJson(paddlexLayoutModelCache, predecessor.paddlex_layout_model_cache)) {
     throw new Error('B2 PaddleX cache fingerprint differs from B1');
   }
-  validateAllowedSeedDelta(receipt, predecessor, identity);
+  const configurationTransition = validateAllowedSeedDelta(receipt, predecessor, identity);
   const markerItems = markerItemsByName(marker);
   if (marker.seed_id !== seedId
     || marker.seed_receipt_sha256 !== receiptRecord.sha256
@@ -1426,6 +1710,7 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
     && runStatus.settled === true;
   return {
     read_ok: true,
+    ...(configurationTransition ? { configuration_transition: configurationTransition } : {}),
     seed_id_sha256: sha256(seedId),
     receipt_sha256: receiptRecord.sha256,
     marker_sha256: markerRecord.sha256,
@@ -1566,7 +1851,8 @@ export async function collectSingleShardMonitorSnapshot(config, dependencies = {
     () => inspectPredecessorB1(predecessorRoot),
     null,
   );
-  const [successor, worker, oldWorkerA, oldWorkerB, llamaSystemd, llamaHealth, resourceResult] = await Promise.all([
+  const inactiveWorkerEntries = [...(config.inactiveWorkerUnits || new Map())];
+  const [successor, worker, oldWorkerA, oldWorkerB, inactiveWorkers, llamaSystemd, llamaHealth, resourceResult] = await Promise.all([
     predecessor
       ? capture(
           'B2_READ_FAILED',
@@ -1577,6 +1863,15 @@ export async function collectSingleShardMonitorSnapshot(config, dependencies = {
     capture('B2_WORKER_PROBE_FAILED', () => probeSystemd(config.workerUnit, runExecFile), null),
     capture('OLD_WORKER_A_PROBE_FAILED', () => probeSystemd(config.oldWorkerUnits.get('a'), runExecFile), null),
     capture('OLD_WORKER_B_PROBE_FAILED', () => probeSystemd(config.oldWorkerUnits.get('b'), runExecFile), null),
+    Promise.all(inactiveWorkerEntries.map(async ([label, unit]) => {
+      const codeLabel = label.toUpperCase().replaceAll('-', '_');
+      const value = await capture(
+        `INACTIVE_WORKER_${codeLabel}_PROBE_FAILED`,
+        () => probeSystemd(unit, runExecFile),
+        null,
+      );
+      return [label, value];
+    })).then(Object.fromEntries),
     capture('LLAMA_SYSTEMD_PROBE_FAILED', () => probeSystemd(config.llamaUnit, runExecFile), null),
     probeLlamaHealth(config.llamaHealthUrl, runFetch),
     collectSingleShardResources(canonicalRunRoot, {
@@ -1591,7 +1886,9 @@ export async function collectSingleShardMonitorSnapshot(config, dependencies = {
     : false;
   return {
     schema_version: 1,
-    monitor_type: 'curriculum_remote_ocr_single_shard_b2',
+    monitor_type: successor.configuration_transition === p4ToP1Transition
+      ? 'curriculum_remote_ocr_single_shard_p1'
+      : 'curriculum_remote_ocr_single_shard_b2',
     run_id: path.basename(canonicalRunRoot),
     observed_at: iso(nowMilliseconds),
     thresholds: { ...config.thresholds },
@@ -1609,6 +1906,7 @@ export async function collectSingleShardMonitorSnapshot(config, dependencies = {
     services: {
       worker,
       old_workers: { a: oldWorkerA, b: oldWorkerB },
+      ...(inactiveWorkerEntries.length > 0 ? { inactive_workers: inactiveWorkers } : {}),
       llama: { systemd: llamaSystemd, health: llamaHealth },
     },
     resources: resourceResult.resources,
@@ -1657,7 +1955,21 @@ export function classifySingleShardSnapshot(snapshot) {
   for (const label of ['a', 'b']) {
     if (serviceActive(snapshot.services?.old_workers?.[label])) issues.push(issue(`OLD_WORKER_${label.toUpperCase()}_ACTIVE`));
   }
+  for (const [label, inactiveWorker] of Object.entries(snapshot.services?.inactive_workers || {})) {
+    if (serviceActive(inactiveWorker)) {
+      issues.push(issue(`INACTIVE_WORKER_${label.toUpperCase().replaceAll('-', '_')}_ACTIVE`));
+    }
+  }
   if (worker?.n_restarts > 0) issues.push(issue('B2_WORKER_RESTARTED'));
+  if (successor.read_ok
+    && successor.complete
+    && successor.configuration_transition === p4ToP1Transition) {
+    if (serviceActive(worker)) issues.push(issue('B2_WORKER_ACTIVE_AFTER_P1_COMPLETION'));
+    if (serviceActive(snapshot.services?.llama?.systemd)
+      || snapshot.services?.llama?.health?.healthy) {
+      issues.push(issue('LLAMA_ACTIVE_AFTER_P1_COMPLETION'));
+    }
+  }
   if (successor.read_ok && !successor.complete) {
     if (!workerStrictlyRunning) issues.push(issue('B2_WORKER_NOT_ACTIVE'));
     if (worker?.exec_main_status !== 0) issues.push(issue('B2_WORKER_EXIT_STATUS'));
@@ -1707,6 +2019,9 @@ export function privacySafeSingleShardEvent(snapshot, health) {
     },
     successor: {
       read_ok: snapshot.successor?.read_ok ?? false,
+      ...(snapshot.successor?.configuration_transition
+        ? { configuration_transition: snapshot.successor.configuration_transition }
+        : {}),
       complete: snapshot.successor?.complete ?? false,
       documents: snapshot.successor?.documents ?? null,
       expected_pages: snapshot.successor?.expected_pages ?? null,
@@ -1722,6 +2037,13 @@ export function privacySafeSingleShardEvent(snapshot, health) {
         a: safeService(snapshot.services?.old_workers?.a),
         b: safeService(snapshot.services?.old_workers?.b),
       },
+      ...(snapshot.services?.inactive_workers ? {
+        inactive_workers: Object.fromEntries(
+          Object.entries(snapshot.services.inactive_workers).map(
+            ([label, value]) => [label, safeService(value)],
+          ),
+        ),
+      } : {}),
       llama: {
         ...safeService(snapshot.services?.llama?.systemd),
         healthy: snapshot.services?.llama?.health?.healthy ?? false,
@@ -1794,6 +2116,7 @@ function usage() {
     'Options:',
     '  --llama-unit UNIT.service       Default: curriculum-ocr-llama.service',
     '  --llama-health-url URL          Default: http://127.0.0.1:8112/health',
+    '  --inactive-worker-unit LABEL=UNIT.service  Additional unit that must remain inactive',
     '  --stall-seconds N               Default: 1500',
     '  --disk-min-gib N                Default: 50',
     '  --memory-min-gib N              Default: 2',

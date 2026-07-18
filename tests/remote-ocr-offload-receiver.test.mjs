@@ -16,6 +16,7 @@ import test from 'node:test';
 import {
   parseReceiverArguments,
   receiveRemoteOcrOffload,
+  validateP4ToP1SeedDelta,
 } from '../scripts/receive-remote-ocr-offload.mjs';
 import {
   canonicalJson,
@@ -52,14 +53,54 @@ const layoutCache = Object.freeze({
   total_bytes: 100,
   tree_sha256: 'd'.repeat(64),
 });
-const attestation = Object.freeze({
-  schema_version: 1,
-  systemd_unit: 'curriculum-ocr-llama.service',
-  active_state: 'active',
-  sub_state: 'running',
-  binary_path: '/fixture/llama-server',
-});
+function llamaAttestation(parallel, procCharacter) {
+  return {
+    schema_version: 1,
+    systemd_unit: 'curriculum-ocr-llama.service',
+    active_state: 'active',
+    sub_state: 'running',
+    binary_path: '/fixture/llama-server',
+    binary_sha256: '1'.repeat(64),
+    version_sha256: '2'.repeat(64),
+    llama_commit_prefix: runtime.llama_commit.slice(0, 8),
+    proc_cmdline_sha256: procCharacter.repeat(64),
+    model_path: '/fixture/model.gguf',
+    model_sha256: runtime.model_sha256,
+    mmproj_path: '/fixture/mmproj.gguf',
+    mmproj_sha256: runtime.mmproj_sha256,
+    host: '127.0.0.1',
+    port: 8112,
+    parallel,
+    production_command_contract: {
+      values: {
+        '--host': '127.0.0.1',
+        '--port': '8112',
+        '--parallel': String(parallel),
+        '--temp': '0',
+        '--ctx-size': '32768',
+        '--n-gpu-layers': 'all',
+        '--flash-attn': 'auto',
+        '--cache-type-k': 'f16',
+        '--cache-type-v': 'f16',
+        '--batch-size': '2048',
+        '--ubatch-size': '512',
+        '--fit': 'off',
+        '--timeout': '3600',
+        '--threads': '8',
+        '--threads-batch': '16',
+      },
+      flags: ['--mmproj-offload', '--cont-batching', '--no-webui', '--metrics'],
+    },
+    health_url: 'http://127.0.0.1:8112/health',
+    health_status_code: 200,
+    health_status: 'ok',
+    health_body_sha256: '3'.repeat(64),
+  };
+}
+const attestation = Object.freeze(llamaAttestation(4, '4'));
 const attestationSha256 = sha256(`${JSON.stringify(attestation)}\n`);
+const p1Attestation = Object.freeze(llamaAttestation(1, '5'));
+const p1AttestationSha256 = sha256(`${JSON.stringify(p1Attestation)}\n`);
 const runtimeDevice = 'cpu+NVIDIA RTX 3060 Laptop GPU CUDA llama.cpp';
 const runtimeFingerprint = Object.freeze({
   ...runtime,
@@ -69,6 +110,11 @@ const runtimeFingerprint = Object.freeze({
   paddlex_layout_model_cache: layoutCache,
 });
 const runtimeFingerprintSha256 = sha256(`${JSON.stringify(runtimeFingerprint)}\n`);
+const p1RuntimeFingerprint = Object.freeze({
+  ...runtimeFingerprint,
+  llama_server_attestation_sha256: p1AttestationSha256,
+});
+const p1RuntimeFingerprintSha256 = sha256(`${JSON.stringify(p1RuntimeFingerprint)}\n`);
 const workerConfiguration = Object.freeze({
   llama_url: 'http://127.0.0.1:8112/v1',
   vl_rec_max_concurrency: 4,
@@ -613,7 +659,11 @@ async function createShard({
   };
 }
 
-async function convertShardToHashBoundSeed(shard, { tamper = null, timeoutRecovery = null } = {}) {
+async function convertShardToHashBoundSeed(shard, {
+  tamper = null,
+  timeoutRecovery = null,
+  transition = null,
+} = {}) {
   const identityPath = path.join(shard.shardRoot, 'run-identity.json');
   const runStatusPath = path.join(shard.shardRoot, 'run-status.json');
   const identityRaw = await readFile(identityPath);
@@ -624,9 +674,18 @@ async function convertShardToHashBoundSeed(shard, { tamper = null, timeoutRecove
   const successorRunnerScriptSha256 = 'e'.repeat(64);
   const shardManifestRaw = await readFile(shard.manifestPath);
   const shardManifest = JSON.parse(shardManifestRaw);
+  const p4ToP1 = transition === 'p4_to_p1_v1';
+  assert.ok(transition === null || p4ToP1, 'fixture transition must be null or p4_to_p1_v1');
+  const successorAttestation = p4ToP1 ? p1Attestation : attestation;
+  const successorAttestationSha256 = p4ToP1 ? p1AttestationSha256 : attestationSha256;
+  const successorRuntimeFingerprint = p4ToP1 ? p1RuntimeFingerprint : runtimeFingerprint;
+  const successorRuntimeFingerprintSha256 = p4ToP1
+    ? p1RuntimeFingerprintSha256
+    : runtimeFingerprintSha256;
   const successorWorker = {
     ...workerConfiguration,
     vl_rec_max_concurrency: 1,
+    server_parallel: p4ToP1 ? 1 : 4,
     paddlex_cache_home: '/fixture/paddlex-cache-r2',
   };
   const successorRecovery = {
@@ -965,8 +1024,8 @@ async function convertShardToHashBoundSeed(shard, { tamper = null, timeoutRecove
   };
   const successorContract = {
     runtime,
-    runtime_fingerprint: runtimeFingerprint,
-    runtime_fingerprint_sha256: runtimeFingerprintSha256,
+    runtime_fingerprint: successorRuntimeFingerprint,
+    runtime_fingerprint_sha256: successorRuntimeFingerprintSha256,
     worker_configuration: successorWorker,
     worker_configuration_sha256: sha256(canonicalJson(successorWorker)),
     document_recovery: successorRecovery,
@@ -975,7 +1034,32 @@ async function convertShardToHashBoundSeed(shard, { tamper = null, timeoutRecove
     ocr_script_sha256: predecessorIdentity.ocr_script_sha256,
     citation_allowed: false,
   };
-  const allowedConfigurationDelta = {
+  const allowedConfigurationDelta = p4ToP1 ? {
+    schema_version: 2,
+    transition: 'p4_to_p1_v1',
+    vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
+    server_parallel: { predecessor: 4, successor: 1 },
+    paddlex_cache_home: {
+      predecessor: workerConfiguration.paddlex_cache_home,
+      successor: successorWorker.paddlex_cache_home,
+      tree_sha256: layoutCache.tree_sha256,
+    },
+    child_idle_timeout_seconds: { predecessor: 300, successor: 1200 },
+    llama_server_attestation: {
+      predecessor_sha256: attestationSha256,
+      successor_sha256: successorAttestationSha256,
+      proc_cmdline_sha256: {
+        predecessor: attestation.proc_cmdline_sha256,
+        successor: successorAttestation.proc_cmdline_sha256,
+      },
+      parallel: { predecessor: 4, successor: 1 },
+      production_command_parallel: { predecessor: '4', successor: '1' },
+    },
+    runtime_fingerprint: {
+      predecessor_sha256: runtimeFingerprintSha256,
+      successor_sha256: successorRuntimeFingerprintSha256,
+    },
+  } : {
     schema_version: 1,
     vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
     paddlex_cache_home: {
@@ -1069,6 +1153,7 @@ async function convertShardToHashBoundSeed(shard, { tamper = null, timeoutRecove
     state.configuration = {
       ...state.configuration,
       vl_rec_max_concurrency: 1,
+      server_parallel: p4ToP1 ? 1 : 4,
     };
     state.configuration_scope = 'active_writer_with_hash_bound_seed_exceptions';
     state.seed_lineage = {
@@ -1121,7 +1206,7 @@ async function convertShardToHashBoundSeed(shard, { tamper = null, timeoutRecove
           attempt: 5,
           max_attempts: 6,
           page_count: document.page_count,
-          runtime_fingerprint_sha256: runtimeFingerprintSha256,
+          runtime_fingerprint_sha256: successorRuntimeFingerprintSha256,
           citation_allowed: false,
           error: status.error,
           failed_at: status.quarantined_at,
@@ -1131,7 +1216,7 @@ async function convertShardToHashBoundSeed(shard, { tamper = null, timeoutRecove
         }
       : {
           ...status,
-          runtime_fingerprint_sha256: runtimeFingerprintSha256,
+          runtime_fingerprint_sha256: successorRuntimeFingerprintSha256,
           seed_lineage: statusSeedLineage,
           artifacts: {
             state_sha256: successorStateWritten.sha256,
@@ -1154,6 +1239,7 @@ async function convertShardToHashBoundSeed(shard, { tamper = null, timeoutRecove
   }
 
   const successorRunStatus = structuredClone(predecessorRunStatus);
+  successorRunStatus.runtime_fingerprint_sha256 = successorRuntimeFingerprintSha256;
   successorRunStatus.document_recovery = successorRecovery;
   successorRunStatus.seed_lineage = {
     schema_version: 1,
@@ -1241,6 +1327,10 @@ async function convertShardToHashBoundSeed(shard, { tamper = null, timeoutRecove
   const successorIdentity = {
     ...predecessorIdentity,
     runner_script_sha256: successorRunnerScriptSha256,
+    runtime_fingerprint: successorRuntimeFingerprint,
+    runtime_fingerprint_sha256: successorRuntimeFingerprintSha256,
+    llama_server_attestation: successorAttestation,
+    llama_server_attestation_sha256: successorAttestationSha256,
     worker_configuration: successorWorker,
     document_recovery: successorRecovery,
     seed_lineage: {
@@ -1715,6 +1805,63 @@ test('dry-run validates the exact shard union without writing destination or rec
 });
 
 test('receiver independently verifies seeded lineage, attempt floors, and archives exact receipt evidence', async (t) => {
+  await t.test('exact p4-to-p1 shards pass only as one p1/p1 union', async (t) => {
+    const value = await fixture(t);
+    await convertShardToHashBoundSeed(value.shardA, { transition: 'p4_to_p1_v1' });
+    await convertShardToHashBoundSeed(value.shardB, { transition: 'p4_to_p1_v1' });
+    const result = await receiveRemoteOcrOffload(value.options, value.dependencies);
+    assert.equal(result.status, 'dry_run_validated');
+    assert.deepEqual(
+      [...new Set(result.source_shards.map((shard) => shard.runtime_fingerprint_sha256))],
+      [p1RuntimeFingerprintSha256],
+    );
+  });
+
+  await t.test('a mixed p4/p1 shard union is rejected', async (t) => {
+    const value = await fixture(t);
+    await convertShardToHashBoundSeed(value.shardA, { transition: 'p4_to_p1_v1' });
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /runtime fingerprints differ/,
+    );
+  });
+
+  await t.test('receiver p4-to-p1 validator rejects forbidden and declaration deltas', async (t) => {
+    const value = await fixture(t);
+    const seed = await convertShardToHashBoundSeed(
+      value.shardA,
+      { transition: 'p4_to_p1_v1' },
+    );
+    const [receipt, predecessorIdentity, successorIdentity] = await Promise.all([
+      readFile(seed.receiptPath, 'utf8').then(JSON.parse),
+      readFile(path.join(seed.predecessorEvidenceRoot, 'run-identity.json'), 'utf8').then(JSON.parse),
+      readFile(path.join(value.shardA.shardRoot, 'run-identity.json'), 'utf8').then(JSON.parse),
+    ]);
+    assert.equal(
+      validateP4ToP1SeedDelta(receipt, predecessorIdentity, successorIdentity),
+      'p4_to_p1_v1',
+    );
+
+    const forbidden = structuredClone(successorIdentity);
+    forbidden.worker_configuration.micro_batch = 8;
+    const forbiddenReceipt = structuredClone(receipt);
+    forbiddenReceipt.successor.worker_configuration = forbidden.worker_configuration;
+    forbiddenReceipt.successor.worker_configuration_sha256 = sha256(
+      canonicalJson(forbidden.worker_configuration),
+    );
+    assert.throws(
+      () => validateP4ToP1SeedDelta(forbiddenReceipt, predecessorIdentity, forbidden),
+      /exact concurrency delta/,
+    );
+
+    const declaration = structuredClone(receipt);
+    declaration.allowed_configuration_delta.server_parallel.successor = 4;
+    assert.throws(
+      () => validateP4ToP1SeedDelta(declaration, predecessorIdentity, successorIdentity),
+      /allowed configuration delta declaration is not exact/,
+    );
+  });
+
   await t.test('valid seeded shard is fingerprinted and archived on apply', async (t) => {
     const value = await fixture(t);
     const seed = await convertShardToHashBoundSeed(value.shardA);
