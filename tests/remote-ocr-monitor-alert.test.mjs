@@ -435,7 +435,7 @@ test('one healthy exit 10 closes sent incidents and opens a new recovery epoch',
   assert.deepEqual(sent[0].issue_codes, sent[1].issue_codes);
 });
 
-test('a failed delivery persists one immutable envelope and retries it before a newer healthy runtime', async () => {
+test('a failed delivery retries first and still persists and sends the newer failure', async () => {
   const fx = await fixture();
   const armedAt = await arm(fx);
   const failedAt = armedAt + 60_000;
@@ -457,28 +457,28 @@ test('a failed delivery persists one immutable envelope and retries it before a 
   assert.equal(pendingState.records[0].status, 'pending');
   const pendingEnvelope = structuredClone(pendingState.records[0].envelope);
   const retryAt = failedAt + 1_000;
-  await writeLatest(fx, retryAt, 10);
+  await writeLatest(fx, retryAt, 12, ['GPU_OVER_TEMPERATURE']);
   const sent = [];
-  const newerHealthyRuntime = new Proxy(
-    runtime(retryAt, 10, '44444444444444444444444444444444'),
-    { get() { throw new Error('newer healthy runtime must not be consulted before pending retry'); } },
-  );
   const retry = await invokeWithRuntime(
     fx,
     'alert',
     retryAt,
-    newerHealthyRuntime,
+    runtime(retryAt, 12, '44444444444444444444444444444444'),
     async (payload) => sent.push(payload),
   );
-  assert.equal(retry.state, 'sent_pending_retry');
-  assert.equal(sent.length, 1);
+  assert.equal(retry.state, 'sent');
+  assert.equal(retry.retried_pending, true);
+  assert.equal(sent.length, 2);
   assert.deepEqual(sent[0], pendingEnvelope);
   assert.equal(sent[0].timestamp, new Date(failedAt).toISOString());
   assert.deepEqual(sent[0].issue_codes, ['B2_NO_PROGRESS']);
+  assert.deepEqual(sent[1].issue_codes, ['GPU_OVER_TEMPERATURE']);
   const deliveryState = JSON.parse(await readFile(path.join(fx.stateDir, 'delivery-state.json'), 'utf8'));
   assert.equal(deliveryState.records[0].attempts, 2);
   assert.equal(deliveryState.records[0].status, 'sent');
   assert.deepEqual(deliveryState.records[0].envelope, pendingEnvelope);
+  assert.equal(deliveryState.records[1].status, 'sent');
+  assert.deepEqual(deliveryState.records[1].issue_codes, ['GPU_OVER_TEMPERATURE']);
 });
 
 test('a tampered pending envelope fails closed before any sender or newer runtime is consulted', async () => {
@@ -621,8 +621,9 @@ test('Telegram text exposes the stable issue fingerprint for at-least-once dedup
 
 test('B-r3 systemd templates preserve exit 10, stay reusable, and never auto-stop OCR', async () => {
   const repo = path.resolve(import.meta.dirname, '..');
-  const [handler, dropIn, configTemplate, documentation] = await Promise.all([
+  const [handler, retryTimer, dropIn, configTemplate, documentation] = await Promise.all([
     readFile(path.join(repo, 'ops/systemd/curriculum-ocr-monitor-alert@.service'), 'utf8'),
+    readFile(path.join(repo, 'ops/systemd/curriculum-ocr-monitor-alert-retry@.timer'), 'utf8'),
     readFile(path.join(repo, 'ops/systemd/curriculum-ocr-reprocess-b-r3-monitor.service.d/alert-only.conf'), 'utf8'),
     readFile(path.join(repo, 'ops/systemd/curriculum-ocr-monitor-alert.conf.example'), 'utf8'),
     readFile(path.join(repo, 'docs/ocr-monitor-alerting.md'), 'utf8'),
@@ -639,6 +640,10 @@ test('B-r3 systemd templates preserve exit 10, stay reusable, and never auto-sto
   assert.match(`${handler}\n${dropIn}`, /\.state\.lock/u);
   assert.match(handler, /\.config\/bdfz\/curriculum-ocr-monitor-telegram\.env/u);
   assert.match(handler, /^Restart=on-failure$/mu);
+  assert.match(retryTimer, /^OnBootSec=2min$/mu);
+  assert.match(retryTimer, /^OnUnitInactiveSec=2min$/mu);
+  assert.match(retryTimer, /^Unit=curriculum-ocr-monitor-alert@%i\.service$/mu);
+  assert.match(retryTimer, /^WantedBy=timers\.target$/mu);
   assert.doesNotMatch(`${handler}\n${dropIn}`, /\.secrets\.env|systemctl\s+(?:--user\s+)?(?:stop|restart)|ExecStop/u);
   assert.match(`${handler}\n${dropIn}`, /\.local\/state\/bdfz-curriculum-ocr-monitor-alert/u);
   assert.match(`${handler}\n${dropIn}`, /EnvironmentFile=%h\/\.config\/bdfz\/curriculum-ocr-monitor-alert\.conf/u);
@@ -657,5 +662,5 @@ test('B-r3 systemd templates preserve exit 10, stay reusable, and never auto-sto
   assert.match(documentation, /state schema version 2/iu);
   assert.match(documentation, /at-least-once/iu);
   assert.match(documentation, /stable 64-hex issue fingerprint/iu);
-  assert.doesNotMatch(`${handler}\n${dropIn}\n${configTemplate}`, /b-r2|B-r2/u);
+  assert.doesNotMatch(`${handler}\n${retryTimer}\n${dropIn}\n${configTemplate}`, /b-r2|B-r2/u);
 });

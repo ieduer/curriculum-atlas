@@ -29,8 +29,15 @@ exits or crashes, so a stale directory cannot permanently suppress alerting.
 
 Before a sender is called, the notifier persists an immutable, privacy-safe
 failure envelope and its SHA-256. A pending envelope is retried before newer
-monitor runtime evidence is evaluated, including when the latest invocation is
-already healthy.
+monitor runtime evidence is evaluated. After a successful retry, the same
+handler still evaluates and persists the current invocation so a newer failure
+cannot disappear behind the older delivery.
+
+The enabled `curriculum-ocr-monitor-alert-retry@.timer` starts the handler every
+two minutes as an independent liveness path. This guarantees that a pending
+envelope is revisited after a long provider outage, after the service restart
+rate limit has been reached, and after a user-manager restart, even if later OCR
+monitor invocations are healthy.
 
 Telegram delivery is **at-least-once**. If Telegram accepts a message but the
 local sent checkpoint cannot be committed, retry can produce a duplicate.
@@ -51,8 +58,9 @@ This contract uses state schema version 2 and must be installed before the first
 production alert deployment. Do not reuse schema-v1 alert state. Populate the
 non-secret configuration from
 `ops/systemd/curriculum-ocr-monitor-alert.conf.example`, provision the dedicated
-owner-only credential file separately, verify both units with
-`systemd-analyze --user verify`, then arm only after two healthy exit-10 cycles.
+owner-only credential file separately, verify the service, retry timer, monitor,
+and drop-in with `systemd-analyze --user verify`, enable the retry timer for the
+exact monitor-unit instance, then arm only after two healthy exit-10 cycles.
 
-Rollback disables and removes only the alert handler and B-r3 monitor drop-in;
-OCR output and worker state remain untouched.
+Rollback disables and removes only the retry timer, alert handler, and B-r3
+monitor drop-in; OCR output and worker state remain untouched.

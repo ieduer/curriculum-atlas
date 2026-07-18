@@ -818,15 +818,18 @@ export async function runOcrMonitorAlert(config, dependencies = {}) {
         ? createCommandSender(config.sendCommand)
         : (payload) => sendTelegram(config, payload, dependencies.fetch || fetch)))
     : null;
+  let retriedPending = null;
   if (sendAlert) {
-    const retried = await retryPendingDelivery(
+    retriedPending = await retryPendingDelivery(
       config,
       nowMilliseconds,
       stateDir,
       sendAlert,
     );
-    if (retried) return retried;
   }
+  const finish = (result) => retriedPending
+    ? { ...result, sent: true, retried_pending: true }
+    : result;
   const runtime = dependencies.runtime || await defaultRuntimeEvidence(config);
   runtime.monitor.invocation_id = normalizeInvocationId(runtime.monitor.invocation_id, 'monitor InvocationID');
   if (!Number.isSafeInteger(runtime.monitor.exit_code) || runtime.monitor.exit_code < 0) {
@@ -860,10 +863,17 @@ export async function runOcrMonitorAlert(config, dependencies = {}) {
         'suppressed_disarmed',
         issueCodes,
       );
-      return { state: 'suppressed_disarmed', sent: false, issue_codes: issueCodes };
+      return finish({ state: 'suppressed_disarmed', sent: false, issue_codes: issueCodes });
     }
   }
-  return alertFailedMonitor(config, runtime, binding, nowMilliseconds, stateDir, sendAlert);
+  return finish(await alertFailedMonitor(
+    config,
+    runtime,
+    binding,
+    nowMilliseconds,
+    stateDir,
+    sendAlert,
+  ));
 }
 
 export function parseAlertArgs(argv) {

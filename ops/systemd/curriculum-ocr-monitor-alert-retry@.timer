@@ -1,0 +1,12 @@
+[Unit]
+Description=Retry pending BDFZ curriculum OCR monitor alerts for %i
+Documentation=https://github.com/ieduer/curriculum-atlas
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=2min
+AccuracySec=10s
+Unit=curriculum-ocr-monitor-alert@%i.service
+
+[Install]
+WantedBy=timers.target
