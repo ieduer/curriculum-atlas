@@ -1010,69 +1010,76 @@ test('healthy running is 10 and a complete shard permits inactive B2 and llama s
   });
 });
 
-test('p1 requires active services while running and stopped services after completion', () => {
-  const running = baseSnapshot({
-    successor: {
-      ...baseSnapshot().successor,
-      configuration_transition: 'p4_to_p1_v1',
-    },
-    services: {
-      ...baseSnapshot().services,
-      inactive_workers: {
-        'b-r2': service({ active_state: 'inactive', sub_state: 'dead', main_pid: 0 }),
-      },
-    },
-  });
-  assert.deepEqual(classifySingleShardSnapshot(running), {
-    state: 'healthy_running', exit_code: 10, issues: [],
-  });
+test('schema-v2 and schema-v3 p1 completion cleanup require stopped clean services', async (t) => {
+  for (const [schema, transition] of [
+    ['schema-v2', 'p4_to_p1_v1'],
+    ['schema-v3', seedAwareTransition],
+  ]) {
+    await t.test(schema, () => {
+      const running = baseSnapshot({
+        successor: {
+          ...baseSnapshot().successor,
+          configuration_transition: transition,
+        },
+        services: {
+          ...baseSnapshot().services,
+          inactive_workers: {
+            'b-r2': service({ active_state: 'inactive', sub_state: 'dead', main_pid: 0 }),
+          },
+        },
+      });
+      assert.deepEqual(classifySingleShardSnapshot(running), {
+        state: 'healthy_running', exit_code: 10, issues: [],
+      });
 
-  const complete = {
-    ...running,
-    successor: {
-      ...running.successor,
-      complete: true,
-      expected_pages: 2,
-      completed_pages: 2,
-      status_counts: {
-        total: 1,
-        complete: 1,
-        failed: 0,
-        interrupted: 0,
-        pending: 0,
-        running: 0,
-        retry_wait: 0,
-        quarantined: 0,
-      },
-    },
-  };
-  const activeAfterCompletion = classifySingleShardSnapshot(complete);
-  assert.deepEqual(
-    activeAfterCompletion.issues.map(({ code }) => code),
-    ['B2_WORKER_ACTIVE_AFTER_P1_COMPLETION', 'LLAMA_ACTIVE_AFTER_P1_COMPLETION'],
-  );
-  const stopped = structuredClone(complete);
-  stopped.services.worker = service({ active_state: 'inactive', sub_state: 'dead', main_pid: 0 });
-  stopped.services.llama = {
-    systemd: service({ active_state: 'inactive', sub_state: 'dead', main_pid: 0 }),
-    health: { healthy: false, http_status: null },
-  };
-  assert.deepEqual(classifySingleShardSnapshot(stopped), {
-    state: 'completed', exit_code: 0, issues: [],
-  });
+      const complete = {
+        ...running,
+        successor: {
+          ...running.successor,
+          complete: true,
+          expected_pages: 2,
+          completed_pages: 2,
+          status_counts: {
+            total: 1,
+            complete: 1,
+            failed: 0,
+            interrupted: 0,
+            pending: 0,
+            running: 0,
+            retry_wait: 0,
+            quarantined: 0,
+          },
+        },
+      };
+      const activeAfterCompletion = classifySingleShardSnapshot(complete);
+      assert.deepEqual(
+        activeAfterCompletion.issues.map(({ code }) => code),
+        ['B2_WORKER_ACTIVE_AFTER_P1_COMPLETION', 'LLAMA_ACTIVE_AFTER_P1_COMPLETION'],
+      );
+      const stopped = structuredClone(complete);
+      stopped.services.worker = service({ active_state: 'inactive', sub_state: 'dead', main_pid: 0 });
+      stopped.services.llama = {
+        systemd: service({ active_state: 'inactive', sub_state: 'dead', main_pid: 0 }),
+        health: { healthy: false, http_status: null },
+      };
+      assert.deepEqual(classifySingleShardSnapshot(stopped), {
+        state: 'completed', exit_code: 0, issues: [],
+      });
 
-  const unclean = structuredClone(stopped);
-  unclean.services.worker.exec_main_status = 12;
-  unclean.services.worker.result = 'exit-code';
-  assert.deepEqual(
-    classifySingleShardSnapshot(unclean).issues.map(({ code }) => code),
-    ['B2_WORKER_UNCLEAN_AFTER_P1_COMPLETION'],
-  );
+      const unclean = structuredClone(stopped);
+      unclean.services.worker.exec_main_status = 12;
+      unclean.services.worker.result = 'exit-code';
+      assert.deepEqual(
+        classifySingleShardSnapshot(unclean).issues.map(({ code }) => code),
+        ['B2_WORKER_UNCLEAN_AFTER_P1_COMPLETION'],
+      );
 
-  stopped.services.inactive_workers['b-r2'] = service();
-  assert.ok(classifySingleShardSnapshot(stopped).issues.some(
-    ({ code }) => code === 'INACTIVE_WORKER_B_R2_ACTIVE',
-  ));
+      stopped.services.inactive_workers['b-r2'] = service();
+      assert.ok(classifySingleShardSnapshot(stopped).issues.some(
+        ({ code }) => code === 'INACTIVE_WORKER_B_R2_ACTIVE',
+      ));
+    });
+  }
 });
 
 test('an interrupted seed backlog is recoverable only while the B2 worker is strictly running', () => {

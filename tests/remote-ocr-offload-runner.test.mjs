@@ -659,6 +659,10 @@ async function createTimeoutRecoveryPredecessor({
   const incidentEvidence = [];
   for (const [id, pageCount, completedPageCount, status, attempts] of specifications) {
     const document = documents.find((item) => item.id === id);
+    if (status === 'pending') {
+      progressById[id] = { status, attempts, page_count: pageCount };
+      continue;
+    }
     const documentRoot = await createCompletedOutput(predecessorRoot, document, {
       worker: predecessorWorker,
       completedPageCount,
@@ -725,6 +729,23 @@ async function createTimeoutRecoveryPredecessor({
         next_retry_at: nextRetryAt,
         failed_at: failedAt,
         error,
+      };
+    } else if (status === 'interrupted') {
+      statusRecord = {
+        schema_version: 1,
+        document_id: id,
+        status,
+        attempt: attempts,
+        max_attempts: 5,
+        citation_allowed: false,
+        interrupted_at: '2026-07-17T04:05:00.000Z',
+      };
+      progressById[id] = {
+        status,
+        attempts,
+        page_count: pageCount,
+        interrupted_at: statusRecord.interrupted_at,
+        signal: 'SIGTERM',
       };
     } else {
       assert.equal(status, 'quarantined', `unsupported timeout predecessor fixture status: ${status}`);
@@ -858,8 +879,8 @@ async function createTimeoutRecoveryPredecessor({
     total: specifications.length,
     complete: specifications.filter((specification) => specification[3] === 'complete').length,
     failed: 0,
-    interrupted: 0,
-    pending: 0,
+    interrupted: specifications.filter((specification) => specification[3] === 'interrupted').length,
+    pending: specifications.filter((specification) => specification[3] === 'pending').length,
     running: 0,
     retry_wait: specifications.filter((specification) => specification[3] === 'retry_wait').length,
     quarantined: grantDocuments.length,
@@ -2526,6 +2547,135 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
   assert.equal(received.counts.documents, 6);
   assert.equal(received.counts.pages, 3_182);
   assert.equal(received.source_shards[0].seed_id, seeded.seedReceipt.seed_id);
+  assert.deepEqual(await inspectTree(predecessorRoot), predecessorBefore);
+});
+
+test('real B-r1 six-state 1259-page parallel1 schema-v3 seed resumes with immutable B1 provenance', async (t) => {
+  const { root, inputRoot } = await fixture(t);
+  const predecessorRoot = path.join(root, 'b-r1-schema-v3');
+  const successorRoot = path.join(root, 'b-r2-schema-v3');
+  const manifestPath = path.join(inputRoot, 'b-shard-schema-v3.json');
+  const ocrScript = fileURLToPath(new URL('../scripts/ocr-pdf-paddle.py', import.meta.url));
+  assert.equal(sha256(await readFile(ocrScript)), seedAwareOcrScriptSha256);
+  const specifications = [
+    ['legacy-compendium-arts-labor', 491, 491, 'complete', 1],
+    ['legacy-compendium-chemistry', 458, 384, 'retry_wait', 2],
+    ['legacy-compendium-chinese', 568, 32, 'retry_wait', 1],
+    ['legacy-compendium-history', 765, 352, 'interrupted', 1],
+    ['legacy-compendium-physics', 477, 0, 'pending', 0],
+    ['legacy-compendium-plans', 423, 0, 'pending', 0],
+  ];
+  const predecessorAttestation = llamaAttestationForParallel(4);
+  const successorAttestation = llamaAttestationForParallel(1);
+  const {
+    documents,
+    paddlexLayoutModelCache: fixturePaddlexLayoutModelCache,
+  } = await createTimeoutRecoveryPredecessor({
+    inputRoot,
+    predecessorRoot,
+    manifestPath,
+    specifications,
+    attestation: predecessorAttestation,
+    receiverNativeArtifacts: true,
+    ocrScriptSha256: legacyB1OcrScriptSha256,
+    materializePaddlexCache: true,
+  });
+  const predecessorBefore = await inspectTree(predecessorRoot);
+  const options = {
+    manifest: manifestPath,
+    inputRoot,
+    outputRoot: successorRoot,
+    python: process.execPath,
+    ocrScript,
+    model: '/unused/model',
+    mmproj: '/unused/mmproj',
+    llamaRepo: '/unused/llama',
+    llamaServerBin,
+    llamaSystemdUnit,
+    llamaUrl: workerConfiguration.llama_url,
+    runtimeDevice,
+    vlRecMaxConcurrency: 1,
+    serverParallel: 1,
+    microBatch: 16,
+    useQueues: true,
+    childIdleTimeoutSeconds: 1200,
+    seedFromOutputRoot: predecessorRoot,
+    seedOnly: true,
+  };
+  const dependencies = {
+    pageCounter: (_python, sourcePath) => documents.find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+    runtime,
+    llamaServerAttestation: successorAttestation,
+    pythonRuntime,
+    paddlexLayoutModelCache: fixturePaddlexLayoutModelCache,
+    runnerScriptSha256: 'e'.repeat(64),
+    nowMilliseconds: () => Date.parse('2026-07-18T06:00:00.000Z'),
+    handleSignals: false,
+  };
+
+  const seeded = await runRemoteOcrOffload(options, dependencies);
+  const expectedOcrTransition = {
+    schema_version: 1,
+    transition: 'b1_legacy_to_seed_aware_v1',
+    predecessor_sha256: legacyB1OcrScriptSha256,
+    successor_sha256: seedAwareOcrScriptSha256,
+    audited_common_inference_suffix_sha256: auditedCommonInferenceSuffixSha256,
+  };
+  assert.equal(seeded.seedOnly, true);
+  assert.equal(seeded.seedReceipt.allowed_configuration_delta.schema_version, 3);
+  assert.equal(seeded.seedReceipt.allowed_configuration_delta.transition, seedAwareTransition);
+  assert.deepEqual(
+    seeded.seedReceipt.allowed_configuration_delta.ocr_script_transition,
+    expectedOcrTransition,
+  );
+  assert.equal(seeded.seedReceipt.counts.documents, 6);
+  assert.equal(seeded.seedReceipt.counts.inherited_pages, 1_259);
+  assert.deepEqual(
+    seeded.seedReceipt.documents.map((document) => [
+      document.document_id,
+      document.predecessor_status,
+      document.predecessor_status_format,
+      document.inherited_attempts,
+      document.completed_pages.length,
+    ]),
+    [
+      ['legacy-compendium-arts-labor', 'complete', 'legacy_b1_complete_reverified', 1, 491],
+      ['legacy-compendium-chemistry', 'retry_wait', 'complete_identity_v1', 2, 384],
+      ['legacy-compendium-chinese', 'retry_wait', 'complete_identity_v1', 1, 32],
+      ['legacy-compendium-history', 'interrupted', 'legacy_b1_interrupted', 1, 352],
+      ['legacy-compendium-physics', 'pending', 'pending_no_status', 0, 0],
+      ['legacy-compendium-plans', 'pending', 'pending_no_status', 0, 0],
+    ],
+  );
+  const [predecessorIdentity, successorIdentity] = await Promise.all([
+    readFile(path.join(predecessorRoot, 'run-identity.json'), 'utf8').then(JSON.parse),
+    readFile(path.join(successorRoot, 'run-identity.json'), 'utf8').then(JSON.parse),
+  ]);
+  assert.equal(predecessorIdentity.ocr_script_sha256, legacyB1OcrScriptSha256);
+  assert.equal(successorIdentity.ocr_script_sha256, seedAwareOcrScriptSha256);
+  assert.equal(
+    validateP4ToP1SeedDelta(seeded.seedReceipt, predecessorIdentity, successorIdentity),
+    seedAwareTransition,
+  );
+  assert.equal(
+    validateP4ToP1MonitorDelta(seeded.seedReceipt, predecessorIdentity, successorIdentity),
+    seedAwareTransition,
+  );
+  assert.deepEqual(await inspectTree(predecessorRoot), predecessorBefore);
+
+  const resumed = await runRemoteOcrOffload(options, dependencies);
+  assert.equal(resumed.seedOnly, true);
+  assert.equal(resumed.seedReceipt.seed_id, seeded.seedReceipt.seed_id);
+  assert.equal(resumed.seedReceiptSha256, seeded.seedReceiptSha256);
+  assert.equal(resumed.seedReceipt.counts.inherited_pages, 1_259);
+  assert.deepEqual(
+    resumed.seedReceipt.allowed_configuration_delta.ocr_script_transition,
+    expectedOcrTransition,
+  );
+  assert.equal(resumed.seedReceipt.predecessor.ocr_script_sha256, legacyB1OcrScriptSha256);
+  assert.equal(resumed.seedReceipt.successor.ocr_script_sha256, seedAwareOcrScriptSha256);
   assert.deepEqual(await inspectTree(predecessorRoot), predecessorBefore);
 });
 
