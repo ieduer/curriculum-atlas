@@ -99,6 +99,14 @@ test('release manifest binds the complete data, graph, static, Git, and environm
   assert.equal(assetAudit.queue.nominal_pages, queue.documents.reduce((total, item) => total + item.page_count, 0));
   assert.equal(assetAudit.errors, 0);
 
+  const rawCorpusManifest = await readFile(new URL('../data/corpus-chunks/manifest.json', import.meta.url));
+  const rawCorpusBinding = {
+    sha256: createHash('sha256').update(rawCorpusManifest).digest('hex'),
+    bytes: rawCorpusManifest.byteLength,
+  };
+  assert.equal(manifest.corpus_release.sha256, rawCorpusBinding.sha256);
+  assert.equal(manifest.corpus_release.bytes, rawCorpusBinding.bytes);
+
   assert.equal(manifest.graph_assets.length, 2);
   assert.equal(manifest.graph_assets[0].build_revision, manifest.graph_assets[1].build_revision);
   assert.ok(manifest.graph_assets.every((asset) => asset.sha256.length === 64 && asset.bytes > 0));
@@ -154,6 +162,48 @@ test('release identity is deterministic while generated_at remains an audit time
   assert.equal(first.release_id, second.release_id);
   assert.equal(first.source_tree.sha256, second.source_tree.sha256);
   assert.notEqual(first.generated_at, second.generated_at);
+});
+
+test('two same-content corpus build envelopes produce one release_id while canonical hashes remain bound', async () => {
+  const { corpusReleaseIdentity, releaseIdFromIdentity } = await import('../scripts/build-release-manifest.mjs');
+  assert.equal(typeof corpusReleaseIdentity, 'function');
+  const corpus = {
+    source: 'data/corpus-chunks/manifest.json',
+    sha256: 'a'.repeat(64),
+    bytes: 100,
+    release_id: `corpus-${'b'.repeat(24)}`,
+    release_fingerprint_sha256: 'b'.repeat(64),
+    manifest_sha256: 'c'.repeat(64),
+    counts: { documents: 1 },
+    chunks: [{ source: 'data/corpus-chunks/000-core.sql', sha256: 'd'.repeat(64), bytes: 50 }],
+  };
+  const first = corpusReleaseIdentity(corpus);
+  const second = corpusReleaseIdentity({ ...corpus, sha256: 'e'.repeat(64), bytes: 101 });
+  assert.deepEqual(first, second);
+  assert.equal(
+    releaseIdFromIdentity({ fixed: true, corpus_release: first }),
+    releaseIdFromIdentity({ fixed: true, corpus_release: second }),
+  );
+  assert.equal(Object.hasOwn(first, 'sha256'), false);
+  assert.equal(Object.hasOwn(first, 'bytes'), false);
+  assert.notDeepEqual(first, corpusReleaseIdentity({ ...corpus, manifest_sha256: 'f'.repeat(64) }));
+});
+
+test('raw corpus audit envelope hash and byte binding still rejects tampering', async () => {
+  const raw = await readFile(new URL('../data/corpus-chunks/manifest.json', import.meta.url));
+  const binding = {
+    sha256: createHash('sha256').update(raw).digest('hex'),
+    bytes: raw.byteLength,
+  };
+  assert.deepEqual(assertBufferParity(binding, raw, 'raw corpus manifest'), binding);
+  assert.throws(
+    () => assertBufferParity(
+      binding,
+      Buffer.concat([raw, Buffer.from(' ')]),
+      'tampered raw corpus manifest',
+    ),
+    /parity failure/,
+  );
 });
 
 test('hash and byte parity rejects stale content', () => {

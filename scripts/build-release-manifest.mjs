@@ -515,6 +515,16 @@ function environmentSnapshotIdentity(snapshot) {
   };
 }
 
+export function corpusReleaseIdentity(corpusRelease) {
+  // The emitted audit record retains these raw bindings; only the release ID uses validated canonical hashes.
+  const { sha256: _rawEnvelopeSha256, bytes: _rawEnvelopeBytes, ...canonicalIdentity } = corpusRelease;
+  return canonicalIdentity;
+}
+
+export function releaseIdFromIdentity(releaseIdentity) {
+  return `release-${sha256(Buffer.from(stableStringify(releaseIdentity))).slice(0, 32)}`;
+}
+
 function buildEnvironmentState(root, policy, git, availableMigrations, corpusRelease, evidenceAsset) {
   const snapshot = policy.environment_snapshot || {};
   const requiredMigration = String(snapshot.required_migration || '');
@@ -859,7 +869,7 @@ export async function buildReleaseManifest({
     git: { head: git.head },
     source_tree_sha256: sourceTree.sha256,
     data_inventory: dataInventory,
-    corpus_release: corpusRelease,
+    corpus_release: corpusReleaseIdentity(corpusRelease),
     downloads_asset_audit: downloadsReceiptIdentity(downloadsAssetAudit),
     data_assets: cleanDataAssets.map(({ role, source, key, sha256: hash, bytes }) => ({ role, source, key, sha256: hash, bytes })),
     graph_assets: cleanGraphAssets.map(({ role, source, deploy_path, sha256: hash, bytes, build_revision }) => ({ role, source, deploy_path, sha256: hash, bytes, build_revision })),
@@ -867,7 +877,7 @@ export async function buildReleaseManifest({
     environment_snapshot: environmentSnapshotIdentity(environmentState),
     project_asset_audit: assetAuditSummary,
   };
-  const releaseId = `release-${sha256(Buffer.from(stableStringify(releaseIdentity))).slice(0, 32)}`;
+  const releaseId = releaseIdFromIdentity(releaseIdentity);
   const releasePrefix = normalizeRelativePath(policy.r2.release_prefix, 'r2 release prefix');
   const releasedDataAssets = cleanDataAssets.map((asset) => ({
     ...asset,
