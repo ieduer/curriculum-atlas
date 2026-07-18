@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 
 import {
+  loadImmutablePromotionBaseline,
   loadImmutablePublicBaseline,
   loadOntologyReleaseContext,
   makeJsonArtifact,
@@ -83,6 +84,136 @@ function acceptedPageFixture(pageNumber = 11, paragraph = PARAGRAPH) {
       citation_allowed: true,
     },
   };
+}
+
+function sealSyntheticPromotionEvidence(fixture) {
+  const sourceTerms = new Map();
+  for (const assertion of fixture.release.assertions) {
+    for (const binding of assertion.online_evidence_bindings) {
+      const terms = binding.term_bindings.map((entry) => entry.term);
+      for (const sourceId of binding.independent_source_ids) {
+        if (!sourceTerms.has(sourceId)) sourceTerms.set(sourceId, new Set());
+        terms.forEach((term) => sourceTerms.get(sourceId).add(term));
+      }
+    }
+  }
+  const sourceBodies = new Map([...sourceTerms].map(([sourceId, terms]) => [
+    sourceId,
+    `${sourceId}逐字确认：${[...terms].join('、')}`,
+  ]));
+  const onlineSources = new Map();
+  for (const assertion of fixture.release.assertions) {
+    for (const binding of assertion.online_evidence_bindings) {
+      const exactTerms = binding.term_bindings.map((entry) => entry.term);
+      binding.source_quote_bindings = binding.independent_source_ids.map((sourceId) => {
+        const body = sourceBodies.get(sourceId);
+        const quote = {
+          claim_id: binding.claim_id,
+          quote_start_offset: 0,
+          quote_end_offset: body.length,
+          quote_sha256: digest(body),
+          exact_terms: [...exactTerms],
+        };
+        if (!onlineSources.has(sourceId)) {
+          onlineSources.set(sourceId, {
+            source_id: sourceId,
+            snapshot_path: `.cache/online-evidence/${sourceId.replaceAll(':', '-')}.txt`,
+            content_sha256: digest(body),
+            content_bytes: Buffer.byteLength(body),
+            quotes: [],
+            body,
+          });
+        }
+        const source = onlineSources.get(sourceId);
+        if (!source.quotes.some((entry) => JSON.stringify(entry) === JSON.stringify(quote))) {
+          source.quotes.push(quote);
+        }
+        return {
+          source_id: sourceId,
+          content_sha256: digest(body),
+          quote_start_offset: quote.quote_start_offset,
+          quote_end_offset: quote.quote_end_offset,
+          quote_sha256: quote.quote_sha256,
+          exact_terms: [...exactTerms],
+        };
+      });
+    }
+  }
+  const paragraph = fixture.context.canonical_paragraphs.get('moe-2022-03\u00001');
+  const firstAssertion = fixture.release.assertions[0];
+  const pageEntry = {
+    document_id: firstAssertion.document_id,
+    physical_page: firstAssertion.physical_page,
+    source_artifact_sha256: fixture.release.input_fingerprints.source_artifact_sha256,
+    source_page_sha256: firstAssertion.source_page_sha256,
+    page_image_path: '.cache/promotion-evidence/test-page.png',
+    page_image_bytes: 1,
+    final_text_sha256: firstAssertion.final_text_sha256,
+    evidence_bundle_sha256: firstAssertion.evidence_bundle_sha256,
+    evidence_bundle_path: '.cache/promotion-evidence/test-evidence.json',
+    evidence_bundle_bytes: 1,
+    paragraphs: [{ paragraph_ordinal: 1, body_sha256: paragraph.body_sha256 }],
+  };
+  const governed = {
+    candidate: fixture.context.artifacts.candidate,
+    candidate_schema: fixture.context.support_artifacts.candidate_schema,
+    candidate_validator: fixture.context.support_artifacts.candidate_validator,
+    candidate_lexicon: fixture.context.support_artifacts.candidate_lexicon,
+    catalog: fixture.context.artifacts.catalog,
+    page_publication: fixture.context.artifacts.page_publication,
+    semantic_publication: fixture.context.artifacts.semantic_publication,
+    online_verification: fixture.context.artifacts.online_verification,
+  };
+  fixture.context.promotion_baseline = {
+    document: {
+      document_id: firstAssertion.document_id,
+      source_artifact_sha256: fixture.release.input_fingerprints.source_artifact_sha256,
+      source_bytes: 20618661,
+      page_count: 109,
+      canonical_text_sha256: digest(paragraph.body),
+      canonical_text_bytes: Buffer.byteLength(paragraph.body),
+    },
+    governed_artifacts: Object.fromEntries(Object.entries(governed)
+      .map(([key, artifact]) => [key, { path: artifact.path, sha256: artifact.sha256 }])),
+    reviewed_pages: [pageEntry],
+    online_sources: [...onlineSources.values()].map(({ body, ...source }) => source),
+  };
+  fixture.context.promotion_runtime = {
+    source_pdf: {
+      verified: true,
+      sha256: fixture.context.promotion_baseline.document.source_artifact_sha256,
+      bytes: fixture.context.promotion_baseline.document.source_bytes,
+    },
+    canonical_text: {
+      verified: true,
+      sha256: fixture.context.promotion_baseline.document.canonical_text_sha256,
+      bytes: fixture.context.promotion_baseline.document.canonical_text_bytes,
+      body: paragraph.body,
+    },
+    reviewed_pages: new Map([[
+      `${pageEntry.document_id}\u0000${pageEntry.physical_page}`,
+      {
+        baseline: pageEntry,
+        page_image: { verified: true, sha256: pageEntry.source_page_sha256, bytes: pageEntry.page_image_bytes },
+        evidence_bundle: { verified: true, sha256: pageEntry.evidence_bundle_sha256, bytes: pageEntry.evidence_bundle_bytes },
+      },
+    ]]),
+    online_sources: new Map([...onlineSources].map(([sourceId, source]) => [sourceId, {
+      baseline: source,
+      verified: true,
+      sha256: source.content_sha256,
+      bytes: source.content_bytes,
+      body: source.body,
+    }])),
+    candidate_validation: {
+      valid: true,
+      candidate_sha256: governed.candidate.sha256,
+      catalog_sha256: governed.catalog.sha256,
+      lexicon_sha256: governed.candidate_lexicon.sha256,
+      validator_sha256: governed.candidate_validator.sha256,
+    },
+  };
+  return fixture;
 }
 
 function reviewedFixture(pageNumber = 11, paragraph = PARAGRAPH) {
@@ -198,7 +329,7 @@ function reviewedFixture(pageNumber = 11, paragraph = PARAGRAPH) {
     reviewed_at: '2026-07-18T00:02:00Z',
     reason_codes: ['manual_release_review_complete'],
   };
-  return {
+  return sealSyntheticPromotionEvidence({
     release,
     context: {
       ...candidateReplacement.context,
@@ -207,7 +338,7 @@ function reviewedFixture(pageNumber = 11, paragraph = PARAGRAPH) {
         pageFixture.paragraph,
       ]]),
     },
-  };
+  });
 }
 
 function addLanguageUseChild(fixture) {
@@ -267,24 +398,28 @@ function addLanguageUseChild(fixture) {
   });
   fixture.release.release_gate.candidate_nodes_promoted = 2;
   fixture.release.release_gate.accepted_leaf_nodes = 1;
-  return fixture;
+  return sealSyntheticPromotionEvidence(fixture);
 }
 
 function addExplicitRelation(fixture, {
   relationType = 'supports',
   assertionBasis,
+  relationStatement,
 } = {}) {
   const body = fixture.context.canonical_paragraphs.get('moe-2022-03\u00001').body;
   const source = fixture.release.nodes[0];
   const target = fixture.release.nodes[1];
+  const statement = relationStatement ?? body.split(/[。！？!?；;，,：:\n]/, 1)[0];
+  const statementStart = body.indexOf(statement);
+  const basis = assertionBasis ?? statement;
   fixture.release.relations = [{
     id: 'relation:zh-compulsory-2022-core-to-language-use',
     relation_type: relationType,
     source: source.id,
     target: target.id,
     scope_ids: [fixture.release.scopes[0].scope_id],
-    assertion_basis: assertionBasis ?? body,
-    assertion_basis_sha256: digest(assertionBasis ?? body),
+    assertion_basis: basis,
+    assertion_basis_sha256: digest(basis),
     evidence_assertion_ids: fixture.release.assertions.map((assertion) => assertion.assertion_id),
     content_bindings: [{
       assertion_id: source.field_binding_assertion_id,
@@ -301,11 +436,13 @@ function addExplicitRelation(fixture, {
     }, {
       assertion_id: source.field_binding_assertion_id,
       evidence_role: 'relation_statement',
-      text_start_offset: 0,
-      text_end_offset: body.length,
-      text_sha256: digest(body),
+      text_start_offset: statementStart,
+      text_end_offset: statementStart + statement.length,
+      text_sha256: digest(statement),
     }],
     provenance_mode: 'explicit_canonical_statement_v1',
+    direction: relationType === 'related_to' ? 'symmetric' : 'source_to_target',
+    polarity: 'positive',
     review_status: 'editor_reviewed',
     reviewer: {
       reviewer_id: 'reviewer:test-relation',
@@ -558,6 +695,8 @@ test('coordinated mutable evidence cannot self-certify an ontology promotion', a
       .find((node) => node.id === fixture.release.nodes[0].candidate_node_id);
     assert.equal(originalCandidate.parent_id, 'candidate:zh-compulsory-2022');
     assert.equal(forgedCandidate.parent_id, null);
+    fixture.context.promotion_baseline.governed_artifacts.candidate.sha256 = context.artifacts.candidate.sha256;
+    fixture.context.promotion_runtime.candidate_validation.candidate_sha256 = context.artifacts.candidate.sha256;
     const report = validateOntologyRelease(fixture.release, fixture.context);
     assert.equal(report.valid, false);
     assert.match(text(report), /promotion_candidate_baseline_mismatch/);
@@ -591,6 +730,18 @@ test('coordinated mutable evidence cannot self-certify an ontology promotion', a
     const report = validateOntologyRelease(fixture.release, fixture.context);
     assert.equal(report.valid, false);
     assert.match(text(report), /online_source_quote_not_frozen|promotion_online_baseline_mismatch/);
+  });
+
+  await t.test('one online source cannot reuse another source exact-quote receipt', () => {
+    const fixture = reviewedFixture();
+    const quotes = fixture.release.assertions[0].online_evidence_bindings[0].source_quote_bindings;
+    quotes[0].content_sha256 = quotes[1].content_sha256;
+    quotes[0].quote_start_offset = quotes[1].quote_start_offset;
+    quotes[0].quote_end_offset = quotes[1].quote_end_offset;
+    quotes[0].quote_sha256 = quotes[1].quote_sha256;
+    const report = validateOntologyRelease(fixture.release, fixture.context);
+    assert.equal(report.valid, false);
+    assert.match(text(report), /online_source_quote_not_frozen/);
   });
 });
 
@@ -664,7 +815,7 @@ test('internal nodes are held to the same accepted provenance gate as leaves', (
 test('relations require exact content-level endpoint and statement evidence', () => {
   const body = '核心素养支持语言运用，核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。';
   const fixture = addLanguageUseChild(reviewedFixture(11, body));
-  const basis = body;
+  const basis = '核心素养支持语言运用';
   fixture.release.relations = [{
     id: 'relation:zh-compulsory-2022-core-to-language-use',
     relation_type: 'supports',
@@ -690,10 +841,12 @@ test('relations require exact content-level endpoint and statement evidence', ()
       assertion_id: fixture.release.assertions[0].assertion_id,
       evidence_role: 'relation_statement',
       text_start_offset: 0,
-      text_end_offset: body.length,
-      text_sha256: digest(body),
+      text_end_offset: basis.length,
+      text_sha256: digest(basis),
     }],
     provenance_mode: 'explicit_canonical_statement_v1',
+    direction: 'source_to_target',
+    polarity: 'positive',
     review_status: 'editor_reviewed',
     reviewer: {
       reviewer_id: 'reviewer:test-relation',
@@ -806,6 +959,80 @@ test('immutable baseline loader reads its addition commit and source Git objects
     assert.equal(loaded.anchor_commit, anchorCommit);
     assert.equal(loaded.source_commit, sourceCommit);
     assert.equal(loaded.artifacts.public_core.sha256, baseline.artifacts.public_core.sha256);
+    assert.notEqual(loaded.artifact_sha256, digest('{"coordinated_mutation":true}\n'));
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('promotion evidence loader reads frozen Git objects rather than coordinated worktree bytes', async () => {
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'ontology-promotion-baseline-git-object-'));
+  const git = (...args) => {
+    const result = spawnSync('git', ['-C', temporaryRoot, ...args], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    return result.stdout.trim();
+  };
+  const governedPaths = {
+    candidate: 'data/ontology-candidates/zh-compulsory-2022.json',
+    candidate_schema: 'data/ontology-candidates/candidate-layer.schema.json',
+    candidate_validator: 'scripts/validate-ontology-candidate-layer.mjs',
+    candidate_lexicon: 'data/concept-lexicon.json',
+    catalog: 'data/catalog.json',
+    page_publication: 'data/page-publication-manifest.json',
+    semantic_publication: 'data/semantic-publication-policy.json',
+    online_verification: 'data/online-verification/zh-compulsory-2022-claims.json',
+  };
+  try {
+    for (const [key, relativePath] of Object.entries(governedPaths)) {
+      await mkdir(join(temporaryRoot, relativePath, '..'), { recursive: true });
+      await writeFile(join(temporaryRoot, relativePath), `${key}\n`);
+    }
+    git('init');
+    git('config', 'user.name', 'ontology-promotion-baseline-test');
+    git('config', 'user.email', 'ontology-promotion-baseline-test@example.invalid');
+    git('add', '.');
+    git('commit', '-m', 'promotion source bytes');
+    const sourceCommit = git('rev-parse', 'HEAD');
+    const sourceTree = git('rev-parse', 'HEAD^{tree}');
+    const baseline = {
+      schema_version: 1,
+      baseline_id: `ontology-promotion-evidence:${sourceCommit}`,
+      policy: 'immutable_git_object_promotion_evidence_v1',
+      source_commit: sourceCommit,
+      source_tree: sourceTree,
+      document: {
+        document_id: 'moe-2022-03',
+        source_path: '.cache/sources/moe-2022-03.pdf',
+        source_artifact_sha256: digest('source-pdf'),
+        source_bytes: 1,
+        page_count: 1,
+        canonical_text_path: '.cache/text/moe-2022-03.txt',
+        canonical_text_sha256: digest('canonical-text'),
+        canonical_text_bytes: 1,
+      },
+      governed_artifacts: Object.fromEntries(Object.entries(governedPaths).map(([key, relativePath]) => [key, {
+        path: relativePath,
+        sha256: digest(`${key}\n`),
+      }])),
+      reviewed_pages: [],
+      online_sources: [],
+    };
+    const baselinePath = join(temporaryRoot, 'data/release-baselines/ontology-promotion-evidence-v1.json');
+    await mkdir(join(temporaryRoot, 'data/release-baselines'), { recursive: true });
+    await writeFile(baselinePath, `${JSON.stringify(baseline, null, 2)}\n`);
+    git('add', 'data/release-baselines/ontology-promotion-evidence-v1.json');
+    git('commit', '-m', 'freeze promotion baseline');
+    const anchorCommit = git('rev-parse', 'HEAD');
+    await writeFile(join(temporaryRoot, 'later-validator.txt'), 'later validator release\n');
+    git('add', 'later-validator.txt');
+    git('commit', '-m', 'later promotion validator');
+
+    await writeFile(baselinePath, '{"coordinated_mutation":true}\n');
+    await writeFile(join(temporaryRoot, governedPaths.candidate), 'coordinated candidate mutation\n');
+    const loaded = loadImmutablePromotionBaseline(temporaryRoot);
+    assert.equal(loaded.anchor_commit, anchorCommit);
+    assert.equal(loaded.source_commit, sourceCommit);
+    assert.equal(loaded.governed_artifacts.candidate.sha256, digest('candidate\n'));
     assert.notEqual(loaded.artifact_sha256, digest('{"coordinated_mutation":true}\n'));
   } finally {
     await rm(temporaryRoot, { recursive: true, force: true });
@@ -1012,6 +1239,8 @@ test('cross-version semantic relation needs accepted evidence and review from bo
       text_sha256: digest(PARAGRAPH),
     }],
     provenance_mode: 'explicit_canonical_statement_v1',
+    direction: 'source_to_target',
+    polarity: 'positive',
     review_status: 'editor_reviewed',
     reviewer: {
       reviewer_id: 'reviewer:test-cross-version',

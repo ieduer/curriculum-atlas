@@ -19,11 +19,16 @@ import {
   canonicalParagraphBodySha256,
   isCanonicalParagraphBody,
 } from './canonical-paragraph-text.mjs';
+import {
+  validateCandidateLayer,
+  verifyLocalSource,
+} from './validate-ontology-candidate-layer.mjs';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_MANIFEST = 'data/ontology-release-manifest.json';
 const EXPECTED_PUBLIC_ONTOLOGY_NODES = 169;
 const PUBLIC_BASELINE_ARTIFACT_PATH = 'data/release-baselines/ontology-public-v2.json';
+const PROMOTION_BASELINE_ARTIFACT_PATH = 'data/release-baselines/ontology-promotion-evidence-v1.json';
 const SUBJECT_FACETS = Object.freeze([
   '语文',
   '数学',
@@ -47,6 +52,16 @@ const INPUT_PATHS = Object.freeze({
   formal_ontology: 'data/concept-ontology.json',
   public_core: 'public/data/concept-evolution.json',
   public_academic: 'public/data/concept-evolution-academic.json',
+});
+const PROMOTION_GOVERNED_PATHS = Object.freeze({
+  candidate: INPUT_PATHS.candidate,
+  candidate_schema: 'data/ontology-candidates/candidate-layer.schema.json',
+  candidate_validator: 'scripts/validate-ontology-candidate-layer.mjs',
+  candidate_lexicon: 'data/concept-lexicon.json',
+  catalog: INPUT_PATHS.catalog,
+  page_publication: INPUT_PATHS.page_publication,
+  semantic_publication: INPUT_PATHS.semantic_publication,
+  online_verification: INPUT_PATHS.online_verification,
 });
 const CROSS_VERSION_RELATIONS = new Set([
   'reframed_by',
@@ -226,6 +241,23 @@ async function readArtifact(root, relativePath) {
   };
 }
 
+async function readRawArtifact(root, relativePath) {
+  const raw = await readFile(path.join(root, relativePath));
+  return { path: relativePath, raw, sha256: sha256(raw), bytes: raw.byteLength };
+}
+
+function containedProjectPath(root, relativePath, label) {
+  if (typeof relativePath !== 'string' || !relativePath || path.isAbsolute(relativePath)) {
+    throw new Error(`${label} must be a project-relative path`);
+  }
+  const resolvedRoot = path.resolve(root);
+  const resolved = path.resolve(resolvedRoot, relativePath);
+  if (resolved !== resolvedRoot && !resolved.startsWith(`${resolvedRoot}${path.sep}`)) {
+    throw new Error(`${label} escapes the project root`);
+  }
+  return resolved;
+}
+
 function runGit(root, args, { allowFailure = false } = {}) {
   const result = spawnSync('git', ['-C', root, ...args], {
     encoding: null,
@@ -330,6 +362,265 @@ export function loadImmutablePublicBaseline(root = PROJECT_ROOT) {
   });
 }
 
+function requireSha256(value, label) {
+  if (!/^[0-9a-f]{64}$/.test(value || '')) throw new Error(`${label} must be SHA-256`);
+}
+
+function requirePositiveInteger(value, label) {
+  if (!Number.isInteger(value) || value <= 0) throw new Error(`${label} must be a positive integer`);
+}
+
+export function loadImmutablePromotionBaseline(root = PROJECT_ROOT) {
+  const additionCommits = runGit(root, [
+    'log', '--format=%H', '--diff-filter=A', '--', PROMOTION_BASELINE_ARTIFACT_PATH,
+  ]).stdout.toString('utf8').trim().split(/\s+/).filter(Boolean);
+  if (additionCommits.length !== 1) {
+    throw new Error(`immutable ontology promotion baseline needs one addition commit; found ${additionCommits.length}`);
+  }
+  const anchorCommit = additionCommits[0];
+  const head = runGit(root, ['rev-parse', 'HEAD']).stdout.toString('utf8').trim();
+  if (!/^[0-9a-f]{40}$/.test(anchorCommit) || !/^[0-9a-f]{40}$/.test(head)) {
+    throw new Error('immutable ontology promotion baseline requires exact Git commit ids');
+  }
+  const anchorAncestor = runGit(root, ['merge-base', '--is-ancestor', anchorCommit, head], {
+    allowFailure: true,
+  });
+  if (anchorAncestor.status !== 0 || anchorCommit === head) {
+    throw new Error('immutable ontology promotion baseline must be committed before the validating release code');
+  }
+  const raw = runGit(root, ['show', `${anchorCommit}:${PROMOTION_BASELINE_ARTIFACT_PATH}`]).stdout;
+  let baseline;
+  try {
+    baseline = JSON.parse(raw.toString('utf8'));
+  } catch (error) {
+    throw new Error(`immutable ontology promotion baseline is not valid JSON: ${error.message}`);
+  }
+  if (!exactObjectKeys(baseline, [
+    'schema_version', 'baseline_id', 'policy', 'source_commit', 'source_tree',
+    'document', 'governed_artifacts', 'reviewed_pages', 'online_sources',
+  ])
+    || baseline.schema_version !== 1
+    || baseline.policy !== 'immutable_git_object_promotion_evidence_v1'
+    || baseline.baseline_id !== `ontology-promotion-evidence:${baseline.source_commit}`
+    || !/^[0-9a-f]{40}$/.test(baseline.source_commit)
+    || !/^[0-9a-f]{40}$/.test(baseline.source_tree)
+    || !exactObjectKeys(baseline.governed_artifacts, Object.keys(PROMOTION_GOVERNED_PATHS))
+    || !Array.isArray(baseline.reviewed_pages)
+    || !Array.isArray(baseline.online_sources)) {
+    throw new Error('immutable ontology promotion baseline contract is invalid');
+  }
+  const sourceAncestor = runGit(root, [
+    'merge-base', '--is-ancestor', baseline.source_commit, anchorCommit,
+  ], { allowFailure: true });
+  if (sourceAncestor.status !== 0) {
+    throw new Error('immutable ontology promotion baseline source is not an ancestor of its frozen artifact');
+  }
+  const sourceTree = runGit(root, ['rev-parse', `${baseline.source_commit}^{tree}`])
+    .stdout.toString('utf8').trim();
+  if (sourceTree !== baseline.source_tree) {
+    throw new Error('immutable ontology promotion baseline source tree does not match its Git object');
+  }
+
+  const governedArtifacts = {};
+  for (const [key, expectedPath] of Object.entries(PROMOTION_GOVERNED_PATHS)) {
+    const entry = baseline.governed_artifacts[key];
+    if (!exactObjectKeys(entry, ['path', 'sha256']) || entry.path !== expectedPath) {
+      throw new Error(`immutable ontology promotion baseline ${key} contract is invalid`);
+    }
+    requireSha256(entry.sha256, `immutable ontology promotion baseline ${key}.sha256`);
+    const sourceRaw = runGit(root, ['show', `${baseline.source_commit}:${entry.path}`]).stdout;
+    if (sha256(sourceRaw) !== entry.sha256) {
+      throw new Error(`immutable ontology promotion baseline ${key} differs from source Git bytes`);
+    }
+    governedArtifacts[key] = Object.freeze({ ...entry });
+  }
+
+  const document = baseline.document;
+  if (!exactObjectKeys(document, [
+    'document_id', 'source_path', 'source_artifact_sha256', 'source_bytes', 'page_count',
+    'canonical_text_path', 'canonical_text_sha256', 'canonical_text_bytes',
+  ]) || document.document_id !== 'moe-2022-03') {
+    throw new Error('immutable ontology promotion baseline document contract is invalid');
+  }
+  containedProjectPath(root, document.source_path, 'promotion source path');
+  containedProjectPath(root, document.canonical_text_path, 'promotion canonical text path');
+  requireSha256(document.source_artifact_sha256, 'promotion source artifact');
+  requireSha256(document.canonical_text_sha256, 'promotion canonical text');
+  requirePositiveInteger(document.source_bytes, 'promotion source bytes');
+  requirePositiveInteger(document.page_count, 'promotion page count');
+  requirePositiveInteger(document.canonical_text_bytes, 'promotion canonical text bytes');
+
+  const pageKeys = new Set();
+  for (const pageEntry of baseline.reviewed_pages) {
+    if (!exactObjectKeys(pageEntry, [
+      'document_id', 'physical_page', 'source_artifact_sha256', 'source_page_sha256',
+      'page_image_path', 'page_image_bytes', 'final_text_sha256', 'evidence_bundle_sha256',
+      'evidence_bundle_path', 'evidence_bundle_bytes', 'paragraphs',
+    ]) || pageEntry.document_id !== document.document_id || !Array.isArray(pageEntry.paragraphs)) {
+      throw new Error('immutable ontology promotion reviewed page contract is invalid');
+    }
+    const pageKey = `${pageEntry.document_id}\u0000${pageEntry.physical_page}`;
+    if (pageKeys.has(pageKey)) throw new Error(`duplicate immutable ontology promotion page ${pageKey}`);
+    pageKeys.add(pageKey);
+    requirePositiveInteger(pageEntry.physical_page, 'promotion physical page');
+    requirePositiveInteger(pageEntry.page_image_bytes, 'promotion page image bytes');
+    requirePositiveInteger(pageEntry.evidence_bundle_bytes, 'promotion evidence bundle bytes');
+    for (const key of ['source_artifact_sha256', 'source_page_sha256', 'final_text_sha256', 'evidence_bundle_sha256']) {
+      requireSha256(pageEntry[key], `promotion reviewed page ${key}`);
+    }
+    containedProjectPath(root, pageEntry.page_image_path, 'promotion page image path');
+    containedProjectPath(root, pageEntry.evidence_bundle_path, 'promotion evidence bundle path');
+    const ordinals = new Set();
+    for (const paragraph of pageEntry.paragraphs) {
+      if (!exactObjectKeys(paragraph, ['paragraph_ordinal', 'body_sha256'])) {
+        throw new Error('immutable ontology promotion paragraph contract is invalid');
+      }
+      requirePositiveInteger(paragraph.paragraph_ordinal, 'promotion paragraph ordinal');
+      requireSha256(paragraph.body_sha256, 'promotion paragraph body');
+      if (ordinals.has(paragraph.paragraph_ordinal)) throw new Error('duplicate promotion paragraph ordinal');
+      ordinals.add(paragraph.paragraph_ordinal);
+    }
+  }
+
+  const sourceIds = new Set();
+  for (const source of baseline.online_sources) {
+    if (!exactObjectKeys(source, [
+      'source_id', 'snapshot_path', 'content_sha256', 'content_bytes', 'quotes',
+    ]) || typeof source.source_id !== 'string' || !Array.isArray(source.quotes)) {
+      throw new Error('immutable ontology promotion online source contract is invalid');
+    }
+    if (sourceIds.has(source.source_id)) throw new Error(`duplicate promotion online source ${source.source_id}`);
+    sourceIds.add(source.source_id);
+    containedProjectPath(root, source.snapshot_path, 'promotion online snapshot path');
+    requireSha256(source.content_sha256, `promotion online source ${source.source_id}`);
+    requirePositiveInteger(source.content_bytes, `promotion online source ${source.source_id} bytes`);
+    for (const quote of source.quotes) {
+      if (!exactObjectKeys(quote, [
+        'claim_id', 'quote_start_offset', 'quote_end_offset', 'quote_sha256', 'exact_terms',
+      ]) || !Array.isArray(quote.exact_terms) || quote.exact_terms.length === 0) {
+        throw new Error(`immutable ontology promotion quote contract is invalid for ${source.source_id}`);
+      }
+      if (!Number.isInteger(quote.quote_start_offset) || quote.quote_start_offset < 0
+        || !Number.isInteger(quote.quote_end_offset) || quote.quote_end_offset <= quote.quote_start_offset) {
+        throw new Error(`immutable ontology promotion quote offsets are invalid for ${source.source_id}`);
+      }
+      requireSha256(quote.quote_sha256, `promotion online quote ${source.source_id}`);
+    }
+  }
+
+  return Object.freeze({
+    ...baseline,
+    path: PROMOTION_BASELINE_ARTIFACT_PATH,
+    anchor_commit: anchorCommit,
+    artifact_sha256: sha256(raw),
+    governed_artifacts: Object.freeze(governedArtifacts),
+  });
+}
+
+async function inspectRuntimeBytes(root, relativePath, expectedSha256, expectedBytes, includeText = false) {
+  try {
+    const absolute = containedProjectPath(root, relativePath, 'promotion runtime evidence path');
+    const raw = await readFile(absolute);
+    const actual = { sha256: sha256(raw), bytes: raw.byteLength };
+    const verified = actual.sha256 === expectedSha256 && actual.bytes === expectedBytes;
+    return {
+      verified,
+      path: relativePath,
+      ...actual,
+      ...(includeText ? { body: raw.toString('utf8') } : {}),
+      error: verified ? null : 'runtime evidence bytes differ from immutable baseline',
+    };
+  } catch (error) {
+    return { verified: false, path: relativePath, error: error.message };
+  }
+}
+
+async function loadPromotionRuntimeEvidence(root, baseline, artifacts, supportArtifacts) {
+  let sourcePdf;
+  try {
+    const verified = await verifyLocalSource(
+      containedProjectPath(root, baseline.document.source_path, 'promotion source path'),
+      {
+        source_bytes: baseline.document.source_bytes,
+        source_artifact_sha256: baseline.document.source_artifact_sha256,
+      },
+    );
+    sourcePdf = {
+      verified: true,
+      path: baseline.document.source_path,
+      sha256: verified.source_sha256,
+      bytes: verified.source_bytes,
+      error: null,
+    };
+  } catch (error) {
+    sourcePdf = { verified: false, path: baseline.document.source_path, error: error.message };
+  }
+  const canonicalText = await inspectRuntimeBytes(
+    root,
+    baseline.document.canonical_text_path,
+    baseline.document.canonical_text_sha256,
+    baseline.document.canonical_text_bytes,
+    true,
+  );
+  const reviewedPages = new Map();
+  for (const pageEntry of baseline.reviewed_pages) {
+    const [pageImage, evidenceBundle] = await Promise.all([
+      inspectRuntimeBytes(root, pageEntry.page_image_path, pageEntry.source_page_sha256, pageEntry.page_image_bytes),
+      inspectRuntimeBytes(root, pageEntry.evidence_bundle_path, pageEntry.evidence_bundle_sha256, pageEntry.evidence_bundle_bytes),
+    ]);
+    reviewedPages.set(`${pageEntry.document_id}\u0000${pageEntry.physical_page}`, {
+      baseline: pageEntry,
+      page_image: pageImage,
+      evidence_bundle: evidenceBundle,
+    });
+  }
+  const onlineSources = new Map();
+  for (const source of baseline.online_sources) {
+    const runtime = await inspectRuntimeBytes(
+      root,
+      source.snapshot_path,
+      source.content_sha256,
+      source.content_bytes,
+      true,
+    );
+    onlineSources.set(source.source_id, { baseline: source, ...runtime });
+  }
+
+  let candidateValidation;
+  try {
+    const report = validateCandidateLayer(artifacts.candidate.json, {
+      catalog: artifacts.catalog.json,
+      lexicon: supportArtifacts.candidate_lexicon.json,
+    });
+    candidateValidation = {
+      valid: report.valid === true,
+      candidate_sha256: artifacts.candidate.sha256,
+      catalog_sha256: artifacts.catalog.sha256,
+      lexicon_sha256: supportArtifacts.candidate_lexicon.sha256,
+      validator_sha256: supportArtifacts.candidate_validator.sha256,
+      report,
+      error: null,
+    };
+  } catch (error) {
+    candidateValidation = {
+      valid: false,
+      candidate_sha256: artifacts.candidate.sha256,
+      catalog_sha256: artifacts.catalog.sha256,
+      lexicon_sha256: supportArtifacts.candidate_lexicon.sha256,
+      validator_sha256: supportArtifacts.candidate_validator.sha256,
+      report: null,
+      error: error.message,
+    };
+  }
+  return {
+    source_pdf: sourcePdf,
+    canonical_text: canonicalText,
+    reviewed_pages: reviewedPages,
+    online_sources: onlineSources,
+    candidate_validation: candidateValidation,
+  };
+}
+
 function paragraphKey(documentId, ordinal) {
   return `${documentId}\u0000${ordinal}`;
 }
@@ -404,12 +695,27 @@ export async function loadOntologyReleaseContext(root = PROJECT_ROOT) {
   const entries = await Promise.all(Object.entries(INPUT_PATHS)
     .map(async ([key, relativePath]) => [key, await readArtifact(root, relativePath)]));
   const artifacts = Object.fromEntries(entries);
+  const supportArtifacts = {
+    candidate_schema: await readArtifact(root, PROMOTION_GOVERNED_PATHS.candidate_schema),
+    candidate_validator: await readRawArtifact(root, PROMOTION_GOVERNED_PATHS.candidate_validator),
+    candidate_lexicon: await readArtifact(root, PROMOTION_GOVERNED_PATHS.candidate_lexicon),
+  };
+  const promotionBaseline = loadImmutablePromotionBaseline(root);
   const canonical = await loadCanonicalParagraphs(root, artifacts);
+  const promotionRuntime = await loadPromotionRuntimeEvidence(
+    root,
+    promotionBaseline,
+    artifacts,
+    supportArtifacts,
+  );
   return {
     root,
     schema: JSON.parse(await readFile(path.join(root, 'data/ontology-release.schema.json'), 'utf8')),
     artifacts,
+    support_artifacts: supportArtifacts,
     public_baseline: loadImmutablePublicBaseline(root),
+    promotion_baseline: promotionBaseline,
+    promotion_runtime: promotionRuntime,
     builder_source: await readFile(path.join(root, 'scripts/build-concept-evolution.mjs'), 'utf8'),
     ...canonical,
   };
@@ -453,6 +759,105 @@ function validateFingerprints(manifest, context, errors) {
   ]) {
     issue(errors, manifest.input_fingerprints[key].ontology_node_count === count,
       'declared_ontology_count_mismatch', `${key} count is not bound to the inspected artifact`);
+  }
+}
+
+function promotionArtifact(context, key) {
+  return context.artifacts?.[key] || context.support_artifacts?.[key] || null;
+}
+
+function validatePromotionEvidenceBoundary(manifest, context, errors) {
+  if (manifest.publication_state !== 'reviewed_release') return;
+  const baseline = context.promotion_baseline;
+  const runtime = context.promotion_runtime;
+  issue(errors, Boolean(baseline), 'promotion_immutable_baseline_missing', 'reviewed promotion has no immutable evidence baseline');
+  issue(errors, Boolean(runtime), 'promotion_runtime_evidence_missing', 'reviewed promotion has no runtime byte verification');
+  if (!baseline || !runtime) return;
+
+  for (const key of Object.keys(PROMOTION_GOVERNED_PATHS)) {
+    const expected = baseline.governed_artifacts?.[key];
+    const actual = promotionArtifact(context, key);
+    const code = key === 'candidate'
+      ? 'promotion_candidate_baseline_mismatch'
+      : key === 'online_verification'
+        ? 'promotion_online_baseline_mismatch'
+        : 'promotion_artifact_baseline_mismatch';
+    issue(errors, Boolean(expected) && Boolean(actual) && actual.sha256 === expected.sha256,
+      code, `${key} differs from the immutable promotion review bytes`);
+  }
+
+  const validation = runtime.candidate_validation;
+  issue(errors, validation?.valid === true
+    && validation.candidate_sha256 === baseline.governed_artifacts.candidate.sha256
+    && validation.catalog_sha256 === baseline.governed_artifacts.catalog.sha256
+    && validation.lexicon_sha256 === baseline.governed_artifacts.candidate_lexicon.sha256
+    && validation.validator_sha256 === baseline.governed_artifacts.candidate_validator.sha256,
+  'promotion_candidate_validation_mismatch', 'candidate source-byte validator is absent, failed, or not bound to frozen inputs');
+
+  issue(errors, runtime.source_pdf?.verified === true
+    && runtime.source_pdf.sha256 === baseline.document.source_artifact_sha256
+    && runtime.source_pdf.bytes === baseline.document.source_bytes
+    && manifest.input_fingerprints.source_artifact_sha256 === baseline.document.source_artifact_sha256,
+  'promotion_source_pdf_hash_mismatch', 'original source PDF bytes are not independently verified against the immutable baseline');
+  issue(errors, runtime.canonical_text?.verified === true
+    && runtime.canonical_text.sha256 === baseline.document.canonical_text_sha256
+    && runtime.canonical_text.bytes === baseline.document.canonical_text_bytes,
+  'promotion_canonical_text_snapshot_mismatch', 'canonical text bytes are not independently verified against the immutable baseline');
+
+  const baselinePages = new Map((baseline.reviewed_pages || [])
+    .map((pageEntry) => [`${pageEntry.document_id}\u0000${pageEntry.physical_page}`, pageEntry]));
+  const baselineOnlineSources = new Map((baseline.online_sources || [])
+    .map((source) => [source.source_id, source]));
+
+  for (const assertion of manifest.assertions || []) {
+    const pageKey = `${assertion.document_id}\u0000${assertion.physical_page}`;
+    const pageEntry = baselinePages.get(pageKey);
+    const pageRuntime = runtime.reviewed_pages?.get(pageKey);
+    const paragraphEntry = pageEntry?.paragraphs?.find(
+      (paragraph) => paragraph.paragraph_ordinal === assertion.paragraph_ordinal,
+    );
+    issue(errors, Boolean(pageEntry)
+      && pageEntry.source_artifact_sha256 === baseline.document.source_artifact_sha256
+      && pageEntry.source_page_sha256 === assertion.source_page_sha256
+      && pageEntry.final_text_sha256 === assertion.final_text_sha256
+      && pageEntry.evidence_bundle_sha256 === assertion.evidence_bundle_sha256
+      && paragraphEntry?.body_sha256 === assertion.paragraph_body_sha256
+      && pageRuntime?.page_image?.verified === true
+      && pageRuntime.page_image.sha256 === assertion.source_page_sha256
+      && pageRuntime?.evidence_bundle?.verified === true
+      && pageRuntime.evidence_bundle.sha256 === assertion.evidence_bundle_sha256,
+    'promotion_page_evidence_not_frozen', `${assertion.assertion_id} is not bound to frozen PDF-page image, final text, evidence bundle, and paragraph bytes`);
+
+    for (const binding of assertion.online_evidence_bindings || []) {
+      const quoteBindings = binding.source_quote_bindings || [];
+      issue(errors, exactSet(quoteBindings.map((entry) => entry.source_id), binding.independent_source_ids),
+        'online_source_quote_set_mismatch', `${assertion.assertion_id}/${binding.claim_id} lacks one source-specific quote per selected source`);
+      const canonicalTerms = new Set((binding.term_bindings || []).map((entry) => entry.term));
+      for (const quoteBinding of quoteBindings) {
+        const sourceBaseline = baselineOnlineSources.get(quoteBinding.source_id);
+        const sourceRuntime = runtime.online_sources?.get(quoteBinding.source_id);
+        const frozenQuote = sourceBaseline?.quotes?.find((quote) => quote.claim_id === binding.claim_id
+          && quote.quote_start_offset === quoteBinding.quote_start_offset
+          && quote.quote_end_offset === quoteBinding.quote_end_offset
+          && quote.quote_sha256 === quoteBinding.quote_sha256
+          && exactSet(quote.exact_terms, quoteBinding.exact_terms));
+        const rangeValid = sourceRuntime?.verified === true
+          && quoteBinding.quote_start_offset >= 0
+          && quoteBinding.quote_end_offset > quoteBinding.quote_start_offset
+          && quoteBinding.quote_end_offset <= (sourceRuntime.body || '').length;
+        const quoteText = rangeValid
+          ? sourceRuntime.body.slice(quoteBinding.quote_start_offset, quoteBinding.quote_end_offset)
+          : '';
+        issue(errors, Boolean(sourceBaseline)
+          && sourceBaseline.content_sha256 === quoteBinding.content_sha256
+          && sourceRuntime?.sha256 === quoteBinding.content_sha256
+          && Boolean(frozenQuote)
+          && rangeValid
+          && sha256(quoteText) === quoteBinding.quote_sha256
+          && quoteBinding.exact_terms.every((term) => canonicalTerms.has(term) && quoteText.includes(term)),
+        'online_source_quote_not_frozen', `${assertion.assertion_id}/${binding.claim_id}/${quoteBinding.source_id} has no exact frozen source quote, offset, content hash, and term binding`);
+      }
+    }
   }
 }
 
@@ -958,30 +1363,29 @@ function escapeRegExp(value) {
 }
 
 function canonicalStatementSupportsRelation(relationType, statement, sourceLabel, targetLabel) {
-  const text = statement.replace(/\s+/g, '');
-  const negatedPredicate = /(?:不|未|无|并非|不能|从未|尚未|没有).{0,6}(?:支持|支撑|促进|保障|有助于|服务于|相关|联系|相互作用|重构|重述|重新表述|拆分|分化|细分|合并|整合|取代|替代)/;
-  if (negatedPredicate.test(text)) return false;
+  const text = statement.trim().replace(/\s+/g, '');
+  if (!text || /[。！？!?；;，,：:\n]/.test(text)) return false;
+  if (/(?:不|未|无|非|否认|错误|不成立|不正确|不能|从未|尚未|没有)/.test(text)) return false;
   const source = escapeRegExp(sourceLabel.replace(/\s+/g, ''));
   const target = escapeRegExp(targetLabel.replace(/\s+/g, ''));
-  const between = '.{0,64}';
   const tests = {
     supports: [
-      new RegExp(`${source}${between}(?:支持|支撑|促进|保障|有助于|服务于)${between}${target}`),
-      new RegExp(`${target}${between}(?:依托|基于|以)${between}${source}${between}(?:为基础|为支撑|为保障)`),
+      new RegExp(`^${source}(?:直接|明确|有力)?(?:支持|支撑|促进|保障|有助于|服务于)${target}$`),
+      new RegExp(`^${target}(?:依托|基于|以)${source}(?:为基础|为支撑|为保障)$`),
     ],
     related_to: [
-      new RegExp(`${source}${between}(?:与|和)${between}${target}${between}(?:相关|联系|相互作用)`),
-      new RegExp(`${target}${between}(?:与|和)${between}${source}${between}(?:相关|联系|相互作用)`),
+      new RegExp(`^${source}(?:与|和)${target}(?:相关|有联系|相互作用)$`),
+      new RegExp(`^${target}(?:与|和)${source}(?:相关|有联系|相互作用)$`),
     ],
     reframed_by: [
-      new RegExp(`${source}${between}(?:被|由)${between}${target}${between}(?:重构|重述|重新表述)`),
-      new RegExp(`${target}${between}(?:重构|重述|重新表述)${between}${source}`),
+      new RegExp(`^${source}(?:被|由)${target}(?:重构|重述|重新表述)$`),
+      new RegExp(`^${target}(?:重构|重述|重新表述)${source}$`),
     ],
-    split_into: [new RegExp(`${source}${between}(?:拆分|分化|细分)${between}(?:为|成)${between}${target}`)],
-    merged_from: [new RegExp(`${source}${between}(?:合并|整合)${between}(?:自|于|来自)${between}${target}`)],
+    split_into: [new RegExp(`^${source}(?:拆分|分化|细分)(?:为|成)${target}$`)],
+    merged_from: [new RegExp(`^${source}(?:合并|整合)(?:自|于|来自)${target}$`)],
     replaced_by: [
-      new RegExp(`${source}${between}(?:被|由)${between}${target}${between}(?:取代|替代)`),
-      new RegExp(`${target}${between}(?:取代|替代)${between}${source}`),
+      new RegExp(`^${source}(?:被|由)${target}(?:取代|替代)$`),
+      new RegExp(`^${target}(?:取代|替代)${source}$`),
     ],
   };
   return (tests[relationType] || []).some((pattern) => pattern.test(text));
@@ -1046,9 +1450,17 @@ function validateRelations(manifest, scopes, assertionResult, nodes, errors) {
       'relation_endpoint_content_missing', `${relation.id} needs canonical content for both endpoints`);
     issue(errors, relation.provenance_mode === 'explicit_canonical_statement_v1',
       'relation_provenance_mode_invalid', `${relation.id} lacks controlled relation provenance`);
+    const expectedDirection = relation.relation_type === 'related_to' ? 'symmetric' : 'source_to_target';
+    issue(errors, relation.direction === expectedDirection,
+      'relation_direction_mismatch', `${relation.id} must declare ${expectedDirection}`);
+    issue(errors, relation.polarity === 'positive',
+      'relation_polarity_not_positive', `${relation.id} must declare positive polarity`);
     issue(errors, relationStatements.length === 1,
       'relation_statement_cardinality_error', `${relation.id} needs exactly one canonical relation statement`);
     if (source && target && relationStatements.length === 1) {
+      issue(errors, relationStatements[0] === relationStatements[0].trim()
+        && !/[。！？!?；;，,：:\n]/.test(relationStatements[0]),
+      'relation_statement_clause_error', `${relation.id} statement must be one exact punctuation-bounded clause`);
       issue(errors, relation.assertion_basis === relationStatements[0],
         'relation_basis_not_canonical_statement', `${relation.id} assertion_basis is not the exact canonical relation statement`);
       issue(errors, canonicalStatementSupportsRelation(
@@ -1160,6 +1572,7 @@ export function validateOntologyRelease(manifest, context) {
   }
 
   validateFingerprints(manifest, context, errors);
+  validatePromotionEvidenceBoundary(manifest, context, errors);
   const scopes = validateSourceLock(manifest, context, errors);
   validateFacetCoverage(manifest, context, errors);
   validateBuilderIsolation(manifest, context, errors);
@@ -1202,6 +1615,14 @@ export function validateOntologyRelease(manifest, context) {
       anchor_commit: context.public_baseline?.anchor_commit || null,
       source_commit: context.public_baseline?.source_commit || null,
       artifact_sha256: context.public_baseline?.artifact_sha256 || null,
+    },
+    immutable_promotion_baseline: {
+      artifact_path: context.promotion_baseline?.path || null,
+      anchor_commit: context.promotion_baseline?.anchor_commit || null,
+      source_commit: context.promotion_baseline?.source_commit || null,
+      artifact_sha256: context.promotion_baseline?.artifact_sha256 || null,
+      reviewed_pages: context.promotion_baseline?.reviewed_pages?.length || 0,
+      online_sources: context.promotion_baseline?.online_sources?.length || 0,
     },
     errors,
   };
