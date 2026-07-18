@@ -663,6 +663,7 @@ async function convertShardToHashBoundSeed(shard, {
   tamper = null,
   timeoutRecovery = null,
   transition = null,
+  successorRunnerScriptSha256 = 'e'.repeat(64),
 } = {}) {
   const identityPath = path.join(shard.shardRoot, 'run-identity.json');
   const runStatusPath = path.join(shard.shardRoot, 'run-status.json');
@@ -671,7 +672,6 @@ async function convertShardToHashBoundSeed(shard, {
   const predecessorRunStatusRaw = await readFile(runStatusPath);
   const predecessorRunStatus = JSON.parse(predecessorRunStatusRaw);
   const predecessorRunStatusSidecar = await readFile(`${runStatusPath}.sha256`);
-  const successorRunnerScriptSha256 = 'e'.repeat(64);
   const shardManifestRaw = await readFile(shard.manifestPath);
   const shardManifest = JSON.parse(shardManifestRaw);
   const p4ToP1 = transition === 'p4_to_p1_v1';
@@ -1826,6 +1826,22 @@ test('receiver independently verifies seeded lineage, attempt floors, and archiv
     );
   });
 
+  await t.test('p1 shard union rejects different successor runner code', async (t) => {
+    const value = await fixture(t);
+    await convertShardToHashBoundSeed(value.shardA, {
+      transition: 'p4_to_p1_v1',
+      successorRunnerScriptSha256: 'e'.repeat(64),
+    });
+    await convertShardToHashBoundSeed(value.shardB, {
+      transition: 'p4_to_p1_v1',
+      successorRunnerScriptSha256: '9'.repeat(64),
+    });
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      /p1 shard execution contracts differ/,
+    );
+  });
+
   await t.test('receiver p4-to-p1 validator rejects forbidden and declaration deltas', async (t) => {
     const value = await fixture(t);
     const seed = await convertShardToHashBoundSeed(
@@ -1859,6 +1875,15 @@ test('receiver independently verifies seeded lineage, attempt floors, and archiv
     assert.throws(
       () => validateP4ToP1SeedDelta(declaration, predecessorIdentity, successorIdentity),
       /allowed configuration delta declaration is not exact/,
+    );
+
+    const ocrDrift = structuredClone(successorIdentity);
+    ocrDrift.ocr_script_sha256 = '0'.repeat(64);
+    const ocrDriftReceipt = structuredClone(receipt);
+    ocrDriftReceipt.successor.ocr_script_sha256 = ocrDrift.ocr_script_sha256;
+    assert.throws(
+      () => validateP4ToP1SeedDelta(ocrDriftReceipt, predecessorIdentity, ocrDrift),
+      /OCR identity/,
     );
   });
 

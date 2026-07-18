@@ -495,9 +495,15 @@ export function validateP4ToP1SeedDelta(receipt, predecessorIdentity, successorI
   const predecessor = requireObject(receipt.predecessor, 'seed receipt predecessor');
   const successor = requireObject(receipt.successor, 'seed receipt successor');
   if (predecessorIdentity.runner_script_sha256 !== legacyB1RunnerScriptSha256
-    || predecessor.runner_script_sha256 !== legacyB1RunnerScriptSha256) {
+    || predecessor.runner_script_sha256 !== legacyB1RunnerScriptSha256
+    || successorIdentity.runner_script_sha256 === legacyB1RunnerScriptSha256) {
     throw new Error('p4-to-p1 predecessor is not the exact legacy unseeded runner');
   }
+  for (const [value, label] of [
+    [predecessorIdentity.ocr_script_sha256, 'p4 OCR script SHA-256'],
+    [successorIdentity.ocr_script_sha256, 'p1 OCR script SHA-256'],
+    [successorIdentity.runner_script_sha256, 'p1 runner script SHA-256'],
+  ]) requireSha256(value, label);
   if (!sameJson(predecessor.runtime, predecessorIdentity.runtime)
     || !sameJson(predecessor.runtime_fingerprint, predecessorIdentity.runtime_fingerprint)
     || predecessor.runtime_fingerprint_sha256 !== predecessorIdentity.runtime_fingerprint_sha256
@@ -507,14 +513,18 @@ export function validateP4ToP1SeedDelta(receipt, predecessorIdentity, successorI
     || !sameJson(successor.runtime_fingerprint, successorIdentity.runtime_fingerprint)
     || successor.runtime_fingerprint_sha256 !== successorIdentity.runtime_fingerprint_sha256
     || !sameJson(successor.worker_configuration, successorIdentity.worker_configuration)
-    || !sameJson(successor.document_recovery, successorIdentity.document_recovery)) {
+    || !sameJson(successor.document_recovery, successorIdentity.document_recovery)
+    || predecessor.ocr_script_sha256 !== predecessorIdentity.ocr_script_sha256
+    || successor.ocr_script_sha256 !== successorIdentity.ocr_script_sha256
+    || successor.runner_script_sha256 !== successorIdentity.runner_script_sha256) {
     throw new Error('p4-to-p1 receipt runtime controls differ from the raw identities');
   }
   if (!sameJson(predecessorIdentity.runtime, successorIdentity.runtime)
     || predecessorIdentity.input_root !== successorIdentity.input_root
     || predecessorIdentity.python_invocation_path !== successorIdentity.python_invocation_path
-    || predecessorIdentity.python_resolved_target !== successorIdentity.python_resolved_target) {
-    throw new Error('p4-to-p1 changes a forbidden model, DPI, input, or Python identity');
+    || predecessorIdentity.python_resolved_target !== successorIdentity.python_resolved_target
+    || predecessorIdentity.ocr_script_sha256 !== successorIdentity.ocr_script_sha256) {
+    throw new Error('p4-to-p1 changes a forbidden model, DPI, input, Python, or OCR identity');
   }
 
   const predecessorHashes = requireRecomputedIdentityHashes(predecessorIdentity, 'p4 predecessor');
@@ -2390,6 +2400,7 @@ function validateShardUnion(parentManifest, shards) {
   let selectedPages = 0;
   let selectedBytes = 0;
   let runtimeFingerprintSha256 = null;
+  let p1ExecutionContract = null;
 
   for (const shard of shards) {
     if (seenRoots.has(shard.root)) throw new Error(`duplicate shard root: ${shard.root}`);
@@ -2405,6 +2416,23 @@ function validateShardUnion(parentManifest, shards) {
       runtimeFingerprintSha256 = shard.identity.runtime_fingerprint_sha256;
     } else if (runtimeFingerprintSha256 !== shard.identity.runtime_fingerprint_sha256) {
       throw new Error('shard runtime fingerprints differ');
+    }
+    if (shard.seed?.receipt?.allowed_configuration_delta?.transition === p4ToP1Transition) {
+      const shardExecutionContract = {
+        runtime_fingerprint_sha256: shard.identity.runtime_fingerprint_sha256,
+        llama_server_attestation_sha256: shard.identity.llama_server_attestation_sha256,
+        runner_script_sha256: shard.identity.runner_script_sha256,
+        ocr_script_sha256: shard.identity.ocr_script_sha256,
+        worker_configuration: shard.identity.worker_configuration,
+        document_recovery: shard.identity.document_recovery,
+        python_invocation_path: shard.identity.python_invocation_path,
+        python_resolved_target: shard.identity.python_resolved_target,
+      };
+      if (p1ExecutionContract === null) {
+        p1ExecutionContract = shardExecutionContract;
+      } else if (!sameJson(p1ExecutionContract, shardExecutionContract)) {
+        throw new Error('p1 shard execution contracts differ');
+      }
     }
     for (const document of shard.manifest.documents) {
       if (seenDocuments.has(document.id)) throw new Error(`document appears in more than one shard: ${document.id}`);

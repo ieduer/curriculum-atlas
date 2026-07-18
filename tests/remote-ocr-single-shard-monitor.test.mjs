@@ -978,6 +978,14 @@ test('p1 requires active services while running and stopped services after compl
     state: 'completed', exit_code: 0, issues: [],
   });
 
+  const unclean = structuredClone(stopped);
+  unclean.services.worker.exec_main_status = 12;
+  unclean.services.worker.result = 'exit-code';
+  assert.deepEqual(
+    classifySingleShardSnapshot(unclean).issues.map(({ code }) => code),
+    ['B2_WORKER_UNCLEAN_AFTER_P1_COMPLETION'],
+  );
+
   stopped.services.inactive_workers['b-r2'] = service();
   assert.ok(classifySingleShardSnapshot(stopped).issues.some(
     ({ code }) => code === 'INACTIVE_WORKER_B_R2_ACTIVE',
@@ -1157,6 +1165,8 @@ test('p4-to-p1 validator rejects coherently rebound forbidden deltas and declara
       worker_configuration_sha256: sha256(canonicalJson(identity.worker_configuration)),
       document_recovery: structuredClone(identity.document_recovery),
       document_recovery_sha256: sha256(canonicalJson(identity.document_recovery)),
+      runner_script_sha256: identity.runner_script_sha256,
+      ocr_script_sha256: identity.ocr_script_sha256,
     });
     Object.assign(receipt.allowed_configuration_delta.llama_server_attestation, {
       successor_sha256: identity.llama_server_attestation_sha256,
@@ -1198,6 +1208,9 @@ test('p4-to-p1 validator rejects coherently rebound forbidden deltas and declara
     ['runtime fingerprint field', (_receipt, identity) => {
       identity.runtime_fingerprint.extra = true;
     }, /field set differs/],
+    ['OCR script', (_receipt, identity) => {
+      identity.ocr_script_sha256 = hash('0');
+    }, /OCR identity/],
     ['proc command did not change', (_receipt, identity) => {
       identity.llama_server_attestation.proc_cmdline_sha256
         = fixture.predecessor.identity.llama_server_attestation.proc_cmdline_sha256;
