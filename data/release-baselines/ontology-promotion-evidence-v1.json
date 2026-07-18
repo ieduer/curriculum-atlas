@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "baseline_id": "ontology-promotion-evidence:e6aa740115eebbab1e646f06c5db621b8f052b3c",
+  "policy": "immutable_git_object_promotion_evidence_v1",
+  "source_commit": "e6aa740115eebbab1e646f06c5db621b8f052b3c",
+  "source_tree": "f6309bc3f9ce5996bda73c4108630ac2d4b16984",
+  "document": {
+    "document_id": "moe-2022-03",
+    "source_path": ".cache/sources/moe-2022-03.pdf",
+    "source_artifact_sha256": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a",
+    "source_bytes": 20618661,
+    "page_count": 109,
+    "canonical_text_path": ".cache/text/moe-2022-03.txt",
+    "canonical_text_sha256": "cfde709dcb166722164aae1217a3ea641dff847b34ad1ef9801b394b332bf05c",
+    "canonical_text_bytes": 109
+  },
+  "governed_artifacts": {
+    "candidate": {
+      "path": "data/ontology-candidates/zh-compulsory-2022.json",
+      "sha256": "44c18519873482bd34dced32830994ea15b52589789ffa648a16c812ba881dcf"
+    },
+    "candidate_schema": {
+      "path": "data/ontology-candidates/candidate-layer.schema.json",
+      "sha256": "2a9e93e731e2fcca423363e15d5721dd8dd9918de7937411a474645cd5966b4d"
+    },
+    "candidate_validator": {
+      "path": "scripts/validate-ontology-candidate-layer.mjs",
+      "sha256": "834656ad85fba5e1ff9c7b8686f5730baa8cac2cd39d2fd8bf92b780f78206c5"
+    },
+    "candidate_lexicon": {
+      "path": "data/concept-lexicon.json",
+      "sha256": "d8b792139ff4d28afff5cd685ce8b73174435353dd9343430ade26e8e763608b"
+    },
+    "catalog": {
+      "path": "data/catalog.json",
+      "sha256": "75c64afb87aff147014ca2613b1d425ee956473d917586ac006a929f1a9743ce"
+    },
+    "page_publication": {
+      "path": "data/page-publication-manifest.json",
+      "sha256": "1552b8c8f490451c9c158cc573ae814dadb5fe6b9cd346495e4b1c41cbc2fdcb"
+    },
+    "semantic_publication": {
+      "path": "data/semantic-publication-policy.json",
+      "sha256": "6bf7017b3804d8aa905b4449826d71a9b087df6f6ae0377a9b4108e7948d859a"
+    },
+    "online_verification": {
+      "path": "data/online-verification/zh-compulsory-2022-claims.json",
+      "sha256": "15a725818645e5f699da7415f9636ca1b0e33d0423c58709a02bbd822b178e0e"
+    }
+  },
+  "reviewed_pages": [],
+  "online_sources": []
+}
