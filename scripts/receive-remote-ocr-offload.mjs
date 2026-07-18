@@ -63,6 +63,10 @@ const legacyToSeedAwareOcrScriptTransition = 'b1_legacy_to_seed_aware_v1';
 const legacyB1OcrScriptSha256 = 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53aff3ebeae48d9b048';
 const seedAwareOcrScriptSha256 = '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3';
 const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca';
+const fixedB3RunnerScriptSha256 = '58a1e3826aca807bf62f4546f237597c305334ba1b0a56a8f47cacfaa5cfeaa7';
+const a1CompletedStatusRunnerScriptSha256 = 'c11a7da632a009879632520c5fcd5b3b05144667325ed8f6c9019047a5ece8f8';
+const directedRunnerCompatibilityType = 'curriculum_remote_ocr_directed_runner_compatibility';
+const directedRunnerCompatibilityTransition = 'a1_completed_status_to_fixed_b3_union_v1';
 const paddleMarkdownAssetPattern = /^img_in_(header_image_box|image_box|footer_image_box|chart_box)_(\d+)_(\d+)_(\d+)_(\d+)\.jpg$/u;
 const paddleAssetLabels = Object.freeze({
   header_image_box: 'header_image',
@@ -128,6 +132,66 @@ function requireExactObjectKeys(left, right, label) {
   if (!sameJson(Object.keys(left).sort(), Object.keys(right).sort())) {
     throw new Error(`${label} field set differs`);
   }
+}
+
+export function validateDirectedRunnerCompatibilityEvidence(evidenceValue) {
+  const evidence = requireObject(evidenceValue, 'directed runner compatibility evidence');
+  requireExactObjectKeys(evidence, {
+    schema_version: null,
+    compatibility_type: null,
+    transition: null,
+    allowed_difference: null,
+    shards: null,
+    citation_allowed: null,
+    compatibility_sha256: null,
+  }, 'directed runner compatibility evidence');
+  if (evidence.schema_version !== 1
+    || evidence.compatibility_type !== directedRunnerCompatibilityType
+    || evidence.transition !== directedRunnerCompatibilityTransition
+    || !sameJson(evidence.allowed_difference, ['runner_script_sha256'])
+    || evidence.citation_allowed !== false
+    || !Array.isArray(evidence.shards)
+    || evidence.shards.length !== 2) {
+    throw new Error('directed runner compatibility evidence declaration is invalid');
+  }
+  const expectedRoles = [
+    {
+      role: 'shard_a',
+      runner_script_sha256: a1CompletedStatusRunnerScriptSha256,
+      documents: 8,
+      pages: 3_182,
+    },
+    {
+      role: 'shard_b',
+      runner_script_sha256: fixedB3RunnerScriptSha256,
+      documents: 6,
+      pages: 3_182,
+    },
+  ];
+  for (let index = 0; index < expectedRoles.length; index += 1) {
+    const shard = requireObject(evidence.shards[index], `directed runner compatibility shard ${index + 1}`);
+    requireExactObjectKeys(shard, {
+      role: null,
+      manifest_sha256: null,
+      run_identity_sha256: null,
+      runner_script_sha256: null,
+      documents: null,
+      pages: null,
+    }, `directed runner compatibility shard ${index + 1}`);
+    requireSha256(shard.manifest_sha256, `directed runner compatibility shard ${index + 1} manifest SHA-256`);
+    requireSha256(shard.run_identity_sha256, `directed runner compatibility shard ${index + 1} identity SHA-256`);
+    if (shard.role !== expectedRoles[index].role
+      || shard.runner_script_sha256 !== expectedRoles[index].runner_script_sha256
+      || shard.documents !== expectedRoles[index].documents
+      || shard.pages !== expectedRoles[index].pages) {
+      throw new Error('directed runner compatibility evidence is not the unique A-new to B-fixed pair');
+    }
+  }
+  const { compatibility_sha256: _compatibilitySha256, ...basis } = evidence;
+  if (evidence.compatibility_sha256 !== sha256(canonicalJson(basis))) {
+    throw new Error('directed runner compatibility evidence SHA-256 is invalid');
+  }
+  return evidence;
 }
 
 function isAuditedP4ToP1Delta(delta) {
@@ -1923,6 +1987,9 @@ function classifyRawB1Status(identity, progress, status, statusSha256, document)
     && status.runtime_fingerprint_sha256 === identity.runtime_fingerprint_sha256
     && status.source_sha256 === document.source_sha256
     && status.whole_document_atomic === true
+    && typeof status.completed_at === 'string'
+    && Number.isFinite(Date.parse(status.completed_at))
+    && new Date(Date.parse(status.completed_at)).toISOString() === status.completed_at
     && status.completed_at === progress.completed_at) {
     return 'complete_identity_v1';
   }
@@ -2416,9 +2483,15 @@ async function validateSeedPredecessorEvidence({
     }
     if (progress.status === 'complete') {
       const artifacts = requireObject(status.artifacts, `${document.id} raw complete artifacts`);
+      requireExactObjectKeys(artifacts, {
+        state_sha256: null,
+        page_artifacts_sha256: null,
+        page_artifacts: null,
+      }, `${document.id} raw complete artifacts`);
       if (artifacts.state_sha256 !== sha256(stateRaw)
         || artifacts.page_artifacts_sha256
-          !== sha256(`${JSON.stringify(validationArtifacts)}\n`)) {
+          !== sha256(`${JSON.stringify(validationArtifacts)}\n`)
+        || !sameJson(artifacts.page_artifacts, validationArtifacts)) {
         throw new Error(`${document.id}: raw predecessor complete artifacts are invalid`);
       }
     }
@@ -3230,6 +3303,7 @@ function validateShardUnion(parentManifest, shards) {
   let p1ExecutionContract = null;
   let p4ToP1Union = null;
   let p4ToP1TransitionContract = null;
+  const p1RunnerShards = [];
 
   for (const shard of shards) {
     if (seenRoots.has(shard.root)) throw new Error(`duplicate shard root: ${shard.root}`);
@@ -3272,7 +3346,6 @@ function validateShardUnion(parentManifest, shards) {
       const shardExecutionContract = {
         runtime_fingerprint_sha256: shard.identity.runtime_fingerprint_sha256,
         llama_server_attestation_sha256: shard.identity.llama_server_attestation_sha256,
-        runner_script_sha256: shard.identity.runner_script_sha256,
         ocr_script_sha256: shard.identity.ocr_script_sha256,
         worker_configuration: pathIndependentWorkerConfiguration,
         document_recovery: shard.identity.document_recovery,
@@ -3284,6 +3357,7 @@ function validateShardUnion(parentManifest, shards) {
       } else if (!sameJson(p1ExecutionContract, shardExecutionContract)) {
         throw new Error('p1 shard execution contracts differ');
       }
+      p1RunnerShards.push(shard);
     }
     for (const document of shard.manifest.documents) {
       if (seenDocuments.has(document.id)) throw new Error(`document appears in more than one shard: ${document.id}`);
@@ -3308,7 +3382,64 @@ function validateShardUnion(parentManifest, shards) {
     || parentManifest.counts.selected_source_bytes !== selectedBytes) {
     throw new Error('parent manifest counts do not match the shard union');
   }
-  return seenDocuments;
+  const runnerHashes = new Set(p1RunnerShards.map((shard) => shard.identity.runner_script_sha256));
+  let runnerCompatibility = null;
+  const roleCandidates = p1RunnerShards.map((shard) => ({
+    shard,
+    documents: shard.manifest.documents.length,
+    pages: shard.manifest.documents.reduce((sum, document) => sum + document.page_count, 0),
+  }));
+  const hasExactAAndBShape = roleCandidates.length === 2
+    && roleCandidates.some((candidate) => candidate.documents === 8 && candidate.pages === 3_182)
+    && roleCandidates.some((candidate) => candidate.documents === 6 && candidate.pages === 3_182);
+  if (runnerHashes.size > 1) {
+    if (p1RunnerShards.length !== 2 || runnerHashes.size !== 2 || !hasExactAAndBShape) {
+      throw new Error('p1 shard union runner drift is outside the unique directed A+B compatibility pair');
+    }
+    const shardA = roleCandidates.find((candidate) => (
+      candidate.documents === 8
+      && candidate.pages === 3_182
+      && candidate.shard.identity.runner_script_sha256 === a1CompletedStatusRunnerScriptSha256
+    ));
+    const shardB = roleCandidates.find((candidate) => (
+      candidate.documents === 6
+      && candidate.pages === 3_182
+      && candidate.shard.identity.runner_script_sha256 === fixedB3RunnerScriptSha256
+    ));
+    if (!shardA || !shardB || shardA.shard === shardB.shard) {
+      throw new Error('p1 shard union runner drift is not the exact directed A-new to B-fixed pair');
+    }
+    const basis = {
+      schema_version: 1,
+      compatibility_type: directedRunnerCompatibilityType,
+      transition: directedRunnerCompatibilityTransition,
+      allowed_difference: ['runner_script_sha256'],
+      shards: [
+        {
+          role: 'shard_a',
+          manifest_sha256: shardA.shard.manifestSha256,
+          run_identity_sha256: shardA.shard.identitySha256,
+          runner_script_sha256: a1CompletedStatusRunnerScriptSha256,
+          documents: shardA.documents,
+          pages: shardA.pages,
+        },
+        {
+          role: 'shard_b',
+          manifest_sha256: shardB.shard.manifestSha256,
+          run_identity_sha256: shardB.shard.identitySha256,
+          runner_script_sha256: fixedB3RunnerScriptSha256,
+          documents: shardB.documents,
+          pages: shardB.pages,
+        },
+      ],
+      citation_allowed: false,
+    };
+    runnerCompatibility = validateDirectedRunnerCompatibilityEvidence({
+      ...basis,
+      compatibility_sha256: sha256(canonicalJson(basis)),
+    });
+  }
+  return { seenDocuments, runnerCompatibility };
 }
 
 async function validateDocumentStatus(shard, document, validation) {
@@ -3374,12 +3505,30 @@ async function validateDocumentStatus(shard, document, validation) {
       throw new Error(`${document.id}: document status is not an exact granted attempt 6 completion`);
     }
   } else {
+    const seededRecord = shard.seed?.receipt.documents.find(
+      (item) => item.document_id === document.id,
+    );
+    const exactSeededInheritedComplete = Boolean(
+      seededRecord
+      && seededRecord.predecessor_status === 'complete'
+      && progress.status === 'complete'
+      && progress.attempts === seededRecord.inherited_attempts
+      && statusSha256 === seededRecord.successor_status_sha256
+      && (seededRecord.predecessor_status_format === 'complete_identity_v1'
+        ? status.attempt === progress.attempts
+          && status.max_attempts === undefined
+          && status.completed_at === progress.completed_at
+        : seededRecord.predecessor_status_format === 'legacy_b1_complete_reverified'
+          && status.attempt === undefined
+          && status.max_attempts === undefined
+          && status.verified_at === progress.verified_at),
+    );
     const hasAttempt = status.attempt !== undefined;
     const hasMaxAttempts = status.max_attempts !== undefined;
-    if (hasAttempt !== hasMaxAttempts) {
+    if (!exactSeededInheritedComplete && hasAttempt !== hasMaxAttempts) {
       throw new Error(`${document.id}: ungranted document status has an incomplete attempt ceiling`);
     }
-    if (hasAttempt) {
+    if (!exactSeededInheritedComplete && hasAttempt) {
       if (!Number.isSafeInteger(status.attempt)
         || status.attempt < 0
         || status.attempt > maxDocumentAttempts
@@ -3387,16 +3536,7 @@ async function validateDocumentStatus(shard, document, validation) {
         || status.max_attempts !== maxDocumentAttempts) {
         throw new Error(`${document.id}: ungranted document status exceeds or differs from the global attempt ceiling`);
       }
-    } else {
-      const seededRecord = shard.seed?.receipt.documents.find(
-        (item) => item.document_id === document.id,
-      );
-      const exactSeededInheritedComplete = Boolean(
-        seededRecord
-        && seededRecord.predecessor_status === 'complete'
-        && progress.attempts === seededRecord.inherited_attempts
-        && statusSha256 === seededRecord.successor_status_sha256,
-      );
+    } else if (!exactSeededInheritedComplete) {
       const exactLegacyComplete = Boolean(
         !shard.seed
         && shard.identity.runner_script_sha256 === legacyB1RunnerScriptSha256
@@ -4126,7 +4266,13 @@ async function verifyIdempotentArchivedTimeoutRecoveryEvidence(receipt, receiptP
   }
 }
 
-async function findIdempotentReceipt(normalized, parentManifestSha256, shards, documents) {
+async function findIdempotentReceipt(
+  normalized,
+  parentManifestSha256,
+  shards,
+  documents,
+  runnerCompatibility,
+) {
   const receiptRootInfo = await lstatIfPresent(normalized.receiptRoot);
   if (!receiptRootInfo) return null;
   if (!receiptRootInfo.isDirectory() || receiptRootInfo.isSymbolicLink()) {
@@ -4162,6 +4308,14 @@ async function findIdempotentReceipt(normalized, parentManifestSha256, shards, d
       || !Array.isArray(receipt.source_shards)
       || !Array.isArray(receipt.documents)) {
       throw new Error(`matching receiver receipt is invalid: ${receiptPath}`);
+    }
+    if (runnerCompatibility) {
+      validateDirectedRunnerCompatibilityEvidence(receipt.source_shard_compatibility);
+      if (!sameJson(receipt.source_shard_compatibility, runnerCompatibility)) {
+        throw new Error('matching receiver receipt directed runner compatibility evidence differs');
+      }
+    } else if (receipt.source_shard_compatibility !== undefined) {
+      throw new Error('matching receiver receipt has unexpected runner compatibility evidence');
     }
     await verifyIdempotentArchivedTimeoutRecoveryEvidence(
       receipt,
@@ -4471,7 +4625,7 @@ async function prepareReceiptPlan(options, dependencies = {}) {
   const parentManifestSha256 = sha256(parentRaw);
   const shards = [];
   for (const shardOption of normalized.shards) shards.push(await loadShard(shardOption));
-  validateShardUnion(parentManifest, shards);
+  const { runnerCompatibility } = validateShardUnion(parentManifest, shards);
 
   const documents = [];
   for (const shard of shards) {
@@ -4488,6 +4642,7 @@ async function prepareReceiptPlan(options, dependencies = {}) {
     parentManifestSha256,
     shards,
     documents,
+    runnerCompatibility,
   );
   if (idempotentReceipt) {
     return {
@@ -4496,6 +4651,7 @@ async function prepareReceiptPlan(options, dependencies = {}) {
       parentManifestSha256,
       shards,
       documents,
+      runnerCompatibility,
       idempotentReceipt,
       localSnapshots: null,
     };
@@ -4507,6 +4663,7 @@ async function prepareReceiptPlan(options, dependencies = {}) {
     parentManifestSha256,
     shards,
     documents,
+    runnerCompatibility,
     idempotentReceipt: null,
     localSnapshots,
   };
@@ -5238,6 +5395,9 @@ async function applyReceiptPlan(plan, dependencies = {}) {
         repair_manifest_sha256: shard.repair?.manifestSha256 || null,
         repair_receipt_sha256: shard.repair?.receiptSha256 || null,
       })),
+      ...(plan.runnerCompatibility ? {
+        source_shard_compatibility: plan.runnerCompatibility,
+      } : {}),
       source_evidence: sourceEvidence,
       supervisor_retry_ledgers: retryLedgerReceipt(retryLedgerTransaction),
       destination: {
@@ -5715,6 +5875,9 @@ export async function receiveRemoteOcrOffload(options, dependencies = {}) {
       repair_manifest_sha256: shard.repair?.manifestSha256 || null,
       repair_receipt_sha256: shard.repair?.receiptSha256 || null,
     })),
+    ...(plan.runnerCompatibility ? {
+      source_shard_compatibility: plan.runnerCompatibility,
+    } : {}),
     destination: {
       production_root: plan.normalized.productionRoot,
       text_root: plan.normalized.textRoot,

@@ -1436,6 +1436,32 @@ function classifySeedPredecessorStatus(identity, progress, status, statusSha256,
     && documentRetryBackoffMilliseconds.includes(status.retry_delay_seconds * 1_000)) {
     return 'complete_identity_v1';
   }
+  const completedKeys = [
+    'artifacts',
+    'attempt',
+    'citation_allowed',
+    'completed_at',
+    'document_id',
+    'page_count',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'source_sha256',
+    'status',
+    'whole_document_atomic',
+  ].sort();
+  if (progress.status === 'complete'
+    && sameJsonValue(keys, completedKeys)
+    && status.attempt === progress.attempts
+    && status.page_count === document.page_count
+    && status.runtime_fingerprint_sha256 === identity.runtime_fingerprint_sha256
+    && status.source_sha256 === document.source_sha256
+    && status.whole_document_atomic === true
+    && typeof status.completed_at === 'string'
+    && Number.isFinite(Date.parse(status.completed_at))
+    && new Date(Date.parse(status.completed_at)).toISOString() === status.completed_at
+    && status.completed_at === progress.completed_at) {
+    return 'complete_identity_v1';
+  }
   if (identity.runner_script_sha256 !== legacyB1RunnerScriptSha256) {
     throw new Error(`${document.id}: incomplete predecessor status identity is not from the exact B-r1 runner`);
   }
@@ -2615,8 +2641,14 @@ async function captureSeedPredecessor(
       : null;
     if (progress.status === 'complete') {
       const artifacts = requireObject(status.artifacts, `${document.id} predecessor complete artifacts`);
+      exactObjectKeys(artifacts, [
+        'page_artifacts',
+        'page_artifacts_sha256',
+        'state_sha256',
+      ], `${document.id} predecessor complete artifacts`);
       if (artifacts.state_sha256 !== validation.state_sha256
-        || artifacts.page_artifacts_sha256 !== validation.page_artifacts_sha256) {
+        || artifacts.page_artifacts_sha256 !== validation.page_artifacts_sha256
+        || !sameJsonValue(artifacts.page_artifacts, validation.page_artifacts)) {
         throw new Error(`${document.id}: predecessor complete status artifacts mismatch`);
       }
     }

@@ -37,6 +37,7 @@ import {
 } from '../scripts/run-remote-ocr-offload.mjs';
 import {
   receiveRemoteOcrOffload,
+  validateDirectedRunnerCompatibilityEvidence,
   validateP4ToP1SeedDelta,
 } from '../scripts/receive-remote-ocr-offload.mjs';
 import {
@@ -56,6 +57,8 @@ const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const legacyB1OcrScriptSha256 = 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53aff3ebeae48d9b048';
 const seedAwareOcrScriptSha256 = '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3';
 const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca';
+const fixedB3RunnerScriptSha256 = '58a1e3826aca807bf62f4546f237597c305334ba1b0a56a8f47cacfaa5cfeaa7';
+const a1CompletedStatusRunnerScriptSha256 = 'c11a7da632a009879632520c5fcd5b3b05144667325ed8f6c9019047a5ece8f8';
 const seedAwareTransition = 'p4_to_p1_seed_aware_ocr_v2';
 const runtime = Object.freeze({
   pipeline: 'PaddleOCR-VL',
@@ -597,6 +600,7 @@ async function createTimeoutRecoveryPredecessor({
   receiverNativeArtifacts = false,
   ocrScriptSha256 = '8'.repeat(64),
   materializePaddlexCache = false,
+  completeStatusFormat = 'legacy_reverified',
 }) {
   const ledgerRoot = path.join(path.dirname(await realpath(inputRoot)), 'timeout-recovery-authority-v1');
   const ledgerIdentity = await createTimeoutRecoveryLedger(ledgerRoot, inputRoot);
@@ -683,7 +687,8 @@ async function createTimeoutRecoveryPredecessor({
     });
     let statusRecord;
     if (status === 'complete') {
-      statusRecord = {
+      const completedAt = '2026-07-17T04:10:00.000Z';
+      const completeIdentity = {
         schema_version: 1,
         document_id: id,
         status,
@@ -693,15 +698,27 @@ async function createTimeoutRecoveryPredecessor({
         citation_allowed: false,
         whole_document_atomic: true,
         artifacts,
-        verified_at: '2026-07-17T04:10:00.000Z',
       };
+      if (completeStatusFormat === 'completed_at') {
+        statusRecord = {
+          ...completeIdentity,
+          attempt: attempts,
+          completed_at: completedAt,
+        };
+      } else {
+        assert.equal(completeStatusFormat, 'legacy_reverified');
+        statusRecord = {
+          ...completeIdentity,
+          verified_at: completedAt,
+        };
+      }
       progressById[id] = {
         status,
         attempts,
         page_count: pageCount,
         started_at: '2026-07-16T15:00:00.000Z',
-        completed_at: statusRecord.verified_at,
-        verified_at: statusRecord.verified_at,
+        completed_at: completedAt,
+        ...(completeStatusFormat === 'legacy_reverified' ? { verified_at: completedAt } : {}),
       };
     } else if (status === 'retry_wait') {
       const failedAt = '2026-07-17T03:50:00.000Z';
@@ -2700,6 +2717,10 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   const successorAttestation = llamaAttestationForParallel(1);
   const ocrScriptSha256 = sha256(await readFile(ocrScript));
   assert.equal(ocrScriptSha256, seedAwareOcrScriptSha256);
+  assert.equal(
+    sha256(await readFile(new URL('../scripts/run-remote-ocr-offload.mjs', import.meta.url))),
+    a1CompletedStatusRunnerScriptSha256,
+  );
   const {
     documents,
     grant,
@@ -2715,7 +2736,41 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     receiverNativeArtifacts: true,
     ocrScriptSha256: legacyB1OcrScriptSha256,
     materializePaddlexCache: true,
+    completeStatusFormat: 'completed_at',
   });
+  const a1RunStatus = JSON.parse(await readFile(path.join(predecessorRoot, 'run-status.json'), 'utf8'));
+  const expectedA1CompleteKeys = [
+    'artifacts',
+    'attempt',
+    'citation_allowed',
+    'completed_at',
+    'document_id',
+    'page_count',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'source_sha256',
+    'status',
+    'whole_document_atomic',
+  ].sort();
+  for (const [documentId, , , status, attempts] of specifications.filter((entry) => entry[3] === 'complete')) {
+    assert.equal(status, 'complete');
+    const documentStatus = JSON.parse(await readFile(
+      path.join(predecessorRoot, 'status', `${documentId}.json`),
+      'utf8',
+    ));
+    const progress = a1RunStatus.documents[documentId];
+    assert.deepEqual(Object.keys(documentStatus).sort(), expectedA1CompleteKeys);
+    assert.deepEqual(Object.keys(documentStatus.artifacts).sort(), [
+      'page_artifacts',
+      'page_artifacts_sha256',
+      'state_sha256',
+    ]);
+    assert.equal(documentStatus.attempt, attempts);
+    assert.equal(progress.attempts, attempts);
+    assert.equal(documentStatus.completed_at, progress.completed_at);
+    assert.equal(Object.hasOwn(documentStatus, 'verified_at'), false);
+    assert.equal(Object.hasOwn(documentStatus, 'max_attempts'), false);
+  }
   const provisioned = await provisionTimeoutRecoveryAuthority({
     inputRoot: await realpath(inputRoot),
     apply: true,
@@ -2752,7 +2807,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     llamaServerAttestation: successorAttestation,
     pythonRuntime,
     paddlexLayoutModelCache: fixturePaddlexLayoutModelCache,
-    runnerScriptSha256: 'e'.repeat(64),
+    runnerScriptSha256: a1CompletedStatusRunnerScriptSha256,
     nowMilliseconds: () => Date.parse('2026-07-18T06:00:00.000Z'),
     handleSignals: false,
   };
@@ -2798,6 +2853,16 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     }), dependencies),
     /single canonical authority root|bound to a different ledger authority/,
   );
+  const a1AnchorsBeforeSeed = (await inspectPredecessorB1(predecessorRoot)).anchors;
+  assert.equal(
+    a1AnchorsBeforeSeed.identity_sha256,
+    sha256(await readFile(path.join(predecessorRoot, 'run-identity.json'))),
+  );
+  assert.equal(
+    a1AnchorsBeforeSeed.run_status_sha256,
+    sha256(await readFile(path.join(predecessorRoot, 'run-status.json'))),
+  );
+  for (const digest of Object.values(a1AnchorsBeforeSeed)) assert.match(digest, /^[a-f0-9]{64}$/u);
   const predecessorBefore = await inspectTree(predecessorRoot);
   const seeded = await runRemoteOcrOffload(optionsFor(successorRoot), dependencies);
   await rm(path.join(successorRoot, 'paddlex-cache'), { recursive: true, force: true });
@@ -2877,6 +2942,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   assert.equal(evidenceInventory.documents.filter((document) => document.timeout_log).length, 4);
   assert.equal(evidenceInventory.documents.filter((document) => document.timeout_incident).length, 4);
   const monitoredPredecessor = await inspectPredecessorB1(predecessorRoot);
+  assert.deepEqual(monitoredPredecessor.anchors, a1AnchorsBeforeSeed);
   const authorityNegativeProductionRoot = path.join(inputRoot, 'authority-negative-production');
   const authorityNegativeReceiptRoot = path.join(inputRoot, 'authority-negative-receipts');
   const authorityReceiveOptions = {
@@ -3135,6 +3201,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
 
   const bPredecessorRoot = path.join(canonicalRoot, 'b-r1-union');
   const bSuccessorRoot = path.join(canonicalRoot, 'b-r2-union');
+  const bSameRunnerSuccessorRoot = path.join(canonicalRoot, 'b-r2-union-same-runner');
   const bManifestPath = path.join(inputRoot, 'b-union-shard.json');
   const bSpecifications = [
     ['legacy-compendium-arts-labor', 491, 491, 'complete', 1],
@@ -3164,6 +3231,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     timeoutRecoveryLedger: undefined,
   }, {
     ...dependencies,
+    runnerScriptSha256: fixedB3RunnerScriptSha256,
     paddlexLayoutModelCache: bFixturePaddlexLayoutModelCache,
     pageCounter: (_python, sourcePath) => bDocuments.find(
       (document) => path.basename(document.source_path) === path.basename(sourcePath),
@@ -3183,11 +3251,58 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   const monitoredB = await inspectSuccessorB2(bSuccessorRoot, monitoredBPredecessor);
   assert.equal(monitoredB.configuration_transition, seedAwareTransition);
   assert.equal(monitoredB.complete, true);
+  const bSameRunnerSeeded = await runRemoteOcrOffload({
+    ...optionsFor(bSameRunnerSuccessorRoot),
+    manifest: bManifestPath,
+    seedFromOutputRoot: bPredecessorRoot,
+    timeoutRecoveryLedger: undefined,
+  }, {
+    ...dependencies,
+    runnerScriptSha256: a1CompletedStatusRunnerScriptSha256,
+    paddlexLayoutModelCache: bFixturePaddlexLayoutModelCache,
+    pageCounter: (_python, sourcePath) => bDocuments.find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+  });
+  await rm(path.join(bSameRunnerSuccessorRoot, 'paddlex-cache'), { recursive: true, force: true });
+  await cp(
+    path.join(bPredecessorRoot, 'paddlex-cache'),
+    path.join(bSameRunnerSuccessorRoot, 'paddlex-cache'),
+    { recursive: true },
+  );
+  assert.equal(bSameRunnerSeeded.seedReceipt.counts.inherited_pages, 3_182);
+  const monitoredSameRunnerB = await inspectSuccessorB2(
+    bSameRunnerSuccessorRoot,
+    monitoredBPredecessor,
+  );
+  assert.equal(monitoredSameRunnerB.configuration_transition, seedAwareTransition);
+  assert.equal(monitoredSameRunnerB.complete, true);
   const unionManifestPath = path.join(inputRoot, 'a-b-r2-union.json');
   await writeFile(
     unionManifestPath,
     `${JSON.stringify(manifestFor([...documents, ...bDocuments]), null, 2)}\n`,
   );
+  const sameRunnerUnion = await receiveRemoteOcrOffload({
+    manifest: unionManifestPath,
+    shards: [
+      { manifestPath, root: successorRoot },
+      { manifestPath: bManifestPath, root: bSameRunnerSuccessorRoot },
+    ],
+    projectRoot: inputRoot,
+    productionRoot: path.join(inputRoot, 'same-runner-union-local-production'),
+    textRoot: path.join(inputRoot, 'same-runner-union-local-text'),
+    supervisorRoot: path.join(inputRoot, 'same-runner-union-local-supervisor'),
+    receiptRoot: path.join(inputRoot, 'same-runner-union-receipts'),
+    python: process.execPath,
+  }, {
+    pageCounter: (_python, sourcePath) => [...documents, ...bDocuments].find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+  });
+  assert.equal(sameRunnerUnion.status, 'dry_run_validated');
+  assert.equal(sameRunnerUnion.counts.documents, 14);
+  assert.equal(sameRunnerUnion.counts.pages, 6364);
+  assert.equal(sameRunnerUnion.source_shard_compatibility, undefined);
   const union = await receiveRemoteOcrOffload({
     manifest: unionManifestPath,
     shards: [
@@ -3210,6 +3325,61 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   assert.equal(union.counts.pages, 6364);
   assert.equal(union.source_shards.filter((shard) => shard.timeout_recovery_grant_sha256).length, 1);
   assert.equal(union.documents.filter((document) => document.timeout_recovery).length, 4);
+  const compatibility = validateDirectedRunnerCompatibilityEvidence(
+    union.source_shard_compatibility,
+  );
+  assert.equal(compatibility.transition, 'a1_completed_status_to_fixed_b3_union_v1');
+  assert.deepEqual(
+    compatibility.shards.map((shard) => [
+      shard.role,
+      shard.runner_script_sha256,
+      shard.documents,
+      shard.pages,
+    ]),
+    [
+      ['shard_a', a1CompletedStatusRunnerScriptSha256, 8, 3_182],
+      ['shard_b', fixedB3RunnerScriptSha256, 6, 3_182],
+    ],
+  );
+  const resealCompatibility = (mutate) => {
+    const value = structuredClone(compatibility);
+    delete value.compatibility_sha256;
+    mutate(value);
+    value.compatibility_sha256 = sha256(canonicalJson(value));
+    return value;
+  };
+  assert.throws(
+    () => validateDirectedRunnerCompatibilityEvidence({
+      ...compatibility,
+      compatibility_sha256: '0'.repeat(64),
+    }),
+    /evidence SHA-256 is invalid/u,
+  );
+  assert.throws(
+    () => validateDirectedRunnerCompatibilityEvidence(resealCompatibility((value) => {
+      value.extra = true;
+    })),
+    /field set differs/u,
+  );
+  assert.throws(
+    () => validateDirectedRunnerCompatibilityEvidence(resealCompatibility((value) => {
+      delete value.transition;
+    })),
+    /field set differs/u,
+  );
+  assert.throws(
+    () => validateDirectedRunnerCompatibilityEvidence(resealCompatibility((value) => {
+      [value.shards[0].runner_script_sha256, value.shards[1].runner_script_sha256]
+        = [value.shards[1].runner_script_sha256, value.shards[0].runner_script_sha256];
+    })),
+    /not the unique A-new to B-fixed pair/u,
+  );
+  assert.throws(
+    () => validateDirectedRunnerCompatibilityEvidence(resealCompatibility((value) => {
+      value.shards[0].runner_script_sha256 = 'f'.repeat(64);
+    })),
+    /not the unique A-new to B-fixed pair/u,
+  );
   assert.deepEqual(await inspectTree(predecessorRoot), predecessorBefore);
 });
 

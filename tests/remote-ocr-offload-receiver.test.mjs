@@ -2012,7 +2012,7 @@ test('receiver independently verifies seeded lineage, attempt floors, and archiv
     });
     await assert.rejects(
       receiveRemoteOcrOffload(value.options, value.dependencies),
-      /p1 shard execution contracts differ/,
+      /p1 shard union runner drift is outside the unique directed A\+B compatibility pair/,
     );
   });
 

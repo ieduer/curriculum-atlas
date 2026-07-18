@@ -850,14 +850,122 @@ async function exactDirectoryEntries(root, expectedNames, label) {
   return entries;
 }
 
-function predecessorStatusFormat(progress, status) {
+function predecessorStatusFormat(identity, progress, status, statusSha256, state, stateSha256, pageArtifacts) {
+  if (progress.status_json_sha256 !== statusSha256
+    || status.schema_version !== 1
+    || status.document_id !== state.document_id
+    || status.status !== progress.status
+    || status.citation_allowed !== false) {
+    throw new Error(`${state.document_id}: B1 predecessor document status identity mismatch`);
+  }
   if (progress.status === 'pending') return 'pending_no_status';
-  if (progress.status === 'complete' && status.attempt === undefined && status.max_attempts === undefined) {
+  const keys = Object.keys(status).sort();
+  const retryWaitKeys = [
+    'attempt',
+    'citation_allowed',
+    'document_id',
+    'error',
+    'failed_at',
+    'max_attempts',
+    'next_retry_at',
+    'page_count',
+    'retry_delay_seconds',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'status',
+  ].sort();
+  if (progress.status === 'retry_wait'
+    && sameJson(keys, retryWaitKeys)
+    && status.attempt === progress.attempts
+    && status.max_attempts === maxDocumentAttempts
+    && status.page_count === progress.page_count
+    && status.runtime_fingerprint_sha256 === identity.runtime_fingerprint_sha256
+    && status.next_retry_at === progress.next_retry_at
+    && status.error === progress.error
+    && status.failed_at === progress.failed_at
+    && [2, 10, 30, 60].includes(status.retry_delay_seconds)) {
+    return 'complete_identity_v1';
+  }
+  const completedKeys = [
+    'artifacts',
+    'attempt',
+    'citation_allowed',
+    'completed_at',
+    'document_id',
+    'page_count',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'source_sha256',
+    'status',
+    'whole_document_atomic',
+  ].sort();
+  const legacyCompleteKeys = [
+    'artifacts',
+    'citation_allowed',
+    'document_id',
+    'page_count',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'source_sha256',
+    'status',
+    'verified_at',
+    'whole_document_atomic',
+  ].sort();
+  const validateComplete = (timestampField) => {
+    const artifacts = requireObject(status.artifacts, `${state.document_id} B1 complete status artifacts`);
+    if (!sameJson(Object.keys(artifacts).sort(), [
+      'page_artifacts',
+      'page_artifacts_sha256',
+      'state_sha256',
+    ])) {
+      throw new Error(`${state.document_id}: B1 complete status artifacts field set differs`);
+    }
+    if (status.page_count !== progress.page_count
+      || status.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
+      || status.source_sha256 !== state.source_sha256
+      || status.whole_document_atomic !== true
+      || typeof status[timestampField] !== 'string'
+      || !Number.isFinite(Date.parse(status[timestampField]))
+      || new Date(Date.parse(status[timestampField])).toISOString() !== status[timestampField]
+      || status[timestampField] !== progress[timestampField]
+      || artifacts.state_sha256 !== stateSha256
+      || artifacts.page_artifacts_sha256 !== sha256(`${JSON.stringify(pageArtifacts)}\n`)
+      || !sameJson(artifacts.page_artifacts, pageArtifacts)) {
+      throw new Error(`${state.document_id}: B1 complete status identity or artifacts mismatch`);
+    }
+  };
+  if (progress.status === 'complete'
+    && sameJson(keys, completedKeys)
+    && status.attempt === progress.attempts) {
+    validateComplete('completed_at');
+    return 'complete_identity_v1';
+  }
+  if (progress.status === 'complete'
+    && sameJson(keys, legacyCompleteKeys)
+    && status.attempt === undefined
+    && status.max_attempts === undefined) {
+    validateComplete('verified_at');
     return 'legacy_b1_complete_reverified';
   }
+  const legacyInterruptedKeys = [
+    'attempt',
+    'citation_allowed',
+    'document_id',
+    'interrupted_at',
+    'max_attempts',
+    'schema_version',
+    'status',
+  ].sort();
   if (progress.status === 'interrupted'
+    && sameJson(keys, legacyInterruptedKeys)
+    && status.attempt === progress.attempts
+    && status.max_attempts === maxDocumentAttempts
     && status.page_count === undefined
-    && status.runtime_fingerprint_sha256 === undefined) {
+    && status.runtime_fingerprint_sha256 === undefined
+    && typeof status.interrupted_at === 'string'
+    && Number.isFinite(Date.parse(status.interrupted_at))
+    && new Date(Date.parse(status.interrupted_at)).toISOString() === status.interrupted_at
+    && status.interrupted_at === progress.interrupted_at) {
     return 'legacy_b1_interrupted';
   }
   if (progress.status === 'quarantined') {
@@ -889,7 +997,7 @@ function predecessorStatusFormat(progress, status) {
     }
     return 'timeout_only_quarantine_granted_v1';
   }
-  return 'complete_identity_v1';
+  throw new Error(`${state.document_id}: B1 predecessor document status shape is not exact`);
 }
 
 async function inspectPageTree(root, documentId, page, statePage) {
@@ -1372,11 +1480,26 @@ export async function inspectPredecessorB1(predecessorRoot) {
       sidecar_sha256: statusRecord.sidecar_sha256,
     });
     completedPages += stateSummary.completedPages.length;
+    const validationPageArtifacts = stateSummary.completedPages.map((page) => ({
+      page_number: page,
+      rendered_image_sha256: stateSummary.pages[String(page)].rendered_image_sha256,
+      result_json_sha256: stateSummary.pages[String(page)].result_json_sha256,
+      content_markdown_sha256: stateSummary.pages[String(page)].content_markdown_sha256,
+      citation_eligible: false,
+    }));
     publicDocuments.push({
       document_id: documentId,
       page_count: progress.page_count,
       predecessor_status: progress.status,
-      predecessor_status_format: predecessorStatusFormat(progress, status),
+      predecessor_status_format: predecessorStatusFormat(
+        identity,
+        progress,
+        status,
+        statusRecord.sha256,
+        state,
+        stateRecord.sha256,
+        validationPageArtifacts,
+      ),
       inherited_attempts: progress.attempts,
       completed_pages: stateSummary.completedPages,
       failed_pages: [],
@@ -2749,6 +2872,14 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
       && status.attempt === undefined
       && status.max_attempts === undefined
       && status.page_count === receiptDocument.page_count;
+    const completedIdentityInitial = receiptDocument.predecessor_status_format === 'complete_identity_v1'
+      && receiptDocument.predecessor_status === 'complete'
+      && progress.status === 'complete'
+      && progress.attempts === receiptDocument.inherited_attempts
+      && status.attempt === progress.attempts
+      && status.max_attempts === undefined
+      && status.page_count === receiptDocument.page_count
+      && status.completed_at === progress.completed_at;
     const legacyInterruptedInitial = receiptDocument.predecessor_status_format === 'legacy_b1_interrupted'
       && progress.status === 'interrupted'
       && progress.attempts === receiptDocument.inherited_attempts
@@ -2773,7 +2904,10 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
       || status.document_id !== documentId
       || status.citation_allowed !== false
       || !((rawStatusMatchesProgress
-        && (fullSuccessorStatus || legacyCompleteInitial || legacyInterruptedInitial))
+        && (fullSuccessorStatus
+          || completedIdentityInitial
+          || legacyCompleteInitial
+          || legacyInterruptedInitial))
         || normalizedRecoveryStatus)
       || status.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256) {
       throw new Error('B2 document status differs from run status or identity');
