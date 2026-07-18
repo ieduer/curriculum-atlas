@@ -63,6 +63,7 @@
       { "path": "data/ocr-benchmark-ground-truth.json", "disposition": "test_benchmark", "consumers": ["ocr_benchmark"] },
       { "path": "data/ocr-benchmark-results.json", "disposition": "test_benchmark", "consumers": ["ocr_benchmark"] },
       { "path": "data/ocr-page-furniture-approvals.json", "disposition": "candidate_fail_closed", "consumers": ["approval_validator"] },
+      { "path": "data/ocr-page-furniture-activation.json", "disposition": "candidate_fail_closed", "consumers": ["ocr_triangulation_audit"] },
       { "path": "data/ocr-queue.json", "disposition": "r2_public_metadata", "consumers": ["ocr_supervisor", "concept_builder"] },
       { "path": "data/ocr-review-legacy-chinese-0017-0020.json", "disposition": "candidate_fail_closed", "consumers": ["ocr_review"] },
       { "path": "data/ocr-throughput-benchmark-results.json", "disposition": "test_benchmark", "consumers": ["ocr_benchmark"] },

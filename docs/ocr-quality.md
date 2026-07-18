@@ -135,6 +135,31 @@ Never:
 
 The machine-readable policy is `data/online-verification-standard.json`; database support is in `migrations/0003_online_verification.sql`.
 
+### Source-bound comparison and online adjudication audit
+
+`scripts/build-ocr-triangulation-audit.mjs` is the version-2, page-scoped audit consumer. It does not rewrite the source scan, Paddle output, Apple Vision sidecars or rendered images. Instead, it rereads and hashes the source PDF and all three derived planes, validates the actual rendered PNG bytes, and writes a separate audit outside the evidence roots.
+
+Repeated headers and printed-page footers are not removed merely because they recur. A comparison-only filter is usable only when a manually reviewed approval ledger is still bound to the exact source-PDF SHA-256, the exact complete Vision-sidecar snapshot and stratified rendered-image hashes, and a separate activation ledger is bound to the exact approval-ledger bytes. `data/ocr-page-furniture-activation.json` activates eight already reviewed footer rules for `moe-2022-03`; the 99 covered pages keep their raw text and hashes unchanged. Header rules remain inactive because the current repeated-first-line candidates include both real running headers and genuine body/section headings.
+
+Online adjudication is page- or item-scoped, never document-sampled. A `citation_allowed=true` page decision must bind the source PDF, rendered image, primary OCR, independent Vision text and accepted text by SHA-256; identify an HTTPS official or academic source with an exact-document/exact-edition locator; retain its locally captured text/PDF evidence beneath the decision-ledger directory; and match that snapshot's actual bytes to the declared content hash. A same-artifact mirror is never counted as independent evidence. A human scan review must resolve every engine conflict and high-risk field. Table pages additionally require a cell-by-cell check. Stable-fact or different-edition evidence is retained as a scoped decision but cannot promote the page wording. A warning decision must retain its uncertainty note and remains unavailable to citation-locked AI.
+
+Example comparison-only run:
+
+```bash
+npm run ocr:audit:triangulate -- \
+  --document moe-2022-03 \
+  --source-pdf .cache/sources/moe-2022-03.pdf \
+  --primary-root .cache/ocr-production/moe-2022-03/pages \
+  --witness-root .cache/ocr-witness \
+  --approval-ledger data/ocr-page-furniture-approvals.json \
+  --activation-ledger data/ocr-page-furniture-activation.json \
+  --output /private/tmp/moe-2022-03-triangulation-v2.json \
+  --start 1 \
+  --end 109
+```
+
+Add `--decisions <HASH_BOUND_DECISION_LEDGER.json>` only after the exact online source and human review have been recorded. The consumer fails on any source, sidecar, image, OCR, accepted-text or approval-ledger drift. It never lets an online text silently replace the scan and never changes the original schema-1 audit used by the OCR supervisor.
+
 ### Remote whole-document import gate
 
 Remote output never enters the local OCR ledger page by page. `scripts/plan-remote-ocr-offload.mjs` selected and revalidated 72 wholly untouched documents, 5,483 pages and 2,017,324,713 source bytes; 14 documents with local completion, retry or state conflicts were excluded. The parent manifest SHA-256 remains `3050f22e7bda3cb5aafb1817bc861b7f7b8d65e358dbbba3b5a0b35af4b27c8f`. It was split by exact document identity into two disjoint manifests: shard `a` has 36 documents / 2,771 pages / 1,072,093,739 bytes and SHA-256 `a532240cf6d9deeec2843997156afa38fa2518f24d976d625769cec3765fcc9b`; shard `b` has 36 documents / 2,712 pages / 945,230,974 bytes and SHA-256 `744a50b84920dbed0d62d41318af71ca90a420f073c4322d04e501948eee075c`. Their checked union is exactly the unchanged parent set. A remote document is importable only when all of the following remain true:
