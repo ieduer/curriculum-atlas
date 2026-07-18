@@ -1000,8 +1000,21 @@ function predecessorStatusFormat(identity, progress, status, statusSha256, state
   throw new Error(`${state.document_id}: B1 predecessor document status shape is not exact`);
 }
 
-function validateInheritedCompleteProgressKeys(progress, format, phase, documentId) {
-  const required = new Set([
+function isCanonicalIsoTimestamp(value) {
+  return typeof value === 'string'
+    && Number.isFinite(Date.parse(value))
+    && new Date(Date.parse(value)).toISOString() === value;
+}
+
+function validateCompleteProgress({
+  receiptDocument,
+  progress,
+  predecessorProgress,
+  phase,
+  statusTimestampField,
+}) {
+  const documentId = receiptDocument.document_id;
+  const expected = new Set([
     'attempts',
     'inherited_attempts',
     'page_count',
@@ -1010,19 +1023,83 @@ function validateInheritedCompleteProgressKeys(progress, format, phase, document
     'status',
     'status_json_sha256',
   ]);
-  const optional = new Set(['started_at']);
-  if (format === 'complete_identity_v1') required.add('completed_at');
-  else if (format === 'legacy_b1_complete_reverified') {
-    required.add('verified_at');
-    optional.add('completed_at');
+  const retainedTimestampFields = [];
+  if (receiptDocument.predecessor_status === 'complete') {
+    if (!['initial', 'full'].includes(phase)) {
+      throw new Error(`${documentId}: B2 inherited complete progress phase is invalid`);
+    }
+    const modern = receiptDocument.predecessor_status_format === 'complete_identity_v1';
+    const legacy = receiptDocument.predecessor_status_format === 'legacy_b1_complete_reverified';
+    if (!modern && !legacy) {
+      throw new Error(`${documentId}: B2 inherited complete progress format is invalid`);
+    }
+    if (modern) {
+      expected.add('completed_at');
+      retainedTimestampFields.push('completed_at');
+    } else {
+      expected.add('verified_at');
+      if (phase === 'initial') retainedTimestampFields.push('verified_at');
+      if (Object.hasOwn(predecessorProgress, 'completed_at')) {
+        expected.add('completed_at');
+        retainedTimestampFields.push('completed_at');
+      }
+    }
+    if (Object.hasOwn(predecessorProgress, 'started_at')) {
+      expected.add('started_at');
+      retainedTimestampFields.push('started_at');
+    }
+    if (phase === 'full') expected.add('verified_at');
   } else {
-    throw new Error(`${documentId}: B2 inherited complete progress format is invalid`);
+    if (phase !== 'full') {
+      throw new Error(`${documentId}: B2 non-complete predecessor has an initial complete progress state`);
+    }
+    const progressSchema = `${receiptDocument.predecessor_status}:${receiptDocument.predecessor_status_format}`;
+    if (progressSchema === 'pending:pending_no_status') {
+      expected.add('started_at');
+      expected.add('completed_at');
+    } else if (progressSchema === 'retry_wait:complete_identity_v1') {
+      expected.add('failed_at');
+      expected.add('started_at');
+      expected.add('completed_at');
+      retainedTimestampFields.push('failed_at');
+    } else if (progressSchema === 'interrupted:legacy_b1_interrupted') {
+      expected.add('interrupted_at');
+      expected.add('signal');
+      expected.add('started_at');
+      expected.add('completed_at');
+      retainedTimestampFields.push('interrupted_at');
+    } else if (progressSchema === 'quarantined:timeout_only_quarantine_granted_v1'
+      && receiptDocument.timeout_recovery) {
+      expected.add('attempt_ceiling');
+      expected.add('completed_at');
+      expected.add('failed_at');
+      expected.add('started_at');
+      expected.add('timeout_recovery_first_missing_page');
+      expected.add('timeout_recovery_grant_id');
+      expected.add('timeout_recovery_grant_sha256');
+      retainedTimestampFields.push('failed_at');
+    } else {
+      throw new Error(`${documentId}: B2 complete progress predecessor schema is invalid`);
+    }
+    if (statusTimestampField === 'verified_at') expected.add('verified_at');
   }
-  if (phase === 'full') required.add('verified_at');
-  const keys = Object.keys(progress);
-  if ([...required].some((key) => !Object.hasOwn(progress, key))
-    || keys.some((key) => !required.has(key) && !optional.has(key))) {
-    throw new Error(`${documentId}: B2 inherited complete progress field set differs`);
+  if (!sameJson(Object.keys(progress).sort(), [...expected].sort())) {
+    throw new Error(`${documentId}: B2 complete progress field set differs`);
+  }
+  for (const field of [...expected].filter((key) => key.endsWith('_at'))) {
+    if (!isCanonicalIsoTimestamp(progress[field])) {
+      throw new Error(`${documentId}: B2 complete progress timestamp is not canonical`);
+    }
+  }
+  for (const field of retainedTimestampFields) {
+    if (!Object.hasOwn(predecessorProgress, field)
+      || progress[field] !== predecessorProgress[field]) {
+      throw new Error(`${documentId}: B2 complete progress retained timestamp differs from predecessor`);
+    }
+  }
+  if (receiptDocument.predecessor_status === 'interrupted'
+    && progress.signal !== predecessorProgress.signal) {
+    throw new Error(`${documentId}: B2 complete progress retained signal differs from predecessor`);
   }
 }
 
@@ -1036,6 +1113,7 @@ function validateInitialCompleteStatus({
   pageArtifacts,
   seedId,
   identity,
+  predecessorProgress,
 }) {
   if (receiptDocument.predecessor_status !== 'complete'
     || status.max_attempts !== undefined) return false;
@@ -1044,12 +1122,15 @@ function validateInitialCompleteStatus({
   if (!modern && !legacy) {
     throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status format is invalid`);
   }
-  validateInheritedCompleteProgressKeys(
+  validateCompleteProgress({
+    receiptDocument,
     progress,
-    receiptDocument.predecessor_status_format,
-    'initial',
-    receiptDocument.document_id,
-  );
+    predecessorProgress,
+    phase: 'initial',
+    statusTimestampField: receiptDocument.predecessor_status_format === 'complete_identity_v1'
+      ? 'completed_at'
+      : 'verified_at',
+  });
   const expectedStatusKeys = [
     'artifacts',
     'citation_allowed',
@@ -1138,6 +1219,7 @@ function validateFullCompleteStatus({
   seedId,
   identity,
   attemptCeiling,
+  predecessorProgress,
 }) {
   if (progress.status !== 'complete' || status.max_attempts === undefined) return false;
   const hasCompletedAt = Object.hasOwn(status, 'completed_at');
@@ -1146,16 +1228,17 @@ function validateFullCompleteStatus({
     throw new Error(`${receiptDocument.document_id}: B2 full complete status timestamp field is not exact`);
   }
   const timestampField = hasCompletedAt ? 'completed_at' : 'verified_at';
+  validateCompleteProgress({
+    receiptDocument,
+    progress,
+    predecessorProgress,
+    phase: 'full',
+    statusTimestampField: timestampField,
+  });
   if (receiptDocument.predecessor_status === 'complete') {
     if (timestampField !== 'verified_at') {
       throw new Error(`${receiptDocument.document_id}: B2 inherited full complete status timestamp is invalid`);
     }
-    validateInheritedCompleteProgressKeys(
-      progress,
-      receiptDocument.predecessor_status_format,
-      'full',
-      receiptDocument.document_id,
-    );
   }
   const expectedStatusKeys = [
     'artifacts',
@@ -1190,6 +1273,10 @@ function validateFullCompleteStatus({
     || artifacts.page_artifacts_sha256 !== sha256(`${JSON.stringify(pageArtifacts)}\n`)
     || !sameJson(artifacts.page_artifacts, pageArtifacts)) {
     throw new Error(`${receiptDocument.document_id}: B2 full complete status artifacts differ from state`);
+  }
+  if (receiptDocument.predecessor_status === 'complete'
+    && stateSha256 !== receiptDocument.successor_state_sha256) {
+    throw new Error(`${receiptDocument.document_id}: B2 inherited full complete state SHA differs from seed receipt`);
   }
   if (status.schema_version !== 1
     || status.document_id !== receiptDocument.document_id
@@ -3053,6 +3140,23 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
       throw new Error('B2 state configuration differs from the successor identity');
     }
     const stateLineage = requireObject(state.seed_lineage, 'B2 state seed lineage');
+    const expectedStateLineageKeys = [
+      'citation_allowed',
+      'inherited_completed_pages',
+      'mode',
+      'predecessor_configuration_sha256',
+      'predecessor_run_identity_sha256',
+      'schema_version',
+      'seed_id',
+      ...(receiptDocument.timeout_recovery ? [
+        'timeout_recovery_first_missing_page',
+        'timeout_recovery_grant_id',
+        'timeout_recovery_grant_sha256',
+      ] : []),
+    ].sort();
+    if (!sameJson(Object.keys(stateLineage).sort(), expectedStateLineageKeys)) {
+      throw new Error(`${documentId}: B2 state seed lineage field set differs`);
+    }
     if (stateLineage.schema_version !== 1
       || stateLineage.mode !== seedMode
       || stateLineage.seed_id !== seedId
@@ -3112,6 +3216,10 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
       citation_eligible: false,
     }));
     const status = requireObject(statusRecord.value, 'B2 document status');
+    const predecessorProgress = requireObject(
+      predecessor.run_status?.documents?.[documentId],
+      `${documentId} B1 predecessor progress`,
+    );
     const initialCompleteStatus = validateInitialCompleteStatus({
       receiptDocument,
       progress,
@@ -3122,6 +3230,7 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
       pageArtifacts,
       seedId,
       identity,
+      predecessorProgress,
     });
     const legacyInterruptedInitial = receiptDocument.predecessor_status_format === 'legacy_b1_interrupted'
       && progress.status === 'interrupted'
@@ -3142,6 +3251,7 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
       seedId,
       identity,
       attemptCeiling: documentAttemptCeiling,
+      predecessorProgress,
     });
     const fullSuccessorStatus = fullCompleteStatus
       || (progress.status !== 'complete'

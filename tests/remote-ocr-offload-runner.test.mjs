@@ -2274,7 +2274,7 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
     micro_batch: 16,
     use_queues: true,
     runtime_device: runtimeDevice,
-    paddlex_cache_home: path.join(predecessorRoot, 'paddlex-cache'),
+    paddlex_cache_home: await realpath(path.join(predecessorRoot, 'paddlex-cache')),
     python_runtime: pythonRuntime,
     paddlex_layout_model_cache_sha256: fixturePaddlexLayoutModelCache.tree_sha256,
   };
@@ -2410,6 +2410,7 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
     settled: false,
   };
   await writeJsonSidecar(path.join(predecessorRoot, 'run-status.json'), predecessorRunStatus);
+  const monitoredPredecessor = await inspectPredecessorB1(predecessorRoot);
   const predecessorBefore = await inspectTree(predecessorRoot);
   const artsBefore = await stat(path.join(
     predecessorRoot,
@@ -2546,6 +2547,61 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
   assert.equal(completed.exitCode, 0);
   assert.equal(completed.runStatus.finished, true);
   assert.equal(completedInvocations, 5);
+  const monitoredComplete = await inspectSuccessorB2(successorRoot, monitoredPredecessor);
+  assert.equal(monitoredComplete.complete, true);
+  const runStatusPath = path.join(successorRoot, 'run-status.json');
+  const assertMonitorRejectsCompletedProgressTamper = async ({ documentId, mutate, pattern }) => {
+    const originalFiles = await Promise.all([
+      runStatusPath,
+      `${runStatusPath}.sha256`,
+    ].map((pathname) => readFile(pathname)));
+    try {
+      const runStatus = JSON.parse(originalFiles[0]);
+      mutate(runStatus.documents[documentId]);
+      await writeJsonSidecar(runStatusPath, runStatus);
+      await assert.rejects(inspectSuccessorB2(successorRoot, monitoredPredecessor), pattern);
+    } finally {
+      await Promise.all([
+        runStatusPath,
+        `${runStatusPath}.sha256`,
+      ].map((pathname, index) => writeFile(pathname, originalFiles[index], { mode: 0o600 })));
+    }
+  };
+  for (const [documentId, predecessorStatus] of [
+    ['legacy-compendium-arts-labor', 'complete'],
+    ['legacy-compendium-chemistry', 'retry_wait'],
+    ['legacy-compendium-history', 'interrupted'],
+    ['legacy-compendium-physics', 'pending'],
+  ]) {
+    await t.test(`monitor rejects an extra ${predecessorStatus}-to-complete progress field`, async () => {
+      await assertMonitorRejectsCompletedProgressTamper({
+        documentId,
+        mutate: (progress) => { progress.extra = true; },
+        pattern: /complete progress field set differs/u,
+      });
+    });
+  }
+  await t.test('monitor rejects changed retained retry_wait failed_at', async () => {
+    await assertMonitorRejectsCompletedProgressTamper({
+      documentId: 'legacy-compendium-chemistry',
+      mutate: (progress) => { progress.failed_at = '2026-07-17T00:01:31.000Z'; },
+      pattern: /complete progress retained timestamp differs/u,
+    });
+  });
+  await t.test('monitor rejects changed retained interrupted_at', async () => {
+    await assertMonitorRejectsCompletedProgressTamper({
+      documentId: 'legacy-compendium-history',
+      mutate: (progress) => { progress.interrupted_at = '2026-07-17T00:01:01.000Z'; },
+      pattern: /complete progress retained timestamp differs/u,
+    });
+  });
+  await t.test('monitor rejects a noncanonical pending-to-complete started_at', async () => {
+    await assertMonitorRejectsCompletedProgressTamper({
+      documentId: 'legacy-compendium-physics',
+      mutate: (progress) => { progress.started_at = '2026-07-18T00:00:00Z'; },
+      pattern: /complete progress timestamp is not canonical/u,
+    });
+  });
   const received = await receiveRemoteOcrOffload({
     manifest: manifestPath,
     shards: [{ manifestPath, root: successorRoot }],
@@ -3015,6 +3071,18 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     `${inheritedCompleteDocumentId}.json`,
   );
   const inheritedCompleteRunStatusPath = path.join(successorRoot, 'run-status.json');
+  const assertMonitorRejectsStateLineageTamper = async ({ documentId, mutateState, pattern }) => {
+    const statePath = path.join(successorRoot, 'documents', documentId, 'state.json');
+    const originalState = await readFile(statePath);
+    try {
+      const state = JSON.parse(originalState);
+      mutateState(state);
+      await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
+      await assert.rejects(inspectSuccessorB2(successorRoot, monitoredPredecessor), pattern);
+    } finally {
+      await writeFile(statePath, originalState, { mode: 0o600 });
+    }
+  };
   const assertMonitorRejectsInitialCompleteTamper = async ({
     mutateStatus,
     mutateProgress,
@@ -3062,7 +3130,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     await assertMonitorRejectsInitialCompleteTamper({
       mutateStatus: () => {},
       mutateProgress: (progress) => { progress.verified_at = progress.completed_at; },
-      pattern: /inherited complete progress field set differs/u,
+      pattern: /complete progress field set differs/u,
     });
   });
   await t.test('monitor rejects an extra lineage field on a resealed inherited complete status', async () => {
@@ -3093,11 +3161,25 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
       pattern: /initial inherited complete status artifacts differ from state/u,
     });
   });
-  await t.test('monitor rejects a resealed inherited complete status not bound to the receipt SHA', async () => {
+  await t.test('monitor rejects a resealed inherited complete timestamp not bound to its predecessor', async () => {
     await assertMonitorRejectsInitialCompleteTamper({
       mutateStatus: (status) => { status.completed_at = '2026-07-17T04:11:00.000Z'; },
       mutateProgress: (progress) => { progress.completed_at = '2026-07-17T04:11:00.000Z'; },
-      pattern: /initial inherited complete status or state SHA differs from seed receipt/u,
+      pattern: /complete progress retained timestamp differs/u,
+    });
+  });
+  await t.test('monitor rejects an extra no-grant state seed lineage field', async () => {
+    await assertMonitorRejectsStateLineageTamper({
+      documentId: inheritedCompleteDocumentId,
+      mutateState: (state) => { state.seed_lineage.extra = true; },
+      pattern: /state seed lineage field set differs/u,
+    });
+  });
+  await t.test('monitor rejects an extra granted state seed lineage field', async () => {
+    await assertMonitorRejectsStateLineageTamper({
+      documentId: recoveryDocuments[0].document_id,
+      mutateState: (state) => { state.seed_lineage.extra = true; },
+      pattern: /state seed lineage field set differs/u,
     });
   });
   const claimFilename = (await readdir(ledgerRoot)).find((entry) => entry.endsWith('.claim.json'));
@@ -3134,6 +3216,22 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     const progress = completed.runStatus.documents[receiptDocument.document_id];
     assert.equal(progress.status, 'complete');
     assert.equal(progress.attempts, 6);
+    assert.deepEqual(Object.keys(progress).sort(), [
+      'attempt_ceiling',
+      'attempts',
+      'completed_at',
+      'failed_at',
+      'inherited_attempts',
+      'page_count',
+      'predecessor_status',
+      'seed_id',
+      'started_at',
+      'status',
+      'status_json_sha256',
+      'timeout_recovery_first_missing_page',
+      'timeout_recovery_grant_id',
+      'timeout_recovery_grant_sha256',
+    ].sort());
     const status = JSON.parse(await readFile(
       path.join(successorRoot, 'status', `${receiptDocument.document_id}.json`),
       'utf8',
@@ -3176,21 +3274,28 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   const tamperedRunStatusPath = path.join(successorRoot, 'run-status.json');
   const assertMonitorRejectsCompleteTamper = async ({
     documentId = tamperedDocumentId,
+    mutateState = () => {},
     mutateStatus,
     mutateProgress,
     pattern,
   }) => {
     const tamperedStatusPath = path.join(successorRoot, 'status', `${documentId}.json`);
+    const tamperedStatePath = path.join(successorRoot, 'documents', documentId, 'state.json');
     const originalFiles = await Promise.all([
+      tamperedStatePath,
       tamperedStatusPath,
       `${tamperedStatusPath}.sha256`,
       tamperedRunStatusPath,
       `${tamperedRunStatusPath}.sha256`,
     ].map((pathname) => readFile(pathname)));
     try {
-      const status = JSON.parse(originalFiles[0]);
-      const runStatus = JSON.parse(originalFiles[2]);
-      mutateStatus(status);
+      const state = JSON.parse(originalFiles[0]);
+      const status = JSON.parse(originalFiles[1]);
+      const runStatus = JSON.parse(originalFiles[3]);
+      mutateState(state);
+      await writeFile(tamperedStatePath, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
+      const stateSha256 = sha256(await readFile(tamperedStatePath));
+      mutateStatus(status, { stateSha256 });
       const statusSha256 = await writeJsonSidecar(tamperedStatusPath, status);
       mutateProgress(runStatus.documents[documentId], runStatus);
       runStatus.documents[documentId].status_json_sha256 = statusSha256;
@@ -3198,6 +3303,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
       await assert.rejects(inspectSuccessorB2(successorRoot, monitoredPredecessor), pattern);
     } finally {
       await Promise.all([
+        tamperedStatePath,
         tamperedStatusPath,
         `${tamperedStatusPath}.sha256`,
         tamperedRunStatusPath,
@@ -3234,6 +3340,60 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
         runStatus.settled = false;
       },
       pattern: /timeout recovery completed artifacts were downgraded/u,
+    });
+  });
+  await t.test('monitor rejects coordinated inherited-complete state status and run-status resealing', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      documentId: inheritedCompleteDocumentId,
+      mutateState: (state) => { state.updated_at = '2026-07-17T04:12:00Z'; },
+      mutateStatus: (status, { stateSha256 }) => { status.artifacts.state_sha256 = stateSha256; },
+      mutateProgress: () => {},
+      pattern: /inherited full complete state SHA differs from seed receipt/u,
+    });
+  });
+  await t.test('monitor rejects an extra inherited complete progress field after reverify', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      documentId: inheritedCompleteDocumentId,
+      mutateStatus: () => {},
+      mutateProgress: (progress) => { progress.extra = true; },
+      pattern: /complete progress field set differs/u,
+    });
+  });
+  await t.test('monitor rejects changed inherited completed_at after reverify', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      documentId: inheritedCompleteDocumentId,
+      mutateStatus: () => {},
+      mutateProgress: (progress) => { progress.completed_at = '2026-07-17T04:11:00.000Z'; },
+      pattern: /complete progress retained timestamp differs/u,
+    });
+  });
+  await t.test('monitor rejects changed inherited started_at after reverify', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      documentId: inheritedCompleteDocumentId,
+      mutateStatus: () => {},
+      mutateProgress: (progress) => { progress.started_at = '2026-07-16T15:00:01.000Z'; },
+      pattern: /complete progress retained timestamp differs/u,
+    });
+  });
+  await t.test('monitor rejects an extra granted completion progress field', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      mutateStatus: () => {},
+      mutateProgress: (progress) => { progress.extra = true; },
+      pattern: /complete progress field set differs/u,
+    });
+  });
+  await t.test('monitor rejects changed retained granted failed_at', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      mutateStatus: () => {},
+      mutateProgress: (progress) => { progress.failed_at = '2026-07-17T03:50:01.000Z'; },
+      pattern: /complete progress retained timestamp differs/u,
+    });
+  });
+  await t.test('monitor rejects a noncanonical granted completion started_at', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      mutateStatus: () => {},
+      mutateProgress: (progress) => { progress.started_at = '2026-07-18T00:00:00Z'; },
+      pattern: /complete progress timestamp is not canonical/u,
     });
   });
   await chmod(archivedGrantPath, 0o644);

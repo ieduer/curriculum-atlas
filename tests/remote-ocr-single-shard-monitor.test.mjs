@@ -846,7 +846,7 @@ async function completeFixture(fixture) {
       page_artifacts_sha256: sha256(`${JSON.stringify(pageArtifacts_)}\n`),
       page_artifacts: pageArtifacts_,
     },
-    verified_at: '2026-07-17T00:10:00.000Z',
+    completed_at: '2026-07-17T00:10:00.000Z',
   };
   const statusWritten = await writeHashBoundJson(path.join(fixture.b2, 'status/doc-one.json'), status);
   const runStatusPath = path.join(fixture.b2, 'run-status.json');
@@ -854,11 +854,11 @@ async function completeFixture(fixture) {
   Object.assign(runStatus.documents['doc-one'], {
     status: 'complete',
     attempts: 2,
-    verified_at: status.verified_at,
+    started_at: '2026-07-17T00:05:00.000Z',
+    completed_at: status.completed_at,
     status_json_sha256: statusWritten.sha256,
   });
   delete runStatus.documents['doc-one'].error;
-  delete runStatus.documents['doc-one'].failed_at;
   delete runStatus.documents['doc-one'].next_retry_at;
   runStatus.counts = {
     total: 1,
