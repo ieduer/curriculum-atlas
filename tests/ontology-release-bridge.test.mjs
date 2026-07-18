@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+import { canonicalParagraphBody } from '../scripts/canonical-paragraph-text.mjs';
 import {
   loadImmutablePromotionBaseline,
   loadImmutablePublicBaseline,
@@ -797,42 +798,72 @@ test('relation type and direction need an exact canonical predicate, not paragra
   });
 });
 
-test('relation statement offsets cannot omit negative wording from the containing clause', async (t) => {
-  await t.test('negative prefix remains part of the controlled clause', () => {
-    const statement = '核心素养支持语言运用';
-    const body = `并不认为${statement}；核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。`;
-    const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
-      relationStatement: statement,
-    });
-    const report = validateOntologyRelease(fixture.release, fixture.context);
-    assert.equal(report.valid, false);
-    assert.match(text(report), /relation_statement_clause_error/);
-  });
-
-  await t.test('negative suffix remains part of the controlled clause', () => {
-    const statement = '核心素养支持语言运用';
-    const body = `${statement}的说法并不成立；核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。`;
-    const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
-      relationStatement: statement,
-    });
-    const report = validateOntologyRelease(fixture.release, fixture.context);
-    assert.equal(report.valid, false);
-    assert.match(text(report), /relation_statement_clause_error/);
-  });
-});
-
-test('relation statements bind exact punctuation-bounded clauses and adjacent wrappers', async (t) => {
+test('relation statements inspect canonical full-paragraph context across punctuation and wrappers', async (t) => {
   const statement = '核心素养支持语言运用';
   const tail = '核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。';
-  const boundaryCases = [
-    ['Chinese period', `前置说明。${statement}；${tail}`],
-    ['Chinese semicolon', `前置说明；${statement}：${tail}`],
-    ['Chinese colon', `前置说明：${statement}。${tail}`],
-    ['newline', `前置说明\n${statement}；${tail}`],
-    ['edge whitespace only', `前置说明： \t${statement} ；${tail}`],
+  const separators = [
+    ['Chinese colon', '：'],
+    ['Chinese comma', '，'],
+    ['Chinese semicolon', '；'],
+    ['newline', '\n'],
   ];
-  for (const [name, body] of boundaryCases) {
+  const wrappers = [
+    ['unwrapped', '', ''],
+    ['Chinese quote', '“', '”'],
+    ['full-width parenthesis', '（', '）'],
+  ];
+  for (const [separatorName, separator] of separators) {
+    for (const [wrapperName, opening, closing] of wrappers) {
+      const boundStatement = `${opening}${statement}${closing}`;
+      await t.test(`negative prefix / ${separatorName} / ${wrapperName}`, () => {
+        const body = canonicalParagraphBody(`并不认为${separator}${boundStatement}；${tail}`);
+        const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
+          relationStatement: boundStatement,
+        });
+        const report = validateOntologyRelease(fixture.release, fixture.context);
+        assert.equal(report.valid, false);
+        assert.match(text(report), /relation_statement_context_error|relation_semantics_not_supported/);
+      });
+
+      await t.test(`negative suffix / ${separatorName} / ${wrapperName}`, () => {
+        const body = canonicalParagraphBody(`${boundStatement}${separator}但上述说法并不成立；${tail}`);
+        const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
+          relationStatement: boundStatement,
+        });
+        const report = validateOntologyRelease(fixture.release, fixture.context);
+        assert.equal(report.valid, false);
+        assert.match(text(report), /relation_statement_context_error|relation_semantics_not_supported/);
+      });
+    }
+  }
+
+  for (const [name, rawBody] of [
+    ['correction marker in the preceding segment', `错误观点：${statement}。${tail}`],
+    ['reported-speech marker in the preceding segment', `材料转述如下：${statement}。${tail}`],
+    ['contrast and correction in the following sentence', `${statement}。然而结论恰好相反。${tail}`],
+    ['qualified relation in the following sentence', `${statement}。该关系可能仅在特定条件下成立。${tail}`],
+  ]) {
     await t.test(name, () => {
+      const body = canonicalParagraphBody(rawBody);
+      const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
+        relationStatement: statement,
+      });
+      const report = validateOntologyRelease(fixture.release, fixture.context);
+      assert.equal(report.valid, false);
+      assert.match(text(report), /relation_statement_context_error|relation_semantics_not_supported/);
+    });
+  }
+});
+
+test('relation statements allow only an unwrapped positive independent sentence in neutral canonical context', async (t) => {
+  const statement = '核心素养支持语言运用';
+  const tail = '核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。';
+  const positiveCases = [
+    ['paragraph-leading sentence', `${statement}。${tail}`],
+  ];
+  for (const [name, rawBody] of positiveCases) {
+    await t.test(name, () => {
+      const body = canonicalParagraphBody(rawBody);
       const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
         relationStatement: statement,
       });
@@ -841,29 +872,46 @@ test('relation statements bind exact punctuation-bounded clauses and adjacent wr
     });
   }
 
-  const wrapperCases = [
-    ['Chinese quote', '“', '”'],
-    ['full-width parenthesis', '（', '）'],
-  ];
-  for (const [name, opening, closing] of wrapperCases) {
-    await t.test(`${name} is accepted when the complete wrapper is bound`, () => {
-      const wrappedStatement = `${opening}${statement}${closing}`;
-      const body = `前置说明：${wrappedStatement}；${tail}`;
-      const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
-        relationStatement: wrappedStatement,
-      });
-      const report = validateOntologyRelease(fixture.release, fixture.context);
-      assert.equal(report.valid, true, text(report));
-    });
-
-    await t.test(`${name} cannot be omitted from the bound clause`, () => {
-      const body = `前置说明：${opening}${statement}${closing}；${tail}`;
+  for (const [name, separator] of [
+    ['Chinese colon', '：'],
+    ['Chinese comma', '，'],
+    ['Chinese semicolon', '；'],
+    ['newline', '\n'],
+  ]) {
+    await t.test(`${name} cannot discard a neutral governing prefix`, () => {
+      const body = canonicalParagraphBody(`课程结构说明${separator}${statement}。${tail}`);
       const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
         relationStatement: statement,
       });
       const report = validateOntologyRelease(fixture.release, fixture.context);
       assert.equal(report.valid, false);
-      assert.match(text(report), /relation_statement_clause_error/);
+      assert.match(text(report), /relation_statement_context_error/);
+    });
+
+    await t.test(`${name} cannot discard a neutral qualifying suffix`, () => {
+      const body = canonicalParagraphBody(`${statement}${separator}适用范围另行界定。${tail}`);
+      const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
+        relationStatement: statement,
+      });
+      const report = validateOntologyRelease(fixture.release, fixture.context);
+      assert.equal(report.valid, false);
+      assert.match(text(report), /relation_statement_context_error/);
+    });
+  }
+
+  for (const [name, opening, closing] of [
+    ['Chinese quote', '“', '”'],
+    ['full-width parenthesis', '（', '）'],
+  ]) {
+    await t.test(`${name} cannot self-authenticate a positive relation`, () => {
+      const wrappedStatement = `${opening}${statement}${closing}`;
+      const body = canonicalParagraphBody(`${wrappedStatement}。${tail}`);
+      const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
+        relationStatement: wrappedStatement,
+      });
+      const report = validateOntologyRelease(fixture.release, fixture.context);
+      assert.equal(report.valid, false);
+      assert.match(text(report), /relation_statement_context_error|relation_semantics_not_supported/);
     });
   }
 });
@@ -884,7 +932,7 @@ test('internal nodes are held to the same accepted provenance gate as leaves', (
 });
 
 test('relations require exact content-level endpoint and statement evidence', () => {
-  const body = '核心素养支持语言运用，核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。';
+  const body = '核心素养支持语言运用。核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。';
   const fixture = addLanguageUseChild(reviewedFixture(11, body));
   const basis = '核心素养支持语言运用';
   fixture.release.relations = [{

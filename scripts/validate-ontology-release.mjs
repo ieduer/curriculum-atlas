@@ -1362,68 +1362,48 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-const RELATION_CLAUSE_BOUNDARY = /[。！？!?；;，,：:\n]/u;
-const RELATION_CLAUSE_WRAPPERS = new Map([
-  ['“', '”'],
-  ['‘', '’'],
-  ['"', '"'],
-  ["'", "'"],
-  ['（', '）'],
-  ['(', ')'],
-  ['【', '】'],
-  ['[', ']'],
-]);
+const RELATION_CONTEXT_BLOCKER = new RegExp([
+  '不', '未', '无', '非', '否', '难以', '存疑', '商榷',
+  '错误', '谬误', '误解', '误读', '臆断', '片面', '例外', '除非',
+  '纠正', '更正', '修正', '反驳', '质疑', '争议',
+  '但', '然而', '不过', '却', '相反', '反而', '虽然', '尽管',
+  '所谓', '观点', '说法', '认为', '声称', '宣称', '据称', '据说',
+  '表示', '指出', '强调', '提到', '提及', '写道', '主张', '转述', '引用',
+  '可能', '或许', '也许', '假定', '假设', '条件', '前提',
+  '仅', '只在', '限于', '适用范围',
+].map(escapeRegExp).join('|'), 'u');
+const RELATION_CONTEXT_WRAPPER = /[“”‘’"'（）()【】\[\]]/u;
+const RELATION_FOLLOWING_SENTENCE_END = /^[。！？!?]/u;
 
-function completeContainingRelationClause(paragraphBody, startOffset, endOffset) {
+function canonicalRelationStatementContext(paragraphBody, startOffset, endOffset) {
   if (typeof paragraphBody !== 'string'
     || !Number.isInteger(startOffset)
     || !Number.isInteger(endOffset)
     || startOffset < 0
     || endOffset <= startOffset
     || endOffset > paragraphBody.length) {
-    return { complete: false, text: '' };
+    return { complete: false, statement: '' };
   }
-  let clauseStart = 0;
-  for (let index = startOffset - 1; index >= 0; index -= 1) {
-    if (RELATION_CLAUSE_BOUNDARY.test(paragraphBody[index])) {
-      clauseStart = index + 1;
-      break;
-    }
-  }
-  let clauseEnd = paragraphBody.length;
-  for (let index = endOffset; index < paragraphBody.length; index += 1) {
-    if (RELATION_CLAUSE_BOUNDARY.test(paragraphBody[index])) {
-      clauseEnd = index;
-      break;
-    }
-  }
-  const boundText = paragraphBody.slice(startOffset, endOffset);
-  const completeText = paragraphBody.slice(clauseStart, clauseEnd);
-  const omittedPrefix = paragraphBody.slice(clauseStart, startOffset);
-  const omittedSuffix = paragraphBody.slice(endOffset, clauseEnd);
+  const statement = paragraphBody.slice(startOffset, endOffset);
+  const precedingContext = paragraphBody.slice(0, startOffset).trimEnd();
+  const followingContext = paragraphBody.slice(endOffset).trimStart();
+  const canonical = canonicalParagraphBody(paragraphBody);
+  const startsAsIndependentSentence = precedingContext.length === 0;
+  const endsAsIndependentSentence = followingContext.length === 0
+    || RELATION_FOLLOWING_SENTENCE_END.test(followingContext);
   return {
-    complete: startOffset >= clauseStart
-      && endOffset <= clauseEnd
-      && omittedPrefix.trim() === ''
-      && omittedSuffix.trim() === ''
-      && boundText.trim() === completeText.trim()
-      && !RELATION_CLAUSE_BOUNDARY.test(boundText),
-    text: completeText.trim(),
+    complete: canonical === paragraphBody
+      && statement === statement.trim()
+      && startsAsIndependentSentence
+      && endsAsIndependentSentence
+      && !RELATION_CONTEXT_BLOCKER.test(paragraphBody)
+      && !RELATION_CONTEXT_WRAPPER.test(paragraphBody),
+    statement,
   };
 }
 
-function unwrapRelationClause(text) {
-  let unwrapped = text.trim();
-  while (unwrapped.length >= 2) {
-    const closing = RELATION_CLAUSE_WRAPPERS.get(unwrapped[0]);
-    if (!closing || !unwrapped.endsWith(closing)) break;
-    unwrapped = unwrapped.slice(1, -1).trim();
-  }
-  return unwrapped;
-}
-
 function canonicalStatementSupportsRelation(relationType, statement, sourceLabel, targetLabel) {
-  const text = unwrapRelationClause(statement).replace(/\s+/g, '');
+  const text = statement.trim().replace(/\s+/g, '');
   if (!text || /[。！？!?；;，,：:\n]/.test(text)) return false;
   if (/(?:不|未|无|非|否认|错误|不成立|不正确|不能|从未|尚未|没有)/.test(text)) return false;
   const source = escapeRegExp(sourceLabel.replace(/\s+/g, ''));
@@ -1503,7 +1483,7 @@ function validateRelations(manifest, scopes, assertionResult, nodes, errors) {
       if (binding.evidence_role === 'relation_statement' && source && target) {
         relationStatements.push({
           bound_text: boundText,
-          clause: completeContainingRelationClause(
+          context: canonicalRelationStatementContext(
             paragraph.body,
             binding.text_start_offset,
             binding.text_end_offset,
@@ -1526,13 +1506,13 @@ function validateRelations(manifest, scopes, assertionResult, nodes, errors) {
       'relation_statement_cardinality_error', `${relation.id} needs exactly one canonical relation statement`);
     if (source && target && relationStatements.length === 1) {
       const statement = relationStatements[0];
-      issue(errors, statement.clause.complete,
-      'relation_statement_clause_error', `${relation.id} statement must be one exact punctuation-bounded clause`);
+      issue(errors, statement.context.complete,
+      'relation_statement_context_error', `${relation.id} statement must be an unwrapped positive independent sentence in its complete canonical paragraph context`);
       issue(errors, relation.assertion_basis === statement.bound_text,
         'relation_basis_not_canonical_statement', `${relation.id} assertion_basis is not the exact canonical relation statement`);
-      issue(errors, statement.clause.complete && canonicalStatementSupportsRelation(
+      issue(errors, statement.context.complete && canonicalStatementSupportsRelation(
         relation.relation_type,
-        statement.clause.text,
+        statement.context.statement,
         source.label,
         target.label,
       ), 'relation_semantics_not_supported', `${relation.id} type or direction is not explicitly stated in canonical text`);
