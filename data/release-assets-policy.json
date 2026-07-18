@@ -80,6 +80,7 @@
       { "path": "data/page-publication-manifest.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "publication_gate"] },
       { "path": "data/page-publication-manifest.schema.json", "disposition": "r2_public_metadata", "consumers": ["publication_gate"] },
       { "path": "data/release-assets-policy.json", "disposition": "r2_public_metadata", "consumers": ["release_manifest"] },
+      { "path": "data/release-baselines/ontology-public-v2.json", "disposition": "candidate_fail_closed", "consumers": ["ontology_release_validator", "release_manifest", "deploy_gate"] },
       { "path": "data/release-environment-evidence.json", "disposition": "r2_public_metadata", "consumers": ["release_manifest", "metadata_publisher"] },
       { "path": "data/semantic-publication-policy.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "semantic_gate"] },
       { "path": "data/semantic-publication-policy.schema.json", "disposition": "r2_public_metadata", "consumers": ["semantic_gate"] },

@@ -670,6 +670,9 @@
             "null"
           ]
         },
+        "normative_role_candidate": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
         "definition_candidate": {
           "type": [
             "string",

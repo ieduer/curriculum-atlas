@@ -959,6 +959,8 @@ function escapeRegExp(value) {
 
 function canonicalStatementSupportsRelation(relationType, statement, sourceLabel, targetLabel) {
   const text = statement.replace(/\s+/g, '');
+  const negatedPredicate = /(?:不|未|无|并非|不能|从未|尚未|没有).{0,6}(?:支持|支撑|促进|保障|有助于|服务于|相关|联系|相互作用|重构|重述|重新表述|拆分|分化|细分|合并|整合|取代|替代)/;
+  if (negatedPredicate.test(text)) return false;
   const source = escapeRegExp(sourceLabel.replace(/\s+/g, ''));
   const target = escapeRegExp(targetLabel.replace(/\s+/g, ''));
   const between = '.{0,64}';

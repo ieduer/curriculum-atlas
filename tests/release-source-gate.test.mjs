@@ -96,11 +96,21 @@ test('deploy CLI exposes exactly two audited modes and cannot bypass the bridge 
   assert.throws(() => parseArgs(['--ontology-promotion', '--environment', 'production']), /usage/);
 
   const source = await readFile(new URL('scripts/deploy-worker.mjs', projectRoot), 'utf8');
+  const ontologyValidator = await readFile(
+    new URL('scripts/validate-ontology-release.mjs', projectRoot),
+    'utf8',
+  );
   const validation = source.indexOf('await validateOntologyReleaseFile({');
   const releaseManifest = source.indexOf('await buildReleaseManifest({ root })');
   const wrangler = source.indexOf("runCommand('npx'");
   assert.ok(validation >= 0 && validation < releaseManifest && releaseManifest < wrangler);
   assert.match(source, /requirePublishable: ontologyPromotion/);
+  assert.match(ontologyValidator, /public_baseline: loadImmutablePublicBaseline\(root\)/);
+  assert.match(ontologyValidator, /runGit\(root, \['show', `\$\{anchorCommit\}:/);
+  assert.doesNotMatch(
+    ontologyValidator,
+    /0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8/,
+  );
 
   const packageJson = JSON.parse(await readFile(new URL('package.json', projectRoot), 'utf8'));
   assert.equal(packageJson.scripts['deploy:preview'], 'node scripts/deploy-worker.mjs --environment preview');
