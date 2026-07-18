@@ -7,6 +7,7 @@ import {
   mkdir,
   readFile,
   readdir,
+  realpath,
   rm,
   symlink,
   writeFile,
@@ -26,6 +27,7 @@ import {
   privacySafeSingleShardEvent,
   writeSingleShardMonitorOutputs,
 } from '../scripts/monitor-remote-ocr-single-shard.mjs';
+import { fingerprintPaddlexLayoutModelCache } from '../scripts/run-remote-ocr-offload.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const hash = (character) => character.repeat(64);
@@ -55,7 +57,7 @@ async function copyExact(source, destination) {
   await copyFile(source, destination);
 }
 
-function workerConfiguration(concurrency, cacheRoot) {
+function workerConfiguration(concurrency, cacheRoot, cacheTreeSha256) {
   return {
     llama_url: 'http://127.0.0.1:8112',
     vl_rec_max_concurrency: concurrency,
@@ -73,8 +75,19 @@ function workerConfiguration(concurrency, cacheRoot) {
         pypdfium2: '5.12.0',
       },
     },
-    paddlex_layout_model_cache_sha256: hash('7'),
+    paddlex_layout_model_cache_sha256: cacheTreeSha256,
   };
+}
+
+async function createPaddlexCache(cacheRoot) {
+  const modelRoot = path.join(cacheRoot, 'official_models/PP-DocLayoutV3');
+  await mkdir(modelRoot, { recursive: true });
+  await Promise.all([
+    writeFile(path.join(modelRoot, 'inference.json'), '{"model":"PP-DocLayoutV3"}\n'),
+    writeFile(path.join(modelRoot, 'inference.pdiparams'), Buffer.from([0x50, 0x44, 0x58, 0x01])),
+    writeFile(path.join(modelRoot, 'inference.yml'), 'Global:\n  model_name: PP-DocLayoutV3\n'),
+  ]);
+  return fingerprintPaddlexLayoutModelCache(cacheRoot);
 }
 
 function documentRecovery(idleSeconds) {
@@ -143,13 +156,17 @@ async function createPredecessor(root) {
     model_sha256: hash('1'),
     mmproj_sha256: hash('2'),
   };
+  const cacheHome = path.join(await realpath(b1), 'paddlex-cache');
+  const cacheFingerprint = await createPaddlexCache(cacheHome);
+  const worker = workerConfiguration(4, cacheHome, cacheFingerprint.tree_sha256);
   const runtimeFingerprint = {
-    schema_version: 1,
-    runtime,
-    packages: { paddleocr: '3.7.0' },
+    ...runtime,
+    runtime_device: worker.runtime_device,
+    llama_server_attestation_sha256: hash('6'),
+    python_runtime: worker.python_runtime,
+    paddlex_layout_model_cache: cacheFingerprint,
   };
   const runtimeFingerprintSha256 = sha256(`${JSON.stringify(runtimeFingerprint)}\n`);
-  const worker = workerConfiguration(4, '/cache/b1');
   const recovery = documentRecovery(300);
   const page = await pageArtifacts(pageRoot);
   const state = {
@@ -231,7 +248,7 @@ async function createPredecessor(root) {
     citation_allowed: false,
   };
   await writeJson(path.join(b1, 'run-identity.json'), identity);
-  return { b1, identity, runStatus, runtime, worker, recovery };
+  return { b1, identity, runStatus, runtime, worker, recovery, cacheFingerprint };
 }
 
 async function createPredecessorEvidence(b2, predecessor) {
@@ -297,6 +314,9 @@ async function createFixture(t) {
   await mkdir(path.join(b2, 'documents/doc-one/pages/0001'), { recursive: true });
   await mkdir(path.join(b2, 'status'), { recursive: true });
   await mkdir(path.join(b2, 'logs'), { recursive: true });
+  const successorCacheHome = path.join(await realpath(b2), 'paddlex-cache');
+  const successorCacheFingerprint = await createPaddlexCache(successorCacheHome);
+  assert.deepEqual(successorCacheFingerprint, source.cacheFingerprint);
   await copyExact(
     path.join(source.b1, 'documents/doc-one/pages/0001/result.json'),
     path.join(b2, 'documents/doc-one/pages/0001/result.json'),
@@ -306,7 +326,11 @@ async function createFixture(t) {
     path.join(b2, 'documents/doc-one/pages/0001/content.md'),
   );
   const controlEvidence = await createPredecessorEvidence(b2, predecessor);
-  const successorWorker = workerConfiguration(1, '/cache/b2');
+  const successorWorker = workerConfiguration(
+    1,
+    successorCacheHome,
+    successorCacheFingerprint.tree_sha256,
+  );
   const successorRecovery = documentRecovery(1200);
   const successorRunnerScriptSha256 = hash('a');
   const predecessorContract = {
@@ -346,9 +370,9 @@ async function createFixture(t) {
     schema_version: 1,
     vl_rec_max_concurrency: { predecessor: 4, successor: 1 },
     paddlex_cache_home: {
-      predecessor: '/cache/b1',
-      successor: '/cache/b2',
-      tree_sha256: hash('7'),
+      predecessor: source.worker.paddlex_cache_home,
+      successor: successorWorker.paddlex_cache_home,
+      tree_sha256: successorCacheFingerprint.tree_sha256,
     },
     child_idle_timeout_seconds: { predecessor: 300, successor: 1200 },
   };
@@ -517,7 +541,14 @@ async function createFixture(t) {
     installed_items: installedItems,
     installed_items_sha256: sha256(canonicalJson(installedItems)),
   });
-  return { root, b1: source.b1, b2, predecessor, seedId };
+  return {
+    root,
+    b1: source.b1,
+    b2,
+    predecessor,
+    seedId,
+    cacheFingerprint: successorCacheFingerprint,
+  };
 }
 
 async function completeFixture(fixture) {
@@ -726,8 +757,12 @@ test('real B1 and B2 fixture validates receipt, marker, identity, counts, attemp
   const fixture = await createFixture(t);
   const predecessor = await inspectPredecessorB1(fixture.b1);
   assert.deepEqual(predecessor.anchors, fixture.predecessor.anchors);
+  assert.deepEqual(predecessor.paddlex_layout_model_cache, fixture.cacheFingerprint);
+  assert.equal((await lstat(path.join(fixture.b1, 'paddlex-cache'))).isDirectory(), true);
   const successor = await inspectSuccessorB2(fixture.b2, predecessor);
   assert.equal(successor.read_ok, true);
+  assert.deepEqual(successor.paddlex_layout_model_cache, fixture.cacheFingerprint);
+  assert.equal((await lstat(path.join(fixture.b2, 'paddlex-cache'))).isDirectory(), true);
   assert.equal(successor.complete, false);
   assert.equal(successor.completed_pages, 1);
   assert.equal(successor.expected_pages, 2);
@@ -741,7 +776,7 @@ test('real B1 and B2 fixture validates receipt, marker, identity, counts, attemp
   assert.equal(completed.status_counts.complete, 1);
 });
 
-test('run-status sidecar drift and successor extra or symlink entries are rejected', async (t) => {
+test('sidecar, root, and PaddleX cache drift are rejected', async (t) => {
   await t.test('sidecar mismatch', async (t) => {
     const fixture = await createFixture(t);
     await writeFile(path.join(fixture.b2, 'run-status.json'), '{"tampered":true}\n');
@@ -756,6 +791,35 @@ test('run-status sidecar drift and successor extra or symlink entries are reject
     const fixture = await createFixture(t);
     await symlink('run-status.json', path.join(fixture.b2, 'unexpected-link'));
     await assert.rejects(inspectSuccessorB2(fixture.b2, fixture.predecessor), /unexpected entries|symbolic link/);
+  });
+  await t.test('B1 cache path differs from its own output root', async (t) => {
+    const fixture = await createFixture(t);
+    const identityPath = path.join(fixture.b1, 'run-identity.json');
+    const identity = JSON.parse(await readFile(identityPath, 'utf8'));
+    identity.worker_configuration.paddlex_cache_home = path.join(fixture.root, 'foreign-cache');
+    await writeJson(identityPath, identity);
+    await assert.rejects(inspectPredecessorB1(fixture.b1), /paddlex_cache_home must equal/);
+  });
+  await t.test('B2 audited cache tree differs from its declared identity', async (t) => {
+    const fixture = await createFixture(t);
+    await writeFile(
+      path.join(fixture.b2, 'paddlex-cache/official_models/PP-DocLayoutV3/inference.yml'),
+      'Global:\n  model_name: drifted\n',
+    );
+    await assert.rejects(
+      inspectSuccessorB2(fixture.b2, fixture.predecessor),
+      /cache tree hash differs from its worker identity/,
+    );
+  });
+  await t.test('B2 top-level cache is a symbolic link', async (t) => {
+    const fixture = await createFixture(t);
+    const successorCache = path.join(fixture.b2, 'paddlex-cache');
+    await rm(successorCache, { recursive: true });
+    await symlink(path.join(fixture.b1, 'paddlex-cache'), successorCache, 'dir');
+    await assert.rejects(
+      inspectSuccessorB2(fixture.b2, fixture.predecessor),
+      /symbolic link|must be a real directory/,
+    );
   });
 });
 

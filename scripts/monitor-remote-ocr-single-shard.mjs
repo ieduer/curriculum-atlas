@@ -23,6 +23,7 @@ import {
   parseNvidiaSmi,
   parseSystemdShow,
 } from './monitor-remote-ocr-reprocess.mjs';
+import { fingerprintPaddlexLayoutModelCache } from './run-remote-ocr-offload.mjs';
 
 const execFile = promisify(execFileCallback);
 const gib = 1024 ** 3;
@@ -236,6 +237,33 @@ async function requireRealDirectory(pathname, label) {
   });
   if (!info.isDirectory() || info.isSymbolicLink()) throw new Error(`${label} must be a real directory`);
   return realpath(pathname);
+}
+
+async function inspectBoundPaddlexCache(root, identity, label) {
+  const expectedCacheHome = path.join(root, 'paddlex-cache');
+  const cacheHome = await requireRealDirectory(expectedCacheHome, `${label} PaddleX cache root`);
+  if (cacheHome !== expectedCacheHome) throw new Error(`${label} PaddleX cache root is not canonical`);
+  const worker = requireObject(identity.worker_configuration, `${label} worker configuration`);
+  if (worker.paddlex_cache_home !== cacheHome) {
+    throw new Error(`${label} worker paddlex_cache_home must equal its real output cache root`);
+  }
+  const expectedOfficialModels = path.join(cacheHome, 'official_models');
+  const officialModels = await requireRealDirectory(
+    expectedOfficialModels,
+    `${label} PaddleX official_models root`,
+  );
+  if (officialModels !== expectedOfficialModels) {
+    throw new Error(`${label} PaddleX official_models root is not canonical`);
+  }
+  const fingerprint = await fingerprintPaddlexLayoutModelCache(cacheHome);
+  if (worker.paddlex_layout_model_cache_sha256 !== fingerprint.tree_sha256) {
+    throw new Error(`${label} PaddleX cache tree hash differs from its worker identity`);
+  }
+  const runtimeFingerprint = requireObject(identity.runtime_fingerprint, `${label} runtime fingerprint`);
+  if (!sameJson(runtimeFingerprint.paddlex_layout_model_cache, fingerprint)) {
+    throw new Error(`${label} PaddleX cache fingerprint differs from its runtime identity`);
+  }
+  return fingerprint;
 }
 
 async function readStableRaw(root, pathname, label, attempts = 3) {
@@ -474,7 +502,14 @@ function validateProgress(progress, pageCount, label, predecessor = false) {
 export async function inspectPredecessorB1(predecessorRoot) {
   const root = await requireRealDirectory(predecessorRoot, 'B1 predecessor output');
   const rootEntries = (await readdir(root, { withFileTypes: true })).map((entry) => entry.name);
-  const requiredRootEntries = ['documents', 'status', 'run-identity.json', 'run-status.json', 'run-status.json.sha256'];
+  const requiredRootEntries = [
+    'documents',
+    'paddlex-cache',
+    'status',
+    'run-identity.json',
+    'run-status.json',
+    'run-status.json.sha256',
+  ];
   const allowedRootEntries = new Set([...requiredRootEntries, 'logs']);
   if (requiredRootEntries.some((name) => !rootEntries.includes(name))
     || rootEntries.some((name) => !allowedRootEntries.has(name))) {
@@ -517,6 +552,7 @@ export async function inspectPredecessorB1(predecessorRoot) {
   }
   requireObject(identity.worker_configuration, 'B1 worker configuration');
   requireObject(identity.document_recovery, 'B1 document recovery');
+  const paddlexLayoutModelCache = await inspectBoundPaddlexCache(root, identity, 'B1');
   const statusDocuments = Object.entries(requireObject(runStatus.documents, 'B1 run status documents'));
   if (statusDocuments.length === 0) throw new Error('B1 run status has no documents');
   const documents = statusDocuments.map(([documentId, progress]) => {
@@ -688,6 +724,7 @@ export async function inspectPredecessorB1(predecessorRoot) {
     page_artifacts_sha256: pageArtifactsSha256,
     snapshot_sha256: sha256(canonicalJson(snapshotBasis)),
     anchors,
+    paddlex_layout_model_cache: paddlexLayoutModelCache,
     latest_progress_at: iso(latestProgressMilliseconds),
     _snapshot_basis: snapshotBasis,
   };
@@ -937,6 +974,7 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
     '.seed-journal.json.sha256',
     'documents',
     'logs',
+    'paddlex-cache',
     'run-identity.json',
     'run-status.json',
     'run-status.json.sha256',
@@ -1041,6 +1079,10 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
     || successorContract.ocr_script_sha256 !== identity.ocr_script_sha256
     || successorContract.citation_allowed !== false) {
     throw new Error('B2 run identity differs from the receipt successor contract');
+  }
+  const paddlexLayoutModelCache = await inspectBoundPaddlexCache(root, identity, 'B2');
+  if (!sameJson(paddlexLayoutModelCache, predecessor.paddlex_layout_model_cache)) {
+    throw new Error('B2 PaddleX cache fingerprint differs from B1');
   }
   validateAllowedSeedDelta(receipt, predecessor, identity);
   const markerItems = markerItemsByName(marker);
@@ -1272,6 +1314,7 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
     inconsistent_completion: runStatus.finished === true && !complete,
     latest_progress_at: iso(latestProgressMilliseconds),
     progress_age_seconds: Math.max(0, Math.floor((nowMilliseconds - latestProgressMilliseconds) / 1000)),
+    paddlex_layout_model_cache: paddlexLayoutModelCache,
   };
 }
 
