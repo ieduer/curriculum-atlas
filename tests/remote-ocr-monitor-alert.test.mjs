@@ -97,11 +97,15 @@ function runtime(
   result,
   workerInvocationId = workerInvocation,
   runtimeBootId = bootId,
+  monitorActiveState = 'inactive',
+  monitorSubState = 'dead',
 ) {
   return {
     boot_id: runtimeBootId,
     monitor: {
       invocation_id: monitorInvocation,
+      active_state: monitorActiveState,
+      sub_state: monitorSubState,
       exit_code: exitCode,
       started_at_milliseconds: timestamp - 1_000,
       result: result || (exitCode === 12 ? 'exit-code' : 'success'),
@@ -564,6 +568,61 @@ test('a pending alert sent after healthy recovery advances the epoch before recu
   assert.notEqual(sent[1].issue_fingerprint, firstFingerprint);
 });
 
+test('retry timer defers every nonterminal monitor state without sending or closing pending evidence', async () => {
+  const fx = await fixture();
+  const armedAt = await arm(fx);
+  const failedAt = armedAt + 60_000;
+  await writeLatest(fx, failedAt, 12, ['B2_NO_PROGRESS']);
+  await assert.rejects(
+    invoke(
+      fx,
+      'alert',
+      failedAt,
+      12,
+      '33333333333333333333333333333333',
+      async () => { throw new Error('dummy send failure'); },
+    ),
+    /alert delivery failed/u,
+  );
+  const deliveryPath = path.join(fx.stateDir, 'delivery-state.json');
+  const before = JSON.parse(await readFile(deliveryPath, 'utf8'));
+  assert.equal(before.records[0].status, 'pending');
+  assert.equal(before.records[0].attempts, 1);
+
+  const sent = [];
+  for (const [index, activeState] of [
+    'activating',
+    'active',
+    'deactivating',
+    'reloading',
+    'maintenance',
+  ].entries()) {
+    const deferredAt = failedAt + 1_000 + index;
+    const evidence = runtime(
+      deferredAt,
+      10,
+      '44444444444444444444444444444444',
+      'success',
+      workerInvocation,
+      bootId,
+      activeState,
+      activeState === 'activating' ? 'start-post' : 'running',
+    );
+    const deferred = await invokeWithRuntime(
+      fx,
+      'alert',
+      deferredAt,
+      evidence,
+      async (payload) => sent.push(payload),
+    );
+    assert.equal(deferred.state, 'deferred_monitor_in_flight');
+    assert.equal(deferred.sent, false);
+  }
+  assert.equal(sent.length, 0);
+  const after = JSON.parse(await readFile(deliveryPath, 'utf8'));
+  assert.deepEqual(after, before);
+});
+
 test('a tampered pending envelope fails closed before any sender or newer runtime is consulted', async () => {
   const fx = await fixture();
   const armedAt = await arm(fx);
@@ -718,8 +777,8 @@ test('B-r3 systemd templates preserve exit 10, stay reusable, and never auto-sto
   assert.match(handler, /^ExecStartPre=\/usr\/bin\/test -d /mu);
   assert.match(handler, /^ExecStartPre=\/usr\/bin\/test -x \/usr\/bin\/flock$/mu);
   assert.match(dropIn, /^ExecStartPre=\/usr\/bin\/test -x \/usr\/bin\/flock$/mu);
-  assert.match(handler, /^ExecStart=\/usr\/bin\/flock --exclusive --wait 5 --conflict-exit-code 75 /mu);
-  assert.match(dropIn, /^ExecStartPost=\/usr\/bin\/flock --exclusive --wait 5 --conflict-exit-code 75 /mu);
+  assert.match(handler, /^ExecStart=\/usr\/bin\/flock --exclusive --wait 60 --conflict-exit-code 75 /mu);
+  assert.match(dropIn, /^ExecStartPost=\/usr\/bin\/flock --exclusive --wait 60 --conflict-exit-code 75 /mu);
   assert.match(`${handler}\n${dropIn}`, /\.state\.lock/u);
   assert.match(handler, /\.config\/bdfz\/curriculum-ocr-monitor-telegram\.env/u);
   assert.match(handler, /^Restart=on-failure$/mu);

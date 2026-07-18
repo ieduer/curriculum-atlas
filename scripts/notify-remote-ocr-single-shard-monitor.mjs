@@ -181,6 +181,8 @@ async function probeSystemdUnit(unit, runExecFile = execFile) {
     unit,
     '--no-pager',
     '--property=InvocationID',
+    '--property=ActiveState',
+    '--property=SubState',
     '--property=ExecMainStatus',
     '--property=ExecMainStartTimestamp',
     '--property=Result',
@@ -190,10 +192,16 @@ async function probeSystemdUnit(unit, runExecFile = execFile) {
   const invocationId = String(values.InvocationID || '').trim();
   return {
     invocation_id: invocationId ? normalizeInvocationId(invocationId, `${unit} InvocationID`) : null,
+    active_state: values.ActiveState || null,
+    sub_state: values.SubState || null,
     exit_code: Number(values.ExecMainStatus),
     started_at_milliseconds: Number.isFinite(startedAtMilliseconds) ? startedAtMilliseconds : null,
     result: values.Result || null,
   };
+}
+
+function monitorRuntimeIsTerminal(monitor) {
+  return monitor?.active_state === 'inactive' || monitor?.active_state === 'failed';
 }
 
 async function defaultRuntimeEvidence(config) {
@@ -640,7 +648,7 @@ async function deliverPendingRecord(
   };
 }
 
-async function retryPendingDelivery(config, nowMilliseconds, stateDir, sendAlert) {
+async function loadPendingDelivery(config, stateDir) {
   const raw = await readStateJson(stateDir, stateFiles.deliveries);
   if (!raw) return null;
   const deliveries = normalizeDeliveryState(raw);
@@ -652,6 +660,12 @@ async function retryPendingDelivery(config, nowMilliseconds, stateDir, sendAlert
     || record.envelope.monitor_unit !== config.monitorUnit) {
     throw new Error('pending alert envelope does not match the configured lineage');
   }
+  return { deliveries, record };
+}
+
+async function retryPendingDelivery(nowMilliseconds, stateDir, sendAlert, pendingDelivery) {
+  if (!pendingDelivery) return null;
+  const { deliveries, record } = pendingDelivery;
   return deliverPendingRecord(
     stateDir,
     deliveries,
@@ -824,19 +838,23 @@ export async function runOcrMonitorAlert(config, dependencies = {}) {
         ? createCommandSender(config.sendCommand)
         : (payload) => sendTelegram(config, payload, dependencies.fetch || fetch)))
     : null;
-  let retriedPending = null;
-  if (sendAlert) {
-    retriedPending = await retryPendingDelivery(
-      config,
-      nowMilliseconds,
+  const pendingDelivery = sendAlert ? await loadPendingDelivery(config, stateDir) : null;
+  const runtime = dependencies.runtime || await defaultRuntimeEvidence(config);
+  if (config.mode === 'alert' && !monitorRuntimeIsTerminal(runtime.monitor)) {
+    await writeResult(
       stateDir,
-      sendAlert,
+      nowMilliseconds,
+      { run_id: config.expectedRunId },
+      'deferred_monitor_in_flight',
     );
+    return { state: 'deferred_monitor_in_flight', sent: false };
   }
+  const retriedPending = sendAlert
+    ? await retryPendingDelivery(nowMilliseconds, stateDir, sendAlert, pendingDelivery)
+    : null;
   const finish = (result) => retriedPending
     ? { ...result, sent: true, retried_pending: true }
     : result;
-  const runtime = dependencies.runtime || await defaultRuntimeEvidence(config);
   const liveMonitorInvocationId = String(runtime.monitor?.invocation_id || '').trim();
   if (!liveMonitorInvocationId) {
     if (config.mode === 'observe') {

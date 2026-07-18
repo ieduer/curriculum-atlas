@@ -22,16 +22,24 @@ the prior receipt. If no exact receipt exists yet, alert mode records a local
 a restart loop; observe mode remains the only path that can arm a new binding.
 
 Both systemd entrypoints use bounded `/usr/bin/flock` locking on the external
-state directory. The kernel releases the lock automatically when a process
-exits or crashes, so a stale directory cannot permanently suppress alerting.
+state directory. The healthy monitor post-hook waits up to 60 seconds, which
+covers one final systemd probe plus the bounded pending and current delivery
+attempts without converting a healthy monitor into a lock-contention failure.
+The kernel releases the lock automatically when a process exits or crashes, so
+a stale directory cannot permanently suppress alerting.
 
 ## Delivery and deduplication
 
 Before a sender is called, the notifier persists an immutable, privacy-safe
-failure envelope and its SHA-256. A pending envelope is retried before newer
-monitor runtime evidence is evaluated. After a successful retry, the same
-handler still evaluates and persists the current invocation so a newer failure
-cannot disappear behind the older delivery.
+failure envelope and its SHA-256. Every pending envelope is validated before
+new runtime evidence is consulted. Alert mode sends or evaluates evidence only
+when systemd reports the monitor in the terminal `inactive` or `failed` state;
+`activating`, `active`, `deactivating`, `reloading`, maintenance, and unknown
+states defer successfully without changing the pending envelope. Once the
+monitor is terminal, the pending envelope is retried before that final runtime
+is evaluated. After a successful retry, the same handler still evaluates and
+persists the final invocation so a newer failure cannot disappear behind the
+older delivery.
 
 The enabled `curriculum-ocr-monitor-alert-retry@.timer` starts the handler every
 two minutes as an independent liveness path. This guarantees that a pending
