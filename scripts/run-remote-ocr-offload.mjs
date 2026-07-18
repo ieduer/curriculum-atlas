@@ -25,6 +25,7 @@ import {
   canonicalJson,
   copyTreeStrict,
   inspectTree,
+  inspectTreeInventory,
   LOCAL_REPROCESS_SNAPSHOT_MODE,
   validateLocalReprocessSnapshot,
 } from './lib/remote-ocr-local-snapshot.mjs';
@@ -2346,6 +2347,130 @@ function deterministicTimeoutRecoveryLedgerIdentity(root, info, predecessorInput
   };
 }
 
+function pinnedAuthorityPath(ledger, basename) {
+  if (typeof basename !== 'string'
+    || !basename
+    || basename === '.'
+    || basename === '..'
+    || path.basename(basename) !== basename) {
+    throw new Error('timeout recovery authority relative name is unsafe');
+  }
+  return path.join(ledger.accessRoot, basename);
+}
+
+async function assertPinnedAuthorityDirectory(ledger) {
+  const current = await lstat(ledger.root, { bigint: true }).catch((error) => {
+    if (error?.code === 'ENOENT') {
+      throw new Error('timeout recovery authority directory inode changed before claim publication');
+    }
+    throw error;
+  });
+  const pinned = await ledger.handle.stat({ bigint: true });
+  if (!current.isDirectory()
+    || current.isSymbolicLink()
+    || current.dev !== pinned.dev
+    || current.ino !== pinned.ino
+    || pinned.dev !== ledger.device
+    || pinned.ino !== ledger.inode) {
+    throw new Error('timeout recovery authority directory inode changed before claim publication');
+  }
+}
+
+async function readPinnedAuthorityFile(ledger, basename, label) {
+  const pathname = pinnedAuthorityPath(ledger, basename);
+  let handle;
+  try {
+    handle = await open(pathname, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch (error) {
+    if (error?.code === 'ENOENT') throw new Error(`${label} is missing`);
+    throw new Error(`${label} cannot be opened from the pinned authority inode: ${error.message}`, {
+      cause: error,
+    });
+  }
+  try {
+    const info = await handle.stat({ bigint: true });
+    const expectedUid = typeof process.getuid === 'function' ? BigInt(process.getuid()) : info.uid;
+    const expectedGid = typeof process.getgid === 'function' ? BigInt(process.getgid()) : info.gid;
+    if (!info.isFile()
+      || info.nlink !== 1n
+      || info.uid !== expectedUid
+      || info.gid !== expectedGid
+      || (Number(info.mode) & 0o777) !== 0o600) {
+      throw new Error(`${label} must be a current-UID/GID mode-0600 single-link file`);
+    }
+    const raw = await handle.readFile();
+    const finalInfo = await handle.stat({ bigint: true });
+    if (BigInt(raw.byteLength) !== info.size
+      || finalInfo.dev !== info.dev
+      || finalInfo.ino !== info.ino
+      || finalInfo.size !== info.size
+      || finalInfo.mtimeNs !== info.mtimeNs
+      || finalInfo.ctimeNs !== info.ctimeNs
+      || finalInfo.nlink !== 1n) {
+      throw new Error(`${label} changed while it was read from the pinned authority inode`);
+    }
+    return raw;
+  } finally {
+    await handle.close();
+  }
+}
+
+async function readPinnedAuthorityFileWithSidecar(ledger, basename, label) {
+  const [raw, sidecarRaw] = await Promise.all([
+    readPinnedAuthorityFile(ledger, basename, label),
+    readPinnedAuthorityFile(ledger, `${basename}.sha256`, `${label} SHA-256 sidecar`),
+  ]);
+  const expected = parseSha256Sidecar(sidecarRaw, basename, label);
+  const digest = sha256Value(raw);
+  if (digest !== expected) throw new Error(`${label} SHA-256 sidecar mismatch`);
+  return { raw, sidecarRaw, digest };
+}
+
+async function publishPinnedAuthorityFile(ledger, basename, raw, label) {
+  const rawBuffer = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+  const temporaryBasename = `.${basename}.${sha256Value(rawBuffer)}.${randomUUID()}.publish-tmp`;
+  const temporaryPath = pinnedAuthorityPath(ledger, temporaryBasename);
+  const destinationPath = pinnedAuthorityPath(ledger, basename);
+  let handle;
+  let temporaryPresent = false;
+  try {
+    handle = await open(
+      temporaryPath,
+      constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW,
+      0o600,
+    );
+    temporaryPresent = true;
+    await handle.writeFile(rawBuffer);
+    await handle.sync();
+    await handle.close();
+    handle = null;
+    let raced = false;
+    try {
+      await link(temporaryPath, destinationPath);
+    } catch (error) {
+      if (error?.code !== 'EEXIST') throw error;
+      raced = true;
+    }
+    await unlink(temporaryPath);
+    temporaryPresent = false;
+    await ledger.handle.sync();
+    if (raced) {
+      const existing = await readPinnedAuthorityFile(ledger, basename, label);
+      if (!existing.equals(rawBuffer)) {
+        throw new Error(`${label} already exists with different raw bytes`);
+      }
+    }
+  } finally {
+    await handle?.close();
+    if (temporaryPresent) {
+      await unlink(temporaryPath).catch((error) => {
+        if (error?.code !== 'ENOENT') throw error;
+      });
+    }
+    await ledger.handle.sync();
+  }
+}
+
 async function loadTimeoutRecoveryLedger(ledgerPath, grant, predecessorInputRoot) {
   if (!ledgerPath) {
     throw new Error('timeout recovery grant requires --timeout-recovery-ledger');
@@ -2355,71 +2480,80 @@ async function loadTimeoutRecoveryLedger(ledgerPath, grant, predecessorInputRoot
   if (root !== canonicalRoot || path.resolve(ledgerPath) !== canonicalRoot) {
     throw new Error(`timeout recovery ledger must equal the single canonical authority root ${canonicalRoot}`);
   }
-  const ledgerInfo = await stat(root, { bigint: true });
+  const handle = await open(
+    root,
+    constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
+  );
+  const ledgerInfo = await handle.stat({ bigint: true });
   const expectedUid = typeof process.getuid === 'function' ? BigInt(process.getuid()) : ledgerInfo.uid;
   const expectedGid = typeof process.getgid === 'function' ? BigInt(process.getgid()) : ledgerInfo.gid;
   if ((Number(ledgerInfo.mode) & 0o777) !== 0o700
     || ledgerInfo.uid !== expectedUid
     || ledgerInfo.gid !== expectedGid) {
+    await handle.close();
     throw new Error('timeout recovery ledger must be mode 0700 and owned by the current uid/gid');
   }
-  const identityPath = path.join(root, 'ledger-identity.json');
-  for (const [pathname, label] of [
-    [identityPath, 'timeout recovery consumption ledger identity'],
-    [`${identityPath}.sha256`, 'timeout recovery consumption ledger identity SHA-256 sidecar'],
-  ]) {
-    const info = await requireRegularFile(pathname, label);
-    if ((info.mode & 0o777) !== 0o600) throw new Error(`${label} mode must equal 0600`);
-  }
-  const evidence = await readStrictFileWithSidecar(
+  const ledger = {
     root,
-    identityPath,
-    'timeout recovery consumption ledger identity',
-  );
-  let identity;
-  try {
-    identity = JSON.parse(evidence.raw);
-  } catch (error) {
-    throw new Error(`timeout recovery consumption ledger identity JSON is invalid: ${error.message}`);
-  }
-  exactObjectKeys(identity, [
-    'schema_version',
-    'ledger_type',
-    'ledger_nonce',
-    'ledger_id',
-    'citation_allowed',
-  ], 'timeout recovery consumption ledger identity');
-  requireSha256(identity.ledger_nonce, 'timeout recovery consumption ledger nonce');
-  requireSha256(identity.ledger_id, 'timeout recovery consumption ledger ID');
-  const expectedIdentity = deterministicTimeoutRecoveryLedgerIdentity(
-    root,
-    ledgerInfo,
-    predecessorInputRoot,
-  );
-  if (identity.schema_version !== 1
-    || identity.ledger_type !== timeoutRecoveryLedgerType
-    || identity.citation_allowed !== false
-    || !sameJsonValue(identity, expectedIdentity)
-    || !evidence.raw.equals(Buffer.from(jsonContents(expectedIdentity)))) {
-    throw new Error('timeout recovery consumption ledger identity is not the deterministic canonical authority');
-  }
-  if (identity.ledger_id !== grant.consumption.ledger_id) {
-    throw new Error('timeout recovery grant is bound to a different consumption ledger');
-  }
-  if (grant.consumption.ledger_root !== root
-    || grant.consumption.ledger_device !== String(ledgerInfo.dev)
-    || grant.consumption.ledger_inode !== String(ledgerInfo.ino)) {
-    throw new Error('timeout recovery grant is bound to a different ledger authority');
-  }
-  return {
-    root,
-    claimsRoot: root,
-    identity,
-    identityRaw: evidence.raw,
-    identitySidecarRaw: evidence.sidecarRaw,
-    identitySha256: evidence.digest,
-    identitySidecarSha256: sha256Value(evidence.sidecarRaw),
+    handle,
+    device: ledgerInfo.dev,
+    inode: ledgerInfo.ino,
+    accessRoot: process.platform === 'linux' ? `/proc/self/fd/${handle.fd}` : root,
   };
+  try {
+    await assertPinnedAuthorityDirectory(ledger);
+    const evidence = await readPinnedAuthorityFileWithSidecar(
+      ledger,
+      'ledger-identity.json',
+      'timeout recovery consumption ledger identity',
+    );
+    let identity;
+    try {
+      identity = JSON.parse(evidence.raw);
+    } catch (error) {
+      throw new Error(`timeout recovery consumption ledger identity JSON is invalid: ${error.message}`);
+    }
+    exactObjectKeys(identity, [
+      'schema_version',
+      'ledger_type',
+      'ledger_nonce',
+      'ledger_id',
+      'citation_allowed',
+    ], 'timeout recovery consumption ledger identity');
+    requireSha256(identity.ledger_nonce, 'timeout recovery consumption ledger nonce');
+    requireSha256(identity.ledger_id, 'timeout recovery consumption ledger ID');
+    const expectedIdentity = deterministicTimeoutRecoveryLedgerIdentity(
+      root,
+      ledgerInfo,
+      predecessorInputRoot,
+    );
+    if (identity.schema_version !== 1
+      || identity.ledger_type !== timeoutRecoveryLedgerType
+      || identity.citation_allowed !== false
+      || !sameJsonValue(identity, expectedIdentity)
+      || !evidence.raw.equals(Buffer.from(jsonContents(expectedIdentity)))) {
+      throw new Error('timeout recovery consumption ledger identity is not the deterministic canonical authority');
+    }
+    if (identity.ledger_id !== grant.consumption.ledger_id) {
+      throw new Error('timeout recovery grant is bound to a different consumption ledger');
+    }
+    if (grant.consumption.ledger_root !== root
+      || grant.consumption.ledger_device !== String(ledgerInfo.dev)
+      || grant.consumption.ledger_inode !== String(ledgerInfo.ino)) {
+      throw new Error('timeout recovery grant is bound to a different ledger authority');
+    }
+    return {
+      ...ledger,
+      identity,
+      identityRaw: evidence.raw,
+      identitySidecarRaw: evidence.sidecarRaw,
+      identitySha256: evidence.digest,
+      identitySidecarSha256: sha256Value(evidence.sidecarRaw),
+    };
+  } catch (error) {
+    await handle.close().catch(() => {});
+    throw error;
+  }
 }
 
 function expectedTimeoutRecoveryIssuance(predecessor, ledger) {
@@ -2464,61 +2598,75 @@ function expectedTimeoutRecoveryIssuance(predecessor, ledger) {
   };
 }
 
-async function verifyTimeoutRecoveryAuthority(predecessor, ledgerPath) {
+async function verifyTimeoutRecoveryAuthority(predecessor, ledgerPath, pinnedLedger = null) {
   if (!predecessor.timeoutRecoveryGrant) {
     if (ledgerPath) {
       throw new Error('--timeout-recovery-ledger is forbidden without a timeout recovery grant');
     }
     return null;
   }
-  const ledger = await loadTimeoutRecoveryLedger(
+  const ownsHandle = pinnedLedger === null;
+  const ledger = pinnedLedger || await loadTimeoutRecoveryLedger(
     ledgerPath,
     predecessor.timeoutRecoveryGrant.grant,
     predecessor.identity.input_root,
   );
-  const expected = expectedTimeoutRecoveryIssuance(predecessor, ledger);
-  for (const [pathname, label] of [
-    [expected.path, 'timeout recovery issuance claim'],
-    [`${expected.path}.sha256`, 'timeout recovery issuance claim SHA-256 sidecar'],
-  ]) {
-    const info = await requireRegularFile(pathname, label);
-    if ((info.mode & 0o777) !== 0o600) throw new Error(`${label} mode must equal 0600`);
-  }
-  const evidence = await readStrictFileWithSidecar(
-    ledger.root,
-    expected.path,
-    'timeout recovery issuance claim',
-  );
-  if (!evidence.raw.equals(expected.raw)) {
-    throw new Error('timeout recovery issuance claim differs from the exact predecessor, grant, and incident evidence');
-  }
-  let value;
   try {
-    value = JSON.parse(evidence.raw);
+    if (ledger.root !== path.resolve(ledgerPath)) {
+      throw new Error('timeout recovery authority path differs from the pinned canonical root');
+    }
+    await assertPinnedAuthorityDirectory(ledger);
+    const currentIdentity = await readPinnedAuthorityFileWithSidecar(
+      ledger,
+      'ledger-identity.json',
+      'timeout recovery consumption ledger identity',
+    );
+    if (currentIdentity.digest !== ledger.identitySha256
+      || sha256Value(currentIdentity.sidecarRaw) !== ledger.identitySidecarSha256
+      || !currentIdentity.raw.equals(ledger.identityRaw)) {
+      throw new Error('timeout recovery authority identity changed after it was pinned');
+    }
+    const expected = expectedTimeoutRecoveryIssuance(predecessor, ledger);
+    const issuanceBasename = path.basename(expected.path);
+    const evidence = await readPinnedAuthorityFileWithSidecar(
+      ledger,
+      issuanceBasename,
+      'timeout recovery issuance claim',
+    );
+    if (!evidence.raw.equals(expected.raw)) {
+      throw new Error('timeout recovery issuance claim differs from the exact predecessor, grant, and incident evidence');
+    }
+    let value;
+    try {
+      value = JSON.parse(evidence.raw);
+    } catch (error) {
+      throw new Error(`timeout recovery issuance claim JSON is invalid: ${error.message}`);
+    }
+    exactObjectKeys(value, [
+      'schema_version',
+      'claim_type',
+      'claim_key',
+      'ledger_id',
+      'predecessor',
+      'grant_id',
+      'grant_raw_sha256',
+      'incident_evidence',
+      'citation_allowed',
+    ], 'timeout recovery issuance claim');
+    return {
+      ledger,
+      issuance: {
+        ...expected,
+        value,
+        sidecarRaw: evidence.sidecarRaw,
+        rawSha256: evidence.digest,
+        sidecarSha256: sha256Value(evidence.sidecarRaw),
+      },
+    };
   } catch (error) {
-    throw new Error(`timeout recovery issuance claim JSON is invalid: ${error.message}`);
+    if (ownsHandle) await ledger.handle.close().catch(() => {});
+    throw error;
   }
-  exactObjectKeys(value, [
-    'schema_version',
-    'claim_type',
-    'claim_key',
-    'ledger_id',
-    'predecessor',
-    'grant_id',
-    'grant_raw_sha256',
-    'incident_evidence',
-    'citation_allowed',
-  ], 'timeout recovery issuance claim');
-  return {
-    ledger,
-    issuance: {
-      ...expected,
-      value,
-      sidecarRaw: evidence.sidecarRaw,
-      rawSha256: evidence.digest,
-      sidecarSha256: sha256Value(evidence.sidecarRaw),
-    },
-  };
 }
 
 async function claimTimeoutRecoveryGrant({
@@ -2526,6 +2674,7 @@ async function claimTimeoutRecoveryGrant({
   outputRoot,
   ledgerPath,
   dryRun,
+  beforePublication,
 }) {
   const grantEvidence = prepared.predecessor.timeoutRecoveryGrant;
   if (!grantEvidence) {
@@ -2534,7 +2683,11 @@ async function claimTimeoutRecoveryGrant({
     }
     return null;
   }
-  const authority = await verifyTimeoutRecoveryAuthority(prepared.predecessor, ledgerPath);
+  const authority = await verifyTimeoutRecoveryAuthority(
+    prepared.predecessor,
+    ledgerPath,
+    prepared.timeoutRecoveryAuthority?.ledger,
+  );
   if (!authority
     || authority.issuance.rawSha256 !== prepared.timeoutRecoveryAuthority?.issuance.rawSha256
     || authority.issuance.sidecarSha256
@@ -2583,39 +2736,33 @@ async function claimTimeoutRecoveryGrant({
   const claimRaw = jsonContents(claim);
   const claimSha256 = sha256Value(claimRaw);
   const predecessorClaimKey = timeoutRecoveryPredecessorClaimKey(grantEvidence.grant);
-  const claimPath = path.join(ledger.claimsRoot, `${predecessorClaimKey}.claim.json`);
-  const claimSidecarPath = `${claimPath}.sha256`;
-  const ledgerClaimSidecarRaw = `${claimSha256}  ${path.basename(claimPath)}\n`;
+  const claimBasename = `${predecessorClaimKey}.claim.json`;
+  const claimSidecarBasename = `${claimBasename}.sha256`;
+  const ledgerClaimSidecarRaw = `${claimSha256}  ${claimBasename}\n`;
   const claimSidecarRaw = `${claimSha256}  ${timeoutRecoveryClaimFilename}\n`;
   const validateExistingClaim = async () => {
-    const claimInfo = await requireRegularFile(claimPath, 'timeout recovery consumption claim');
-    if ((claimInfo.mode & 0o777) !== 0o600) {
-      throw new Error('timeout recovery consumption claim mode must equal 0600');
-    }
-    const raw = await readStrictFile(ledger.root, claimPath, 'timeout recovery consumption claim');
+    const raw = await readPinnedAuthorityFile(
+      ledger,
+      claimBasename,
+      'timeout recovery consumption claim',
+    );
     if (raw.toString('utf8') !== claimRaw) {
       throw new Error('timeout recovery grant was already consumed by a different successor');
     }
-    const sidecarPresent = await lstat(claimSidecarPath).then(() => true, (error) => {
+    const sidecarPresent = await lstat(pinnedAuthorityPath(ledger, claimSidecarBasename)).then(() => true, (error) => {
       if (error?.code === 'ENOENT') return false;
       throw error;
     });
     if (sidecarPresent) {
-      const sidecarInfo = await requireRegularFile(
-        claimSidecarPath,
-        'timeout recovery consumption claim SHA-256 sidecar',
-      );
-      if ((sidecarInfo.mode & 0o777) !== 0o600) {
-        throw new Error('timeout recovery consumption claim SHA-256 sidecar mode must equal 0600');
-      }
-      await readStrictFileWithSidecar(
-        ledger.root,
-        claimPath,
+      await readPinnedAuthorityFileWithSidecar(
+        ledger,
+        claimBasename,
         'timeout recovery consumption claim',
       );
     } else if (!dryRun) {
-      await publishNoReplaceFile(
-        claimSidecarPath,
+      await publishPinnedAuthorityFile(
+        ledger,
+        claimSidecarBasename,
         Buffer.from(ledgerClaimSidecarRaw),
         'timeout recovery consumption claim SHA-256 sidecar',
       );
@@ -2623,11 +2770,13 @@ async function claimTimeoutRecoveryGrant({
       throw new Error('timeout recovery consumption claim SHA-256 sidecar is missing');
     }
   };
-  const claimPresent = await lstat(claimPath).then(() => true, (error) => {
+  if (beforePublication) await beforePublication({ ledgerRoot: ledger.root });
+  await assertPinnedAuthorityDirectory(ledger);
+  const claimPresent = await lstat(pinnedAuthorityPath(ledger, claimBasename)).then(() => true, (error) => {
     if (error?.code === 'ENOENT') return false;
     throw error;
   });
-  const sidecarPresent = await lstat(claimSidecarPath).then(() => true, (error) => {
+  const sidecarPresent = await lstat(pinnedAuthorityPath(ledger, claimSidecarBasename)).then(() => true, (error) => {
     if (error?.code === 'ENOENT') return false;
     throw error;
   });
@@ -2638,8 +2787,9 @@ async function claimTimeoutRecoveryGrant({
     await validateExistingClaim();
   } else if (!dryRun) {
     try {
-      await publishNoReplaceFile(
-        claimPath,
+      await publishPinnedAuthorityFile(
+        ledger,
+        claimBasename,
         Buffer.from(claimRaw),
         'timeout recovery consumption claim',
       );
@@ -2649,8 +2799,9 @@ async function claimTimeoutRecoveryGrant({
       }
       throw error;
     }
-    await publishNoReplaceFile(
-      claimSidecarPath,
+    await publishPinnedAuthorityFile(
+      ledger,
+      claimSidecarBasename,
       Buffer.from(ledgerClaimSidecarRaw),
       'timeout recovery consumption claim SHA-256 sidecar',
     );
@@ -3768,6 +3919,9 @@ async function prepareHashBoundSeed({
     throw new Error('seed predecessor and successor output roots must be disjoint and non-nested');
   }
   const allowedConfigurationDelta = validateSeedConfigurationDelta(predecessor, successor);
+  if (predecessor.timeoutRecoveryGrant && !isAuditedP4ToP1Delta(allowedConfigurationDelta)) {
+    throw new Error('timeout recovery requires the exact audited p4-to-p1 transition');
+  }
   const timeoutRecoveryAuthority = await verifyTimeoutRecoveryAuthority(
     predecessor,
     timeoutRecoveryLedger,
@@ -3776,12 +3930,18 @@ async function prepareHashBoundSeed({
   const timeoutRecoveryIssuance = includeTimeoutRecoveryEvidence
     ? timeoutRecoveryIssuanceSummary(predecessor, timeoutRecoveryAuthority)
     : null;
-  const predecessorEvidence = await stageSeedPredecessorEvidence(
-    outputRoot,
-    predecessor,
-    manifest,
-    { includeTimeoutRecoveryEvidence },
-  );
+  let predecessorEvidence;
+  try {
+    predecessorEvidence = await stageSeedPredecessorEvidence(
+      outputRoot,
+      predecessor,
+      manifest,
+      { includeTimeoutRecoveryEvidence },
+    );
+  } catch (error) {
+    await timeoutRecoveryAuthority?.ledger.handle.close().catch(() => {});
+    throw error;
+  }
   const predecessorContract = {
     manifest_sha256: predecessor.manifest_sha256,
     run_identity_sha256: predecessor.run_identity_sha256,
@@ -3870,6 +4030,7 @@ async function prepareHashBoundSeed({
       }
     }
   } catch (error) {
+    await timeoutRecoveryAuthority?.ledger.handle.close().catch(() => {});
     await rm(predecessorEvidence.root, { recursive: true, force: true }).catch(() => {});
     await rm(stageRoot, { recursive: true, force: true }).catch(() => {});
     throw error;
@@ -4108,6 +4269,7 @@ async function prepareHashBoundSeed({
       includeTimeoutRecoveryEvidence,
     };
   } catch (error) {
+    await timeoutRecoveryAuthority?.ledger.handle.close().catch(() => {});
     await rm(stageRoot, { recursive: true, force: true }).catch(() => {});
     throw error;
   }
@@ -4308,6 +4470,668 @@ async function verifyCommittedSeedImmutableItem(outputRoot, marker, name, type) 
   if (!sameJsonValue(actual, item.fingerprint)) {
     throw new Error(`committed seed immutable item ${name} differs from its marker`);
   }
+}
+
+function prefixTreeInventoryEntry(entry, prefix) {
+  const parts = entry.split('\0');
+  if (parts[0] === 'D') return `D\0${path.posix.join(prefix, parts[1].replace(/\n$/u, ''))}\n`;
+  if (parts[0] === 'F') {
+    return `F\0${path.posix.join(prefix, parts[1])}\0${parts[2]}\0${parts[3]}`;
+  }
+  throw new Error('committed predecessor page tree contains an invalid inventory entry');
+}
+
+function treeFingerprint(entries, files, bytes) {
+  return { tree_sha256: sha256Value(entries.join('')), files, bytes };
+}
+
+async function recomputeCommittedPageTrees(outputRoot, documentId, completedPages, stateRaw) {
+  const pageEntries = [];
+  const pageFingerprints = new Map();
+  let pageFiles = 0;
+  let pageBytes = 0;
+  for (const page of completedPages) {
+    const pageName = String(page).padStart(4, '0');
+    const pageRoot = path.join(outputRoot, 'documents', documentId, 'pages', pageName);
+    const inventory = await inspectTreeInventory(pageRoot);
+    pageFingerprints.set(page, {
+      tree_sha256: inventory.tree_sha256,
+      files: inventory.files,
+      bytes: inventory.bytes,
+    });
+    pageEntries.push(`D\0${pageName}\n`);
+    pageEntries.push(...inventory.entries.map((entry) => prefixTreeInventoryEntry(entry, pageName)));
+    pageFiles += inventory.files;
+    pageBytes += inventory.bytes;
+  }
+  const pagesTree = treeFingerprint(pageEntries, pageFiles, pageBytes);
+  const documentEntries = [
+    'D\0pages\n',
+    ...pageEntries.map((entry) => prefixTreeInventoryEntry(entry, 'pages')),
+    `F\0state.json\0${stateRaw.byteLength}\0${sha256Value(stateRaw)}\n`,
+  ];
+  return {
+    pagesTree,
+    documentTree: treeFingerprint(
+      documentEntries,
+      pageFiles + 1,
+      pageBytes + stateRaw.byteLength,
+    ),
+    pageFingerprints,
+  };
+}
+
+function committedEvidenceRecord(relativePath, raw) {
+  return { path: relativePath, bytes: raw.byteLength, sha256: sha256Value(raw) };
+}
+
+function stripReceiptSuccessorFields(receiptDocument) {
+  return Object.fromEntries(Object.entries(receiptDocument).filter(([key]) => ![
+    'successor_document_tree',
+    'successor_state_sha256',
+    'successor_status_sha256',
+    'timeout_recovery',
+  ].includes(key)));
+}
+
+function reconstructCommittedInitialRunStatus({
+  predecessorRunStatus,
+  receipt,
+  identity,
+  manifest,
+  recomputedDocuments,
+}) {
+  const runStatus = structuredClone(predecessorRunStatus);
+  const recoveryGrant = receipt.timeout_recovery_grant || null;
+  const recoveryIssuance = receipt.timeout_recovery_issuance || null;
+  const recoveryConsumption = receipt.timeout_recovery_consumption || null;
+  const grantedById = new Map(
+    (recoveryGrant?.documents || []).map((document) => [document.document_id, document]),
+  );
+  const recoveryDocumentIds = manifest.documents
+    .map((document) => document.id)
+    .filter((documentId) => grantedById.has(documentId));
+  runStatus.runtime_fingerprint_sha256 = identity.runtime_fingerprint_sha256;
+  runStatus.document_recovery = identity.document_recovery;
+  runStatus.citation_allowed = false;
+  runStatus.seed_lineage = {
+    schema_version: 1,
+    mode: seedMode,
+    seed_id: receipt.seed_id,
+    predecessor_run_identity_sha256: receipt.predecessor.run_identity_sha256,
+    predecessor_run_status_sha256: receipt.predecessor.run_status_sha256,
+    ...(recoveryGrant ? {
+      timeout_recovery_grant_id: recoveryGrant.grant_id,
+      timeout_recovery_grant_sha256: recoveryGrant.raw_sha256,
+      timeout_recovery_documents: recoveryDocumentIds,
+      timeout_recovery_issuance_claim_key: recoveryIssuance.claim_key,
+      timeout_recovery_issuance_sha256: recoveryIssuance.raw_sha256,
+    } : {}),
+    citation_allowed: false,
+  };
+  if (recoveryGrant) {
+    runStatus.seed_lineage.timeout_recovery_ledger_id = recoveryConsumption.ledger_id;
+    runStatus.seed_lineage.timeout_recovery_claim_sha256 = recoveryConsumption.claim_sha256;
+  }
+  for (const document of recomputedDocuments) {
+    const predecessorProgress = predecessorRunStatus.documents[document.document_id];
+    const progress = structuredClone(predecessorProgress);
+    const grantDocument = grantedById.get(document.document_id) || null;
+    progress.predecessor_status = predecessorProgress.status;
+    progress.inherited_attempts = predecessorProgress.attempts;
+    progress.seed_id = receipt.seed_id;
+    if (grantDocument) {
+      progress.status = 'retry_wait';
+      progress.next_retry_at = predecessorProgress.quarantined_at;
+      progress.attempt_ceiling = timeoutRecoveryGrantedAttempt;
+      progress.timeout_recovery_grant_id = recoveryGrant.grant_id;
+      progress.timeout_recovery_grant_sha256 = recoveryGrant.raw_sha256;
+      progress.timeout_recovery_first_missing_page = grantDocument.first_missing_page;
+      delete progress.quarantined_at;
+      delete progress.quarantine_reason;
+    }
+    const receiptDocument = receipt.documents.find(
+      (value) => value.document_id === document.document_id,
+    );
+    if (receiptDocument.successor_status_sha256) {
+      progress.status_json_sha256 = receiptDocument.successor_status_sha256;
+    }
+    runStatus.documents[document.document_id] = progress;
+  }
+  runStatus.counts = seedRunCounts(runStatus);
+  runStatus.finished = runStatus.counts.complete === runStatus.counts.total;
+  runStatus.settled = runStatus.counts.complete + runStatus.counts.quarantined === runStatus.counts.total;
+  return runStatus;
+}
+
+async function validateCommittedSeedPredecessorEvidence({
+  outputRoot,
+  marker,
+  receipt,
+  identity,
+  runStatus,
+  manifest,
+}) {
+  const evidenceRoot = await requireContainedRealDirectory(
+    outputRoot,
+    path.join(outputRoot, seedPredecessorEvidenceDirectory),
+    'committed seed predecessor evidence root',
+  );
+  const tree = await inspectTreeInventory(evidenceRoot);
+  const inventoryEvidence = await readStrictJsonEvidence(
+    evidenceRoot,
+    path.join(evidenceRoot, 'inventory.json'),
+    'committed seed predecessor inventory',
+    { sidecar: false },
+  );
+  const inventory = requireObject(inventoryEvidence.value, 'committed seed predecessor inventory');
+  exactObjectKeys(inventory, [
+    'schema_version',
+    'evidence_type',
+    'manifest_sha256',
+    'runner_script_sha256',
+    'files',
+    'documents',
+    'citation_allowed',
+  ], 'committed seed predecessor inventory');
+  if (inventory.schema_version !== 1
+    || inventory.evidence_type !== seedPredecessorEvidenceType
+    || inventory.manifest_sha256 !== receipt.manifest_sha256
+    || inventory.runner_script_sha256 !== legacyB1RunnerScriptSha256
+    || inventory.citation_allowed !== false
+    || !Array.isArray(inventory.files)
+    || !Array.isArray(inventory.documents)) {
+    throw new Error('committed seed predecessor inventory identity is invalid');
+  }
+  const contract = {
+    schema_version: 1,
+    directory: seedPredecessorEvidenceDirectory,
+    inventory_sha256: sha256Value(inventoryEvidence.raw),
+    tree_sha256: tree.tree_sha256,
+    files: tree.files,
+    bytes: tree.bytes,
+  };
+  if (!sameJsonValue(receipt.predecessor?.control_evidence, contract)) {
+    throw new Error('committed seed predecessor inventory or tree differs from the receipt');
+  }
+  const fileRecords = new Map();
+  const rawByPath = new Map();
+  for (const recordValue of inventory.files) {
+    const record = requireObject(recordValue, 'committed seed predecessor file record');
+    exactObjectKeys(record, ['path', 'bytes', 'sha256'], 'committed seed predecessor file record');
+    if (typeof record.path !== 'string'
+      || !record.path
+      || path.isAbsolute(record.path)
+      || path.posix.normalize(record.path) !== record.path
+      || record.path.startsWith('../')
+      || fileRecords.has(record.path)
+      || !Number.isSafeInteger(record.bytes)
+      || record.bytes < 0) {
+      throw new Error('committed seed predecessor file inventory is unsafe');
+    }
+    requireSha256(record.sha256, `committed seed predecessor ${record.path} SHA-256`);
+    const raw = await readStrictFile(
+      evidenceRoot,
+      path.join(evidenceRoot, record.path),
+      `committed seed predecessor ${record.path}`,
+    );
+    if (raw.byteLength !== record.bytes || sha256Value(raw) !== record.sha256) {
+      throw new Error(`committed seed predecessor ${record.path} differs from its inventory`);
+    }
+    fileRecords.set(record.path, record);
+    rawByPath.set(record.path, raw);
+  }
+  if (!sameJsonValue([...fileRecords.keys()], [...fileRecords.keys()].sort())) {
+    throw new Error('committed seed predecessor file inventory is not canonical order');
+  }
+  const actualFiles = tree.entries
+    .filter((entry) => entry.startsWith('F\0'))
+    .map((entry) => entry.split('\0')[1])
+    .sort();
+  if (!sameJsonValue(actualFiles, [...fileRecords.keys(), 'inventory.json'].sort())) {
+    throw new Error('committed seed predecessor inventory has missing or extra files');
+  }
+  const identityRaw = rawByPath.get('run-identity.json');
+  const runStatusRaw = rawByPath.get('run-status.json');
+  const runStatusSidecarRaw = rawByPath.get('run-status.json.sha256');
+  if (!identityRaw || !runStatusRaw || !runStatusSidecarRaw) {
+    throw new Error('committed seed predecessor inventory lacks run controls');
+  }
+  let predecessorIdentity;
+  let predecessorRunStatus;
+  try {
+    predecessorIdentity = JSON.parse(identityRaw);
+    predecessorRunStatus = JSON.parse(runStatusRaw);
+  } catch (error) {
+    throw new Error(`committed seed predecessor control JSON is invalid: ${error.message}`);
+  }
+  const sidecarDigest = parseSha256Sidecar(
+    runStatusSidecarRaw,
+    'run-status.json',
+    'committed seed predecessor run status',
+  );
+  if (sidecarDigest !== sha256Value(runStatusRaw)) {
+    throw new Error('committed seed predecessor run-status sidecar is invalid');
+  }
+  if (predecessorIdentity.schema_version !== 1
+    || predecessorIdentity.seed_lineage !== undefined
+    || predecessorIdentity.runner_script_sha256 !== legacyB1RunnerScriptSha256
+    || predecessorIdentity.manifest_sha256 !== receipt.manifest_sha256
+    || predecessorRunStatus.schema_version !== 1
+    || predecessorRunStatus.seed_lineage !== undefined
+    || predecessorRunStatus.manifest_sha256 !== receipt.manifest_sha256
+    || predecessorRunStatus.runtime_fingerprint_sha256
+      !== predecessorIdentity.runtime_fingerprint_sha256
+    || !sameJsonValue(predecessorRunStatus.document_recovery, predecessorIdentity.document_recovery)
+    || predecessorRunStatus.citation_allowed !== false) {
+    throw new Error('committed seed predecessor raw run controls are invalid');
+  }
+  const progressById = requireObject(
+    predecessorRunStatus.documents,
+    'committed seed predecessor run-status documents',
+  );
+  if (!sameJsonValue(
+    Object.keys(progressById).sort(),
+    manifest.documents.map((document) => document.id).sort(),
+  )) {
+    throw new Error('committed seed predecessor run-status document set differs from manifest');
+  }
+  const recomputedDocuments = [];
+  const expectedInventoryDocuments = [];
+  const artifactRecords = [];
+  for (const document of manifest.documents) {
+    const progress = seedProgressRecord(progressById[document.id], document);
+    const receiptDocument = receipt.documents.find((value) => value.document_id === document.id);
+    if (!receiptDocument || receiptDocument.inherited_attempts !== progress.attempts) {
+      throw new Error(`${document.id}: archived predecessor attempt floor differs from the seed receipt`);
+    }
+    if (receiptDocument.predecessor_status !== progress.status) {
+      throw new Error(`${document.id}: archived predecessor status differs from the seed receipt`);
+    }
+    const statePath = `documents/${document.id}/state.json`;
+    const statusPath = `status/${document.id}.json`;
+    const statusSidecarPath = `${statusPath}.sha256`;
+    if (progress.status === 'pending') {
+      const expectedDocument = {
+        document_id: document.id,
+        page_count: document.page_count,
+        predecessor_status: 'pending',
+        predecessor_status_format: 'pending_no_status',
+        inherited_attempts: 0,
+        completed_pages: [],
+        failed_pages: [],
+        predecessor_document_tree: null,
+        predecessor_pages_tree: null,
+        predecessor_state_sha256: null,
+        predecessor_configuration_sha256: sha256Value(canonicalJson(predecessorIdentity.worker_configuration)),
+        predecessor_status_sha256: null,
+        predecessor_status_sidecar_sha256: null,
+        inherited_page_artifacts: [],
+        inherited_page_artifacts_sha256: sha256Value(canonicalJson([])),
+      };
+      if (!sameJsonValue(stripReceiptSuccessorFields(receiptDocument), expectedDocument)) {
+        throw new Error(`${document.id}: committed seed receipt document differs from archived controls`);
+      }
+      recomputedDocuments.push(expectedDocument);
+      expectedInventoryDocuments.push({
+        document_id: document.id,
+        predecessor_status: 'pending',
+        state: { present: false, path: statePath },
+        status: { present: false, path: statusPath, sidecar_path: statusSidecarPath },
+      });
+      continue;
+    }
+    const stateRaw = rawByPath.get(statePath);
+    const statusRaw = rawByPath.get(statusPath);
+    const statusSidecarRaw = rawByPath.get(statusSidecarPath);
+    if (!stateRaw || !statusRaw || !statusSidecarRaw) {
+      throw new Error(`${document.id}: committed seed predecessor document controls are missing`);
+    }
+    const state = requireObject(JSON.parse(stateRaw), `${document.id} archived predecessor state`);
+    const status = requireObject(JSON.parse(statusRaw), `${document.id} archived predecessor status`);
+    const completedPages = exactIntegerSet(
+      state.completed_pages,
+      document.page_count,
+      `${document.id} archived completed pages`,
+    );
+    if (state.schema_version !== 1
+      || state.document_id !== document.id
+      || state.source_sha256 !== document.source_sha256
+      || state.page_count !== document.page_count
+      || state.seed_lineage !== undefined
+      || state.configuration_scope !== undefined
+      || !sameJsonValue(
+        state.configuration,
+        stateConfigurationContract(manifest.runtime, predecessorIdentity.worker_configuration),
+      )
+      || Object.keys(requireObject(state.failed_pages, `${document.id} archived failed pages`)).length !== 0
+      || !sameJsonValue(Object.keys(requireObject(state.pages, `${document.id} archived pages`)), completedPages.map(String))) {
+      throw new Error(`${document.id}: committed seed predecessor state is invalid`);
+    }
+    const statusDigest = parseSha256Sidecar(
+      statusSidecarRaw,
+      statusPath,
+      `${document.id} committed seed predecessor status`,
+    );
+    if (statusDigest !== sha256Value(statusRaw)) {
+      throw new Error(`${document.id}: committed seed predecessor status sidecar is invalid`);
+    }
+    const statusFormat = classifySeedPredecessorStatus(
+      predecessorIdentity,
+      progress,
+      status,
+      statusDigest,
+      document,
+    );
+    const trees = await recomputeCommittedPageTrees(
+      outputRoot,
+      document.id,
+      completedPages,
+      stateRaw,
+    );
+    const inheritedPageArtifacts = [];
+    const validationPageArtifacts = [];
+    for (const page of completedPages) {
+      const statePage = requireObject(state.pages[String(page)], `${document.id} archived page ${page}`);
+      const pageTree = trees.pageFingerprints.get(page);
+      if (statePage.status !== 'ocr_complete_pending_audit'
+        || statePage.physical_pdf_page !== page
+        || statePage.citation_eligible !== false
+        || statePage.seed_provenance !== undefined) {
+        throw new Error(`${document.id}: committed seed predecessor page ${page} is invalid`);
+      }
+      const record = {
+        physical_pdf_page: page,
+        rendered_image_sha256: statePage.rendered_image_sha256,
+        result_json_sha256: statePage.result_json_sha256,
+        content_markdown_sha256: statePage.content_markdown_sha256,
+        page_tree_sha256: pageTree.tree_sha256,
+        page_tree_files: pageTree.files,
+        page_tree_bytes: pageTree.bytes,
+        citation_allowed: false,
+      };
+      inheritedPageArtifacts.push(record);
+      artifactRecords.push({ document_id: document.id, ...record });
+      validationPageArtifacts.push({
+        page_number: page,
+        rendered_image_sha256: statePage.rendered_image_sha256,
+        result_json_sha256: statePage.result_json_sha256,
+        content_markdown_sha256: statePage.content_markdown_sha256,
+        citation_eligible: false,
+      });
+    }
+    const timeoutLogRelativePath = `logs/${document.id}.log`;
+    const timeoutLogRecord = fileRecords.get(timeoutLogRelativePath) || null;
+    const expectedDocument = {
+      document_id: document.id,
+      page_count: document.page_count,
+      predecessor_status: progress.status,
+      predecessor_status_format: statusFormat,
+      inherited_attempts: progress.attempts,
+      completed_pages: completedPages,
+      failed_pages: [],
+      predecessor_document_tree: trees.documentTree,
+      predecessor_pages_tree: trees.pagesTree,
+      predecessor_state_sha256: sha256Value(stateRaw),
+      predecessor_configuration_sha256: sha256Value(canonicalJson(state.configuration)),
+      predecessor_status_sha256: statusDigest,
+      predecessor_status_sidecar_sha256: sha256Value(statusSidecarRaw),
+      inherited_page_artifacts: inheritedPageArtifacts,
+      inherited_page_artifacts_sha256: sha256Value(canonicalJson(inheritedPageArtifacts)),
+      ...(timeoutLogRecord ? {
+        timeout_log: {
+          path: timeoutLogRelativePath,
+          bytes: timeoutLogRecord.bytes,
+          sha256: timeoutLogRecord.sha256,
+        },
+      } : {}),
+    };
+    if (!sameJsonValue(stripReceiptSuccessorFields(receiptDocument), expectedDocument)) {
+      throw new Error(`${document.id}: committed seed receipt document differs from archived controls`);
+    }
+    const seededState = structuredClone(state);
+    seededState.configuration = stateConfigurationContract(manifest.runtime, identity.worker_configuration);
+    seededState.configuration_scope = seedConfigurationScope;
+    seededState.seed_lineage = {
+      schema_version: 1,
+      mode: seedMode,
+      seed_id: receipt.seed_id,
+      predecessor_run_identity_sha256: receipt.predecessor.run_identity_sha256,
+      predecessor_configuration_sha256: expectedDocument.predecessor_configuration_sha256,
+      inherited_completed_pages: completedPages,
+      ...(receiptDocument.timeout_recovery ? {
+        timeout_recovery_grant_id: receiptDocument.timeout_recovery.grant_id,
+        timeout_recovery_grant_sha256: receiptDocument.timeout_recovery.grant_raw_sha256,
+        timeout_recovery_first_missing_page: receiptDocument.timeout_recovery.first_missing_page,
+      } : {}),
+      citation_allowed: false,
+    };
+    for (const page of completedPages) {
+      seededState.pages[String(page)].seed_provenance = {
+        seed_id: receipt.seed_id,
+        predecessor_run_identity_sha256: receipt.predecessor.run_identity_sha256,
+        predecessor_configuration_sha256: expectedDocument.predecessor_configuration_sha256,
+      };
+    }
+    const seededStateRaw = Buffer.from(jsonContents(seededState));
+    const seededTrees = await recomputeCommittedPageTrees(
+      outputRoot,
+      document.id,
+      completedPages,
+      seededStateRaw,
+    );
+    if (receiptDocument.successor_state_sha256 !== sha256Value(seededStateRaw)
+      || !sameJsonValue(receiptDocument.successor_document_tree, seededTrees.documentTree)) {
+      throw new Error(`${document.id}: committed successor seed state differs from recomputed predecessor controls`);
+    }
+    const grantDocument = receipt.timeout_recovery_grant?.documents.find(
+      (value) => value.document_id === document.id,
+    );
+    const successorStatus = grantDocument ? {
+      schema_version: 1,
+      document_id: document.id,
+      status: 'retry_wait',
+      attempt: progress.attempts,
+      max_attempts: timeoutRecoveryGrantedAttempt,
+      next_retry_at: progress.quarantined_at,
+      page_count: document.page_count,
+      runtime_fingerprint_sha256: identity.runtime_fingerprint_sha256,
+      citation_allowed: false,
+      error: progress.error,
+      failed_at: progress.failed_at,
+    } : structuredClone(status);
+    successorStatus.runtime_fingerprint_sha256 = identity.runtime_fingerprint_sha256;
+    successorStatus.seed_lineage = {
+      schema_version: 1,
+      seed_id: receipt.seed_id,
+      predecessor_status_sha256: statusDigest,
+      inherited_attempts: progress.attempts,
+      ...(grantDocument ? {
+        timeout_recovery_grant_id: receipt.timeout_recovery_grant.grant_id,
+        timeout_recovery_grant_sha256: receipt.timeout_recovery_grant.raw_sha256,
+        timeout_recovery_first_missing_page: grantDocument.first_missing_page,
+        granted_attempt: timeoutRecoveryGrantedAttempt,
+      } : {}),
+      citation_allowed: false,
+    };
+    if (successorStatus.status === 'complete') {
+      successorStatus.artifacts = {
+        state_sha256: sha256Value(seededStateRaw),
+        page_artifacts_sha256: sha256Value(`${JSON.stringify(validationPageArtifacts)}\n`),
+        page_artifacts: validationPageArtifacts,
+      };
+    }
+    if (receiptDocument.successor_status_sha256 !== sha256Value(jsonContents(successorStatus))) {
+      throw new Error(`${document.id}: committed successor seed status differs from archived controls`);
+    }
+    recomputedDocuments.push(expectedDocument);
+    const stateRecord = committedEvidenceRecord(statePath, stateRaw);
+    const statusRecord = committedEvidenceRecord(statusPath, statusRaw);
+    const sidecarRecord = committedEvidenceRecord(statusSidecarPath, statusSidecarRaw);
+    const incidentSummary = receiptDocument.timeout_recovery?.predecessor_incident || null;
+    expectedInventoryDocuments.push({
+      document_id: document.id,
+      predecessor_status: progress.status,
+      state: { present: true, ...stateRecord },
+      status: { present: true, ...statusRecord, sidecar: sidecarRecord },
+      ...(timeoutLogRecord ? { timeout_log: timeoutLogRecord } : {}),
+      ...(incidentSummary ? {
+        timeout_incident: {
+          document_id: document.id,
+          attempt: incidentSummary.attempt,
+          timeout_type: incidentSummary.timeout_type,
+          evidence_origin: incidentSummary.evidence_origin,
+          raw: fileRecords.get(incidentSummary.path.slice(`${seedPredecessorEvidenceDirectory}/`.length)),
+          sidecar: fileRecords.get(incidentSummary.sidecar_path.slice(`${seedPredecessorEvidenceDirectory}/`.length)),
+          log_sha256: incidentSummary.log_sha256,
+          citation_allowed: false,
+        },
+      } : {}),
+    });
+  }
+  if (!sameJsonValue(inventory.documents, expectedInventoryDocuments)) {
+    throw new Error('committed seed predecessor document inventory differs from raw controls');
+  }
+  const counts = seedRunCounts(predecessorRunStatus);
+  if (!sameJsonValue(predecessorRunStatus.counts, counts)
+    || predecessorRunStatus.finished !== (counts.complete === counts.total)
+    || predecessorRunStatus.settled !== (counts.complete + counts.quarantined === counts.total)) {
+    throw new Error('committed seed predecessor run-status counts are incoherent');
+  }
+  const predecessorContract = {
+    manifest_sha256: receipt.manifest_sha256,
+    run_identity_sha256: sha256Value(identityRaw),
+    run_status_sha256: sha256Value(runStatusRaw),
+    run_status_sidecar_sha256: sha256Value(runStatusSidecarRaw),
+    runtime: predecessorIdentity.runtime,
+    runtime_fingerprint: predecessorIdentity.runtime_fingerprint,
+    runtime_fingerprint_sha256: predecessorIdentity.runtime_fingerprint_sha256,
+    runner_script_sha256: predecessorIdentity.runner_script_sha256,
+    ocr_script_sha256: predecessorIdentity.ocr_script_sha256,
+    worker_configuration: predecessorIdentity.worker_configuration,
+    worker_configuration_sha256: sha256Value(canonicalJson(predecessorIdentity.worker_configuration)),
+    document_recovery: predecessorIdentity.document_recovery,
+    document_recovery_sha256: sha256Value(canonicalJson(predecessorIdentity.document_recovery)),
+    snapshot_sha256: null,
+    completed_pages: recomputedDocuments.reduce(
+      (sum, document) => sum + document.completed_pages.length,
+      0,
+    ),
+    failed_pages: 0,
+    quarantined_documents: recomputedDocuments.filter(
+      (document) => document.predecessor_status === 'quarantined',
+    ).length,
+    page_artifacts_sha256: sha256Value(canonicalJson(artifactRecords)),
+    control_evidence: contract,
+  };
+  predecessorContract.snapshot_sha256 = sha256Value(canonicalJson({
+    manifest_sha256: predecessorContract.manifest_sha256,
+    run_identity_sha256: predecessorContract.run_identity_sha256,
+    run_status_sha256: predecessorContract.run_status_sha256,
+    run_status_sidecar_sha256: predecessorContract.run_status_sidecar_sha256,
+    runtime_fingerprint_sha256: predecessorContract.runtime_fingerprint_sha256,
+    worker_configuration_sha256: predecessorContract.worker_configuration_sha256,
+    document_recovery_sha256: predecessorContract.document_recovery_sha256,
+    completed_pages: predecessorContract.completed_pages,
+    failed_pages: predecessorContract.failed_pages,
+    quarantined_documents: predecessorContract.quarantined_documents,
+    page_artifacts_sha256: predecessorContract.page_artifacts_sha256,
+    ...(receipt.timeout_recovery_grant ? {
+      timeout_recovery_grant_id: receipt.timeout_recovery_grant.grant_id,
+      timeout_recovery_grant_raw_sha256: receipt.timeout_recovery_grant.raw_sha256,
+      timeout_recovery_grant_sidecar_sha256: receipt.timeout_recovery_grant.sidecar_sha256,
+    } : {}),
+    documents: recomputedDocuments,
+  }));
+  const expectedPredecessorContract = { ...predecessorContract };
+  if (!sameJsonValue(receipt.predecessor, expectedPredecessorContract)) {
+    const differingKey = [...new Set([
+      ...Object.keys(receipt.predecessor || {}),
+      ...Object.keys(expectedPredecessorContract),
+    ])].find((key) => !sameJsonValue(receipt.predecessor?.[key], expectedPredecessorContract[key]));
+    throw new Error(`committed seed predecessor contract differs from recomputed archived evidence${differingKey ? ` at ${differingKey}` : ''}`);
+  }
+  const successorContract = structuredClone(receipt.successor);
+  delete successorContract.initial_run_status_sha256;
+  const seedBasis = {
+    schema_version: 1,
+    mode: seedMode,
+    manifest_sha256: receipt.manifest_sha256,
+    predecessor: expectedPredecessorContract,
+    successor_contract: successorContract,
+    allowed_configuration_delta: receipt.allowed_configuration_delta,
+    documents: recomputedDocuments,
+    ...(receipt.timeout_recovery_grant ? {
+      timeout_recovery_grant: receipt.timeout_recovery_grant,
+    } : {}),
+    ...(receipt.timeout_recovery_issuance ? {
+      timeout_recovery_issuance: receipt.timeout_recovery_issuance,
+    } : {}),
+    citation_allowed: false,
+  };
+  const seedBasisSha256 = sha256Value(canonicalJson(seedBasis));
+  if (receipt.seed_basis_sha256 !== seedBasisSha256
+    || receipt.seed_id !== seedBasisSha256) {
+    throw new Error('committed seed basis or seed ID differs from recomputed evidence');
+  }
+  const initialRunStatus = reconstructCommittedInitialRunStatus({
+    predecessorRunStatus,
+    receipt,
+    identity,
+    manifest,
+    recomputedDocuments,
+  });
+  const initialRunStatusSha256 = sha256Value(jsonContents(initialRunStatus));
+  if (receipt.successor.initial_run_status_sha256 !== initialRunStatusSha256
+    || marker.initial_run_status_sha256 !== initialRunStatusSha256) {
+    let differingKey = Object.keys(initialRunStatus).find(
+      (key) => !sameJsonValue(initialRunStatus[key], runStatus[key]),
+    );
+    if (differingKey === 'seed_lineage') {
+      const lineageKey = [...new Set([
+        ...Object.keys(initialRunStatus.seed_lineage || {}),
+        ...Object.keys(runStatus.seed_lineage || {}),
+      ])].find((key) => !sameJsonValue(initialRunStatus.seed_lineage?.[key], runStatus.seed_lineage?.[key]));
+      if (lineageKey) differingKey = `seed_lineage.${lineageKey}`;
+    }
+    throw new Error(`committed initial run-status hash differs from recomputed seed state${differingKey ? ` at ${differingKey}` : ''}`);
+  }
+  const currentCounts = seedRunCounts(runStatus);
+  if (runStatus.schema_version !== 1
+    || runStatus.manifest_sha256 !== receipt.manifest_sha256
+    || runStatus.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
+    || !sameJsonValue(runStatus.document_recovery, identity.document_recovery)
+    || runStatus.citation_allowed !== false
+    || !sameJsonValue(Object.keys(requireObject(runStatus.documents, 'committed current run-status documents')).sort(),
+      manifest.documents.map((document) => document.id).sort())
+    || !sameJsonValue(runStatus.counts, currentCounts)
+    || runStatus.finished !== (currentCounts.complete === currentCounts.total)
+    || runStatus.settled !== (currentCounts.complete + currentCounts.quarantined === currentCounts.total)) {
+    throw new Error('committed current run-status counts are incoherent');
+  }
+  validateRunStatusSeedLineageContract(runStatus.seed_lineage, {
+    seedId: receipt.seed_id,
+    predecessorRunIdentitySha256: receipt.predecessor.run_identity_sha256,
+    predecessorRunStatusSha256: receipt.predecessor.run_status_sha256,
+    timeoutRecovery: receipt.timeout_recovery_grant ? {
+      grantId: receipt.timeout_recovery_grant.grant_id,
+      grantSha256: receipt.timeout_recovery_grant.raw_sha256,
+      ledgerId: receipt.timeout_recovery_consumption.ledger_id,
+      claimSha256: receipt.timeout_recovery_consumption.claim_sha256,
+      issuanceClaimKey: receipt.timeout_recovery_issuance.claim_key,
+      issuanceSha256: receipt.timeout_recovery_issuance.raw_sha256,
+      documentIds: receipt.timeout_recovery_grant.documents.map((document) => document.document_id),
+    } : null,
+  }, 'committed current run-status seed lineage');
+  for (const document of recomputedDocuments) {
+    const progress = requireObject(runStatus.documents?.[document.document_id], `${document.document_id} committed progress`);
+    if (progress.inherited_attempts !== document.inherited_attempts
+      || progress.predecessor_status !== document.predecessor_status
+      || progress.attempts < document.inherited_attempts) {
+      throw new Error(`${document.document_id}: committed progress crosses its recomputed inherited attempt floor`);
+    }
+  }
+  return { predecessorIdentity, predecessorRunStatus, recomputedDocuments };
 }
 
 async function resumeCommittedSeed(outputRoot, expectedIdentity, manifest) {
@@ -4613,6 +5437,14 @@ async function resumeCommittedSeed(outputRoot, expectedIdentity, manifest) {
       throw new Error('committed timeout issuance incident evidence order differs from the grant');
     }
   }
+  await validateCommittedSeedPredecessorEvidence({
+    outputRoot,
+    marker,
+    receipt,
+    identity,
+    runStatus: runStatusEvidence.value,
+    manifest,
+  });
   return {
     seedId: receipt.seed_id,
     receipt,
@@ -5043,6 +5875,21 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
       || isWithin(prospectiveOutputRoot, seedPredecessorRoot)) {
       throw new Error('seed predecessor and successor output roots must be disjoint and non-nested');
     }
+    const timeoutRecoveryGrantPresent = await lstat(
+      path.join(seedPredecessorRoot, timeoutRecoveryGrantFilename),
+    ).then(() => true, (error) => {
+      if (error?.code === 'ENOENT') return false;
+      throw error;
+    });
+    if (timeoutRecoveryGrantPresent
+      && (options.vlRecMaxConcurrency !== 1
+        || options.serverParallel !== 1
+        || options.microBatch !== 16
+        || options.useQueues !== true
+        || options.childIdleTimeoutSeconds !== 1200
+        || options.llamaUrl !== 'http://127.0.0.1:8112/v1')) {
+      throw new Error('timeout recovery requires the exact audited p4-to-p1 transition');
+    }
   }
   if (options.seedFromOutputRoot) {
     await mkdir(requestedOutputRoot, { recursive: false, mode: 0o700 }).catch(async (error) => {
@@ -5292,13 +6139,19 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
         outputRoot,
         ledgerPath: options.timeoutRecoveryLedger,
         dryRun: options.seedDryRun === true,
+        beforePublication: dependencies.beforeTimeoutRecoveryClaimPublication,
       });
         await bindTimeoutRecoveryConsumption(
           preparedSeed,
           timeoutRecoveryConsumption,
           options.seedDryRun === true,
         );
+        await preparedSeed.timeoutRecoveryAuthority?.ledger.handle.close();
+        if (preparedSeed.timeoutRecoveryAuthority?.ledger) {
+          preparedSeed.timeoutRecoveryAuthority.ledger.handle = null;
+        }
       } catch (error) {
+        await preparedSeed.timeoutRecoveryAuthority?.ledger.handle?.close().catch(() => {});
         await rm(preparedSeed.stageRoot, { recursive: true, force: true }).catch(() => {});
         throw error;
       }

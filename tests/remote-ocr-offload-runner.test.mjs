@@ -60,7 +60,7 @@ const legacyB1OcrScriptSha256 = 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53
 const seedAwareOcrScriptSha256 = '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3';
 const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca';
 const fixedB3RunnerScriptSha256 = '58a1e3826aca807bf62f4546f237597c305334ba1b0a56a8f47cacfaa5cfeaa7';
-const a1CompletedStatusRunnerScriptSha256 = '5fef39bc67a0114f71b44f47cadc23391ecd02b9c3054847ee47621fa1b1760c';
+const a1CompletedStatusRunnerScriptSha256 = '471072ae747877f5d0486f2142e736f7265c99e8cd6f1f61beba4ff994e34fbd';
 const seedAwareTransition = 'p4_to_p1_seed_aware_ocr_v2';
 const runtime = Object.freeze({
   pipeline: 'PaddleOCR-VL',
@@ -2243,6 +2243,53 @@ test('schema-v2 timeout seed verifies and archives canonical issuance plus struc
   await writeFile(issuancePath, issuanceRaw, { mode: 0o600 });
   await writeFile(`${issuancePath}.sha256`, issuanceSealRaw, { mode: 0o600 });
 
+  const unauditedTransitionRoot = path.join(root, 'timeout-p4-to-p4-rejected');
+  const authorityBeforeUnauditedTransition = await inspectTree(ledgerRoot);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(unauditedTransitionRoot, {
+      serverParallel: 4,
+      seedDryRun: true,
+    }), {
+      ...dependencies,
+      llamaServerAttestation: predecessorAttestation,
+    }),
+    /timeout recovery requires the exact audited p4-to-p1 transition/u,
+  );
+  assert.deepEqual(await inspectTree(ledgerRoot), authorityBeforeUnauditedTransition);
+  await assert.rejects(stat(unauditedTransitionRoot), { code: 'ENOENT' });
+
+  const authorityMovedRoot = path.join(root, 'timeout-recovery-authority-original');
+  const replacementAuthorityRoot = path.join(root, 'timeout-recovery-authority-replacement');
+  await cp(ledgerRoot, replacementAuthorityRoot, { recursive: true, preserveTimestamps: true });
+  const swapRaceRoot = path.join(root, 'timeout-p1-authority-swap');
+  try {
+    await assert.rejects(
+      runRemoteOcrOffload(optionsFor(swapRaceRoot), {
+        ...dependencies,
+        beforeTimeoutRecoveryClaimPublication: async () => {
+          await rename(ledgerRoot, authorityMovedRoot);
+          await rename(replacementAuthorityRoot, ledgerRoot);
+        },
+      }),
+      /authority directory inode changed before claim publication/u,
+    );
+    assert.deepEqual(
+      (await readdir(ledgerRoot)).filter((entry) => entry.endsWith('.claim.json')),
+      [],
+    );
+    assert.deepEqual(
+      (await readdir(authorityMovedRoot)).filter((entry) => entry.endsWith('.claim.json')),
+      [],
+    );
+  } finally {
+    const movedPresent = await stat(authorityMovedRoot).then(() => true, () => false);
+    if (movedPresent) {
+      await rm(ledgerRoot, { recursive: true, force: true });
+      await rename(authorityMovedRoot, ledgerRoot);
+    }
+    await rm(replacementAuthorityRoot, { recursive: true, force: true });
+  }
+
   const predecessorBeforeDryRun = await inspectTree(predecessorRoot);
   const authorityBeforeDryRun = await inspectTree(ledgerRoot);
   const dryRunRoot = path.join(root, 'timeout-p1-dry-run');
@@ -2333,6 +2380,99 @@ test('schema-v2 timeout seed verifies and archives canonical issuance plus struc
   assert.equal(resumed.seedOnly, true);
   assert.equal(resumed.seedReceipt.seed_id, seeded.seedReceipt.seed_id);
   assert.equal(resumed.seedReceipt.timeout_recovery_issuance.claim_key, issuance.claim_key);
+
+  const committedEvidenceRoot = path.join(successorRoot, 'seed-predecessor-evidence');
+  const committedControlPaths = [
+    path.join(committedEvidenceRoot, 'run-status.json'),
+    path.join(committedEvidenceRoot, 'run-status.json.sha256'),
+    path.join(committedEvidenceRoot, 'inventory.json'),
+    path.join(successorRoot, 'seed-receipt.json'),
+    path.join(successorRoot, 'seed-receipt.json.sha256'),
+    path.join(successorRoot, 'run-identity.json'),
+    path.join(successorRoot, 'seed-commit.json'),
+    path.join(successorRoot, 'seed-commit.json.sha256'),
+  ];
+  const withRestoredCommittedControls = async (operation) => {
+    const originals = await Promise.all(committedControlPaths.map((pathname) => readFile(pathname)));
+    try {
+      await operation();
+    } finally {
+      await Promise.all(committedControlPaths.map(
+        (pathname, index) => writeFile(pathname, originals[index], { mode: 0o600 }),
+      ));
+    }
+  };
+  const resealCommittedSeedControls = async () => {
+    const receiptPath = path.join(successorRoot, 'seed-receipt.json');
+    const identityPath = path.join(successorRoot, 'run-identity.json');
+    const markerPath = path.join(successorRoot, 'seed-commit.json');
+    const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+    const receiptSha256 = await writeJsonSidecar(receiptPath, receipt);
+    const identity = JSON.parse(await readFile(identityPath, 'utf8'));
+    identity.seed_lineage.seed_receipt_sha256 = receiptSha256;
+    await writeFile(identityPath, `${JSON.stringify(identity, null, 2)}\n`, { mode: 0o600 });
+    const marker = JSON.parse(await readFile(markerPath, 'utf8'));
+    marker.seed_receipt_sha256 = receiptSha256;
+    marker.run_identity_sha256 = sha256(await readFile(identityPath));
+    for (const item of marker.installed_items) {
+      if (item.name === 'seed-predecessor-evidence') {
+        item.fingerprint = await inspectTree(committedEvidenceRoot);
+      } else if (['seed-receipt.json', 'seed-receipt.json.sha256', 'run-identity.json'].includes(item.name)) {
+        const pathname = path.join(successorRoot, item.name);
+        const info = await stat(pathname);
+        item.fingerprint = { sha256: sha256(await readFile(pathname)), bytes: info.size };
+      }
+    }
+    marker.installed_items_sha256 = sha256(canonicalJson(marker.installed_items));
+    await writeJsonSidecar(markerPath, marker);
+  };
+  await withRestoredCommittedControls(async () => {
+    const archivedRunStatusPath = path.join(committedEvidenceRoot, 'run-status.json');
+    const archivedRunStatus = JSON.parse(await readFile(archivedRunStatusPath, 'utf8'));
+    archivedRunStatus.documents[documents[0].id].attempts = 4;
+    await writeJsonSidecar(archivedRunStatusPath, archivedRunStatus);
+    const inventoryPath = path.join(committedEvidenceRoot, 'inventory.json');
+    const inventory = JSON.parse(await readFile(inventoryPath, 'utf8'));
+    for (const relativePath of ['run-status.json', 'run-status.json.sha256']) {
+      const pathname = path.join(committedEvidenceRoot, relativePath);
+      const info = await stat(pathname);
+      const record = inventory.files.find((item) => item.path === relativePath);
+      record.bytes = info.size;
+      record.sha256 = sha256(await readFile(pathname));
+    }
+    await writeFile(inventoryPath, `${JSON.stringify(inventory, null, 2)}\n`, { mode: 0o600 });
+    await resealCommittedSeedControls();
+    await assert.rejects(
+      runRemoteOcrOffload(optionsFor(successorRoot), dependencies),
+      /committed seed predecessor inventory or tree differs from the receipt|archived predecessor attempt floor differs from the seed receipt/u,
+    );
+  });
+  await withRestoredCommittedControls(async () => {
+    const receiptPath = path.join(successorRoot, 'seed-receipt.json');
+    const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+    receipt.seed_basis_sha256 = '0'.repeat(64);
+    await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
+    await resealCommittedSeedControls();
+    await assert.rejects(
+      runRemoteOcrOffload(optionsFor(successorRoot), dependencies),
+      /committed seed basis or seed ID differs from recomputed evidence/u,
+    );
+  });
+  await withRestoredCommittedControls(async () => {
+    const receiptPath = path.join(successorRoot, 'seed-receipt.json');
+    const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+    receipt.successor.initial_run_status_sha256 = '0'.repeat(64);
+    await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
+    await resealCommittedSeedControls();
+    const markerPath = path.join(successorRoot, 'seed-commit.json');
+    const marker = JSON.parse(await readFile(markerPath, 'utf8'));
+    marker.initial_run_status_sha256 = '0'.repeat(64);
+    await writeJsonSidecar(markerPath, marker);
+    await assert.rejects(
+      runRemoteOcrOffload(optionsFor(successorRoot), dependencies),
+      /committed initial run-status hash differs from recomputed seed state/u,
+    );
+  });
 
   const copiedSuccessorRoot = path.join(root, 'timeout-p1-copy');
   await cp(successorRoot, copiedSuccessorRoot, { recursive: true, preserveTimestamps: true });
@@ -3949,20 +4089,15 @@ test('timeout grant rejects drift and a failed granted attempt 6 is quarantined 
     ['doc-timeout-fails', 2, 1, 'quarantined', 5],
     ['doc-timeout-recovers', 2, 1, 'quarantined', 5],
   ];
-  const attestation = {
-    ...llamaServerAttestation,
-    parallel: 4,
-    production_command_contract: {
-      values: { '--host': '127.0.0.1', '--port': '8112', '--parallel': '4' },
-      flags: ['--mmproj-offload'],
-    },
-  };
+  const predecessorAttestation = llamaAttestationForParallel(4);
+  const successorAttestation = llamaAttestationForParallel(1);
   const { documents, grant, ledgerRoot } = await createTimeoutRecoveryPredecessor({
     inputRoot,
     predecessorRoot,
     manifestPath,
     specifications,
-    attestation,
+    attestation: predecessorAttestation,
+    ocrScriptSha256: sha256(await readFile(ocrScript)),
   });
   const optionsFor = (outputRoot, extra = {}) => ({
     manifest: manifestPath,
@@ -3978,7 +4113,7 @@ test('timeout grant rejects drift and a failed granted attempt 6 is quarantined 
     llamaUrl: workerConfiguration.llama_url,
     runtimeDevice,
     vlRecMaxConcurrency: 1,
-    serverParallel: 4,
+    serverParallel: 1,
     microBatch: 16,
     useQueues: true,
     childIdleTimeoutSeconds: 1200,
@@ -3990,7 +4125,7 @@ test('timeout grant rejects drift and a failed granted attempt 6 is quarantined 
   const dependencies = {
     pageCounter: () => 2,
     runtime,
-    llamaServerAttestation: attestation,
+    llamaServerAttestation: successorAttestation,
     pythonRuntime,
     paddlexLayoutModelCache,
     runnerScriptSha256: 'e'.repeat(64),
