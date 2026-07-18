@@ -1753,7 +1753,12 @@ async function bindTimeoutRecoveryConsumption(prepared, consumption, dryRun) {
   prepared.timeoutRecoveryConsumption = consumption;
 }
 
-async function captureSeedPredecessor(predecessorRoot, manifest, manifestSha256) {
+async function captureSeedPredecessor(
+  predecessorRoot,
+  manifest,
+  manifestSha256,
+  { captureTimeoutRecoveryGrantEvidence = true } = {},
+) {
   const root = await requireRealDirectory(predecessorRoot, 'seed predecessor output root');
   const [documentsRoot, statusRoot] = await Promise.all([
     requireContainedRealDirectory(root, path.join(root, 'documents'), 'seed predecessor documents root'),
@@ -1967,14 +1972,16 @@ async function captureSeedPredecessor(predecessorRoot, manifest, manifestSha256)
       status_sidecar_raw: statusSidecarRaw,
     });
   }
-  const timeoutRecoveryGrant = await captureTimeoutRecoveryGrant({
-    root,
-    manifest,
-    manifestSha256,
-    identityRaw,
-    runStatusSha256,
-    documents,
-  });
+  const timeoutRecoveryGrant = captureTimeoutRecoveryGrantEvidence
+    ? await captureTimeoutRecoveryGrant({
+      root,
+      manifest,
+      manifestSha256,
+      identityRaw,
+      runStatusSha256,
+      documents,
+    })
+    : null;
   const evidence = {
     root,
     manifest_sha256: manifestSha256,
@@ -2023,6 +2030,128 @@ async function captureSeedPredecessor(predecessorRoot, manifest, manifestSha256)
     documents: documents.map(publicPredecessorDocument),
   }));
   return evidence;
+}
+
+export async function inspectTimeoutRecoveryPredecessorForGrant({
+  manifestPath: manifestOption,
+  predecessorRoot: predecessorOption,
+}) {
+  if (typeof manifestOption !== 'string' || manifestOption.length === 0) {
+    throw new Error('--manifest is required');
+  }
+  if (typeof predecessorOption !== 'string' || predecessorOption.length === 0) {
+    throw new Error('--predecessor-root is required');
+  }
+  const manifestPath = path.resolve(manifestOption);
+  const predecessorRoot = path.resolve(predecessorOption);
+  await requireRegularFile(manifestPath, 'timeout recovery manifest');
+  if (await realpath(manifestPath) !== manifestPath) {
+    throw new Error('timeout recovery manifest must not resolve through a symlink');
+  }
+  const manifestRaw = await readFile(manifestPath);
+  let manifest;
+  try {
+    manifest = JSON.parse(manifestRaw);
+  } catch (error) {
+    throw new Error(`timeout recovery manifest is not valid JSON: ${error.message}`);
+  }
+  validateRemoteOcrManifest(manifest);
+  const manifestSha256 = sha256Value(manifestRaw);
+  const predecessor = await captureSeedPredecessor(
+    predecessorRoot,
+    manifest,
+    manifestSha256,
+    { captureTimeoutRecoveryGrantEvidence: false },
+  );
+  if (predecessor.root !== predecessorRoot) {
+    throw new Error('timeout recovery predecessor root must not resolve through a symlink');
+  }
+  const inputRoot = await requireRealDirectory(
+    predecessor.identity.input_root,
+    'timeout recovery predecessor input root',
+  );
+  if (inputRoot !== path.resolve(predecessor.identity.input_root)) {
+    throw new Error('timeout recovery predecessor input root must not resolve through a symlink');
+  }
+  const logsRoot = await requireContainedRealDirectory(
+    predecessor.root,
+    path.join(predecessor.root, 'logs'),
+    'timeout recovery predecessor logs root',
+  );
+  const nonTerminalDocuments = predecessor.documents.filter(
+    (document) => !['complete', 'quarantined'].includes(document.predecessor_status),
+  );
+  if (nonTerminalDocuments.length > 0 || predecessor.runStatus.settled !== true) {
+    throw new Error('timeout recovery predecessor must be settled with only complete or quarantined documents');
+  }
+  const quarantinedDocuments = predecessor.documents.filter(
+    (document) => document.predecessor_status === 'quarantined',
+  );
+  if (quarantinedDocuments.length === 0) {
+    throw new Error('timeout recovery predecessor has no quarantined documents');
+  }
+  const documents = [];
+  for (const document of quarantinedDocuments) {
+    if (document.predecessor_status_format !== 'timeout_only_quarantine_granted_v1') {
+      throw new Error(`${document.document_id}: predecessor quarantine is not an exact child idle timeout`);
+    }
+    const firstMissingPage = firstMissingPhysicalPage(
+      document.completed_pages,
+      document.page_count,
+    );
+    if (firstMissingPage === null) {
+      throw new Error(`${document.document_id}: a complete document cannot receive timeout recovery`);
+    }
+    const expectedCompletedPages = Array.from(
+      { length: firstMissingPage - 1 },
+      (_, index) => index + 1,
+    );
+    if (!sameJsonValue(document.completed_pages, expectedCompletedPages)) {
+      throw new Error(`${document.document_id}: timeout recovery requires a contiguous completed-page frontier`);
+    }
+    const timeoutLogPath = path.join(logsRoot, `${document.document_id}.log`);
+    const timeoutLogInfo = await requireRegularFile(
+      timeoutLogPath,
+      `${document.document_id} timeout recovery log`,
+    );
+    if ((timeoutLogInfo.mode & 0o777) !== 0o600) {
+      throw new Error(`${document.document_id}: timeout recovery log mode must equal 0600`);
+    }
+    const timeoutLogRaw = await readStrictFile(
+      predecessor.root,
+      timeoutLogPath,
+      `${document.document_id} timeout recovery log`,
+    );
+    documents.push({
+      document_id: document.document_id,
+      predecessor_status_sha256: document.predecessor_status_sha256,
+      predecessor_state_sha256: document.predecessor_state_sha256,
+      inherited_attempts: maxDocumentAttempts,
+      granted_attempt: timeoutRecoveryGrantedAttempt,
+      first_missing_page: firstMissingPage,
+      completed_pages_sha256: sha256Value(canonicalJson(document.completed_pages)),
+      failed_pages_sha256: sha256Value(canonicalJson(document.state.failed_pages)),
+      quarantine_reason: 'attempt_budget_exhausted',
+      error_sha256: sha256Value(document.status.error),
+      classification: timeoutRecoveryClassification,
+      timeout_log: {
+        path: `logs/${document.document_id}.log`,
+        bytes: timeoutLogRaw.byteLength,
+        sha256: sha256Value(timeoutLogRaw),
+      },
+    });
+  }
+  return {
+    schema_version: 1,
+    manifest_path: manifestPath,
+    manifest_sha256: manifestSha256,
+    predecessor_root: predecessor.root,
+    predecessor_input_root: inputRoot,
+    run_identity_sha256: predecessor.run_identity_sha256,
+    run_status_sha256: predecessor.run_status_sha256,
+    documents,
+    citation_allowed: false,
+  };
 }
 
 function validateSeedConfigurationDelta(predecessor, successor) {
