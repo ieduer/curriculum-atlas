@@ -664,6 +664,7 @@ async function convertShardToHashBoundSeed(shard, {
   timeoutRecovery = null,
   transition = null,
   successorRunnerScriptSha256 = 'e'.repeat(64),
+  successorPaddlexCacheHome = '/fixture/paddlex-cache-r2',
 } = {}) {
   const identityPath = path.join(shard.shardRoot, 'run-identity.json');
   const runStatusPath = path.join(shard.shardRoot, 'run-status.json');
@@ -686,7 +687,7 @@ async function convertShardToHashBoundSeed(shard, {
     ...workerConfiguration,
     vl_rec_max_concurrency: 1,
     server_parallel: p4ToP1 ? 1 : 4,
-    paddlex_cache_home: '/fixture/paddlex-cache-r2',
+    paddlex_cache_home: successorPaddlexCacheHome,
   };
   const successorRecovery = {
     ...recovery,
@@ -1840,6 +1841,20 @@ test('receiver independently verifies seeded lineage, attempt floors, and archiv
       receiveRemoteOcrOffload(value.options, value.dependencies),
       /p1 shard execution contracts differ/,
     );
+  });
+
+  await t.test('p1 shard union permits shard-local cache paths only with the same cache tree', async (t) => {
+    const value = await fixture(t);
+    await convertShardToHashBoundSeed(value.shardA, {
+      transition: 'p4_to_p1_v1',
+      successorPaddlexCacheHome: '/fixture/p1-a/paddlex-cache',
+    });
+    await convertShardToHashBoundSeed(value.shardB, {
+      transition: 'p4_to_p1_v1',
+      successorPaddlexCacheHome: '/fixture/p1-b/paddlex-cache',
+    });
+    const result = await receiveRemoteOcrOffload(value.options, value.dependencies);
+    assert.equal(result.status, 'dry_run_validated');
   });
 
   await t.test('receiver p4-to-p1 validator rejects forbidden and declaration deltas', async (t) => {

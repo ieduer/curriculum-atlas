@@ -2418,12 +2418,16 @@ function validateShardUnion(parentManifest, shards) {
       throw new Error('shard runtime fingerprints differ');
     }
     if (shard.seed?.receipt?.allowed_configuration_delta?.transition === p4ToP1Transition) {
+      const {
+        paddlex_cache_home: _shardSpecificPaddlexCacheHome,
+        ...pathIndependentWorkerConfiguration
+      } = shard.identity.worker_configuration;
       const shardExecutionContract = {
         runtime_fingerprint_sha256: shard.identity.runtime_fingerprint_sha256,
         llama_server_attestation_sha256: shard.identity.llama_server_attestation_sha256,
         runner_script_sha256: shard.identity.runner_script_sha256,
         ocr_script_sha256: shard.identity.ocr_script_sha256,
-        worker_configuration: shard.identity.worker_configuration,
+        worker_configuration: pathIndependentWorkerConfiguration,
         document_recovery: shard.identity.document_recovery,
         python_invocation_path: shard.identity.python_invocation_path,
         python_resolved_target: shard.identity.python_resolved_target,
