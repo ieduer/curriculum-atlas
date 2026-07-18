@@ -75,6 +75,8 @@
       { "path": "data/online-verification/zh-compulsory-2022-claims.schema.json", "disposition": "r2_public_metadata", "consumers": ["online_verification_validator"] },
       { "path": "data/ontology-candidates/candidate-layer.schema.json", "disposition": "candidate_fail_closed", "consumers": ["ontology_candidate_validator"] },
       { "path": "data/ontology-candidates/zh-compulsory-2022.json", "disposition": "candidate_fail_closed", "consumers": ["ontology_candidate_validator"] },
+      { "path": "data/ontology-release-manifest.json", "disposition": "candidate_fail_closed", "consumers": ["ontology_release_validator"] },
+      { "path": "data/ontology-release.schema.json", "disposition": "candidate_fail_closed", "consumers": ["ontology_release_validator"] },
       { "path": "data/page-publication-manifest.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "publication_gate"] },
       { "path": "data/page-publication-manifest.schema.json", "disposition": "r2_public_metadata", "consumers": ["publication_gate"] },
       { "path": "data/release-assets-policy.json", "disposition": "r2_public_metadata", "consumers": ["release_manifest"] },
