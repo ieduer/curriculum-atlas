@@ -1,0 +1,39 @@
+[Unit]
+Description=Fail-closed completion cleanup for BDFZ curriculum OCR A2
+Documentation=https://github.com/ieduer/curriculum-atlas
+After=curriculum-ocr-reprocess-a-r2.service
+
+[Service]
+Type=oneshot
+SuccessExitStatus=10 75
+UMask=0077
+EnvironmentFile=%h/.config/bdfz/curriculum-ocr-reprocess-a-r2-cleanup.conf
+WorkingDirectory=%h/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2
+ExecStartPre=/usr/bin/test -x /usr/bin/flock
+ExecStartPre=/usr/bin/test -x /usr/bin/node
+ExecStartPre=/usr/bin/test -f %h/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2/SHA256SUMS
+ExecStartPre=/usr/bin/sha256sum --check --strict %h/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2/SHA256SUMS
+ExecStartPre=/usr/bin/test -f ${BDFZ_OCR_A2_CLEANUP_SCRIPT}
+ExecStartPre=/usr/bin/test -d ${BDFZ_OCR_A2_OUTPUT_ROOT}
+ExecStartPre=/usr/bin/test -f ${BDFZ_OCR_A2_LIFECYCLE_LOCK}
+ExecStart=/usr/bin/flock --no-fork --exclusive --wait 60 --conflict-exit-code 75 ${BDFZ_OCR_A2_LIFECYCLE_LOCK} \
+  /usr/bin/node ${BDFZ_OCR_A2_CLEANUP_SCRIPT} \
+  --output-root ${BDFZ_OCR_A2_OUTPUT_ROOT} \
+  --worker-unit ${BDFZ_OCR_A2_WORKER_UNIT} \
+  --llama-unit ${BDFZ_OCR_A2_LLAMA_UNIT}
+TimeoutStartSec=3min
+Restart=no
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.config/systemd/user/default.target.wants
+ReadWritePaths=%h/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/.a2-lifecycle.lock
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX
+
+# The same bounded lifecycle flock is used by the A2 worker and cleanup verifier.
