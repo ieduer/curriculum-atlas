@@ -187,3 +187,60 @@ test('A2 deployment binds the exact reviewed alert handler and retry chain', asy
   const installHandlerAt = runbook.indexOf('install -m 0644 "$WORKSPACE/ops/systemd/curriculum-ocr-monitor-alert@.service"');
   assert.ok(disableOldAt >= 0 && installHandlerAt >= 0 && disableOldAt < installHandlerAt);
 });
+
+test('A2 rollback proves every runtime is quiescent before restoring shared files', async () => {
+  const runbook = await readFile(new URL('../docs/remote-ocr-a2-deployment.md', import.meta.url), 'utf8');
+  const rollback = runbook.slice(runbook.indexOf('## 11. Rollback and irreversible boundary'));
+  assert.doesNotMatch(rollback, /\|\|\s*(?:true|:)/u);
+  assert.doesNotMatch(rollback, /set \+e/u);
+  for (const exact of [
+    'reviewed_unit_absent()',
+    'disable_timer_or_reviewed_absent()',
+    'disable_worker_or_reviewed_absent()',
+    'stop_service_or_reviewed_absent()',
+    'assert_service_quiet_or_reviewed_absent()',
+    'LoadState --value',
+    'not-found)',
+    'test "$ACTIVE_STATE" = inactive',
+    'test "$MAIN_PID" = 0',
+    'test "$ENABLED_STATE" = disabled',
+    'curriculum-ocr-reprocess-a-r2-monitor.timer',
+    'curriculum-ocr-monitor-alert-retry@curriculum-ocr-reprocess-a-r2-monitor.service.timer',
+    'curriculum-ocr-reprocess-a-r2.service',
+    'curriculum-ocr-reprocess-a-r2-monitor.service',
+    'curriculum-ocr-monitor-alert@curriculum-ocr-reprocess-a-r2-monitor.service.service',
+    'curriculum-ocr-reprocess-a-r2-cleanup.service',
+    'curriculum-ocr-llama.service',
+    'disable_timer_or_reviewed_absent "$MONITOR_TIMER"',
+    'disable_timer_or_reviewed_absent "$ALERT_RETRY_TIMER"',
+    'disable_worker_or_reviewed_absent "$WORKER"',
+    'stop_service_or_reviewed_absent "$MONITOR"',
+    'stop_service_or_reviewed_absent "$ALERT_HANDLER"',
+    'stop_service_or_reviewed_absent "$CLEANUP"',
+    'stop_service_or_reviewed_absent "$LLAMA"',
+    'assert_timer_quiet_or_reviewed_absent "$MONITOR_TIMER"',
+    'assert_timer_quiet_or_reviewed_absent "$ALERT_RETRY_TIMER"',
+    'assert_worker_quiet_or_reviewed_absent "$WORKER"',
+    'assert_service_quiet_or_reviewed_absent "$MONITOR"',
+    'assert_service_quiet_or_reviewed_absent "$ALERT_HANDLER"',
+    'assert_service_quiet_or_reviewed_absent "$CLEANUP"',
+    'assert_service_quiet_or_reviewed_absent "$LLAMA"',
+    'QUIESCENCE_VERIFIED=1',
+    'test "$QUIESCENCE_VERIFIED" = 1',
+  ]) assert.ok(rollback.includes(exact), exact);
+  assert.match(rollback, /not-found[\s\S]*file-state\.tsv[\s\S]*test ! -e[\s\S]*test ! -L/u);
+  const quiescenceAt = rollback.indexOf('QUIESCENCE_VERIFIED=1');
+  const restoreAt = rollback.indexOf("while IFS=$'\\t' read -r state relative; do");
+  const daemonReloadAt = rollback.indexOf('systemctl --user daemon-reload');
+  assert.ok(quiescenceAt >= 0 && restoreAt > quiescenceAt && daemonReloadAt > restoreAt);
+  for (const unit of [
+    'curriculum-ocr-reprocess-a-r2-monitor.timer',
+    'curriculum-ocr-monitor-alert-retry@curriculum-ocr-reprocess-a-r2-monitor.service.timer',
+    'curriculum-ocr-reprocess-a-r2.service',
+    'curriculum-ocr-reprocess-a-r2-monitor.service',
+    'curriculum-ocr-monitor-alert@curriculum-ocr-reprocess-a-r2-monitor.service.service',
+    'curriculum-ocr-reprocess-a-r2-cleanup.service',
+    'curriculum-ocr-llama.service',
+  ]) assert.ok(rollback.indexOf(unit) < quiescenceAt, unit);
+  assert.match(rollback, /successor, monitor evidence directory, alert[\s\S]*remain preserved/iu);
+});

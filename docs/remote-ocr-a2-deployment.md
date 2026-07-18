@@ -865,26 +865,186 @@ manifest, and runtime-directory state. After issuance or consumption, rollback
 means **freeze** and restore only that runtime presentation; it never rewinds
 OCR evidence or authority. The A2 successor, monitor evidence directory, alert
 state, lifecycle lock, grant, claim, and deployment evidence remain preserved.
+`LoadState=not-found` is tolerated only when `file-state.tsv` proves that the
+corresponding unit file was absent before deployment and it is still absent as
+both a path and symlink. Every other missing, failed stop, masked state, or
+ambiguous manager response is a hard stop. No shared file is restored and no
+`daemon-reload` occurs until the complete A2 chain is proven quiescent.
 
 ```bash
 set -euo pipefail
 RUN_ROOT=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess
 BACKUP=$(cat "$RUN_ROOT/.a2-current-backup")
+EVIDENCE=$(cat "$RUN_ROOT/.a2-current-evidence")
 ALERT_RUNTIME="$HOME/curriculum-ocr-offload/alert-runtime"
-systemctl --user disable --now curriculum-ocr-reprocess-a-r2-monitor.timer || true
-systemctl --user disable --now \
-  curriculum-ocr-monitor-alert-retry@curriculum-ocr-reprocess-a-r2-monitor.service.timer || true
-systemctl --user disable --now curriculum-ocr-reprocess-a-r2.service || true
-systemctl --user stop curriculum-ocr-reprocess-a-r2-monitor.service || true
-systemctl --user stop \
-  curriculum-ocr-monitor-alert@curriculum-ocr-reprocess-a-r2-monitor.service.service || true
-systemctl --user stop curriculum-ocr-llama.service || true
-for quiet_unit in \
-  curriculum-ocr-reprocess-a-r2-monitor.service \
-  curriculum-ocr-monitor-alert@curriculum-ocr-reprocess-a-r2-monitor.service.service; do
-  test "$(systemctl --user show "$quiet_unit" --property=ActiveState --value)" = inactive
-  test "$(systemctl --user show "$quiet_unit" --property=MainPID --value)" = 0
-done
+QUIESCENCE_VERIFIED=0
+
+reviewed_unit_absent() {
+  local unit=$1
+  local relative=$2
+  test "$(systemctl --user show "$unit" --property=LoadState --value)" = not-found
+  grep -Fqx "$(printf 'absent\t%s' "$relative")" "$BACKUP/file-state.tsv"
+  test ! -e "$HOME/$relative"
+  test ! -L "$HOME/$relative"
+}
+
+assert_inactive() {
+  local unit=$1
+  local ACTIVE_STATE MAIN_PID
+  ACTIVE_STATE=$(systemctl --user show "$unit" --property=ActiveState --value)
+  MAIN_PID=$(systemctl --user show "$unit" --property=MainPID --value)
+  test "$ACTIVE_STATE" = inactive
+  test "$MAIN_PID" = 0
+}
+
+assert_disabled() {
+  local unit=$1
+  local ENABLED_STATE ENABLED_RC
+  if ENABLED_STATE=$(systemctl --user is-enabled "$unit" 2>/dev/null); then
+    ENABLED_RC=0
+  else
+    ENABLED_RC=$?
+  fi
+  test "$ENABLED_RC" -ne 0
+  test "$ENABLED_STATE" = disabled
+}
+
+disable_timer_or_reviewed_absent() {
+  local unit=$1
+  local relative=$2
+  local LOAD_STATE
+  LOAD_STATE=$(systemctl --user show "$unit" --property=LoadState --value)
+  case "$LOAD_STATE" in
+    loaded)
+      systemctl --user disable --now "$unit"
+      assert_inactive "$unit"
+      assert_disabled "$unit"
+      ;;
+    not-found)
+      reviewed_unit_absent "$unit" "$relative"
+      ;;
+    *) echo "unsafe timer LoadState for $unit: $LOAD_STATE" >&2; return 1 ;;
+  esac
+}
+
+disable_worker_or_reviewed_absent() {
+  local unit=$1
+  local relative=$2
+  local LOAD_STATE
+  LOAD_STATE=$(systemctl --user show "$unit" --property=LoadState --value)
+  case "$LOAD_STATE" in
+    loaded)
+      systemctl --user disable --now "$unit"
+      assert_inactive "$unit"
+      assert_disabled "$unit"
+      ;;
+    not-found)
+      reviewed_unit_absent "$unit" "$relative"
+      ;;
+    *) echo "unsafe worker LoadState for $unit: $LOAD_STATE" >&2; return 1 ;;
+  esac
+}
+
+stop_service_or_reviewed_absent() {
+  local unit=$1
+  local relative=$2
+  local LOAD_STATE
+  LOAD_STATE=$(systemctl --user show "$unit" --property=LoadState --value)
+  case "$LOAD_STATE" in
+    loaded)
+      systemctl --user stop "$unit"
+      assert_inactive "$unit"
+      ;;
+    not-found)
+      reviewed_unit_absent "$unit" "$relative"
+      ;;
+    *) echo "unsafe service LoadState for $unit: $LOAD_STATE" >&2; return 1 ;;
+  esac
+}
+
+assert_timer_quiet_or_reviewed_absent() {
+  local unit=$1
+  local relative=$2
+  local LOAD_STATE
+  LOAD_STATE=$(systemctl --user show "$unit" --property=LoadState --value)
+  case "$LOAD_STATE" in
+    loaded) assert_inactive "$unit"; assert_disabled "$unit" ;;
+    not-found) reviewed_unit_absent "$unit" "$relative" ;;
+    *) echo "unsafe timer LoadState for $unit: $LOAD_STATE" >&2; return 1 ;;
+  esac
+}
+
+assert_worker_quiet_or_reviewed_absent() {
+  local unit=$1
+  local relative=$2
+  local LOAD_STATE
+  LOAD_STATE=$(systemctl --user show "$unit" --property=LoadState --value)
+  case "$LOAD_STATE" in
+    loaded) assert_inactive "$unit"; assert_disabled "$unit" ;;
+    not-found) reviewed_unit_absent "$unit" "$relative" ;;
+    *) echo "unsafe worker LoadState for $unit: $LOAD_STATE" >&2; return 1 ;;
+  esac
+}
+
+assert_service_quiet_or_reviewed_absent() {
+  local unit=$1
+  local relative=$2
+  local LOAD_STATE
+  LOAD_STATE=$(systemctl --user show "$unit" --property=LoadState --value)
+  case "$LOAD_STATE" in
+    loaded) assert_inactive "$unit" ;;
+    not-found) reviewed_unit_absent "$unit" "$relative" ;;
+    *) echo "unsafe service LoadState for $unit: $LOAD_STATE" >&2; return 1 ;;
+  esac
+}
+
+MONITOR_TIMER=curriculum-ocr-reprocess-a-r2-monitor.timer
+ALERT_RETRY_TIMER=curriculum-ocr-monitor-alert-retry@curriculum-ocr-reprocess-a-r2-monitor.service.timer
+WORKER=curriculum-ocr-reprocess-a-r2.service
+MONITOR=curriculum-ocr-reprocess-a-r2-monitor.service
+ALERT_HANDLER=curriculum-ocr-monitor-alert@curriculum-ocr-reprocess-a-r2-monitor.service.service
+CLEANUP=curriculum-ocr-reprocess-a-r2-cleanup.service
+LLAMA=curriculum-ocr-llama.service
+
+disable_timer_or_reviewed_absent "$MONITOR_TIMER" \
+  .config/systemd/user/curriculum-ocr-reprocess-a-r2-monitor.timer
+disable_timer_or_reviewed_absent "$ALERT_RETRY_TIMER" \
+  .config/systemd/user/curriculum-ocr-monitor-alert-retry@.timer
+disable_worker_or_reviewed_absent "$WORKER" \
+  .config/systemd/user/curriculum-ocr-reprocess-a-r2.service
+stop_service_or_reviewed_absent "$MONITOR" \
+  .config/systemd/user/curriculum-ocr-reprocess-a-r2-monitor.service
+stop_service_or_reviewed_absent "$ALERT_HANDLER" \
+  .config/systemd/user/curriculum-ocr-monitor-alert@.service
+stop_service_or_reviewed_absent "$CLEANUP" \
+  .config/systemd/user/curriculum-ocr-reprocess-a-r2-cleanup.service
+stop_service_or_reviewed_absent "$LLAMA" \
+  .config/systemd/user/curriculum-ocr-llama.service
+
+# Re-prove every state after all stop operations. In particular, cleanup must
+# be inactive after the worker reaches its final inactive state.
+assert_timer_quiet_or_reviewed_absent "$MONITOR_TIMER" \
+  .config/systemd/user/curriculum-ocr-reprocess-a-r2-monitor.timer
+assert_timer_quiet_or_reviewed_absent "$ALERT_RETRY_TIMER" \
+  .config/systemd/user/curriculum-ocr-monitor-alert-retry@.timer
+assert_worker_quiet_or_reviewed_absent "$WORKER" \
+  .config/systemd/user/curriculum-ocr-reprocess-a-r2.service
+assert_service_quiet_or_reviewed_absent "$MONITOR" \
+  .config/systemd/user/curriculum-ocr-reprocess-a-r2-monitor.service
+assert_service_quiet_or_reviewed_absent "$ALERT_HANDLER" \
+  .config/systemd/user/curriculum-ocr-monitor-alert@.service
+assert_service_quiet_or_reviewed_absent "$CLEANUP" \
+  .config/systemd/user/curriculum-ocr-reprocess-a-r2-cleanup.service
+assert_service_quiet_or_reviewed_absent "$LLAMA" \
+  .config/systemd/user/curriculum-ocr-llama.service
+
+systemctl --user show "$MONITOR_TIMER" "$ALERT_RETRY_TIMER" "$WORKER" \
+  "$MONITOR" "$ALERT_HANDLER" "$CLEANUP" "$LLAMA" \
+  --property=Id --property=LoadState --property=UnitFileState \
+  --property=ActiveState --property=SubState --property=MainPID --no-pager \
+  > "$EVIDENCE/a2-rollback-quiescence.txt"
+QUIESCENCE_VERIFIED=1
+test "$QUIESCENCE_VERIFIED" = 1
 
 while IFS=$'\t' read -r state relative; do
   target="$HOME/$relative"
