@@ -14,10 +14,28 @@ test('A2 worker resumes only a committed canonical timeout-recovery seed under o
   assert.match(cleanup, /^ExecStart=\/usr\/bin\/flock --no-fork --exclusive --wait 60 --conflict-exit-code 75 \$\{BDFZ_OCR_A2_LIFECYCLE_LOCK\}/mu);
   assert.match(worker, /--seed-from-output-root \/home\/suen\/curriculum-ocr-offload\/runs\/20260716T1520Z-partial14-reprocess\/output\/production-p4-mb16-shard-a-r1/u);
   assert.match(worker, /--timeout-recovery-ledger \/home\/suen\/curriculum-ocr-offload\/runs\/20260716T1520Z-partial14-reprocess\/input\/timeout-recovery-authority-v1/u);
-  assert.match(worker, /ConditionPathExists=.*production-p1-mb16-shard-a-r2\/seed-commit\.json$/mu);
-  assert.match(worker, /ConditionPathExists=.*production-p1-mb16-shard-a-r2\/timeout-recovery-consumption-claim\.json$/mu);
+  assert.match(worker, /^ExecStartPre=\/usr\/bin\/test -f .*production-p1-mb16-shard-a-r2\/seed-commit\.json$/mu);
+  assert.match(worker, /^ExecStartPre=\/usr\/bin\/test -f .*production-p1-mb16-shard-a-r2\/timeout-recovery-consumption-claim\.json$/mu);
   assert.match(worker, /^OnSuccess=curriculum-ocr-reprocess-a-r2-cleanup\.service$/mu);
   assert.match(worker, /^RestartPreventExitStatus=2 12 75$/mu);
+});
+
+test('A2 worker fails startup when any mandatory runtime prerequisite is absent', async () => {
+  const worker = await unit('curriculum-ocr-reprocess-a-r2.service');
+  assert.doesNotMatch(worker, /^Condition(?:Path|File)/mu);
+  const requiredChecks = [
+    'ExecStartPre=/usr/bin/test -d /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2',
+    'ExecStartPre=/usr/bin/test -d /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p4-mb16-shard-a-r1',
+    'ExecStartPre=/usr/bin/test -d /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2',
+    'ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/seed-commit.json',
+    'ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/seed-commit.json.sha256',
+    'ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/timeout-recovery-grant.json',
+    'ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/timeout-recovery-grant.json.sha256',
+    'ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/timeout-recovery-consumption-claim.json',
+    'ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/timeout-recovery-consumption-claim.json.sha256',
+  ];
+  const lines = new Set(worker.split('\n'));
+  for (const check of requiredChecks) assert.equal(lines.has(check), true, check);
 });
 
 test('A2 runtime is parallel-1, quality-first, and isolated from every predecessor worker', async () => {
@@ -64,4 +82,49 @@ test('A2 monitor loads hash-sealed live A1 anchors and covers completion plus al
   assert.match(alertConfig, /^BDFZ_OCR_ALERT_MONITOR_SCRIPT=.*\/workspace-a-r2\/scripts\/monitor-remote-ocr-single-shard\.mjs$/mu);
   assert.match(alertConfig, /^BDFZ_OCR_ALERT_MONITOR_SHA256=<LOWERCASE_64_HEX_SHA256>$/mu);
   assert.doesNotMatch(alertConfig, /(?:PASSWORD|TOKEN|COOKIE|\.secrets\.env)/iu);
+});
+
+test('shared completion cleanup reports a runtime-neutral fail-closed label', async () => {
+  const source = await readFile(new URL('../scripts/cleanup-remote-ocr-completion.mjs', import.meta.url), 'utf8');
+  assert.match(source, /Remote OCR completion cleanup failed closed:/u);
+  assert.doesNotMatch(source, /B3 completion cleanup failed closed:/u);
+});
+
+test('A2 deployment runbook is executable, ordered, and preserves the authority boundary', async () => {
+  const runbook = await readFile(new URL('../docs/remote-ocr-a2-deployment.md', import.meta.url), 'utf8');
+  for (const exact of [
+    'DMITPro2 inner bdfz workstation',
+    'ssh dmitpro2',
+    'ssh -p 22222 suen@localhost',
+    'BatchMode=yes',
+    'df -hT /',
+    'free -h',
+    'nvidia-smi',
+    'systemctl --failed',
+    'ss -lntup',
+    'docker ps',
+    'SHA256SUMS',
+    'a1-anchors.env',
+    'systemd-analyze --user verify',
+    'provision-timeout-recovery-authority.mjs',
+    'prepare-timeout-recovery-grant.mjs',
+    '--seed-dry-run',
+    '--seed-only',
+    'curriculum-ocr-reprocess-a-r2-monitor.service',
+    'curriculum-ocr-reprocess-a-r2-monitor.timer',
+    'ActiveState',
+    'MainPID',
+    'ConditionResult',
+    'NRestarts',
+    'run-status.json.sha256',
+    'archive',
+    'readback',
+    'freeze',
+    'rollback',
+  ]) assert.ok(runbook.includes(exact), exact);
+  assert.match(runbook, /preview[^\n]*twice|two[^\n]*preview/iu);
+  assert.match(runbook, /apply[^\n]*once|one[^\n]*apply/iu);
+  assert.match(runbook, /irreversible|不可逆/iu);
+  assert.match(runbook, /must not.*restore|不得.*恢复/iu);
+  assert.doesNotMatch(runbook, /(?:PASSWORD|TOKEN|COOKIE|API_KEY)\s*[=:]\s*[^<\s]/iu);
 });

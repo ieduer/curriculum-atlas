@@ -6,15 +6,6 @@ Conflicts=curriculum-ocr-reprocess@a.service curriculum-ocr-reprocess@b.service 
 OnSuccess=curriculum-ocr-reprocess-a-r2-cleanup.service
 StartLimitIntervalSec=300
 StartLimitBurst=3
-ConditionPathIsDirectory=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2
-ConditionPathIsDirectory=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p4-mb16-shard-a-r1
-ConditionPathIsDirectory=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2
-ConditionPathExists=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/seed-commit.json
-ConditionPathExists=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/seed-commit.json.sha256
-ConditionPathExists=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/timeout-recovery-grant.json
-ConditionPathExists=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/timeout-recovery-grant.json.sha256
-ConditionPathExists=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/timeout-recovery-consumption-claim.json
-ConditionPathExists=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/timeout-recovery-consumption-claim.json.sha256
 
 [Service]
 Type=simple
@@ -25,6 +16,15 @@ Environment=OMP_NUM_THREADS=8
 Environment=MKL_NUM_THREADS=8
 Environment=OPENBLAS_NUM_THREADS=8
 ExecStartPre=/usr/bin/test -x /usr/bin/flock
+ExecStartPre=/usr/bin/test -d /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2
+ExecStartPre=/usr/bin/test -d /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p4-mb16-shard-a-r1
+ExecStartPre=/usr/bin/test -d /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2
+ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/seed-commit.json
+ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/seed-commit.json.sha256
+ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/timeout-recovery-grant.json
+ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/timeout-recovery-grant.json.sha256
+ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/timeout-recovery-consumption-claim.json
+ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2/timeout-recovery-consumption-claim.json.sha256
 ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/.a2-lifecycle.lock
 ExecStartPre=/usr/bin/sha256sum --check --strict /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2/SHA256SUMS
 ExecStartPre=/usr/bin/curl --fail --silent --show-error --retry 60 --retry-delay 1 --retry-connrefused --retry-all-errors --connect-timeout 1 --max-time 2 http://127.0.0.1:8112/health
