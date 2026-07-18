@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/online-page-claims-v1.json",
+  "title": "Version-aware online claims bound to one physical PDF page",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy",
+    "document_id",
+    "physical_pdf_page",
+    "stable_locator",
+    "target_version",
+    "same_version_status",
+    "claims"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "policy": { "const": "version_aware_online_page_claims_v1" },
+    "document_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "physical_pdf_page": { "type": "integer", "minimum": 1 },
+    "stable_locator": { "type": "string" },
+    "target_version": { "$ref": "#/$defs/version_identity" },
+    "same_version_status": {
+      "enum": ["verified_independent", "single_source_only", "not_found", "conflict"]
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim_id",
+          "document_id",
+          "physical_pdf_page",
+          "stable_locator",
+          "url",
+          "publisher",
+          "source_type",
+          "retrieved_at",
+          "version_match",
+          "observed_version",
+          "snapshot",
+          "supporting_text",
+          "supporting_text_sha256"
+        ],
+        "properties": {
+          "claim_id": { "type": "string", "minLength": 1 },
+          "document_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "physical_pdf_page": { "type": "integer", "minimum": 1 },
+          "stable_locator": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "publisher": { "type": "string", "minLength": 1 },
+          "source_type": {
+            "enum": ["official", "official_archive", "academic", "scholarly_database", "official_library"]
+          },
+          "retrieved_at": { "type": "string", "format": "date-time" },
+          "version_match": {
+            "enum": [
+              "exact_document_exact_edition",
+              "exact_document_revision_uncertain",
+              "same_work_different_edition",
+              "stable_fact_only",
+              "not_matched"
+            ]
+          },
+          "observed_version": { "$ref": "#/$defs/version_identity" },
+          "snapshot": { "$ref": "#/$defs/artifact_ref" },
+          "supporting_text": { "type": "string", "minLength": 1 },
+          "supporting_text_sha256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locator", "sha256", "bytes"],
+      "properties": {
+        "locator": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "version_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "issuing_body_or_author",
+        "year_or_publication_context",
+        "version_label",
+        "section_or_item_locator"
+      ],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "issuing_body_or_author": { "type": "string", "minLength": 1 },
+        "year_or_publication_context": { "type": "string", "minLength": 1 },
+        "version_label": { "type": "string", "minLength": 1 },
+        "section_or_item_locator": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

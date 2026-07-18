@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/page-evidence-bundle-v1.json",
+  "title": "Immutable per-page evidence bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy",
+    "document_id",
+    "physical_pdf_page",
+    "page_count",
+    "stable_locator",
+    "version_identity",
+    "rendered_page",
+    "artifacts"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "policy": { "const": "immutable_page_evidence_bundle_v1" },
+    "document_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "physical_pdf_page": { "type": "integer", "minimum": 1 },
+    "page_count": { "type": "integer", "minimum": 1 },
+    "stable_locator": { "type": "string", "minLength": 1 },
+    "version_identity": { "$ref": "#/$defs/version_identity" },
+    "rendered_page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "command_contract",
+        "renderer_sha256",
+        "renderer_version",
+        "dpi",
+        "format",
+        "sha256",
+        "bytes",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "mode": { "const": "reproducible_render_v1" },
+        "command_contract": { "const": "mutool_draw_png_page_v1" },
+        "renderer_sha256": { "$ref": "#/$defs/sha256" },
+        "renderer_version": { "type": "string", "minLength": 1 },
+        "dpi": { "type": "integer", "minimum": 72, "maximum": 600 },
+        "format": { "const": "png" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_pdf",
+        "primary_result",
+        "primary_content",
+        "primary_state",
+        "vision_sidecar",
+        "audit",
+        "final_text",
+        "online_claims",
+        "reviewer_decision"
+      ],
+      "properties": {
+        "source_pdf": { "$ref": "#/$defs/artifact_ref" },
+        "primary_result": { "$ref": "#/$defs/artifact_ref" },
+        "primary_content": { "$ref": "#/$defs/artifact_ref" },
+        "primary_state": { "$ref": "#/$defs/artifact_ref" },
+        "vision_sidecar": { "$ref": "#/$defs/artifact_ref" },
+        "audit": { "$ref": "#/$defs/artifact_ref" },
+        "final_text": { "$ref": "#/$defs/artifact_ref" },
+        "online_claims": { "$ref": "#/$defs/artifact_ref" },
+        "reviewer_decision": { "$ref": "#/$defs/artifact_ref" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locator", "sha256", "bytes"],
+      "properties": {
+        "locator": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "version_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "issuing_body_or_author",
+        "year_or_publication_context",
+        "version_label",
+        "section_or_item_locator"
+      ],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "issuing_body_or_author": { "type": "string", "minLength": 1 },
+        "year_or_publication_context": { "type": "string", "minLength": 1 },
+        "version_label": { "type": "string", "minLength": 1 },
+        "section_or_item_locator": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
