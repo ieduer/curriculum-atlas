@@ -1,0 +1,39 @@
+[Unit]
+Description=Curriculum Atlas hash-bound B-r3 parallel-1 whole-document continuation
+Requires=curriculum-ocr-llama.service
+After=curriculum-ocr-llama.service
+Conflicts=curriculum-ocr-reprocess@a.service curriculum-ocr-reprocess@b.service curriculum-ocr-reprocess-b-r2.service
+OnSuccess=curriculum-ocr-reprocess-b-r3-cleanup.service
+StartLimitIntervalSec=300
+StartLimitBurst=3
+ConditionPathIsDirectory=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-b-r3
+ConditionPathIsDirectory=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p4-mb16-shard-b-r1
+ConditionPathIsDirectory=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-b-r3
+ConditionPathExists=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-b-r3/seed-commit.json
+ConditionPathExists=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-b-r3/seed-commit.json.sha256
+
+[Service]
+Type=simple
+UMask=0077
+WorkingDirectory=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-b-r3
+Environment=PADDLE_PDX_CACHE_HOME=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-b-r3/paddlex-cache
+Environment=OMP_NUM_THREADS=8
+Environment=MKL_NUM_THREADS=8
+Environment=OPENBLAS_NUM_THREADS=8
+ExecStartPre=/usr/bin/test -x /usr/bin/flock
+ExecStartPre=/usr/bin/test -f /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/.b3-lifecycle.lock
+ExecStartPre=/usr/bin/sha256sum --check --strict /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-b-r3/SHA256SUMS
+ExecStartPre=/usr/bin/curl --fail --silent --show-error --retry 60 --retry-delay 1 --retry-connrefused --retry-all-errors --connect-timeout 1 --max-time 2 http://127.0.0.1:8112/health
+ExecStart=/usr/bin/flock --no-fork --exclusive --wait 60 --conflict-exit-code 75 /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/.b3-lifecycle.lock \
+  /usr/bin/node /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-b-r3/scripts/run-remote-ocr-offload.mjs --manifest /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/manifests/offload-shard-b.json --input-root /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/input/pdfs-verified --output-root /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-b-r3 --python /home/suen/curriculum-ocr-offload/runs/20260716T0250Z-paddleocrvl16-canary/venv/bin/python --ocr-script /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-b-r3/scripts/ocr-pdf-paddle.py --model /home/suen/curriculum-ocr-offload/runs/20260716T0250Z-paddleocrvl16-canary/models/PaddleOCR-VL-1.6-GGUF.gguf --mmproj /home/suen/curriculum-ocr-offload/runs/20260716T0250Z-paddleocrvl16-canary/models/PaddleOCR-VL-1.6-GGUF-mmproj.gguf --llama-repo /home/suen/curriculum-ocr-offload/runs/20260716T0250Z-paddleocrvl16-canary/src/llama.cpp --llama-server-bin /home/suen/curriculum-ocr-offload/runs/20260716T0250Z-paddleocrvl16-canary/src/llama.cpp/build-cuda/bin/llama-server --llama-systemd-unit curriculum-ocr-llama.service --llama-url http://127.0.0.1:8112/v1 --runtime-device "cpu+NVIDIA RTX 3060 Laptop GPU CUDA llama.cpp" --vl-rec-max-concurrency 1 --server-parallel 1 --micro-batch 16 --use-queues --paddlex-cache-home /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-b-r3/paddlex-cache --seed-from-output-root /home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p4-mb16-shard-b-r1 --child-startup-timeout-seconds 180 --child-idle-timeout-seconds 1200 --child-wall-floor-seconds 1200 --child-wall-seconds-per-page 25 --child-terminate-grace-seconds 15 --child-poll-interval-seconds 5
+TimeoutStartSec=4min
+Restart=on-failure
+RestartSec=10s
+RestartPreventExitStatus=2 12 75
+KillMode=control-group
+TimeoutStopSec=120s
+StandardOutput=append:/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/logs/production-offload-b-r3.log
+StandardError=append:/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/logs/production-offload-b-r3.log
+
+[Install]
+WantedBy=default.target
