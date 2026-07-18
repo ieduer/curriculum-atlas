@@ -89,6 +89,7 @@ test('release manifest binds the complete data, graph, static, Git, and environm
     version_diffs: 0,
     online_verifications: 1,
     online_evidence: 5,
+    embedded_items: 0,
   });
 
   const assetAudit = manifest.integrity.project_asset_audit;
@@ -103,14 +104,19 @@ test('release manifest binds the complete data, graph, static, Git, and environm
   assert.equal(manifest.graph_assets[0].build_revision, manifest.graph_assets[1].build_revision);
   assert.ok(manifest.graph_assets.every((asset) => asset.sha256.length === 64 && asset.bytes > 0));
   assert.ok(manifest.graph_assets.every((asset) => asset.deploy_path.startsWith('dist/data/')));
+  assert.ok(manifest.graph_shards.length > 2);
+  assert.ok(manifest.graph_shards.every((asset) => asset.build_revision === manifest.graph_assets[0].build_revision));
+  assert.ok(manifest.graph_shards.every((asset) => asset.sha256.length === 64 && asset.bytes > 0 && asset.bytes <= 512 * 1024));
+  assert.ok(manifest.graph_shards.every((asset) => asset.source.startsWith('public/data/graph-shards/')));
+  assert.ok(manifest.graph_shards.every((asset) => asset.deploy_path.startsWith('dist/data/graph-shards/')));
   assert.equal(manifest.static_assets.source_root, 'public');
   assert.equal(manifest.static_assets.deploy_root, 'dist');
   assert.ok(manifest.static_assets.files.some((asset) => asset.path === 'public/subject-facets.js'));
   assert.ok(manifest.static_assets.files.some((asset) => asset.path === 'public/index.html'));
   assert.ok(manifest.static_assets.files.every((asset) => asset.deploy_path.startsWith('dist/')));
 
-  assert.equal(manifest.environment_snapshot.environments.local.worker_revision, 'working-tree-v10');
-  assert.equal(manifest.environment_snapshot.required_migration, '0007_document_taxonomy_contract.sql');
+  assert.equal(manifest.environment_snapshot.environments.local.worker_revision, 'working-tree-v11');
+  assert.equal(manifest.environment_snapshot.required_migration, '0008_compendium_embedded_items.sql');
   assert.equal(manifest.environment_snapshot.environments.local.r2_release_reader, 'versioned_manifest_v1');
   assert.equal(
     manifest.environment_snapshot.environments.local.release_blockers.some((blocker) => blocker.code === 'versioned_r2_reader_required'),
@@ -123,7 +129,10 @@ test('release manifest binds the complete data, graph, static, Git, and environm
       .filter((migration) => !observed.applied_migrations.includes(migration));
     assert.match(state.asset_git_commit, /^[0-9a-f]{40}$/);
     assert.equal(state.asset_git_commit_object_exists, true);
-    assert.equal(state.asset_git_commit_deployment_parity, true);
+    assert.equal(
+      state.asset_git_commit_deployment_parity,
+      !state.release_blockers.some((blocker) => blocker.code === 'worker_graph_shard_git_parity_required'),
+    );
     assert.deepEqual(state.applied_migrations, [...observed.applied_migrations].sort());
     assert.deepEqual(state.pending_migrations, expectedPendingMigrations);
     assert.deepEqual(

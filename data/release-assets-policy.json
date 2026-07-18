@@ -97,6 +97,12 @@
       "source": "public/data/concept-evolution-academic.json"
     }
   ],
+  "graph_shards": {
+    "source_prefix": "public/data/graph-shards",
+    "transport_profile": "immutable-content-addressed-graph-shards-v1",
+    "maximum_asset_bytes": 524288,
+    "required_descriptor_fields": ["id", "kind", "path", "bytes", "sha256", "counts", "build_revision", "filters"]
+  },
   "static_assets": {
     "source_root": "public",
     "deploy_root": "dist"
@@ -241,10 +247,10 @@
     ]
   },
   "environment_snapshot": {
-    "required_migration": "0007_document_taxonomy_contract.sql",
+    "required_migration": "0008_compendium_embedded_items.sql",
     "required_r2_release_reader": "versioned_manifest_v1",
     "local": {
-      "worker_revision": "working-tree-v10",
+      "worker_revision": "working-tree-v11",
       "worker_version_id": null,
       "asset_git_commit": "$git_head",
       "migration_state": "source_inventory_only",

@@ -34,6 +34,8 @@ export interface Session {
 export interface Passage {
   id: number;
   document_id: string;
+  parent_document_id: string;
+  embedded_item_id: string | null;
   title: string;
   entity_kind: string;
   taxonomy_entity_kind: string;
@@ -54,6 +56,8 @@ export interface Passage {
 export interface AiCitation {
   paragraphId: number;
   documentId: string;
+  parentDocumentId: string;
+  embeddedItemId: string | null;
   title: string;
   subject: string | null;
   entityLabel: string;

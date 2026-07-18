@@ -4,6 +4,12 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  compendiumTocEntryReceiptSha256,
+  compendiumTocPageReceiptSha256,
+  compendiumItemCitationEntitlementSha256,
+  onlineRegistryStatusForCompendium,
+} from './compendium-evidence-receipt.mjs';
 
 const shaPattern = /^[a-f0-9]{64}$/;
 const canonicalTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
@@ -19,10 +25,6 @@ function exactKeys(value, expected) {
 
 function add(errors, condition, code, detail) {
   if (!condition) errors.push({ code, detail });
-}
-
-function entryDigest(item) {
-  return sha256(`${item.section}\t${item.display_year}\t${item.raw_title}\t${item.printed_page_start}\n`);
 }
 
 export function canonicalCompendiumTitle(rawTitle) {
@@ -88,8 +90,8 @@ export function validateCompendiumItemBoundaries(value, { catalog, queue, online
   add(errors, exactKeys(value, ['$schema', 'schema_version', 'policy', 'documents']),
     'root_shape', 'root keys are not canonical');
   add(errors, value?.$schema === './compendium-item-boundaries.schema.json', 'schema_pointer', 'schema pointer drifted');
-  add(errors, value?.schema_version === 1, 'schema_version', 'schema version must equal 1');
-  add(errors, value?.policy === 'fail_closed_compendium_item_boundaries_v1', 'policy', 'policy drifted');
+  add(errors, value?.schema_version === 2, 'schema_version', 'schema version must equal 2');
+  add(errors, value?.policy === 'fail_closed_compendium_item_boundaries_v2', 'policy', 'policy drifted');
   add(errors, Array.isArray(value?.documents), 'documents', 'documents must be an array');
 
   const catalogById = new Map((catalog?.documents || []).map((record) => [record.id, record]));
@@ -139,13 +141,27 @@ export function validateCompendiumItemBoundaries(value, { catalog, queue, online
     'toc_review', `${document.document_id} TOC lacks a navigation-only image review`);
     const tocPages = new Set();
     for (const page of toc?.physical_pages || []) {
-      add(errors, exactKeys(page, ['page_number', 'primary_text_sha256', 'source_image_sha256']),
+      add(errors, exactKeys(page, [
+        'page_number', 'primary_text_sha256', 'source_image_sha256',
+        'vision_witness_sha256', 'evidence_bundle_sha256',
+      ]),
         'toc_page_shape', `${document.document_id} TOC page keys are not canonical`);
       add(errors, Number.isSafeInteger(page.page_number) && page.page_number >= 1
         && page.page_number <= document.physical_page_count && !tocPages.has(page.page_number),
       'toc_page', `${document.document_id} TOC page ${page.page_number} is invalid or repeated`);
-      add(errors, shaPattern.test(page.primary_text_sha256 || '') && shaPattern.test(page.source_image_sha256 || ''),
+      add(errors, [
+        page.primary_text_sha256, page.source_image_sha256,
+        page.vision_witness_sha256, page.evidence_bundle_sha256,
+      ].every((digest) => shaPattern.test(digest || '')),
         'toc_page_hash', `${document.document_id} TOC page ${page.page_number} lacks hashes`);
+      add(errors, page.evidence_bundle_sha256 === compendiumTocPageReceiptSha256({
+        documentId: document.document_id,
+        sourceArtifactSha256: document.source_artifact_sha256,
+        pageNumber: page.page_number,
+        primaryTextSha256: page.primary_text_sha256,
+        sourceImageSha256: page.source_image_sha256,
+        visionWitnessSha256: page.vision_witness_sha256,
+      }), 'toc_page_receipt', `${document.document_id} TOC page ${page.page_number} receipt drifted`);
       tocPages.add(page.page_number);
     }
     add(errors, tocPages.size > 0, 'toc_pages_empty', `${document.document_id} has no TOC pages`);
@@ -157,8 +173,9 @@ export function validateCompendiumItemBoundaries(value, { catalog, queue, online
       const expectedId = `embedded:${document.document_id}:item-${String(index + 1).padStart(3, '0')}`;
       add(errors, exactKeys(item, [
         'item_id', 'sequence', 'section', 'item_kind', 'parent_item_id', 'raw_title', 'title',
-        'display_year', 'year_basis', 'toc_physical_page', 'printed_page_start',
+        'display_year', 'year_basis', 'toc_physical_page', 'printed_page_start', 'issuing_body',
         'candidate_physical_page_start', 'candidate_physical_page_end', 'toc_entry_sha256',
+        'toc_entry_evidence',
         'body_heading', 'online_verification', 'page_evidence', 'semantic_review',
         'identity_status', 'display_allowed', 'citation_allowed', 'semantic_claim_allowed',
         'uncertainty_note',
@@ -176,6 +193,9 @@ export function validateCompendiumItemBoundaries(value, { catalog, queue, online
         'item_title_normalization', `${item.item_id} canonical title differs from its reviewed TOC text`);
       add(errors, Number.isSafeInteger(item.display_year) && item.display_year >= 1800 && item.display_year <= 2030,
         'item_year', `${item.item_id} year is invalid`);
+      add(errors, item.issuing_body === null
+        || (typeof item.issuing_body === 'string' && item.issuing_body.trim().length > 0),
+      'issuing_body', `${item.item_id} issuing body must be null or an independently reviewed value`);
       add(errors, tocPages.has(item.toc_physical_page), 'item_toc_page', `${item.item_id} points outside reviewed TOC pages`);
       add(errors, Number.isSafeInteger(item.printed_page_start) && item.printed_page_start > 0
         && item.candidate_physical_page_start === item.printed_page_start + document.printed_to_physical_page_offset,
@@ -188,13 +208,43 @@ export function validateCompendiumItemBoundaries(value, { catalog, queue, online
       'item_candidate_end', `${item.item_id} candidate end is not the next-item boundary`);
       add(errors, index === 0 || item.candidate_physical_page_start > items[index - 1].candidate_physical_page_start,
         'item_order', `${item.item_id} does not strictly follow the prior item`);
-      add(errors, item.toc_entry_sha256 === entryDigest(item), 'item_toc_hash', `${item.item_id} TOC entry digest drifted`);
+      const tocEntry = item.toc_entry_evidence;
+      const tocPage = (toc?.physical_pages || []).find((page) => page.page_number === item.toc_physical_page);
+      add(errors, exactKeys(tocEntry, [
+        'source_line', 'source_line_sha256', 'toc_page_evidence_bundle_sha256', 'entry_receipt_sha256',
+      ]), 'item_toc_evidence_shape', `${item.item_id} TOC entry evidence keys are not canonical`);
+      const sourceLineMatch = /^(?:(\d{4})\s*年\s*)?(.+?)\s+\.{3,}\s*(\d+)\s*$/u.exec(tocEntry?.source_line || '');
+      add(errors, Boolean(sourceLineMatch)
+        && sha256(tocEntry.source_line) === tocEntry.source_line_sha256
+        && canonicalCompendiumTitle(sourceLineMatch[2]) === item.title
+        && Number(sourceLineMatch[3]) === item.printed_page_start
+        && (item.item_kind === 'attachment'
+          ? sourceLineMatch[1] === undefined
+          : Number(sourceLineMatch[1]) === item.display_year)
+        && tocEntry.toc_page_evidence_bundle_sha256 === tocPage?.evidence_bundle_sha256,
+      'item_toc_source_line', `${item.item_id} does not match its immutable TOC source line`);
+      const expectedEntryReceipt = compendiumTocEntryReceiptSha256({
+        documentId: document.document_id,
+        sourceArtifactSha256: document.source_artifact_sha256,
+        tocPageNumber: item.toc_physical_page,
+        tocPageEvidenceBundleSha256: tocEntry?.toc_page_evidence_bundle_sha256,
+        sourceLine: tocEntry?.source_line,
+        section: item.section,
+        displayYear: item.display_year,
+        rawTitle: item.raw_title,
+        printedPageStart: item.printed_page_start,
+      });
+      add(errors, tocEntry?.entry_receipt_sha256 === expectedEntryReceipt
+        && item.toc_entry_sha256 === expectedEntryReceipt,
+      'item_toc_receipt', `${item.item_id} TOC row is not bound to its source-page receipt`);
 
       if (item.item_kind === 'attachment') {
         const parent = items[index - 1];
         add(errors, item.parent_item_id === parent?.item_id && item.year_basis === 'parent_notice_year'
           && item.display_year === parent?.display_year && item.section === parent?.section,
         'attachment_parent', `${item.item_id} is not bound to its adjacent same-year parent`);
+        add(errors, !item.display_allowed || parent?.display_allowed === true,
+          'attachment_publication_parent', `${item.item_id} cannot publish without its parent item identity`);
       } else {
         add(errors, item.parent_item_id === null && item.year_basis === 'toc_explicit_year',
           'document_year_basis', `${item.item_id} has an invented parent or year`);
@@ -229,6 +279,7 @@ export function validateCompendiumItemBoundaries(value, { catalog, queue, online
       add(errors, exactKeys(pages, [
         'verification_status', 'page_publication_release_id', 'physical_page_start',
         'physical_page_end', 'accepted_page_count', 'page_set_sha256',
+        'item_citation_entitlement_sha256',
       ]), 'page_evidence_shape', `${item.item_id} page evidence keys are not canonical`);
       const pagesVerified = ['all_pages_display_verified', 'all_pages_citation_verified'].includes(pages?.verification_status);
       if (pagesVerified) {
@@ -242,7 +293,7 @@ export function validateCompendiumItemBoundaries(value, { catalog, queue, online
         add(errors, pages?.verification_status === 'not_verified'
           && nullableEvidenceClosed(pages, [
             'page_publication_release_id', 'physical_page_start', 'physical_page_end',
-            'accepted_page_count', 'page_set_sha256',
+            'accepted_page_count', 'page_set_sha256', 'item_citation_entitlement_sha256',
           ]), 'page_evidence_fail_closed', `${item.item_id} unverified page set retains publication claims`);
       }
 
@@ -274,7 +325,7 @@ export function validateCompendiumItemBoundaries(value, { catalog, queue, online
             return source?.document_id === document.document_id
               && canonicalCompendiumTitle(source.contained_document || '') === item.title
               && source.edition_match_status === 'exact_document_exact_edition'
-              && source.verification_status === 'same_edition_exact_text_verified'
+              && source.verification_status === onlineRegistryStatusForCompendium(online.verification_status)
               && source.primary_ocr_sha256 === online.primary_item_text_sha256
               && source.online_text_sha256 === online.online_text_sha256
               && source.citation_allowed === true;
@@ -322,6 +373,23 @@ export function validateCompendiumItemBoundaries(value, { catalog, queue, online
           'online_not_found', `${item.item_id} not-found review retains source claims`);
         }
       }
+
+      const expectedItemCitationEntitlement = exactOnline && pagesVerified
+        ? compendiumItemCitationEntitlementSha256({
+          itemId: item.item_id,
+          parentDocumentId: document.document_id,
+          sourceArtifactSha256: document.source_artifact_sha256,
+          pageSetSha256: pages.page_set_sha256,
+          primaryItemTextSha256: online.primary_item_text_sha256,
+          onlineTextSha256: online.online_text_sha256,
+          onlineSourceIds: online.source_ids,
+        })
+        : null;
+      add(errors, pages?.verification_status === 'all_pages_citation_verified'
+        ? pages.item_citation_entitlement_sha256 === expectedItemCitationEntitlement
+          && shaPattern.test(pages.item_citation_entitlement_sha256 || '')
+        : pages?.item_citation_entitlement_sha256 === null,
+      'item_citation_entitlement', `${item.item_id} item-scoped citation receipt is missing or stale`);
 
       const semantic = item.semantic_review;
       add(errors, exactKeys(semantic, ['review_status', 'reviewer_id', 'reviewed_at', 'review_note']),

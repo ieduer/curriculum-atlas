@@ -85,6 +85,16 @@ test('legacy pages remain merged into the two rail-launched workspaces', () => {
   assert.match(app, /path === '\/discussions'/);
 });
 
+test('embedded compendium identities keep their item-scoped reader and parent discussion boundary', () => {
+  assert.match(app, /identity_kind === 'embedded_item' \|\| id\.startsWith\('embedded:'\)/);
+  assert.match(app, /embeddedItem \? '\/api\/items\/' : '\/api\/documents\/'/);
+  assert.match(app, /const doc = data\.document \|\| data\.item/);
+  assert.match(app, /const discussionDocumentId = data\.discussionDocumentId \|\| doc\.id/);
+  assert.match(app, /const documentId = requestedIdentity\?\.parent_document_id \|\| requestedDocumentId/);
+  assert.match(app, /id: doc\.parent_document_id \|\| doc\.id/);
+  assert.match(app, /embeddedItem \? '汇编篇目'/);
+});
+
 test('camera motion follows system preference and no redundant header controls remain', () => {
   assert.doesNotMatch(html, /motion-toggle|reset-view|>静<|>◎</);
   assert.doesNotMatch(app, /localStorage|motionToggle|resetView|curriculum:stable/);

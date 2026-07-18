@@ -10,11 +10,13 @@ import { buildCompendiumBoundaryCandidates } from '../scripts/build-compendium-i
 import {
   verifyCompendiumHeadingEvidence,
   verifyCompendiumItemPageEvidence,
+  verifyCompendiumTocEvidenceArtifacts,
 } from '../scripts/compendium-item-publication.mjs';
 import {
   compendiumPageSetSha256,
   validateCompendiumItemBoundaries,
 } from '../scripts/validate-compendium-item-boundaries.mjs';
+import { compendiumItemCitationEntitlementSha256 } from '../scripts/compendium-evidence-receipt.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const copy = (value) => structuredClone(value);
@@ -121,6 +123,7 @@ test('verified item gates require heading, every page, exact edition, and semant
     physical_page_end: 17,
     accepted_page_count: 1,
     page_set_sha256: '4'.repeat(64),
+    item_citation_entitlement_sha256: null,
   };
   item.identity_status = 'verified_full_item';
   item.display_allowed = true;
@@ -160,6 +163,15 @@ test('verified item gates require heading, every page, exact edition, and semant
     uncertainty_note: null,
   };
   item.citation_allowed = true;
+  item.page_evidence.item_citation_entitlement_sha256 = compendiumItemCitationEntitlementSha256({
+    itemId: item.item_id,
+    parentDocumentId: value.documents[0].document_id,
+    sourceArtifactSha256: value.documents[0].source_artifact_sha256,
+    pageSetSha256: item.page_evidence.page_set_sha256,
+    primaryItemTextSha256: item.online_verification.primary_item_text_sha256,
+    onlineTextSha256: item.online_verification.online_text_sha256,
+    onlineSourceIds: item.online_verification.source_ids,
+  });
   report = validate(value, {
     onlineVerifications: {
       samples: [{
@@ -167,7 +179,7 @@ test('verified item gates require heading, every page, exact edition, and semant
         document_id: value.documents[0].document_id,
         contained_document: item.raw_title,
         edition_match_status: 'exact_document_exact_edition',
-        verification_status: 'same_edition_exact_text_verified',
+        verification_status: 'verified_exact',
         primary_ocr_sha256: item.online_verification.primary_item_text_sha256,
         online_text_sha256: item.online_verification.online_text_sha256,
         citation_allowed: true,
@@ -183,7 +195,7 @@ test('verified item gates require heading, every page, exact edition, and semant
         document_id: value.documents[0].document_id,
         contained_document: item.raw_title,
         edition_match_status: 'exact_document_exact_edition',
-        verification_status: 'same_edition_exact_text_verified',
+        verification_status: 'verified_exact',
         primary_ocr_sha256: item.online_verification.primary_item_text_sha256,
         online_text_sha256: '0'.repeat(64),
         citation_allowed: true,
@@ -208,7 +220,7 @@ test('verified item gates require heading, every page, exact edition, and semant
         document_id: value.documents[0].document_id,
         contained_document: item.raw_title,
         edition_match_status: 'exact_document_exact_edition',
-        verification_status: 'same_edition_exact_text_verified',
+        verification_status: 'verified_exact',
         primary_ocr_sha256: item.online_verification.primary_item_text_sha256,
         online_text_sha256: item.online_verification.online_text_sha256,
         citation_allowed: true,
@@ -256,11 +268,12 @@ test('heading publication binds the reviewed title to primary OCR, image witness
     source_artifact_sha256: 'a'.repeat(64),
   };
   const primaryBytes = Buffer.from('# 钦定蒙学堂章程（摘录）\n\n正文\n');
+  const sourceImageBytes = Buffer.from('fixture-png-bytes');
   const witnessBytes = Buffer.from(JSON.stringify({
     document_id: documentBoundary.document_id,
     physical_pdf_page: 17,
     source_pdf_sha256: documentBoundary.source_artifact_sha256,
-    rendered_image_sha256: 'b'.repeat(64),
+    rendered_image_sha256: digest(sourceImageBytes),
     lines: [{ text: '钦定蒙学堂章程（摘录）', confidence: 1 }],
   }));
   const item = {
@@ -271,7 +284,7 @@ test('heading publication binds the reviewed title to primary OCR, image witness
       physical_page: 17,
       exact_text: '钦定蒙学堂章程（摘录）',
       primary_ocr_sha256: digest(primaryBytes),
-      source_image_sha256: 'b'.repeat(64),
+      source_image_sha256: digest(sourceImageBytes),
       witness_sha256: digest(witnessBytes),
     },
   };
@@ -283,16 +296,17 @@ test('heading publication binds the reviewed title to primary OCR, image witness
     final_text_sha256: item.body_heading.primary_ocr_sha256,
   };
   const result = verifyCompendiumHeadingEvidence({
-    documentBoundary, item, primaryBytes, witnessBytes, acceptedPage,
+    documentBoundary, item, primaryBytes, witnessBytes, sourceImageBytes, acceptedPage,
   });
   assert.equal(result.primary_ocr_sha256, digest(primaryBytes));
   assert.throws(() => verifyCompendiumHeadingEvidence({
-    documentBoundary, item, primaryBytes: Buffer.from('# 伪造标题\n'), witnessBytes, acceptedPage,
+    documentBoundary, item, primaryBytes: Buffer.from('# 伪造标题\n'), witnessBytes, sourceImageBytes, acceptedPage,
   }), /heading image\/primary\/witness evidence drifted/);
   assert.throws(() => verifyCompendiumHeadingEvidence({
     documentBoundary,
     item,
     primaryBytes,
+    sourceImageBytes,
     witnessBytes: Buffer.from(JSON.stringify({ ...JSON.parse(witnessBytes), document_id: 'wrong-document' })),
     acceptedPage,
   }), /heading image\/primary\/witness evidence drifted/);
@@ -303,7 +317,7 @@ test('full-item publication binds every ordered page to the current corpus relea
     document_id: 'legacy-compendium-chinese',
     source_artifact_sha256: 'a'.repeat(64),
   };
-  const releaseId = `corpus-${'c'.repeat(24)}`;
+  const releaseId = `page-gate-${'c'.repeat(24)}`;
   const rawPages = ['第一页\n', '第二页\n'];
   const boundPages = [17, 18].map((pageNumber, index) => ({
     document_id: documentBoundary.document_id,
@@ -326,6 +340,7 @@ test('full-item publication binds every ordered page to the current corpus relea
       physical_page_start: 17,
       physical_page_end: 18,
       accepted_page_count: 2,
+      item_citation_entitlement_sha256: null,
       page_set_sha256: compendiumPageSetSha256({
         documentId: documentBoundary.document_id,
         sourceArtifactSha256: documentBoundary.source_artifact_sha256,
@@ -338,24 +353,40 @@ test('full-item publication binds every ordered page to the current corpus relea
     online_verification: { verification_status: 'not_started', primary_item_text_sha256: null },
   };
   const result = verifyCompendiumItemPageEvidence({
-    documentBoundary, item, boundPages, rawPages, currentCorpusReleaseId: releaseId,
+    documentBoundary, item, boundPages, rawPages, currentPagePublicationReleaseId: releaseId,
   });
   assert.equal(result.full_item_raw_text_sha256, digest(rawPages.join('\f')));
   assert.throws(() => verifyCompendiumItemPageEvidence({
-    documentBoundary, item, boundPages, rawPages, currentCorpusReleaseId: `corpus-${'d'.repeat(24)}`,
+    documentBoundary, item, boundPages, rawPages, currentPagePublicationReleaseId: `page-gate-${'d'.repeat(24)}`,
   }), /page evidence is stale/);
   const citationItem = copy(item);
   citationItem.page_evidence.verification_status = 'all_pages_citation_verified';
-  assert.throws(() => verifyCompendiumItemPageEvidence({
-    documentBoundary, item: citationItem, boundPages, rawPages, currentCorpusReleaseId: releaseId,
-  }), /citation claim exceeds/);
+  citationItem.online_verification = {
+    verification_status: 'same_edition_exact_text_verified',
+    primary_item_text_sha256: digest(rawPages.join('\f')),
+    online_text_sha256: digest('same-edition-online-text'),
+    source_ids: ['source:fixture'],
+  };
+  citationItem.page_evidence.item_citation_entitlement_sha256 = compendiumItemCitationEntitlementSha256({
+    itemId: citationItem.item_id,
+    parentDocumentId: documentBoundary.document_id,
+    sourceArtifactSha256: documentBoundary.source_artifact_sha256,
+    pageSetSha256: citationItem.page_evidence.page_set_sha256,
+    primaryItemTextSha256: citationItem.online_verification.primary_item_text_sha256,
+    onlineTextSha256: citationItem.online_verification.online_text_sha256,
+    onlineSourceIds: citationItem.online_verification.source_ids,
+  });
+  const citationResult = verifyCompendiumItemPageEvidence({
+    documentBoundary, item: citationItem, boundPages, rawPages, currentPagePublicationReleaseId: releaseId,
+  });
+  assert.match(citationResult.item_citation_entitlement_sha256, /^[a-f0-9]{64}$/);
   const staleOnlineItem = copy(item);
   staleOnlineItem.online_verification = {
     verification_status: 'same_edition_exact_text_verified',
     primary_item_text_sha256: 'e'.repeat(64),
   };
   assert.throws(() => verifyCompendiumItemPageEvidence({
-    documentBoundary, item: staleOnlineItem, boundPages, rawPages, currentCorpusReleaseId: releaseId,
+    documentBoundary, item: staleOnlineItem, boundPages, rawPages, currentPagePublicationReleaseId: releaseId,
   }), /online comparison is bound to stale primary text/);
 });
 
@@ -368,6 +399,7 @@ test('TOC candidate builder parses sections, attachments, provenance, and next-i
   const witnessRoot = path.join(temporary, 'witness');
   await mkdir(path.join(ocrRoot, documentId, 'pages', '0001'), { recursive: true });
   await mkdir(path.join(witnessRoot, documentId, 'vision'), { recursive: true });
+  await mkdir(path.join(witnessRoot, documentId, 'images'), { recursive: true });
   const toc = [
     '## 小学部分',
     '1902年 第一篇 ..... 3',
@@ -377,11 +409,13 @@ test('TOC candidate builder parses sections, attachments, provenance, and next-i
     '',
   ].join('\n');
   await writeFile(path.join(ocrRoot, documentId, 'pages', '0001', 'content.md'), toc);
+  const imageBytes = Buffer.from('fixture-rendered-page');
+  await writeFile(path.join(witnessRoot, documentId, 'images', 'page-001.png'), imageBytes);
   await writeFile(path.join(witnessRoot, documentId, 'vision', 'page-001.json'), JSON.stringify({
     document_id: documentId,
     physical_pdf_page: 1,
     source_pdf_sha256: sourceSha256,
-    rendered_image_sha256: 'b'.repeat(64),
+    rendered_image_sha256: digest(imageBytes),
   }));
   const value = await buildCompendiumBoundaryCandidates({
     documentId,
@@ -403,6 +437,23 @@ test('TOC candidate builder parses sections, attachments, provenance, and next-i
   assert.equal(items[1].display_year, 1902);
   assert.equal(items[2].section, '中学');
   assert.equal(value.documents[0].toc_evidence.physical_pages[0].primary_text_sha256, digest(toc));
+  assert.deepEqual(await verifyCompendiumTocEvidenceArtifacts({
+    documentBoundary: value.documents[0],
+    ocrRoot,
+    witnessRoot,
+  }), {
+    document_id: documentId,
+    verified_toc_pages: 1,
+    verified_toc_entries: 3,
+  });
+  const primaryPath = path.join(ocrRoot, documentId, 'pages', '0001', 'content.md');
+  await writeFile(primaryPath, toc.replace('第一篇', '伪造篇目'));
+  await assert.rejects(() => verifyCompendiumTocEvidenceArtifacts({
+    documentBoundary: value.documents[0],
+    ocrRoot,
+    witnessRoot,
+  }), /TOC page 1 image\/primary\/Vision receipt drifted/);
+  await writeFile(primaryPath, toc);
 
   const existingOutput = path.join(temporary, 'existing.json');
   await writeFile(existingOutput, 'sentinel\n');

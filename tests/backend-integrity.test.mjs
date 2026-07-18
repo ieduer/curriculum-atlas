@@ -19,7 +19,54 @@ const EMPTY_CORE_TABLE_COUNTS_JSON = JSON.stringify({
   version_diffs: 0,
   online_verifications: 0,
   online_evidence: 0,
+  embedded_items: 0,
 });
+const GRAPH_BUILD_REVISION = 'c'.repeat(64);
+const GRAPH_TRANSPORT = 'immutable-content-addressed-graph-shards-v1';
+const GRAPH_DESCRIPTOR = {
+  id: 'episode_detail:fixture:1',
+  kind: 'episode_detail',
+  path: '/data/graph-shards/details/fixture.json',
+  bytes: 123,
+  sha256: 'd'.repeat(64),
+  counts: { episodes: 1, evidence: 1 },
+  build_revision: GRAPH_BUILD_REVISION,
+  filters: { facet: '语文', era: '2022-present', chunk_index: 1 },
+};
+const ACADEMIC_GRAPH_INDEX_BYTES = Buffer.from(`${JSON.stringify({
+  transport_profile: GRAPH_TRANSPORT,
+  build_revision: GRAPH_BUILD_REVISION,
+  shard_manifest: {
+    transport_profile: GRAPH_TRANSPORT,
+    build_revision: GRAPH_BUILD_REVISION,
+    max_shard_bytes: 512 * 1024,
+    assets: [],
+  },
+})}\n`);
+const CORE_GRAPH_INDEX_BYTES = Buffer.from(`${JSON.stringify({
+  transport_profile: GRAPH_TRANSPORT,
+  build_revision: GRAPH_BUILD_REVISION,
+  academic_model_ref: {
+    sha256: createHash('sha256').update(ACADEMIC_GRAPH_INDEX_BYTES).digest('hex'),
+    bytes: ACADEMIC_GRAPH_INDEX_BYTES.byteLength,
+    transport_profile: GRAPH_TRANSPORT,
+  },
+  episodes: [{ id: 'episode:fixture', detail_shard_ids: [GRAPH_DESCRIPTOR.id] }],
+  edges: [],
+  shard_manifest: {
+    transport_profile: GRAPH_TRANSPORT,
+    build_revision: GRAPH_BUILD_REVISION,
+    max_shard_bytes: 512 * 1024,
+    assets: [GRAPH_DESCRIPTOR],
+  },
+})}\n`);
+
+async function graphAssetFetch(request) {
+  const pathname = new URL(request.url).pathname;
+  if (pathname === '/data/concept-evolution.json') return new Response(CORE_GRAPH_INDEX_BYTES);
+  if (pathname === '/data/concept-evolution-academic.json') return new Response(ACADEMIC_GRAPH_INDEX_BYTES);
+  return new Response('not found', { status: 404 });
+}
 
 async function bundleModule(entryPoint) {
   const bundle = await build({
@@ -371,7 +418,7 @@ function makeCommentEnv({ parent = null, paragraph = null, sources = {} } = {}) 
         },
       },
       HASH_SALT: 'test-hash-salt',
-      ASSETS: { async fetch() { return new Response('asset'); } },
+      ASSETS: { fetch: graphAssetFetch },
       SOURCES: sources,
       APIS: {},
       ENVIRONMENT: 'test',
@@ -567,6 +614,9 @@ test('source manifest follows the integrity-checked immutable release pointer', 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { entries: [{ id: 'versioned' }] });
   assert.deepEqual(calls, ['release/current.json', releaseManifestKey, assetKey]);
+  assert.equal(response.headers.get('x-curriculum-graph-build-revision'), GRAPH_BUILD_REVISION);
+  assert.equal(response.headers.get('x-curriculum-graph-shard-count'), '1');
+  assert.match(response.headers.get('x-curriculum-graph-descriptor-sha256'), /^[a-f0-9]{64}$/);
 });
 
 test('source manifest retains a stable-key bootstrap fallback only when no release pointer exists', async () => {

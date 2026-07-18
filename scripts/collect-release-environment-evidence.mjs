@@ -11,13 +11,14 @@ const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const DEFAULT_OUTPUT = 'data/release-environment-evidence.json';
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const UUID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
-const ASSET_PATHS = [
+const BASE_ASSET_PATHS = [
   'app.js',
   'atlas.js',
   'styles.css',
   'data/concept-evolution.json',
   'data/concept-evolution-academic.json',
 ];
+const GRAPH_SHARD_TRANSPORT = 'immutable-content-addressed-graph-shards-v1';
 const ENVIRONMENTS = {
   preview: {
     worker: 'bdfz-curriculum-atlas-preview',
@@ -62,16 +63,20 @@ function exactInteger(value, label) {
   return value;
 }
 
-function exactCoreCounts(value, label) {
+function exactCoreCounts(value, label, { allowLegacyEmbeddedItems = false } = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`${label} must be an object`);
   }
   const keys = Object.keys(value);
-  if (keys.length !== CORE_TABLE_COUNT_KEYS.length
-      || CORE_TABLE_COUNT_KEYS.some((key) => !Object.hasOwn(value, key))) {
+  const requiredKeys = allowLegacyEmbeddedItems
+    ? CORE_TABLE_COUNT_KEYS.filter((key) => key !== 'embedded_items')
+    : CORE_TABLE_COUNT_KEYS;
+  if (!requiredKeys.every((key) => Object.hasOwn(value, key))
+      || keys.some((key) => !CORE_TABLE_COUNT_KEYS.includes(key))
+      || (!allowLegacyEmbeddedItems && keys.length !== CORE_TABLE_COUNT_KEYS.length)) {
     throw new Error(`${label} must contain the exact core table key set`);
   }
-  return Object.fromEntries(CORE_TABLE_COUNT_KEYS.map((key) => [
+  return Object.fromEntries(requiredKeys.map((key) => [
     key,
     exactInteger(value[key], `${label}.${key}`),
   ]));
@@ -88,7 +93,9 @@ function validateCorpus(value, label) {
   for (const key of ['documents', 'paragraphs', 'fts_rows', 'page_publication_gates', 'displayed_paragraphs', 'accepted_ocr_documents', 'chunks']) {
     counts[key] = exactInteger(value.counts?.[key], `${label}.corpus.counts.${key}`);
   }
-  counts.core_table_counts = exactCoreCounts(value.counts?.core_table_counts, `${label}.corpus.counts.core_table_counts`);
+  counts.core_table_counts = exactCoreCounts(value.counts?.core_table_counts, `${label}.corpus.counts.core_table_counts`, {
+    allowLegacyEmbeddedItems: true,
+  });
   return { ...value, counts };
 }
 
@@ -106,9 +113,24 @@ export function validateEnvironmentEvidenceReceipt(value) {
       || !UUID_PATTERN.test(environment.deployment_id) || !/^[a-f0-9]{40}$/.test(environment.asset_git_commit)) {
       throw new Error(`${name} environment evidence identity is invalid`);
     }
-    if (environment.asset_parity?.valid !== true || environment.asset_parity?.assets?.length !== ASSET_PATHS.length
-      || environment.asset_parity.assets.some((asset) => !ASSET_PATHS.includes(asset.path)
-        || !SHA256_PATTERN.test(asset.sha256) || !Number.isSafeInteger(asset.bytes))) {
+    const parityAssets = environment.asset_parity?.assets;
+    const parityPaths = Array.isArray(parityAssets) ? parityAssets.map((asset) => asset.path) : [];
+    const uniqueParityPaths = new Set(parityPaths);
+    const legacyParity = environment.asset_parity?.method === 'five_live_assets_byte_equal_git_commit'
+      && parityPaths.length === BASE_ASSET_PATHS.length
+      && BASE_ASSET_PATHS.every((path) => uniqueParityPaths.has(path));
+    const shardedParity = environment.asset_parity?.method === 'git_graph_manifest_live_assets_byte_equal_commit'
+      && environment.asset_parity?.transport_profile === GRAPH_SHARD_TRANSPORT
+      && SHA256_PATTERN.test(String(environment.asset_parity?.build_revision || ''))
+      && uniqueParityPaths.size === parityPaths.length
+      && BASE_ASSET_PATHS.every((path) => uniqueParityPaths.has(path))
+      && parityPaths.filter((path) => !BASE_ASSET_PATHS.includes(path))
+        .every((path) => path.startsWith('data/graph-shards/'))
+      && environment.asset_parity?.graph_shard_count === parityPaths.length - BASE_ASSET_PATHS.length
+      && environment.asset_parity?.asset_paths_sha256 === sha256([...parityPaths].sort().join('\0'));
+    if (environment.asset_parity?.valid !== true || (!legacyParity && !shardedParity)
+      || !Array.isArray(parityAssets)
+      || parityAssets.some((asset) => !SHA256_PATTERN.test(asset.sha256) || !Number.isSafeInteger(asset.bytes))) {
       throw new Error(`${name} environment asset parity evidence is invalid`);
     }
     if (!Array.isArray(environment.applied_migrations) || !Array.isArray(environment.pending_migrations)) {
@@ -162,6 +184,28 @@ function gitBlob(root, commit, path) {
   const result = spawnSync('git', ['show', `${commit}:public/${path}`], { cwd: root, encoding: null, maxBuffer: 64 * 1024 * 1024 });
   if (result.status !== 0) throw new Error(`Git asset is missing at ${commit}:public/${path}`);
   return Buffer.from(result.stdout || '');
+}
+
+function assetPathsForCommit(root, commit) {
+  const indexes = ['data/concept-evolution.json', 'data/concept-evolution-academic.json']
+    .map((assetPath) => JSON.parse(gitBlob(root, commit, assetPath).toString('utf8')));
+  if (indexes.some((index) => index.transport_profile !== GRAPH_SHARD_TRANSPORT)
+    || indexes[0].build_revision !== indexes[1].build_revision) {
+    throw new Error('Git graph indexes do not share one immutable shard revision');
+  }
+  const shardPaths = indexes.flatMap((index) => index.shard_manifest?.assets || []).map((asset) => {
+    if (asset.build_revision !== index.build_revision || typeof asset.path !== 'string'
+      || !asset.path.startsWith('/data/graph-shards/') || asset.path.includes('..')) {
+      throw new Error(`Git graph shard descriptor is invalid: ${asset.id || 'unknown'}`);
+    }
+    return asset.path.slice(1);
+  });
+  if (new Set(shardPaths).size !== shardPaths.length) throw new Error('Git graph shard paths are duplicated');
+  return {
+    paths: [...BASE_ASSET_PATHS, ...shardPaths].sort(),
+    buildRevision: indexes[0].build_revision,
+    graphShardCount: shardPaths.length,
+  };
 }
 
 async function fetchBytes(url) {
@@ -251,8 +295,9 @@ async function collectEnvironment(root, name, assetCommit, observedAt) {
     throw new Error(`${name} health is not JSON: ${error.message}`);
   }
 
+  const assetPlan = assetPathsForCommit(root, assetCommit);
   const assets = [];
-  for (const path of ASSET_PATHS) {
+  for (const path of assetPlan.paths) {
     const expected = gitBlob(root, assetCommit, path);
     const live = await fetchBytes(`${config.base_url}/${path}?release-evidence=${cacheBust}`);
     if (live.response.status !== 200 || !expected.equals(live.bytes)) {
@@ -300,7 +345,15 @@ async function collectEnvironment(root, name, assetCommit, observedAt) {
     deployment_id: deploymentJson.id,
     deployment_created_on: deploymentJson.created_on,
     asset_git_commit: assetCommit,
-    asset_parity: { valid: true, method: 'five_live_assets_byte_equal_git_commit', assets },
+    asset_parity: {
+      valid: true,
+      method: 'git_graph_manifest_live_assets_byte_equal_commit',
+      transport_profile: GRAPH_SHARD_TRANSPORT,
+      build_revision: assetPlan.buildRevision,
+      graph_shard_count: assetPlan.graphShardCount,
+      asset_paths_sha256: sha256(assetPlan.paths.join('\0')),
+      assets,
+    },
     applied_migrations: appliedMigrations,
     pending_migrations: pendingMigrations,
     r2_release_reader: health.release?.r2Reader || 'stable_keys_v0',

@@ -4,6 +4,10 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  compendiumTocEntryReceiptSha256,
+  compendiumTocPageReceiptSha256,
+} from './compendium-evidence-receipt.mjs';
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
@@ -50,29 +54,39 @@ function canonicalTitle(rawTitle) {
     .trim();
 }
 
-function entryDigest(item) {
-  return sha256(`${item.section}\t${item.display_year}\t${item.raw_title}\t${item.printed_page_start}\n`);
-}
-
 async function readTocPage(options, pageNumber) {
   const pageName = String(pageNumber).padStart(4, '0');
   const visionName = String(pageNumber).padStart(3, '0');
   const primaryPath = path.join(options.ocrRoot, options.documentId, 'pages', pageName, 'content.md');
   const visionPath = path.join(options.witnessRoot, options.documentId, 'vision', `page-${visionName}.json`);
-  const [primaryRaw, visionRaw] = await Promise.all([readFile(primaryPath), readFile(visionPath)]);
+  const imagePath = path.join(options.witnessRoot, options.documentId, 'images', `page-${visionName}.png`);
+  const [primaryRaw, visionRaw, imageRaw] = await Promise.all([
+    readFile(primaryPath), readFile(visionPath), readFile(imagePath),
+  ]);
   const vision = JSON.parse(visionRaw.toString('utf8'));
   if (vision.document_id !== options.documentId
     || vision.physical_pdf_page !== pageNumber
     || vision.source_pdf_sha256 !== options.sourceSha256
-    || !/^[a-f0-9]{64}$/.test(vision.rendered_image_sha256 || '')) {
+    || !/^[a-f0-9]{64}$/.test(vision.rendered_image_sha256 || '')
+    || sha256(imageRaw) !== vision.rendered_image_sha256) {
     throw new Error(`TOC page ${pageNumber} Vision provenance is invalid`);
   }
-  return {
+  const page = {
     page_number: pageNumber,
     primary_text_sha256: sha256(primaryRaw),
     source_image_sha256: vision.rendered_image_sha256,
+    vision_witness_sha256: sha256(visionRaw),
     primary_text: primaryRaw.toString('utf8'),
   };
+  page.evidence_bundle_sha256 = compendiumTocPageReceiptSha256({
+    documentId: options.documentId,
+    sourceArtifactSha256: options.sourceSha256,
+    pageNumber,
+    primaryTextSha256: page.primary_text_sha256,
+    sourceImageSha256: page.source_image_sha256,
+    visionWitnessSha256: page.vision_witness_sha256,
+  });
+  return page;
 }
 
 export async function buildCompendiumBoundaryCandidates(options) {
@@ -118,6 +132,23 @@ export async function buildCompendiumBoundaryCandidates(options) {
         toc_physical_page: page.page_number,
         printed_page_start: printedStart,
         candidate_physical_page_start: physicalStart,
+        issuing_body: null,
+        toc_entry_evidence: {
+          source_line: line,
+          source_line_sha256: sha256(line),
+          toc_page_evidence_bundle_sha256: page.evidence_bundle_sha256,
+          entry_receipt_sha256: compendiumTocEntryReceiptSha256({
+            documentId: options.documentId,
+            sourceArtifactSha256: options.sourceSha256,
+            tocPageNumber: page.page_number,
+            tocPageEvidenceBundleSha256: page.evidence_bundle_sha256,
+            sourceLine: line,
+            section,
+            displayYear: lastYear,
+            rawTitle,
+            printedPageStart: printedStart,
+          }),
+        },
       });
     }
   }
@@ -125,7 +156,7 @@ export async function buildCompendiumBoundaryCandidates(options) {
     const item = parsed[index];
     const next = parsed[index + 1];
     item.candidate_physical_page_end = next ? next.candidate_physical_page_start - 1 : options.pageCount;
-    item.toc_entry_sha256 = entryDigest(item);
+    item.toc_entry_sha256 = item.toc_entry_evidence.entry_receipt_sha256;
     item.body_heading = {
       verification_status: 'not_verified',
       physical_page: null,
@@ -156,6 +187,7 @@ export async function buildCompendiumBoundaryCandidates(options) {
       physical_page_end: null,
       accepted_page_count: null,
       page_set_sha256: null,
+      item_citation_entitlement_sha256: null,
     };
     item.semantic_review = {
       review_status: 'not_started',
@@ -171,8 +203,8 @@ export async function buildCompendiumBoundaryCandidates(options) {
   }
   return {
     $schema: './compendium-item-boundaries.schema.json',
-    schema_version: 1,
-    policy: 'fail_closed_compendium_item_boundaries_v1',
+    schema_version: 2,
+    policy: 'fail_closed_compendium_item_boundaries_v2',
     documents: [{
       document_id: options.documentId,
       source_artifact_sha256: options.sourceSha256,
@@ -183,6 +215,8 @@ export async function buildCompendiumBoundaryCandidates(options) {
           page_number: page.page_number,
           primary_text_sha256: page.primary_text_sha256,
           source_image_sha256: page.source_image_sha256,
+          vision_witness_sha256: page.vision_witness_sha256,
+          evidence_bundle_sha256: page.evidence_bundle_sha256,
         })),
         review_status: 'human_image_review_pass_navigation_only',
         reviewer_id: options.reviewerId,

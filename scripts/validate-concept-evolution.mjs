@@ -7,6 +7,12 @@ import { createConceptPublicationGate } from './concept-page-publication.mjs';
 import { validateCompendiumItemBoundaries } from './validate-compendium-item-boundaries.mjs';
 import { isNativeTextRecord } from './page-publication-gate.mjs';
 import { semanticDocumentDisposition } from './semantic-publication-gate.mjs';
+import {
+  GRAPH_SHARD_MAX_BYTES,
+  GRAPH_SHARD_TRANSPORT,
+  materializeAcademicGraph,
+  verifyGraphIndexShards,
+} from './graph-shards.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const graphPath = process.env.CONCEPT_GRAPH_OUTPUT_PATH
@@ -21,7 +27,10 @@ const academicPath = process.env.CONCEPT_ACADEMIC_OUTPUT_PATH
 const coreText = await readFile(graphPath, 'utf8');
 const academicText = await readFile(academicPath, 'utf8');
 const core = JSON.parse(coreText);
-const graph = JSON.parse(academicText);
+const academicIndex = JSON.parse(academicText);
+await verifyGraphIndexShards(core, path.dirname(path.dirname(graphPath)));
+await verifyGraphIndexShards(academicIndex, path.dirname(path.dirname(academicPath)));
+const graph = await materializeAcademicGraph(academicIndex, path.dirname(path.dirname(academicPath)));
 const quality = JSON.parse(await readFile(qualityPath, 'utf8'));
 const model = JSON.parse(await readFile(path.join(root, 'data/concept-model-v2.json'), 'utf8'));
 const catalog = JSON.parse(await readFile(path.join(root, 'data/catalog.json'), 'utf8'));
@@ -51,6 +60,7 @@ const catalogById = new Map(catalog.documents.map((record) => [record.id, record
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const currentBuildLogicSha256 = {
   builder_sha256: sha256(await readFile(path.join(root, 'scripts/build-concept-evolution.mjs'))),
+  graph_sharder_sha256: sha256(await readFile(path.join(root, 'scripts/graph-shards.mjs'))),
   concept_publication_gate_sha256: sha256(await readFile(path.join(root, 'scripts/concept-page-publication.mjs'))),
   page_publication_gate_sha256: sha256(await readFile(path.join(root, 'scripts/page-publication-gate.mjs'))),
   semantic_publication_policy_sha256: sha256(
@@ -103,7 +113,10 @@ fail(graph.build_revision === quality.build_revision, 'quality/build revision mi
 fail(core.build_revision === graph.build_revision, 'core/academic build revision mismatch');
 fail(core.academic_model_ref?.build_revision === graph.build_revision, 'core academic reference revision mismatch');
 fail(core.academic_model_ref?.sha256 === sha256(academicText), 'core academic reference hash mismatch');
-fail(Buffer.byteLength(coreText) < 4 * 1024 * 1024, 'core artifact exceeds 4 MiB');
+fail(core.transport_profile === GRAPH_SHARD_TRANSPORT && academicIndex.transport_profile === GRAPH_SHARD_TRANSPORT,
+  'graph transport profile mismatch');
+fail(Buffer.byteLength(coreText) <= GRAPH_SHARD_MAX_BYTES, 'core graph index exceeds shard cap');
+fail(Buffer.byteLength(academicText) <= GRAPH_SHARD_MAX_BYTES, 'academic graph index exceeds shard cap');
 fail(quality.passed === true, 'quality report is not passing');
 fail(graph.input_fingerprints?.ocr_concept_publication_sha256 === conceptPublicationGate.revision_sha256, 'OCR concept publication fingerprint mismatch');
 fail(core.input_fingerprints?.ocr_concept_publication_sha256 === conceptPublicationGate.revision_sha256, 'core OCR concept publication fingerprint mismatch');

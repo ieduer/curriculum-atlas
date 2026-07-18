@@ -3,13 +3,19 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { materializeAcademicGraph, verifyGraphIndexShards } from '../scripts/graph-shards.mjs';
 
 const root = new URL('../', import.meta.url);
 const artifactPath = (environmentName, fallback) => process.env[environmentName]
   ? path.resolve(fileURLToPath(root), process.env[environmentName])
   : new URL(fallback, root);
 const core = JSON.parse(await readFile(artifactPath('CONCEPT_GRAPH_OUTPUT_PATH', 'public/data/concept-evolution.json'), 'utf8'));
-const graph = JSON.parse(await readFile(artifactPath('CONCEPT_ACADEMIC_OUTPUT_PATH', 'public/data/concept-evolution-academic.json'), 'utf8'));
+const academicArtifactPath = artifactPath('CONCEPT_ACADEMIC_OUTPUT_PATH', 'public/data/concept-evolution-academic.json');
+const academicIndex = JSON.parse(await readFile(academicArtifactPath, 'utf8'));
+const academicPathname = academicArtifactPath instanceof URL ? fileURLToPath(academicArtifactPath) : academicArtifactPath;
+const publicRoot = path.dirname(path.dirname(academicPathname));
+await verifyGraphIndexShards(academicIndex, publicRoot);
+const graph = await materializeAcademicGraph(academicIndex, publicRoot);
 const compendiumBoundaries = JSON.parse(
   await readFile(new URL('../data/compendium-item-boundaries.json', import.meta.url), 'utf8'),
 );

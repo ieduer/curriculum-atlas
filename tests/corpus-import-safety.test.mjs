@@ -43,6 +43,7 @@ function manifest(overrides = {}) {
       version_diffs: 0,
       online_verifications: 0,
       online_evidence: 0,
+      embedded_items: 0,
     },
     text_asset_count: 1,
     text_assets: [{ document_id: 'doc-a', sha256: 'e'.repeat(64), bytes: 1 }],

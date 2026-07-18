@@ -27,7 +27,12 @@ function environment(name) {
     version_diffs: 0,
     online_verifications: 0,
     online_evidence: 0,
+    embedded_items: 0,
   };
+  const assetPaths = [
+    'app.js', 'atlas.js', 'styles.css', 'data/concept-evolution.json',
+    'data/concept-evolution-academic.json', 'data/graph-shards/fixture.json',
+  ].sort();
   return {
     environment: name,
     observed_at: '2026-07-17T00:00:00.000Z',
@@ -38,9 +43,12 @@ function environment(name) {
     asset_git_commit: 'a'.repeat(40),
     asset_parity: {
       valid: true,
-      method: 'five_live_assets_byte_equal_git_commit',
-      assets: ['app.js', 'atlas.js', 'styles.css', 'data/concept-evolution.json', 'data/concept-evolution-academic.json']
-        .map((path) => ({ path, sha256: 'b'.repeat(64), bytes: 1 })),
+      method: 'git_graph_manifest_live_assets_byte_equal_commit',
+      transport_profile: 'immutable-content-addressed-graph-shards-v1',
+      build_revision: 'b'.repeat(64),
+      graph_shard_count: 1,
+      asset_paths_sha256: createHash('sha256').update(assetPaths.join('\0')).digest('hex'),
+      assets: assetPaths.map((path) => ({ path, sha256: 'b'.repeat(64), bytes: 1 })),
     },
     applied_migrations: ['0001_initial.sql'],
     pending_migrations: [],

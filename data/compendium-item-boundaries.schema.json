@@ -6,8 +6,8 @@
   "required": ["$schema", "schema_version", "policy", "documents"],
   "properties": {
     "$schema": { "const": "./compendium-item-boundaries.schema.json" },
-    "schema_version": { "const": 1 },
-    "policy": { "const": "fail_closed_compendium_item_boundaries_v1" },
+    "schema_version": { "const": 2 },
+    "policy": { "const": "fail_closed_compendium_item_boundaries_v2" },
     "documents": {
       "type": "array",
       "items": { "$ref": "#/$defs/document" }
@@ -40,11 +40,13 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["page_number", "primary_text_sha256", "source_image_sha256"],
+            "required": ["page_number", "primary_text_sha256", "source_image_sha256", "vision_witness_sha256", "evidence_bundle_sha256"],
             "properties": {
               "page_number": { "type": "integer", "minimum": 1 },
               "primary_text_sha256": { "$ref": "#/$defs/sha256" },
-              "source_image_sha256": { "$ref": "#/$defs/sha256" }
+              "source_image_sha256": { "$ref": "#/$defs/sha256" },
+              "vision_witness_sha256": { "$ref": "#/$defs/sha256" },
+              "evidence_bundle_sha256": { "$ref": "#/$defs/sha256" }
             }
           }
         },
@@ -90,14 +92,26 @@
     "pageEvidence": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["verification_status", "page_publication_release_id", "physical_page_start", "physical_page_end", "accepted_page_count", "page_set_sha256"],
+      "required": ["verification_status", "page_publication_release_id", "physical_page_start", "physical_page_end", "accepted_page_count", "page_set_sha256", "item_citation_entitlement_sha256"],
       "properties": {
         "verification_status": { "enum": ["not_verified", "all_pages_display_verified", "all_pages_citation_verified"] },
         "page_publication_release_id": { "type": ["string", "null"] },
         "physical_page_start": { "type": ["integer", "null"], "minimum": 1 },
         "physical_page_end": { "type": ["integer", "null"], "minimum": 1 },
         "accepted_page_count": { "type": ["integer", "null"], "minimum": 1 },
-        "page_set_sha256": { "$ref": "#/$defs/nullableSha256" }
+        "page_set_sha256": { "$ref": "#/$defs/nullableSha256" },
+        "item_citation_entitlement_sha256": { "$ref": "#/$defs/nullableSha256" }
+      }
+    },
+    "tocEntryEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_line", "source_line_sha256", "toc_page_evidence_bundle_sha256", "entry_receipt_sha256"],
+      "properties": {
+        "source_line": { "type": "string", "minLength": 1 },
+        "source_line_sha256": { "$ref": "#/$defs/sha256" },
+        "toc_page_evidence_bundle_sha256": { "$ref": "#/$defs/sha256" },
+        "entry_receipt_sha256": { "$ref": "#/$defs/sha256" }
       }
     },
     "semanticReview": {
@@ -114,7 +128,7 @@
     "item": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["item_id", "sequence", "section", "item_kind", "parent_item_id", "raw_title", "title", "display_year", "year_basis", "toc_physical_page", "printed_page_start", "candidate_physical_page_start", "candidate_physical_page_end", "toc_entry_sha256", "body_heading", "online_verification", "page_evidence", "semantic_review", "identity_status", "display_allowed", "citation_allowed", "semantic_claim_allowed", "uncertainty_note"],
+      "required": ["item_id", "sequence", "section", "item_kind", "parent_item_id", "raw_title", "title", "display_year", "year_basis", "toc_physical_page", "printed_page_start", "issuing_body", "candidate_physical_page_start", "candidate_physical_page_end", "toc_entry_sha256", "toc_entry_evidence", "body_heading", "online_verification", "page_evidence", "semantic_review", "identity_status", "display_allowed", "citation_allowed", "semantic_claim_allowed", "uncertainty_note"],
       "properties": {
         "item_id": { "type": "string", "pattern": "^embedded:[a-z0-9-]+:item-\\d{3}$" },
         "sequence": { "type": "integer", "minimum": 1 },
@@ -127,9 +141,11 @@
         "year_basis": { "enum": ["toc_explicit_year", "parent_notice_year"] },
         "toc_physical_page": { "type": "integer", "minimum": 1 },
         "printed_page_start": { "type": "integer", "minimum": 1 },
+        "issuing_body": { "type": ["string", "null"] },
         "candidate_physical_page_start": { "type": "integer", "minimum": 1 },
         "candidate_physical_page_end": { "type": "integer", "minimum": 1 },
         "toc_entry_sha256": { "$ref": "#/$defs/sha256" },
+        "toc_entry_evidence": { "$ref": "#/$defs/tocEntryEvidence" },
         "body_heading": { "$ref": "#/$defs/bodyHeading" },
         "online_verification": { "$ref": "#/$defs/onlineVerification" },
         "page_evidence": { "$ref": "#/$defs/pageEvidence" },

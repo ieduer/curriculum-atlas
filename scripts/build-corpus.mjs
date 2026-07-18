@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { join, resolve } from 'node:path';
 import { loadDocumentClassificationResolver } from './document-classification.mjs';
 import { buildParagraphIdentityGuardSql } from './import-corpus.mjs';
 import {
@@ -15,13 +16,36 @@ import {
   createSemanticPublicationGate,
   semanticDocumentDisposition,
 } from './semantic-publication-gate.mjs';
+import { createConceptPublicationGate } from './concept-page-publication.mjs';
+import { validateCompendiumItemBoundaries } from './validate-compendium-item-boundaries.mjs';
+import {
+  buildCompendiumCorpusProjection,
+  compendiumItemForPage,
+} from './compendium-corpus-projection.mjs';
+import {
+  verifyCompendiumHeadingEvidence,
+  verifyCompendiumItemPageEvidence,
+  verifyCompendiumPageAssetEvidence,
+  verifyCompendiumTocEvidenceArtifacts,
+} from './compendium-item-publication.mjs';
 
 const projectRoot = new URL('../', import.meta.url);
+const projectRootPath = fileURLToPath(projectRoot);
+const ocrRoot = process.env.CORPUS_OCR_ROOT || process.env.CONCEPT_OCR_ROOT
+  ? resolve(projectRootPath, process.env.CORPUS_OCR_ROOT || process.env.CONCEPT_OCR_ROOT)
+  : join(projectRootPath, '.cache/ocr-production');
+const witnessRoot = process.env.CORPUS_WITNESS_ROOT || process.env.CONCEPT_WITNESS_ROOT
+  ? resolve(projectRootPath, process.env.CORPUS_WITNESS_ROOT || process.env.CONCEPT_WITNESS_ROOT)
+  : join(projectRootPath, '.cache/ocr-witness');
 const catalog = JSON.parse(await readFile(new URL('data/catalog.json', projectRoot), 'utf8'));
+const queue = JSON.parse(await readFile(new URL('data/ocr-queue.json', projectRoot), 'utf8'));
 const insights = JSON.parse(await readFile(new URL('data/subject-insights.json', projectRoot), 'utf8'));
 const ingest = JSON.parse(await readFile(new URL('data/ingest-manifest.json', projectRoot), 'utf8'));
 const documentedSources = JSON.parse(await readFile(new URL('data/document-sources.json', projectRoot), 'utf8')).sources;
 const onlineVerificationSamples = JSON.parse(await readFile(new URL('data/online-verification-samples.json', projectRoot), 'utf8')).samples;
+const compendiumItemBoundaries = JSON.parse(
+  await readFile(new URL('data/compendium-item-boundaries.json', projectRoot), 'utf8'),
+);
 const pagePublicationManifest = validatePagePublicationManifest(
   JSON.parse(await readFile(new URL('data/page-publication-manifest.json', projectRoot), 'utf8')),
 );
@@ -32,9 +56,29 @@ const semanticPublicationGate = createSemanticPublicationGate({
   policy: semanticPublicationPolicy,
   records: catalog.documents,
 });
+const conceptPublicationGate = createConceptPublicationGate({
+  manifest: pagePublicationManifest,
+  semanticPolicy: semanticPublicationPolicy,
+  records: catalog.documents,
+});
+const currentPagePublicationReleaseId = `page-gate-${conceptPublicationGate.revision_sha256.slice(0, 24)}`;
+const compendiumBoundaryValidation = validateCompendiumItemBoundaries(compendiumItemBoundaries, {
+  catalog,
+  queue,
+  onlineVerifications: { samples: onlineVerificationSamples },
+});
+if (!compendiumBoundaryValidation.valid) {
+  throw new Error(`Compendium item boundary gate failed: ${JSON.stringify(compendiumBoundaryValidation.errors)}`);
+}
+for (const documentBoundary of compendiumItemBoundaries.documents) {
+  await verifyCompendiumTocEvidenceArtifacts({ documentBoundary, ocrRoot, witnessRoot });
+}
 const checksumById = new Map(ingest.entries.map((entry) => [entry.id, entry.source_sha256]));
 const catalogById = new Map(catalog.documents.map((record) => [record.id, record]));
 const pagePublicationByDocument = new Map(pagePublicationManifest.documents.map((document) => [document.document_id, document]));
+const compendiumBoundaryByDocument = new Map(
+  compendiumItemBoundaries.documents.map((document) => [document.document_id, document]),
+);
 for (const record of catalog.documents) {
   if (typeof record.text_quality_status !== 'string' || !record.text_quality_status.trim()) {
     throw new Error(`Catalog document lacks explicit text_quality_status: ${record.id}`);
@@ -94,10 +138,118 @@ const corpusReleaseFingerprint = createHash('sha256').update(JSON.stringify({
   page_publication_manifest: pagePublicationManifest,
   semantic_publication_policy: semanticPublicationPolicy,
   semantic_publication_revision_sha256: semanticPublicationGate.revision_sha256,
+  compendium_item_boundaries: compendiumItemBoundaries,
   text_assets: corpusTextAssets,
-  corpus_builder_contract: 'release_snapshot_v4_reference_closure',
+  corpus_builder_contract: 'release_snapshot_v5_embedded_item_identity',
 })).digest('hex');
 const corpusReleaseId = `corpus-${corpusReleaseFingerprint.slice(0, 24)}`;
+const compendiumProjection = buildCompendiumCorpusProjection(compendiumItemBoundaries, corpusReleaseId);
+const compendiumProjectionById = new Map(compendiumProjection.rows.map((item) => [item.id, item]));
+for (const item of compendiumProjection.rows) {
+  if (item.page_publication_release_id !== currentPagePublicationReleaseId) {
+    throw new Error(`${item.id}: page-publication release is stale`);
+  }
+  if (!pagePublicationByDocument.has(item.parent_document_id)) {
+    throw new Error(`${item.id}: parent document lacks an accepted page manifest`);
+  }
+}
+
+const compendiumPageAssetCache = new Map();
+async function readCompendiumPageAsset(documentId, pageNumber) {
+  const key = `${documentId}:${pageNumber}`;
+  if (compendiumPageAssetCache.has(key)) return compendiumPageAssetCache.get(key);
+  const [primaryBytes, witnessBytes, sourceImageBytes] = await Promise.all([
+    readFile(join(ocrRoot, documentId, 'pages', String(pageNumber).padStart(4, '0'), 'content.md')),
+    readFile(join(witnessRoot, documentId, 'vision', `page-${String(pageNumber).padStart(3, '0')}.json`)),
+    readFile(join(witnessRoot, documentId, 'images', `page-${String(pageNumber).padStart(3, '0')}.png`)),
+  ]);
+  const asset = { primaryBytes, witnessBytes, sourceImageBytes };
+  compendiumPageAssetCache.set(key, asset);
+  return asset;
+}
+
+async function verifyCorpusCompendiumItems({ documentBoundary, pagePublication }) {
+  const activeItems = documentBoundary.items.filter((item) => item.display_allowed);
+  if (activeItems.length === 0) return;
+  const acceptedPageByNumber = new Map(pagePublication.map((page) => [page.page_number, {
+    document_id: documentBoundary.document_id,
+    page_number: page.page_number,
+    source_artifact_sha256: page.source_artifact_sha256,
+    source_page_sha256: page.source_page_sha256,
+    final_text_sha256: page.page_final_text_sha256,
+    evidence_bundle_sha256: page.evidence_bundle_sha256,
+    stable_locator: page.stable_locator,
+    display_allowed: page.display_allowed,
+    citation_allowed: page.citation_allowed,
+  }]));
+
+  for (const item of activeItems) {
+    const pageNumbers = Array.from(
+      { length: item.candidate_physical_page_end - item.candidate_physical_page_start + 1 },
+      (_, index) => item.candidate_physical_page_start + index,
+    );
+    const boundPages = [];
+    const rawPages = [];
+    for (const pageNumber of pageNumbers) {
+      const acceptedPage = acceptedPageByNumber.get(pageNumber);
+      if (!acceptedPage?.display_allowed) {
+        throw new Error(`${item.item_id}: page ${pageNumber} is absent from the current display-accepted corpus`);
+      }
+      const asset = await readCompendiumPageAsset(documentBoundary.document_id, pageNumber);
+      verifyCompendiumPageAssetEvidence({
+        documentBoundary,
+        pageNumber,
+        primaryBytes: asset.primaryBytes,
+        witnessBytes: asset.witnessBytes,
+        sourceImageBytes: asset.sourceImageBytes,
+        acceptedPage,
+      });
+      boundPages.push(acceptedPage);
+      rawPages.push(asset.primaryBytes.toString('utf8'));
+    }
+
+    const firstPageAsset = await readCompendiumPageAsset(
+      documentBoundary.document_id,
+      item.body_heading.physical_page,
+    );
+    verifyCompendiumHeadingEvidence({
+      documentBoundary,
+      item,
+      primaryBytes: firstPageAsset.primaryBytes,
+      witnessBytes: firstPageAsset.witnessBytes,
+      sourceImageBytes: firstPageAsset.sourceImageBytes,
+      acceptedPage: boundPages[0],
+    });
+    const nextItem = documentBoundary.items[item.sequence];
+    if (nextItem) {
+      const nextHeadingAsset = await readCompendiumPageAsset(
+        documentBoundary.document_id,
+        nextItem.body_heading.physical_page,
+      );
+      verifyCompendiumHeadingEvidence({
+        documentBoundary,
+        item: nextItem,
+        primaryBytes: nextHeadingAsset.primaryBytes,
+        witnessBytes: nextHeadingAsset.witnessBytes,
+        sourceImageBytes: nextHeadingAsset.sourceImageBytes,
+      });
+    }
+
+    const verified = verifyCompendiumItemPageEvidence({
+      documentBoundary,
+      item,
+      boundPages,
+      rawPages,
+      currentPagePublicationReleaseId,
+    });
+    const projected = compendiumProjectionById.get(item.item_id);
+    if (!projected
+      || projected.page_set_sha256 !== verified.page_set_sha256
+      || projected.item_citation_entitlement_sha256 !== verified.item_citation_entitlement_sha256) {
+      throw new Error(`${item.item_id}: D1 projection drifted from the actual page evidence`);
+    }
+  }
+}
 const outputDir = new URL('data/corpus-chunks/', projectRoot);
 await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
@@ -220,7 +372,18 @@ const coreTableCounts = {
     (count, verification) => count + verification.online_evidence.length,
     0,
   ),
+  embedded_items: compendiumProjection.rows.length,
 };
+for (const item of compendiumProjection.rows) {
+  statements.push(`INSERT INTO embedded_items(id,parent_document_id,parent_item_id,sequence,item_kind,title,raw_title,stage,display_year,year_basis,physical_page_start,physical_page_end,printed_page_start,issuing_body,identity_status,page_publication_release_id,page_set_sha256,item_citation_entitlement_sha256,online_verification_status,online_source_ids_json,display_allowed,citation_allowed,semantic_claim_allowed,uncertainty_note,corpus_release_id) VALUES(${[
+    item.id, item.parent_document_id, item.parent_item_id, item.sequence, item.item_kind, item.title,
+    item.raw_title, item.stage, item.display_year, item.year_basis, item.physical_page_start,
+    item.physical_page_end, item.printed_page_start, item.issuing_body, item.identity_status,
+    item.page_publication_release_id, item.page_set_sha256, item.item_citation_entitlement_sha256,
+    item.online_verification_status, item.online_source_ids_json, item.display_allowed,
+    item.citation_allowed, item.semantic_claim_allowed, item.uncertainty_note, item.corpus_release_id,
+  ].map(sql).join(',')}) ON CONFLICT(id) DO UPDATE SET parent_document_id=excluded.parent_document_id,parent_item_id=excluded.parent_item_id,sequence=excluded.sequence,item_kind=excluded.item_kind,title=excluded.title,raw_title=excluded.raw_title,stage=excluded.stage,display_year=excluded.display_year,year_basis=excluded.year_basis,physical_page_start=excluded.physical_page_start,physical_page_end=excluded.physical_page_end,printed_page_start=excluded.printed_page_start,issuing_body=excluded.issuing_body,identity_status=excluded.identity_status,page_publication_release_id=excluded.page_publication_release_id,page_set_sha256=excluded.page_set_sha256,item_citation_entitlement_sha256=excluded.item_citation_entitlement_sha256,online_verification_status=excluded.online_verification_status,online_source_ids_json=excluded.online_source_ids_json,display_allowed=excluded.display_allowed,citation_allowed=excluded.citation_allowed,semantic_claim_allowed=excluded.semantic_claim_allowed,uncertainty_note=excluded.uncertainty_note,corpus_release_id=excluded.corpus_release_id;`);
+}
 for (const source of sourceRows.values()) {
   statements.push(`INSERT OR REPLACE INTO document_sources(document_id,provider,source_page_url,source_url,checksum_sha256,access_status,is_primary,note) VALUES(${[
     source.document_id, source.provider, source.source_page_url, source.source_url, source.checksum_sha256,
@@ -349,6 +512,10 @@ for (const record of catalog.documents) {
     page,
     rawText: pages[pageIndex],
   }));
+  const compendiumBoundary = compendiumBoundaryByDocument.get(record.id);
+  if (compendiumBoundary) {
+    await verifyCorpusCompendiumItems({ documentBoundary: compendiumBoundary, pagePublication });
+  }
   let ordinal = 0;
   for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
     const pageGate = pagePublication[pageIndex];
@@ -372,17 +539,24 @@ for (const record of catalog.documents) {
       if (!useful(body)) continue;
       ordinal += 1;
       totalParagraphs += 1;
-      if (pageGate.display_allowed) displayedParagraphs += 1;
-      else if (!nativeText) closedOcrParagraphs += 1;
       const locator = `第${pageIndex + 1}页·段${ordinal}`;
       const bodySha256 = stableHash(body);
       const provenanceLocator = paragraphProvenanceLocator(record.id, pageIndex + 1, blockIndex + 1, bodySha256);
-      paragraphStatements.push(`INSERT INTO paragraphs(document_id,ordinal,page_number,heading,body,source_locator,body_sha256,text_quality_status,ocr_quality_score,citation_allowed,display_allowed,source_artifact_sha256,source_page_sha256,page_final_text_sha256,evidence_bundle_sha256,provenance_locator,uncertainty_note,corpus_release_id) VALUES(${[
+      const embeddedItem = compendiumItemForPage(compendiumProjection, record.id, pageIndex + 1);
+      const isCompendiumCarrier = compendiumProjection.byDocument.has(record.id);
+      const paragraphDisplayAllowed = pageGate.display_allowed && (!isCompendiumCarrier || Boolean(embeddedItem));
+      const paragraphCitationAllowed = paragraphDisplayAllowed && (embeddedItem
+        ? embeddedItem.citation_allowed === 1
+        : pageGate.citation_allowed);
+      if (paragraphDisplayAllowed) displayedParagraphs += 1;
+      else if (!nativeText) closedOcrParagraphs += 1;
+      paragraphStatements.push(`INSERT INTO paragraphs(document_id,ordinal,page_number,heading,body,source_locator,body_sha256,text_quality_status,ocr_quality_score,citation_allowed,display_allowed,source_artifact_sha256,source_page_sha256,page_final_text_sha256,evidence_bundle_sha256,provenance_locator,uncertainty_note,corpus_release_id,embedded_item_id) VALUES(${[
         record.id, ordinal, pageIndex + 1, null, body, locator, bodySha256, textQualityStatus, null,
-        pageGate.citation_allowed ? 1 : 0, pageGate.display_allowed ? 1 : 0,
+        paragraphCitationAllowed ? 1 : 0, paragraphDisplayAllowed ? 1 : 0,
         pageGate.source_artifact_sha256, pageGate.source_page_sha256, pageGate.page_final_text_sha256,
-        pageGate.evidence_bundle_sha256, provenanceLocator, pageGate.uncertainty_note, corpusReleaseId,
-      ].map(sql).join(',')}) ON CONFLICT(document_id,ordinal) DO UPDATE SET page_number=excluded.page_number,heading=excluded.heading,body=excluded.body,source_locator=excluded.source_locator,body_sha256=excluded.body_sha256,text_quality_status=excluded.text_quality_status,ocr_quality_score=excluded.ocr_quality_score,citation_allowed=excluded.citation_allowed,display_allowed=excluded.display_allowed,source_artifact_sha256=excluded.source_artifact_sha256,source_page_sha256=excluded.source_page_sha256,page_final_text_sha256=excluded.page_final_text_sha256,evidence_bundle_sha256=excluded.evidence_bundle_sha256,provenance_locator=excluded.provenance_locator,uncertainty_note=excluded.uncertainty_note,corpus_release_id=excluded.corpus_release_id;`);
+        pageGate.evidence_bundle_sha256, provenanceLocator, embeddedItem?.uncertainty_note || pageGate.uncertainty_note,
+        corpusReleaseId, embeddedItem?.id || null,
+      ].map(sql).join(',')}) ON CONFLICT(document_id,ordinal) DO UPDATE SET page_number=excluded.page_number,heading=excluded.heading,body=excluded.body,source_locator=excluded.source_locator,body_sha256=excluded.body_sha256,text_quality_status=excluded.text_quality_status,ocr_quality_score=excluded.ocr_quality_score,citation_allowed=excluded.citation_allowed,display_allowed=excluded.display_allowed,source_artifact_sha256=excluded.source_artifact_sha256,source_page_sha256=excluded.source_page_sha256,page_final_text_sha256=excluded.page_final_text_sha256,evidence_bundle_sha256=excluded.evidence_bundle_sha256,provenance_locator=excluded.provenance_locator,uncertainty_note=excluded.uncertainty_note,corpus_release_id=excluded.corpus_release_id,embedded_item_id=excluded.embedded_item_id;`);
       paragraphIdentityRows.push({
         document_id: record.id,
         ordinal,
@@ -391,6 +565,7 @@ for (const record of catalog.documents) {
         source_locator: locator,
         body_sha256: bodySha256,
         provenance_locator: provenanceLocator,
+        embedded_item_id: embeddedItem?.id || null,
       });
       if (paragraphStatements.length >= 250) await flush();
     }

@@ -514,7 +514,7 @@ function environmentSnapshotIdentity(snapshot) {
   };
 }
 
-function buildEnvironmentState(root, policy, git, availableMigrations, corpusRelease, evidenceAsset) {
+function buildEnvironmentState(root, policy, git, availableMigrations, corpusRelease, evidenceAsset, graphRelease) {
   const snapshot = policy.environment_snapshot || {};
   const requiredMigration = String(snapshot.required_migration || '');
   const requiredReleaseReader = String(snapshot.required_r2_release_reader || '');
@@ -567,9 +567,20 @@ function buildEnvironmentState(root, policy, git, availableMigrations, corpusRel
       ? git.head
       : configured?.asset_git_commit;
     const assetGitCommit = assertGitCommitExists(root, configuredAssetCommit, `${name}.asset_git_commit`);
-    const assetParityValid = local || configured?.asset_parity?.valid === true;
+    const observedAssetPaths = (configured?.asset_parity?.assets || []).map((asset) => asset.path).sort();
+    const assetParityValid = local || (configured?.asset_parity?.valid === true
+      && configured.asset_parity.transport_profile === graphRelease.transport_profile
+      && configured.asset_parity.build_revision === graphRelease.build_revision
+      && configured.asset_parity.graph_shard_count === graphRelease.graph_shard_count
+      && configured.asset_parity.asset_paths_sha256 === graphRelease.asset_paths_sha256
+      && stableStringify(observedAssetPaths) === stableStringify(graphRelease.asset_paths));
     if (!assetParityValid) {
-      blockers.push({ code: 'worker_asset_git_parity_required', message: `${name} Worker assets lack byte-exact Git parity evidence` });
+      blockers.push({
+        code: 'worker_graph_shard_git_parity_required',
+        expected_build_revision: graphRelease.build_revision,
+        observed_build_revision: configured?.asset_parity?.build_revision || null,
+        message: `${name} Worker assets do not prove byte-exact parity for every immutable graph shard`,
+      });
     }
     const healthReady = local || (configured?.health?.http_status === 200
       && configured?.health?.ok === true
@@ -631,6 +642,7 @@ function buildEnvironmentState(root, policy, git, availableMigrations, corpusRel
     },
     required_migration: requiredMigration,
     required_r2_release_reader: requiredReleaseReader,
+    graph_release: graphRelease,
     environments,
   };
 }
@@ -668,12 +680,19 @@ function verifyCrossAssetIntegrity(dataByRole, graphByRole) {
   }
   if (core.build_revision !== academic.build_revision) throw new Error('core and academic graph build revisions differ');
   if (core.academic_model_ref?.sha256 !== academicAsset.sha256) throw new Error('core graph academic_model_ref hash is stale');
+  if (core.transport_profile !== 'immutable-content-addressed-graph-shards-v1'
+    || academic.transport_profile !== core.transport_profile) {
+    throw new Error('graph indexes do not share the immutable shard transport profile');
+  }
   for (const [label, graph] of [['core', core], ['academic', academic]]) {
     if (graph.input_fingerprints?.catalog_sha256 !== catalogAsset.sha256) throw new Error(`${label} graph catalog fingerprint is stale`);
     if (graph.input_fingerprints?.queue_sha256 !== queueAsset.sha256) throw new Error(`${label} graph OCR queue fingerprint is stale`);
   }
   for (const [key, expected] of Object.entries(core.academic_model_ref?.counts || {})) {
-    if (Array.isArray(academic[key]) && academic[key].length !== expected) {
+    const declared = (academic.shard_manifest?.assets || [])
+      .filter((asset) => asset.kind === 'academic_collection' && asset.filters?.collection === key)
+      .reduce((total, asset) => total + Number(asset.counts?.items || 0), 0);
+    if (declared !== expected) {
       throw new Error(`core graph academic_model_ref count is stale for ${key}`);
     }
   }
@@ -774,6 +793,16 @@ export async function buildReleaseManifest({
   const graphByRole = new Map();
   const staticSourceRoot = normalizeRelativePath(policy.static_assets?.source_root, 'static source root');
   const staticDeployRoot = normalizeRelativePath(policy.static_assets?.deploy_root, 'static deploy root');
+  const graphShardSourcePrefix = normalizeRelativePath(policy.graph_shards?.source_prefix, 'graph shard source prefix');
+  const graphShardTransport = String(policy.graph_shards?.transport_profile || '');
+  const graphShardMaximumBytes = Number(policy.graph_shards?.maximum_asset_bytes);
+  const graphShardDescriptorFields = policy.graph_shards?.required_descriptor_fields;
+  if (graphShardSourcePrefix !== `${staticSourceRoot}/data/graph-shards`
+    || graphShardTransport !== 'immutable-content-addressed-graph-shards-v1'
+    || !Number.isInteger(graphShardMaximumBytes) || graphShardMaximumBytes !== 512 * 1024
+    || !Array.isArray(graphShardDescriptorFields) || graphShardDescriptorFields.length === 0) {
+    throw new Error('release policy graph_shards contract is invalid');
+  }
   for (const configured of policy.graph_assets || []) {
     const inspected = await inspectFile(projectRoot, configured.source);
     if (!inspected.source.startsWith(`${staticSourceRoot}/`)) {
@@ -801,7 +830,51 @@ export async function buildReleaseManifest({
 
   verifyCrossAssetIntegrity(dataByRole, graphByRole);
 
-  const graphSources = new Set(graphAssets.map((item) => item.source));
+  const graphShards = [];
+  const descriptorIds = new Set();
+  const descriptorSources = new Set();
+  for (const graphAsset of graphAssets) {
+    const manifest = graphAsset.json.shard_manifest;
+    if (manifest?.build_revision !== graphAsset.build_revision || !Array.isArray(manifest.assets)) {
+      throw new Error(`${graphAsset.role} shard manifest is missing or stale`);
+    }
+    for (const descriptor of manifest.assets) {
+      assertExactSet(graphShardDescriptorFields, Object.keys(descriptor), `graph shard descriptor ${descriptor.id || 'unknown'}`);
+      if (descriptorIds.has(descriptor.id)) throw new Error(`duplicate graph shard descriptor: ${descriptor.id}`);
+      descriptorIds.add(descriptor.id);
+      const source = normalizeRelativePath(`public${descriptor.path}`, 'graph shard source');
+      if (!source.startsWith(`${graphShardSourcePrefix}/`) || descriptorSources.has(source)) {
+        throw new Error(`invalid or duplicate graph shard source: ${source}`);
+      }
+      descriptorSources.add(source);
+      const inspected = await inspectFile(projectRoot, source);
+      if (inspected.sha256 !== descriptor.sha256 || inspected.bytes !== descriptor.bytes
+        || descriptor.build_revision !== graphAsset.build_revision || descriptor.bytes > graphShardMaximumBytes) {
+        throw new Error(`graph shard descriptor parity failed: ${descriptor.id}`);
+      }
+      const deployPath = `${staticDeployRoot}/${source.slice(staticSourceRoot.length + 1)}`;
+      const deployed = await inspectFile(projectRoot, deployPath);
+      assertBufferParity(inspected, deployed.buffer, `deploy graph shard ${deployPath}`);
+      graphShards.push({
+        id: descriptor.id,
+        kind: descriptor.kind,
+        source,
+        deploy_path: deployPath,
+        sha256: inspected.sha256,
+        bytes: inspected.bytes,
+        build_revision: descriptor.build_revision,
+        counts: descriptor.counts,
+        filters: descriptor.filters,
+      });
+    }
+  }
+  const discoveredShardSources = (await walkFiles(projectRoot, graphShardSourcePrefix));
+  assertExactSet([...descriptorSources], discoveredShardSources, 'graph shard source coverage');
+
+  const graphSources = new Set([
+    ...graphAssets.map((item) => item.source),
+    ...graphShards.map((item) => item.source),
+  ]);
   const publicFiles = await walkFiles(projectRoot, staticSourceRoot);
   const deployFiles = await walkFiles(projectRoot, staticDeployRoot);
   const expectedDeployFiles = publicFiles.map((source) =>
@@ -827,6 +900,19 @@ export async function buildReleaseManifest({
     .filter((file) => /^migrations\/\d{4}_.+\.sql$/.test(file))
     .map((file) => file.slice('migrations/'.length))
     .sort();
+  const graphReleaseAssetPaths = [
+    'app.js', 'atlas.js', 'styles.css',
+    ...graphAssets.map((asset) => asset.source.slice(`${staticSourceRoot}/`.length)),
+    ...graphShards.map((asset) => asset.source.slice(`${staticSourceRoot}/`.length)),
+  ].sort();
+  const graphRelease = {
+    transport_profile: graphAssets[0].json.transport_profile,
+    build_revision: graphAssets[0].build_revision,
+    graph_shard_count: graphShards.length,
+    asset_count: graphReleaseAssetPaths.length,
+    asset_paths_sha256: sha256(Buffer.from(graphReleaseAssetPaths.join('\0'))),
+    asset_paths: graphReleaseAssetPaths,
+  };
   const environmentState = buildEnvironmentState(
     projectRoot,
     policy,
@@ -834,11 +920,20 @@ export async function buildReleaseManifest({
     migrationFiles,
     corpusRelease,
     environmentEvidence,
+    graphRelease,
   );
 
-  const publicAssetPaths = [...staticAssets.map((item) => item.path), ...graphAssets.map((item) => item.source)];
+  const publicAssetPaths = [
+    ...staticAssets.map((item) => item.path),
+    ...graphAssets.map((item) => item.source),
+    ...graphShards.map((item) => item.source),
+  ];
   assertExactSet(publicFiles, publicAssetPaths, 'public static asset coverage');
-  const manifestDeployPaths = [...staticAssets.map((item) => item.deploy_path), ...graphAssets.map((item) => item.deploy_path)];
+  const manifestDeployPaths = [
+    ...staticAssets.map((item) => item.deploy_path),
+    ...graphAssets.map((item) => item.deploy_path),
+    ...graphShards.map((item) => item.deploy_path),
+  ];
   assertExactSet(deployFiles, manifestDeployPaths, 'deploy static asset coverage');
 
   const cleanDataAssets = dataAssets.map(({ json, ...asset }) => asset);
@@ -860,6 +955,7 @@ export async function buildReleaseManifest({
     downloads_asset_audit: downloadsReceiptIdentity(downloadsAssetAudit),
     data_assets: cleanDataAssets.map(({ role, source, key, sha256: hash, bytes }) => ({ role, source, key, sha256: hash, bytes })),
     graph_assets: cleanGraphAssets.map(({ role, source, deploy_path, sha256: hash, bytes, build_revision }) => ({ role, source, deploy_path, sha256: hash, bytes, build_revision })),
+    graph_shards: graphShards,
     static_assets: staticAssets.map(({ path, deploy_path, sha256: hash, bytes }) => ({ path, deploy_path, sha256: hash, bytes })),
     environment_snapshot: environmentSnapshotIdentity(environmentState),
     project_asset_audit: assetAuditSummary,
@@ -925,6 +1021,7 @@ export async function buildReleaseManifest({
     environment_snapshot: environmentState,
     data_assets: releasedDataAssets,
     graph_assets: cleanGraphAssets,
+    graph_shards: graphShards,
     static_assets: staticSummary,
     r2: {
       current_pointer_key: policy.r2.current_pointer_key,

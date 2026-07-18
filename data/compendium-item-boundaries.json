@@ -1,7 +1,7 @@
 {
   "$schema": "./compendium-item-boundaries.schema.json",
-  "schema_version": 1,
-  "policy": "fail_closed_compendium_item_boundaries_v1",
+  "schema_version": 2,
+  "policy": "fail_closed_compendium_item_boundaries_v2",
   "documents": [
     {
       "document_id": "legacy-compendium-chinese",
@@ -13,17 +13,23 @@
           {
             "page_number": 11,
             "primary_text_sha256": "4495f086166d40389af989ae1e8b0ec2fd8e03e8ed53f8b0bdac50f768efd04b",
-            "source_image_sha256": "0816c81847bc4a3321468557bc0f15571b2798a7762c7296bc74378a2f5495e4"
+            "source_image_sha256": "0816c81847bc4a3321468557bc0f15571b2798a7762c7296bc74378a2f5495e4",
+            "vision_witness_sha256": "7f71c6f7d93ce77a40ac6c0536d4e3f2cbba67971adc1b91a8cfcda9874218b0",
+            "evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf"
           },
           {
             "page_number": 12,
             "primary_text_sha256": "1e218d0fea343f185cc3bfb8bde2f6659393a33b1fc2e5d620b373f834596d45",
-            "source_image_sha256": "62bad02577cf7c02fd8903e12fe9812c9ceb444bc484e1435af4e475d0a63d56"
+            "source_image_sha256": "62bad02577cf7c02fd8903e12fe9812c9ceb444bc484e1435af4e475d0a63d56",
+            "vision_witness_sha256": "bf8b9d1bd781486256a273fb5eefff0e9972b939a79a4ee56d57823866c1487d",
+            "evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293"
           },
           {
             "page_number": 13,
             "primary_text_sha256": "8c5157cf07bc7f29d2b6cebca50473871ef756242208d64d0625c0fd46031b38",
-            "source_image_sha256": "a658865b29577dcff736be8a499259aa09c5797bed41333588d373db699ed5e1"
+            "source_image_sha256": "a658865b29577dcff736be8a499259aa09c5797bed41333588d373db699ed5e1",
+            "vision_witness_sha256": "aef156bdcf6242c790f08d59753fe1ff15eb64e2e60ea366c4929fbb346442af",
+            "evidence_bundle_sha256": "3ab7b3a7540619c3fbcf9f2d06404544d5869969d4f60b971bdd7dd991040450"
           }
         ],
         "review_status": "human_image_review_pass_navigation_only",
@@ -45,8 +51,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 3,
           "candidate_physical_page_start": 17,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1902年 钦定蒙学堂章程（摘录） ..... 3",
+            "source_line_sha256": "1dbd14064209fd4085eaaba82bfa5c724564470db74a96f8882c5ed4c2bd01bc",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "3da1c722a418df03f06c185053a830529523695f82d1e593ca2b04658b7ea57d"
+          },
           "candidate_physical_page_end": 17,
-          "toc_entry_sha256": "8bd09d43965fb340cfce18ee8921b53e2940b61508d6ae1a4e880d37c6ca7028",
+          "toc_entry_sha256": "3da1c722a418df03f06c185053a830529523695f82d1e593ca2b04658b7ea57d",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -76,7 +89,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -103,8 +117,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 4,
           "candidate_physical_page_start": 18,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1902年 钦定小学堂章程（摘录） ..... 4",
+            "source_line_sha256": "cc0a969d8dde4abe7e7d2bfd541ade7095720aafe5d8fe61e0e224263857f6d8",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "a2d8d1ce2b9345ee265d74d6e38ade08493ec5b8fd00838a91cbedf269c9c877"
+          },
           "candidate_physical_page_end": 18,
-          "toc_entry_sha256": "9b783f98b6e280b84196e2241aaa08b03bf6ea0fc53f254bee1e0121f5d5da87",
+          "toc_entry_sha256": "a2d8d1ce2b9345ee265d74d6e38ade08493ec5b8fd00838a91cbedf269c9c877",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -134,7 +155,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -161,8 +183,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 5,
           "candidate_physical_page_start": 19,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1904年 奏定初等小学堂章程（摘录） ..... 5",
+            "source_line_sha256": "e5caabacb9276eb6c49ab8f773d71344fb0d9a238ef7032458ee185adf3ee803",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "3db2d157eee3920ec41518c7960fdf477cb31566c3828ed18a2c0c14dcb111e4"
+          },
           "candidate_physical_page_end": 21,
-          "toc_entry_sha256": "2ee66fd894f382a85c0f78c0dbfe5984b56ea8d5abdfb3eead909508934e5be9",
+          "toc_entry_sha256": "3db2d157eee3920ec41518c7960fdf477cb31566c3828ed18a2c0c14dcb111e4",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -192,7 +221,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -219,8 +249,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 8,
           "candidate_physical_page_start": 22,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1904年 奏定高等小学堂章程（摘录） ..... 8",
+            "source_line_sha256": "f850e84cc1c2c17647f1c3c81ce66e9dd05bb4e6c41884cef6474723c186d449",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "a2e853244abd61ad2a3d7ba03ee450a11501d64a7d8440ead57a594820dd60af"
+          },
           "candidate_physical_page_end": 24,
-          "toc_entry_sha256": "50023bc4e9192e3dec48c1c9dfcb6169a079c55f3073df14def1965c1abe402d",
+          "toc_entry_sha256": "a2e853244abd61ad2a3d7ba03ee450a11501d64a7d8440ead57a594820dd60af",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -250,7 +287,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -277,8 +315,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 11,
           "candidate_physical_page_start": 25,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1912年 小学校教则及课程表（摘录） ..... 11",
+            "source_line_sha256": "d1f1f6da39ea1dcafc37fad371c708abed64dc1f0cf71bda6a64e290f55d0d2f",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "9c3c889bc0490070e1c57727da4a05025051ce86a96d08ec223a80e2bad6bf44"
+          },
           "candidate_physical_page_end": 25,
-          "toc_entry_sha256": "ead869faa148573fcda4b650cccf932fa1c625d4159900904f975a4b1bb67595",
+          "toc_entry_sha256": "9c3c889bc0490070e1c57727da4a05025051ce86a96d08ec223a80e2bad6bf44",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -308,7 +353,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -335,8 +381,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 12,
           "candidate_physical_page_start": 26,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1916年 国民学校令施行细则（摘录） ..... 12",
+            "source_line_sha256": "d4b4c31d3bbb1af32775f9bc7a4dd670feacdce13d8087d2c4943f26708994a3",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "92b8ce5fdb0b62f70e7ae7aa1a30b1ff9658e54f8f90c061ebcfffb0c799b858"
+          },
           "candidate_physical_page_end": 26,
-          "toc_entry_sha256": "e3d6f65bc6b9772c5500ec50b97eadb4c5b75fb06c0341d2efffde06beebbf9a",
+          "toc_entry_sha256": "92b8ce5fdb0b62f70e7ae7aa1a30b1ff9658e54f8f90c061ebcfffb0c799b858",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -366,7 +419,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -393,8 +447,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 13,
           "candidate_physical_page_start": 27,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1923年 新学制课程标准纲要小学国语课程纲要 ..... 13",
+            "source_line_sha256": "a671851e4f672830a78cbebba4aff7219e7f4e9d9f89161a420959c6145eb0b4",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "c6bdfdceebba08457f76147b92c278e1e3b8a7fec5a472e9fa4f48ad182cc4b7"
+          },
           "candidate_physical_page_end": 29,
-          "toc_entry_sha256": "9fa0547269e497cfddafb1033db608768fa89e3854fafd228729fa86bf7e33ae",
+          "toc_entry_sha256": "c6bdfdceebba08457f76147b92c278e1e3b8a7fec5a472e9fa4f48ad182cc4b7",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -424,7 +485,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -451,8 +513,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 16,
           "candidate_physical_page_start": 30,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1929年 小学课程暂行标准小学国语 ..... 16",
+            "source_line_sha256": "a30e41b64309e9b9f4ac518313b004e35d6a34d70dcd087994e0436025b5e123",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "c24d8a505f362084640e0269c4197e030dedfae90693f12bad94b5fc9b434983"
+          },
           "candidate_physical_page_end": 35,
-          "toc_entry_sha256": "88af7bad6ea2874f5612db4bdbf8443bce6bb526dc7d84bcab4f8d6677c24f11",
+          "toc_entry_sha256": "c24d8a505f362084640e0269c4197e030dedfae90693f12bad94b5fc9b434983",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -482,7 +551,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -509,8 +579,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 22,
           "candidate_physical_page_start": 36,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1932年 小学课程标准国语 ..... 22",
+            "source_line_sha256": "bb50443e158cbc78f28d5b0ba08487c76748d91deeea8614ffe6c935ce03bd3c",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "a79e60768f791737a8e17d7ffe705aa22eb29fcde04d3e9d6b53989d10320d7e"
+          },
           "candidate_physical_page_end": 43,
-          "toc_entry_sha256": "45bfb7dd154bbbaec8ca73b3f7b493fbaa292a7fea3e50b215e96abdae2178e6",
+          "toc_entry_sha256": "a79e60768f791737a8e17d7ffe705aa22eb29fcde04d3e9d6b53989d10320d7e",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -540,7 +617,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -567,8 +645,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 30,
           "candidate_physical_page_start": 44,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1936年 小学国语课程标准 ..... 30",
+            "source_line_sha256": "cb404b4e1c9cf292c70010549e68154c22b3045da8065cdd0593f2da762aa3f9",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "110706e3982fdd001976285adbb440df291d94e40b81c150c7e53884f6068240"
+          },
           "candidate_physical_page_end": 53,
-          "toc_entry_sha256": "11c1884df6bb0227f33e9518093ced7d0af3bab3652e2c812f672d0154bb49f6",
+          "toc_entry_sha256": "110706e3982fdd001976285adbb440df291d94e40b81c150c7e53884f6068240",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -598,7 +683,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -625,8 +711,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 40,
           "candidate_physical_page_start": 54,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1941年 小学国语科课程标准 ..... 40",
+            "source_line_sha256": "c5d1d9e18aaecbfca2524ee996553906091aad368d09c536ebb5df4c47cf4fbf",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "099330dd00a2fd366387a6439f4ce9eb04687e4739f84327494ae57b6cf7bbda"
+          },
           "candidate_physical_page_end": 72,
-          "toc_entry_sha256": "760e5b2f52417b71add070543b3196ff51b54a5cbd954073b8e2137760072013",
+          "toc_entry_sha256": "099330dd00a2fd366387a6439f4ce9eb04687e4739f84327494ae57b6cf7bbda",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -656,7 +749,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -683,8 +777,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 59,
           "candidate_physical_page_start": 73,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1948年 国语课程标准 ..... 59",
+            "source_line_sha256": "2a36bd60090d13489f9db0e5b709d71d385154411ed85543c2184a8b0226eee9",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "f4cd04acc1e74abbc36bffa2ffc23a87f83ebffdcf88d8f25abcd9ca211c27d6"
+          },
           "candidate_physical_page_end": 75,
-          "toc_entry_sha256": "39d63f111080a3792b50d47033b1e9c1190e057e0c291c2e00b87700bb15a4e6",
+          "toc_entry_sha256": "f4cd04acc1e74abbc36bffa2ffc23a87f83ebffdcf88d8f25abcd9ca211c27d6",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -714,7 +815,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -741,8 +843,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 62,
           "candidate_physical_page_start": 76,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1950年 小学语文课程暂行标准（草案） ..... 62",
+            "source_line_sha256": "51ea286f9c22411059c778912f331c7cbc47e58fb9f384dff460bbd4cbaff5e1",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "336c7fa33f31b6d0ef800aa91fd43dae783db4f71272002ecf4d1ef56e396826"
+          },
           "candidate_physical_page_end": 86,
-          "toc_entry_sha256": "d3fcd3ef66576f2cffbd6c5dd7185c407aa5eb4649f046e0c15eefd83c1686d1",
+          "toc_entry_sha256": "336c7fa33f31b6d0ef800aa91fd43dae783db4f71272002ecf4d1ef56e396826",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -772,7 +881,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -799,8 +909,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 73,
           "candidate_physical_page_start": 87,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1954年 改进小学语文教学的初步意见 ..... 73",
+            "source_line_sha256": "a2e40b7f518128c066095759bd82d240a9d3e4ca3d0c5f111885660b70842cc0",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "2e5bbda191092ff5bbe4847b37d63dfa648b31984d4103d58fd7272f885b74be"
+          },
           "candidate_physical_page_end": 94,
-          "toc_entry_sha256": "ee7119540819b075b737e551f03f25f3a74f5f02f86c5971586adaacba9c82f9",
+          "toc_entry_sha256": "2e5bbda191092ff5bbe4847b37d63dfa648b31984d4103d58fd7272f885b74be",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -830,7 +947,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -857,8 +975,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 81,
           "candidate_physical_page_start": 95,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1955年 小学语文教学大纲草案（初稿） ..... 81",
+            "source_line_sha256": "8ecaddfe9b242facd6aeb2372fda49362ddc50b65ae75650b1afb198984a827c",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "50900ea1350435db84c6e0244510565411c87b44d959d65d2d5b6f4314a5f66b"
+          },
           "candidate_physical_page_end": 130,
-          "toc_entry_sha256": "6866e87d9c3d8bd7f063af539f0cbd12a61028d1a58e9b1e3cc59efb227e435a",
+          "toc_entry_sha256": "50900ea1350435db84c6e0244510565411c87b44d959d65d2d5b6f4314a5f66b",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -888,7 +1013,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -915,8 +1041,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 117,
           "candidate_physical_page_start": 131,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1956年 小学语文教学大纲（草案） ..... 117",
+            "source_line_sha256": "58921bd726ec3a3f214757049b7fbf4a52b0e4e986bbba3e92fd33f7f763d0d0",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "04032c02c30d6c5b259d906635823420acfdde49e3ba4e5332f18bc545aecd7f"
+          },
           "candidate_physical_page_end": 166,
-          "toc_entry_sha256": "035e1c7c506bd5732952a66b13462049dc4cd4a8e361d81cab3c910dda4c7237",
+          "toc_entry_sha256": "04032c02c30d6c5b259d906635823420acfdde49e3ba4e5332f18bc545aecd7f",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -946,7 +1079,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -973,8 +1107,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 153,
           "candidate_physical_page_start": 167,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1963年 全日制小学语文教学大纲（草案） ..... 153",
+            "source_line_sha256": "e85c42cf6671f2acbf7d42df842a3cdaf140a603a78ba58379224a7c1118a932",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "5814033efb6c5fbcc174767c2978e6b8d2da17fb91b030e3d3a837bbeebe0fd8"
+          },
           "candidate_physical_page_end": 189,
-          "toc_entry_sha256": "c1b2fdda006bc00fbc6bc0cdfbc0f4824711ef63bdc01d163413d88edd078fd2",
+          "toc_entry_sha256": "5814033efb6c5fbcc174767c2978e6b8d2da17fb91b030e3d3a837bbeebe0fd8",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1004,7 +1145,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1031,8 +1173,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 176,
           "candidate_physical_page_start": 190,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1978年 全日制十年制学校小学语文教学大纲（试行草案） ..... 176",
+            "source_line_sha256": "ed0d28da0a4d739082638c86a6b742dc3c6326ba746c7d2ea2d83ebc915d592f",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "e3e7956c9f29f25fcb05bfc9b5b8e13740e7d5fa0baccccfb528207bf4198220"
+          },
           "candidate_physical_page_end": 198,
-          "toc_entry_sha256": "280c1292a0bad523add9f79f9501609282e4a6c483ee07de6bd126a522e624a2",
+          "toc_entry_sha256": "e3e7956c9f29f25fcb05bfc9b5b8e13740e7d5fa0baccccfb528207bf4198220",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1062,7 +1211,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1089,8 +1239,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 185,
           "candidate_physical_page_start": 199,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1980年 全日制十年制学校小学语文教学大纲（试行草案） ..... 185",
+            "source_line_sha256": "709c7bd6ccec8aa5d6661f06c5112385b4c21622b825ce8a8d677c7a57930770",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "8fc49f1f86d2741a64bb1fc02c31c53902dd6c498a129d8608170a2d89881438"
+          },
           "candidate_physical_page_end": 207,
-          "toc_entry_sha256": "9f7932f8e3fa507d65a85ef0aab84a8b53142bd0316186d9316bad65e8e32ed8",
+          "toc_entry_sha256": "8fc49f1f86d2741a64bb1fc02c31c53902dd6c498a129d8608170a2d89881438",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1120,7 +1277,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1147,8 +1305,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 194,
           "candidate_physical_page_start": 208,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1986年 全日制小学语文教学大纲 ..... 194",
+            "source_line_sha256": "d54109d478244bdbe718b0a4019a3f110d50f2341fd7488d1cb2d415460d44a0",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "aff5206c2330607972413c57f8f559f0616dda589b1c65702313df0440d1d77c"
+          },
           "candidate_physical_page_end": 222,
-          "toc_entry_sha256": "054985ffafbe2d92d6a60bb92219ec748b999e30cf8e9a096032a2243aae5a33",
+          "toc_entry_sha256": "aff5206c2330607972413c57f8f559f0616dda589b1c65702313df0440d1d77c",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1178,7 +1343,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1205,8 +1371,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 209,
           "candidate_physical_page_start": 223,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1988年 九年制义务教育全日制小学语文教学大纲（初审稿） ..... 209",
+            "source_line_sha256": "7c09bce8c66e30ef58d8f1c2d991a4b65d364949f3ceb562b565a23f311fbb6f",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "eac5d0d45b3c49e32c6e72149e697ab2673468e733026d9c6c42132785ef6faa"
+          },
           "candidate_physical_page_end": 240,
-          "toc_entry_sha256": "6f259f11b6b1891608e243084751161ba9e1bae29bd3b0783690451aefcc6f41",
+          "toc_entry_sha256": "eac5d0d45b3c49e32c6e72149e697ab2673468e733026d9c6c42132785ef6faa",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1236,7 +1409,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1263,8 +1437,15 @@
           "toc_physical_page": 11,
           "printed_page_start": 227,
           "candidate_physical_page_start": 241,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1991年 中小学语文学科思想政治教育纲要（摘录）（试用） ..... 227",
+            "source_line_sha256": "d7b7b25c57eaf8ae06be75b76dbba00b5ca02a082efc14cebb8f77956981a5e8",
+            "toc_page_evidence_bundle_sha256": "ada1354507dacaa1092a1903d9792544fa15be89a3ffec60a7056dfce1e8f5bf",
+            "entry_receipt_sha256": "a90539e0acba53f8dbac97eb057a666c8ba84d58fce952e85487711488290f67"
+          },
           "candidate_physical_page_end": 245,
-          "toc_entry_sha256": "5505e0f346ec0124746078bdeb185015b71d2deee6560e048ea19b4c5f47dfe9",
+          "toc_entry_sha256": "a90539e0acba53f8dbac97eb057a666c8ba84d58fce952e85487711488290f67",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1294,7 +1475,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1321,8 +1503,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 232,
           "candidate_physical_page_start": 246,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1992年 九年义务教育全日制小学语文教学大纲（试用） ..... 232",
+            "source_line_sha256": "24ad4a34c2098c78227e26eb8e921c4aa570ebe847233a7925f0205ee62ad327",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "179094402723a8d5850dd794b30bc16e49c61b811a1d2b68baaa99774886319f"
+          },
           "candidate_physical_page_end": 265,
-          "toc_entry_sha256": "12481af54779c828617a08b5594d664d3657da964429478bbaf8c9ddffc3afcc",
+          "toc_entry_sha256": "179094402723a8d5850dd794b30bc16e49c61b811a1d2b68baaa99774886319f",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1352,7 +1541,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1379,8 +1569,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 252,
           "candidate_physical_page_start": 266,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1994年 关于印发中小学语文等23个学科教学大纲调整意见的通知 ..... 252",
+            "source_line_sha256": "26eb5d92e9cb3fee68602ee89f8e00fa930e82edcb12f0e1a5a103162d66a33c",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "0a93f04b47eec8051b699dd3aa227e4e7d0da73bd638751797ad7ea865efbd7a"
+          },
           "candidate_physical_page_end": 266,
-          "toc_entry_sha256": "dfaac44c8dddbfa3e15629a8d79c63f381e8d83518956b01aba787bfb753b177",
+          "toc_entry_sha256": "0a93f04b47eec8051b699dd3aa227e4e7d0da73bd638751797ad7ea865efbd7a",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1410,7 +1607,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1437,8 +1635,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 253,
           "candidate_physical_page_start": 267,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "附件一 （摘录）《九年义务教育全日制小学语文教学大纲（试用）》的调整意见 ..... 253",
+            "source_line_sha256": "d0a5189478ed1573044e212fc539870938b34d1dc58139ec46ccee136f470f84",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "76349afbd540ab3d4994fd26f06802d265305fb5bcc80e0bb806a7a1eb4a173d"
+          },
           "candidate_physical_page_end": 268,
-          "toc_entry_sha256": "bd8695f9fbfdfb1b811643f827ccd82c7bdd77dcb970726791ec26715bf58ecf",
+          "toc_entry_sha256": "76349afbd540ab3d4994fd26f06802d265305fb5bcc80e0bb806a7a1eb4a173d",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1468,7 +1673,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1495,8 +1701,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 255,
           "candidate_physical_page_start": 269,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "2000年 九年义务教育全日制小学语文教学大纲（试用修订版） ..... 255",
+            "source_line_sha256": "c96adc8a4c74ebf8610a71ea0fb9eea881bfd436bad6dd1e1dc42b93f2393ef2",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "953e3e16b3ca374f362bdc5fb9de1a465e7910c7d7151dd4411b4f6047001a22"
+          },
           "candidate_physical_page_end": 280,
-          "toc_entry_sha256": "6b8584b6b459293e7c86d02afba26fbc4e5fe76b56e070b2e2f9b89fb1c8bf7d",
+          "toc_entry_sha256": "953e3e16b3ca374f362bdc5fb9de1a465e7910c7d7151dd4411b4f6047001a22",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1526,7 +1739,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1553,8 +1767,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 267,
           "candidate_physical_page_start": 281,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1902 年 钦定中学堂章程（摘录） ..... 267",
+            "source_line_sha256": "1a1934afe164988c2cfcd14f76dc08c7d2738e351a4a665229db75b47ed50272",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "5c84694e01b3c52191e5d1bd306b3d89e8c278f7eec6831a0a516b7aecdfdb72"
+          },
           "candidate_physical_page_end": 281,
-          "toc_entry_sha256": "8f51370a86c2ed859a5d8a335e295992c1b4398f01d67af8525529570b2a793d",
+          "toc_entry_sha256": "5c84694e01b3c52191e5d1bd306b3d89e8c278f7eec6831a0a516b7aecdfdb72",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1584,7 +1805,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1611,8 +1833,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 268,
           "candidate_physical_page_start": 282,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1904 年 奏定中学堂章程（摘录） ..... 268",
+            "source_line_sha256": "b2c7cb3d37239161f964cbd688c6946d9a9aa6d09e8e8bdda258712508a52baa",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "a386de631adb3fd636dd157dbb6a83ef5d7a85811ac9c08d5978bbc59ff52001"
+          },
           "candidate_physical_page_end": 283,
-          "toc_entry_sha256": "7b51ed7b061fba5c0d9f7430925563ab1aa8a60f25165501da65a0897556d4f7",
+          "toc_entry_sha256": "a386de631adb3fd636dd157dbb6a83ef5d7a85811ac9c08d5978bbc59ff52001",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1642,7 +1871,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1669,8 +1899,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 270,
           "candidate_physical_page_start": 284,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1909 年 学部奏变通中学堂课程分为文科实科折（摘录） ..... 270",
+            "source_line_sha256": "faf0fd78dede00518f9af1d30217b0126c3788a376bd07839c427f34e0f2dd65",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "bafd0da9159660680b11176a598d93dfbe2ac326bd39611ae2dddfc4f1e1958b"
+          },
           "candidate_physical_page_end": 285,
-          "toc_entry_sha256": "9c70d98134895a31532d54bfa252efea5f0bccafcda85396912c5a4a5399f49c",
+          "toc_entry_sha256": "bafd0da9159660680b11176a598d93dfbe2ac326bd39611ae2dddfc4f1e1958b",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1700,7 +1937,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1727,8 +1965,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 272,
           "candidate_physical_page_start": 286,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1912 年 中学校令施行规则（摘录） ..... 272",
+            "source_line_sha256": "1505f7ef50d12d00dc9af7c0cd0965901742313b7ae1588fbca594af213267b7",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "e1ded023c0c7cb2a91e44b7ca142748c7a62be59ee1fa7002188b1ca2bf41857"
+          },
           "candidate_physical_page_end": 286,
-          "toc_entry_sha256": "3c5d0f9965e2c4d235f8cdb516fd2286608f8eee2236429648fd794f2d01ef8c",
+          "toc_entry_sha256": "e1ded023c0c7cb2a91e44b7ca142748c7a62be59ee1fa7002188b1ca2bf41857",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1758,7 +2003,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1785,8 +2031,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 273,
           "candidate_physical_page_start": 287,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1913 年 中学校课程标准（摘录） ..... 273",
+            "source_line_sha256": "4dcf36850c2d4d6629a208cdc53600b22cd2c254f3fde7e9a0126441f6928804",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "4c268dbcb6b38a260715af30a0cd7827a0a7789b2a9bd2005d22731fcfd897fe"
+          },
           "candidate_physical_page_end": 287,
-          "toc_entry_sha256": "e6888cd8ee43894cb13fad72a64e4687dc33d62a3415f9989add4e794b15d468",
+          "toc_entry_sha256": "4c268dbcb6b38a260715af30a0cd7827a0a7789b2a9bd2005d22731fcfd897fe",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1816,7 +2069,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1843,8 +2097,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 274,
           "candidate_physical_page_start": 288,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1923 年 新学制课程标准初级中学国语课程纲要 ..... 274",
+            "source_line_sha256": "dd37df402fd417d7f4163aa454dffe773a5a36441c98018d505a2200c9c895e5",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "751294e025db153df3066b31602572cf7fdd0f3f90cb8855eafd87e57ed863c9"
+          },
           "candidate_physical_page_end": 290,
-          "toc_entry_sha256": "fc0ef2dba5f76f2e644e2b7526751bd52c4c7f1236ebfdb1091563497b405374",
+          "toc_entry_sha256": "751294e025db153df3066b31602572cf7fdd0f3f90cb8855eafd87e57ed863c9",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1874,7 +2135,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1901,8 +2163,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 277,
           "candidate_physical_page_start": 291,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1923 年 新学制课程标准纲要高级中学公共必修的国语课程纲要 ..... 277",
+            "source_line_sha256": "2a57155f88ea240e8745fcfeec03938461ac48de3778e08c71f9c81088ab3d68",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "42113f1d65be8ce645242c835d905b03776d59241c59239516c49120b0350173"
+          },
           "candidate_physical_page_end": 293,
-          "toc_entry_sha256": "067026752e2c599a715ba81f451daebd3a167ac57cbaf9d1da23d7ddae0b75fd",
+          "toc_entry_sha256": "42113f1d65be8ce645242c835d905b03776d59241c59239516c49120b0350173",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1932,7 +2201,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -1959,8 +2229,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 280,
           "candidate_physical_page_start": 294,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1923 年 高级中学第一组必修的特设国文课程纲要 ..... 280",
+            "source_line_sha256": "ca35b2938f46ee8ab7df6d1744cd02a6cbacbf7aa419addc90552d25f8ccd49e",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "b1e9c1802193566a902d2e272c9d5608b9dce60a4e5a451c5894b28c9884b0ff"
+          },
           "candidate_physical_page_end": 295,
-          "toc_entry_sha256": "94fe9f9342544f1ed0f9a83d640d5c6bfda6a9329f288c33f6c7ee809c756fb6",
+          "toc_entry_sha256": "b1e9c1802193566a902d2e272c9d5608b9dce60a4e5a451c5894b28c9884b0ff",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -1990,7 +2267,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2017,8 +2295,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 282,
           "candidate_physical_page_start": 296,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1929 年 初级中学国文暂行课程标准 ..... 282",
+            "source_line_sha256": "14ac66a75afb59147ae96385aa6bd3d17ac42616976d652321705d80089d73db",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "1ce88883b49a8c5611c878a97d7f35cf15b9b0aa46e4c2af45c5fcf44742c197"
+          },
           "candidate_physical_page_end": 299,
-          "toc_entry_sha256": "d456464d0a409dd9e2a3d82f7e8889e59d672fe2ead80a3191b3f3648628b1ab",
+          "toc_entry_sha256": "1ce88883b49a8c5611c878a97d7f35cf15b9b0aa46e4c2af45c5fcf44742c197",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2048,7 +2333,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2075,8 +2361,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 286,
           "candidate_physical_page_start": 300,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1929 年 高级中学普通科国文暂行课程标准 ..... 286",
+            "source_line_sha256": "0363d698085b73f2cf5bbed0f8f97e5fa6e17c61f2483c544573573504c706d1",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "ec6ce466d2d42cc9645a64a636a14d275a5a66eadf6708e509805c3e7bebfac4"
+          },
           "candidate_physical_page_end": 302,
-          "toc_entry_sha256": "39ef9b54aa098e2c926e79dfcd790e73d3804235b29ca052dcf5aac72535f27e",
+          "toc_entry_sha256": "ec6ce466d2d42cc9645a64a636a14d275a5a66eadf6708e509805c3e7bebfac4",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2106,7 +2399,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2133,8 +2427,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 289,
           "candidate_physical_page_start": 303,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1932 年 初级中学国文课程标准 ..... 289",
+            "source_line_sha256": "f4e630a612aa911983ab1de43e668eacc73ee2803512a278103073dc53e6ed33",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "cae076ff073f4e97fb3943009248288a5826e02752657affc21bd813ae104e19"
+          },
           "candidate_physical_page_end": 306,
-          "toc_entry_sha256": "b6ef765b0178b297fc0a1c9eac1a25f797917934fef5be307c28165d39e6b1d0",
+          "toc_entry_sha256": "cae076ff073f4e97fb3943009248288a5826e02752657affc21bd813ae104e19",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2164,7 +2465,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2191,8 +2493,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 293,
           "candidate_physical_page_start": 307,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1932 年 高级中学国文课程标准 ..... 293",
+            "source_line_sha256": "97789ee796f91e41e2d42e47da50ba4788857dbf995db317bcd36b49eff70f9e",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "a5de922cfe8ae79e8d2a8b731dc1f9bedf8138d165af289293d513f0ec415f7d"
+          },
           "candidate_physical_page_end": 309,
-          "toc_entry_sha256": "d09f20e116b764a1e9813310f2b6c66524c534203685325dd23f555cf0b5a3fa",
+          "toc_entry_sha256": "a5de922cfe8ae79e8d2a8b731dc1f9bedf8138d165af289293d513f0ec415f7d",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2222,7 +2531,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2249,8 +2559,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 296,
           "candidate_physical_page_start": 310,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1936 年 初级中学国文课程标准 ..... 296",
+            "source_line_sha256": "82299c1a41265b8f95400e0f969cee5c595d8aa869e496d05f4e5c0fdb70cc76",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "a6ac5fc99349599ae2a796bd854511461739b3bf750fc263ddb4eb7676318868"
+          },
           "candidate_physical_page_end": 314,
-          "toc_entry_sha256": "99039caf4e9eedda1c8306e6102127561b0371c6ab15f7f2d7382cc8b37ebdba",
+          "toc_entry_sha256": "a6ac5fc99349599ae2a796bd854511461739b3bf750fc263ddb4eb7676318868",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2280,7 +2597,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2307,8 +2625,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 301,
           "candidate_physical_page_start": 315,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1936 年 高级中学国文课程标准 ..... 301",
+            "source_line_sha256": "297489bdcce8a20dcca51932497e9cde6adf8880eba97f128b44ef15ef17b49e",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "fd8f7f9137c91c73d29b6116b33f2c600f517359dc589d33b13980ea9f3071d0"
+          },
           "candidate_physical_page_end": 317,
-          "toc_entry_sha256": "95600ce9f96cad2b0291f9d86976e8cc673de48ba675208896bb6b73768661b0",
+          "toc_entry_sha256": "fd8f7f9137c91c73d29b6116b33f2c600f517359dc589d33b13980ea9f3071d0",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2338,7 +2663,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2365,8 +2691,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 304,
           "candidate_physical_page_start": 318,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1940 年 修正初级中学国文课程标准 ..... 304",
+            "source_line_sha256": "25292aad416116f9b9e41ad333ed627b678afdd3044b5f1c1aec7a638cedd2bf",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "f6f781ae4a20186df29fed647b32ad4b4cf2e516d3612f01b185df235254ee57"
+          },
           "candidate_physical_page_end": 322,
-          "toc_entry_sha256": "667e0e564d30deeb559fd9efadde92abbea8fb39c28e9b1259b580d79f925669",
+          "toc_entry_sha256": "f6f781ae4a20186df29fed647b32ad4b4cf2e516d3612f01b185df235254ee57",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2396,7 +2729,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2423,8 +2757,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 309,
           "candidate_physical_page_start": 323,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1940 年 修正高级中学国文课程标准 ..... 309",
+            "source_line_sha256": "b18c44a9bc2036cd1e1a2060aac93a9067006b8cac8f2d7e3af75aa7e4478435",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "9845ce7e68b4ed8862bd60e5636c22ef7a9adb10e6fa6cb412badfcb1399e2a8"
+          },
           "candidate_physical_page_end": 325,
-          "toc_entry_sha256": "ffd9869eb56d39b04967c958c7a86e6cda050326e53ec56c16fb06431e18da07",
+          "toc_entry_sha256": "9845ce7e68b4ed8862bd60e5636c22ef7a9adb10e6fa6cb412badfcb1399e2a8",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2454,7 +2795,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2481,8 +2823,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 312,
           "candidate_physical_page_start": 326,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1941 年 六年制中学国文课程标准草案 ..... 312",
+            "source_line_sha256": "333331505394f344d7a7cfc6d3f9e5c97bc96b1f884ad4d2e849b535c75c1ace",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "958dae1145899e68ec56060e6b4bdecd9f1ab7171bb78f3988a9a71754f9fddd"
+          },
           "candidate_physical_page_end": 331,
-          "toc_entry_sha256": "fa53ca4a749ba94c64106c37852af20a87ef5bfe3beb40869b93fdde6f7d41b5",
+          "toc_entry_sha256": "958dae1145899e68ec56060e6b4bdecd9f1ab7171bb78f3988a9a71754f9fddd",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2512,7 +2861,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2539,8 +2889,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 318,
           "candidate_physical_page_start": 332,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1948 年 修订初级中学国文课程标准 ..... 318",
+            "source_line_sha256": "f9dfa5d743d880bf5db67c4ea346994e46b94c52e066076404860c0db6dc6d06",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "27c4d5a598eefebfe6014df35fcc67b63d9c208baad151dac7c2e1dab82b3acc"
+          },
           "candidate_physical_page_end": 333,
-          "toc_entry_sha256": "b81d11abaf60085f5f1bdd48f749943cde8758d266997b8ec981a99fe0fd4d8c",
+          "toc_entry_sha256": "27c4d5a598eefebfe6014df35fcc67b63d9c208baad151dac7c2e1dab82b3acc",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2570,7 +2927,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2597,8 +2955,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 320,
           "candidate_physical_page_start": 334,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1948 年 修订高级中学国文课程标准 ..... 320",
+            "source_line_sha256": "9e664ab813b6196de58358590d81f8b97253556408aa8481e238cf66084e312e",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "a619679f8e5d3464a50d5a6bbb3163b6f4478ee227eefafb15179d291ba09d23"
+          },
           "candidate_physical_page_end": 336,
-          "toc_entry_sha256": "36cc229a8801169cdf66766b37d3b71be54306d32447d8f9594310432a07ab7b",
+          "toc_entry_sha256": "a619679f8e5d3464a50d5a6bbb3163b6f4478ee227eefafb15179d291ba09d23",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2628,7 +2993,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2655,8 +3021,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 323,
           "candidate_physical_page_start": 337,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1956 年 初级中学汉语教学大纲（草案） ..... 323",
+            "source_line_sha256": "b51c56ab57b81f8a03e2c101b4d120e9a111f244dbbebd6398416ea81fbd6f32",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "812fb4776f497ee8b3db63332cd96f7b96dc2394d0d3f88d9b402296426b4f32"
+          },
           "candidate_physical_page_end": 346,
-          "toc_entry_sha256": "1643132eecbceb6ea191a34f481d0a822ac40def5c26fc62ace2f545b1bd94f0",
+          "toc_entry_sha256": "812fb4776f497ee8b3db63332cd96f7b96dc2394d0d3f88d9b402296426b4f32",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2686,7 +3059,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2713,8 +3087,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 333,
           "candidate_physical_page_start": 347,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1956 年 初级中学文学教学大纲（草案） ..... 333",
+            "source_line_sha256": "2677b6717c7c0249c6ce4cc6fd05efe23107087c3a965355eabad8a1431b4d86",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "2e51fe96cea53b4d33dfb292391231ccfe0f49d709e5bbe47de17c70da0bd96d"
+          },
           "candidate_physical_page_end": 399,
-          "toc_entry_sha256": "078476e1c8217cef652220182e4e249a2a04439ac3cca932f1e2fbf4689e28e7",
+          "toc_entry_sha256": "2e51fe96cea53b4d33dfb292391231ccfe0f49d709e5bbe47de17c70da0bd96d",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2744,7 +3125,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2771,8 +3153,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 386,
           "candidate_physical_page_start": 400,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1956 年 高级中学文学教学大纲（草案） ..... 386",
+            "source_line_sha256": "69b4f94e7816e9cba9660d5f60bbfa06da9322f5471c0a8b84a942759e3734ce",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "5cd1b49432cb264e19cdcb59291c13b28a4134ee5636c1e306c5b783bbd21fad"
+          },
           "candidate_physical_page_end": 428,
-          "toc_entry_sha256": "701d2a254eaa0b50ced26a3e3a0e849b3ea3ddb693cb675e5add8bec6d71c3ac",
+          "toc_entry_sha256": "5cd1b49432cb264e19cdcb59291c13b28a4134ee5636c1e306c5b783bbd21fad",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2802,7 +3191,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2829,8 +3219,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 415,
           "candidate_physical_page_start": 429,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1963 年 全日制中学语文教学大纲（草案） ..... 415",
+            "source_line_sha256": "b6f00667322f09877d0da731848b753a8dfb238593268e39e5f9b13ee7049a41",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "4fe8473d3d7db10829656a404520a8722d7ee61ba4b63781b7d99e91b0d5c74c"
+          },
           "candidate_physical_page_end": 450,
-          "toc_entry_sha256": "e0944de64797fb1f7e2f85da582fd3e3fa8b3ea1c07e1c86c9b61ffcb0ea3f13",
+          "toc_entry_sha256": "4fe8473d3d7db10829656a404520a8722d7ee61ba4b63781b7d99e91b0d5c74c",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2860,7 +3257,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2887,8 +3285,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 437,
           "candidate_physical_page_start": 451,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1978 年 全日制十年制学校中学语文教学大纲（试行草案） ..... 437",
+            "source_line_sha256": "965786db6453cbe9f71dcd9ed9695f29392b6bc05bd52622d07095a970b93a51",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "0f16d7d47da26c84d20bb2c937090b701e8e9b7bf3eec9bda696c9a038dafc47"
+          },
           "candidate_physical_page_end": 471,
-          "toc_entry_sha256": "01835433cf792660a2e2720f60abc4221f1059a01dc30aac0394119c400ad1f5",
+          "toc_entry_sha256": "0f16d7d47da26c84d20bb2c937090b701e8e9b7bf3eec9bda696c9a038dafc47",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2918,7 +3323,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -2945,8 +3351,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 458,
           "candidate_physical_page_start": 472,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1980 年 全日制十年制学校中学语文教学大纲（试行草案） ..... 458",
+            "source_line_sha256": "c697647632713e9070ff8117047f7f0d0f79b72c4ecd93b4ca3b1815f438b287",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "d1280a9cb5ce42a38631facc8f0cf4298892413872e4237c1862cd6c69657aa7"
+          },
           "candidate_physical_page_end": 490,
-          "toc_entry_sha256": "04d7a03ff66f4a1c0d38a477b3042c43eca4623292cd6105e76330ee7c76197a",
+          "toc_entry_sha256": "d1280a9cb5ce42a38631facc8f0cf4298892413872e4237c1862cd6c69657aa7",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -2976,7 +3389,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -3003,8 +3417,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 477,
           "candidate_physical_page_start": 491,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1986 年 全日制中学语文教学大纲 ..... 477",
+            "source_line_sha256": "01e7bc5a1b56dd032967b9ed94063c145bcd01918f676b2768992468ae8acf17",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "1d29dd4fe59dcc04588b52f6a1cbbd9ba10bfbf83d4f4641671ad477b805067e"
+          },
           "candidate_physical_page_end": 505,
-          "toc_entry_sha256": "df1f28b5c86a8dc33b4080f1bbea0a95f487703a66fd901f23d5cb72aa37b845",
+          "toc_entry_sha256": "1d29dd4fe59dcc04588b52f6a1cbbd9ba10bfbf83d4f4641671ad477b805067e",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -3034,7 +3455,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -3061,8 +3483,15 @@
           "toc_physical_page": 12,
           "printed_page_start": 492,
           "candidate_physical_page_start": 506,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1988 年 九年制义务教育全日制初级中学语文教学大纲（初审稿） ..... 492",
+            "source_line_sha256": "c5d8de7446f4a5afdac788482fa5568674a964b28d494a0643aa7ac1da4fe27c",
+            "toc_page_evidence_bundle_sha256": "21686d800c924ec2f98d2bd5f26dc32d1f1f2161b0d23139cf20ba9cbf428293",
+            "entry_receipt_sha256": "cd2a48151091076c168388778451784bbfa82383438034064214d0838b73c0db"
+          },
           "candidate_physical_page_end": 515,
-          "toc_entry_sha256": "92a3a860ae931ce571ba3df43026b3045dfcb95e8b5b8f389cc88628d749398c",
+          "toc_entry_sha256": "cd2a48151091076c168388778451784bbfa82383438034064214d0838b73c0db",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -3092,7 +3521,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -3119,8 +3549,15 @@
           "toc_physical_page": 13,
           "printed_page_start": 502,
           "candidate_physical_page_start": 516,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1990年全日制中学语文教学大纲（修订本） ..... 502",
+            "source_line_sha256": "0bd15e12a9190aad07d9b9b12fb9cc3529d1554c85a03cca6c4d163ac8ee8712",
+            "toc_page_evidence_bundle_sha256": "3ab7b3a7540619c3fbcf9f2d06404544d5869969d4f60b971bdd7dd991040450",
+            "entry_receipt_sha256": "d802ffe17a629195a7ce3ba1a98db6763c1f863c5c6fac18aaf52738d7ff74c0"
+          },
           "candidate_physical_page_end": 530,
-          "toc_entry_sha256": "a7c87ace87e8aeb7d7fd3e0297cd5b14dabf859c4b20c5c06322f2983a1ae43d",
+          "toc_entry_sha256": "d802ffe17a629195a7ce3ba1a98db6763c1f863c5c6fac18aaf52738d7ff74c0",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -3150,7 +3587,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -3177,8 +3615,15 @@
           "toc_physical_page": 13,
           "printed_page_start": 517,
           "candidate_physical_page_start": 531,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1991年中小学语文学科思想政治教育纲要 ..... 517",
+            "source_line_sha256": "502dc7ae7f14a29a8808a481331d40facb5e681dad5afb26656b48305f17cc26",
+            "toc_page_evidence_bundle_sha256": "3ab7b3a7540619c3fbcf9f2d06404544d5869969d4f60b971bdd7dd991040450",
+            "entry_receipt_sha256": "bab24527ebe6024d1d15b42d98cb6c2ea72cbbb0b8a228795e93de9f0aaf6c61"
+          },
           "candidate_physical_page_end": 537,
-          "toc_entry_sha256": "e2f2ed46e96cafc10e713ebd4057b1a66a9002f7355695dc66da5cea28555639",
+          "toc_entry_sha256": "bab24527ebe6024d1d15b42d98cb6c2ea72cbbb0b8a228795e93de9f0aaf6c61",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -3208,7 +3653,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -3235,8 +3681,15 @@
           "toc_physical_page": 13,
           "printed_page_start": 524,
           "candidate_physical_page_start": 538,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1992年九年义务教育全日制初级中学语文教学大纲（试用） ..... 524",
+            "source_line_sha256": "b4c837b76d91ef0cc74b709044fefa37189e3557e59f7c7a9431c0ac7d263f49",
+            "toc_page_evidence_bundle_sha256": "3ab7b3a7540619c3fbcf9f2d06404544d5869969d4f60b971bdd7dd991040450",
+            "entry_receipt_sha256": "5622d23d7205a14d8d5d4556da7cfe5af9079bc9327d9efc4ff82cc097a904ec"
+          },
           "candidate_physical_page_end": 546,
-          "toc_entry_sha256": "8d7a36e864ebd4cccc87328233247b3f4d74ba50c88d50ec6a8614781fa25f2e",
+          "toc_entry_sha256": "5622d23d7205a14d8d5d4556da7cfe5af9079bc9327d9efc4ff82cc097a904ec",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -3266,7 +3719,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -3293,8 +3747,15 @@
           "toc_physical_page": 13,
           "printed_page_start": 533,
           "candidate_physical_page_start": 547,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1994年关于印发中小学语文等23个学科教学大纲调整意见的通知 ..... 533",
+            "source_line_sha256": "8f250d286b8b46e170c1763491ee4f25e678dc800221a9c6f64056f957513226",
+            "toc_page_evidence_bundle_sha256": "3ab7b3a7540619c3fbcf9f2d06404544d5869969d4f60b971bdd7dd991040450",
+            "entry_receipt_sha256": "fbc0b0e93a355ca49e9c19cf0cc9f5c67467391ec2c983b209f12d3ad04b1f4f"
+          },
           "candidate_physical_page_end": 547,
-          "toc_entry_sha256": "3bb98aea8860c74758dc0bd43cb1cf074e158423ce0aae5301b4e42b8e4eeb54",
+          "toc_entry_sha256": "fbc0b0e93a355ca49e9c19cf0cc9f5c67467391ec2c983b209f12d3ad04b1f4f",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -3324,7 +3785,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -3351,8 +3813,15 @@
           "toc_physical_page": 13,
           "printed_page_start": 534,
           "candidate_physical_page_start": 548,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "附件一（摘录）《九年义务教育全日制初级中学语文教学大纲（试用）》的调整意见 ..... 534",
+            "source_line_sha256": "b84d08389ddbeb86a80f4459f9deac061b42953ca7f32c27c671bd6c895196e9",
+            "toc_page_evidence_bundle_sha256": "3ab7b3a7540619c3fbcf9f2d06404544d5869969d4f60b971bdd7dd991040450",
+            "entry_receipt_sha256": "922bd037769379f2469d0f61def86b883474c84aa5c76d8dd52c64cadcf2bc46"
+          },
           "candidate_physical_page_end": 548,
-          "toc_entry_sha256": "51ca032b6887cc4a63ae054fe90fea3d141adcfb36c8b739c52455ad680b293a",
+          "toc_entry_sha256": "922bd037769379f2469d0f61def86b883474c84aa5c76d8dd52c64cadcf2bc46",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -3382,7 +3851,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -3409,8 +3879,15 @@
           "toc_physical_page": 13,
           "printed_page_start": 535,
           "candidate_physical_page_start": 549,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "1996年全日制普通高级中学语文教学大纲（供试验用） ..... 535",
+            "source_line_sha256": "c0f38607db85087e3d3fa17bea984facaa1fe21861910133ba58153fdf9194a4",
+            "toc_page_evidence_bundle_sha256": "3ab7b3a7540619c3fbcf9f2d06404544d5869969d4f60b971bdd7dd991040450",
+            "entry_receipt_sha256": "48bca595bbb876ec30e9b3e87ac031a9c7514465e3a16a577eff0938f3274b3d"
+          },
           "candidate_physical_page_end": 554,
-          "toc_entry_sha256": "cdc784248f60be81b691f4faf02732729b69d50c71ad3e3814272290b738191d",
+          "toc_entry_sha256": "48bca595bbb876ec30e9b3e87ac031a9c7514465e3a16a577eff0938f3274b3d",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -3440,7 +3917,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -3467,8 +3945,15 @@
           "toc_physical_page": 13,
           "printed_page_start": 541,
           "candidate_physical_page_start": 555,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "2000年九年义务教育全日制初级中学语文教学大纲（试用修订版） ..... 541",
+            "source_line_sha256": "4079213bf546ffd0a04112717804167ca2ce6f3e6a096fa4dc2a2f7b1190c543",
+            "toc_page_evidence_bundle_sha256": "3ab7b3a7540619c3fbcf9f2d06404544d5869969d4f60b971bdd7dd991040450",
+            "entry_receipt_sha256": "8170b3fe573a3f8f5835720fe1582f23d39d7fb0f0b0a323530cf6a4807b7c6b"
+          },
           "candidate_physical_page_end": 561,
-          "toc_entry_sha256": "95b53796077fde543e027e48c313a1ce60d51b8894eade706199d37d373e4e9a",
+          "toc_entry_sha256": "8170b3fe573a3f8f5835720fe1582f23d39d7fb0f0b0a323530cf6a4807b7c6b",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -3498,7 +3983,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",
@@ -3525,8 +4011,15 @@
           "toc_physical_page": 13,
           "printed_page_start": 548,
           "candidate_physical_page_start": 562,
+          "issuing_body": null,
+          "toc_entry_evidence": {
+            "source_line": "2000年全日制普通高级中学语文教学大纲（试验修订版） ..... 548",
+            "source_line_sha256": "bd6f16f246329452ed4bbe0462b45f7011f3399ce934742be85b589d18750370",
+            "toc_page_evidence_bundle_sha256": "3ab7b3a7540619c3fbcf9f2d06404544d5869969d4f60b971bdd7dd991040450",
+            "entry_receipt_sha256": "913e947c2b41c6fc554189d81be553ae8ab399a4e1c3e362a02896115eb9d333"
+          },
           "candidate_physical_page_end": 568,
-          "toc_entry_sha256": "15b4ce4af0a8ac06e3661d0a9ea190d0dcecd58d180c22c0c73c2ab44acd4f8b",
+          "toc_entry_sha256": "913e947c2b41c6fc554189d81be553ae8ab399a4e1c3e362a02896115eb9d333",
           "body_heading": {
             "verification_status": "not_verified",
             "physical_page": null,
@@ -3556,7 +4049,8 @@
             "physical_page_start": null,
             "physical_page_end": null,
             "accepted_page_count": null,
-            "page_set_sha256": null
+            "page_set_sha256": null,
+            "item_citation_entitlement_sha256": null
           },
           "semantic_review": {
             "review_status": "not_started",

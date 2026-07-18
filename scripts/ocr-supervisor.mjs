@@ -86,11 +86,23 @@ const conceptFingerprintFiles = Object.freeze({
   lexicon_sha256: 'data/concept-lexicon.json',
   ontology_sha256: 'data/concept-ontology.json',
   builder_sha256: 'scripts/build-concept-evolution.mjs',
+  graph_sharder_sha256: 'scripts/graph-shards.mjs',
+  concept_publication_gate_sha256: 'scripts/concept-page-publication.mjs',
+  page_publication_gate_sha256: 'scripts/page-publication-gate.mjs',
+  semantic_publication_policy_sha256: 'data/semantic-publication-policy.json',
+  semantic_publication_gate_sha256: 'scripts/semantic-publication-gate.mjs',
+  compendium_item_boundaries_sha256: 'data/compendium-item-boundaries.json',
+  compendium_item_boundary_gate_sha256: 'scripts/validate-compendium-item-boundaries.mjs',
+  compendium_item_publication_gate_sha256: 'scripts/compendium-item-publication.mjs',
+  online_verification_samples_sha256: 'data/online-verification-samples.json',
+  corpus_manifest_gate_sha256: 'scripts/import-corpus.mjs',
   validator_sha256: 'scripts/validate-concept-evolution.mjs',
 });
-const conceptCoreArtifactProfile = 'curriculum-concept-evolution-core-v1';
+const conceptCoreArtifactProfile = 'curriculum-concept-evolution-core-index-v1';
 const conceptQualityArtifactProfile = 'curriculum-concept-evolution-quality-v1';
 const conceptAcademicSchema = 'curriculum-concept-evolution-academic-v2';
+const conceptGraphTransport = 'immutable-content-addressed-graph-shards-v1';
+const conceptGraphShardMaxBytes = 512 * 1024;
 
 const [command = 'status', ...rawArgs] = process.argv.slice(2);
 const option = (name, fallback = null) => {
@@ -322,7 +334,7 @@ export function conceptCandidateCompatible({ graph, quality, manifest, currentFi
     || manifest.build_revision !== revision) return false;
   if (graph.schema_version !== 1
     || quality.schema_version !== 1
-    || manifest.schema_version !== 2
+    || manifest.schema_version !== 3
     || graph.academic_schema_version !== 2
     || quality.academic_schema_version !== 2
     || manifest.academic_schema_version !== 2
@@ -336,6 +348,27 @@ export function conceptCandidateCompatible({ graph, quality, manifest, currentFi
     || !graph.model_kind
     || quality.model_kind !== graph.model_kind
     || manifest.model_kind !== graph.model_kind) return false;
+  const shardManifest = graph.shard_manifest;
+  const shardAssets = shardManifest?.assets;
+  if (graph.transport_profile !== conceptGraphTransport
+    || shardManifest?.transport_profile !== conceptGraphTransport
+    || shardManifest?.build_revision !== revision
+    || shardManifest?.max_shard_bytes !== conceptGraphShardMaxBytes
+    || !Array.isArray(shardAssets)
+    || shardAssets.length < 1
+    || shardAssets.some((asset) => asset?.build_revision !== revision
+      || !String(asset?.path || '').startsWith('/data/graph-shards/')
+      || !/^[a-f0-9]{64}$/i.test(String(asset?.sha256 || ''))
+      || !Number.isInteger(asset?.bytes)
+      || asset.bytes < 1
+      || asset.bytes > conceptGraphShardMaxBytes)
+    || quality.graph_transport?.profile !== conceptGraphTransport
+    || quality.graph_transport?.max_shard_bytes !== conceptGraphShardMaxBytes
+    || quality.graph_transport?.shard_count !== shardAssets.length
+    || manifest.transport_profile !== conceptGraphTransport
+    || manifest.graph_shard_max_bytes !== conceptGraphShardMaxBytes
+    || manifest.graph_shard_count !== shardAssets.length
+    || manifest.graph_shard_descriptors_sha256 !== createHash('sha256').update(JSON.stringify(shardAssets)).digest('hex')) return false;
   const academicRef = graph.academic_model_ref;
   if (!academicRef
     || academicRef.build_revision !== revision
@@ -2098,8 +2131,9 @@ async function promoteConceptCandidate(runDirectory) {
   const graphPath = path.join(runDirectory, 'concept-evolution.json');
   const qualityPath = path.join(runDirectory, 'concept-evolution-quality.json');
   const [graph, quality] = await Promise.all([readJson(graphPath, null), readJson(qualityPath, null)]);
+  const shardAssets = Array.isArray(graph?.shard_manifest?.assets) ? graph.shard_manifest.assets : [];
   const manifest = {
-    schema_version: 2,
+    schema_version: 3,
     promoted_at: nowIso(),
     run_directory: path.relative(root, runDirectory),
     build_revision: graph?.build_revision,
@@ -2109,6 +2143,10 @@ async function promoteConceptCandidate(runDirectory) {
     model_kind: graph?.model_kind,
     input_fingerprints: graph?.input_fingerprints,
     academic_model_ref: graph?.academic_model_ref || null,
+    transport_profile: graph?.transport_profile || null,
+    graph_shard_max_bytes: graph?.shard_manifest?.max_shard_bytes || null,
+    graph_shard_count: shardAssets.length,
+    graph_shard_descriptors_sha256: createHash('sha256').update(JSON.stringify(shardAssets)).digest('hex'),
     graph_path: path.relative(root, graphPath),
     quality_path: path.relative(root, qualityPath),
   };

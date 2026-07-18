@@ -32,6 +32,7 @@ const EMPTY_CORE_TABLE_COUNTS_JSON = JSON.stringify({
   version_diffs: 0,
   online_verifications: 0,
   online_evidence: 0,
+  embedded_items: 0,
 });
 
 function manifestFor(rawPages, pageOverrides = []) {
@@ -319,6 +320,6 @@ test('document detail API filters closed paragraphs and returns provenance only 
   assert.equal(response.headers.get('cache-control'), 'private, no-store');
   const body = await response.json();
   assert.deepEqual(body.paragraphs.map((paragraph) => paragraph.id), [1]);
-  assert.match(paragraphSql, /WHERE document_id = \? AND display_allowed = 1/);
-  assert.match(paragraphSql, /source_artifact_sha256,source_page_sha256,page_final_text_sha256,evidence_bundle_sha256,provenance_locator/);
+  assert.match(paragraphSql, /WHERE p\.document_id = \? AND p\.display_allowed = 1/);
+  assert.match(paragraphSql, /p\.source_artifact_sha256,p\.source_page_sha256,p\.page_final_text_sha256,p\.evidence_bundle_sha256,p\.provenance_locator/);
 });

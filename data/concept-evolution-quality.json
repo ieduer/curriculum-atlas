@@ -4,24 +4,25 @@
   "artifact_profile": "curriculum-concept-evolution-quality-v1",
   "academic_schema": "curriculum-concept-evolution-academic-v2",
   "model_kind": "curriculum-concept-observation-model",
-  "build_revision": "0d14d2d619eeb05720cfdf491663ce4eac18e6cdb87bfbd7e0741c43aca84110",
+  "build_revision": "08ded4f06c7af0bdc1658ab2035959a5c3fa97e1322445e5e4f57490de4ee9ee",
   "input_fingerprints": {
     "catalog_sha256": "75c64afb87aff147014ca2613b1d425ee956473d917586ac006a929f1a9743ce",
     "queue_sha256": "0cf6c2f8b21737c165287e9ae894bc93fc6e49ebd623c2463df296bc43fb73c5",
     "concept_model_sha256": "98d8b3b8c9f4ad1e7f02410c2470fa8b34820996e380d39230a763fd49b3356e",
     "lexicon_sha256": "d8b792139ff4d28afff5cd685ce8b73174435353dd9343430ade26e8e763608b",
     "ontology_sha256": "98b185f71afe4c70f880cd42725f16450e2df4b720bf6d47b221b91f7a04c687",
-    "builder_sha256": "0ae81c752eb6319a8b8a86b37e16052fea6bc13e0437cc7a16c7473d24b1270d",
+    "builder_sha256": "1418611b9402ceda3e7991b3d77284501f8f353c9f2e9b36b9452aaaf91bc9bc",
+    "graph_sharder_sha256": "2d72068df8123739738a2d92bebb6d6f26220b68fe662be90328218627c228c4",
     "concept_publication_gate_sha256": "7141ebd2429fc7e44ed1f6ff33268a535c80df560af01bcf2114235be070d28f",
     "page_publication_gate_sha256": "12ba2f37eb8a2086cec31b0c1c35635c7bd4e39c7254afcd30767b1298470227",
     "semantic_publication_policy_sha256": "6bf7017b3804d8aa905b4449826d71a9b087df6f6ae0377a9b4108e7948d859a",
     "semantic_publication_gate_sha256": "98600b34241797f2cbf1a22af00ab91ad296ca1d2081b731bbba6c7370b54a55",
-    "compendium_item_boundaries_sha256": "c712c3c463d7c6577fe4ce2c511d1849e8fd558c3f4f63655c29b0fc40f8cd91",
-    "compendium_item_boundary_gate_sha256": "43dd8a093930683e49383ff39a7fcf87e8df966110cff029bfa2cfc5804f07ae",
-    "compendium_item_publication_gate_sha256": "390ceb2ebdae6b8fc3220bf7d09d1a43f03af033f78cc7236551cfd45e8c5bb0",
+    "compendium_item_boundaries_sha256": "66b9b4ba74aab17bc69a8faa821957111b8b17bca5a9560afff568867707c679",
+    "compendium_item_boundary_gate_sha256": "659b57d09ca12eb9138bfe7d1b025ecb04f23345b3d25fbe9da4ddc5d8bb17f3",
+    "compendium_item_publication_gate_sha256": "b7a5a955c4f0c286e68cd2d0eb48b80968e3bba5dfe138a904ba506503fbef70",
     "online_verification_samples_sha256": "e74afc37f2e42a35968bb9f6b6d365196f77acabe3d928b3a45af39cf37597cd",
-    "corpus_manifest_gate_sha256": "6556ae6db708396c9f80a3ba588669ec7545665770885481f79763d2beaa2c23",
-    "validator_sha256": "f3921ff1d4a91e3e2e94df61e1f1301417ad6192664bd741b5221d76f60d4673",
+    "corpus_manifest_gate_sha256": "5ec06d02fa5cac0e893d528fdf11c8717665598c94810dd6c6427556483736d4",
+    "validator_sha256": "1edb7460881291014f88f8c41bbbfa93ccaeceda030102a15c82c7c3953679d2",
     "ocr_concept_publication_sha256": "fc64a03b220cb67400aa157edd03cd79ad44bc53cf2222d316d378d1a9c2a67c",
     "semantic_publication_revision_sha256": "b2a5dc0d3bb6e4fcc555613319375610455d3c3ce874fdd0149e4878e43698b4"
   },
@@ -64,11 +65,11 @@
       "passed": true
     },
     {
-      "id": "core_payload_under_4mb",
+      "id": "full_core_projection_under_4mb",
       "passed": true
     },
     {
-      "id": "academic_payload_under_cloudflare_asset_limit",
+      "id": "academic_projection_shardable",
       "passed": true
     },
     {
@@ -108,9 +109,9 @@
       "passed": true
     }
   ],
-  "core_bytes": 4069447,
-  "academic_bytes": 23191694,
-  "academic_sha256": "b8b6cc4e98d7f10659d1938f694eddcd16c36323c0b257e09b8b75c41bd3f1ba",
+  "core_bytes": 494634,
+  "academic_bytes": 34590,
+  "academic_sha256": "953e862590bcc7e189cc399a24b6f05527de9e5efb159c538f2dde9398e72fcd",
   "release_boundary": "基于当前可用语料的词面概念观察图；不是完整课程史，不宣称概念义项连续、绝对首次、消失、取代、影响或因果演进。",
   "unresolved": [
     "11847 OCR pages remain outside the concept publication display gate",
@@ -118,5 +119,11 @@
     "Concept-sense definitions and semantic rename, split, merge, replacement, and influence relations require editor-reviewed dual-ended evidence.",
     "Exact repeated-text clusters are marked rather than silently discarded; their editorial classification remains pending.",
     "Source-text candidates remain non-quotable until paragraph-level citation gates pass."
-  ]
+  ],
+  "graph_transport": {
+    "profile": "immutable-content-addressed-graph-shards-v1",
+    "max_shard_bytes": 524288,
+    "shard_count": 78,
+    "total_shard_bytes": 25872832
+  }
 }

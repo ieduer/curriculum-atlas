@@ -20,12 +20,26 @@ import {
 import {
   verifyCompendiumHeadingEvidence,
   verifyCompendiumItemPageEvidence,
+  verifyCompendiumPageAssetEvidence,
+  verifyCompendiumTocEvidenceArtifacts,
 } from './compendium-item-publication.mjs';
 import { semanticDocumentDisposition } from './semantic-publication-gate.mjs';
+import {
+  GRAPH_SHARD_MAX_BYTES,
+  GRAPH_SHARD_TRANSPORT,
+  writeGraphShardBundle,
+} from './graph-shards.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const textRoot = path.join(root, '.cache/text');
-const ocrRoot = path.join(root, '.cache/ocr-production');
+const textRoot = process.env.CONCEPT_TEXT_ROOT
+  ? path.resolve(root, process.env.CONCEPT_TEXT_ROOT)
+  : path.join(root, '.cache/text');
+const ocrRoot = process.env.CONCEPT_OCR_ROOT
+  ? path.resolve(root, process.env.CONCEPT_OCR_ROOT)
+  : path.join(root, '.cache/ocr-production');
+const witnessRoot = process.env.CONCEPT_WITNESS_ROOT
+  ? path.resolve(root, process.env.CONCEPT_WITNESS_ROOT)
+  : path.join(root, '.cache/ocr-witness');
 const outputPath = process.env.CONCEPT_GRAPH_OUTPUT_PATH
   ? path.resolve(root, process.env.CONCEPT_GRAPH_OUTPUT_PATH)
   : path.join(root, 'public/data/concept-evolution.json');
@@ -86,6 +100,9 @@ const compendiumBoundaryValidation = validateCompendiumItemBoundaries(compendium
 if (!compendiumBoundaryValidation.valid) {
   throw new Error(`Compendium item boundary gate failed: ${JSON.stringify(compendiumBoundaryValidation.errors)}`);
 }
+const compendiumCarrierDocumentIds = new Set(
+  compendiumItemBoundaries.documents.map((document) => document.document_id),
+);
 const conceptPublicationGate = createConceptPublicationGate({
   manifest: pagePublicationManifest,
   semanticPolicy: semanticPublicationPolicy,
@@ -106,6 +123,7 @@ const inputFingerprints = {
     ['lexicon_sha256', 'data/concept-lexicon.json'],
     ['ontology_sha256', 'data/concept-ontology.json'],
     ['builder_sha256', 'scripts/build-concept-evolution.mjs'],
+    ['graph_sharder_sha256', 'scripts/graph-shards.mjs'],
     ['concept_publication_gate_sha256', 'scripts/concept-page-publication.mjs'],
     ['page_publication_gate_sha256', 'scripts/page-publication-gate.mjs'],
     ['semantic_publication_policy_sha256', 'data/semantic-publication-policy.json'],
@@ -523,6 +541,7 @@ for (const record of canonicalCatalogDocuments) {
 const allTextDocuments = [];
 const eligibleDocuments = [];
 for (const record of canonicalCatalogDocuments) {
+  if (compendiumCarrierDocumentIds.has(record.id)) continue;
   const nativeOfficialText = isNativeTextRecord(record);
   const acceptedOcrPages = nativeOfficialText ? [] : acceptedConceptPages({
     gate: conceptPublicationGate,
@@ -958,6 +977,7 @@ const publishableCompendiumItems = compendiumItemBoundaries.documents
     .filter((item) => item.display_allowed)
     .map((item) => ({ document, item })));
 let currentCorpusReleaseId = null;
+const currentPagePublicationReleaseId = `page-gate-${conceptPublicationGate.revision_sha256.slice(0, 24)}`;
 if (publishableCompendiumItems.length > 0) {
   const rawCorpusManifest = await readOptionalJson('data/corpus-chunks/manifest.json', null);
   let corpusManifest;
@@ -978,11 +998,15 @@ async function readCompendiumPageAsset(documentId, pageNumber) {
   const key = `${documentId}:${pageNumber}`;
   if (compendiumPageAssetCache.has(key)) return compendiumPageAssetCache.get(key);
   const contentPath = path.join(ocrRoot, documentId, 'pages', String(pageNumber).padStart(4, '0'), 'content.md');
-  const witnessPath = path.join(root, '.cache/ocr-witness', documentId, 'vision', `page-${String(pageNumber).padStart(3, '0')}.json`);
-  const [primaryBytes, witnessBytes] = await Promise.all([readFile(contentPath), readFile(witnessPath)]);
+  const witnessPath = path.join(witnessRoot, documentId, 'vision', `page-${String(pageNumber).padStart(3, '0')}.json`);
+  const imagePath = path.join(witnessRoot, documentId, 'images', `page-${String(pageNumber).padStart(3, '0')}.png`);
+  const [primaryBytes, witnessBytes, sourceImageBytes] = await Promise.all([
+    readFile(contentPath), readFile(witnessPath), readFile(imagePath),
+  ]);
   const asset = {
     primary_bytes: primaryBytes,
     witness_bytes: witnessBytes,
+    source_image_bytes: sourceImageBytes,
     raw_text: primaryBytes.toString('utf8'),
     primary_ocr_sha256: sha256Bytes(primaryBytes),
     witness_sha256: sha256Bytes(witnessBytes),
@@ -1002,12 +1026,18 @@ async function verifyCompendiumHeading(documentBoundary, item, acceptedPage = nu
     item,
     primaryBytes: asset.primary_bytes,
     witnessBytes: asset.witness_bytes,
+    sourceImageBytes: asset.source_image_bytes,
     acceptedPage,
   });
   return asset;
 }
 
 for (const documentBoundary of compendiumItemBoundaries.documents) {
+  await verifyCompendiumTocEvidenceArtifacts({
+    documentBoundary,
+    ocrRoot,
+    witnessRoot,
+  });
   const items = documentBoundary.items.filter((item) => item.display_allowed);
   if (items.length === 0) continue;
   const documentId = documentBoundary.document_id;
@@ -1048,6 +1078,14 @@ for (const documentBoundary of compendiumItemBoundaries.documents) {
         semanticGate: semanticPublicationGate,
         record: parentRecord,
       });
+      verifyCompendiumPageAssetEvidence({
+        documentBoundary,
+        pageNumber,
+        primaryBytes: asset.primary_bytes,
+        witnessBytes: asset.witness_bytes,
+        sourceImageBytes: asset.source_image_bytes,
+        acceptedPage: boundPage,
+      });
       if (!boundPage.display_allowed) throw new Error(`${item.item_id}: semantic publication closed page ${pageNumber}`);
       rawPages.push(asset.raw_text);
       boundPages.push(boundPage);
@@ -1061,7 +1099,7 @@ for (const documentBoundary of compendiumItemBoundaries.documents) {
       item,
       boundPages,
       rawPages,
-      currentCorpusReleaseId,
+      currentPagePublicationReleaseId,
     });
 
     const entity = subjectEntity(parentRecord);
@@ -1091,6 +1129,7 @@ for (const documentBoundary of compendiumItemBoundaries.documents) {
       display_year: item.display_year,
       year_basis: item.year_basis,
       stage,
+      issuing_body: item.issuing_body,
       end_boundary_basis: nextItem ? 'next_verified_body_heading' : 'source_artifact_document_end',
       page_publication_release_id: currentCorpusReleaseId,
       page_set_sha256: pageSetSha256,
@@ -1106,7 +1145,7 @@ for (const documentBoundary of compendiumItemBoundaries.documents) {
       subject: entity,
       course_entity: entity.entity_kind === 'curriculum_course' ? entity : null,
       curriculum_line_id: line.id,
-      issuer: parentRecord.issued_by || null,
+      issuer: item.issuing_body,
       jurisdiction: parentRecord.country || '中国',
       document_ids: [documentId],
       identity_status: 'verified_compendium_item_boundary',
@@ -1176,7 +1215,10 @@ for (const documentBoundary of compendiumItemBoundaries.documents) {
       const pageNumber = boundPage.page_number;
       const pageCharacters = meaningfulCharacters(body);
       const matchesByConcept = Map.groupBy(matchParagraph(body, entity), (match) => match.concept.id);
-      const pageObservationPolicy = conceptOcrObservationPolicy(boundPage, { forceNonCitation: !item.citation_allowed });
+      const itemScopedPage = item.citation_allowed
+        ? { ...boundPage, citation_allowed: true }
+        : boundPage;
+      const pageObservationPolicy = conceptOcrObservationPolicy(itemScopedPage, { forceNonCitation: !item.citation_allowed });
       const status = pageObservationPolicy.evidence_status;
       for (const [conceptId, conceptMatches] of matchesByConcept) {
         const concept = conceptById.get(conceptId);
@@ -1246,7 +1288,7 @@ for (const documentBoundary of compendiumItemBoundaries.documents) {
           online_verification_id: item.online_verification.source_ids[0] || null,
           online_stable_fact_witness_count: item.online_verification.source_ids.length,
           citation_gate: {
-            document_allowed: effectiveCitationAllowed(parentRecord),
+            document_allowed: item.citation_allowed,
             paragraph_allowed: pageObservationPolicy.quotation_allowed,
             basis: item.citation_allowed
               ? 'verified_full_compendium_item_same_edition_online'
@@ -1625,8 +1667,8 @@ const academicGraph = {
   editorial_audit: editorialAudit,
 };
 
-// The academic graph is machine-consumed and must stay below Cloudflare's
-// 25 MiB per-asset limit without dropping research fields.
+// Full graphs remain in memory for academic validation; transport writes
+// content-addressed shards and compact immutable indexes below.
 const academicPayload = `${JSON.stringify(academicGraph)}\n`;
 const academicSha256 = sha256(academicPayload);
 const coreEpisodes = episodes.map((episode) => {
@@ -1749,8 +1791,8 @@ const checks = [
   { id: 'concept_scope_does_not_use_related_subjects', passed: episodes.every((item) => subjectsFor(conceptById.get(item.concept_id), item.scope_entity)) },
   { id: 'ontology_nodes_resolved', passed: ontologyNodes.length > 0 && ontologyNodes.every((item) => item.evidence_anchor_ids.every((id) => ontologyEvidenceById.has(id))) },
   { id: 'ontology_relations_resolved', passed: ontologyRelations.length > 0 && ontologyRelations.every((item) => item.evidence_anchor_ids.every((id) => ontologyEvidenceById.has(id))) },
-  { id: 'core_payload_under_4mb', passed: Buffer.byteLength(corePayload) < 4 * 1024 * 1024 },
-  { id: 'academic_payload_under_cloudflare_asset_limit', passed: Buffer.byteLength(academicPayload) < 25 * 1024 * 1024 },
+  { id: 'full_core_projection_under_4mb', passed: Buffer.byteLength(corePayload) < 4 * 1024 * 1024 },
+  { id: 'academic_projection_shardable', passed: Buffer.byteLength(academicPayload) > 0 },
   { id: 'solid_has_citation_ready_evidence', passed: episodes.filter((item) => item.claim_policy.display_level === 'solid').every((item) => item.evidence_ids.some((id) => citationReadyEvidence.has(id))) },
   { id: 'non_solid_not_quotable', passed: episodes.filter((item) => item.claim_policy.display_level !== 'solid').every((item) => !item.claim_policy.quotation_allowed) },
   { id: 'relations_have_dual_evidence', passed: relations.every((item) => item.source_evidence_ids.length > 0 && item.target_evidence_ids.length > 0) },
@@ -1791,19 +1833,29 @@ if (!quality.passed) throw new Error(`Concept graph quality gates failed: ${JSON
 
 await mkdir(path.dirname(outputPath), { recursive: true });
 await mkdir(path.dirname(academicOutputPath), { recursive: true });
-const outputTemp = `${outputPath}.${process.pid}.tmp`;
-const academicTemp = `${academicOutputPath}.${process.pid}.tmp`;
+const bundle = await writeGraphShardBundle({
+  coreGraph: graph,
+  academicGraph,
+  coreOutputPath: outputPath,
+  academicOutputPath,
+});
+quality.core_bytes = bundle.coreIndexBytes.byteLength;
+quality.academic_bytes = bundle.academicIndexBytes.byteLength;
+quality.academic_sha256 = sha256Bytes(bundle.academicIndexBytes);
+quality.graph_transport = {
+  profile: GRAPH_SHARD_TRANSPORT,
+  max_shard_bytes: GRAPH_SHARD_MAX_BYTES,
+  shard_count: bundle.shardAssets.length,
+  total_shard_bytes: bundle.shardAssets.reduce((sum, asset) => sum + asset.bytes, 0),
+};
 const qualityTemp = `${qualityPath}.${process.pid}.tmp`;
-await Promise.all([
-  writeFile(outputTemp, corePayload),
-  writeFile(academicTemp, academicPayload),
-  writeFile(qualityTemp, `${JSON.stringify(quality, null, 2)}\n`),
-]);
-await Promise.all([rename(outputTemp, outputPath), rename(academicTemp, academicOutputPath), rename(qualityTemp, qualityPath)]);
+await writeFile(qualityTemp, `${JSON.stringify(quality, null, 2)}\n`);
+await rename(qualityTemp, qualityPath);
 console.log(JSON.stringify({
   academic_schema_version: academicGraph.academic_schema_version,
-  core_bytes: Buffer.byteLength(corePayload),
-  academic_bytes: Buffer.byteLength(academicPayload),
+  core_bytes: bundle.coreIndexBytes.byteLength,
+  academic_bytes: bundle.academicIndexBytes.byteLength,
+  graph_shards: bundle.shardAssets.length,
   academic_path: path.relative(root, academicOutputPath),
   episodes: episodes.length,
   relations: relations.length,

@@ -20,6 +20,7 @@ export const CORE_TABLE_COUNT_KEYS = [
   'version_diffs',
   'online_verifications',
   'online_evidence',
+  'embedded_items',
 ];
 const LEGACY_ZERO_CORE_TABLES = new Set([
   'subjects',
@@ -45,9 +46,10 @@ export function buildParagraphIdentityGuardSql(rows, chunkName) {
     row.source_locator,
     row.body_sha256,
     row.provenance_locator,
+    row.embedded_item_id,
   ].map(sql).join(',')})`).join(',\n    ');
   return `DELETE FROM corpus_import_guards WHERE guard_key=${sql(guardKey)};
-WITH incoming(document_id,ordinal,page_number,heading,source_locator,body_sha256,provenance_locator) AS (
+WITH incoming(document_id,ordinal,page_number,heading,source_locator,body_sha256,provenance_locator,embedded_item_id) AS (
   VALUES ${values}
 )
 INSERT INTO corpus_import_guards(guard_key,ok)
@@ -57,11 +59,14 @@ SELECT ${sql(guardKey)},CASE WHEN NOT EXISTS(
   WHERE (
        EXISTS(SELECT 1 FROM comments c WHERE c.paragraph_id=p.id)
     OR EXISTS(SELECT 1 FROM online_verifications v WHERE v.paragraph_id=p.id)
-  ) AND (p.page_number IS NOT i.page_number
+  ) AND (
+        p.page_number IS NOT i.page_number
      OR p.heading IS NOT i.heading
      OR p.source_locator IS NOT i.source_locator
      OR p.body_sha256 IS NOT i.body_sha256
-     OR p.provenance_locator IS NOT i.provenance_locator)
+     OR p.provenance_locator IS NOT i.provenance_locator
+     OR p.embedded_item_id IS NOT i.embedded_item_id
+  )
 ) THEN 1 ELSE 0 END;
 DELETE FROM corpus_import_guards WHERE guard_key=${sql(guardKey)};`;
 }
@@ -187,6 +192,7 @@ function coreCountsJsonSql(releaseId) {
     'version_diffs',(SELECT COUNT(*) FROM version_diffs),
     'online_verifications',(SELECT COUNT(*) FROM online_verifications ov WHERE ov.corpus_release_id=${releaseId}),
     'online_evidence',(SELECT COUNT(*) FROM online_evidence oe JOIN online_verifications ov ON ov.id=oe.verification_id WHERE ov.corpus_release_id=${releaseId})
+    ,'embedded_items',(SELECT COUNT(*) FROM embedded_items ei WHERE ei.corpus_release_id=${releaseId})
   )`;
 }
 
@@ -206,6 +212,7 @@ function coreCountChecks(manifest, releaseId) {
     `(SELECT COUNT(*) FROM version_diffs)=${counts.version_diffs}`,
     `(SELECT COUNT(*) FROM online_verifications ov WHERE ov.corpus_release_id=${releaseId})=${counts.online_verifications}`,
     `(SELECT COUNT(*) FROM online_evidence oe JOIN online_verifications ov ON ov.id=oe.verification_id WHERE ov.corpus_release_id=${releaseId})=${counts.online_evidence}`,
+    `(SELECT COUNT(*) FROM embedded_items ei WHERE ei.corpus_release_id=${releaseId})=${counts.embedded_items}`,
   ];
 }
 
@@ -351,6 +358,8 @@ DELETE FROM paragraphs
 WHERE (corpus_release_id IS NULL OR corpus_release_id != ${releaseId})
   AND NOT EXISTS (SELECT 1 FROM comments WHERE comments.paragraph_id=paragraphs.id)
   AND NOT EXISTS (SELECT 1 FROM online_verifications WHERE online_verifications.paragraph_id=paragraphs.id);
+DELETE FROM embedded_items
+WHERE corpus_release_id IS NULL OR corpus_release_id != ${releaseId};
 DELETE FROM page_publication_gates
 WHERE corpus_release_id IS NULL OR corpus_release_id != ${releaseId};
 UPDATE documents SET citation_allowed=0
@@ -401,14 +410,49 @@ ${coreChecks}
     SELECT 1 FROM paragraphs p
     LEFT JOIN page_publication_gates g
       ON g.document_id=p.document_id AND g.page_number=p.page_number AND g.corpus_release_id=${releaseId}
+    LEFT JOIN embedded_items ei
+      ON ei.id=p.embedded_item_id AND ei.corpus_release_id=${releaseId}
     WHERE p.corpus_release_id=${releaseId}
-      AND (g.document_id IS NULL OR p.display_allowed!=g.display_allowed OR p.citation_allowed!=g.citation_allowed)
+      AND (
+        g.document_id IS NULL
+        OR p.display_allowed>g.display_allowed
+        OR p.citation_allowed>CASE
+          WHEN COALESCE(ei.citation_allowed,0)>g.citation_allowed THEN COALESCE(ei.citation_allowed,0)
+          ELSE g.citation_allowed
+        END
+        OR (p.embedded_item_id IS NOT NULL AND (
+          ei.id IS NULL
+          OR ei.parent_document_id!=p.document_id
+          OR p.page_number<ei.physical_page_start
+          OR p.page_number>ei.physical_page_end
+          OR ei.display_allowed=0
+        ))
+      )
   )
   AND NOT EXISTS(
     SELECT 1 FROM paragraphs p
     JOIN documents d ON d.id=p.document_id
+    LEFT JOIN embedded_items ei
+      ON ei.id=p.embedded_item_id AND ei.corpus_release_id=${releaseId}
     WHERE p.corpus_release_id=${releaseId}
-      AND (p.citation_allowed>p.display_allowed OR (p.citation_allowed=1 AND d.citation_allowed=0))
+      AND (
+        p.citation_allowed>p.display_allowed
+        OR (p.citation_allowed=1 AND d.citation_allowed=0 AND COALESCE(ei.citation_allowed,0)=0)
+      )
+  )
+  AND NOT EXISTS(
+    SELECT 1 FROM embedded_items ei
+    JOIN json_each(ei.online_source_ids_json) source
+    LEFT JOIN online_verifications ov
+      ON ov.id=source.value
+     AND ov.document_id=ei.parent_document_id
+     AND ov.corpus_release_id=${releaseId}
+     AND ov.edition_match_status='exact_document_exact_edition'
+     AND ov.verification_status='verified_exact'
+     AND ov.citation_allowed=1
+    WHERE ei.corpus_release_id=${releaseId}
+      AND ei.citation_allowed=1
+      AND ov.id IS NULL
   )
   AND NOT EXISTS(
     SELECT 1 FROM paragraphs p
