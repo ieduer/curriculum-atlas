@@ -287,6 +287,32 @@ test('null worker recovery suppresses every static binding mismatch and observe 
   assert.equal(sent.length, 0);
 });
 
+test('retry-timer alert mode suppresses an absent monitor invocation while observe fails closed', async () => {
+  const fx = await fixture();
+  const timestamp = Date.parse('2026-07-18T08:12:00.000Z');
+  const evidence = runtime(
+    timestamp,
+    0,
+    null,
+    'success',
+    null,
+  );
+  const sent = [];
+  const alertResult = await invokeWithRuntime(
+    fx,
+    'alert',
+    timestamp,
+    structuredClone(evidence),
+    async (payload) => sent.push(payload),
+  );
+  assert.equal(alertResult.state, 'suppressed_disarmed');
+  assert.equal(sent.length, 0);
+  await assert.rejects(
+    invokeWithRuntime(fx, 'observe', timestamp, structuredClone(evidence)),
+    /monitor InvocationID is invalid/u,
+  );
+});
+
 test('a different nonempty worker InvocationID never reuses the old armed receipt', async () => {
   const fx = await fixture();
   const armedAt = await arm(fx);

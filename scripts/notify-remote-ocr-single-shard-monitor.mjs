@@ -837,7 +837,25 @@ export async function runOcrMonitorAlert(config, dependencies = {}) {
     ? { ...result, sent: true, retried_pending: true }
     : result;
   const runtime = dependencies.runtime || await defaultRuntimeEvidence(config);
-  runtime.monitor.invocation_id = normalizeInvocationId(runtime.monitor.invocation_id, 'monitor InvocationID');
+  const liveMonitorInvocationId = String(runtime.monitor?.invocation_id || '').trim();
+  if (!liveMonitorInvocationId) {
+    if (config.mode === 'observe') {
+      throw new Error('monitor InvocationID is invalid');
+    }
+    const issueCodes = ['MONITOR_EXECUTION_FAILED'];
+    await writeResult(
+      stateDir,
+      nowMilliseconds,
+      { run_id: config.expectedRunId },
+      'suppressed_disarmed',
+      issueCodes,
+    );
+    return finish({ state: 'suppressed_disarmed', sent: false, issue_codes: issueCodes });
+  }
+  runtime.monitor.invocation_id = normalizeInvocationId(
+    liveMonitorInvocationId,
+    'monitor InvocationID',
+  );
   if (!Number.isSafeInteger(runtime.monitor.exit_code) || runtime.monitor.exit_code < 0) {
     throw new Error('monitor exit code is invalid');
   }
