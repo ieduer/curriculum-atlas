@@ -34,6 +34,7 @@ const seedMode = 'hash_bound_output_seed';
 const seedReceiptType = 'curriculum_remote_ocr_hash_bound_output_seed';
 const legacyB1RunnerScriptSha256 = 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55';
 const maxDocumentAttempts = 5;
+const documentRetryBackoffMilliseconds = Object.freeze([2_000, 10_000, 30_000, 60_000]);
 const allowedStatuses = new Set([
   'pending',
   'running',
@@ -352,13 +353,28 @@ function exactCounts(documents) {
 }
 
 function assertRunCounts(runStatus, documents, label) {
+  const { counts, declaredCountsMatch } = deriveRunCounts(runStatus, documents, label);
+  if (!declaredCountsMatch) throw new Error(`${label} counts differ from document statuses`);
+  return counts;
+}
+
+function deriveRunCounts(runStatus, documents, label) {
   const counts = exactCounts(documents);
-  if (!sameJson(runStatus.counts, counts)) throw new Error(`${label} counts differ from document statuses`);
+  const declared = requireObject(runStatus.counts, `${label} counts`);
+  const keys = Object.keys(counts).sort();
+  if (!sameJson(Object.keys(declared).sort(), keys)) throw new Error(`${label} counts schema is invalid`);
+  if (keys.some((key) => !Number.isSafeInteger(declared[key]) || declared[key] < 0)) {
+    throw new Error(`${label} counts values are invalid`);
+  }
+  if (declared.total !== counts.total
+    || keys.filter((key) => key !== 'total').reduce((sum, key) => sum + declared[key], 0) !== declared.total) {
+    throw new Error(`${label} declared counts total is invalid`);
+  }
   if (runStatus.finished !== (counts.complete === counts.total)) throw new Error(`${label} finished flag is inconsistent`);
   if (runStatus.settled !== (counts.complete + counts.quarantined === counts.total)) {
     throw new Error(`${label} settled flag is inconsistent`);
   }
-  return counts;
+  return { counts, declaredCountsMatch: sameJson(declared, counts) };
 }
 
 function fingerprintRecords(records) {
@@ -876,6 +892,103 @@ function expectedStateConfiguration(identity) {
   };
 }
 
+function validateNormalizedRecoveryStatus(receiptDocument, progress, status, statusSha256, identity) {
+  if (progress.status !== 'retry_wait' || !['running', 'failed', 'interrupted'].includes(status.status)) {
+    return false;
+  }
+  if (!Number.isSafeInteger(progress.attempts)
+    || progress.attempts < 1
+    || progress.attempts >= maxDocumentAttempts
+    || status.attempt !== progress.attempts
+    || status.max_attempts !== maxDocumentAttempts
+    || progress.status_json_sha256 !== statusSha256) {
+    throw new Error('B2 normalized recovery attempt or status hash is invalid');
+  }
+  const timestampField = {
+    running: 'started_at',
+    failed: 'failed_at',
+    interrupted: 'interrupted_at',
+  }[status.status];
+  const rawStatusRecordedAt = status[timestampField];
+  if (typeof rawStatusRecordedAt !== 'string'
+    || !Number.isFinite(Date.parse(rawStatusRecordedAt))
+    || new Date(Date.parse(rawStatusRecordedAt)).toISOString() !== rawStatusRecordedAt
+    || progress[timestampField] !== rawStatusRecordedAt) {
+    throw new Error('B2 normalized recovery timestamp is invalid');
+  }
+  const recoveryRecordedAt = progress.interrupted_at || progress.failed_at || progress.started_at;
+  if (typeof recoveryRecordedAt !== 'string'
+    || !Number.isFinite(Date.parse(recoveryRecordedAt))
+    || new Date(Date.parse(recoveryRecordedAt)).toISOString() !== recoveryRecordedAt) {
+    throw new Error('B2 normalized recovery source timestamp is invalid');
+  }
+  const expectedNextRetry = new Date(
+    Date.parse(recoveryRecordedAt) + documentRetryBackoffMilliseconds[progress.attempts - 1],
+  ).toISOString();
+  if (progress.next_retry_at !== expectedNextRetry) {
+    throw new Error('B2 normalized recovery backoff is invalid');
+  }
+
+  const keys = Object.keys(status).sort();
+  const legacyInterruptedKeys = [
+    'attempt',
+    'citation_allowed',
+    'document_id',
+    'interrupted_at',
+    'max_attempts',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'seed_lineage',
+    'status',
+  ].sort();
+  const legacyInterrupted = status.status === 'interrupted'
+    && receiptDocument.predecessor_status_format === 'legacy_b1_interrupted'
+    && progress.attempts === receiptDocument.inherited_attempts
+    && statusSha256 === receiptDocument.successor_status_sha256
+    && status.page_count === undefined
+    && sameJson(keys, legacyInterruptedKeys);
+  if (legacyInterrupted) {
+    const lineage = requireObject(status.seed_lineage, 'B2 normalized legacy status seed lineage');
+    if (!sameJson(Object.keys(lineage).sort(), [
+      'citation_allowed',
+      'inherited_attempts',
+      'predecessor_status_sha256',
+      'schema_version',
+      'seed_id',
+    ].sort()) || lineage.schema_version !== 1) {
+      throw new Error('B2 normalized legacy status seed lineage shape is invalid');
+    }
+  }
+  if (!legacyInterrupted) {
+    const statusSpecificKeys = {
+      running: ['started_at'],
+      failed: ['error', 'failed_at'],
+      interrupted: ['interrupted_at'],
+    }[status.status];
+    const fullKeys = [
+      'attempt',
+      'citation_allowed',
+      'document_id',
+      'max_attempts',
+      'page_count',
+      'runtime_fingerprint_sha256',
+      'schema_version',
+      'status',
+      ...statusSpecificKeys,
+    ].sort();
+    if (!sameJson(keys, fullKeys) || status.page_count !== receiptDocument.page_count) {
+      throw new Error('B2 normalized recovery raw status shape is invalid');
+    }
+  }
+  if (status.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
+    || status.citation_allowed !== false
+    || (status.status === 'failed'
+      && (typeof status.error !== 'string' || !status.error || status.error !== progress.error))) {
+    throw new Error('B2 normalized recovery raw status identity is invalid');
+  }
+  return true;
+}
+
 function validateAllowedSeedDelta(receipt, predecessor, identity) {
   if (!sameJson(predecessor.identity.runtime, identity.runtime)
     || !sameJson(predecessor.identity.runtime_fingerprint, identity.runtime_fingerprint)
@@ -1151,7 +1264,11 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
     }
     return [document, progress];
   });
-  const counts = assertRunCounts(runStatus, currentDocuments.map(([, progress]) => progress), 'B2 run status');
+  const { counts, declaredCountsMatch } = deriveRunCounts(
+    runStatus,
+    currentDocuments.map(([, progress]) => progress),
+    'B2 run status',
+  );
   const expectedDocumentRoots = currentDocuments.filter(([, progress]) => progress.status !== 'pending').map(([document]) => document.document_id);
   const expectedStatusFiles = expectedDocumentRoots.flatMap((id) => [`${id}.json`, `${id}.json.sha256`]);
   await exactDirectoryEntries(documentsRoot, expectedDocumentRoots, 'B2 documents root');
@@ -1242,11 +1359,20 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
     const fullSuccessorStatus = status.attempt === progress.attempts
       && status.max_attempts === maxDocumentAttempts
       && status.page_count === receiptDocument.page_count;
+    const normalizedRecoveryStatus = validateNormalizedRecoveryStatus(
+      receiptDocument,
+      progress,
+      status,
+      statusRecord.sha256,
+      identity,
+    );
+    const rawStatusMatchesProgress = status.status === progress.status;
     if (status.schema_version !== 1
       || status.document_id !== documentId
-      || status.status !== progress.status
       || status.citation_allowed !== false
-      || !(fullSuccessorStatus || legacyCompleteInitial || legacyInterruptedInitial)
+      || !((rawStatusMatchesProgress
+        && (fullSuccessorStatus || legacyCompleteInitial || legacyInterruptedInitial))
+        || normalizedRecoveryStatus)
       || status.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256) {
       throw new Error('B2 document status differs from run status or identity');
     }
@@ -1310,6 +1436,7 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
     completed_pages: completedPages,
     failed_pages: failedPages,
     status_counts: counts,
+    declared_counts_match: declaredCountsMatch,
     complete,
     inconsistent_completion: runStatus.finished === true && !complete,
     latest_progress_at: iso(latestProgressMilliseconds),
@@ -1515,6 +1642,8 @@ export function classifySingleShardSnapshot(snapshot) {
   if (predecessor.read_ok && predecessor.anchors_match !== true) issues.push(issue('B1_HASH_DRIFT'));
   if (successor.read_ok) {
     if (successor.inconsistent_completion) issues.push(issue('B2_COMPLETION_INCONSISTENT'));
+    if (successor.declared_counts_match !== true
+      && (!workerStrictlyRunning || successor.complete)) issues.push(issue('B2_RUN_COUNTS_DRIFT'));
     if ((successor.status_counts?.failed || 0) > 0) issues.push(issue('B2_FAILED'));
     if ((successor.status_counts?.quarantined || 0) > 0) issues.push(issue('B2_QUARANTINED'));
     if (!successor.complete
@@ -1584,6 +1713,7 @@ export function privacySafeSingleShardEvent(snapshot, health) {
       completed_pages: snapshot.successor?.completed_pages ?? null,
       failed_pages: snapshot.successor?.failed_pages ?? null,
       status_counts: snapshot.successor?.status_counts ?? null,
+      declared_counts_match: snapshot.successor?.declared_counts_match ?? null,
       progress_age_seconds: snapshot.successor?.progress_age_seconds ?? null,
     },
     services: {

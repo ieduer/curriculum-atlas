@@ -143,7 +143,7 @@ async function pageArtifacts(root, content = 'page one\n') {
   };
 }
 
-async function createPredecessor(root) {
+async function createPredecessor(root, { legacyInterrupted = false } = {}) {
   const b1 = path.join(root, 'output/b1');
   const documentRoot = path.join(b1, 'documents/doc-one');
   const pageRoot = path.join(documentRoot, 'pages/0001');
@@ -183,7 +183,15 @@ async function createPredecessor(root) {
     selected_pages_complete: false,
   };
   await writeJson(path.join(documentRoot, 'state.json'), state);
-  const status = {
+  const status = legacyInterrupted ? {
+    schema_version: 1,
+    document_id: 'doc-one',
+    status: 'interrupted',
+    attempt: 1,
+    max_attempts: 5,
+    interrupted_at: '2026-07-17T00:00:00.000Z',
+    citation_allowed: false,
+  } : {
     schema_version: 1,
     document_id: 'doc-one',
     status: 'retry_wait',
@@ -208,16 +216,22 @@ async function createPredecessor(root) {
       total: 1,
       complete: 0,
       failed: 0,
-      interrupted: 0,
+      interrupted: legacyInterrupted ? 1 : 0,
       pending: 0,
       running: 0,
-      retry_wait: 1,
+      retry_wait: legacyInterrupted ? 0 : 1,
       quarantined: 0,
     },
     finished: false,
     settled: false,
     documents: {
-      'doc-one': {
+      'doc-one': legacyInterrupted ? {
+        status: 'interrupted',
+        attempts: 1,
+        page_count: 2,
+        interrupted_at: status.interrupted_at,
+        status_json_sha256: statusWritten.sha256,
+      } : {
         status: 'retry_wait',
         attempts: 1,
         page_count: 2,
@@ -305,10 +319,10 @@ async function createPredecessorEvidence(b2, predecessor) {
   };
 }
 
-async function createFixture(t) {
+async function createFixture(t, options = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'ocr-single-shard-monitor-'));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const source = await createPredecessor(root);
+  const source = await createPredecessor(root, options);
   const predecessor = await inspectPredecessorB1(source.b1);
   const b2 = path.join(root, 'output/b2');
   await mkdir(path.join(b2, 'documents/doc-one/pages/0001'), { recursive: true });
@@ -419,6 +433,7 @@ async function createFixture(t) {
   const predecessorStatus = JSON.parse(await readFile(path.join(source.b1, 'status/doc-one.json'), 'utf8'));
   const successorStatus = {
     ...predecessorStatus,
+    runtime_fingerprint_sha256: predecessor.identity.runtime_fingerprint_sha256,
     seed_lineage: {
       schema_version: 1,
       seed_id: seedId,
@@ -439,7 +454,7 @@ async function createFixture(t) {
     citation_allowed: false,
   };
   Object.assign(successorRunStatus.documents['doc-one'], {
-    predecessor_status: 'retry_wait',
+    predecessor_status: predecessor.run_status.documents['doc-one'].status,
     inherited_attempts: 1,
     seed_id: seedId,
     status_json_sha256: successorStatusWritten.sha256,
@@ -551,6 +566,73 @@ async function createFixture(t) {
   };
 }
 
+async function normalizeFixtureRecovery(fixture, {
+  rawStatus = 'interrupted',
+  attempt = 1,
+  recordedAt = '2026-07-17T00:00:00.000Z',
+  declaredStatus = 'retry_wait',
+  legacy = false,
+  priorInterruptedAt = null,
+  priorFailedAt = null,
+} = {}) {
+  const statusPath = path.join(fixture.b2, 'status/doc-one.json');
+  const identity = JSON.parse(await readFile(path.join(fixture.b2, 'run-identity.json'), 'utf8'));
+  const timestampField = {
+    running: 'started_at',
+    failed: 'failed_at',
+    interrupted: 'interrupted_at',
+  }[rawStatus];
+  let status;
+  if (legacy) {
+    status = JSON.parse(await readFile(statusPath, 'utf8'));
+  } else {
+    status = {
+      schema_version: 1,
+      document_id: 'doc-one',
+      status: rawStatus,
+      attempt,
+      max_attempts: 5,
+      page_count: 2,
+      runtime_fingerprint_sha256: identity.runtime_fingerprint_sha256,
+      citation_allowed: false,
+      [timestampField]: recordedAt,
+      ...(rawStatus === 'failed' ? { error: 'recoverable OCR failure' } : {}),
+    };
+  }
+  const statusWritten = await writeHashBoundJson(statusPath, status);
+  const runStatusPath = path.join(fixture.b2, 'run-status.json');
+  const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+  const progress = runStatus.documents['doc-one'];
+  for (const key of ['started_at', 'failed_at', 'interrupted_at', 'failure_class', 'error', 'signal']) {
+    delete progress[key];
+  }
+  progress.status = 'retry_wait';
+  progress.attempts = attempt;
+  if (priorInterruptedAt) progress.interrupted_at = priorInterruptedAt;
+  if (priorFailedAt) progress.failed_at = priorFailedAt;
+  progress[timestampField] = status[timestampField];
+  if (rawStatus === 'failed') progress.error = status.error;
+  const recoveryRecordedAt = progress.interrupted_at || progress.failed_at || progress.started_at;
+  progress.next_retry_at = new Date(
+    Date.parse(recoveryRecordedAt) + [2_000, 10_000, 30_000, 60_000][attempt - 1],
+  ).toISOString();
+  progress.status_json_sha256 = statusWritten.sha256;
+  runStatus.counts = {
+    total: 1,
+    complete: 0,
+    failed: declaredStatus === 'failed' ? 1 : 0,
+    interrupted: declaredStatus === 'interrupted' ? 1 : 0,
+    pending: declaredStatus === 'pending' ? 1 : 0,
+    running: declaredStatus === 'running' ? 1 : 0,
+    retry_wait: declaredStatus === 'retry_wait' ? 1 : 0,
+    quarantined: declaredStatus === 'quarantined' ? 1 : 0,
+  };
+  runStatus.finished = false;
+  runStatus.settled = false;
+  await writeHashBoundJson(runStatusPath, runStatus);
+  return { status, statusWritten, runStatus };
+}
+
 async function completeFixture(fixture) {
   const statePath = path.join(fixture.b2, 'documents/doc-one/state.json');
   const state = JSON.parse(await readFile(statePath, 'utf8'));
@@ -641,6 +723,7 @@ function baseSnapshot(overrides = {}) {
       failed_pages: 0,
       progress_age_seconds: 30,
       inconsistent_completion: false,
+      declared_counts_match: true,
       status_counts: {
         total: 1,
         complete: 0,
@@ -772,6 +855,65 @@ test('an interrupted seed backlog is recoverable only while the B2 worker is str
   assert.ok(!stoppedSeed.issues.some(({ code }) => code === 'B2_NO_PROGRESS'));
 });
 
+test('derived B2 counts tolerate coherent declared lag only during strict active execution', () => {
+  const activeLag = {
+    ...baseSnapshot().successor,
+    declared_counts_match: false,
+    progress_age_seconds: 30,
+    status_counts: {
+      total: 2,
+      complete: 0,
+      failed: 0,
+      interrupted: 1,
+      pending: 0,
+      running: 1,
+      retry_wait: 0,
+      quarantined: 0,
+    },
+  };
+  assert.deepEqual(classifySingleShardSnapshot(baseSnapshot({ successor: activeLag })), {
+    state: 'healthy_running', exit_code: 10, issues: [],
+  });
+
+  const activeStall = classifySingleShardSnapshot(baseSnapshot({
+    successor: { ...activeLag, progress_age_seconds: 1501 },
+  }));
+  assert.equal(activeStall.exit_code, 12);
+  assert.deepEqual(activeStall.issues.map(({ code }) => code), ['B2_NO_PROGRESS']);
+
+  const inactiveLag = classifySingleShardSnapshot(baseSnapshot({
+    successor: activeLag,
+    services: {
+      ...baseSnapshot().services,
+      worker: service({ active_state: 'inactive', sub_state: 'dead', main_pid: 0 }),
+    },
+  }));
+  assert.equal(inactiveLag.exit_code, 12);
+  assert.ok(inactiveLag.issues.some(({ code }) => code === 'B2_RUN_COUNTS_DRIFT'));
+  assert.ok(inactiveLag.issues.some(({ code }) => code === 'B2_WORKER_NOT_ACTIVE'));
+
+  const completeLag = classifySingleShardSnapshot(baseSnapshot({
+    successor: {
+      ...activeLag,
+      complete: true,
+      expected_pages: 2,
+      completed_pages: 2,
+      status_counts: {
+        total: 2,
+        complete: 2,
+        failed: 0,
+        interrupted: 0,
+        pending: 0,
+        running: 0,
+        retry_wait: 0,
+        quarantined: 0,
+      },
+    },
+  }));
+  assert.equal(completeLag.exit_code, 12);
+  assert.deepEqual(completeLag.issues.map(({ code }) => code), ['B2_RUN_COUNTS_DRIFT']);
+});
+
 test('worker, llama, quarantine, B1 hash drift, stall, old workers, and resources are critical', () => {
   const cases = [
     ['worker down', { services: { ...baseSnapshot().services, worker: service({ active_state: 'inactive', sub_state: 'dead', main_pid: 0 }) } }, 'B2_WORKER_NOT_ACTIVE'],
@@ -806,15 +948,132 @@ test('real B1 and B2 fixture validates receipt, marker, identity, counts, attemp
   assert.equal(successor.expected_pages, 2);
   assert.equal(successor.failed_pages, 0);
   assert.equal(successor.status_counts.retry_wait, 1);
+  assert.equal(successor.declared_counts_match, true);
 
   await completeFixture(fixture);
   const completed = await inspectSuccessorB2(fixture.b2, predecessor);
   assert.equal(completed.complete, true);
   assert.equal(completed.completed_pages, 2);
   assert.equal(completed.status_counts.complete, 1);
+  assert.equal(completed.declared_counts_match, true);
+});
+
+test('B2 derives live counts and validates exact runner recovery normalization', async (t) => {
+  await t.test('legacy seeded interrupted status normalizes to retry_wait with stale declared counts', async (t) => {
+    const fixture = await createFixture(t, { legacyInterrupted: true });
+    await normalizeFixtureRecovery(fixture, {
+      rawStatus: 'interrupted',
+      attempt: 1,
+      declaredStatus: 'interrupted',
+      legacy: true,
+    });
+    const successor = await inspectSuccessorB2(fixture.b2, fixture.predecessor);
+    assert.equal(successor.status_counts.retry_wait, 1);
+    assert.equal(successor.status_counts.interrupted, 0);
+    assert.equal(successor.declared_counts_match, false);
+  });
+
+  for (const [rawStatus, attempt] of [['running', 2], ['failed', 4], ['interrupted', 3]]) {
+    await t.test(`full successor ${rawStatus} status normalizes with audited attempt backoff`, async (t) => {
+      const fixture = await createFixture(t);
+      await normalizeFixtureRecovery(fixture, {
+        rawStatus,
+        attempt,
+        declaredStatus: rawStatus,
+        ...(rawStatus === 'running'
+          ? { priorInterruptedAt: '2026-07-16T23:59:00.000Z' }
+          : {}),
+      });
+      const successor = await inspectSuccessorB2(fixture.b2, fixture.predecessor);
+      assert.equal(successor.status_counts.retry_wait, 1);
+      assert.equal(successor.status_counts[rawStatus], 0);
+      assert.equal(successor.declared_counts_match, false);
+    });
+  }
+
+  await t.test('mutated normalized backoff is rejected', async (t) => {
+    const fixture = await createFixture(t);
+    await normalizeFixtureRecovery(fixture, { rawStatus: 'interrupted', attempt: 3 });
+    const runStatusPath = path.join(fixture.b2, 'run-status.json');
+    const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+    runStatus.documents['doc-one'].next_retry_at = '2026-07-17T00:00:31.000Z';
+    await writeHashBoundJson(runStatusPath, runStatus);
+    await assert.rejects(
+      inspectSuccessorB2(fixture.b2, fixture.predecessor),
+      /normalized recovery backoff/,
+    );
+  });
+
+  await t.test('mutated normalized raw status is rejected', async (t) => {
+    const fixture = await createFixture(t);
+    await normalizeFixtureRecovery(fixture, { rawStatus: 'interrupted', attempt: 3 });
+    const statusPath = path.join(fixture.b2, 'status/doc-one.json');
+    const status = JSON.parse(await readFile(statusPath, 'utf8'));
+    status.status = 'quarantined';
+    const statusWritten = await writeHashBoundJson(statusPath, status);
+    const runStatusPath = path.join(fixture.b2, 'run-status.json');
+    const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+    runStatus.documents['doc-one'].status_json_sha256 = statusWritten.sha256;
+    await writeHashBoundJson(runStatusPath, runStatus);
+    await assert.rejects(
+      inspectSuccessorB2(fixture.b2, fixture.predecessor),
+      /document status differs/,
+    );
+  });
+
+  await t.test('mutated normalized status hash is rejected', async (t) => {
+    const fixture = await createFixture(t);
+    await normalizeFixtureRecovery(fixture, { rawStatus: 'interrupted', attempt: 3 });
+    const runStatusPath = path.join(fixture.b2, 'run-status.json');
+    const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+    runStatus.documents['doc-one'].status_json_sha256 = hash('f');
+    await writeHashBoundJson(runStatusPath, runStatus);
+    await assert.rejects(
+      inspectSuccessorB2(fixture.b2, fixture.predecessor),
+      /normalized recovery attempt or status hash/,
+    );
+  });
+
+  await t.test('completed derived counts expose coherent declared drift but flags remain strict', async (t) => {
+    const fixture = await createFixture(t);
+    await completeFixture(fixture);
+    const runStatusPath = path.join(fixture.b2, 'run-status.json');
+    const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+    runStatus.counts = {
+      total: 1,
+      complete: 0,
+      failed: 0,
+      interrupted: 0,
+      pending: 0,
+      running: 0,
+      retry_wait: 1,
+      quarantined: 0,
+    };
+    await writeHashBoundJson(runStatusPath, runStatus);
+    const successor = await inspectSuccessorB2(fixture.b2, fixture.predecessor);
+    assert.equal(successor.complete, true);
+    assert.equal(successor.status_counts.complete, 1);
+    assert.equal(successor.declared_counts_match, false);
+
+    runStatus.finished = false;
+    await writeHashBoundJson(runStatusPath, runStatus);
+    await assert.rejects(
+      inspectSuccessorB2(fixture.b2, fixture.predecessor),
+      /finished flag is inconsistent/,
+    );
+  });
 });
 
 test('sidecar, root, and PaddleX cache drift are rejected', async (t) => {
+  await t.test('B1 declared count drift remains strict', async (t) => {
+    const fixture = await createFixture(t);
+    const runStatusPath = path.join(fixture.b1, 'run-status.json');
+    const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+    runStatus.counts.interrupted = 1;
+    runStatus.counts.retry_wait = 0;
+    await writeHashBoundJson(runStatusPath, runStatus);
+    await assert.rejects(inspectPredecessorB1(fixture.b1), /counts differ from document statuses/);
+  });
   await t.test('sidecar mismatch', async (t) => {
     const fixture = await createFixture(t);
     await writeFile(path.join(fixture.b2, 'run-status.json'), '{"tampered":true}\n');
