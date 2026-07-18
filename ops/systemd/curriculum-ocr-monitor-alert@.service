@@ -13,7 +13,9 @@ WorkingDirectory=%h/curriculum-ocr-offload/alert-runtime
 EnvironmentFile=%h/.config/bdfz/curriculum-ocr-monitor-alert.conf
 ExecStartPre=/usr/bin/test -d %h/.local/state/bdfz-curriculum-ocr-monitor-alert
 ExecStartPre=/usr/bin/test -f %h/curriculum-ocr-offload/alert-runtime/notify-remote-ocr-single-shard-monitor.mjs
-ExecStart=/usr/bin/node %h/curriculum-ocr-offload/alert-runtime/notify-remote-ocr-single-shard-monitor.mjs \
+ExecStartPre=/usr/bin/test -x /usr/bin/flock
+ExecStart=/usr/bin/flock --exclusive --wait 5 --conflict-exit-code 75 %h/.local/state/bdfz-curriculum-ocr-monitor-alert/.state.lock \
+  /usr/bin/node %h/curriculum-ocr-offload/alert-runtime/notify-remote-ocr-single-shard-monitor.mjs \
   --mode alert \
   --state-dir %h/.local/state/bdfz-curriculum-ocr-monitor-alert \
   --latest-json ${BDFZ_OCR_ALERT_LATEST_JSON} \
@@ -40,3 +42,4 @@ RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 
 # Provision the dedicated credential file separately as owner-only mode 0600.
 # This handler sends an alert only; it never stops, restarts, or mutates OCR.
+# The kernel flock is bounded and releases automatically on exit or crash.

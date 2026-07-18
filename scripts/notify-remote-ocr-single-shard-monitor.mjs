@@ -5,12 +5,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import {
   chmod,
   lstat,
-  mkdir,
   open,
   readFile,
   realpath,
   rename,
-  rmdir,
   unlink,
 } from 'node:fs/promises';
 import os from 'node:os';
@@ -25,6 +23,7 @@ const unitPattern = /^[A-Za-z0-9][A-Za-z0-9_.@:-]*\.service$/u;
 const issueCodePattern = /^[A-Z][A-Z0-9_]{0,63}$/u;
 const invocationPattern = /^[a-f0-9]{32}$/u;
 const bootIdPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
+const alertStateSchemaVersion = 2;
 const stateFiles = Object.freeze({
   arming: 'arming.json',
   armed: 'armed-receipt.json',
@@ -166,21 +165,6 @@ async function removeStateFile(stateDir, basename) {
   });
 }
 
-async function withStateLock(stateDir, action) {
-  const lock = path.join(stateDir, '.lock');
-  try {
-    await mkdir(lock, { mode: 0o700 });
-  } catch (error) {
-    if (error?.code === 'EEXIST') throw new Error('alert state is locked');
-    throw error;
-  }
-  try {
-    return await action();
-  } finally {
-    await rmdir(lock);
-  }
-}
-
 function parseSystemdShow(raw) {
   const values = {};
   for (const line of String(raw || '').split(/\r?\n/u)) {
@@ -203,8 +187,9 @@ async function probeSystemdUnit(unit, runExecFile = execFile) {
   ], { encoding: 'utf8', timeout: 10_000, maxBuffer: 64 * 1024 });
   const values = parseSystemdShow(stdout);
   const startedAtMilliseconds = Date.parse(values.ExecMainStartTimestamp || '');
+  const invocationId = String(values.InvocationID || '').trim();
   return {
-    invocation_id: normalizeInvocationId(values.InvocationID, `${unit} InvocationID`),
+    invocation_id: invocationId ? normalizeInvocationId(invocationId, `${unit} InvocationID`) : null,
     exit_code: Number(values.ExecMainStatus),
     started_at_milliseconds: Number.isFinite(startedAtMilliseconds) ? startedAtMilliseconds : null,
     result: values.Result || null,
@@ -228,9 +213,40 @@ function makeBinding(config, runtime) {
   return {
     run_id: config.expectedRunId,
     boot_id: requireBootId(runtime.boot_id),
+    worker_unit: config.workerUnit,
     worker_invocation_id: normalizeInvocationId(runtime.worker.invocation_id, 'worker InvocationID'),
     monitor_sha256: config.monitorSha256,
   };
+}
+
+function validateBinding(value, label = 'alert binding') {
+  requireExactKeys(value, [
+    'boot_id',
+    'monitor_sha256',
+    'run_id',
+    'worker_invocation_id',
+    'worker_unit',
+  ], label);
+  if (!runIdPattern.test(value.run_id)
+    || !unitPattern.test(value.worker_unit)
+    || !sha256Pattern.test(value.monitor_sha256)) throw new Error(`${label} is invalid`);
+  return {
+    run_id: value.run_id,
+    boot_id: requireBootId(value.boot_id),
+    worker_unit: value.worker_unit,
+    worker_invocation_id: normalizeInvocationId(
+      value.worker_invocation_id,
+      `${label} worker InvocationID`,
+    ),
+    monitor_sha256: value.monitor_sha256,
+  };
+}
+
+function bindingMatchesStaticConfig(binding, config, bootId = null) {
+  return binding.run_id === config.expectedRunId
+    && binding.worker_unit === config.workerUnit
+    && binding.monitor_sha256 === config.monitorSha256
+    && (bootId === null || binding.boot_id === requireBootId(bootId));
 }
 
 async function verifyMonitorScript(config) {
@@ -284,7 +300,7 @@ function sameBinding(left, right) {
 
 function receiptBody(binding, observations, armedAt) {
   return {
-    schema_version: 1,
+    schema_version: alertStateSchemaVersion,
     type: 'curriculum_ocr_monitor_alert_armed_receipt',
     binding,
     observations,
@@ -307,14 +323,18 @@ function validateObservation(value, label) {
 function validateArmingState(value, binding) {
   if (!value) return null;
   requireExactKeys(value, ['binding', 'observation', 'schema_version', 'type'], 'arming state');
-  if (value.schema_version !== 1 || value.type !== 'curriculum_ocr_monitor_alert_arming') {
+  if (value.schema_version !== alertStateSchemaVersion
+    || value.type !== 'curriculum_ocr_monitor_alert_arming') {
     throw new Error('arming state identity is invalid');
   }
+  const normalizedBinding = validateBinding(value.binding, 'arming binding');
   const observation = validateObservation(value.observation, 'arming observation');
-  return sameBinding(value.binding, binding) ? { ...value, observation } : null;
+  return sameBinding(normalizedBinding, binding)
+    ? { ...value, binding: normalizedBinding, observation }
+    : null;
 }
 
-function validateArmedReceipt(value, binding) {
+function parseArmedReceipt(value) {
   if (!value) return null;
   requireExactKeys(value, [
     'armed_at',
@@ -328,20 +348,34 @@ function validateArmedReceipt(value, binding) {
   if (!sha256Pattern.test(claimed) || sha256(canonicalJson(body)) !== claimed) {
     throw new Error('armed receipt hash is invalid');
   }
-  if (value.schema_version !== 1
+  if (value.schema_version !== alertStateSchemaVersion
     || value.type !== 'curriculum_ocr_monitor_alert_armed_receipt'
-    || !sameBinding(value.binding, binding)
     || !Array.isArray(value.observations)
-    || value.observations.length !== 2) return null;
+    || value.observations.length !== 2) throw new Error('armed receipt identity is invalid');
+  const binding = validateBinding(value.binding, 'armed receipt binding');
   const observations = value.observations.map((entry) => validateObservation(entry, 'receipt observation'));
   const invocations = observations.map((entry) => entry.monitor_invocation_id);
   if (new Set(invocations).size !== 2) throw new Error('armed receipt observations are not distinct');
-  return { ...value, observations };
+  return { ...value, binding, observations };
+}
+
+function validateArmedReceipt(value, binding) {
+  const receipt = parseArmedReceipt(value);
+  return receipt && sameBinding(receipt.binding, binding) ? receipt : null;
+}
+
+async function recoverBindingFromArmedReceipt(config, runtime, stateDir) {
+  const receipt = parseArmedReceipt(await readStateJson(stateDir, stateFiles.armed));
+  if (!receipt
+    || !bindingMatchesStaticConfig(receipt.binding, config, runtime.boot_id)) {
+    throw new Error('live worker InvocationID is absent and no exact armed receipt binding can recover it');
+  }
+  return receipt.binding;
 }
 
 async function writeResult(stateDir, nowMilliseconds, binding, state, issueCodes = [], fingerprint = null) {
   await atomicWriteJson(stateDir, stateFiles.result, {
-    schema_version: 1,
+    schema_version: alertStateSchemaVersion,
     timestamp: iso(nowMilliseconds),
     run_id: binding.run_id,
     state,
@@ -369,6 +403,12 @@ async function observeSuccessfulMonitor(config, runtime, binding, nowMillisecond
     return { state: 'completed_no_alert', sent: false };
   }
   if (latest.state !== 'healthy_running') throw new Error('exit 10 latest.json must be healthy_running');
+  await closeSentIncidents(
+    stateDir,
+    binding,
+    normalizeInvocationId(runtime.monitor.invocation_id, 'monitor InvocationID'),
+    nowMilliseconds,
+  );
   const existingReceipt = validateArmedReceipt(
     await readStateJson(stateDir, stateFiles.armed),
     binding,
@@ -388,7 +428,7 @@ async function observeSuccessfulMonitor(config, runtime, binding, nowMillisecond
     && arming.observation?.latest_sha256 !== observation.latest_sha256;
   if (!canAdvance) {
     await atomicWriteJson(stateDir, stateFiles.arming, {
-      schema_version: 1,
+      schema_version: alertStateSchemaVersion,
       type: 'curriculum_ocr_monitor_alert_arming',
       binding,
       observation,
@@ -408,34 +448,83 @@ async function observeSuccessfulMonitor(config, runtime, binding, nowMillisecond
 }
 
 function normalizeDeliveryState(value) {
-  if (!value) return { schema_version: 1, type: 'curriculum_ocr_monitor_alert_deliveries', records: [] };
-  requireExactKeys(value, ['records', 'schema_version', 'type'], 'delivery state');
-  if (value.schema_version !== 1
+  if (!value) {
+    return {
+      schema_version: alertStateSchemaVersion,
+      type: 'curriculum_ocr_monitor_alert_deliveries',
+      recovery_epoch: 0,
+      records: [],
+    };
+  }
+  requireExactKeys(value, ['records', 'recovery_epoch', 'schema_version', 'type'], 'delivery state');
+  if (value.schema_version !== alertStateSchemaVersion
     || value.type !== 'curriculum_ocr_monitor_alert_deliveries'
+    || !Number.isSafeInteger(value.recovery_epoch)
+    || value.recovery_epoch < 0
     || !Array.isArray(value.records)
     || value.records.length > 64) throw new Error('delivery state is invalid');
   for (const record of value.records) {
+    const keys = [
+      'attempts',
+      'binding',
+      'envelope',
+      'envelope_sha256',
+      'epoch',
+      'fingerprint',
+      'first_attempt_at',
+      'issue_codes',
+      'last_attempt_at',
+      'status',
+    ];
+    if (record.status === 'sent') keys.push('sent_at');
+    if (record.status === 'closed') {
+      keys.push('closed_at', 'closed_by_monitor_invocation_id', 'sent_at');
+    }
+    requireExactKeys(record, keys, 'delivery record');
+    const binding = validateBinding(record.binding, 'delivery binding');
+    const issueCodes = requireIssueCodes(record.issue_codes);
     if (!sha256Pattern.test(record.fingerprint)
-      || !['pending', 'sent'].includes(record.status)
+      || !sha256Pattern.test(record.envelope_sha256)
+      || !['pending', 'sent', 'closed'].includes(record.status)
+      || !Number.isSafeInteger(record.epoch)
+      || record.epoch < 0
+      || record.epoch > value.recovery_epoch
       || !Number.isSafeInteger(record.attempts)
       || record.attempts < 1
       || !Number.isFinite(Date.parse(record.first_attempt_at))
       || !Number.isFinite(Date.parse(record.last_attempt_at))
-      || (record.status === 'sent' && !Number.isFinite(Date.parse(record.sent_at)))) {
+      || (record.status !== 'pending' && !Number.isFinite(Date.parse(record.sent_at)))
+      || (record.status === 'closed'
+        && (!Number.isFinite(Date.parse(record.closed_at))
+          || normalizeInvocationId(
+            record.closed_by_monitor_invocation_id,
+            'delivery recovery monitor InvocationID',
+          ) !== record.closed_by_monitor_invocation_id))) {
       throw new Error('delivery record is invalid');
     }
-    requireIssueCodes(record.issue_codes);
+    const expectedFingerprint = issueFingerprint(binding, issueCodes, record.epoch);
+    if (record.fingerprint !== expectedFingerprint) throw new Error('delivery fingerprint is invalid');
+    const envelope = validateAlertEnvelope(record.envelope);
+    if (record.envelope_sha256 !== sha256(canonicalJson(envelope))
+      || envelope.issue_fingerprint !== record.fingerprint
+      || envelope.run_id !== binding.run_id
+      || canonicalJson(envelope.issue_codes) !== canonicalJson(issueCodes)) {
+      throw new Error('delivery envelope is invalid');
+    }
+    record.binding = binding;
+    record.issue_codes = issueCodes;
+    record.envelope = envelope;
   }
   return value;
 }
 
-function issueFingerprint(binding, issueCodes) {
-  return sha256(canonicalJson({ binding, issue_codes: issueCodes }));
+function issueFingerprint(binding, issueCodes, recoveryEpoch) {
+  return sha256(canonicalJson({ binding, issue_codes: issueCodes, recovery_epoch: recoveryEpoch }));
 }
 
 function buildAlertPayload(config, binding, issueCodes, latest, fingerprint, nowMilliseconds) {
   return {
-    schema_version: 1,
+    schema_version: alertStateSchemaVersion,
     type: 'bdfz_curriculum_ocr_monitor_alert',
     timestamp: iso(nowMilliseconds),
     run_id: binding.run_id,
@@ -444,6 +533,133 @@ function buildAlertPayload(config, binding, issueCodes, latest, fingerprint, now
     issue_fingerprint: fingerprint,
     progress: latest?.progress || null,
   };
+}
+
+function validateAlertEnvelope(value) {
+  requireExactKeys(value, [
+    'issue_codes',
+    'issue_fingerprint',
+    'monitor_unit',
+    'progress',
+    'run_id',
+    'schema_version',
+    'timestamp',
+    'type',
+  ], 'delivery envelope');
+  if (value.schema_version !== alertStateSchemaVersion
+    || value.type !== 'bdfz_curriculum_ocr_monitor_alert'
+    || !Number.isFinite(Date.parse(value.timestamp))
+    || !runIdPattern.test(value.run_id)
+    || !unitPattern.test(value.monitor_unit)
+    || !sha256Pattern.test(value.issue_fingerprint)) throw new Error('delivery envelope is invalid');
+  const issueCodes = requireIssueCodes(value.issue_codes);
+  let progress = null;
+  if (value.progress !== null) {
+    requireExactKeys(value.progress, ['completed_pages', 'expected_pages'], 'delivery progress');
+    const completed = value.progress.completed_pages;
+    const expected = value.progress.expected_pages;
+    if (!Number.isSafeInteger(completed)
+      || completed < 0
+      || !Number.isSafeInteger(expected)
+      || expected < completed) throw new Error('delivery progress is invalid');
+    progress = { completed_pages: completed, expected_pages: expected };
+  }
+  return { ...value, issue_codes: issueCodes, progress };
+}
+
+function pruneDeliveryRecords(deliveries) {
+  while (deliveries.records.length > 64) {
+    const closedIndex = deliveries.records.findIndex((record) => record.status === 'closed');
+    if (closedIndex < 0) throw new Error('too many active delivery records');
+    deliveries.records.splice(closedIndex, 1);
+  }
+}
+
+async function closeSentIncidents(stateDir, binding, monitorInvocationId, nowMilliseconds) {
+  const raw = await readStateJson(stateDir, stateFiles.deliveries);
+  if (!raw) return false;
+  const deliveries = normalizeDeliveryState(raw);
+  const sent = deliveries.records.filter(
+    (record) => record.status === 'sent' && sameBinding(record.binding, binding),
+  );
+  if (sent.length === 0) return false;
+  for (const record of sent) {
+    record.status = 'closed';
+    record.closed_at = iso(nowMilliseconds);
+    record.closed_by_monitor_invocation_id = monitorInvocationId;
+  }
+  deliveries.recovery_epoch = Math.max(
+    deliveries.recovery_epoch,
+    ...sent.map((record) => record.epoch + 1),
+  );
+  await atomicWriteJson(stateDir, stateFiles.deliveries, deliveries);
+  return true;
+}
+
+async function deliverPendingRecord(
+  stateDir,
+  deliveries,
+  record,
+  nowMilliseconds,
+  sendAlert,
+  successState,
+) {
+  record.attempts += 1;
+  record.last_attempt_at = iso(nowMilliseconds);
+  pruneDeliveryRecords(deliveries);
+  await atomicWriteJson(stateDir, stateFiles.deliveries, deliveries);
+  try {
+    await sendAlert(record.envelope);
+  } catch {
+    await writeResult(
+      stateDir,
+      nowMilliseconds,
+      record.binding,
+      'delivery_pending',
+      record.issue_codes,
+      record.fingerprint,
+    );
+    throw new Error('alert delivery failed');
+  }
+  record.status = 'sent';
+  record.sent_at = iso(nowMilliseconds);
+  await atomicWriteJson(stateDir, stateFiles.deliveries, deliveries);
+  await writeResult(
+    stateDir,
+    nowMilliseconds,
+    record.binding,
+    successState,
+    record.issue_codes,
+    record.fingerprint,
+  );
+  return {
+    state: successState,
+    sent: true,
+    issue_codes: record.issue_codes,
+    fingerprint: record.fingerprint,
+  };
+}
+
+async function retryPendingDelivery(config, nowMilliseconds, stateDir, sendAlert) {
+  const raw = await readStateJson(stateDir, stateFiles.deliveries);
+  if (!raw) return null;
+  const deliveries = normalizeDeliveryState(raw);
+  const pending = deliveries.records.filter((record) => record.status === 'pending');
+  if (pending.length === 0) return null;
+  if (pending.length !== 1) throw new Error('multiple pending alert envelopes are invalid');
+  const [record] = pending;
+  if (!bindingMatchesStaticConfig(record.binding, config)
+    || record.envelope.monitor_unit !== config.monitorUnit) {
+    throw new Error('pending alert envelope does not match the configured lineage');
+  }
+  return deliverPendingRecord(
+    stateDir,
+    deliveries,
+    record,
+    nowMilliseconds,
+    sendAlert,
+    'sent_pending_retry',
+  );
 }
 
 async function alertFailedMonitor(config, runtime, binding, nowMilliseconds, stateDir, sendAlert) {
@@ -468,42 +684,55 @@ async function alertFailedMonitor(config, runtime, binding, nowMilliseconds, sta
     await readStateJson(stateDir, stateFiles.armed),
     binding,
   );
-  const fingerprint = issueFingerprint(binding, issueCodes);
+  const deliveries = normalizeDeliveryState(await readStateJson(stateDir, stateFiles.deliveries));
+  const fingerprint = issueFingerprint(binding, issueCodes, deliveries.recovery_epoch);
   if (!receipt) {
     await writeResult(stateDir, nowMilliseconds, binding, 'suppressed_disarmed', issueCodes, fingerprint);
     return { state: 'suppressed_disarmed', sent: false, issue_codes: issueCodes };
   }
-  const deliveries = normalizeDeliveryState(await readStateJson(stateDir, stateFiles.deliveries));
   const existing = deliveries.records.find((record) => record.fingerprint === fingerprint);
-  if (existing?.status === 'sent') {
+  if (existing?.status === 'sent' || existing?.status === 'closed') {
     await writeResult(stateDir, nowMilliseconds, binding, 'deduplicated', issueCodes, fingerprint);
     return { state: 'deduplicated', sent: false, issue_codes: issueCodes, fingerprint };
   }
-  const record = existing || {
+  if (existing?.status === 'pending') {
+    return deliverPendingRecord(
+      stateDir,
+      deliveries,
+      existing,
+      nowMilliseconds,
+      sendAlert,
+      'sent_pending_retry',
+    );
+  }
+  const envelope = buildAlertPayload(
+    config,
+    binding,
+    issueCodes,
+    latest,
+    fingerprint,
+    nowMilliseconds,
+  );
+  const record = {
     fingerprint,
     issue_codes: issueCodes,
+    binding,
+    epoch: deliveries.recovery_epoch,
+    envelope,
+    envelope_sha256: sha256(canonicalJson(envelope)),
     status: 'pending',
     attempts: 0,
     first_attempt_at: iso(nowMilliseconds),
   };
-  record.status = 'pending';
-  record.attempts += 1;
-  record.last_attempt_at = iso(nowMilliseconds);
-  if (!existing) deliveries.records.push(record);
-  deliveries.records = deliveries.records.slice(-64);
-  await atomicWriteJson(stateDir, stateFiles.deliveries, deliveries);
-  const payload = buildAlertPayload(config, binding, issueCodes, latest, fingerprint, nowMilliseconds);
-  try {
-    await sendAlert(payload);
-  } catch {
-    await writeResult(stateDir, nowMilliseconds, binding, 'delivery_pending', issueCodes, fingerprint);
-    throw new Error('alert delivery failed');
-  }
-  record.status = 'sent';
-  record.sent_at = iso(nowMilliseconds);
-  await atomicWriteJson(stateDir, stateFiles.deliveries, deliveries);
-  await writeResult(stateDir, nowMilliseconds, binding, 'sent', issueCodes, fingerprint);
-  return { state: 'sent', sent: true, issue_codes: issueCodes, fingerprint };
+  deliveries.records.push(record);
+  return deliverPendingRecord(
+    stateDir,
+    deliveries,
+    record,
+    nowMilliseconds,
+    sendAlert,
+    'sent',
+  );
 }
 
 function parseCredentialFile(raw) {
@@ -535,7 +764,7 @@ export function telegramMessage(payload) {
   const progress = payload.progress
     ? `\nprogress=${payload.progress.completed_pages}/${payload.progress.expected_pages}`
     : '';
-  return `[BDFZ OCR monitor]\nrun=${payload.run_id}\nissues=${payload.issue_codes.join(',')}${progress}`;
+  return `[BDFZ OCR monitor]\nrun=${payload.run_id}\nissues=${payload.issue_codes.join(',')}\nfingerprint=${payload.issue_fingerprint}${progress}`;
 }
 
 async function sendTelegram(config, payload, runFetch = fetch) {
@@ -583,24 +812,47 @@ export function createCommandSender(command, { environment = {} } = {}) {
 export async function runOcrMonitorAlert(config, dependencies = {}) {
   const stateDir = await requireStateDirectory(config.stateDir);
   const nowMilliseconds = dependencies.nowMilliseconds ?? Date.now();
+  const sendAlert = config.mode === 'alert'
+    ? (dependencies.sendAlert
+      || (config.sendCommand
+        ? createCommandSender(config.sendCommand)
+        : (payload) => sendTelegram(config, payload, dependencies.fetch || fetch)))
+    : null;
+  if (sendAlert) {
+    const retried = await retryPendingDelivery(
+      config,
+      nowMilliseconds,
+      stateDir,
+      sendAlert,
+    );
+    if (retried) return retried;
+  }
   const runtime = dependencies.runtime || await defaultRuntimeEvidence(config);
   runtime.monitor.invocation_id = normalizeInvocationId(runtime.monitor.invocation_id, 'monitor InvocationID');
-  runtime.worker.invocation_id = normalizeInvocationId(runtime.worker.invocation_id, 'worker InvocationID');
   if (!Number.isSafeInteger(runtime.monitor.exit_code) || runtime.monitor.exit_code < 0) {
     throw new Error('monitor exit code is invalid');
   }
-  const binding = makeBinding(config, runtime);
-  return withStateLock(stateDir, async () => {
-    if (config.mode === 'observe') {
-      await verifyMonitorScript(config);
-      return observeSuccessfulMonitor(config, runtime, binding, nowMilliseconds, stateDir);
-    }
-    const sendAlert = dependencies.sendAlert
-      || (config.sendCommand
-        ? createCommandSender(config.sendCommand)
-        : (payload) => sendTelegram(config, payload, dependencies.fetch || fetch));
-    return alertFailedMonitor(config, runtime, binding, nowMilliseconds, stateDir, sendAlert);
-  });
+  if (config.mode === 'observe') {
+    runtime.worker.invocation_id = normalizeInvocationId(
+      runtime.worker?.invocation_id,
+      'worker InvocationID',
+    );
+    const binding = makeBinding(config, runtime);
+    await verifyMonitorScript(config);
+    return observeSuccessfulMonitor(config, runtime, binding, nowMilliseconds, stateDir);
+  }
+  const liveWorkerInvocationId = String(runtime.worker?.invocation_id || '').trim();
+  let binding;
+  if (liveWorkerInvocationId) {
+    runtime.worker.invocation_id = normalizeInvocationId(
+      liveWorkerInvocationId,
+      'worker InvocationID',
+    );
+    binding = makeBinding(config, runtime);
+  } else {
+    binding = await recoverBindingFromArmedReceipt(config, runtime, stateDir);
+  }
+  return alertFailedMonitor(config, runtime, binding, nowMilliseconds, stateDir, sendAlert);
 }
 
 export function parseAlertArgs(argv) {
@@ -662,9 +914,11 @@ function usage() {
     '  [--credential-file ~/.config/bdfz/curriculum-ocr-monitor-telegram.env]',
     '',
     'Two distinct healthy exit-10 monitor invocations arm alerting for one exact',
-    'run, boot, worker InvocationID, and monitor SHA-256. Exit 0/10 never alerts.',
+    'run, boot, worker unit/InvocationID, and monitor SHA-256. Exit 0/10 never alerts.',
     'Exit 12 alerts only when armed. Precheck or stale evidence is reported only',
-    'as MONITOR_EXECUTION_FAILED. This notifier never stops or restarts OCR.',
+    'as MONITOR_EXECUTION_FAILED. Delivery is at-least-once: retry may duplicate',
+    'a provider-accepted message, so every message exposes a stable fingerprint.',
+    'This notifier never stops or restarts OCR.',
   ].join('\n');
 }
 

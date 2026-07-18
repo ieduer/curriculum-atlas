@@ -5,5 +5,9 @@ BDFZ_OCR_ALERT_RUN_ROOT=/home/suen/curriculum-ocr-offload/runs/<RUN_ID>
 BDFZ_OCR_ALERT_LATEST_JSON=/home/suen/curriculum-ocr-offload/runs/<RUN_ID>/monitor-b-r3/latest.json
 BDFZ_OCR_ALERT_EXPECTED_RUN_ID=<RUN_ID>
 BDFZ_OCR_ALERT_WORKER_UNIT=curriculum-ocr-reprocess-b-r3.service
-BDFZ_OCR_ALERT_MONITOR_SCRIPT=/home/suen/curriculum-ocr-offload/runs/<RUN_ID>/workspace-b-r3/monitor-remote-ocr-single-shard.mjs
+BDFZ_OCR_ALERT_MONITOR_SCRIPT=/home/suen/curriculum-ocr-offload/runs/<RUN_ID>/workspace-b-r3/scripts/monitor-remote-ocr-single-shard.mjs
 BDFZ_OCR_ALERT_MONITOR_SHA256=<LOWERCASE_64_HEX_SHA256>
+
+# Telegram delivery is at-least-once. If the provider accepts a request before
+# local state is committed, retry can produce a duplicate. Every visible alert
+# includes the stable issue fingerprint for operator-side deduplication.
