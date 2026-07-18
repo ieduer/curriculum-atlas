@@ -2,6 +2,19 @@
 
 本项目遵循日期化发布记录；生产资源的精确版本、验证证据与回滚锚点另见 `docs/operations.md` 和本机 canonical operations report。
 
+## 2026-07-17 — v10 taxonomy / corpus / R2 发布
+
+- Preview 与 production D1 均已应用 `0001`–`0007`，运行全局 schema 3、taxonomy schema 2、page publication schema 1；Worker 均升级为 `2026.07.16-v10`。
+- 发布 taxonomy 精确口径：159 份普通学科资料、1 份考试学科、16 份课程、20 份范围／框架；公开星图为 12 个展示分面，API 保留 28 个普通学科精确查询身份。
+- 原子导入并激活 `corpus-358471fcce862b2f0ae446fc`：196 documents、16,456 paragraphs、16,456 FTS、6,031 page gates、16,456 displayed、0 accepted OCR、91/91 chunk receipts。
+- Production Worker version 为 `28c7e6d4-1638-42bc-b371-bd8d24210b93`，deployment 为 `baa8a92f-ccc8-4972-b0ad-6d67876cdc84`，静态资产绑定 Git `57487dc95481391cbcd40e0be0c92ee2d1ed8fdf`；preview 对应 version `2d107d38-cf31-49b6-82b1-20b32a32e824`、deployment `32b91e16-302a-4672-b55d-4e73bcedf54a`、Git `40cb114e410e5f2afc886732eb146707edf8477b`。
+- Production 首次激活 versioned R2 release `release-9cb02f77c06ee0535e7981a22b312373`；pointer 为 388 bytes / SHA-256 `5142166d000fbf82e6d0a9d135a5340ba3c9d77f3bed803967ad565ff8c2133a`，manifest 为 107,777 bytes / SHA-256 `a6a15ea83cc58b1b84f5587a110c0fddeb414f24c77ff534507ea96868c03964`，17 个对象共 546,648 bytes 三方逐字节一致。Preview release 为 `release-841a528f0086ce69f2f7a6f2d07c0999`。
+- Production `/api/source-manifest` 返回 55,183 bytes / SHA-256 `0f0fda279b10ef40011ea28477deb528ed5d45b7478dfd93a8b7bf6d0b1cb16e`；完整本地发布链通过 380/380 tests，环境证据提交为 `290755749a0257ed720e7b2d26aa6b972c60aebb`。
+- Production 只读终验事件 `2026-07-17T06:35:37.437Z` 通过：health 200 / v10 / Git `57487dc` / schema 3-2-1 / 五项 binding；三种视口（1440×1000、1280×720、390×844）均无横向溢出，完整星图 553 颗概念星、214 条谱系、261 条跨学科关系，全隐藏 0/0，语文 143/60 且无“运动能力”串科，桌面与移动单科缩放分别从 0.864→1.32、0.20→0.568；深链接、工作台、拖拽和缩放均通过。
+- 同一终验前后 D1 用户/运维表计数保持 0/0/3/2/0，canonical digest 均为 `c4166f451f4b9529bf4221b56fb3017dc51aef7493a699553dc218287e42c430`；Pulse 为 425 requests / 0 errors。第一方 console/page error 为 0；仅 Turnstile 第三方 opaque challenge 产生 2 errors / 5 warnings。
+- 私有原始资料与 OCR 证据已加密分片上传并完成全量 GET/hash/decrypt/decompress/replay；索引在 `backups/curriculum-atlas/private-archive/20260717T021000Z/archive-index.json`。不在文档或日志中记录密钥。
+- OCR 仍严格 fail-closed：本机 primary/audit 6,947/11,847、Vision 7,012、accepted display/citation 0；DMITPro2 B-r1 因内存门冻结在 1,259/3,182。概念 observation 数据目前止于 2020；2022 corpus 文档和年代轨虽已存在，仍须在 accepted OCR 闭环后重建概念观察。只有 hash-bound seed lineage 实现并测试通过后，才可在新配置下创建 B-r2；本节不声明 OCR 完成或 OCR 正文上线。
+
 ## 2026-07-16 — 未发布数据完整性收口
 
 - 新增可重建的全项目运维总账、资产主账与数据完整性审计；不改写历史事件。
@@ -9,7 +22,7 @@
 - Catalog 扩展至 196 条并改用显式正文／引文资格；当前 101 份真实正文可进入语料，OCR accepted 仍为 0。
 - 新增 D1 corpus release、91 个 SQL chunk hash/bytes/receipt 与 Worker fail-closed release gate。
 - R2 改为 17 个策略驱动不可变对象与单一 `release/current.json` pointer；新增命令回执、部署版本、Git 静态资产、D1 migration/corpus 与 health 绑定的环境证据对象，本机 Worker 支持完整 pointer/manifest/object 校验。
-- Preview 与 production 尚未应用 0005/0006，也尚未部署 versioned reader；本节不得解释为已上线。
+- 当日本地收口时 preview 与 production 尚未应用 0005/0006；这一历史阻断已由 2026-07-17 v10 发布解除，不能再作为当前状态。
 
 ## 2026-07-15 — 1.0.0
 

@@ -1,31 +1,44 @@
 # 部署、验证与回滚
 
-当前 preview 和 production 都被 release policy 阻断：两端 D1 只到 `0004`，Worker 仍是 `stable_keys_v0`。本文件描述解除阻断后的标准流程，不代表这些步骤已执行。
+当前 preview 与 production 已完成 v10 taxonomy / corpus / versioned R2 发布。本文同时记录当前线上锚点和下一次发布的标准流程；OCR 识别完成、远端 staging 或 Vision 完成不等于可发布正文。
+
+## 当前线上锚点
+
+| 环境 | Worker / deployment | Assets Git | D1 | Corpus | R2 current |
+|---|---|---|---|---|---|
+| preview | `2d107d38-cf31-49b6-82b1-20b32a32e824` / `32b91e16-302a-4672-b55d-4e73bcedf54a` | `40cb114e410e5f2afc886732eb146707edf8477b` | `0001`–`0007` | `corpus-358471fcce862b2f0ae446fc` ready | `release-841a528f0086ce69f2f7a6f2d07c0999` |
+| production | `28c7e6d4-1638-42bc-b371-bd8d24210b93` / `baa8a92f-ccc8-4972-b0ad-6d67876cdc84` | `57487dc95481391cbcd40e0be0c92ee2d1ed8fdf` | `0001`–`0007` | `corpus-358471fcce862b2f0ae446fc` ready | `release-9cb02f77c06ee0535e7981a22b312373` |
+
+两端 health 合同均为 `2026.07.16-v10`、全局 schema 3、taxonomy schema 2、page publication schema 1。Environment evidence 的最终 Git 提交为 `290755749a0257ed720e7b2d26aa6b972c60aebb`；该 evidence 在 production R2 首次 bootstrap 之前采集，因此其中 production pointer absent、preview predecessor pointer 是带时间的采集快照。R2 的后续激活状态以 append-only post-activation readback 为准，不能用旧快照覆盖。
+
+当前 corpus 精确计数为：196 documents、16,456 paragraphs、16,456 FTS rows、6,031 page publication gates、16,456 displayed paragraphs、0 accepted OCR documents、91 chunks。taxonomy 为 159 subject、1 assessment subject、16 curriculum course、20 scope，公开为 12 display facets 与 28 exact subject query identities。
 
 ## 目标资源
 
 | 环境 | Worker | D1 | R2 | 域名 |
 |---|---|---|---|---|
-| preview | `bdfz-curriculum-atlas-preview` | `bdfz-curriculum-atlas-preview` | `bdfz-curriculum-atlas-sources-preview` | workers.dev preview |
-| production | `bdfz-curriculum-atlas` | `bdfz-curriculum-atlas` | `bdfz-curriculum-atlas-sources` | `curriculum.bdfz.net` |
+| preview | `bdfz-curriculum-atlas-preview` | `bdfz-curriculum-atlas-preview` | `bdfz-curriculum-atlas-sources-preview` | `https://bdfz-curriculum-atlas-preview.bdfz.workers.dev` |
+| production | `bdfz-curriculum-atlas` | `bdfz-curriculum-atlas` | `bdfz-curriculum-atlas-sources` | `https://curriculum.bdfz.net` |
 
 ## 发布合同
 
 一次 release 必须同时绑定：
 
-- 干净 Git commit 与完整 source-tree hash；
-- `data/artifact-registry.json` 及通过的项目资产审计；
+- clean Git commit、完整 source-tree hash 与 `data/artifact-registry.json`；
 - catalog、ingest、OCR queue、page/semantic/online verification 资产；
-- corpus release manifest、91 个 SQL chunk hash/bytes 与 D1 receipts；
+- corpus release manifest、91 个 SQL chunk hash/bytes 与逐块 D1 receipt；
 - core/academic concept graph 同一 build revision；
-- `public` 与 `dist` 的逐文件 hash/bytes parity；
-- D1 migrations、Worker versioned R2 reader，以及由采集器生成、命令回执绑定的 `data/release-environment-evidence.json`。
+- `public` 与 `dist` 逐文件 hash/bytes parity；
+- D1 migration 列表、唯一 100% Worker version/deployment、五项线上静态资产与 health provenance；
+- versioned R2 pointer、manifest 和 17 个不可变对象的逐对象 GET hash/bytes readback。
 
-缺任一项时，`npm run release:manifest` 或 publisher 必须在远端 mutation 前失败。
+缺任一项时，`npm run release:manifest`、corpus finalizer 或 metadata publisher 必须在暴露混合数据前 fail closed。
 
-## 0. 冻结与本地验证
+## 下一次标准发布流程
 
-不得从 dirty tree 发布。先确认本任务拥有的文件、保存当前 diff/commit，再执行：
+### 0. 所有权、冻结和本地验证
+
+先核对 `git status` 与 `reports/agent_action_log.jsonl` 的文件/资源所有权，写 action-log `start`，再执行：
 
 ```bash
 cd /Users/ylsuen/CF/curriculum-atlas
@@ -35,177 +48,150 @@ npx wrangler whoami
 git status --short
 ```
 
-`npm run verify` 会依次重建 catalog、资产审计、corpus、概念图、在线核对、静态资产、类型、测试、release manifest 与 Worker dry-run。
+当前基线 `npm run verify` 为 380/380；未来数字变化时记录实际结果，不照抄基线。
 
-## 1. 只读环境快照与回滚锚点
+### 1. 只读回滚锚点
 
-以下先对 preview 执行；生产窗口使用 production 资源名重复：
+Preview 先行；production 使用对应资源名重复：
 
 ```bash
-npx wrangler deployments list --name bdfz-curriculum-atlas-preview
+npx wrangler deployments status --name bdfz-curriculum-atlas-preview --json
 npx wrangler d1 migrations list bdfz-curriculum-atlas-preview --env preview --remote
 npx wrangler d1 time-travel info bdfz-curriculum-atlas-preview --env preview --timestamp <RFC3339_NOW> --json
 npx wrangler r2 object get bdfz-curriculum-atlas-sources-preview/release/current.json --pipe --remote
 ```
 
-若 R2 pointer 尚不存在，明确记录 bootstrap 状态；不要把 404 当作已备份。已有 pointer 时，把原始 bytes、SHA-256、release ID 与 manifest key 保存到任务私有回滚目录，禁止复制到公开日志。
+保存 Worker version/deployment、D1 Time Travel bookmark、评论/举报/限流/AI 审计基线，以及 R2 pointer 原始 bytes/SHA/release ID。404 只能记录为 pointer absent，不能伪装成已备份。
 
-## 2. 应用 0005、0006
+### 2. Migration 与兼容 Worker
+
+有新 migration 时先应用 preview，并立即确认 pending 为 0：
 
 ```bash
 npx wrangler d1 migrations apply bdfz-curriculum-atlas-preview --env preview --remote
 npx wrangler d1 migrations list bdfz-curriculum-atlas-preview --env preview --remote
-```
-
-应用后只读核对：
-
-- `page_publication_gates` 存在；
-- `corpus_import_releases`、`corpus_import_chunks`、`corpus_import_guards` 存在；
-- `current_corpus_release_id=legacy-bootstrap-0006`；
-- bootstrap release 为 `ready`，expected/actual/live 计数一致；
-- 既有评论、核验和段落行数没有意外减少。
-
-## 3. 先部署支持 release gate 的 Worker
-
-```bash
 npm run deploy:preview
 ```
 
-此时 R2 若还没有 pointer，`/api/source-manifest` 只允许 bootstrap fallback 到旧 stable key。先验证：
+Worker 必须能读取迁移后的 schema，并在 corpus 非 `ready` 时返回 503。不要让旧 Worker 与新 D1 schema 长时间组合；历史 v7 不能读取 taxonomy schema 2。
 
-```bash
-curl -fsS https://bdfz-curriculum-atlas-preview.bdfz.workers.dev/api/health
-curl -fsS https://bdfz-curriculum-atlas-preview.bdfz.workers.dev/api/source-manifest
-```
-
-health 必须证明 bootstrap corpus ready、196/160/16/20/0 分类完整和五项 binding 存在。若失败，立即回滚 Worker；不要开始 corpus import。
-
-## 4. 导入 corpus release
+### 3. Corpus import
 
 ```bash
 npm run corpus:build
 npm run corpus:import:preview
 ```
 
-导入语义：
+- importer 先写 `in_progress`，每个 chunk 成功后单独写 name/hash/bytes receipt；
+- 客户端中断时先查询远端 receipts，只从第一个未提交的精确 chunk 恢复；
+- 不盲目重放，不跳过 receipt，不把部分导入写成 ready；
+- finalize 只在 196/16,456/16,456/6,031/16,456/0/91 等 manifest 计数全部相等时写 `ready`。
 
-- start 写 `in_progress`；新版 Worker 的 D1 业务 API 预期返回 503；
-- 每个 SQL chunk 先验 hash/bytes，成功后单独写 receipt；
-- 失败写 `failed` 并停止；恢复必须从报告的 `--from <NNN>` 精确位置执行，不能跳过 receipt；
-- 只有全量 finalize 通过才写 `ready`。
-
-导入后检查 health 中 release ID、manifest SHA、expected/live counts、accepted OCR documents 和 chunks 全部一致。
-
-## 5. 更新环境证据并发布 R2
-
-用采集器从 Wrangler、线上 health 与五个实时静态资产生成 preview 环境证据。不得手改 policy 或 receipt 绕过 blocker：
+恢复参数以 importer 输出的首个未提交编号为准：
 
 ```bash
-npm run release:evidence:preview
+npm run corpus:import:preview -- --from <NNN>
+```
+
+### 4. Git-bound environment evidence
+
+```bash
+npm run release:evidence:preview -- --asset-commit <ASSET_COMMIT>
 git add data/release-environment-evidence.json
 git commit -m "chore: bind curriculum preview release evidence"
 git push
 npm run verify
 ```
 
-采集结果必须绑定唯一 100% Worker version/deployment、精确 Git commit 的五项 byte parity、D1 migration 列表、health Git provenance、corpus release ID/fingerprint/manifest/counts 和 R2 pointer 状态；receipt 超过四小时自动失效。证据 commit 只更新发布回执时，Worker 资产可以仍对应其已验证的祖先 commit，但该 commit 必须存在且五项在线资产逐字节相等。
+Evidence 必须来自命令回执，不手改字段绕过 policy。采集后若 D1、Worker、Assets 或 corpus 发生变化，重新采集。
 
-首次建立 pointer：
-
-```bash
-node scripts/publish-metadata.mjs \
-  --bucket bdfz-curriculum-atlas-sources-preview \
-  --environment preview \
-  --bootstrap \
-  --remote
-```
-
-后续版本：
+### 5. Versioned R2 发布
 
 ```bash
 npm run metadata:publish:preview
 ```
 
-发布器只按以下顺序写：
+发布器顺序固定：17 个不可变对象 → 每对象 readback → versioned manifest/readback → 唯一可变 `release/current.json` → pointer readback。中断时：
 
-1. 17 个 `releases/<release_id>/...` 不可变对象；
-2. 每个对象 hash/bytes readback；
-3. versioned `manifest.json` 与 readback；
-4. 唯一可变写入 `release/current.json`；
-5. pointer readback。
+1. 先读取 current pointer、目标 manifest 与对象列表；
+2. 若 pointer 未切换，旧 release 仍在线，新不可变对象可安全保持未引用；
+3. 若 pointer 已切换，完成全量 readback 后再决定是否回滚；
+4. 不盲目重跑。相同 release ID 的 immutable key 可能已经存在，publisher 的拒绝是保护，不是要求覆盖。
 
-中途失败不得触碰旧 pointer。
+Production 已完成首次 `--bootstrap`，后续不得再次假定 pointer absent；正常使用 `npm run metadata:publish:production`。
 
-## 6. Preview 验收
+### 6. Preview 验收后提升 production
 
 ```bash
 curl -fsS https://bdfz-curriculum-atlas-preview.bdfz.workers.dev/api/health
 curl -fsS https://bdfz-curriculum-atlas-preview.bdfz.workers.dev/api/meta
 curl -fsS 'https://bdfz-curriculum-atlas-preview.bdfz.workers.dev/api/search?q=核心素养'
-curl -fsS 'https://bdfz-curriculum-atlas-preview.bdfz.workers.dev/api/documents/legacy-compendium-chinese?v=<CACHE_BUST>'
 curl -fsS https://bdfz-curriculum-atlas-preview.bdfz.workers.dev/api/source-manifest
 ```
 
-还必须完成真实桌面/移动浏览器：星图、单学科隔离、年代、概念深挖、版本资料、AI、教师讨论、刷新和深链接。然后回归 User Center、Nav、Portal、Companion 与 Pulse。浏览器会话完成后按工作区规则关闭并运行 Playwright orphan dry-run。
+完成 desktop/mobile 星图、全隐藏、单科自动适配、语文深挖、年代、资料/版本、AI/讨论、刷新和深链接；再回归 User Center、Nav、Portal、Companion、APIS 与 Pulse。关闭任务浏览器并执行 Playwright orphan dry-run。
 
-## 7. Production
+Production 重复同一链路：migration → compatible Worker → exact corpus import → evidence commit/push → verify → R2 release → API/browser/dependency QA。
 
-Preview 所有证据通过后，重新冻结 production 专用 release 与回滚锚点，再按相同顺序执行：
+## 当前 production R2 独立读回
 
-```bash
-npx wrangler d1 migrations apply bdfz-curriculum-atlas --remote
-npm run deploy:production
-npm run corpus:import:production
-```
+- release：`release-9cb02f77c06ee0535e7981a22b312373`；
+- pointer：388 bytes，SHA-256 `5142166d000fbf82e6d0a9d135a5340ba3c9d77f3bed803967ad565ff8c2133a`；
+- manifest：107,777 bytes，SHA-256 `a6a15ea83cc58b1b84f5587a110c0fddeb414f24c77ff534507ea96868c03964`；
+- 17/17 unique release objects：546,648 bytes，manifest、远端 GET、本地来源三方逐字节一致；
+- `/api/source-manifest`：55,183 bytes，SHA-256 `0f0fda279b10ef40011ea28477deb528ed5d45b7478dfd93a8b7bf6d0b1cb16e`。
 
-部署、导入并核实 production 后执行 `npm run release:evidence:production`，只提交该采集器生成的 receipt，推送并再次 `npm run verify`。首次 pointer 使用显式 `--bootstrap`；后续使用：
+## 当前 production API / 浏览器 / D1 / Pulse 终验
 
-```bash
-npm run metadata:publish:production
-```
+权威 append-only `verify` 事件为 `2026-07-17T06:35:37.437Z`，只读验收结果：
 
-生产 smoke：
+- `/api/health` 为 200，v10、Assets Git `57487dc`、schema 3 / taxonomy 2 / page publication 1，D1、R2、APIS、User Center、Assets 五项 binding 均存在；corpus 为 196 documents / 16,456 paragraphs / 16,456 FTS / 6,031 gates / 91 chunks，taxonomy 为 159 subject + 1 assessment subject + 16 course + 20 scope + 0 unclassified。
+- 1440×1000、1280×720、390×844 均无 horizontal overflow；完整星图为 553 nodes / 214 lineage edges / 261 cross-subject edges，全隐藏为 0/0，语文为 143/60 且“运动能力”泄漏为 0。桌面语文单科自动缩放 0.864→1.32，移动端 0.20→0.568；深链接、刷新、资料/版本及 AI/讨论工作台、拖拽、缩放均通过。
+- AI 未认证写入 401、非法 Origin 讨论写入 403；D1 验收前后 comments / reports / rate limits / AI citation logs / content audit logs 为 0/0/3/2/0，canonical digest 均为 `c4166f451f4b9529bf4221b56fb3017dc51aef7493a699553dc218287e42c430`。
+- Pulse 为 425 requests / 0 errors。第一方 console/page errors 为 0；Turnstile challenge 产生 2 个第三方 opaque console errors 和 5 个 warnings，不计为第一方回归失败，但继续观察。
+- 所有任务命名浏览器已关闭，CLI list 为空；root process 检查无任务 `cliDaemon.js` 或 Playwright profile，仅有 App-owned MCP。规定的 orphan dry-run 因平台 usage limit 拒绝提权，未绕过；因此这里只声明上述两项可验证的 teardown 证据，不声明 dry-run 已通过。
 
-```bash
-curl -fsS https://curriculum.bdfz.net/api/health
-curl -fsS https://curriculum.bdfz.net/api/meta
-curl -fsS 'https://curriculum.bdfz.net/api/search?q=核心素养'
-curl -fsS 'https://curriculum.bdfz.net/api/documents/legacy-compendium-chinese?v=<CACHE_BUST>'
-curl -fsS https://curriculum.bdfz.net/api/source-manifest
-```
-
-生产必须配置 `HASH_SALT` 与 `TURNSTILE_SECRET` Worker secrets；Turnstile public sitekey 在 `wrangler.jsonc`。任何 secret、cookie、session 或原始用户内容都不能进入报告。
+当前概念 observation 数据只到 2020。2022 corpus documents 与年代轨已上线，但不能据此宣称已有 2022 概念演变观察；须等 accepted OCR、版本核对与概念重建闭环后另行发布。
 
 ## 回滚
 
-### Worker
+### Worker + D1 耦合回滚
 
-从部署前记录选择旧版本并按 Wrangler 当前版本命令回滚；完成后重复 health、meta、source-manifest 与浏览器 smoke。
+Production prechange anchor：
 
-### D1
+- D1 bookmark：`0000002b-00002585-000050ab-8645885d977dc9bf5678e6cdf12b084f`；
+- Worker v7：`7d1766b2-32be-4ce1-9528-f6c69bb2a092`；
+- prechange deployment：`4f2042f6-ce2c-40c0-a7a0-06f48188726b`。
 
-只在确认影响范围后，以发布前 bookmark 执行：
+不能只把 Worker 回到 v7：v7 与 D1 taxonomy schema 2 不兼容，会 fail closed 503。只有确认 bookmark 之后没有需要保留的评论、举报、限流或 AI 审计写入，且 forward repair 不可行时，才在同一维护窗口耦合恢复 D1 与 Worker；之后重查 migrations、196 documents、16,456 paragraphs、FTS、page gates、用户数据表和 API/browser smoke。
 
 ```bash
-npx wrangler d1 time-travel restore <DATABASE> --bookmark <BOOKMARK> --env <ENVIRONMENT> --json
+npx wrangler d1 time-travel restore bdfz-curriculum-atlas \
+  --bookmark 0000002b-00002585-000050ab-8645885d977dc9bf5678e6cdf12b084f \
+  --json
 ```
 
-恢复后重查 migrations、release state、documents/paragraphs/FTS/page gates/comments。
+Worker 回滚命令使用执行时 Wrangler 的 `versions deploy --help` 验证后的语法，并记录 message；不要在文档中伪造未执行的 deployment ID。
 
-### R2
+### R2-only 回滚
 
-R2 回滚只把 `release/current.json` 恢复为已验证的旧 pointer bytes；不删除新旧不可变 release 对象。恢复 pointer 后必须重新读取 pointer、manifest 和目标 ingest object，核对 hash/bytes。
+Production 是首次 versioned pointer：删除且只删除 `bdfz-curriculum-atlas-sources/release/current.json` 可恢复 v10 的已验证 stable-key fallback。不要删除 `releases/release-9cb02f77c06ee0535e7981a22b312373/**`；未引用的不可变对象不影响线上。
+
+Preview 有 predecessor pointer，应恢复备份的原始 pointer bytes，指回 `release-b1c8c31d00e0016ad885ae5c9e92cad1`；恢复后重新 GET pointer、manifest 和 ingest object 核对 hash/bytes。任何 R2-only 回滚不触碰 D1 或 Worker。
 
 ### 公共注册
 
-只有产品被撤回时才同步处理 User Center、Nav、Portal、Companion 和 Pulse；普通代码/数据回滚不删除稳定 siteKey。
+普通代码/数据回滚不删除稳定 `siteKey`。只有产品撤回时，才作为一个事务同步 User Center、Nav、Portal、Companion 与 Pulse。
+
+## 私有加密档案
+
+本地索引：`backups/curriculum-atlas/private-archive/20260717T021000Z/archive-index.json`。远端精确前缀包含 14 个加密 parts 与最后上传的 index，共 15 objects / 3,304,581,750 bytes；完整 GET、逐 part SHA-256、decrypt、decompress 与 raw/evidence manifest replay 均通过。密钥不进入 Git、报告、命令或日志。删除该前缀属于独立破坏性动作，必须另行明确授权。
 
 ## 禁止事项
 
-- 不在 migration 0005/0006 前部署 v9 数据路径。
-- 不在旧 Worker 仍暴露混合数据时运行逐块 corpus import。
-- 不手工覆盖 R2 stable JSON 或跳过 current pointer。
-- 不从 dirty tree、未验证环境快照或 stale `dist` 发布。
-- 不把 OCR complete、Vision complete、remote staging 或 local release 写成生产上线。
-- 不使用 `INSERT OR REPLACE INTO documents` 破坏评论外键。
-- 不把扫描原件、完整受版权约束 OCR、秘密或用户内容放入公开 R2／Git／报告。
+- 不从 dirty tree、stale `dist`、过期 environment evidence 或未 ready corpus 发布；
+- 不把 OCR complete、Vision complete、远端 staging 或 B-r1 partial state写成可显示/可引文正文；
+- 不在没有 hash-bound seed lineage 时把 B-r1 输出复制到新配置；
+- 不手工覆盖 immutable R2 objects，不跳过 pointer/readback，不在中断后盲目重跑；
+- 不使用 `INSERT OR REPLACE INTO documents` 破坏评论外键；
+- 不把扫描原件、完整受版权约束 OCR、secret、cookie、session 或用户内容放入公开 R2、Git 或报告。

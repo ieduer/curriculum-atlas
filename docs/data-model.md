@@ -1,6 +1,6 @@
 # 数据模型
 
-D1 的规范结构由 `migrations/0001_initial.sql` 至 `0006_corpus_import_release.sql` 顺序定义。生产与预览在 0005、0006 实际应用并核对前，不能运行当前 v9 数据路径。
+D1 的规范结构由 `migrations/0001_initial.sql` 至 `0007_document_taxonomy_contract.sql` 顺序定义。Preview 与 production 均已应用 `0001`–`0007`；当前 Worker v10 health 合同为全局 schema 3、taxonomy schema 2、page publication schema 1。
 
 ## 主要实体
 
@@ -13,8 +13,21 @@ D1 的规范结构由 `migrations/0001_initial.sql` 至 `0006_corpus_import_rele
 | 在线核查 | `online_verifications`, `online_evidence` | 篇目身份、版次、权威在线证据、冲突与裁决 |
 | 页级发布 | `page_publication_gates` | 源页、最终文本、证据 bundle、显示与引文的独立门 |
 | Corpus release | `corpus_import_releases`, `corpus_import_chunks`, `corpus_import_guards` | 整批状态、预期/实际计数、SQL 分块哈希与回执 |
+| 学术身份与展示 | `document_classifications` | `taxonomy_entity_kind`、精确普通学科身份、12 个展示分面，以及课程/范围隔离 |
 | 讨论 | `comments`, `comment_reports` | 版本绑定评论、回复、举报和审核状态 |
 | AI 审计 | `ai_citation_logs` | 模型标签、检索段落、引文状态与生成时间 |
+
+## Taxonomy schema 2
+
+`document_classifications.entity_kind` 保留旧 `subject` / `scope` 兼容层；规范身份由 `taxonomy_entity_kind` 决定：
+
+- `subject`：159 份资料，28 个精确普通学科 query identities，可映射至 12 个 `display_facet`；
+- `assessment_subject`：1 份“汉语”考试身份，关联语文 facet，但不进入普通 `subject=汉语` 查询；
+- `curriculum_course`：16 份课程，`canonical_subject` 与 `display_facet` 均为 `null`；
+- `assessment_domain` 3、`source_collection` 4、`cross_cutting_framework` 13，共 20 scope；
+- `unclassified`：0。
+
+公开 12 facets 为：语文、数学、外语、思想政治与道德法治、历史、历史与社会、地理、科学类、技术、劳动、艺术、体育与健康。Facet 是展示聚合，不覆盖原始来源标签、精确学科 identity、官方 code 或课程身份。普通 subject filter 只允许 `taxonomy_entity_kind='subject'`；assessment/course/scope 通过独立元数据和详情呈现。
 
 ## 引文闸门
 
@@ -28,13 +41,19 @@ D1 的规范结构由 `migrations/0001_initial.sql` 至 `0006_corpus_import_rele
 
 每次 `npm run corpus:build` 生成一个由 catalog、ingest、来源、分类、在线核验、语义策略和实际正文资产共同决定的 release fingerprint。当前 manifest 逐一登记正文 SHA-256/bytes 及所有 SQL chunk 的名称、SHA-256/bytes。
 
+当前 release 为 `corpus-358471fcce862b2f0ae446fc`，fingerprint SHA-256 `358471fcce862b2f0ae446fcae834db80b24b8d5c0e8dcbfd3c9f5a1ae0d2c70`，manifest SHA-256 `87aa26a4975ee39e4c5f104159367a7528167515c4a10bc287447f7bdd69e0a3`。Preview 与 production 均已通过 91/91 远端 receipt 的 name/hash/bytes 核对并 finalize 为 `ready`。
+
 导入时先写 `in_progress`，逐 chunk 写 receipt；只有 documents、paragraphs、FTS、page gates、displayed rows、accepted OCR documents 和 receipt 全部精确匹配才可写 `ready`。Worker 在 release 缺失、非 ready 或实时计数漂移时，对 D1 业务路由返回 503。
+
+当前精确计数顺序为：196 documents / 16,456 paragraphs / 16,456 FTS rows / 6,031 page gates / 16,456 displayed paragraphs / 0 accepted OCR documents / 91 chunks。不要把 FTS 与 page-gate 数量互换，也不要从 OCR 机器进度推断 accepted OCR。
 
 新 release 缩短文档时，未被引用的旧段落可删除；被讨论或在线核验引用的旧段落保留稳定 ID，但关闭 display/citation。这样既清除 stale search rows，又避免评论级联删除。
 
 ## R2 release identity
 
 R2 不是 D1 的来源真相，只保存可公开重建的质量元数据。每个对象发布到 `releases/<release_id>/...`，完整 manifest 与对象 hash/bytes readback 通过后，才原子更新 `release/current.json`。Worker 若看到 pointer，就必须完整验证 pointer、manifest 与目标对象；pointer 损坏时不允许回退旧 fixed key。
+
+Production current 为 `release-9cb02f77c06ee0535e7981a22b312373`；preview current 为 `release-841a528f0086ce69f2f7a6f2d07c0999`。`data/release-environment-evidence.json` 保存采集时的 pointer snapshot：production 首次 bootstrap 与 preview successor activation 都发生在 evidence 之后，因此当前 R2 identity 必须结合 append-only post-activation readback，而不能只读 evidence 内的旧 pointer 字段。
 
 ## 公共概念图 v2
 
