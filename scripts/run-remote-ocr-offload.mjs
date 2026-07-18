@@ -172,6 +172,14 @@ function isoNow() {
   return new Date().toISOString();
 }
 
+function isoNowAtOrAfter(...timestamps) {
+  const floor = timestamps.reduce((latest, value) => {
+    const milliseconds = Date.parse(value);
+    return Number.isFinite(milliseconds) ? Math.max(latest, milliseconds) : latest;
+  }, 0);
+  return new Date(Math.max(Date.now(), floor)).toISOString();
+}
+
 function requireLoopbackLlamaUrl(value) {
   let url;
   try {
@@ -1022,6 +1030,22 @@ function validateStateSeedLineage(document, state, completedPages) {
     return null;
   }
   const lineage = requireObject(state.seed_lineage, `${document.id} seed_lineage`);
+  const timeoutRecoveryFields = [
+    'timeout_recovery_first_missing_page',
+    'timeout_recovery_grant_id',
+    'timeout_recovery_grant_sha256',
+  ];
+  const hasTimeoutRecovery = timeoutRecoveryFields.some((key) => Object.hasOwn(lineage, key));
+  exactObjectKeys(lineage, [
+    'citation_allowed',
+    'inherited_completed_pages',
+    'mode',
+    'predecessor_configuration_sha256',
+    'predecessor_run_identity_sha256',
+    'schema_version',
+    'seed_id',
+    ...(hasTimeoutRecovery ? timeoutRecoveryFields : []),
+  ], `${document.id} state seed lineage`);
   if (state.configuration_scope !== seedConfigurationScope
     || lineage.schema_version !== 1
     || lineage.mode !== seedMode
@@ -1067,6 +1091,143 @@ function validateStateSeedLineage(document, state, completedPages) {
 
 function sameJsonValue(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+const lifecycleTimestampFields = Object.freeze([
+  'failed_at',
+  'interrupted_at',
+  'started_at',
+  'completed_at',
+  'verified_at',
+]);
+
+export function isCanonicalIsoTimestamp(value) {
+  return typeof value === 'string'
+    && Number.isFinite(Date.parse(value))
+    && new Date(Date.parse(value)).toISOString() === value;
+}
+
+export function validateCanonicalLifecycleTimestamps(record, label) {
+  for (const field of lifecycleTimestampFields) {
+    if (Object.hasOwn(record, field) && !isCanonicalIsoTimestamp(record[field])) {
+      throw new Error(`${label} timestamp is not canonical (${field})`);
+    }
+  }
+}
+
+export function validateCompleteTimestampOrder(record, label) {
+  validateCanonicalLifecycleTimestamps(record, label);
+  const orderedPairs = [
+    ['failed_at', 'started_at'],
+    ['interrupted_at', 'started_at'],
+    ['started_at', 'completed_at'],
+    ['failed_at', 'completed_at'],
+    ['interrupted_at', 'completed_at'],
+    ['completed_at', 'verified_at'],
+    ['started_at', 'verified_at'],
+    ['failed_at', 'verified_at'],
+    ['interrupted_at', 'verified_at'],
+  ];
+  for (const [earlierField, laterField] of orderedPairs) {
+    if (Object.hasOwn(record, earlierField)
+      && Object.hasOwn(record, laterField)
+      && Date.parse(record[earlierField]) > Date.parse(record[laterField])) {
+      throw new Error(`${label} ${laterField} timestamp predates ${earlierField}`);
+    }
+  }
+}
+
+export function validateCompleteProgressContract({
+  receiptDocument,
+  progress,
+  predecessorProgress,
+  phase,
+  statusTimestampField,
+  labelPrefix = 'B2',
+}) {
+  const documentId = receiptDocument.document_id;
+  const label = `${documentId}: ${labelPrefix} complete progress`;
+  const expected = new Set([
+    'attempts',
+    'inherited_attempts',
+    'page_count',
+    'predecessor_status',
+    'seed_id',
+    'status',
+    'status_json_sha256',
+  ]);
+  const retainedTimestampFields = [];
+  if (receiptDocument.predecessor_status === 'complete') {
+    if (!['initial', 'full'].includes(phase)) {
+      throw new Error(`${label} inherited phase is invalid`);
+    }
+    const modern = receiptDocument.predecessor_status_format === 'complete_identity_v1';
+    const legacy = receiptDocument.predecessor_status_format === 'legacy_b1_complete_reverified';
+    if (!modern && !legacy) throw new Error(`${label} inherited format is invalid`);
+    if (modern) {
+      expected.add('completed_at');
+      retainedTimestampFields.push('completed_at');
+    } else {
+      expected.add('verified_at');
+      if (phase === 'initial') retainedTimestampFields.push('verified_at');
+      if (Object.hasOwn(predecessorProgress, 'completed_at')) {
+        expected.add('completed_at');
+        retainedTimestampFields.push('completed_at');
+      }
+    }
+    if (Object.hasOwn(predecessorProgress, 'started_at')) {
+      expected.add('started_at');
+      retainedTimestampFields.push('started_at');
+    }
+    if (phase === 'full') expected.add('verified_at');
+  } else {
+    if (phase !== 'full') throw new Error(`${label} non-complete predecessor phase is invalid`);
+    const progressSchema = `${receiptDocument.predecessor_status}:${receiptDocument.predecessor_status_format}`;
+    if (progressSchema === 'pending:pending_no_status') {
+      expected.add('started_at');
+      expected.add('completed_at');
+    } else if (progressSchema === 'retry_wait:complete_identity_v1') {
+      expected.add('failed_at');
+      expected.add('started_at');
+      expected.add('completed_at');
+      retainedTimestampFields.push('failed_at');
+    } else if (progressSchema === 'interrupted:legacy_b1_interrupted') {
+      expected.add('interrupted_at');
+      expected.add('signal');
+      expected.add('started_at');
+      expected.add('completed_at');
+      retainedTimestampFields.push('interrupted_at');
+    } else if (progressSchema === 'quarantined:timeout_only_quarantine_granted_v1'
+      && receiptDocument.timeout_recovery) {
+      expected.add('attempt_ceiling');
+      expected.add('completed_at');
+      expected.add('failed_at');
+      expected.add('started_at');
+      expected.add('timeout_recovery_first_missing_page');
+      expected.add('timeout_recovery_grant_id');
+      expected.add('timeout_recovery_grant_sha256');
+      retainedTimestampFields.push('failed_at');
+    } else {
+      throw new Error(`${label} predecessor schema is invalid`);
+    }
+    if (statusTimestampField === 'verified_at') expected.add('verified_at');
+  }
+  requireObject(progress, label);
+  if (!sameJsonValue(Object.keys(progress).sort(), [...expected].sort())) {
+    throw new Error(`${label} field set differs`);
+  }
+  validateCompleteTimestampOrder(progress, label);
+  for (const field of retainedTimestampFields) {
+    if (!Object.hasOwn(predecessorProgress, field)
+      || progress[field] !== predecessorProgress[field]) {
+      throw new Error(`${label} retained timestamp differs from predecessor`);
+    }
+  }
+  if (receiptDocument.predecessor_status === 'interrupted'
+    && progress.signal !== predecessorProgress.signal) {
+    throw new Error(`${label} retained signal differs from predecessor`);
+  }
+  return progress;
 }
 
 export async function validateOcrDocumentOutput(
@@ -1398,6 +1559,10 @@ function seedProgressRecord(progress, document) {
   if (progress.status !== 'pending' && progress.attempts < 1) {
     throw new Error(`${document.id}: attempted predecessor status requires a positive attempt floor`);
   }
+  validateCanonicalLifecycleTimestamps(progress, `${document.id} predecessor run status`);
+  if (progress.status === 'complete') {
+    validateCompleteTimestampOrder(progress, `${document.id} predecessor complete run status`);
+  }
   return progress;
 }
 
@@ -1456,9 +1621,7 @@ function classifySeedPredecessorStatus(identity, progress, status, statusSha256,
     && status.runtime_fingerprint_sha256 === identity.runtime_fingerprint_sha256
     && status.source_sha256 === document.source_sha256
     && status.whole_document_atomic === true
-    && typeof status.completed_at === 'string'
-    && Number.isFinite(Date.parse(status.completed_at))
-    && new Date(Date.parse(status.completed_at)).toISOString() === status.completed_at
+    && isCanonicalIsoTimestamp(status.completed_at)
     && status.completed_at === progress.completed_at) {
     return 'complete_identity_v1';
   }
@@ -1485,7 +1648,7 @@ function classifySeedPredecessorStatus(identity, progress, status, statusSha256,
     && status.runtime_fingerprint_sha256 === identity.runtime_fingerprint_sha256
     && status.source_sha256 === document.source_sha256
     && status.whole_document_atomic === true
-    && typeof status.verified_at === 'string'
+    && isCanonicalIsoTimestamp(status.verified_at)
     && status.verified_at === progress.verified_at) {
     return 'legacy_b1_complete_reverified';
   }
@@ -1827,7 +1990,7 @@ async function writeTimeoutIncident({
   return { relativePath, ...evidence, incident };
 }
 
-function exactObjectKeys(value, expectedKeys, label) {
+export function exactObjectKeys(value, expectedKeys, label) {
   requireObject(value, label);
   if (!sameJsonValue(Object.keys(value).sort(), [...expectedKeys].sort())) {
     throw new Error(`${label} has an invalid field set`);
@@ -4494,6 +4657,10 @@ function validateExistingRunStatus(runStatus, identity, documents, seedDocumentB
     const timeoutRecovery = seedDocument?.timeout_recovery || null;
     const attemptCeiling = effectiveDocumentAttemptCeiling(seedDocument);
     if (!allowedStatuses.has(progress.status)) throw new Error(`${document.id}: invalid run status`);
+    validateCanonicalLifecycleTimestamps(progress, `${document.id} run status`);
+    if (progress.status === 'complete') {
+      validateCompleteTimestampOrder(progress, `${document.id} complete run status`);
+    }
     if (!Number.isSafeInteger(progress.attempts) || progress.attempts < 0 || progress.attempts > attemptCeiling) {
       throw new Error(`${document.id}: invalid attempt count`);
     }
@@ -5270,6 +5437,46 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
       await writeRunStatus(outputRoot, runStatus);
       throw sharedError;
     };
+    const persistComplete = async ({
+      document,
+      progress,
+      seedDocument,
+      source,
+      artifacts,
+      timestampField,
+    }) => {
+      const recordedAt = isoNowAtOrAfter(
+        progress.failed_at,
+        progress.interrupted_at,
+        progress.started_at,
+        progress.completed_at,
+      );
+      progress.status = 'complete';
+      progress[timestampField] = recordedAt;
+      if (timestampField === 'completed_at') delete progress.verified_at;
+      delete progress.failure_class;
+      delete progress.error;
+      delete progress.next_retry_at;
+      delete progress.quarantine_reason;
+      delete progress.quarantined_at;
+      validateCompleteTimestampOrder(progress, `${document.id} completed run status`);
+      progress.status_json_sha256 = await writeStatus(outputRoot, document.id, {
+        schema_version: 1,
+        document_id: document.id,
+        status: 'complete',
+        attempt: progress.attempts,
+        max_attempts: effectiveDocumentAttemptCeiling(seedDocument),
+        source_sha256: source.sourceSha256,
+        page_count: source.pageCount,
+        runtime_fingerprint_sha256: identity.runtime_fingerprint_sha256,
+        citation_allowed: false,
+        whole_document_atomic: true,
+        artifacts,
+        [timestampField]: recordedAt,
+        ...timeoutRecoveryStatusSeedLineage(identity, progress, seedDocument),
+      });
+      await writeRunStatus(outputRoot, runStatus);
+    };
 
     while (workQueue.length > 0 && !stopRequested) {
       const now = nowMilliseconds();
@@ -5290,39 +5497,45 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
       if (progress.status === 'quarantined') continue;
       const documentRoot = path.join(outputRoot, 'documents', document.id);
       try {
-        if (progress.attempts >= attemptCeiling && progress.status !== 'complete') {
-          await quarantine(
-            document,
-            progress,
-            new Error(progress.error || `OCR attempt budget exhausted after ${progress.attempts} attempts`),
-            'attempt_budget_exhausted_after_restart',
-          );
-          continue;
-        }
-
         const source = await preflightDocument(document, { inputRoot, python, pageCounter });
         if (stopRequested) break;
+        if (progress.attempts >= attemptCeiling && progress.status !== 'complete') {
+          try {
+            const artifacts = await validateOcrDocumentOutput(document, documentRoot, runtime, {
+              workerConfiguration,
+            });
+            await persistComplete({
+              document,
+              progress,
+              seedDocument,
+              source,
+              artifacts,
+              timestampField: 'completed_at',
+            });
+          } catch (error) {
+            await quarantine(
+              document,
+              progress,
+              error,
+              error instanceof IncompleteOcrDocumentError
+                ? 'attempt_budget_exhausted_after_restart'
+                : 'integrity_or_preflight_failure',
+            );
+          }
+          continue;
+        }
         if (progress.status === 'complete') {
           const artifacts = await validateOcrDocumentOutput(document, documentRoot, runtime, {
             workerConfiguration,
           });
-          progress.verified_at = isoNow();
-          progress.status_json_sha256 = await writeStatus(outputRoot, document.id, {
-            schema_version: 1,
-            document_id: document.id,
-            status: 'complete',
-            attempt: progress.attempts,
-            max_attempts: attemptCeiling,
-            source_sha256: source.sourceSha256,
-            page_count: source.pageCount,
-            runtime_fingerprint_sha256: identity.runtime_fingerprint_sha256,
-            citation_allowed: false,
-            whole_document_atomic: true,
+          await persistComplete({
+            document,
+            progress,
+            seedDocument,
+            source,
             artifacts,
-            verified_at: progress.verified_at,
-            ...timeoutRecoveryStatusSeedLineage(identity, progress, seedDocument),
+            timestampField: 'verified_at',
           });
-          await writeRunStatus(outputRoot, runStatus);
           continue;
         }
 
@@ -5494,25 +5707,14 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
           if (error instanceof IncompleteOcrDocumentError) throw new RetryableOcrFailure(error.message);
           throw error;
         }
-        progress.status = 'complete';
-        progress.completed_at = isoNow();
-        delete progress.next_retry_at;
-        progress.status_json_sha256 = await writeStatus(outputRoot, document.id, {
-          schema_version: 1,
-          document_id: document.id,
-          status: 'complete',
-          attempt: progress.attempts,
-          max_attempts: attemptCeiling,
-          source_sha256: source.sourceSha256,
-          page_count: source.pageCount,
-          runtime_fingerprint_sha256: identity.runtime_fingerprint_sha256,
-          citation_allowed: false,
-          whole_document_atomic: true,
+        await persistComplete({
+          document,
+          progress,
+          seedDocument,
+          source,
           artifacts,
-          completed_at: progress.completed_at,
-          ...timeoutRecoveryStatusSeedLineage(identity, progress, seedDocument),
+          timestampField: 'completed_at',
         });
-        await writeRunStatus(outputRoot, runStatus);
       } catch (error) {
         if (error instanceof SharedRuntimeConfigurationError) throw error;
         if (!(error instanceof RetryableOcrFailure)) {

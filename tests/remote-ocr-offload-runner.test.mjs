@@ -58,7 +58,7 @@ const legacyB1OcrScriptSha256 = 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53
 const seedAwareOcrScriptSha256 = '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3';
 const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca';
 const fixedB3RunnerScriptSha256 = '58a1e3826aca807bf62f4546f237597c305334ba1b0a56a8f47cacfaa5cfeaa7';
-const a1CompletedStatusRunnerScriptSha256 = 'c11a7da632a009879632520c5fcd5b3b05144667325ed8f6c9019047a5ece8f8';
+const a1CompletedStatusRunnerScriptSha256 = 'c562ee6363cfac390454700be92dc7a38b4c08946520d0e7b4991c792c23b34c';
 const seedAwareTransition = 'p4_to_p1_seed_aware_ocr_v2';
 const runtime = Object.freeze({
   pipeline: 'PaddleOCR-VL',
@@ -3241,6 +3241,53 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     assert.equal(status.seed_lineage.granted_attempt, 6);
     assert.equal(status.seed_lineage.timeout_recovery_grant_id, grant.grant_id);
   }
+  const crashWindowDocument = recoveryDocuments[0];
+  const crashWindowStatusPath = path.join(
+    successorRoot,
+    'status',
+    `${crashWindowDocument.document_id}.json`,
+  );
+  const completedCrashWindowStatus = JSON.parse(await readFile(crashWindowStatusPath, 'utf8'));
+  const crashWindowRunStatusPath = path.join(successorRoot, 'run-status.json');
+  const crashWindowRunStatus = JSON.parse(await readFile(crashWindowRunStatusPath, 'utf8'));
+  const crashWindowProgress = crashWindowRunStatus.documents[crashWindowDocument.document_id];
+  const crashWindowStatusSha256 = await writeJsonSidecar(crashWindowStatusPath, {
+    schema_version: 1,
+    document_id: crashWindowDocument.document_id,
+    status: 'running',
+    attempt: 6,
+    max_attempts: 6,
+    page_count: crashWindowDocument.page_count,
+    runtime_fingerprint_sha256: completedCrashWindowStatus.runtime_fingerprint_sha256,
+    citation_allowed: false,
+    started_at: crashWindowProgress.started_at,
+    seed_lineage: completedCrashWindowStatus.seed_lineage,
+  });
+  crashWindowProgress.status = 'running';
+  crashWindowProgress.status_json_sha256 = crashWindowStatusSha256;
+  delete crashWindowProgress.completed_at;
+  delete crashWindowProgress.verified_at;
+  crashWindowRunStatus.finished = false;
+  crashWindowRunStatus.settled = false;
+  crashWindowRunStatus.counts.complete -= 1;
+  crashWindowRunStatus.counts.running = 1;
+  await writeJsonSidecar(crashWindowRunStatusPath, crashWindowRunStatus);
+  const crashWindowRestart = await runRemoteOcrOffload(
+    optionsFor(successorRoot, { seedOnly: false }),
+    {
+      ...dependencies,
+      invokeOcr: async () => assert.fail('valid granted attempt 6 output must seal before quarantine'),
+    },
+  );
+  assert.equal(crashWindowRestart.exitCode, 0);
+  assert.equal(
+    crashWindowRestart.runStatus.documents[crashWindowDocument.document_id].status,
+    'complete',
+  );
+  assert.equal(
+    crashWindowRestart.runStatus.documents[crashWindowDocument.document_id].attempts,
+    6,
+  );
   const restart = await runRemoteOcrOffload(optionsFor(successorRoot, { seedOnly: false }), {
     ...dependencies,
     invokeOcr: async () => assert.fail('successful granted attempt 6 must not run again'),
@@ -4669,4 +4716,204 @@ test('persistent OCR failure quarantines after five attempts and restart does no
   assert.equal(invocations, 5, 'a quarantined document must not be invoked again after restart');
   assert.equal(sleeps.length, sleepCount, 'a quarantined document must not schedule another backoff');
   assert.equal(second.runStatus.documents['doc-failing'].status, 'quarantined');
+});
+
+test('seed runner rejects a noncanonical legacy completed timestamp', async (t) => {
+  const { root, inputRoot } = await fixture(t);
+  const predecessorRoot = path.join(root, 'legacy-complete-predecessor');
+  const successorRoot = path.join(root, 'legacy-complete-successor');
+  const manifestPath = path.join(inputRoot, 'legacy-complete.json');
+  const predecessorAttestation = llamaAttestationForParallel(4);
+  const successorAttestation = llamaAttestationForParallel(1);
+  const { documents, paddlexLayoutModelCache: fixtureCache } = await createTimeoutRecoveryPredecessor({
+    inputRoot,
+    predecessorRoot,
+    manifestPath,
+    specifications: [['doc-complete', 1, 1, 'complete', 1]],
+    attestation: predecessorAttestation,
+    receiverNativeArtifacts: true,
+    ocrScriptSha256: legacyB1OcrScriptSha256,
+    materializePaddlexCache: true,
+    completeStatusFormat: 'legacy_reverified',
+  });
+  const noncanonical = '2026-07-17T04:10:00Z';
+  const statusPath = path.join(predecessorRoot, 'status', 'doc-complete.json');
+  const status = JSON.parse(await readFile(statusPath, 'utf8'));
+  status.verified_at = noncanonical;
+  const statusSha256 = await writeJsonSidecar(statusPath, status);
+  const runStatusPath = path.join(predecessorRoot, 'run-status.json');
+  const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+  runStatus.documents['doc-complete'].verified_at = noncanonical;
+  runStatus.documents['doc-complete'].status_json_sha256 = statusSha256;
+  await writeJsonSidecar(runStatusPath, runStatus);
+
+  await assert.rejects(runRemoteOcrOffload({
+    manifest: manifestPath,
+    inputRoot,
+    outputRoot: successorRoot,
+    python: process.execPath,
+    ocrScript: fileURLToPath(new URL('../scripts/ocr-pdf-paddle.py', import.meta.url)),
+    model: '/unused/model',
+    mmproj: '/unused/mmproj',
+    llamaRepo: '/unused/llama',
+    llamaServerBin,
+    llamaSystemdUnit,
+    llamaUrl: workerConfiguration.llama_url,
+    runtimeDevice,
+    vlRecMaxConcurrency: 1,
+    serverParallel: 1,
+    microBatch: 16,
+    useQueues: true,
+    childIdleTimeoutSeconds: 1200,
+    seedFromOutputRoot: predecessorRoot,
+    seedOnly: true,
+  }, {
+    pageCounter: (_python, sourcePath) => documents.find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+    runtime,
+    llamaServerAttestation: successorAttestation,
+    pythonRuntime,
+    paddlexLayoutModelCache: fixtureCache,
+    runnerScriptSha256: 'e'.repeat(64),
+    handleSignals: false,
+  }), /canonical|timestamp/u);
+});
+
+test('restart validates final-attempt output before sealing or quarantine', async (t) => {
+  const prepareCrashWindow = async (testContext, suffix, { corruptState = false } = {}) => {
+    const { inputRoot, outputRoot, ocrScript } = await fixture(testContext);
+    const source = `final-attempt-${suffix}-source`;
+    await writeFile(path.join(inputRoot, `pdfs/${suffix}.pdf`), source);
+    const document = documentFor(`doc-${suffix}`, `pdfs/${suffix}.pdf`, source, 1);
+    const manifestPath = path.join(inputRoot, `${suffix}.json`);
+    await writeFile(manifestPath, `${JSON.stringify(manifestFor([document]), null, 2)}\n`);
+    const options = offloadOptions({ manifestPath, inputRoot, outputRoot, ocrScript });
+    const dependencies = {
+      pageCounter: () => 1,
+      runtime,
+      llamaServerAttestation,
+      pythonRuntime,
+      paddlexLayoutModelCache,
+      runnerScriptSha256: 'e'.repeat(64),
+      handleSignals: false,
+      invokeOcr: async () => {
+        await createCompletedOutput(outputRoot, document);
+        return { code: 0, signal: null };
+      },
+    };
+    assert.equal((await runRemoteOcrOffload(options, dependencies)).exitCode, 0);
+    if (corruptState) {
+      const statePath = path.join(outputRoot, 'documents', document.id, 'state.json');
+      const state = JSON.parse(await readFile(statePath, 'utf8'));
+      state.completed_pages = [];
+      state.selected_pages_complete = false;
+      await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`);
+    }
+    const identity = JSON.parse(await readFile(path.join(outputRoot, 'run-identity.json'), 'utf8'));
+    const startedAt = '2026-07-18T07:00:00.000Z';
+    const statusPath = path.join(outputRoot, 'status', `${document.id}.json`);
+    const statusSha256 = await writeJsonSidecar(statusPath, {
+      schema_version: 1,
+      document_id: document.id,
+      status: 'running',
+      attempt: 5,
+      max_attempts: 5,
+      page_count: 1,
+      runtime_fingerprint_sha256: identity.runtime_fingerprint_sha256,
+      citation_allowed: false,
+      started_at: startedAt,
+    });
+    const runStatusPath = path.join(outputRoot, 'run-status.json');
+    const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+    runStatus.documents[document.id] = {
+      status: 'running',
+      attempts: 5,
+      page_count: 1,
+      started_at: startedAt,
+      status_json_sha256: statusSha256,
+    };
+    runStatus.finished = false;
+    runStatus.settled = false;
+    runStatus.counts = {
+      total: 1,
+      complete: 0,
+      failed: 0,
+      interrupted: 0,
+      pending: 0,
+      running: 1,
+      retry_wait: 0,
+      quarantined: 0,
+    };
+    await writeJsonSidecar(runStatusPath, runStatus);
+    return { dependencies, document, options };
+  };
+
+  await t.test('valid attempt 5 state is sealed without attempt 6', async (t) => {
+    const { dependencies, document, options } = await prepareCrashWindow(t, 'valid');
+    const restarted = await runRemoteOcrOffload(options, {
+      ...dependencies,
+      invokeOcr: async () => assert.fail('valid final-attempt output must not consume another attempt'),
+    });
+    assert.equal(restarted.exitCode, 0);
+    assert.equal(restarted.runStatus.documents[document.id].status, 'complete');
+    assert.equal(restarted.runStatus.documents[document.id].attempts, 5);
+  });
+
+  await t.test('incomplete attempt 5 state remains fail-closed', async (t) => {
+    const { dependencies, document, options } = await prepareCrashWindow(
+      t,
+      'incomplete',
+      { corruptState: true },
+    );
+    const restarted = await runRemoteOcrOffload(options, {
+      ...dependencies,
+      invokeOcr: async () => assert.fail('incomplete final-attempt output must not consume another attempt'),
+    });
+    assert.equal(restarted.exitCode, 12);
+    assert.equal(restarted.runStatus.documents[document.id].status, 'quarantined');
+  });
+});
+
+test('runner rejects a resealed completion whose completed_at predates started_at', async (t) => {
+  const { inputRoot, outputRoot, ocrScript } = await fixture(t);
+  const source = 'impossible completion timeline';
+  await writeFile(path.join(inputRoot, 'pdfs/impossible-timeline.pdf'), source);
+  const document = documentFor('doc-impossible-timeline', 'pdfs/impossible-timeline.pdf', source, 1);
+  const manifestPath = path.join(inputRoot, 'impossible-timeline.json');
+  await writeFile(manifestPath, `${JSON.stringify(manifestFor([document]), null, 2)}\n`);
+  const options = offloadOptions({ manifestPath, inputRoot, outputRoot, ocrScript });
+  const dependencies = {
+    pageCounter: () => 1,
+    runtime,
+    llamaServerAttestation,
+    pythonRuntime,
+    paddlexLayoutModelCache,
+    runnerScriptSha256: 'e'.repeat(64),
+    handleSignals: false,
+    invokeOcr: async () => {
+      await createCompletedOutput(outputRoot, document);
+      return { code: 0, signal: null };
+    },
+  };
+  assert.equal((await runRemoteOcrOffload(options, dependencies)).exitCode, 0);
+  const impossibleCompletedAt = '2026-07-17T00:00:00.000Z';
+  const laterStartedAt = '2026-07-17T00:05:00.000Z';
+  const statusPath = path.join(outputRoot, 'status', `${document.id}.json`);
+  const status = JSON.parse(await readFile(statusPath, 'utf8'));
+  status.completed_at = impossibleCompletedAt;
+  const statusSha256 = await writeJsonSidecar(statusPath, status);
+  const runStatusPath = path.join(outputRoot, 'run-status.json');
+  const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+  runStatus.documents[document.id].started_at = laterStartedAt;
+  runStatus.documents[document.id].completed_at = impossibleCompletedAt;
+  runStatus.documents[document.id].status_json_sha256 = statusSha256;
+  await writeJsonSidecar(runStatusPath, runStatus);
+  await assert.rejects(
+    runRemoteOcrOffload(options, {
+      ...dependencies,
+      invokeOcr: async () => assert.fail('invalid lifecycle must fail before OCR invocation'),
+    }),
+    /timestamp|chronological|before|after/u,
+  );
 });

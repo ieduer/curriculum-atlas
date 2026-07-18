@@ -1575,3 +1575,22 @@ test('monitor output mutates only its specified directory and stays privacy-safe
   assert.equal(JSON.stringify(privacySafeSingleShardEvent(snapshot, health)).includes('secret_document_id'), false);
   assert.equal((await lstat(output)).isSymbolicLink(), false);
 });
+
+test('monitor rejects completed_at before started_at', async (t) => {
+  const fixture = await createFixture(t);
+  await completeFixture(fixture);
+  const impossibleCompletion = '2026-07-16T23:59:00.000Z';
+  const statusPath = path.join(fixture.b2, 'status/doc-one.json');
+  const status = JSON.parse(await readFile(statusPath, 'utf8'));
+  status.completed_at = impossibleCompletion;
+  const statusWritten = await writeHashBoundJson(statusPath, status);
+  const runStatusPath = path.join(fixture.b2, 'run-status.json');
+  const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+  runStatus.documents['doc-one'].completed_at = impossibleCompletion;
+  runStatus.documents['doc-one'].status_json_sha256 = statusWritten.sha256;
+  await writeHashBoundJson(runStatusPath, runStatus);
+  await assert.rejects(
+    inspectSuccessorB2(fixture.b2, fixture.predecessor),
+    /timestamp|chronological|before|after/u,
+  );
+});

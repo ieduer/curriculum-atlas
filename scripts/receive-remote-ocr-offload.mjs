@@ -18,7 +18,12 @@ import {
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  exactObjectKeys as requireExactLifecycleKeys,
+  isCanonicalIsoTimestamp,
   preflightDocument,
+  validateCanonicalLifecycleTimestamps,
+  validateCompleteProgressContract,
+  validateCompleteTimestampOrder,
   validateOcrDocumentOutput,
   validateRemoteOcrManifest,
 } from './run-remote-ocr-offload.mjs';
@@ -64,7 +69,7 @@ const legacyB1OcrScriptSha256 = 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53
 const seedAwareOcrScriptSha256 = '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3';
 const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca';
 const fixedB3RunnerScriptSha256 = '58a1e3826aca807bf62f4546f237597c305334ba1b0a56a8f47cacfaa5cfeaa7';
-const a1CompletedStatusRunnerScriptSha256 = 'c11a7da632a009879632520c5fcd5b3b05144667325ed8f6c9019047a5ece8f8';
+const a1CompletedStatusRunnerScriptSha256 = 'c562ee6363cfac390454700be92dc7a38b4c08946520d0e7b4991c792c23b34c';
 const directedRunnerCompatibilityType = 'curriculum_remote_ocr_directed_runner_compatibility';
 const directedRunnerCompatibilityTransition = 'a1_completed_status_to_fixed_b3_union_v1';
 const paddleMarkdownAssetPattern = /^img_in_(header_image_box|image_box|footer_image_box|chart_box)_(\d+)_(\d+)_(\d+)_(\d+)\.jpg$/u;
@@ -1987,9 +1992,7 @@ function classifyRawB1Status(identity, progress, status, statusSha256, document)
     && status.runtime_fingerprint_sha256 === identity.runtime_fingerprint_sha256
     && status.source_sha256 === document.source_sha256
     && status.whole_document_atomic === true
-    && typeof status.completed_at === 'string'
-    && Number.isFinite(Date.parse(status.completed_at))
-    && new Date(Date.parse(status.completed_at)).toISOString() === status.completed_at
+    && isCanonicalIsoTimestamp(status.completed_at)
     && status.completed_at === progress.completed_at) {
     return 'complete_identity_v1';
   }
@@ -2010,10 +2013,17 @@ function classifyRawB1Status(identity, progress, status, statusSha256, document)
   ].sort();
   if (progress.status === 'complete'
     && sameJson(keys, legacyCompleteKeys)
+    && (!isCanonicalIsoTimestamp(status.verified_at)
+      || !isCanonicalIsoTimestamp(progress.verified_at))) {
+    throw new Error(`${document.id}: raw legacy completion verified_at timestamp is not canonical`);
+  }
+  if (progress.status === 'complete'
+    && sameJson(keys, legacyCompleteKeys)
     && status.page_count === document.page_count
     && status.runtime_fingerprint_sha256 === identity.runtime_fingerprint_sha256
     && status.source_sha256 === document.source_sha256
     && status.whole_document_atomic === true
+    && isCanonicalIsoTimestamp(status.verified_at)
     && status.verified_at === progress.verified_at) {
     return 'legacy_b1_complete_reverified';
   }
@@ -3094,6 +3104,10 @@ function validateRunStatus(runStatus, identity, shardManifest, seed = null) {
     if (!Number.isSafeInteger(progress.attempts) || progress.attempts < 0) {
       throw new Error(`${document.id}: run status attempts is not a non-negative integer`);
     }
+    validateCanonicalLifecycleTimestamps(progress, `${document.id} run status`);
+    if (progress.status === 'complete') {
+      validateCompleteTimestampOrder(progress, `${document.id} complete run status`);
+    }
     let timeoutDocument = null;
     if (seed) {
       const seededDocument = seed.receipt.documents.find((item) => item.document_id === document.id);
@@ -3442,6 +3456,147 @@ function validateShardUnion(parentManifest, shards) {
   return { seenDocuments, runnerCompatibility };
 }
 
+function validateSeededCompleteLifecycle(shard, document, validation, status, statusSha256) {
+  if (!shard.seed || status.status !== 'complete') return false;
+  const progress = shard.runStatus.documents[document.id];
+  const receiptDocument = shard.seed.receipt.documents.find(
+    (item) => item.document_id === document.id,
+  );
+  const predecessorProgress = shard.seed.predecessorEvidence.runStatus.documents[document.id];
+  const timeoutDocument = shard.seed.timeoutRecovery?.grant.documents.find(
+    (item) => item.document_id === document.id,
+  ) || null;
+  const initialInheritedComplete = receiptDocument.predecessor_status === 'complete'
+    && status.max_attempts === undefined;
+  if (initialInheritedComplete) {
+    const modern = receiptDocument.predecessor_status_format === 'complete_identity_v1';
+    const legacy = receiptDocument.predecessor_status_format === 'legacy_b1_complete_reverified';
+    if (!modern && !legacy) {
+      throw new Error(`${document.id}: seeded initial complete status format is invalid`);
+    }
+    const timestampField = modern ? 'completed_at' : 'verified_at';
+    validateCompleteProgressContract({
+      receiptDocument,
+      progress,
+      predecessorProgress,
+      phase: 'initial',
+      statusTimestampField: timestampField,
+      labelPrefix: 'receiver',
+    });
+    requireExactLifecycleKeys(status, [
+      'artifacts',
+      'citation_allowed',
+      'document_id',
+      'page_count',
+      'runtime_fingerprint_sha256',
+      'schema_version',
+      'seed_lineage',
+      'source_sha256',
+      'status',
+      'whole_document_atomic',
+      ...(modern ? ['attempt', 'completed_at'] : ['verified_at']),
+    ], `${document.id} receiver initial complete status`);
+    const lineage = requireExactLifecycleKeys(status.seed_lineage, [
+      'citation_allowed',
+      'inherited_attempts',
+      'predecessor_status_sha256',
+      'schema_version',
+      'seed_id',
+    ], `${document.id} receiver initial complete status seed lineage`);
+    const artifacts = requireExactLifecycleKeys(status.artifacts, [
+      'page_artifacts',
+      'page_artifacts_sha256',
+      'state_sha256',
+    ], `${document.id} receiver initial complete status artifacts`);
+    if (progress.status !== 'complete'
+      || progress.attempts !== receiptDocument.inherited_attempts
+      || status.schema_version !== 1
+      || status.document_id !== document.id
+      || status.page_count !== document.page_count
+      || status.runtime_fingerprint_sha256 !== shard.identity.runtime_fingerprint_sha256
+      || status.source_sha256 !== document.source_sha256
+      || status.citation_allowed !== false
+      || status.whole_document_atomic !== true
+      || !isCanonicalIsoTimestamp(status[timestampField])
+      || status[timestampField] !== progress[timestampField]
+      || (modern && status.attempt !== progress.attempts)
+      || lineage.schema_version !== 1
+      || lineage.seed_id !== shard.seed.receipt.seed_id
+      || lineage.predecessor_status_sha256 !== receiptDocument.predecessor_status_sha256
+      || lineage.inherited_attempts !== receiptDocument.inherited_attempts
+      || lineage.citation_allowed !== false
+      || artifacts.state_sha256 !== validation.state_sha256
+      || artifacts.page_artifacts_sha256 !== validation.page_artifacts_sha256
+      || !sameJson(artifacts.page_artifacts, validation.page_artifacts)
+      || statusSha256 !== receiptDocument.successor_status_sha256
+      || validation.state_sha256 !== receiptDocument.successor_state_sha256) {
+      throw new Error(`${document.id}: receiver initial complete status or state differs from seed receipt`);
+    }
+    return true;
+  }
+
+  if (status.max_attempts === undefined) return false;
+  const hasCompletedAt = Object.hasOwn(status, 'completed_at');
+  const hasVerifiedAt = Object.hasOwn(status, 'verified_at');
+  if (hasCompletedAt === hasVerifiedAt) {
+    throw new Error(`${document.id}: receiver full complete status timestamp field is not exact`);
+  }
+  const timestampField = hasCompletedAt ? 'completed_at' : 'verified_at';
+  if (receiptDocument.predecessor_status === 'complete' && timestampField !== 'verified_at') {
+    throw new Error(`${document.id}: inherited complete reverify must use verified_at`);
+  }
+  validateCompleteProgressContract({
+    receiptDocument,
+    progress,
+    predecessorProgress,
+    phase: 'full',
+    statusTimestampField: timestampField,
+    labelPrefix: 'receiver',
+  });
+  requireExactLifecycleKeys(status, [
+    'artifacts',
+    'attempt',
+    'citation_allowed',
+    'document_id',
+    'max_attempts',
+    'page_count',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'source_sha256',
+    'status',
+    timestampField,
+    'whole_document_atomic',
+    ...(timeoutDocument ? ['seed_lineage'] : []),
+  ], `${document.id} receiver full complete status`);
+  const artifacts = requireExactLifecycleKeys(status.artifacts, [
+    'page_artifacts',
+    'page_artifacts_sha256',
+    'state_sha256',
+  ], `${document.id} receiver full complete status artifacts`);
+  const attemptCeiling = timeoutDocument ? maxDocumentAttempts + 1 : maxDocumentAttempts;
+  if (status.schema_version !== 1
+    || status.document_id !== document.id
+    || status.attempt !== progress.attempts
+    || status.max_attempts !== attemptCeiling
+    || status.page_count !== document.page_count
+    || status.runtime_fingerprint_sha256 !== shard.identity.runtime_fingerprint_sha256
+    || status.source_sha256 !== document.source_sha256
+    || status.citation_allowed !== false
+    || status.whole_document_atomic !== true
+    || !isCanonicalIsoTimestamp(status[timestampField])
+    || status[timestampField] !== progress[timestampField]
+    || artifacts.state_sha256 !== validation.state_sha256
+    || artifacts.page_artifacts_sha256 !== validation.page_artifacts_sha256
+    || !sameJson(artifacts.page_artifacts, validation.page_artifacts)) {
+    throw new Error(`${document.id}: receiver full complete status identity or artifacts differ`);
+  }
+  if (receiptDocument.predecessor_status === 'complete'
+    && validation.state_sha256 !== receiptDocument.successor_state_sha256) {
+    throw new Error(`${document.id}: receiver inherited complete state differs from receipt successor_state_sha256`);
+  }
+  return true;
+}
+
 async function validateDocumentStatus(shard, document, validation) {
   const progress = shard.runStatus.documents[document.id];
   const statusPath = path.join(shard.root, 'status', `${document.id}.json`);
@@ -3469,6 +3624,7 @@ async function validateDocumentStatus(shard, document, validation) {
       || !sameJson(artifacts.page_artifacts, validation.page_artifacts)) {
       throw new Error(`${document.id}: complete status artifacts differ from revalidated output`);
     }
+    validateSeededCompleteLifecycle(shard, document, validation, status, statusSha256);
   }
   const timeoutDocument = shard.seed?.timeoutRecovery?.grant.documents.find(
     (item) => item.document_id === document.id,
@@ -3808,6 +3964,20 @@ async function validateSeededDocumentLineage(shard, document, state, documentRoo
   const timeoutDocument = shard.seed.timeoutRecovery?.grant.documents.find(
     (item) => item.document_id === document.id,
   );
+  requireExactLifecycleKeys(lineage, [
+    'citation_allowed',
+    'inherited_completed_pages',
+    'mode',
+    'predecessor_configuration_sha256',
+    'predecessor_run_identity_sha256',
+    'schema_version',
+    'seed_id',
+    ...(timeoutDocument ? [
+      'timeout_recovery_first_missing_page',
+      'timeout_recovery_grant_id',
+      'timeout_recovery_grant_sha256',
+    ] : []),
+  ], `${document.id} state seed lineage`);
   if (state.configuration_scope !== seedConfigurationScope
     || lineage.schema_version !== 1
     || lineage.mode !== seedMode
@@ -3819,20 +3989,7 @@ async function validateSeededDocumentLineage(shard, document, state, documentRoo
     throw new Error(`${document.id}: state seed lineage differs from the independently verified receipt`);
   }
   if (timeoutDocument) {
-    const expectedLineageKeys = [
-      'citation_allowed',
-      'inherited_completed_pages',
-      'mode',
-      'predecessor_configuration_sha256',
-      'predecessor_run_identity_sha256',
-      'schema_version',
-      'seed_id',
-      'timeout_recovery_first_missing_page',
-      'timeout_recovery_grant_id',
-      'timeout_recovery_grant_sha256',
-    ].sort();
-    if (!sameJson(Object.keys(lineage).sort(), expectedLineageKeys)
-      || lineage.timeout_recovery_grant_id !== shard.seed.timeoutRecovery.grant.grant_id
+    if (lineage.timeout_recovery_grant_id !== shard.seed.timeoutRecovery.grant.grant_id
       || lineage.timeout_recovery_grant_sha256 !== shard.seed.timeoutRecovery.rawSha256
       || lineage.timeout_recovery_first_missing_page !== timeoutDocument.first_missing_page) {
       throw new Error(`${document.id}: state timeout recovery lineage differs from the verified grant`);

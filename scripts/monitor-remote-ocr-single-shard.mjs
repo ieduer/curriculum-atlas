@@ -24,7 +24,10 @@ import {
   parseNvidiaSmi,
   parseSystemdShow,
 } from './monitor-remote-ocr-reprocess.mjs';
-import { fingerprintPaddlexLayoutModelCache } from './run-remote-ocr-offload.mjs';
+import {
+  fingerprintPaddlexLayoutModelCache,
+  validateCompleteProgressContract,
+} from './run-remote-ocr-offload.mjs';
 
 const execFile = promisify(execFileCallback);
 const gib = 1024 ** 3;
@@ -1000,12 +1003,6 @@ function predecessorStatusFormat(identity, progress, status, statusSha256, state
   throw new Error(`${state.document_id}: B1 predecessor document status shape is not exact`);
 }
 
-function isCanonicalIsoTimestamp(value) {
-  return typeof value === 'string'
-    && Number.isFinite(Date.parse(value))
-    && new Date(Date.parse(value)).toISOString() === value;
-}
-
 function validateCompleteProgress({
   receiptDocument,
   progress,
@@ -1013,94 +1010,13 @@ function validateCompleteProgress({
   phase,
   statusTimestampField,
 }) {
-  const documentId = receiptDocument.document_id;
-  const expected = new Set([
-    'attempts',
-    'inherited_attempts',
-    'page_count',
-    'predecessor_status',
-    'seed_id',
-    'status',
-    'status_json_sha256',
-  ]);
-  const retainedTimestampFields = [];
-  if (receiptDocument.predecessor_status === 'complete') {
-    if (!['initial', 'full'].includes(phase)) {
-      throw new Error(`${documentId}: B2 inherited complete progress phase is invalid`);
-    }
-    const modern = receiptDocument.predecessor_status_format === 'complete_identity_v1';
-    const legacy = receiptDocument.predecessor_status_format === 'legacy_b1_complete_reverified';
-    if (!modern && !legacy) {
-      throw new Error(`${documentId}: B2 inherited complete progress format is invalid`);
-    }
-    if (modern) {
-      expected.add('completed_at');
-      retainedTimestampFields.push('completed_at');
-    } else {
-      expected.add('verified_at');
-      if (phase === 'initial') retainedTimestampFields.push('verified_at');
-      if (Object.hasOwn(predecessorProgress, 'completed_at')) {
-        expected.add('completed_at');
-        retainedTimestampFields.push('completed_at');
-      }
-    }
-    if (Object.hasOwn(predecessorProgress, 'started_at')) {
-      expected.add('started_at');
-      retainedTimestampFields.push('started_at');
-    }
-    if (phase === 'full') expected.add('verified_at');
-  } else {
-    if (phase !== 'full') {
-      throw new Error(`${documentId}: B2 non-complete predecessor has an initial complete progress state`);
-    }
-    const progressSchema = `${receiptDocument.predecessor_status}:${receiptDocument.predecessor_status_format}`;
-    if (progressSchema === 'pending:pending_no_status') {
-      expected.add('started_at');
-      expected.add('completed_at');
-    } else if (progressSchema === 'retry_wait:complete_identity_v1') {
-      expected.add('failed_at');
-      expected.add('started_at');
-      expected.add('completed_at');
-      retainedTimestampFields.push('failed_at');
-    } else if (progressSchema === 'interrupted:legacy_b1_interrupted') {
-      expected.add('interrupted_at');
-      expected.add('signal');
-      expected.add('started_at');
-      expected.add('completed_at');
-      retainedTimestampFields.push('interrupted_at');
-    } else if (progressSchema === 'quarantined:timeout_only_quarantine_granted_v1'
-      && receiptDocument.timeout_recovery) {
-      expected.add('attempt_ceiling');
-      expected.add('completed_at');
-      expected.add('failed_at');
-      expected.add('started_at');
-      expected.add('timeout_recovery_first_missing_page');
-      expected.add('timeout_recovery_grant_id');
-      expected.add('timeout_recovery_grant_sha256');
-      retainedTimestampFields.push('failed_at');
-    } else {
-      throw new Error(`${documentId}: B2 complete progress predecessor schema is invalid`);
-    }
-    if (statusTimestampField === 'verified_at') expected.add('verified_at');
-  }
-  if (!sameJson(Object.keys(progress).sort(), [...expected].sort())) {
-    throw new Error(`${documentId}: B2 complete progress field set differs`);
-  }
-  for (const field of [...expected].filter((key) => key.endsWith('_at'))) {
-    if (!isCanonicalIsoTimestamp(progress[field])) {
-      throw new Error(`${documentId}: B2 complete progress timestamp is not canonical`);
-    }
-  }
-  for (const field of retainedTimestampFields) {
-    if (!Object.hasOwn(predecessorProgress, field)
-      || progress[field] !== predecessorProgress[field]) {
-      throw new Error(`${documentId}: B2 complete progress retained timestamp differs from predecessor`);
-    }
-  }
-  if (receiptDocument.predecessor_status === 'interrupted'
-    && progress.signal !== predecessorProgress.signal) {
-    throw new Error(`${documentId}: B2 complete progress retained signal differs from predecessor`);
-  }
+  return validateCompleteProgressContract({
+    receiptDocument,
+    progress,
+    predecessorProgress,
+    phase,
+    statusTimestampField,
+  });
 }
 
 function validateInitialCompleteStatus({
