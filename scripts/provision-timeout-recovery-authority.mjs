@@ -7,6 +7,7 @@ import {
   lstat,
   mkdir,
   open,
+  readdir,
   realpath,
   stat,
   unlink,
@@ -20,6 +21,7 @@ import {
 
 const scriptPath = fileURLToPath(import.meta.url);
 const identityFilename = 'ledger-identity.json';
+const publicationLocks = new Map();
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
@@ -48,6 +50,115 @@ async function syncDirectory(pathname) {
     await handle.sync();
   } finally {
     await handle.close();
+  }
+}
+
+function provisionTempPattern(pathname) {
+  const escapedBasename = path.basename(pathname).replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+  return new RegExp(
+    `^\\.${escapedBasename}\\.provision-([1-9]\\d*)-([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\\.tmp$`,
+    'u',
+  );
+}
+
+function processAppearsAlive(pid) {
+  if (!Number.isSafeInteger(pid) || pid < 1) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error?.code === 'ESRCH') return false;
+    if (error?.code === 'EPERM') return true;
+    throw new Error(`cannot safely determine whether provision temp PID ${pid} is active: ${error.message}`, {
+      cause: error,
+    });
+  }
+}
+
+async function recoverLinkedProvisionTemp(pathname, ownerRoot, label) {
+  const pattern = provisionTempPattern(pathname);
+  const candidates = (await readdir(ownerRoot, { withFileTypes: true }))
+    .map((entry) => ({ entry, match: pattern.exec(entry.name) }))
+    .filter(({ match }) => match);
+  const finalKind = await pathKind(pathname);
+  if (finalKind === 'missing') {
+    if (candidates.length > 0) {
+      throw new Error(`${label} has provision temp evidence without a final file`);
+    }
+    return false;
+  }
+  if (finalKind !== 'file') throw new Error(`${label} final path is not a regular file`);
+
+  const finalHandle = await open(pathname, constants.O_RDONLY | constants.O_NOFOLLOW).catch((error) => {
+    throw new Error(`${label} final cannot be opened without following links: ${error.message}`, { cause: error });
+  });
+  let tempHandle;
+  try {
+    const finalInfo = await finalHandle.stat({ bigint: true });
+    const uid = typeof process.getuid === 'function' ? BigInt(process.getuid()) : finalInfo.uid;
+    const gid = typeof process.getgid === 'function' ? BigInt(process.getgid()) : finalInfo.gid;
+    if (!finalInfo.isFile()
+      || finalInfo.uid !== uid
+      || finalInfo.gid !== gid
+      || (Number(finalInfo.mode) & 0o777) !== 0o600) {
+      throw new Error(`${label} final must be a current-UID/GID mode-0600 regular file`);
+    }
+    if (finalInfo.nlink === 1n) {
+      if (candidates.length > 0) {
+        throw new Error(`${label} has an ambiguous provision temp that is not linked to its final file`);
+      }
+      return false;
+    }
+    if (finalInfo.nlink !== 2n || candidates.length !== 1) {
+      throw new Error(`${label} has ambiguous provision hard links`);
+    }
+
+    const [{ entry, match }] = candidates;
+    const pid = Number(match[1]);
+    if (!Number.isSafeInteger(pid) || processAppearsAlive(pid)) {
+      throw new Error(`${label} provision temp belongs to an active or invalid PID`);
+    }
+    if (!entry.isFile()) {
+      throw new Error(`${label} provision temp is not a regular file`);
+    }
+    const tempPath = path.join(ownerRoot, entry.name);
+    tempHandle = await open(tempPath, constants.O_RDONLY | constants.O_NOFOLLOW).catch((error) => {
+      throw new Error(`${label} provision temp cannot be opened without following links: ${error.message}`, { cause: error });
+    });
+    const tempInfo = await tempHandle.stat({ bigint: true });
+    if (!tempInfo.isFile()
+      || tempInfo.dev !== finalInfo.dev
+      || tempInfo.ino !== finalInfo.ino
+      || tempInfo.nlink !== 2n
+      || tempInfo.uid !== uid
+      || tempInfo.gid !== gid
+      || (Number(tempInfo.mode) & 0o777) !== 0o600) {
+      throw new Error(`${label} provision temp is not the exact safe hard link to its final file`);
+    }
+    const [currentFinal, currentTemp] = await Promise.all([
+      lstat(pathname, { bigint: true }),
+      lstat(tempPath, { bigint: true }),
+    ]);
+    if (currentFinal.dev !== finalInfo.dev
+      || currentFinal.ino !== finalInfo.ino
+      || currentFinal.nlink !== 2n
+      || currentTemp.dev !== finalInfo.dev
+      || currentTemp.ino !== finalInfo.ino
+      || currentTemp.nlink !== 2n) {
+      throw new Error(`${label} provision links changed before recovery`);
+    }
+    await unlink(tempPath);
+    const recoveredFinal = await lstat(pathname, { bigint: true });
+    if (recoveredFinal.dev !== finalInfo.dev
+      || recoveredFinal.ino !== finalInfo.ino
+      || recoveredFinal.nlink !== 1n) {
+      throw new Error(`${label} final did not converge to one link after recovery`);
+    }
+    await syncDirectory(ownerRoot);
+    return true;
+  } finally {
+    await tempHandle?.close();
+    await finalHandle.close();
   }
 }
 
@@ -87,7 +198,8 @@ async function readOwnedFile(pathname, ownerRoot, label) {
   }
 }
 
-async function publishNoReplace(pathname, ownerRoot, raw, label) {
+async function publishNoReplaceUnlocked(pathname, ownerRoot, raw, label, hooks = {}) {
+  await recoverLinkedProvisionTemp(pathname, ownerRoot, label);
   const existing = await pathKind(pathname);
   if (existing !== 'missing') {
     if (existing !== 'file') throw new Error(`${label} final path is not a regular file`);
@@ -112,6 +224,7 @@ async function publishNoReplace(pathname, ownerRoot, raw, label) {
     handle = null;
     try {
       await link(tempPath, pathname);
+      await hooks.afterLink?.({ pathname, tempPath, label });
     } catch (error) {
       if (error?.code !== 'EEXIST') throw error;
       let persisted;
@@ -137,6 +250,21 @@ async function publishNoReplace(pathname, ownerRoot, raw, label) {
     await unlink(tempPath).catch((error) => {
       if (error?.code !== 'ENOENT') throw error;
     });
+    await syncDirectory(ownerRoot);
+  }
+}
+
+async function publishNoReplace(pathname, ownerRoot, raw, label, hooks = {}) {
+  const previous = publicationLocks.get(pathname) || Promise.resolve();
+  let release;
+  const current = new Promise((resolve) => { release = resolve; });
+  publicationLocks.set(pathname, current);
+  await previous;
+  try {
+    return await publishNoReplaceUnlocked(pathname, ownerRoot, raw, label, hooks);
+  } finally {
+    release();
+    if (publicationLocks.get(pathname) === current) publicationLocks.delete(pathname);
   }
 }
 
@@ -165,9 +293,18 @@ async function inspectAuthority(authorityRoot, inputRoot) {
   return { info, identity, identityRaw, identityPath, sidecarRaw };
 }
 
-export async function provisionTimeoutRecoveryAuthority({ inputRoot, apply = false } = {}) {
+export async function provisionTimeoutRecoveryAuthority(
+  { inputRoot, apply = false } = {},
+  { publicationHooks = {} } = {},
+) {
   if (typeof inputRoot !== 'string' || inputRoot.length === 0) throw new Error('--input-root is required');
   if (typeof apply !== 'boolean') throw new Error('apply must be a boolean');
+  if (publicationHooks === null
+    || typeof publicationHooks !== 'object'
+    || (publicationHooks.afterLink !== undefined
+      && typeof publicationHooks.afterLink !== 'function')) {
+    throw new Error('publicationHooks.afterLink must be a function when provided');
+  }
   const inputPath = path.resolve(inputRoot);
   if (await pathKind(inputPath) !== 'directory' || await realpath(inputPath) !== inputPath) {
     throw new Error('timeout recovery input root must be an existing real directory');
@@ -244,12 +381,14 @@ export async function provisionTimeoutRecoveryAuthority({ inputRoot, apply = fal
     authorityRoot,
     expected.identityRaw,
     'timeout recovery authority identity',
+    publicationHooks,
   )) writes.push(expected.identityPath);
   if (await publishNoReplace(
     sidecarPath,
     authorityRoot,
     expected.sidecarRaw,
     'timeout recovery authority identity sidecar',
+    publicationHooks,
   )) writes.push(sidecarPath);
   const [identityRaw, sidecarRaw] = await Promise.all([
     readOwnedFile(expected.identityPath, authorityRoot, 'timeout recovery authority identity'),

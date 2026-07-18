@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { createHash, randomUUID } from 'node:crypto';
 import {
+  link,
   lstat,
   mkdtemp,
   mkdir,
   readFile,
+  readdir,
   realpath,
   rm,
   stat,
@@ -17,6 +20,43 @@ import test from 'node:test';
 import { provisionTimeoutRecoveryAuthority } from '../scripts/provision-timeout-recovery-authority.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+
+async function crashProvisionAfterLink(inputRoot, targetBasename) {
+  const moduleUrl = new URL('../scripts/provision-timeout-recovery-authority.mjs', import.meta.url).href;
+  const program = `
+    import path from 'node:path';
+    import { provisionTimeoutRecoveryAuthority } from ${JSON.stringify(moduleUrl)};
+    await provisionTimeoutRecoveryAuthority(
+      { inputRoot: ${JSON.stringify(inputRoot)}, apply: true },
+      {
+        publicationHooks: {
+          afterLink({ pathname }) {
+            if (path.basename(pathname) === ${JSON.stringify(targetBasename)}) process.exit(91);
+          },
+        },
+      },
+    );
+  `;
+  const child = spawn(process.execPath, ['--input-type=module', '--eval', program], {
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  let stderr = '';
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const result = await new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.once('exit', (code, signal) => resolve({ code, signal }));
+  });
+  assert.deepEqual(result, { code: 91, signal: null }, stderr);
+  return child.pid;
+}
+
+async function matchingProvisionTemps(authorityRoot, targetBasename) {
+  const prefix = `.${targetBasename}.provision-`;
+  return (await readdir(authorityRoot)).filter(
+    (entry) => entry.startsWith(prefix) && entry.endsWith('.tmp'),
+  );
+}
 
 async function fixture(t) {
   const root = await realpath(await mkdtemp(path.join(os.tmpdir(), 'timeout-authority-provision-')));
@@ -61,6 +101,77 @@ test('two concurrent apply calls converge on the single allocated authority inod
     await readFile(`${identityPath}.sha256`, 'utf8'),
     `${sha256(await readFile(identityPath))}  ledger-identity.json\n`,
   );
+});
+
+test('apply safely recovers an inactive crash hard link for both identity files', async (t) => {
+  for (const targetBasename of ['ledger-identity.json', 'ledger-identity.json.sha256']) {
+    await t.test(targetBasename, async (subtest) => {
+      const value = await fixture(subtest);
+      const crashedPid = await crashProvisionAfterLink(value.inputRoot, targetBasename);
+      const targetPath = path.join(value.authorityRoot, targetBasename);
+      const temps = await matchingProvisionTemps(value.authorityRoot, targetBasename);
+      assert.equal(temps.length, 1);
+      assert.match(temps[0], new RegExp(`\\.provision-${crashedPid}-`, 'u'));
+      const tempPath = path.join(value.authorityRoot, temps[0]);
+      const [targetBefore, tempBefore] = await Promise.all([stat(targetPath), stat(tempPath)]);
+      assert.equal(targetBefore.nlink, 2);
+      assert.equal(tempBefore.nlink, 2);
+      assert.equal(targetBefore.dev, tempBefore.dev);
+      assert.equal(targetBefore.ino, tempBefore.ino);
+
+      const recovered = await provisionTimeoutRecoveryAuthority({
+        inputRoot: value.inputRoot,
+        apply: true,
+      });
+      assert.equal(
+        recovered.status,
+        targetBasename === 'ledger-identity.json' ? 'applied' : 'verified_idempotent',
+      );
+      assert.equal((await stat(targetPath)).nlink, 1);
+      assert.deepEqual(await matchingProvisionTemps(value.authorityRoot, targetBasename), []);
+      const identityPath = path.join(value.authorityRoot, 'ledger-identity.json');
+      assert.equal(
+        await readFile(`${identityPath}.sha256`, 'utf8'),
+        `${sha256(await readFile(identityPath))}  ledger-identity.json\n`,
+      );
+    });
+  }
+});
+
+test('apply refuses active and ambiguous provision hard links without unlinking evidence', async (t) => {
+  await t.test('active publisher PID', async (subtest) => {
+    const value = await fixture(subtest);
+    await provisionTimeoutRecoveryAuthority({ inputRoot: value.inputRoot, apply: true });
+    const identityPath = path.join(value.authorityRoot, 'ledger-identity.json');
+    const tempPath = path.join(
+      value.authorityRoot,
+      `.ledger-identity.json.provision-${process.pid}-${randomUUID()}.tmp`,
+    );
+    await link(identityPath, tempPath);
+    await assert.rejects(
+      provisionTimeoutRecoveryAuthority({ inputRoot: value.inputRoot, apply: true }),
+      /provision temp belongs to an active or invalid PID/u,
+    );
+    assert.equal((await stat(identityPath)).nlink, 2);
+    assert.equal((await stat(tempPath)).nlink, 2);
+  });
+
+  await t.test('multiple matching links', async (subtest) => {
+    const value = await fixture(subtest);
+    await provisionTimeoutRecoveryAuthority({ inputRoot: value.inputRoot, apply: true });
+    const identityPath = path.join(value.authorityRoot, 'ledger-identity.json');
+    const tempPaths = [randomUUID(), randomUUID()].map((uuid) => path.join(
+      value.authorityRoot,
+      `.ledger-identity.json.provision-999999-${uuid}.tmp`,
+    ));
+    await Promise.all(tempPaths.map((tempPath) => link(identityPath, tempPath)));
+    await assert.rejects(
+      provisionTimeoutRecoveryAuthority({ inputRoot: value.inputRoot, apply: true }),
+      /ambiguous provision hard links/u,
+    );
+    assert.equal((await stat(identityPath)).nlink, 3);
+    for (const tempPath of tempPaths) assert.equal((await stat(tempPath)).nlink, 3);
+  });
 });
 
 test('provisioning rejects symlinks, orphan sidecars, and arbitrary pre-existing identity bytes', async (t) => {
