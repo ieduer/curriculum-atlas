@@ -3,6 +3,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const RELEASE_ID_PATTERN = /^corpus-[a-f0-9]{24}$/;
@@ -447,7 +448,8 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (!key.startsWith('--')) throw new Error(`unexpected argument: ${key}`);
-    if (key === '--remote' || key === '--core-only' || key === '--finalize-only') {
+    if (key === '--remote' || key === '--core-only' || key === '--finalize-only'
+      || key === '--page-evidence-promotion') {
       args.set(key.slice(2), true);
       continue;
     }
@@ -502,6 +504,10 @@ async function main() {
   const from = Math.max(0, Number(args.get('from') || 0));
   const to = Math.max(from, Number(args.get('to') || Number.MAX_SAFE_INTEGER));
   const root = new URL('../', import.meta.url);
+  validatePageEvidenceForRelease({
+    root,
+    pageEvidencePromotion: Boolean(args.get('page-evidence-promotion')),
+  });
   const directory = new URL('data/corpus-chunks/', root);
   const allFiles = (await readdir(directory))
     .filter((name) => /^\d{3}-(?:core|paragraphs)\.sql$/.test(name))

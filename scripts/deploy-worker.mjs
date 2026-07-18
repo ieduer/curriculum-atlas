@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assertCleanReleaseSource } from './assert-clean-release-source.mjs';
 import { buildReleaseManifest } from './build-release-manifest.mjs';
+import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 
@@ -30,9 +31,11 @@ export async function deployWorker({
   environment,
   root = DEFAULT_ROOT,
   runCommand = spawnSync,
+  pageEvidencePromotion = false,
 } = {}) {
+  validatePageEvidenceForRelease({ root, pageEvidencePromotion });
   const git = assertCleanReleaseSource({ root, requireUpstream: true, runCommand });
-  const manifest = await buildReleaseManifest({ root });
+  const manifest = await buildReleaseManifest({ root, pageEvidencePromotion });
   assertManifestSourceGates(manifest);
   const arguments_ = wranglerDeployArgs(environment, git.head);
   const result = runCommand('npx', arguments_, { cwd: root, encoding: 'utf8', stdio: 'inherit' });
@@ -41,10 +44,29 @@ export async function deployWorker({
 }
 
 function parseArgs(argv) {
-  if (argv.length !== 2 || argv[0] !== '--environment') {
-    throw new Error('usage: node scripts/deploy-worker.mjs --environment <preview|production>');
+  let environment = null;
+  let pageEvidencePromotion = false;
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === '--page-evidence-promotion') {
+      if (pageEvidencePromotion) throw new Error('--page-evidence-promotion may be specified only once');
+      pageEvidencePromotion = true;
+      continue;
+    }
+    if (argument === '--environment') {
+      if (environment !== null) throw new Error('--environment may be specified only once');
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) throw new Error('missing value for --environment');
+      environment = value;
+      index += 1;
+      continue;
+    }
+    throw new Error(`unexpected argument: ${argument}`);
   }
-  return { environment: argv[1] };
+  if (!environment) {
+    throw new Error('usage: node scripts/deploy-worker.mjs --environment <preview|production> [--page-evidence-promotion]');
+  }
+  return { environment, pageEvidencePromotion };
 }
 
 async function main() {

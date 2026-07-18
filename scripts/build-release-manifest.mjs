@@ -9,6 +9,7 @@ import { auditProjectAssets } from './audit-project-assets.mjs';
 import { validateDownloadsAuditReceipt } from './build-downloads-asset-audit-receipt.mjs';
 import { validateEnvironmentEvidenceReceipt } from './collect-release-environment-evidence.mjs';
 import { validateCorpusManifest } from './import-corpus.mjs';
+import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const DEFAULT_POLICY = 'data/release-assets-policy.json';
@@ -683,8 +684,10 @@ export async function buildReleaseManifest({
   root = DEFAULT_ROOT,
   policyPath = DEFAULT_POLICY,
   generatedAt = new Date().toISOString(),
+  pageEvidencePromotion = false,
 } = {}) {
   const projectRoot = resolve(root);
+  validatePageEvidenceForRelease({ root: projectRoot, pageEvidencePromotion });
   const normalizedPolicyPath = normalizeRelativePath(policyPath, 'policy path');
   const policyAsset = await inspectFile(projectRoot, normalizedPolicyPath);
   const policy = parseJsonAsset(policyAsset);
@@ -972,6 +975,10 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (!key.startsWith('--')) throw new Error(`unexpected argument: ${key}`);
+    if (key === '--page-evidence-promotion') {
+      args[key.slice(2)] = true;
+      continue;
+    }
     const value = argv[index + 1];
     if (!value || value.startsWith('--')) throw new Error(`missing value for ${key}`);
     args[key.slice(2)] = value;
@@ -987,6 +994,7 @@ async function main() {
     root,
     policyPath: args.policy || DEFAULT_POLICY,
     generatedAt: args['generated-at'] || new Date().toISOString(),
+    pageEvidencePromotion: args['page-evidence-promotion'] === true,
   });
   const serialized = `${JSON.stringify(manifest, null, 2)}\n`;
   if (args.output) {

@@ -161,27 +161,31 @@ cannot replace those authorities.
 
 ## Deployment integration contract
 
-The shared deployment owner should import:
+`scripts/page-evidence-release-hook.mjs` is the single release-mode adapter.
+Formal verification, direct corpus build/import, release-manifest generation and
+Worker deployment all invoke it before generating data or contacting D1 or
+Wrangler. Ordinary mode accepts only a valid non-publishable fail-closed state;
+if evidence becomes publishable, the ordinary path stops and requires an
+explicit promotion path.
 
-```js
-import { validatePageEvidenceRelease } from './page-evidence-publication.mjs';
+The ordinary gate is:
 
-validatePageEvidenceRelease({
-  root,
-  evidenceManifestPath: 'scripts/page-evidence/fail-closed-manifest.json',
-  requirePublishable: pageEvidencePromotion,
-  authorityRegistrySha256: process.env.PAGE_EVIDENCE_AUTHORITY_SHA256 || null,
-  sourceIdentityRegistrySha256: process.env.PAGE_EVIDENCE_SOURCE_IDENTITIES_SHA256 || null,
-  rendererSha256: process.env.PAGE_EVIDENCE_RENDERER_SHA256 || null,
-  rendererVersion: process.env.PAGE_EVIDENCE_RENDERER_VERSION || null,
-});
+```bash
+npm run page-evidence:validate
 ```
 
-Preview and production paths must run the validator before build/release-manifest
-generation or Wrangler. A dedicated page-evidence promotion command must set
-`requirePublishable: true`. Phase one does not edit `package.json`,
-`scripts/deploy-worker.mjs`, corpus builders, or ontology release files because
-those files have separate active ownership.
+The dedicated preview and production promotion commands are:
+
+```bash
+npm run deploy:page-evidence:preview
+npm run deploy:page-evidence:production
+```
+
+Those commands pass the literal `--page-evidence-promotion` flag. Direct corpus
+build, corpus import and release-manifest entrypoints accept that same explicit
+flag when they are part of the controlled promotion sequence. Promotion mode
+sets `requirePublishable: true`; it cannot be enabled by a generic environment
+toggle. The four external authority/source/renderer pins above remain mandatory.
 
 ## Test coverage
 

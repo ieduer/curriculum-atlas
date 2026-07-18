@@ -15,8 +15,18 @@ import {
   createSemanticPublicationGate,
   semanticDocumentDisposition,
 } from './semantic-publication-gate.mjs';
+import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 
 const projectRoot = new URL('../', import.meta.url);
+const buildArguments = process.argv.slice(2);
+if (buildArguments.some((argument) => argument !== '--page-evidence-promotion')) {
+  throw new Error('usage: node scripts/build-corpus.mjs [--page-evidence-promotion]');
+}
+if (buildArguments.filter((argument) => argument === '--page-evidence-promotion').length > 1) {
+  throw new Error('--page-evidence-promotion may be specified only once');
+}
+const pageEvidencePromotion = buildArguments.includes('--page-evidence-promotion');
+validatePageEvidenceForRelease({ root: projectRoot, pageEvidencePromotion });
 const catalog = JSON.parse(await readFile(new URL('data/catalog.json', projectRoot), 'utf8'));
 const insights = JSON.parse(await readFile(new URL('data/subject-insights.json', projectRoot), 'utf8'));
 const ingest = JSON.parse(await readFile(new URL('data/ingest-manifest.json', projectRoot), 'utf8'));
