@@ -15,8 +15,8 @@ import {
 } from '../scripts/import-corpus.mjs';
 import {
   buildPublicationActivationClaimAcquireSql,
-  buildPublicationActivationClaimReleaseSql,
   buildPublicationLeaseAcquireSql,
+  buildPublicationLeaseReleaseSql,
   buildPublicationLeaseRenewSql,
 } from '../scripts/publish-metadata.mjs';
 
@@ -236,7 +236,7 @@ test('an exact ready corpus rerun is an idempotent no-op', async () => {
   }
 });
 
-test('an active R2 activation claim blocks owner takeover until guarded release', async () => {
+test('an active R2 activation claim blocks every acquisition and bounds cleanup failure', async () => {
   const db = await database();
   try {
     const releaseA = `release-${'a'.repeat(32)}`;
@@ -249,14 +249,23 @@ test('an active R2 activation claim blocks owner takeover until guarded release'
     db.exec(buildPublicationActivationClaimAcquireSql({
       token: ownerA, releaseId: releaseA, manifestSha256: hashA, ownerFence: 1, ttlSeconds: 600,
     }));
-    db.exec('UPDATE release_publication_ownership SET expires_unix=0 WHERE id=1');
+    assert.throws(() => db.exec(buildPublicationLeaseAcquireSql({
+      token: ownerA, releaseId: releaseA, manifestSha256: hashA, ttlSeconds: 3600,
+    })), /CHECK constraint failed/);
+    db.exec(buildPublicationLeaseReleaseSql({
+      token: ownerA, releaseId: releaseA, manifestSha256: hashA, ownerFence: 1,
+    }));
+    const bounded = db.prepare(`SELECT o.expires_unix AS owner_expiry,c.expires_unix AS claim_expiry
+      FROM release_publication_ownership o JOIN release_publication_activation_claim c ON c.id=o.id
+      WHERE o.id=1`).get();
+    assert.equal(Number(bounded.owner_expiry), Number(bounded.claim_expiry));
+    assert.ok(Number(bounded.owner_expiry) > Math.floor(Date.now() / 1000));
     assert.throws(() => db.exec(buildPublicationLeaseAcquireSql({
       token: ownerB, releaseId: releaseB, manifestSha256: hashB, ttlSeconds: 3600,
     })), /CHECK constraint failed/);
     assert.equal(fence(db, 'release_publication_ownership'), 1);
-    db.exec(buildPublicationActivationClaimReleaseSql({
-      token: ownerA, releaseId: releaseA, manifestSha256: hashA, ownerFence: 1,
-    }));
+    db.exec('UPDATE release_publication_activation_claim SET expires_unix=0 WHERE id=1');
+    db.exec('UPDATE release_publication_ownership SET expires_unix=0 WHERE id=1');
     db.exec(buildPublicationLeaseAcquireSql({
       token: ownerB, releaseId: releaseB, manifestSha256: hashB, ttlSeconds: 3600,
     }));

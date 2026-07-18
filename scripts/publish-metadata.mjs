@@ -30,6 +30,7 @@ const DEFAULT_EVIDENCE = '.wrangler/release-environment-evidence.json';
 const MAX_OBJECT_BYTES = 64 * 1024 * 1024;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const RELEASE_ID_PATTERN = /^release-[a-f0-9]{32}$/;
+const CANONICAL_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
@@ -95,13 +96,33 @@ export function parseRollbackPointerReceipt(buffer) {
   const manifestBytes = Number(value?.release_manifest_bytes);
   const managedObjectCount = Number(value?.managed_object_count);
   const fence = Number(value?.fence);
+  const publishedAt = String(value?.published_at || '');
   const canonical = Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
-  if (receipt?.exists !== true || value?.schema_version !== 2
+  const outerKeys = receipt && typeof receipt === 'object' && !Array.isArray(receipt)
+    ? Object.keys(receipt).sort() : [];
+  const valueKeys = value && typeof value === 'object' && !Array.isArray(value)
+    ? Object.keys(value).sort() : [];
+  const exactOuterKeys = ['bytes', 'etag', 'exists', 'sha256', 'value', 'version'];
+  const exactValueKeys = [
+    'fence', 'managed_object_count', 'published_at', 'release_id', 'release_manifest_bytes',
+    'release_manifest_key', 'release_manifest_sha256', 'schema_version',
+  ].sort();
+  const validOpaqueReceiptIdentity = (candidate) => typeof candidate === 'string'
+    && candidate.length > 0 && candidate.length <= 512
+    && !/[\u0000-\u001f\u007f]/.test(candidate);
+  const publishedAtMillis = Date.parse(publishedAt);
+  const canonicalPublishedAt = CANONICAL_TIMESTAMP_PATTERN.test(publishedAt)
+    && Number.isFinite(publishedAtMillis) && new Date(publishedAtMillis).toISOString() === publishedAt;
+  if (stableStringify(outerKeys) !== stableStringify(exactOuterKeys.sort())
+      || stableStringify(valueKeys) !== stableStringify(exactValueKeys)
+      || receipt?.exists !== true || value?.schema_version !== 2
+      || !validOpaqueReceiptIdentity(receipt.etag) || !validOpaqueReceiptIdentity(receipt.version)
       || !RELEASE_ID_PATTERN.test(releaseId) || !SHA256_PATTERN.test(manifestSha256)
       || value.release_manifest_key !== `releases/${releaseId}/manifest.json`
       || !Number.isSafeInteger(manifestBytes) || manifestBytes <= 0
       || !Number.isSafeInteger(managedObjectCount) || managedObjectCount <= 0
       || !Number.isSafeInteger(fence) || fence <= 0
+      || !canonicalPublishedAt
       || receipt.sha256 !== sha256(canonical) || receipt.bytes !== canonical.length) {
     throw new Error('rollback pointer receipt identity is invalid or non-canonical');
   }
@@ -402,10 +423,6 @@ SELECT 'r2_publication_owner_acquire',CASE WHEN
 AND NOT EXISTS(
   SELECT 1 FROM release_publication_activation_claim
   WHERE id=1 AND expires_unix>${now}
-    AND NOT (
-      release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
-      AND owner_token_sha256=${sql(tokenHash)}
-    )
 )
 THEN 1 ELSE 0 END;
 UPDATE release_publication_fence_state SET last_fence=last_fence+1
@@ -448,16 +465,17 @@ DELETE FROM corpus_import_guards WHERE guard_key='r2_publication_lease';`;
 }
 
 export function buildPublicationLeaseReleaseSql({ token, releaseId, manifestSha256, ownerFence }) {
+  const tokenHash = publicationTokenHash(token);
+  const now = "CAST(strftime('%s','now') AS INTEGER)";
   return `UPDATE release_publication_ownership
-SET expires_unix=CAST(strftime('%s','now') AS INTEGER),updated_at=CURRENT_TIMESTAMP
-WHERE id=1 AND release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
-  AND owner_token_sha256=${sql(publicationTokenHash(token))} AND owner_fence=${ownerFence}
-  AND NOT EXISTS(
-    SELECT 1 FROM release_publication_activation_claim
+SET expires_unix=MIN(expires_unix,COALESCE((
+    SELECT expires_unix FROM release_publication_activation_claim
     WHERE id=1 AND release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
-      AND owner_token_sha256=${sql(publicationTokenHash(token))} AND owner_fence=${ownerFence}
-      AND expires_unix>CAST(strftime('%s','now') AS INTEGER)
-  );`;
+      AND owner_token_sha256=${sql(tokenHash)} AND owner_fence=${ownerFence}
+      AND expires_unix>${now}
+  ),${now})),updated_at=CURRENT_TIMESTAMP
+WHERE id=1 AND release_id=${sql(releaseId)} AND manifest_sha256=${sql(manifestSha256)}
+  AND owner_token_sha256=${sql(tokenHash)} AND owner_fence=${ownerFence};`;
 }
 
 export function buildPublicationActivationClaimAcquireSql({

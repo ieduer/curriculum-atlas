@@ -177,6 +177,22 @@ test('higher-fence pointer rollback uses a canonical predecessor receipt and coo
     };
     await writeFile(join(root, 'rollback.json'), `${JSON.stringify(receipt, null, 2)}\n`);
     assert.equal(parseRollbackPointerReceipt(Buffer.from(`${JSON.stringify(receipt, null, 2)}\n`)).release_id, targetReleaseId);
+    for (const mutate of [
+      (candidate) => { delete candidate.etag; },
+      (candidate) => { delete candidate.version; },
+      (candidate) => { candidate.value.unexpected = true; },
+      (candidate) => { candidate.value.published_at = '2026-07-18'; },
+    ]) {
+      const invalid = structuredClone(receipt);
+      mutate(invalid);
+      const valueBytes = Buffer.from(`${JSON.stringify(invalid.value, null, 2)}\n`);
+      invalid.sha256 = sha256(valueBytes);
+      invalid.bytes = valueBytes.length;
+      assert.throws(
+        () => parseRollbackPointerReceipt(Buffer.from(`${JSON.stringify(invalid, null, 2)}\n`)),
+        /rollback pointer receipt identity is invalid or non-canonical/,
+      );
+    }
 
     const manifest = {
       r2: {
