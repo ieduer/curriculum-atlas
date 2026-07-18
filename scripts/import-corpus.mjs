@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
   isNativeTextRecord,
   validatePagePublicationManifest,
@@ -13,6 +13,9 @@ import {
   semanticPageDisposition,
 } from './semantic-publication-gate.mjs';
 import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
+import { loadDocumentClassificationResolver } from './document-classification.mjs';
+import { computeCorpusReleaseFingerprint } from './lib/corpus-release-fingerprint.mjs';
+import { createImmutableFileSnapshot } from './lib/immutable-release-snapshot.mjs';
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const RELEASE_ID_PATTERN = /^corpus-[a-f0-9]{24}$/;
@@ -311,6 +314,7 @@ export async function validateCorpusManifestSourceBindings(manifestInput, { root
     ? new URL(relativePath, root)
     : path.resolve(String(root), relativePath);
   const catalog = JSON.parse(await readFile(source('data/catalog.json'), 'utf8'));
+  const ingest = JSON.parse(await readFile(source('data/ingest-manifest.json'), 'utf8'));
   const documentedSources = JSON.parse(
     await readFile(source('data/document-sources.json'), 'utf8'),
   ).sources;
@@ -321,10 +325,21 @@ export async function validateCorpusManifestSourceBindings(manifestInput, { root
   const pagePublication = validatePagePublicationManifest(
     JSON.parse(await readFile(source('data/page-publication-manifest.json'), 'utf8')),
   );
+  const semanticPublicationPolicy = JSON.parse(
+    await readFile(source('data/semantic-publication-policy.json'), 'utf8'),
+  );
   const semanticGate = createSemanticPublicationGate({
-    policy: JSON.parse(await readFile(source('data/semantic-publication-policy.json'), 'utf8')),
+    policy: semanticPublicationPolicy,
     records: catalog.documents,
   });
+  const classifyDocument = await loadDocumentClassificationResolver(
+    root instanceof URL ? root : pathToFileURL(`${path.resolve(String(root))}${path.sep}`),
+  );
+  const classifications = catalog.documents.map((record) => classifyDocument(record));
+  const unclassified = classifications.filter((item) => item.scope_kind === 'unclassified');
+  if (unclassified.length) {
+    throw new Error(`corpus manifest source classifications are unresolved: ${unclassified.map((item) => item.document_id).join(', ')}`);
+  }
   if (manifest.documents !== catalog.documents.length) {
     throw new Error('corpus manifest documents do not match catalog');
   }
@@ -455,6 +470,21 @@ export async function validateCorpusManifestSourceBindings(manifestInput, { root
       throw new Error(`corpus manifest ${field} does not match source`);
     }
   }
+  const expectedFingerprint = computeCorpusReleaseFingerprint({
+    catalog,
+    ingest,
+    documentedSources,
+    insights,
+    onlineVerificationSamples,
+    classifications,
+    pagePublicationManifest: pagePublication,
+    semanticPublicationPolicy,
+    semanticPublicationRevisionSha256: semanticGate.revision_sha256,
+    textAssets: expectedTextAssets,
+  });
+  if (manifest.release_fingerprint_sha256 !== expectedFingerprint) {
+    throw new Error('corpus manifest release fingerprint does not match the complete live source inputs');
+  }
   return manifest;
 }
 
@@ -580,12 +610,16 @@ INSERT INTO site_meta(key,value) VALUES('current_corpus_manifest_sha256',${sql(m
 DELETE FROM corpus_import_guards WHERE guard_key='start';`;
 }
 
-export function buildCorpusChunkReceiptSql(manifestInput, chunkName) {
+export function buildCorpusChunkReceiptSql(manifestInput, chunkName, executed = null) {
   const manifest = validateCorpusManifest(manifestInput);
   const chunk = manifest.sql_files.find((entry) => entry.name === chunkName);
   if (!chunk) throw new Error(`chunk is not declared by corpus manifest: ${chunkName}`);
+  const actual = executed || chunk;
+  if (actual.sha256 !== chunk.sha256 || actual.bytes !== chunk.bytes) {
+    throw new Error(`executed chunk bytes do not match corpus manifest: ${chunkName}`);
+  }
   return `INSERT INTO corpus_import_chunks(release_id,chunk_name,chunk_sha256,chunk_bytes,imported_at)
-VALUES(${sql(manifest.release_id)},${sql(chunk.name)},${sql(chunk.sha256)},${sql(chunk.bytes)},CURRENT_TIMESTAMP)
+VALUES(${sql(manifest.release_id)},${sql(chunk.name)},${sql(actual.sha256)},${sql(actual.bytes)},CURRENT_TIMESTAMP)
 ON CONFLICT(release_id,chunk_name) DO UPDATE SET
   chunk_sha256=excluded.chunk_sha256,chunk_bytes=excluded.chunk_bytes,imported_at=CURRENT_TIMESTAMP;`;
 }
@@ -780,20 +814,33 @@ export function runCorpusFinalization({
   return { status: 0, phase: 'ready' };
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  const database = String(args.get('database') || '');
+export async function runCorpusImport({
+  root = new URL('../', import.meta.url),
+  database,
+  environment = '',
+  remote = false,
+  from = 0,
+  to = Number.MAX_SAFE_INTEGER,
+  coreOnly = false,
+  finalizeOnly = false,
+  pageEvidencePromotion = false,
+  runCommand = runWrangler,
+  pageEvidenceValidator = validatePageEvidenceForRelease,
+  sourceBindingValidator = validateCorpusManifestSourceBindings,
+} = {}) {
+  database = String(database || '');
   if (!database) throw new Error('--database is required');
-  if (!args.get('remote')) throw new Error('refusing remote mutation without explicit --remote');
-  const environment = String(args.get('env') || '');
-  const from = Math.max(0, Number(args.get('from') || 0));
-  const to = Math.max(from, Number(args.get('to') || Number.MAX_SAFE_INTEGER));
-  const root = new URL('../', import.meta.url);
-  validatePageEvidenceForRelease({
-    root,
-    pageEvidencePromotion: Boolean(args.get('page-evidence-promotion')),
+  if (!remote) throw new Error('refusing remote mutation without explicit --remote');
+  from = Math.max(0, Number(from || 0));
+  to = Math.max(from, Number(to ?? Number.MAX_SAFE_INTEGER));
+  const rootUrl = root instanceof URL
+    ? root
+    : pathToFileURL(`${path.resolve(String(root))}${path.sep}`);
+  pageEvidenceValidator({
+    root: rootUrl,
+    pageEvidencePromotion: Boolean(pageEvidencePromotion),
   });
-  const directory = new URL('data/corpus-chunks/', root);
+  const directory = new URL('data/corpus-chunks/', rootUrl);
   const allFiles = (await readdir(directory))
     .filter((name) => /^\d{3}-(?:core|paragraphs)\.sql$/.test(name))
     .sort();
@@ -804,62 +851,112 @@ async function main() {
     ),
     directory,
   );
-  await validateCorpusManifestSourceBindings(manifest, { root });
-  if (args.get('finalize-only')) {
-    if (args.get('core-only') || args.has('from') || args.has('to')) {
+  await sourceBindingValidator(manifest, { root: rootUrl });
+  if (finalizeOnly) {
+    if (coreOnly || from > 0 || to !== Number.MAX_SAFE_INTEGER) {
       throw new Error('--finalize-only cannot be combined with --core-only, --from, or --to');
     }
     const outcome = runCorpusFinalization({
-      root, database, environment, manifest, resume: true,
+      root: rootUrl, database, environment, manifest, resume: true, runCommand,
     });
-    if (outcome.status !== 0) process.exit(outcome.status);
-    process.stdout.write(`release ${manifest.release_id} ready\n`);
-    return;
+    if (outcome.status === 0) process.stdout.write(`release ${manifest.release_id} ready\n`);
+    return outcome;
   }
-  let files = args.get('core-only') ? allFiles.filter((name) => name.startsWith('000-')) : allFiles;
+  let files = coreOnly ? allFiles.filter((name) => name.startsWith('000-')) : allFiles;
   files = files.filter((name) => {
     const index = Number(name.slice(0, 3));
     return index >= from && index <= to;
   });
   if (!files.length) throw new Error('no corpus SQL files selected');
 
-  const start = runWrangler(root, database, environment, [
-    '--command', buildCorpusImportStartSql(manifest, { resume: from > 0 }),
-  ]);
-  if (start.status !== 0) process.exit(start.status || 1);
-
-  for (const [position, file] of files.entries()) {
-    process.stdout.write(`[${position + 1}/${files.length}] ${file}\n`);
-    const result = runWrangler(root, database, environment, ['--file', new URL(file, directory).pathname]);
-    if (result.status !== 0) {
-      runWrangler(root, database, environment, [
-        '--command', buildCorpusImportFailureSql(manifest, `chunk_failed:${file}`),
-      ]);
-      process.stderr.write(`import stopped at ${file}; rerun with --from ${file.slice(0, 3)}\n`);
-      process.exit(result.status || 1);
+  const snapshots = [];
+  try {
+    for (const file of files) {
+      const declared = manifest.sql_files.find((entry) => entry.name === file);
+      snapshots.push(await createImmutableFileSnapshot({
+        root: directory,
+        source: file,
+        expected: declared,
+        label: `corpus SQL chunk ${file}`,
+      }));
     }
-    const receipt = runWrangler(root, database, environment, [
-      '--command', buildCorpusChunkReceiptSql(manifest, file),
+    for (const snapshot of snapshots) await snapshot.verify();
+
+    const start = runCommand(rootUrl, database, environment, [
+      '--command', buildCorpusImportStartSql(manifest, { resume: from > 0 }),
     ]);
-    if (receipt.status !== 0) {
-      runWrangler(root, database, environment, [
-        '--command', buildCorpusImportFailureSql(manifest, `chunk_receipt_failed:${file}`),
+    if (start.status !== 0) return { status: start.status || 1, phase: 'start' };
+
+    for (const [position, snapshot] of snapshots.entries()) {
+      const file = files[position];
+      process.stdout.write(`[${position + 1}/${files.length}] ${file}\n`);
+      let executed;
+      let result;
+      try {
+        executed = await snapshot.verify();
+        result = runCommand(rootUrl, database, environment, ['--file', snapshot.path]);
+        await snapshot.verify();
+      } catch (error) {
+        try {
+          runCommand(rootUrl, database, environment, [
+            '--command', buildCorpusImportFailureSql(manifest, `chunk_snapshot_unstable:${file}`),
+          ]);
+        } catch {
+          // Preserve the snapshot-integrity error even if the best-effort failure receipt also fails.
+        }
+        throw new Error(`private SQL snapshot became unstable while executing ${file}: ${error.message}`, {
+          cause: error,
+        });
+      }
+      if (result.status !== 0) {
+        runCommand(rootUrl, database, environment, [
+          '--command', buildCorpusImportFailureSql(manifest, `chunk_failed:${file}`),
+        ]);
+        process.stderr.write(`import stopped at ${file}; rerun with --from ${file.slice(0, 3)}\n`);
+        return { status: result.status || 1, phase: 'chunk', chunk: file };
+      }
+      const receipt = runCommand(rootUrl, database, environment, [
+        '--command', buildCorpusChunkReceiptSql(manifest, file, executed),
       ]);
-      process.stderr.write(`chunk imported but receipt failed at ${file}; rerun with --from ${file.slice(0, 3)}\n`);
-      process.exit(receipt.status || 1);
+      if (receipt.status !== 0) {
+        runCommand(rootUrl, database, environment, [
+          '--command', buildCorpusImportFailureSql(manifest, `chunk_receipt_failed:${file}`),
+        ]);
+        process.stderr.write(`chunk imported but receipt failed at ${file}; rerun with --from ${file.slice(0, 3)}\n`);
+        return { status: receipt.status || 1, phase: 'receipt', chunk: file };
+      }
     }
-  }
 
-  const lastFileIndex = Number(allFiles.at(-1).slice(0, 3));
-  const selectedLastIndex = Number(files.at(-1).slice(0, 3));
-  if (args.get('core-only') || selectedLastIndex < lastFileIndex) {
-    process.stdout.write(`release ${manifest.release_id} remains in_progress; import the remaining chunks before finalization\n`);
-    return;
-  }
+    const lastFileIndex = Number(allFiles.at(-1).slice(0, 3));
+    const selectedLastIndex = Number(files.at(-1).slice(0, 3));
+    if (coreOnly || selectedLastIndex < lastFileIndex) {
+      process.stdout.write(`release ${manifest.release_id} remains in_progress; import the remaining chunks before finalization\n`);
+      return { status: 0, phase: 'in_progress' };
+    }
 
-  const outcome = runCorpusFinalization({ root, database, environment, manifest });
+    const outcome = runCorpusFinalization({
+      root: rootUrl, database, environment, manifest, runCommand,
+    });
+    if (outcome.status === 0) process.stdout.write(`release ${manifest.release_id} ready\n`);
+    return outcome;
+  } finally {
+    await Promise.allSettled(snapshots.map((snapshot) => snapshot.cleanup()));
+  }
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const outcome = await runCorpusImport({
+    database: String(args.get('database') || ''),
+    environment: String(args.get('env') || ''),
+    remote: args.get('remote') === true,
+    from: args.has('from') ? Number(args.get('from')) : 0,
+    to: args.has('to') ? Number(args.get('to')) : Number.MAX_SAFE_INTEGER,
+    coreOnly: args.get('core-only') === true,
+    finalizeOnly: args.get('finalize-only') === true,
+    pageEvidencePromotion: args.get('page-evidence-promotion') === true,
+  });
   if (outcome.status !== 0) process.exit(outcome.status);
-  process.stdout.write(`release ${manifest.release_id} ready\n`);
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));

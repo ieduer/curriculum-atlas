@@ -1,21 +1,44 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assertCleanReleaseSource } from './assert-clean-release-source.mjs';
 import { buildReleaseManifest } from './build-release-manifest.mjs';
 import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
+import { createImmutableTreeSnapshot } from './lib/immutable-release-snapshot.mjs';
+import { immutableVersionedManifestArtifact } from './publish-metadata.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 
-export function wranglerDeployArgs(environment, gitHead) {
+function exactSha256(value, label) {
+  const text = String(value || '');
+  if (!/^[a-f0-9]{64}$/.test(text)) throw new Error(`${label} must be an exact SHA-256`);
+  return text;
+}
+
+export function wranglerDeployArgs(environment, proof) {
   if (!['preview', 'production'].includes(environment)) {
     throw new Error(`unsupported deployment environment: ${environment || '<unset>'}`);
   }
+  const gitHead = String(proof?.git_head || '');
   if (!/^[0-9a-f]{40}$/.test(String(gitHead || ''))) throw new Error('deployment requires an exact Git HEAD');
-  const arguments_ = ['--no-install', 'wrangler', 'deploy'];
+  const snapshotRoot = String(proof?.snapshot_root || '');
+  if (!snapshotRoot.startsWith('/')) throw new Error('deployment requires an absolute private snapshot root');
+  const variables = {
+    RELEASE_GIT_COMMIT: gitHead,
+    RELEASE_ID: String(proof?.release_id || ''),
+    RELEASE_MANIFEST_SHA256: exactSha256(proof?.release_manifest_sha256, 'release manifest SHA-256'),
+    RELEASE_SOURCE_TREE_SHA256: exactSha256(proof?.source_tree_sha256, 'release source tree SHA-256'),
+    CORPUS_RELEASE_ID: String(proof?.corpus_release_id || ''),
+    CORPUS_MANIFEST_SHA256: exactSha256(proof?.corpus_manifest_sha256, 'corpus manifest SHA-256'),
+  };
+  if (!/^release-[a-f0-9]{32}$/.test(variables.RELEASE_ID)) throw new Error('deployment requires a release ID');
+  if (!/^corpus-[a-f0-9]{24}$/.test(variables.CORPUS_RELEASE_ID)) throw new Error('deployment requires a corpus release ID');
+  const arguments_ = ['--no-install', 'wrangler', 'deploy', '--cwd', snapshotRoot];
   if (environment === 'preview') arguments_.push('--env', 'preview');
-  arguments_.push('--keep-vars', '--var', `RELEASE_GIT_COMMIT:${gitHead}`);
+  arguments_.push('--keep-vars');
+  for (const [key, value] of Object.entries(variables)) arguments_.push('--var', `${key}:${value}`);
   return arguments_;
 }
 
@@ -33,15 +56,71 @@ export async function deployWorker({
   runCommand = spawnSync,
   pageEvidencePromotion = false,
   rendererPath = null,
+  pageEvidenceValidator = validatePageEvidenceForRelease,
+  cleanSourceValidator = assertCleanReleaseSource,
+  manifestBuilder = buildReleaseManifest,
 } = {}) {
-  validatePageEvidenceForRelease({ root, pageEvidencePromotion, rendererPath });
-  const git = assertCleanReleaseSource({ root, requireUpstream: true, runCommand });
-  const manifest = await buildReleaseManifest({ root, pageEvidencePromotion, rendererPath });
+  pageEvidenceValidator({ root, pageEvidencePromotion, rendererPath });
+  const git = cleanSourceValidator({ root, requireUpstream: true, runCommand });
+  const manifest = await manifestBuilder({ root, pageEvidencePromotion, rendererPath });
   assertManifestSourceGates(manifest);
-  const arguments_ = wranglerDeployArgs(environment, git.head);
-  const result = runCommand('npx', arguments_, { cwd: root, encoding: 'utf8', stdio: 'inherit' });
-  if (result.status !== 0) throw new Error(`Wrangler deployment failed with exit ${result.status ?? 'unknown'}`);
-  return { environment, git_head: git.head };
+  if (manifest.git?.head !== git.head) throw new Error('release manifest Git HEAD differs from the clean source gate');
+
+  const inventory = new Map();
+  const add = (entry, pathKey = 'path') => {
+    const path = String(entry?.[pathKey] || '');
+    const current = inventory.get(path);
+    const normalized = { path, sha256: entry?.sha256, bytes: entry?.bytes };
+    if (current && (current.sha256 !== normalized.sha256 || current.bytes !== normalized.bytes)) {
+      throw new Error(`deployment snapshot inventory has conflicting bytes for ${path}`);
+    }
+    inventory.set(path, normalized);
+  };
+  for (const file of manifest.source_tree?.files || []) add(file);
+  for (const file of manifest.static_assets?.files || []) add(file, 'deploy_path');
+  for (const file of manifest.graph_assets || []) add(file, 'deploy_path');
+  if (!inventory.size) throw new Error('release manifest has no deployment snapshot inventory');
+  const sourceTreeDigest = createHash('sha256').update(
+    [...(manifest.source_tree?.files || [])]
+      .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0))
+      .map((file) => `${file.path}\0${file.sha256}\0${file.bytes}\n`)
+      .join(''),
+  ).digest('hex');
+  if (sourceTreeDigest !== manifest.source_tree?.sha256) {
+    throw new Error('release manifest source tree digest is internally inconsistent');
+  }
+
+  const snapshot = await createImmutableTreeSnapshot({
+    root,
+    files: [...inventory.values()],
+    label: 'Worker deployment source',
+  });
+  try {
+    await snapshot.verify();
+    const manifestArtifact = immutableVersionedManifestArtifact(manifest);
+    const arguments_ = wranglerDeployArgs(environment, {
+      git_head: git.head,
+      snapshot_root: snapshot.root,
+      release_id: manifest.release_id,
+      release_manifest_sha256: manifestArtifact.sha256,
+      source_tree_sha256: manifest.source_tree.sha256,
+      corpus_release_id: manifest.corpus_release.release_id,
+      corpus_manifest_sha256: manifest.corpus_release.manifest_sha256,
+    });
+    const result = runCommand('npx', arguments_, { cwd: root, encoding: 'utf8', stdio: 'inherit' });
+    await snapshot.verify();
+    if (result.status !== 0) throw new Error(`Wrangler deployment failed with exit ${result.status ?? 'unknown'}`);
+    return {
+      environment,
+      git_head: git.head,
+      release_id: manifest.release_id,
+      source_tree_sha256: manifest.source_tree.sha256,
+      release_manifest_sha256: manifestArtifact.sha256,
+      deployment_snapshot_sha256: snapshot.sha256,
+    };
+  } finally {
+    await snapshot.cleanup();
+  }
 }
 
 function parseArgs(argv) {

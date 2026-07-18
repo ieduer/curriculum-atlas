@@ -61,6 +61,7 @@ Production R2 最近一次独立读回：
 - 在旧 Worker 上导入新 schema/corpus，或在 corpus 非 ready 时开放业务 API；
 - corpus 中断后盲目重放 chunk；
 - R2 中断后覆盖 immutable objects 或盲目重跑 publisher；
+- 绕过 D1 `d1_single_writer_lease_v1` 直接写入或删除 R2 pointer；
 - 绕过 `apis` 直连 Gemini，或绕过 User Center 新建叶项目账户；
 - 把原 PDF、完整受版权约束 OCR、secret、cookie、session 或用户内容放入公开 R2/Git/报告；
 - 把远端 OCR staging、Vision 页数或机器排空写成 display/citation accepted。
@@ -93,13 +94,15 @@ D1 使用 Time Travel；发布前保存 bookmark 和用户数据基线。Product
 
 Production Worker v7 `7d1766b2-32be-4ce1-9528-f6c69bb2a092` 与 D1 prechange bookmark 是耦合回滚锚点：v7 不兼容 taxonomy schema 2，单独回 Worker 会返回 503。只有 forward repair 失败且确认无后续合法用户写入时，才同时回 D1 + Worker，并完成全套 API/browser regression。
 
-R2-only 回滚不需要回 D1/Worker：
+正常 R2-only 回滚不改 corpus 数据或 Worker，但必须把已核验 predecessor
+内容作为新的 forward release，通过对应环境 D1 的
+`d1_single_writer_lease_v1` 串行激活。备份的 pointer 原始 bytes 只作取证，
+不得直接覆盖回去；也不得在正式 publisher 外删除 `release/current.json`。
+历史 immutable objects 不删除；恢复后 GET pointer、manifest 与 ingest
+object 核对 hash/bytes。需要直接删除 pointer 以启用 stable-key fallback 的
+灾难恢复，必须另行审批、冻结所有 publisher 并证明 lease/写入者静默。
 
-- production 首次 bootstrap：删除且只删除 `release/current.json`，使 v10 回到已验证 stable-key fallback；
-- preview：恢复已备份 predecessor pointer bytes，指回 `release-b1c8c31d00e0016ad885ae5c9e92cad1`；
-- 不删除任何 immutable release objects；恢复后 GET pointer、manifest 与 ingest object 核对 hash/bytes。
-
-Publisher 中断后先读取远端 pointer/manifest/object set。Pointer 未切换时旧 release 仍在线，已上传对象可安全保持未引用；pointer 已切换时先完成 readback。两种情况都不得盲目重跑。
+Publisher 中断后先读取远端 pointer/manifest/object set。Pointer 未切换时旧 release 仍在线，已上传对象可安全保持未引用；pointer 已切换时先完成 readback。恢复必须重新取得 lease，并以新的 predecessor read 开始；两种情况都不得盲目重跑。
 
 ## 8. Last verified
 

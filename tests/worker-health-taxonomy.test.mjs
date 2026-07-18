@@ -37,7 +37,7 @@ const readyCoreCounts = {
 
 function readyCorpus(overrides = {}) {
   return {
-    release_id: 'corpus-test-ready',
+    release_id: `corpus-${'c'.repeat(24)}`,
     manifest_sha256: 'a'.repeat(64),
     state: 'ready',
     expected_documents: 196,
@@ -105,6 +105,11 @@ function makeEnv(classification, corpus = readyCorpus()) {
     ASSETS: {},
     ENVIRONMENT: 'test',
     RELEASE_GIT_COMMIT: 'a'.repeat(40),
+    RELEASE_ID: `release-${'b'.repeat(32)}`,
+    RELEASE_MANIFEST_SHA256: 'd'.repeat(64),
+    RELEASE_SOURCE_TREE_SHA256: 'e'.repeat(64),
+    CORPUS_RELEASE_ID: corpus.release_id,
+    CORPUS_MANIFEST_SHA256: corpus.manifest_sha256,
   };
 }
 
@@ -185,6 +190,8 @@ test('Worker health fails closed unless the complete taxonomy distribution match
   assert.match(source, /classificationCounts\.unclassified === REQUIRED_CLASSIFICATION_COUNTS\.unclassified/);
   assert.match(source, /schemaMeta\.get\('page_publication_schema_version'\) === '1'/);
   assert.match(source, /schemaReady && classificationReady && corpusReady && releaseSourceReady \? 200 : 503/);
+  assert.match(source, /env\.CORPUS_RELEASE_ID === corpus\?\.release_id/);
+  assert.match(source, /env\.CORPUS_MANIFEST_SHA256 === corpus\?\.manifest_sha256/);
   assert.match(source, /corpusReleaseReady\(corpus\)/);
   assert.match(source, /coreTableCountsEqual\(expectedCore, actualCore\)/);
   assert.match(source, /coreTableCountsEqual\(expectedCore, liveCore\)/);
@@ -213,6 +220,21 @@ test('Worker health accepts 159 subjects plus one assessment identity and reject
   assert.deepEqual(validBody.corpus.expected.coreTables, readyCoreCounts);
   assert.deepEqual(validBody.corpus.actual.coreTables, readyCoreCounts);
   assert.deepEqual(validBody.corpus.live.coreTables, readyCoreCounts);
+  assert.equal(validBody.release.releaseId, `release-${'b'.repeat(32)}`);
+  assert.equal(validBody.release.corpusReleaseId, `corpus-${'c'.repeat(24)}`);
+
+  const proofDriftEnv = makeEnv({
+    documents: 196,
+    classified: 196,
+    subject_documents: 159,
+    course_documents: 16,
+    scope_documents: 20,
+    unclassified_documents: 0,
+  });
+  proofDriftEnv.CORPUS_MANIFEST_SHA256 = 'f'.repeat(64);
+  const proofDrift = await worker.fetch(request, proofDriftEnv);
+  assert.equal(proofDrift.status, 503);
+  assert.equal((await proofDrift.json()).release.gitCommit, null);
 
   const legacy = await worker.fetch(request, makeEnv({
     documents: 196,

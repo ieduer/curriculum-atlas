@@ -60,5 +60,5 @@
 ## 回滚边界
 
 - Production Worker v7 `7d1766b2-32be-4ce1-9528-f6c69bb2a092` 与 D1 bookmark `0000002b-00002585-000050ab-8645885d977dc9bf5678e6cdf12b084f` 是耦合回滚；只回 Worker 会因 taxonomy schema 不兼容而 503。
-- Production R2-only fallback 是删除且只删除 `release/current.json`，恢复 v10 stable-key reader；immutable release objects 保留。
+- 正常 R2-only 回滚是通过 D1 single-writer lease 发布一份经过核验的 predecessor forward release；备份 pointer 只作取证，不直接覆盖或删除 `release/current.json`。stable-key fallback 删除属于另行审批且先冻结 publisher 的灾难恢复。
 - Publisher 或 corpus importer 中断时先核远端 pointer/receipts，只从未提交边界继续；禁止盲目重跑。

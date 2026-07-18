@@ -106,6 +106,15 @@
       "preview": "bdfz-curriculum-atlas-sources-preview",
       "production": "bdfz-curriculum-atlas-sources"
     },
+    "publication_coordination": {
+      "policy": "d1_single_writer_lease_v1",
+      "lease_key": "r2_release_publication_lease",
+      "lease_ttl_seconds": 3600,
+      "databases": {
+        "preview": "bdfz-curriculum-atlas-preview",
+        "production": "bdfz-curriculum-atlas"
+      }
+    },
     "governed_source_files": [
       "data/artifact-registry.json",
       "data/catalog.json",

@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile, readdir } from 'node:fs/promises';
+import { chmodSync, existsSync, lstatSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import {
   buildParagraphIdentityGuardSql,
@@ -11,10 +14,11 @@ import {
   buildCorpusChunkReceiptSql,
   CORE_TABLE_COUNT_KEYS,
   runCorpusFinalization,
+  runCorpusImport,
   sealCorpusManifest,
   validateCorpusManifest,
-  validateCorpusManifestSourceBindings,
 } from '../scripts/import-corpus.mjs';
+import { computeCorpusReleaseFingerprint } from '../scripts/lib/corpus-release-fingerprint.mjs';
 
 const root = new URL('../', import.meta.url);
 const builder = await readFile(new URL('scripts/build-corpus.mjs', root), 'utf8');
@@ -279,26 +283,39 @@ test('manifest rejects unsafe integers even when its snapshot hash is recomputed
   );
 });
 
-test('re-sealed semantic audit drift is rejected against the live source policy and text assets', async () => {
-  const current = JSON.parse(await readFile(new URL('data/corpus-chunks/manifest.json', root), 'utf8'));
-  await validateCorpusManifestSourceBindings(current, { root });
-  const { manifest_sha256: _manifestSha256, ...projection } = current;
-
-  const revisionDrift = sealCorpusManifest({
-    ...projection,
-    semantic_publication_revision_sha256: 'c'.repeat(64),
-  });
-  assert.equal(validateCorpusManifest(revisionDrift).semantic_publication_revision_sha256, 'c'.repeat(64));
-  await assert.rejects(
-    validateCorpusManifestSourceBindings(revisionDrift, { root }),
-    /semantic publication revision does not match source/,
-  );
-
-  const countDrift = sealCorpusManifest({ ...projection, semantic_excluded_pages: 1 });
-  await assert.rejects(
-    validateCorpusManifestSourceBindings(countDrift, { root }),
-    /semantic_excluded_pages does not match source/,
-  );
+test('corpus release fingerprint binds every builder source input without private cache fixtures', () => {
+  const inputs = {
+    catalog: { documents: [{ id: 'doc-a', title: '原始标题' }] },
+    ingest: { entries: [{ id: 'doc-a', source_sha256: 'a'.repeat(64) }] },
+    documentedSources: [{ document_id: 'doc-a', source_url: 'https://example.test/source' }],
+    insights: { insights: [{ id: 'insight-a' }], terms: [], relations: [] },
+    onlineVerificationSamples: [{ id: 'sample-a', online_evidence: [] }],
+    classifications: [{ document_id: 'doc-a', entity_kind: 'subject' }],
+    pagePublicationManifest: { schema_version: 1, policy: 'fixture', documents: [] },
+    semanticPublicationPolicy: { schema_version: 1, policy: 'fixture' },
+    semanticPublicationRevisionSha256: 'b'.repeat(64),
+    textAssets: [{ document_id: 'doc-a', sha256: 'c'.repeat(64), bytes: 12 }],
+  };
+  const baseline = computeCorpusReleaseFingerprint(inputs);
+  assert.match(baseline, /^[a-f0-9]{64}$/);
+  for (const [field, replacement] of [
+    ['catalog', { documents: [{ id: 'doc-a', title: '漂移标题' }] }],
+    ['ingest', { entries: [{ id: 'doc-a', source_sha256: 'd'.repeat(64) }] }],
+    ['documentedSources', [{ document_id: 'doc-a', source_url: 'https://example.test/other' }]],
+    ['insights', { insights: [{ id: 'insight-b' }], terms: [], relations: [] }],
+    ['onlineVerificationSamples', [{ id: 'sample-b', online_evidence: [] }]],
+    ['classifications', [{ document_id: 'doc-a', entity_kind: 'scope' }]],
+    ['pagePublicationManifest', { schema_version: 1, policy: 'other', documents: [] }],
+    ['semanticPublicationPolicy', { schema_version: 1, policy: 'other' }],
+    ['semanticPublicationRevisionSha256', 'e'.repeat(64)],
+    ['textAssets', [{ document_id: 'doc-a', sha256: 'f'.repeat(64), bytes: 12 }]],
+  ]) {
+    assert.notEqual(
+      computeCorpusReleaseFingerprint({ ...inputs, [field]: replacement }),
+      baseline,
+      `${field} must be fingerprint-bound`,
+    );
+  }
 });
 
 test('manifest core table counts are an exact set and legacy tables must remain empty', () => {
@@ -369,6 +386,102 @@ test('finalize-only recovery reopens the exact failed release without replaying 
   assert.match(calls[1][1], /UPDATE corpus_import_releases SET\s+state='ready'/);
   assert.match(calls[2][1], /SET state='failed'/);
   assert.equal(calls.some((args) => args[0] === '--file'), false);
+});
+
+test('remote importer executes a private fixed SQL inode and receipts those exact bytes', async () => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'corpus-import-snapshot-fixture-'));
+  const chunkDirectory = join(fixtureRoot, 'data', 'corpus-chunks');
+  try {
+    await mkdir(chunkDirectory, { recursive: true });
+    const sqlBytes = Buffer.from('SELECT 1;\n');
+    const sqlSha256 = createHash('sha256').update(sqlBytes).digest('hex');
+    const sealed = manifest({
+      sql_files: [{ name: '000-core.sql', sha256: sqlSha256, bytes: sqlBytes.length }],
+    });
+    await writeFile(join(chunkDirectory, '000-core.sql'), sqlBytes);
+    await writeFile(join(chunkDirectory, 'manifest.json'), `${JSON.stringify(sealed, null, 2)}\n`);
+
+    const calls = [];
+    let snapshotPath = null;
+    const runCommand = (_root, _database, _environment, args) => {
+      calls.push(args);
+      if (calls.length === 1) {
+        writeFileSync(join(chunkDirectory, '000-core.sql'), 'SELECT evil;\n');
+      }
+      if (args[0] === '--file') {
+        snapshotPath = args[1];
+        assert.notEqual(snapshotPath, join(chunkDirectory, '000-core.sql'));
+        assert.deepEqual(readFileSync(snapshotPath), sqlBytes);
+        assert.equal(lstatSync(snapshotPath).mode & 0o222, 0);
+      }
+      return { status: 0 };
+    };
+    const outcome = await runCorpusImport({
+      root: fixtureRoot,
+      database: 'fixture',
+      environment: 'preview',
+      remote: true,
+      runCommand,
+      pageEvidenceValidator: () => ({ valid: true, publishable: false }),
+      sourceBindingValidator: async () => sealed,
+    });
+    assert.deepEqual(outcome, { status: 0, phase: 'ready' });
+    assert.ok(snapshotPath);
+    assert.equal(existsSync(snapshotPath), false, 'private SQL snapshot must be removed after import');
+    const receipt = calls.find((args) => args[0] === '--command' && /INSERT INTO corpus_import_chunks/.test(args[1]));
+    assert.match(receipt[1], new RegExp(sqlSha256));
+    assert.match(receipt[1], new RegExp(`,${sqlBytes.length},CURRENT_TIMESTAMP`));
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test('remote importer fails the release when its private SQL snapshot changes during execution', async () => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'corpus-import-snapshot-drift-fixture-'));
+  const chunkDirectory = join(fixtureRoot, 'data', 'corpus-chunks');
+  try {
+    await mkdir(chunkDirectory, { recursive: true });
+    const sqlBytes = Buffer.from('SELECT 1;\n');
+    const sealed = manifest({
+      sql_files: [{
+        name: '000-core.sql',
+        sha256: createHash('sha256').update(sqlBytes).digest('hex'),
+        bytes: sqlBytes.length,
+      }],
+    });
+    await writeFile(join(chunkDirectory, '000-core.sql'), sqlBytes);
+    await writeFile(join(chunkDirectory, 'manifest.json'), `${JSON.stringify(sealed, null, 2)}\n`);
+
+    const calls = [];
+    let snapshotPath = null;
+    const runCommand = (_root, _database, _environment, args) => {
+      calls.push(args);
+      if (args[0] === '--file') {
+        snapshotPath = args[1];
+        chmodSync(snapshotPath, 0o600);
+        writeFileSync(snapshotPath, 'SELECT drift;\n');
+      }
+      return { status: 0 };
+    };
+    await assert.rejects(runCorpusImport({
+      root: fixtureRoot,
+      database: 'fixture',
+      environment: 'preview',
+      remote: true,
+      runCommand,
+      pageEvidenceValidator: () => ({ valid: true, publishable: false }),
+      sourceBindingValidator: async () => sealed,
+    }), /private SQL snapshot became unstable/);
+    assert.ok(snapshotPath);
+    assert.equal(existsSync(snapshotPath), false, 'unstable private SQL snapshot must be removed');
+    const failure = calls.find((args) => args[0] === '--command'
+      && /chunk_snapshot_unstable:000-core\.sql/.test(args[1]));
+    assert.ok(failure, 'release must receive a fail-closed snapshot-integrity status');
+    assert.equal(calls.some((args) => args[0] === '--command'
+      && /INSERT INTO corpus_import_chunks/.test(args[1])), false);
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
 });
 
 test('a transport-level failure report cannot downgrade an already activated release', async () => {

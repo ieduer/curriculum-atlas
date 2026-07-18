@@ -365,12 +365,44 @@ async function validateR2PolicyCoverage(root, policy) {
   }));
 }
 
-async function inspectCorpusRelease(root) {
+function validatePublicationCoordination(policy) {
+  const coordination = policy.r2?.publication_coordination;
+  if (!coordination || coordination.policy !== 'd1_single_writer_lease_v1') {
+    throw new Error('r2 publication coordination must use d1_single_writer_lease_v1');
+  }
+  const leaseKey = String(coordination.lease_key || '');
+  if (!/^[a-z0-9][a-z0-9_:-]{2,127}$/.test(leaseKey)) {
+    throw new Error('r2 publication coordination lease_key is invalid');
+  }
+  const ttl = coordination.lease_ttl_seconds;
+  if (!Number.isSafeInteger(ttl) || ttl < 60 || ttl > 7200) {
+    throw new Error('r2 publication coordination lease_ttl_seconds must be between 60 and 7200');
+  }
+  const bucketEnvironments = Object.keys(policy.r2?.buckets || {}).sort();
+  const databaseEnvironments = Object.keys(coordination.databases || {}).sort();
+  assertExactSet(bucketEnvironments, databaseEnvironments, 'r2 publication coordination environment coverage');
+  const databases = {};
+  for (const environment of bucketEnvironments) {
+    const database = String(coordination.databases[environment] || '');
+    if (!/^[a-z0-9][a-z0-9-]{2,127}$/.test(database)) {
+      throw new Error(`r2 publication coordination database is invalid for ${environment}`);
+    }
+    databases[environment] = database;
+  }
+  return {
+    policy: coordination.policy,
+    lease_key: leaseKey,
+    lease_ttl_seconds: ttl,
+    databases,
+  };
+}
+
+async function inspectCorpusRelease(root, sourceBindingValidator = validateCorpusManifestSourceBindings) {
   const manifestAsset = await inspectFile(root, 'data/corpus-chunks/manifest.json');
   const manifestJson = parseJsonAsset(manifestAsset);
   const sqlFiles = Array.isArray(manifestJson.sql_files) ? manifestJson.sql_files : [];
   const manifest = validateCorpusManifest(manifestJson, sqlFiles.length);
-  await validateCorpusManifestSourceBindings(manifest, { root });
+  await sourceBindingValidator(manifest, { root });
   const actualSqlPaths = (await walkFiles(root, 'data/corpus-chunks'))
     .filter((file) => file.endsWith('.sql'));
   const expectedSqlPaths = sqlFiles.map((file) =>
@@ -708,6 +740,8 @@ export async function buildReleaseManifest({
   generatedAt = new Date().toISOString(),
   pageEvidencePromotion = false,
   rendererPath = null,
+  projectAssetAuditor = auditProjectAssets,
+  corpusSourceBindingValidator = validateCorpusManifestSourceBindings,
 } = {}) {
   const projectRoot = resolve(root);
   const pageEvidence = validatePageEvidenceForRelease({
@@ -722,13 +756,14 @@ export async function buildReleaseManifest({
     throw new Error(`unsupported release assets policy: ${policy.policy || '<unset>'} schema ${policy.schema_version ?? '<unset>'}`);
   }
 
-  const projectAssetAudit = await auditProjectAssets({ projectRoot });
+  const projectAssetAudit = await projectAssetAuditor({ projectRoot });
   if (!projectAssetAudit.ok) {
     const issues = projectAssetAudit.errors.map((issue) => `${issue.area}:${issue.code}`).join(', ');
     throw new Error(`project asset audit failed closed: ${issues || 'unknown error'}`);
   }
 
   const r2Objects = await validateR2PolicyCoverage(projectRoot, policy);
+  const publicationCoordination = validatePublicationCoordination(policy);
   const dataInventory = await validateDataInventory(projectRoot, policy, r2Objects);
   const gitStatus = gitValue(projectRoot, ['status', '--porcelain=v1', '--untracked-files=all']);
   const git = {
@@ -741,7 +776,7 @@ export async function buildReleaseManifest({
   };
 
   const sourceTree = await buildSourceTree(projectRoot, policy);
-  const corpusRelease = await inspectCorpusRelease(projectRoot);
+  const corpusRelease = await inspectCorpusRelease(projectRoot, corpusSourceBindingValidator);
   const dataAssets = [];
   const dataByRole = new Map();
   for (const object of r2Objects) {
@@ -946,6 +981,7 @@ export async function buildReleaseManifest({
     policy: policy.policy,
     generated_at: generatedAt,
     release_id: releaseId,
+    release_identity: releaseIdentity,
     release_ready: allBlockers.length === 0,
     release_blockers: allBlockers,
     git,
@@ -963,6 +999,7 @@ export async function buildReleaseManifest({
       release_prefix: releasePrefix,
       release_manifest_key: releaseManifestKey,
       buckets: policy.r2.buckets,
+      publication_coordination: publicationCoordination,
       managed_object_count: releasedDataAssets.length,
       objects: releasedDataAssets.map(({ role, source, key, release_key, content_type, sha256: hash, bytes, counts }) => ({
         role, source, key, release_key, content_type, sha256: hash, bytes, counts,

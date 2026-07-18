@@ -223,6 +223,54 @@ generation also revalidate the live page/semantic source schema and semantic
 revision, while a generated R2 release keeps the raw corpus file SHA-256 and
 byte length in its release identity.
 
+The corpus release id is computed by one shared builder/importer function over
+the complete live builder inputs: catalog, ingest, documented sources, subject
+insights, online-verification samples, document classifications, page
+publication manifest, normalized semantic publication policy and its revision,
+and the exact text-asset inventory. Changing any one of those inputs invalidates
+the generated fingerprint; import cannot validate a partial reconstruction.
+
+## Fixed publication inputs and serialized activation
+
+Every mutating command consumes a private mode-0700 snapshot rather than a path
+that was merely checked earlier:
+
+- the importer copies each validated SQL chunk to a mode-0400 regular file,
+  passes that path to Wrangler, then checks its device, inode, mode, SHA-256 and
+  byte length before and after execution; the D1 receipt records those executed
+  snapshot bytes;
+- the R2 publisher takes the same kind of snapshot for the raw corpus envelope,
+  every managed object, the stable immutable manifest projection and the
+  pointer; an existing immutable key is accepted only when its remote bytes are
+  already exact and is never intentionally overwritten;
+- the Worker deployer constructs a complete private tree from the release
+  manifest's source-tree and built-asset inventories, validates the tree and
+  deploys with Wrangler `--cwd` set to that snapshot. The deployment variables
+  bind the Git commit, release id, release manifest, source-tree and corpus
+  hashes that were used to construct it. Worker health stays 503 unless all six
+  pins are well formed and its corpus release id/manifest hash equal live D1.
+
+The R2 publisher obtains the environment's D1
+`d1_single_writer_lease_v1` lease before reading the predecessor pointer or
+writing a release. It renews that lease throughout staging, compares the exact
+predecessor bytes again immediately before activation, and releases the lease
+in a finalizer. Two conforming publishers therefore serialize; a stale writer
+fails instead of losing a newer pointer update. This is a cooperative D1 lease,
+not an R2 conditional-write primitive. Direct/manual R2 writes bypass its
+protection and are forbidden during publication or rollback.
+
+The immutable versioned manifest excludes volatile observation time, so the
+same release id always maps to identical manifest bytes. `published_at` belongs
+only to the mutable pointer. Re-running an already exact target is idempotent
+and does not rewrite that pointer. A collision with different bytes, a changed
+predecessor, an expired/lost lease or a snapshot identity change fails closed.
+
+Recovery starts with remote readback under the same single-writer procedure.
+Leave verified but unreferenced immutable objects in place. Rollback is a new,
+serialized forward publication of verified predecessor content; do not upload
+saved raw `current.json` bytes or delete the pointer outside a separately
+reviewed maintenance procedure that first proves all publishers are quiescent.
+
 ## Test coverage
 
 `tests/page-evidence-publication.test.mjs` creates a real PDF, renders it with

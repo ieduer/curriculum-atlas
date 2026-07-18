@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { lstatSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -11,28 +13,165 @@ import {
   assertGitCommitExists,
   buildReleaseManifest,
   compareManagedKeySets,
+  releaseIdFromIdentity,
 } from '../scripts/build-release-manifest.mjs';
 import {
   assertEnvironmentReleaseReady,
   assertReleaseSourceReady,
+  buildPublicationLeaseAcquireSql,
+  buildPublicationLeaseReleaseSql,
+  immutableVersionedManifestArtifact,
   publishVersionedRelease,
 } from '../scripts/publish-metadata.mjs';
 import { sealCorpusManifest } from '../scripts/import-corpus.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+const FIXTURE_RELEASE_ID = `release-${'f'.repeat(32)}`;
+
+function publicationCoordination() {
+  return {
+    policy: 'd1_single_writer_lease_v1',
+    lease_key: 'r2_release_publication_lease',
+    lease_ttl_seconds: 3600,
+    databases: { preview: 'fixture-preview', production: 'fixture-production' },
+  };
+}
+
+async function createPublishFixture(contents = [Buffer.from('{"asset":1}\n')]) {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'release-publish-fixture-'));
+  const objects = [];
+  for (const [index, buffer] of contents.entries()) {
+    const source = `asset-${index + 1}.json`;
+    await writeFile(join(fixtureRoot, source), buffer);
+    objects.push({
+      role: `asset_${index + 1}`,
+      source,
+      key: `quality/${source}`,
+      release_key: `releases/${FIXTURE_RELEASE_ID}/quality/${source}`,
+      content_type: 'application/json',
+      sha256: createHash('sha256').update(buffer).digest('hex'),
+      bytes: buffer.length,
+      counts: {},
+    });
+  }
+  const corpusManifest = sealCorpusManifest({
+    generated_at: '2026-07-18T00:00:00.000Z',
+    schema_version: 1,
+    release_id: `corpus-${'b'.repeat(24)}`,
+    release_fingerprint_sha256: 'b'.repeat(64),
+    documents: 1,
+    paragraphs: 1,
+    fts_rows: 1,
+    page_publication_gates: 1,
+    displayed_paragraphs: 1,
+    accepted_ocr_documents: 0,
+    core_table_counts: {
+      subjects: 0,
+      periods: 5,
+      document_relations: 0,
+      chapters: 0,
+      document_classifications: 1,
+      document_sources: 1,
+      primary_document_sources: 1,
+      subject_insights: 0,
+      terms: 0,
+      term_relations: 0,
+      version_diffs: 0,
+      online_verifications: 0,
+      online_evidence: 0,
+    },
+    text_asset_count: 1,
+    text_assets: [{ document_id: 'doc-a', sha256: 'e'.repeat(64), bytes: 1 }],
+    sql_chunks: 1,
+    sql_files: [{ name: '000-core.sql', sha256: 'f'.repeat(64), bytes: 1 }],
+    closed_ocr_paragraphs: 0,
+    skipped_ocr_documents: 0,
+    excluded_exact_duplicate_alias_documents: 0,
+    semantic_excluded_pages: 0,
+    page_publication_schema_version: 1,
+    semantic_publication_schema_version: 1,
+    semantic_publication_revision_sha256: 'a'.repeat(64),
+  });
+  const corpusBuffer = Buffer.from(`${JSON.stringify(corpusManifest, null, 2)}\n`);
+  await writeFile(join(fixtureRoot, 'corpus-manifest.json'), corpusBuffer);
+  return {
+    fixtureRoot,
+    contents,
+    manifest: {
+      schema_version: 1,
+      policy: 'fixture',
+      release_id: FIXTURE_RELEASE_ID,
+      git: { head: 'a'.repeat(40) },
+      source_tree: { sha256: 'c'.repeat(64), files: [] },
+      page_evidence: { valid: true, publishable: false },
+      corpus_release: {
+        source: 'corpus-manifest.json',
+        sha256: createHash('sha256').update(corpusBuffer).digest('hex'),
+        bytes: corpusBuffer.length,
+        release_id: corpusManifest.release_id,
+        release_fingerprint_sha256: corpusManifest.release_fingerprint_sha256,
+        manifest_sha256: corpusManifest.manifest_sha256,
+      },
+      data_assets: objects,
+      graph_assets: [],
+      static_assets: { files: [] },
+      r2: {
+        release_prefix: 'releases',
+        current_pointer_key: 'release/current.json',
+        release_manifest_key: `releases/${FIXTURE_RELEASE_ID}/manifest.json`,
+        publication_coordination: publicationCoordination(),
+        objects,
+      },
+    },
+  };
+}
+
+async function buildHermeticReleaseManifest(generatedAt) {
+  const registry = JSON.parse(await readFile(new URL('../data/artifact-registry.json', import.meta.url), 'utf8'));
+  const counts = registry.expected_counts;
+  return buildReleaseManifest({
+    root,
+    generatedAt,
+    corpusSourceBindingValidator: async (manifest) => manifest,
+    projectAssetAuditor: async () => ({
+      ok: true,
+      policy: registry.policy,
+      checks: ['tracked_fixture_registry_shape'],
+      source_inventory: {
+        roots: registry.source_roots,
+        pdf_files: counts.source_pdf_files,
+        unique_artifacts: counts.unique_source_pdf_artifacts,
+        valid_pdf_files: counts.source_pdf_files - counts.invalid_pdf_files,
+        invalid_pdf_files: counts.invalid_pdf_files,
+        dispositions: {},
+        explicit_artifacts: Array.from({ length: counts.explicit_artifacts }, () => ({})),
+        duplicate_artifacts: [],
+        source_archive_containers: Array.from({ length: counts.source_archive_containers }, () => ({})),
+      },
+      queue: {
+        nominal_documents: counts.nominal_queue_documents,
+        nominal_pages: counts.nominal_queue_pages,
+        unique_artifacts: counts.unique_queue_artifacts,
+        unique_pages: counts.unique_queue_pages,
+        blocked_documents: counts.blocked_documents,
+        duplicate_artifacts: [],
+      },
+      warnings: [],
+      errors: [],
+    }),
+  });
+}
 
 test('release manifest binds the complete data, graph, static, Git, and environment state', async () => {
   const environmentEvidence = JSON.parse(await readFile(new URL('../data/release-environment-evidence.json', import.meta.url), 'utf8'));
-  const manifest = await buildReleaseManifest({
-    root,
-    generatedAt: '2026-07-17T00:00:00.000Z',
-  });
+  const manifest = await buildHermeticReleaseManifest('2026-07-17T00:00:00.000Z');
   const catalog = JSON.parse(await readFile(new URL('../data/catalog.json', import.meta.url), 'utf8'));
   const queue = JSON.parse(await readFile(new URL('../data/ocr-queue.json', import.meta.url), 'utf8'));
 
   assert.equal(manifest.schema_version, 1);
   assert.match(manifest.release_id, /^release-[0-9a-f]{32}$/);
   assert.equal(manifest.integrity.valid, true);
+  assert.equal(releaseIdFromIdentity(manifest.release_identity), manifest.release_id);
   assert.equal(
     manifest.release_blockers.some((blocker) => blocker.code === 'dirty_git_tree'),
     manifest.git.dirty,
@@ -160,11 +299,276 @@ test('environment asset commits must be exact existing Git commit objects', () =
 });
 
 test('release identity is deterministic while generated_at remains an audit timestamp', async () => {
-  const first = await buildReleaseManifest({ root, generatedAt: '2026-07-17T00:00:00.000Z' });
-  const second = await buildReleaseManifest({ root, generatedAt: '2026-07-17T00:01:00.000Z' });
+  const first = await buildHermeticReleaseManifest('2026-07-17T00:00:00.000Z');
+  const second = await buildHermeticReleaseManifest('2026-07-17T00:01:00.000Z');
   assert.equal(first.release_id, second.release_id);
   assert.equal(first.source_tree.sha256, second.source_tree.sha256);
   assert.notEqual(first.generated_at, second.generated_at);
+});
+
+test('immutable versioned manifest bytes exclude every volatile audit age for retry-safe keys', async () => {
+  const firstManifest = await buildHermeticReleaseManifest('2026-07-17T00:00:00.000Z');
+  const secondManifest = await buildHermeticReleaseManifest('2026-07-17T00:01:00.000Z');
+  assert.equal(firstManifest.release_id, secondManifest.release_id);
+  assert.notEqual(firstManifest.generated_at, secondManifest.generated_at);
+  assert.notEqual(
+    firstManifest.downloads_asset_audit.age_hours,
+    secondManifest.downloads_asset_audit.age_hours,
+  );
+  const first = immutableVersionedManifestArtifact(firstManifest);
+  const second = immutableVersionedManifestArtifact(secondManifest);
+  assert.deepEqual(first.buffer, second.buffer);
+  assert.equal(first.sha256, second.sha256);
+});
+
+test('D1 publication lease serializes different owners even for the same release', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(`CREATE TABLE site_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL,updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
+    CREATE TABLE corpus_import_guards(guard_key TEXT PRIMARY KEY,ok INTEGER NOT NULL CHECK(ok=1));`);
+  const common = {
+    leaseKey: 'r2_release_publication_lease',
+    releaseId: FIXTURE_RELEASE_ID,
+    ttlSeconds: 3600,
+  };
+  db.exec(buildPublicationLeaseAcquireSql({ ...common, token: 'owner-a' }));
+  assert.throws(
+    () => db.exec(buildPublicationLeaseAcquireSql({ ...common, token: 'owner-b' })),
+    /CHECK constraint failed/,
+  );
+  const held = JSON.parse(db.prepare("SELECT value FROM site_meta WHERE key='r2_release_publication_lease'").get().value);
+  assert.equal(held.token, 'owner-a');
+  db.exec(buildPublicationLeaseReleaseSql({ ...common, token: 'owner-a' }));
+  db.exec(buildPublicationLeaseAcquireSql({ ...common, token: 'owner-b' }));
+  assert.equal(
+    JSON.parse(db.prepare("SELECT value FROM site_meta WHERE key='r2_release_publication_lease'").get().value).token,
+    'owner-b',
+  );
+});
+
+test('R2 publication reads every put from private snapshots after live source replacement', async () => {
+  const fixture = await createPublishFixture();
+  try {
+    const remote = new Map();
+    const putRecords = [];
+    let sourceReplaced = false;
+    const runCommand = (_command, arguments_) => {
+      if (arguments_.includes('d1')) {
+        if (!sourceReplaced) {
+          writeFileSync(join(fixture.fixtureRoot, 'asset-1.json'), '{"asset":"replacement"}\n');
+          sourceReplaced = true;
+        }
+        return { status: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+      }
+      const objectIndex = arguments_.indexOf('object');
+      const operation = arguments_[objectIndex + 1];
+      const objectPath = arguments_[objectIndex + 2];
+      const key = objectPath.slice(objectPath.indexOf('/') + 1);
+      if (operation === 'get') {
+        return remote.has(key)
+          ? { status: 0, stdout: remote.get(key), stderr: Buffer.alloc(0) }
+          : { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.from('NoSuchKey') };
+      }
+      if (operation === 'put') {
+        const fileIndex = arguments_.indexOf('--file');
+        const snapshotPath = arguments_[fileIndex + 1];
+        const buffer = readFileSync(snapshotPath);
+        putRecords.push({ key, snapshotPath, buffer, mode: lstatSync(snapshotPath).mode });
+        remote.set(key, buffer);
+        return { status: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+      }
+      throw new Error(`unexpected operation ${operation}`);
+    };
+    const result = await publishVersionedRelease({
+      manifest: fixture.manifest,
+      bucket: 'fixture-bucket',
+      environment: 'preview',
+      bootstrap: true,
+      root: fixture.fixtureRoot,
+      runCommand,
+      pageEvidenceValidator: () => fixture.manifest.page_evidence,
+    });
+    assert.equal(result.coordination, 'd1_single_writer_lease_v1');
+    const objectPut = putRecords.find((record) => record.key.endsWith('/quality/asset-1.json'));
+    assert.deepEqual(objectPut.buffer, fixture.contents[0]);
+    assert.notEqual(objectPut.snapshotPath, join(fixture.fixtureRoot, 'asset-1.json'));
+    assert.equal(objectPut.mode & 0o222, 0);
+    assert.deepEqual(remote.get(`releases/${FIXTURE_RELEASE_ID}/quality/asset-1.json`), fixture.contents[0]);
+  } finally {
+    await rm(fixture.fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test('polluted immutable R2 key fails before put and is never overwritten', async () => {
+  const fixture = await createPublishFixture();
+  try {
+    const targetKey = fixture.manifest.r2.objects[0].release_key;
+    const remote = new Map([[targetKey, Buffer.from('{"polluted":true}\n')]]);
+    const putKeys = [];
+    const runCommand = (_command, arguments_) => {
+      if (arguments_.includes('d1')) return { status: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+      const objectIndex = arguments_.indexOf('object');
+      const operation = arguments_[objectIndex + 1];
+      const objectPath = arguments_[objectIndex + 2];
+      const key = objectPath.slice(objectPath.indexOf('/') + 1);
+      if (operation === 'get') {
+        return remote.has(key)
+          ? { status: 0, stdout: remote.get(key), stderr: Buffer.alloc(0) }
+          : { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.from('NoSuchKey') };
+      }
+      if (operation === 'put') {
+        putKeys.push(key);
+        return { status: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+      }
+      throw new Error(`unexpected operation ${operation}`);
+    };
+    await assert.rejects(
+      publishVersionedRelease({
+        manifest: fixture.manifest,
+        bucket: 'fixture-bucket',
+        environment: 'preview',
+        bootstrap: true,
+        root: fixture.fixtureRoot,
+        runCommand,
+        pageEvidenceValidator: () => fixture.manifest.page_evidence,
+      }),
+      /immutable remote object.*parity failure/,
+    );
+    assert.deepEqual(putKeys, []);
+    assert.deepEqual(remote.get(targetKey), Buffer.from('{"polluted":true}\n'));
+  } finally {
+    await rm(fixture.fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test('an already exact release is idempotent and preserves the original pointer timestamp', async () => {
+  const fixture = await createPublishFixture();
+  try {
+    const manifestArtifact = immutableVersionedManifestArtifact(fixture.manifest);
+    const originalPublishedAt = '2026-07-17T00:00:00.000Z';
+    const pointer = Buffer.from(`${JSON.stringify({
+      schema_version: 1,
+      release_id: FIXTURE_RELEASE_ID,
+      release_manifest_key: fixture.manifest.r2.release_manifest_key,
+      release_manifest_sha256: manifestArtifact.sha256,
+      release_manifest_bytes: manifestArtifact.bytes,
+      managed_object_count: fixture.manifest.r2.objects.length,
+      published_at: originalPublishedAt,
+    }, null, 2)}\n`);
+    const remote = new Map([
+      [fixture.manifest.r2.objects[0].release_key, fixture.contents[0]],
+      [fixture.manifest.r2.release_manifest_key, manifestArtifact.buffer],
+      [fixture.manifest.r2.current_pointer_key, pointer],
+    ]);
+    const putKeys = [];
+    const runCommand = (_command, arguments_) => {
+      if (arguments_.includes('d1')) {
+        return { status: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+      }
+      const objectIndex = arguments_.indexOf('object');
+      const operation = arguments_[objectIndex + 1];
+      const objectPath = arguments_[objectIndex + 2];
+      const key = objectPath.slice(objectPath.indexOf('/') + 1);
+      if (operation === 'get') {
+        return remote.has(key)
+          ? { status: 0, stdout: remote.get(key), stderr: Buffer.alloc(0) }
+          : { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.from('NoSuchKey') };
+      }
+      if (operation === 'put') {
+        putKeys.push(key);
+        return { status: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+      }
+      throw new Error(`unexpected operation ${operation}`);
+    };
+    const result = await publishVersionedRelease({
+      manifest: fixture.manifest,
+      bucket: 'fixture-bucket',
+      environment: 'preview',
+      root: fixture.fixtureRoot,
+      runCommand,
+      publishedAt: '2026-07-18T12:00:00.000Z',
+      pageEvidenceValidator: () => fixture.manifest.page_evidence,
+    });
+    assert.equal(result.uploaded_objects, 0);
+    assert.deepEqual(putKeys, []);
+    assert.deepEqual(remote.get(fixture.manifest.r2.current_pointer_key), pointer);
+    assert.equal(
+      JSON.parse(remote.get(fixture.manifest.r2.current_pointer_key)).published_at,
+      originalPublishedAt,
+    );
+  } finally {
+    await rm(fixture.fixtureRoot, { recursive: true, force: true });
+  }
+});
+
+test('pointer predecessor drift under the D1 lease refuses lost-update activation', async () => {
+  const fixture = await createPublishFixture();
+  try {
+    const oldReleaseId = `release-${'1'.repeat(32)}`;
+    const concurrentReleaseId = `release-${'2'.repeat(32)}`;
+    const oldManifest = Buffer.from(`{"release_id":"${oldReleaseId}"}\n`);
+    const oldPointer = Buffer.from(`${JSON.stringify({
+      schema_version: 1,
+      release_id: oldReleaseId,
+      release_manifest_key: `releases/${oldReleaseId}/manifest.json`,
+      release_manifest_sha256: createHash('sha256').update(oldManifest).digest('hex'),
+      release_manifest_bytes: oldManifest.length,
+      managed_object_count: 1,
+      published_at: '2026-07-17T00:00:00.000Z',
+    })}\n`);
+    const concurrentPointer = Buffer.from(`${JSON.stringify({
+      schema_version: 1,
+      release_id: concurrentReleaseId,
+      release_manifest_key: `releases/${concurrentReleaseId}/manifest.json`,
+      release_manifest_sha256: '9'.repeat(64),
+      release_manifest_bytes: 99,
+      managed_object_count: 1,
+      published_at: '2026-07-17T00:01:00.000Z',
+    })}\n`);
+    const remote = new Map([
+      ['release/current.json', oldPointer],
+      [`releases/${oldReleaseId}/manifest.json`, oldManifest],
+    ]);
+    let pointerGets = 0;
+    const putKeys = [];
+    const runCommand = (_command, arguments_) => {
+      if (arguments_.includes('d1')) return { status: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+      const objectIndex = arguments_.indexOf('object');
+      const operation = arguments_[objectIndex + 1];
+      const objectPath = arguments_[objectIndex + 2];
+      const key = objectPath.slice(objectPath.indexOf('/') + 1);
+      if (operation === 'get') {
+        if (key === 'release/current.json') {
+          pointerGets += 1;
+          return { status: 0, stdout: pointerGets === 1 ? oldPointer : concurrentPointer, stderr: Buffer.alloc(0) };
+        }
+        return remote.has(key)
+          ? { status: 0, stdout: remote.get(key), stderr: Buffer.alloc(0) }
+          : { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.from('NoSuchKey') };
+      }
+      if (operation === 'put') {
+        const fileIndex = arguments_.indexOf('--file');
+        const buffer = readFileSync(arguments_[fileIndex + 1]);
+        putKeys.push(key);
+        remote.set(key, buffer);
+        return { status: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+      }
+      throw new Error(`unexpected operation ${operation}`);
+    };
+    await assert.rejects(
+      publishVersionedRelease({
+        manifest: fixture.manifest,
+        bucket: 'fixture-bucket',
+        environment: 'preview',
+        root: fixture.fixtureRoot,
+        runCommand,
+        pageEvidenceValidator: () => fixture.manifest.page_evidence,
+      }),
+      /refusing lost-update activation/,
+    );
+    assert.equal(putKeys.includes('release/current.json'), false);
+  } finally {
+    await rm(fixture.fixtureRoot, { recursive: true, force: true });
+  }
 });
 
 test('release identity retains the exact raw corpus envelope binding', async () => {
@@ -208,12 +612,12 @@ test('both R2 publication modes reject a mismatched page-evidence state before a
     let remoteCommands = 0;
     const manifest = {
       schema_version: 1,
-      release_id: 'release-fixture',
+      release_id: FIXTURE_RELEASE_ID,
       page_evidence: fixture.page_evidence,
       r2: {
         release_prefix: 'releases',
         current_pointer_key: 'release/current.json',
-        release_manifest_key: 'releases/release-fixture/manifest.json',
+        release_manifest_key: `releases/${FIXTURE_RELEASE_ID}/manifest.json`,
         objects: [],
       },
     };
@@ -245,16 +649,18 @@ test('R2 preflight revalidates the bound page evidence with the same renderer pa
     publishVersionedRelease({
       manifest: {
         schema_version: 1,
-        release_id: 'release-fixture',
+        release_id: FIXTURE_RELEASE_ID,
         page_evidence: pageEvidence,
         r2: {
           release_prefix: 'releases',
           current_pointer_key: 'release/current.json',
-          release_manifest_key: 'releases/release-fixture/manifest.json',
+          release_manifest_key: `releases/${FIXTURE_RELEASE_ID}/manifest.json`,
+          publication_coordination: publicationCoordination(),
           objects: [],
         },
       },
       bucket: 'fixture-bucket',
+      environment: 'preview',
       rendererPath: '/controlled/mutool',
       pageEvidenceValidator: (options) => {
         observed = options;
@@ -309,7 +715,7 @@ test('a generated R2 release rejects raw corpus envelope drift before remote acc
       publishVersionedRelease({
         manifest: {
           schema_version: 1,
-          release_id: 'release-fixture',
+          release_id: FIXTURE_RELEASE_ID,
           page_evidence: { valid: true, publishable: false },
           corpus_release: {
             source: 'corpus-manifest.json',
@@ -322,11 +728,13 @@ test('a generated R2 release rejects raw corpus envelope drift before remote acc
           r2: {
             release_prefix: 'releases',
             current_pointer_key: 'release/current.json',
-            release_manifest_key: 'releases/release-fixture/manifest.json',
+            release_manifest_key: `releases/${FIXTURE_RELEASE_ID}/manifest.json`,
+            publication_coordination: publicationCoordination(),
             objects: [],
           },
         },
         bucket: 'fixture-bucket',
+        environment: 'preview',
         bootstrap: true,
         root: fixtureRoot,
         pageEvidenceValidator: () => ({ valid: true, publishable: false }),
@@ -445,7 +853,7 @@ test('a staging failure leaves the existing current pointer untouched', async ()
         role: `asset_${index + 1}`,
         source,
         key: `quality/${source}`,
-        release_key: `releases/release-fixture/quality/${source}`,
+        release_key: `releases/${FIXTURE_RELEASE_ID}/quality/${source}`,
         content_type: 'application/json',
         sha256: createHash('sha256').update(buffer).digest('hex'),
         bytes: buffer.length,
@@ -494,7 +902,7 @@ test('a staging failure leaves the existing current pointer untouched', async ()
     await writeFile(join(fixtureRoot, 'corpus-manifest.json'), corpusBuffer);
     const manifest = {
       schema_version: 1,
-      release_id: 'release-fixture',
+      release_id: FIXTURE_RELEASE_ID,
       page_evidence: { valid: true, publishable: false },
       corpus_release: {
         source: 'corpus-manifest.json',
@@ -507,33 +915,47 @@ test('a staging failure leaves the existing current pointer untouched', async ()
       r2: {
         release_prefix: 'releases',
         current_pointer_key: 'release/current.json',
-        release_manifest_key: 'releases/release-fixture/manifest.json',
+        release_manifest_key: `releases/${FIXTURE_RELEASE_ID}/manifest.json`,
+        publication_coordination: publicationCoordination(),
         objects,
       },
     };
 
-    const oldManifest = Buffer.from('{"release_id":"release-old"}\n');
+    const oldReleaseId = `release-${'1'.repeat(32)}`;
+    const oldManifest = Buffer.from(`{"release_id":"${oldReleaseId}"}\n`);
     const oldPointer = Buffer.from(`${JSON.stringify({
       schema_version: 1,
-      release_id: 'release-old',
-      release_manifest_key: 'releases/release-old/manifest.json',
+      release_id: oldReleaseId,
+      release_manifest_key: `releases/${oldReleaseId}/manifest.json`,
       release_manifest_sha256: createHash('sha256').update(oldManifest).digest('hex'),
       release_manifest_bytes: oldManifest.length,
+      managed_object_count: 1,
+      published_at: '2026-07-17T00:00:00.000Z',
     })}\n`);
     const putKeys = [];
+    const remoteObjects = new Map([
+      ['release/current.json', oldPointer],
+      [`releases/${oldReleaseId}/manifest.json`, oldManifest],
+    ]);
     const runCommand = (_command, arguments_) => {
+      if (arguments_.includes('d1')) {
+        return { status: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+      }
       const objectIndex = arguments_.indexOf('object');
       const operation = arguments_[objectIndex + 1];
       const objectPath = arguments_[objectIndex + 2];
       const key = objectPath.slice(objectPath.indexOf('/') + 1);
       if (operation === 'get') {
-        if (key === 'release/current.json') return { status: 0, stdout: oldPointer, stderr: Buffer.alloc(0) };
-        if (key === 'releases/release-old/manifest.json') return { status: 0, stdout: oldManifest, stderr: Buffer.alloc(0) };
+        if (remoteObjects.has(key)) {
+          return { status: 0, stdout: remoteObjects.get(key), stderr: Buffer.alloc(0) };
+        }
         return { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.from('NoSuchKey') };
       }
       if (operation === 'put') {
         putKeys.push(key);
         if (putKeys.length === 2) return { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.from('simulated staging failure') };
+        const fileIndex = arguments_.indexOf('--file');
+        remoteObjects.set(key, readFileSync(arguments_[fileIndex + 1]));
         return { status: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
       }
       throw new Error(`unexpected operation ${operation}`);
@@ -543,15 +965,16 @@ test('a staging failure leaves the existing current pointer untouched', async ()
       publishVersionedRelease({
         manifest,
         bucket: 'fixture-bucket',
+        environment: 'preview',
         root: fixtureRoot,
         runCommand,
         pageEvidenceValidator: () => manifest.page_evidence,
       }),
-      /R2 put releases\/release-fixture\/quality\/asset-2\.json failed/,
+      new RegExp(`R2 put releases/${FIXTURE_RELEASE_ID}/quality/asset-2\\.json failed`),
     );
     assert.deepEqual(putKeys, [
-      'releases/release-fixture/quality/asset-1.json',
-      'releases/release-fixture/quality/asset-2.json',
+      `releases/${FIXTURE_RELEASE_ID}/quality/asset-1.json`,
+      `releases/${FIXTURE_RELEASE_ID}/quality/asset-2.json`,
     ]);
     assert.equal(putKeys.includes('release/current.json'), false);
   } finally {

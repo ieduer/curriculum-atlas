@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 
-import { createHash } from 'node:crypto';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { tmpdir } from 'node:os';
+import { createHash, randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import {
@@ -15,9 +14,15 @@ import {
   assertPageEvidenceReleaseMode,
   validatePageEvidenceForRelease,
 } from './page-evidence-release-hook.mjs';
+import {
+  createImmutableBufferSnapshot,
+  createImmutableFileSnapshot,
+} from './lib/immutable-release-snapshot.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const MAX_OBJECT_BYTES = 64 * 1024 * 1024;
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const RELEASE_ID_PATTERN = /^release-[a-f0-9]{32}$/;
 
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
@@ -86,6 +91,24 @@ function putRemoteObject(bucket, key, source, contentType, options) {
   });
 }
 
+function runPublicationLeaseCommand({ database, environment, command, root, runCommand, operation }) {
+  const arguments_ = ['d1', 'execute', database];
+  if (environment === 'preview') arguments_.push('--env', 'preview');
+  arguments_.push('--remote', '--command', command);
+  return runWrangler(arguments_, { root, runCommand, operation });
+}
+
+function sameOptionalBuffer(left, right) {
+  if (left === null || right === null) return left === right;
+  return left.byteLength === right.byteLength && left.equals(right);
+}
+
+function canonicalIsoTimestamp(value) {
+  if (typeof value !== 'string') return false;
+  const epoch = Date.parse(value);
+  return Number.isFinite(epoch) && new Date(epoch).toISOString() === value;
+}
+
 function environmentForBucket(manifest, bucket, requestedEnvironment) {
   const configured = Object.entries(manifest.r2.buckets || {}).find(([, configuredBucket]) => configuredBucket === bucket)?.[0];
   if (!configured) throw new Error(`bucket is not registered in the release policy: ${bucket}`);
@@ -123,7 +146,8 @@ export function assertReleaseSourceReady(manifest) {
 }
 
 function validateVersionedManifest(manifest) {
-  if (!manifest.release_id || !Array.isArray(manifest.r2?.objects)) throw new Error('invalid release manifest');
+  if (!RELEASE_ID_PATTERN.test(String(manifest.release_id || ''))
+    || !Array.isArray(manifest.r2?.objects)) throw new Error('invalid release manifest');
   const prefix = `${manifest.r2.release_prefix}/${manifest.release_id}/`;
   if (!manifest.r2.current_pointer_key || !manifest.r2.release_manifest_key) {
     throw new Error('release manifest is missing current pointer or versioned manifest key');
@@ -139,7 +163,7 @@ function validateVersionedManifest(manifest) {
   if (releaseKeys.includes(manifest.r2.release_manifest_key)) throw new Error('managed object collides with versioned release manifest key');
 }
 
-function parseCurrentPointer(buffer, pointerKey) {
+function parseCurrentPointer(buffer, pointerKey, releasePrefix) {
   let parsed;
   try {
     parsed = JSON.parse(buffer.toString('utf8'));
@@ -148,16 +172,37 @@ function parseCurrentPointer(buffer, pointerKey) {
   }
   if (
     parsed.schema_version !== 1
-    || typeof parsed.release_id !== 'string'
-    || typeof parsed.release_manifest_key !== 'string'
-    || typeof parsed.release_manifest_sha256 !== 'string'
+    || !RELEASE_ID_PATTERN.test(String(parsed.release_id || ''))
+    || parsed.release_manifest_key !== `${releasePrefix}/${parsed.release_id}/manifest.json`
+    || !SHA256_PATTERN.test(String(parsed.release_manifest_sha256 || ''))
     || !Number.isSafeInteger(parsed.release_manifest_bytes)
+    || parsed.release_manifest_bytes <= 0
+    || !Number.isSafeInteger(parsed.managed_object_count)
+    || parsed.managed_object_count <= 0
+    || !canonicalIsoTimestamp(parsed.published_at)
   ) throw new Error(`remote ${pointerKey} is not a supported release pointer`);
   return parsed;
 }
 
-function manifestArtifact(manifest) {
-  const buffer = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`);
+export function immutableVersionedManifest(manifest) {
+  return {
+    schema_version: manifest.schema_version,
+    policy: manifest.policy,
+    release_id: manifest.release_id,
+    release_identity: manifest.release_identity,
+    git: { head: manifest.git?.head || null },
+    source_tree: manifest.source_tree,
+    corpus_release: manifest.corpus_release,
+    page_evidence: manifest.page_evidence,
+    data_assets: manifest.data_assets,
+    graph_assets: manifest.graph_assets,
+    static_assets: manifest.static_assets,
+    r2: manifest.r2,
+  };
+}
+
+export function immutableVersionedManifestArtifact(manifest) {
+  const buffer = Buffer.from(`${JSON.stringify(immutableVersionedManifest(manifest), null, 2)}\n`);
   return {
     buffer,
     sha256: sha256(buffer),
@@ -165,14 +210,88 @@ function manifestArtifact(manifest) {
   };
 }
 
-async function verifyLocalObjects(root, objects) {
-  for (const object of objects) {
-    const buffer = await readFile(resolve(root, object.source));
-    assertBufferParity(object, buffer, `local ${object.source}`);
-  }
+function sql(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
 }
 
-async function verifyLocalCorpusEnvelope(root, expected) {
+function normalizePublicationCoordination(manifest, environment) {
+  const coordination = manifest.r2?.publication_coordination;
+  if (!coordination || coordination.policy !== 'd1_single_writer_lease_v1') {
+    throw new Error('release manifest lacks d1_single_writer_lease_v1 publication coordination');
+  }
+  if (!['preview', 'production'].includes(environment)) {
+    throw new Error(`publication environment is invalid: ${environment || '<unset>'}`);
+  }
+  const database = String(coordination.databases?.[environment] || '');
+  if (!/^[a-z0-9][a-z0-9-]{2,127}$/.test(database)) {
+    throw new Error(`publication coordination database is invalid for ${environment}`);
+  }
+  const leaseKey = String(coordination.lease_key || '');
+  if (!/^[a-z0-9][a-z0-9_:-]{2,127}$/.test(leaseKey)) {
+    throw new Error('publication coordination lease key is invalid');
+  }
+  const ttl = coordination.lease_ttl_seconds;
+  if (!Number.isSafeInteger(ttl) || ttl < 60 || ttl > 7200) {
+    throw new Error('publication coordination lease TTL is invalid');
+  }
+  return { database, lease_key: leaseKey, lease_ttl_seconds: ttl };
+}
+
+export function buildPublicationLeaseAcquireSql({ leaseKey, token, releaseId, ttlSeconds }) {
+  const now = "CAST(strftime('%s','now') AS INTEGER)";
+  return `DELETE FROM corpus_import_guards WHERE guard_key='r2_publication_lease';
+INSERT INTO corpus_import_guards(guard_key,ok)
+SELECT 'r2_publication_lease',CASE WHEN
+  NOT EXISTS(SELECT 1 FROM site_meta WHERE key=${sql(leaseKey)})
+  OR EXISTS(
+    SELECT 1 FROM site_meta WHERE key=${sql(leaseKey)}
+      AND json_valid(value)
+      AND json_extract(value,'$.policy')='d1_single_writer_lease_v1'
+      AND (
+        json_extract(value,'$.token')=${sql(token)}
+        OR CAST(json_extract(value,'$.expires_unix') AS INTEGER)<=${now}
+      )
+  )
+THEN 1 ELSE 0 END;
+INSERT INTO site_meta(key,value) VALUES(
+  ${sql(leaseKey)},
+  json_object(
+    'policy','d1_single_writer_lease_v1',
+    'token',${sql(token)},
+    'release_id',${sql(releaseId)},
+    'expires_unix',${now}+${ttlSeconds}
+  )
+) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=CURRENT_TIMESTAMP;
+DELETE FROM corpus_import_guards WHERE guard_key='r2_publication_lease';`;
+}
+
+export function buildPublicationLeaseRenewSql({ leaseKey, token, releaseId, ttlSeconds }) {
+  const now = "CAST(strftime('%s','now') AS INTEGER)";
+  return `DELETE FROM corpus_import_guards WHERE guard_key='r2_publication_lease';
+INSERT INTO corpus_import_guards(guard_key,ok)
+SELECT 'r2_publication_lease',CASE WHEN EXISTS(
+  SELECT 1 FROM site_meta WHERE key=${sql(leaseKey)}
+    AND json_valid(value)
+    AND json_extract(value,'$.policy')='d1_single_writer_lease_v1'
+    AND json_extract(value,'$.token')=${sql(token)}
+    AND json_extract(value,'$.release_id')=${sql(releaseId)}
+    AND CAST(json_extract(value,'$.expires_unix') AS INTEGER)>${now}
+) THEN 1 ELSE 0 END;
+UPDATE site_meta SET value=json_set(value,'$.expires_unix',${now}+${ttlSeconds}),updated_at=CURRENT_TIMESTAMP
+WHERE key=${sql(leaseKey)} AND json_extract(value,'$.token')=${sql(token)};
+DELETE FROM corpus_import_guards WHERE guard_key='r2_publication_lease';`;
+}
+
+export function buildPublicationLeaseReleaseSql({ leaseKey, token, releaseId }) {
+  return `DELETE FROM site_meta
+WHERE key=${sql(leaseKey)}
+  AND json_valid(value)
+  AND json_extract(value,'$.policy')='d1_single_writer_lease_v1'
+  AND json_extract(value,'$.token')=${sql(token)}
+  AND json_extract(value,'$.release_id')=${sql(releaseId)};`;
+}
+
+async function snapshotLocalCorpusEnvelope(root, expected) {
   if (!expected || typeof expected !== 'object') {
     throw new Error('release manifest is missing its corpus_release binding');
   }
@@ -183,21 +302,31 @@ async function verifyLocalCorpusEnvelope(root, expected) {
       || relativeToRoot.startsWith(`..${sep}`) || isAbsolute(relativeToRoot)) {
     throw new Error('corpus_release.source must be project-relative and remain inside root');
   }
-  const buffer = await readFile(absolute);
-  assertBufferParity(expected, buffer, `local corpus envelope ${source}`);
-  let parsed;
+  const snapshot = await createImmutableFileSnapshot({
+    root,
+    source,
+    expected,
+    label: `local corpus envelope ${source}`,
+  });
   try {
-    parsed = JSON.parse(buffer.toString('utf8'));
-  } catch (error) {
-    throw new Error(`local corpus envelope is not valid JSON: ${error.message}`);
-  }
-  const manifest = validateCorpusManifest(parsed);
-  for (const key of ['release_id', 'release_fingerprint_sha256', 'manifest_sha256']) {
-    if (expected[key] !== manifest[key]) {
-      throw new Error(`local corpus envelope ${key} does not match generated release manifest`);
+    const buffer = await readFile(snapshot.path);
+    let parsed;
+    try {
+      parsed = JSON.parse(buffer.toString('utf8'));
+    } catch (error) {
+      throw new Error(`local corpus envelope is not valid JSON: ${error.message}`);
     }
+    const manifest = validateCorpusManifest(parsed);
+    for (const key of ['release_id', 'release_fingerprint_sha256', 'manifest_sha256']) {
+      if (expected[key] !== manifest[key]) {
+        throw new Error(`local corpus envelope ${key} does not match generated release manifest`);
+      }
+    }
+    return { manifest, snapshot };
+  } catch (error) {
+    await snapshot.cleanup();
+    throw error;
   }
-  return manifest;
 }
 
 function inspectImmutableRemoteObject(bucket, key, expected, options) {
@@ -218,6 +347,7 @@ async function verifyVersionedObjects(bucket, objects, options) {
 export async function publishVersionedRelease({
   manifest,
   bucket,
+  environment = null,
   bootstrap = false,
   root = DEFAULT_ROOT,
   runCommand = spawnSync,
@@ -231,6 +361,8 @@ export async function publishVersionedRelease({
   assertPageEvidenceReleaseMode(manifest.page_evidence, { pageEvidencePromotion });
   const projectRoot = resolve(root);
   const commandOptions = { root: projectRoot, runCommand };
+  const selectedEnvironment = environment || environmentForBucket(manifest, bucket, null);
+  const coordination = normalizePublicationCoordination(manifest, selectedEnvironment);
   const currentPageEvidence = await pageEvidenceValidator({
     root: projectRoot,
     pageEvidencePromotion,
@@ -241,96 +373,217 @@ export async function publishVersionedRelease({
   if (JSON.stringify(currentPageEvidence) !== JSON.stringify(manifest.page_evidence)) {
     throw new Error('page-evidence state changed after release-manifest generation');
   }
-  await verifyLocalCorpusEnvelope(projectRoot, manifest.corpus_release);
-  await verifyLocalObjects(projectRoot, manifest.r2.objects);
-  process.stdout.write(`[preflight] local manifest parity exact for ${manifest.r2.objects.length} objects\n`);
-
-  const previousPointerBuffer = getRemoteObject(bucket, manifest.r2.current_pointer_key, {
-    ...commandOptions,
-    allowMissing: true,
-  });
-  if (previousPointerBuffer === null && !bootstrap) {
-    throw new Error(`remote ${manifest.r2.current_pointer_key} is missing; first versioned publish requires explicit --bootstrap`);
-  }
-  if (previousPointerBuffer !== null) {
-    const previousPointer = parseCurrentPointer(previousPointerBuffer, manifest.r2.current_pointer_key);
-    const previousManifest = getRemoteObject(bucket, previousPointer.release_manifest_key, commandOptions);
-    assertBufferParity({
-      sha256: previousPointer.release_manifest_sha256,
-      bytes: previousPointer.release_manifest_bytes,
-    }, previousManifest, `currently published release manifest ${previousPointer.release_manifest_key}`);
-    process.stdout.write(`[preflight] current pointer remains valid at ${previousPointer.release_id}\n`);
-  }
-
-  const manifestFile = manifestArtifact(manifest);
-  const alreadyStaged = new Set();
-  for (const object of manifest.r2.objects) {
-    if (inspectImmutableRemoteObject(bucket, object.release_key, object, commandOptions)) {
-      alreadyStaged.add(object.release_key);
-      process.stdout.write(`[preflight] immutable object already exact ${object.release_key}\n`);
-    } else {
-      process.stdout.write(`[preflight] immutable object missing ${object.release_key}\n`);
-    }
-  }
-  const manifestAlreadyStaged = inspectImmutableRemoteObject(
-    bucket,
-    manifest.r2.release_manifest_key,
-    manifestFile,
-    commandOptions,
+  const { snapshot: corpusSnapshot } = await snapshotLocalCorpusEnvelope(
+    projectRoot,
+    manifest.corpus_release,
   );
-  process.stdout.write(`[preflight] immutable manifest ${manifestAlreadyStaged ? 'already exact' : 'missing'} ${manifest.r2.release_manifest_key}\n`);
-
-  for (const [index, object] of manifest.r2.objects.entries()) {
-    if (alreadyStaged.has(object.release_key)) continue;
-    const currentLocal = await readFile(resolve(projectRoot, object.source));
-    assertBufferParity(object, currentLocal, `local immediately before staging ${object.source}`);
-    process.stdout.write(`[stage ${index + 1}/${manifest.r2.objects.length}] ${object.release_key}\n`);
-    putRemoteObject(bucket, object.release_key, resolve(projectRoot, object.source), object.content_type, commandOptions);
-  }
-  await verifyVersionedObjects(bucket, manifest.r2.objects, commandOptions);
-
-  const temporaryDirectory = await mkdtemp(join(tmpdir(), 'curriculum-release-manifest-'));
+  const objectSnapshots = [];
+  let manifestSnapshot = null;
+  let pointerSnapshot = null;
+  let leaseAcquired = false;
+  let caughtError = null;
+  const token = randomUUID();
+  const leaseOptions = {
+    leaseKey: coordination.lease_key,
+    token,
+    releaseId: manifest.release_id,
+    ttlSeconds: coordination.lease_ttl_seconds,
+  };
+  const leaseCommand = (command, operation) => runPublicationLeaseCommand({
+    database: coordination.database,
+    environment: selectedEnvironment,
+    command,
+    root: projectRoot,
+    runCommand,
+    operation,
+  });
   try {
-    const manifestFilePath = join(temporaryDirectory, 'manifest.json');
-    await writeFile(manifestFilePath, manifestFile.buffer);
+    for (const object of manifest.r2.objects) {
+      objectSnapshots.push({
+        object,
+        snapshot: await createImmutableFileSnapshot({
+          root: projectRoot,
+          source: object.source,
+          expected: object,
+          label: `R2 release object ${object.source}`,
+        }),
+      });
+    }
+    const manifestFile = immutableVersionedManifestArtifact(manifest);
+    manifestSnapshot = await createImmutableBufferSnapshot({
+      buffer: manifestFile.buffer,
+      label: 'immutable versioned release manifest',
+    });
+    await corpusSnapshot.verify();
+    for (const { snapshot } of objectSnapshots) await snapshot.verify();
+    await manifestSnapshot.verify();
+    process.stdout.write(`[preflight] private fixed snapshots sealed for ${manifest.r2.objects.length} objects\n`);
+
+    leaseCommand(buildPublicationLeaseAcquireSql(leaseOptions), 'acquire D1 publication lease');
+    leaseAcquired = true;
+    const renewLease = () => leaseCommand(
+      buildPublicationLeaseRenewSql(leaseOptions),
+      'renew D1 publication lease',
+    );
+
+    const previousPointerBuffer = getRemoteObject(bucket, manifest.r2.current_pointer_key, {
+      ...commandOptions,
+      allowMissing: true,
+    });
+    if (previousPointerBuffer === null && !bootstrap) {
+      throw new Error(`remote ${manifest.r2.current_pointer_key} is missing; first versioned publish requires explicit --bootstrap`);
+    }
+    let previousPointer = null;
+    if (previousPointerBuffer !== null) {
+      previousPointer = parseCurrentPointer(
+        previousPointerBuffer,
+        manifest.r2.current_pointer_key,
+        manifest.r2.release_prefix,
+      );
+      const previousManifest = getRemoteObject(bucket, previousPointer.release_manifest_key, commandOptions);
+      assertBufferParity({
+        sha256: previousPointer.release_manifest_sha256,
+        bytes: previousPointer.release_manifest_bytes,
+      }, previousManifest, `currently published release manifest ${previousPointer.release_manifest_key}`);
+      process.stdout.write(`[preflight] current pointer remains valid at ${previousPointer.release_id}\n`);
+    }
+
+    const alreadyStaged = new Set();
+    for (const object of manifest.r2.objects) {
+      if (inspectImmutableRemoteObject(bucket, object.release_key, object, commandOptions)) {
+        alreadyStaged.add(object.release_key);
+        process.stdout.write(`[preflight] immutable object already exact ${object.release_key}\n`);
+      } else {
+        process.stdout.write(`[preflight] immutable object missing ${object.release_key}\n`);
+      }
+    }
+    let manifestAlreadyStaged = inspectImmutableRemoteObject(
+      bucket,
+      manifest.r2.release_manifest_key,
+      manifestFile,
+      commandOptions,
+    );
+    process.stdout.write(`[preflight] immutable manifest ${manifestAlreadyStaged ? 'already exact' : 'missing'} ${manifest.r2.release_manifest_key}\n`);
+
+    let uploadedObjects = 0;
+    for (const [index, { object, snapshot }] of objectSnapshots.entries()) {
+      if (alreadyStaged.has(object.release_key)) continue;
+      renewLease();
+      if (inspectImmutableRemoteObject(bucket, object.release_key, object, commandOptions)) {
+        alreadyStaged.add(object.release_key);
+        continue;
+      }
+      await snapshot.verify();
+      process.stdout.write(`[stage ${index + 1}/${manifest.r2.objects.length}] ${object.release_key}\n`);
+      putRemoteObject(bucket, object.release_key, snapshot.path, object.content_type, commandOptions);
+      await snapshot.verify();
+      const remote = getRemoteObject(bucket, object.release_key, commandOptions);
+      assertBufferParity(object, remote, `remote staged object ${object.release_key}`);
+      uploadedObjects += 1;
+    }
+    await verifyVersionedObjects(bucket, manifest.r2.objects, commandOptions);
+
     if (!manifestAlreadyStaged) {
-      putRemoteObject(bucket, manifest.r2.release_manifest_key, manifestFilePath, 'application/json', commandOptions);
+      renewLease();
+      manifestAlreadyStaged = inspectImmutableRemoteObject(
+        bucket,
+        manifest.r2.release_manifest_key,
+        manifestFile,
+        commandOptions,
+      );
+      if (!manifestAlreadyStaged) {
+        await manifestSnapshot.verify();
+        putRemoteObject(
+          bucket,
+          manifest.r2.release_manifest_key,
+          manifestSnapshot.path,
+          'application/json',
+          commandOptions,
+        );
+        await manifestSnapshot.verify();
+      }
     }
     const remoteManifest = getRemoteObject(bucket, manifest.r2.release_manifest_key, commandOptions);
     assertBufferParity(manifestFile, remoteManifest, `remote staged manifest ${manifest.r2.release_manifest_key}`);
 
-    const pointer = {
-      schema_version: 1,
-      release_id: manifest.release_id,
-      release_manifest_key: manifest.r2.release_manifest_key,
-      release_manifest_sha256: manifestFile.sha256,
-      release_manifest_bytes: manifestFile.bytes,
-      managed_object_count: manifest.r2.objects.length,
-      published_at: publishedAt,
-    };
-    const pointerBuffer = Buffer.from(`${JSON.stringify(pointer, null, 2)}\n`);
-    const pointerFilePath = join(temporaryDirectory, 'current.json');
-    await writeFile(pointerFilePath, pointerBuffer);
-
-    // This is the only mutable write. R2 object replacement is atomic, and it occurs
-    // only after every immutable object and the full release manifest passed readback.
-    putRemoteObject(bucket, manifest.r2.current_pointer_key, pointerFilePath, 'application/json', commandOptions);
-    const remotePointer = getRemoteObject(bucket, manifest.r2.current_pointer_key, commandOptions);
-    assertBufferParity({ sha256: sha256(pointerBuffer), bytes: pointerBuffer.length }, remotePointer, `remote current pointer ${manifest.r2.current_pointer_key}`);
-    const parsedPointer = parseCurrentPointer(remotePointer, manifest.r2.current_pointer_key);
-    if (parsedPointer.release_id !== manifest.release_id || parsedPointer.release_manifest_key !== manifest.r2.release_manifest_key) {
-      throw new Error('current pointer does not identify the staged release');
+    const alreadyActivated = previousPointer
+      && previousPointer.release_id === manifest.release_id
+      && previousPointer.release_manifest_key === manifest.r2.release_manifest_key
+      && previousPointer.release_manifest_sha256 === manifestFile.sha256
+      && previousPointer.release_manifest_bytes === manifestFile.bytes
+      && previousPointer.managed_object_count === manifest.r2.objects.length;
+    if (!alreadyActivated) {
+      renewLease();
+      const pointerImmediatelyBeforeActivation = getRemoteObject(
+        bucket,
+        manifest.r2.current_pointer_key,
+        { ...commandOptions, allowMissing: true },
+      );
+      if (!sameOptionalBuffer(previousPointerBuffer, pointerImmediatelyBeforeActivation)) {
+        throw new Error('current pointer changed after lease acquisition; refusing lost-update activation');
+      }
+      const pointer = {
+        schema_version: 1,
+        release_id: manifest.release_id,
+        release_manifest_key: manifest.r2.release_manifest_key,
+        release_manifest_sha256: manifestFile.sha256,
+        release_manifest_bytes: manifestFile.bytes,
+        managed_object_count: manifest.r2.objects.length,
+        published_at: publishedAt,
+      };
+      const pointerBuffer = Buffer.from(`${JSON.stringify(pointer, null, 2)}\n`);
+      pointerSnapshot = await createImmutableBufferSnapshot({
+        buffer: pointerBuffer,
+        label: 'R2 current release pointer',
+      });
+      await pointerSnapshot.verify();
+      putRemoteObject(
+        bucket,
+        manifest.r2.current_pointer_key,
+        pointerSnapshot.path,
+        'application/json',
+        commandOptions,
+      );
+      await pointerSnapshot.verify();
+      const remotePointer = getRemoteObject(bucket, manifest.r2.current_pointer_key, commandOptions);
+      assertBufferParity(pointerSnapshot, remotePointer, `remote current pointer ${manifest.r2.current_pointer_key}`);
+      const parsedPointer = parseCurrentPointer(
+        remotePointer,
+        manifest.r2.current_pointer_key,
+        manifest.r2.release_prefix,
+      );
+      if (parsedPointer.release_id !== manifest.release_id || parsedPointer.release_manifest_key !== manifest.r2.release_manifest_key) {
+        throw new Error('current pointer does not identify the staged release');
+      }
     }
-    process.stdout.write(`[activated] ${manifest.r2.current_pointer_key} release=${manifest.release_id}\n`);
-  } finally {
-    await rm(temporaryDirectory, { recursive: true, force: true });
-  }
+    process.stdout.write(`[activated] ${manifest.r2.current_pointer_key} release=${manifest.release_id}${alreadyActivated ? ' already-exact' : ''}\n`);
 
-  return {
-    release_id: manifest.release_id,
-    uploaded_objects: manifest.r2.objects.length - alreadyStaged.size,
-    current_pointer_key: manifest.r2.current_pointer_key,
-  };
+    return {
+      release_id: manifest.release_id,
+      uploaded_objects: uploadedObjects,
+      current_pointer_key: manifest.r2.current_pointer_key,
+      coordination: 'd1_single_writer_lease_v1',
+    };
+  } catch (error) {
+    caughtError = error;
+    throw error;
+  } finally {
+    let releaseError = null;
+    if (leaseAcquired) {
+      try {
+        leaseCommand(buildPublicationLeaseReleaseSql(leaseOptions), 'release D1 publication lease');
+      } catch (error) {
+        releaseError = error;
+      }
+    }
+    await Promise.allSettled([
+      corpusSnapshot.cleanup(),
+      ...objectSnapshots.map(({ snapshot }) => snapshot.cleanup()),
+      manifestSnapshot?.cleanup(),
+      pointerSnapshot?.cleanup(),
+    ].filter(Boolean));
+    if (releaseError && !caughtError) throw releaseError;
+  }
 }
 
 export async function publishMetadata({
@@ -359,6 +612,7 @@ export async function publishMetadata({
   const result = await publishVersionedRelease({
     manifest,
     bucket,
+    environment: selectedEnvironment,
     bootstrap,
     root: projectRoot,
     runCommand,

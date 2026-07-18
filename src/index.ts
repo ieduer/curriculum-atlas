@@ -261,7 +261,14 @@ async function health(env: Env): Promise<Response> {
   const expectedCoreCounts = parseCoreTableCounts(corpus?.expected_core_counts_json);
   const actualCoreCounts = parseCoreTableCounts(corpus?.actual_core_counts_json);
   const liveCoreCounts = parseCoreTableCounts(corpus?.live_core_counts_json);
-  const releaseSourceReady = /^[a-f0-9]{40}$/.test(env.RELEASE_GIT_COMMIT || '');
+  const releaseSourceReady = /^[a-f0-9]{40}$/.test(env.RELEASE_GIT_COMMIT || '')
+    && R2_RELEASE_ID_PATTERN.test(env.RELEASE_ID || '')
+    && SHA256_PATTERN.test(env.RELEASE_MANIFEST_SHA256 || '')
+    && SHA256_PATTERN.test(env.RELEASE_SOURCE_TREE_SHA256 || '')
+    && /^corpus-[a-f0-9]{24}$/.test(env.CORPUS_RELEASE_ID || '')
+    && SHA256_PATTERN.test(env.CORPUS_MANIFEST_SHA256 || '')
+    && env.CORPUS_RELEASE_ID === corpus?.release_id
+    && env.CORPUS_MANIFEST_SHA256 === corpus?.manifest_sha256;
   return json({
     ok: schemaReady && classificationReady && corpusReady && releaseSourceReady,
     service: 'bdfz-curriculum-atlas',
@@ -269,6 +276,11 @@ async function health(env: Env): Promise<Response> {
     environment: env.ENVIRONMENT,
     release: {
       gitCommit: releaseSourceReady ? env.RELEASE_GIT_COMMIT : null,
+      releaseId: releaseSourceReady ? env.RELEASE_ID : null,
+      releaseManifestSha256: releaseSourceReady ? env.RELEASE_MANIFEST_SHA256 : null,
+      sourceTreeSha256: releaseSourceReady ? env.RELEASE_SOURCE_TREE_SHA256 : null,
+      corpusReleaseId: releaseSourceReady ? env.CORPUS_RELEASE_ID : null,
+      corpusManifestSha256: releaseSourceReady ? env.CORPUS_MANIFEST_SHA256 : null,
       r2Reader: 'versioned_manifest_v1',
     },
     schemaVersion: schemaMeta.get('schema_version') || null,

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
@@ -11,30 +12,29 @@ async function source(locator) {
 test('formal verify has an explicit ordinary page-evidence gate and dedicated promotion commands', async () => {
   const packageJson = JSON.parse(await source('package.json'));
   assert.match(packageJson.scripts.verify, /page-evidence:validate/);
+  for (const name of ['metadata:publish:preview', 'metadata:publish:production', 'deploy:preview', 'deploy:production']) {
+    assert.doesNotMatch(packageJson.scripts[name], /--page-evidence-promotion/, `${name} must remain ordinary`);
+  }
   assert.match(packageJson.scripts['deploy:page-evidence:preview'], /--page-evidence-promotion/);
   assert.match(packageJson.scripts['deploy:page-evidence:production'], /--page-evidence-promotion/);
 });
 
-test('direct corpus build cannot bypass ordinary or promotion page-evidence mode', async () => {
-  const value = await source('scripts/build-corpus.mjs');
-  assert.match(value, /validatePageEvidenceForRelease/);
-  assert.match(value, /--page-evidence-promotion/);
-});
+test('real page-evidence CLI accepts ordinary mode and fails closed for unavailable promotion', () => {
+  const ordinary = spawnSync(process.execPath, ['scripts/page-evidence-release-hook.mjs', '--mode', 'ordinary'], {
+    cwd: new URL('../', import.meta.url),
+    encoding: 'utf8',
+  });
+  assert.equal(ordinary.status, 0, ordinary.stderr);
+  const ordinaryResult = JSON.parse(ordinary.stdout);
+  assert.equal(ordinaryResult.valid, true);
+  assert.equal(ordinaryResult.publishable, false);
 
-test('direct corpus import validates page evidence before any remote D1 command', async () => {
-  const value = await source('scripts/import-corpus.mjs');
-  const main = value.slice(value.indexOf('async function main()'));
-  const gate = main.indexOf('validatePageEvidenceForRelease(');
-  const firstRemote = main.indexOf("runWrangler(root, database");
-  assert.ok(gate >= 0 && firstRemote > gate, 'page-evidence import gate must precede remote D1 execution');
-});
-
-test('direct release-manifest and Worker deploy entrypoints carry the same explicit mode', async () => {
-  for (const locator of ['scripts/build-release-manifest.mjs', 'scripts/deploy-worker.mjs']) {
-    const value = await source(locator);
-    assert.match(value, /validatePageEvidenceForRelease/);
-    assert.match(value, /pageEvidencePromotion/);
-  }
+  const promotion = spawnSync(process.execPath, ['scripts/page-evidence-release-hook.mjs', '--mode', 'promotion'], {
+    cwd: new URL('../', import.meta.url),
+    encoding: 'utf8',
+  });
+  assert.equal(promotion.status, 1);
+  assert.match(promotion.stderr, /promotion requires a valid publication_candidate/);
 });
 
 test('shared hook rejects publishable evidence in ordinary mode and nonpublishable evidence in promotion mode', async () => {

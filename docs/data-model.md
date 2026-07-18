@@ -51,7 +51,7 @@ D1 的规范结构由 `migrations/0001_initial.sql` 至 `0007_document_taxonomy_
 
 ## R2 release identity
 
-R2 不是 D1 的来源真相，只保存可公开重建的质量元数据。每个对象发布到 `releases/<release_id>/...`，完整 manifest 与对象 hash/bytes readback 通过后，才原子更新 `release/current.json`。Worker 若看到 pointer，就必须完整验证 pointer、manifest 与目标对象；pointer 损坏时不允许回退旧 fixed key。
+R2 不是 D1 的来源真相，只保存可公开重建的质量元数据。每个对象发布到 `releases/<release_id>/...`；publisher 先取得环境 D1 的 cooperative single-writer lease，从私有只读快照写入并完成 manifest 与对象 hash/bytes readback，随后再次核对同一 predecessor pointer 的原始 bytes，才更新 `release/current.json`。同一 release id 的 immutable manifest 使用不含观测时间的稳定投影，已有 key 若非逐字节相同必须拒绝而非覆盖。Worker 若看到 pointer，就必须完整验证 pointer、manifest 与目标对象；pointer 损坏时不允许回退旧 fixed key。
 
 Production current 为 `release-9cb02f77c06ee0535e7981a22b312373`；preview current 为 `release-841a528f0086ce69f2f7a6f2d07c0999`。`data/release-environment-evidence.json` 保存采集时的 pointer snapshot：production 首次 bootstrap 与 preview successor activation 都发生在 evidence 之后，因此当前 R2 identity 必须结合 append-only post-activation readback，而不能只读 evidence 内的旧 pointer 字段。
 

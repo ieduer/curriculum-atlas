@@ -22,6 +22,7 @@ import {
   semanticDocumentDisposition,
 } from './semantic-publication-gate.mjs';
 import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
+import { computeCorpusReleaseFingerprint } from './lib/corpus-release-fingerprint.mjs';
 
 const projectRoot = new URL('../', import.meta.url);
 const buildArguments = process.argv.slice(2);
@@ -100,19 +101,18 @@ for (const record of catalog.documents) {
     bytes: Buffer.byteLength(raw, 'utf8'),
   });
 }
-const corpusReleaseFingerprint = createHash('sha256').update(JSON.stringify({
+const corpusReleaseFingerprint = computeCorpusReleaseFingerprint({
   catalog,
   ingest,
-  document_sources: documentedSources,
-  subject_insights: insights,
-  online_verification_samples: onlineVerificationSamples,
-  document_classifications: [...classifications.values()],
-  page_publication_manifest: pagePublicationManifest,
-  semantic_publication_policy: semanticPublicationPolicy,
-  semantic_publication_revision_sha256: semanticPublicationGate.revision_sha256,
-  text_assets: corpusTextAssets,
-  corpus_builder_contract: 'release_snapshot_v4_reference_closure',
-})).digest('hex');
+  documentedSources,
+  insights,
+  onlineVerificationSamples,
+  classifications: [...classifications.values()],
+  pagePublicationManifest,
+  semanticPublicationPolicy,
+  semanticPublicationRevisionSha256: semanticPublicationGate.revision_sha256,
+  textAssets: corpusTextAssets,
+});
 const corpusReleaseId = `corpus-${corpusReleaseFingerprint.slice(0, 24)}`;
 const outputDir = new URL('data/corpus-chunks/', projectRoot);
 let previousCorpusManifest = null;
