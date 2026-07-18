@@ -98,6 +98,10 @@ const conceptFingerprintFiles = Object.freeze({
   corpus_manifest_gate_sha256: 'scripts/import-corpus.mjs',
   validator_sha256: 'scripts/validate-concept-evolution.mjs',
 });
+const conceptDerivedFingerprintFields = Object.freeze({
+  corpus_manifest_sha256: 'manifest_sha256',
+  corpus_release_fingerprint_sha256: 'release_fingerprint_sha256',
+});
 const conceptCoreArtifactProfile = 'curriculum-concept-evolution-core-index-v1';
 const conceptQualityArtifactProfile = 'curriculum-concept-evolution-quality-v1';
 const conceptAcademicSchema = 'curriculum-concept-evolution-academic-v2';
@@ -322,8 +326,8 @@ export function retryReconcileBusyReasons(status, ownerPid = process.pid) {
 
 function fingerprintsMatch(left, right) {
   if (!left || !right) return false;
-  return Object.keys(conceptFingerprintFiles).every((key) => /^[a-f0-9]{64}$/i.test(String(left[key] || ''))
-    && left[key] === right[key]);
+  return [...Object.keys(conceptFingerprintFiles), ...Object.keys(conceptDerivedFingerprintFields)]
+    .every((key) => /^[a-f0-9]{64}$/i.test(String(left[key] || '')) && left[key] === right[key]);
 }
 
 export function conceptCandidateCompatible({ graph, quality, manifest, currentFingerprints }) {
@@ -385,8 +389,16 @@ export function conceptCandidateCompatible({ graph, quality, manifest, currentFi
 }
 
 export async function currentConceptInputFingerprints(projectRoot = root) {
-  return Object.fromEntries(await Promise.all(Object.entries(conceptFingerprintFiles)
+  const fingerprints = Object.fromEntries(await Promise.all(Object.entries(conceptFingerprintFiles)
     .map(async ([key, relativePath]) => [key, await sha256File(path.join(projectRoot, relativePath))])));
+  const corpusManifest = await readJson(path.join(projectRoot, 'data/corpus-chunks/manifest.json'), null);
+  for (const [key, field] of Object.entries(conceptDerivedFingerprintFields)) {
+    if (!/^[a-f0-9]{64}$/i.test(String(corpusManifest?.[field] || ''))) {
+      throw new Error(`Corpus manifest is missing ${key}`);
+    }
+    fingerprints[key] = corpusManifest[field];
+  }
+  return fingerprints;
 }
 
 async function readConceptGraph() {

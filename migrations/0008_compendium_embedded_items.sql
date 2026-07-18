@@ -51,6 +51,13 @@ ALTER TABLE paragraphs ADD COLUMN embedded_item_id TEXT REFERENCES embedded_item
 CREATE INDEX IF NOT EXISTS idx_paragraphs_embedded_item
   ON paragraphs(embedded_item_id, citation_allowed, ordinal);
 
+-- Existing carrier-level discussions remain NULL-scoped. Item discussions must
+-- carry this key and are validated against both the parent document and any
+-- referenced paragraph/parent comment by the Worker before insertion.
+ALTER TABLE comments ADD COLUMN embedded_item_id TEXT REFERENCES embedded_items(id);
+CREATE INDEX IF NOT EXISTS idx_comments_item_scope
+  ON comments(document_id, embedded_item_id, paragraph_id, status, created_at);
+
 UPDATE corpus_import_releases
 SET expected_core_counts_json = json_set(expected_core_counts_json, '$.embedded_items', 0),
     actual_core_counts_json = CASE

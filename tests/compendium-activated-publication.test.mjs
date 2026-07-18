@@ -9,6 +9,7 @@ import { build } from 'esbuild';
 import { buildCompendiumCorpusProjection } from '../scripts/compendium-corpus-projection.mjs';
 import { compendiumItemCitationEntitlementSha256 } from '../scripts/compendium-evidence-receipt.mjs';
 import {
+  compendiumGraphEmbeddedItem,
   verifyCompendiumHeadingEvidence,
   verifyCompendiumItemPageEvidence,
 } from '../scripts/compendium-item-publication.mjs';
@@ -175,6 +176,31 @@ async function migratedDatabase() {
   for (const name of migrations) db.exec(await readFile(path.join(root, 'migrations', name), 'utf8'));
   return db;
 }
+
+test('compendium migration preserves legacy carrier comments as explicit null item scope', async () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec('PRAGMA foreign_keys=ON;');
+  const migrations = (await readdir(path.join(root, 'migrations'))).filter((name) => name.endsWith('.sql')).sort();
+  for (const name of migrations.filter((name) => name < '0008_compendium_embedded_items.sql')) {
+    db.exec(await readFile(path.join(root, 'migrations', name), 'utf8'));
+  }
+  db.exec(`INSERT INTO documents(
+    id,title,subject,stage,document_type,version_label,issued_by,current_status,source_tier,
+    access_status,source_page_url,source_url,file_format,redistribution,text_quality_status,citation_allowed
+  ) VALUES('legacy-carrier','历史载体','语文','小学','课程标准汇编','历史版','课程教材研究所',
+    'historical','archival_scan','verified_local','https://example.test/page','https://example.test/file',
+    'pdf','metadata_only','ocr_required',0);
+  INSERT INTO comments(id,document_id,author_name,author_kind,body,status)
+    VALUES('legacy-comment','legacy-carrier','教师','authenticated','迁移前的载体讨论','approved');`);
+  db.exec(await readFile(path.join(root, 'migrations/0008_compendium_embedded_items.sql'), 'utf8'));
+  assert.deepEqual(
+    { ...db.prepare("SELECT id,embedded_item_id FROM comments WHERE id='legacy-comment'").get() },
+    { id: 'legacy-comment', embedded_item_id: null },
+  );
+  assert.ok(db.prepare("PRAGMA foreign_key_list('comments')").all()
+    .some((row) => row.from === 'embedded_item_id' && row.table === 'embedded_items'));
+  db.close();
+});
 
 function corpusManifest() {
   const projection = {
@@ -382,4 +408,23 @@ test('activated item finalizer binds every cited source id to an exact-edition D
   assert.match(buildCorpusImportFinalizeSql(manifest), /JOIN json_each\(ei\.online_source_ids_json\)/);
   assert.match(buildCorpusImportFinalizeSql(manifest), /ov\.verification_status='verified_exact'/);
   db.close();
+});
+
+test('display-allowed graph fixture preserves the real page-gate release independently from corpus release', () => {
+  const { document, item } = activatedBoundaryFixture();
+  const pagePublicationReleaseId = item.page_evidence.page_publication_release_id;
+  const corpusReleaseId = `corpus-${'f'.repeat(24)}`;
+  const projected = compendiumGraphEmbeddedItem({
+    item,
+    parentDocumentId: document.document_id,
+    parentWorkId: 'work:fixture-parent',
+    pageSetSha256: item.page_evidence.page_set_sha256,
+    pagePublicationReleaseId,
+    corpusReleaseId,
+  });
+  assert.equal(item.display_allowed, true);
+  assert.match(projected.page_publication_release_id, /^page-gate-[a-f0-9]{24}$/);
+  assert.equal(projected.page_publication_release_id, pagePublicationReleaseId);
+  assert.equal(projected.corpus_release_id, corpusReleaseId);
+  assert.notEqual(projected.page_publication_release_id, projected.corpus_release_id);
 });

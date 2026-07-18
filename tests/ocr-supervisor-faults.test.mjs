@@ -745,6 +745,8 @@ test('concept candidate gate requires current fingerprints and matching academic
     compendium_item_publication_gate_sha256: 'f'.repeat(64),
     online_verification_samples_sha256: '0'.repeat(64),
     corpus_manifest_gate_sha256: 'a'.repeat(64),
+    corpus_manifest_sha256: 'b'.repeat(64),
+    corpus_release_fingerprint_sha256: 'c'.repeat(64),
     validator_sha256: '6'.repeat(64),
   };
   const shardAssets = [{

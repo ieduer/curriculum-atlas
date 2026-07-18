@@ -320,6 +320,6 @@ test('document detail API filters closed paragraphs and returns provenance only 
   assert.equal(response.headers.get('cache-control'), 'private, no-store');
   const body = await response.json();
   assert.deepEqual(body.paragraphs.map((paragraph) => paragraph.id), [1]);
-  assert.match(paragraphSql, /WHERE p\.document_id = \? AND p\.display_allowed = 1/);
+  assert.match(paragraphSql, /WHERE p\.document_id = \? AND p\.embedded_item_id IS NULL AND p\.display_allowed = 1/);
   assert.match(paragraphSql, /p\.source_artifact_sha256,p\.source_page_sha256,p\.page_final_text_sha256,p\.evidence_bundle_sha256,p\.provenance_locator/);
 });

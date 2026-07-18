@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260718v16';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260718v18';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -6,8 +6,8 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260718v16';
-import { GraphShardStore } from './graph-loader.js?v=20260718v17';
+} from './subject-facets.js?v=20260718v18';
+import { GraphShardStore } from './graph-loader.js?v=20260718v18';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -107,7 +107,7 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const conceptGraph = await api('/data/concept-evolution.json?v=20260718v16');
+  const conceptGraph = await api('/data/concept-evolution.json?v=20260718v18');
   const [meta, documents, insights] = await Promise.all([
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
@@ -822,7 +822,11 @@ async function renderDocument(id) {
     const sourceVariant = documentSourceVariant(doc);
     const carrierIdentity = embeddedItem ? `<br>汇编载体：${escapeHtml(doc.parent_title)}<br>物理页：${escapeHtml(doc.physical_page_start)}–${escapeHtml(doc.physical_page_end)}` : '';
     const discussionDocumentId = data.discussionDocumentId || doc.id;
-    workbenchBody.innerHTML = `<div class="reader-grid"><article class="reader-document"><h2>${escapeHtml(doc.title)}</h2><p>${doc.issued_by ? escapeHtml(doc.issued_by) : '发布机构待核'}${doc.issued_date ? ` · ${escapeHtml(doc.issued_date)}` : ''} · ${escapeHtml(qualityLabel(doc))}</p>${paragraphs}<h2>在线三证核查</h2><p>只有同文同版来源可校正文句；同篇异版仅旁证稳定事实。</p>${verification}</article><aside class="reader-facts"><h3>资料身份</h3><p>编号：${escapeHtml(doc.id)}<br>${escapeHtml(documentIdentityKind)}：${escapeHtml(documentEntityLabel(doc))}${relatedFacet ? `<br>关联学科分面：${escapeHtml(relatedFacet)}` : ''}${sourceVariant ? `<br>来源标注：${escapeHtml(sourceVariant)}` : ''}${carrierIdentity}<br>学段：${escapeHtml(doc.stage)}<br>版本：${escapeHtml(doc.version_label)}<br>状态：${escapeHtml(statusLabel(doc.current_status))}<br>文本质量：${escapeHtml(doc.text_quality_status || '待评估')}<br>页数：${doc.page_count || '待核'}</p><p>${source}</p><div class="inspector-actions">${documentFacet ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(documentFacet)}" data-link>版本比较</a>` : ''}<a class="action-button" href="/discussions?documentId=${encodeURIComponent(discussionDocumentId)}" data-link>教师讨论</a></div></aside></div>`;
+    const discussionEmbeddedItemId = data.discussionEmbeddedItemId || null;
+    const discussionHref = discussionEmbeddedItemId
+      ? `/discussions?documentId=${encodeURIComponent(discussionDocumentId)}&embeddedItemId=${encodeURIComponent(discussionEmbeddedItemId)}`
+      : `/discussions?documentId=${encodeURIComponent(discussionDocumentId)}`;
+    workbenchBody.innerHTML = `<div class="reader-grid"><article class="reader-document"><h2>${escapeHtml(doc.title)}</h2><p>${doc.issued_by ? escapeHtml(doc.issued_by) : '发布机构待核'}${doc.issued_date ? ` · ${escapeHtml(doc.issued_date)}` : ''} · ${escapeHtml(qualityLabel(doc))}</p>${paragraphs}<h2>在线三证核查</h2><p>只有同文同版来源可校正文句；同篇异版仅旁证稳定事实。</p>${verification}</article><aside class="reader-facts"><h3>资料身份</h3><p>编号：${escapeHtml(doc.id)}<br>${escapeHtml(documentIdentityKind)}：${escapeHtml(documentEntityLabel(doc))}${relatedFacet ? `<br>关联学科分面：${escapeHtml(relatedFacet)}` : ''}${sourceVariant ? `<br>来源标注：${escapeHtml(sourceVariant)}` : ''}${carrierIdentity}<br>学段：${escapeHtml(doc.stage)}<br>版本：${escapeHtml(doc.version_label)}<br>状态：${escapeHtml(statusLabel(doc.current_status))}<br>文本质量：${escapeHtml(doc.text_quality_status || '待评估')}<br>页数：${doc.page_count || '待核'}</p><p>${source}</p><div class="inspector-actions">${documentFacet ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(documentFacet)}" data-link>版本比较</a>` : ''}<a class="action-button" href="${discussionHref}" data-link>教师讨论</a></div></aside></div>`;
     if (location.hash) requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView({ block: 'center' }));
   } catch (error) {
     workbenchBody.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
@@ -917,11 +921,12 @@ function setupTurnstile(container, callback) {
   document.head.append(script);
 }
 
-async function loadComments(documentId) {
+async function loadComments(documentId, embeddedItemId = null) {
   const root = document.querySelector('#comment-list');
   if (!root) return;
   try {
-    const data = await api(`/api/comments?documentId=${encodeURIComponent(documentId)}`);
+    const embeddedScope = embeddedItemId ? `&embeddedItemId=${encodeURIComponent(embeddedItemId)}` : '';
+    const data = await api(`/api/comments?documentId=${encodeURIComponent(documentId)}${embeddedScope}`);
     root.innerHTML = data.comments.length ? data.comments.map((item) => `<article class="comment-row"><h3>${escapeHtml(item.author_name)}</h3><header>${new Date(`${item.created_at}Z`).toLocaleString('zh-CN')}</header><p>${escapeHtml(item.body)}</p></article>`).join('') : '<div class="empty-state">尚无公开讨论。第一条判断也应说明所据版本或条文。</div>';
   } catch (error) {
     root.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
@@ -931,19 +936,41 @@ async function loadComments(documentId) {
 async function renderDiscussions(url) {
   const me = await loadMe();
   const docs = state.documents;
-  const requestedDocumentId = url.searchParams.get('documentId')
-    || state.selectedDocument?.parent_document_id || state.selectedDocument?.id || docs[0]?.id || '';
-  const requestedIdentity = docs.find((doc) => doc.id === requestedDocumentId);
-  const documentId = requestedIdentity?.parent_document_id || requestedDocumentId;
-  const discussionDocs = uniqueRows(docs.map((doc) => ({
-    id: doc.parent_document_id || doc.id,
+  const requestedDocumentId = url.searchParams.get('documentId') || '';
+  const requestedEmbeddedItemId = url.searchParams.get('embeddedItemId') || '';
+  const fallbackIdentityId = state.selectedDocument?.id || docs[0]?.id || '';
+  const requestedIdentity = docs.find((doc) => doc.id === (requestedEmbeddedItemId || requestedDocumentId || fallbackIdentityId));
+  const embeddedItemId = requestedEmbeddedItemId
+    || (requestedIdentity?.identity_kind === 'embedded_item' ? requestedIdentity.id : null);
+  const documentId = requestedIdentity?.parent_document_id || requestedDocumentId || requestedIdentity?.id || '';
+  const itemDiscussionDocs = docs.map((doc) => ({
+    id: doc.id,
+    documentId: doc.parent_document_id || doc.id,
+    embeddedItemId: doc.identity_kind === 'embedded_item' ? doc.id : null,
     sort_year: doc.sort_year,
-    title: doc.parent_document_id ? `汇编载体（含《${doc.title}》等篇目）` : doc.title,
-  })), (doc) => doc.id);
-  workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>围绕同一证据讨论</h2><p>统一登录内容直接公开；匿名内容经 Turnstile 后进入审核。不要写入学生个人信息。</p><form class="work-form" id="discussion-picker"><label for="discussion-document">资料</label><select id="discussion-document" name="documentId">${discussionDocs.map((doc) => `<option value="${escapeHtml(doc.id)}" ${doc.id === documentId ? 'selected' : ''}>${escapeHtml(doc.sort_year)} · ${escapeHtml(doc.title)}</option>`).join('')}</select><button class="work-button secondary" type="submit">切换讨论</button></form><form class="work-form" id="comment-form"><h2>提交讨论</h2>${me.authenticated ? `<p>以 ${escapeHtml(me.user.display_name || me.user.slug)} 发布。</p>` : '<label for="author-name">署名</label><input id="author-name" name="authorName" maxlength="40" value="匿名教师">'}<label for="comment-body">内容</label><textarea id="comment-body" name="body" rows="6" minlength="8" maxlength="2000" required></textarea><div class="turnstile-slot" id="turnstile-box"></div><button class="work-button" type="submit">${me.authenticated ? '发布讨论' : '提交审核'}</button></form></aside><main class="workspace-main"><h2>教师讨论</h2><div class="comment-list" id="comment-list"><div class="empty-state">正在加载…</div></div></main></div>`;
+    title: doc.parent_document_id ? `汇编篇目《${doc.title}》` : doc.title,
+  }));
+  const carrierDiscussionDocs = [...new Map(docs
+    .filter((doc) => doc.identity_kind === 'embedded_item' && doc.parent_document_id)
+    .map((doc) => [doc.parent_document_id, {
+      id: `carrier:${doc.parent_document_id}`,
+      documentId: doc.parent_document_id,
+      embeddedItemId: null,
+      sort_year: doc.sort_year,
+      title: `汇编载体《${doc.parent_title || doc.parent_document_id}》（既有父级讨论）`,
+    }])).values()];
+  const discussionDocs = [...itemDiscussionDocs, ...carrierDiscussionDocs]
+    .sort((left, right) => Number(right.sort_year || 0) - Number(left.sort_year || 0));
+  const selectedScopeId = embeddedItemId
+    || (requestedIdentity?.identity_kind !== 'embedded_item' ? requestedIdentity?.id : '')
+    || (documentId ? `carrier:${documentId}` : '');
+  workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>围绕同一证据讨论</h2><p>统一登录内容直接公开；匿名内容经 Turnstile 后进入审核。不要写入学生个人信息。</p><form class="work-form" id="discussion-picker"><label for="discussion-document">资料</label><select id="discussion-document" name="identityId">${discussionDocs.map((doc) => `<option value="${escapeHtml(doc.id)}" ${doc.id === selectedScopeId ? 'selected' : ''}>${escapeHtml(doc.sort_year)} · ${escapeHtml(doc.title)}</option>`).join('')}</select><button class="work-button secondary" type="submit">切换讨论</button></form><form class="work-form" id="comment-form"><h2>提交讨论</h2>${me.authenticated ? `<p>以 ${escapeHtml(me.user.display_name || me.user.slug)} 发布。</p>` : '<label for="author-name">署名</label><input id="author-name" name="authorName" maxlength="40" value="匿名教师">'}<label for="comment-body">内容</label><textarea id="comment-body" name="body" rows="6" minlength="8" maxlength="2000" required></textarea><div class="turnstile-slot" id="turnstile-box"></div><button class="work-button" type="submit">${me.authenticated ? '发布讨论' : '提交审核'}</button></form></aside><main class="workspace-main"><h2>教师讨论</h2><div class="comment-list" id="comment-list"><div class="empty-state">正在加载…</div></div></main></div>`;
   document.querySelector('#discussion-picker').addEventListener('submit', (event) => {
     event.preventDefault();
-    navigate(`/discussions?documentId=${encodeURIComponent(new FormData(event.currentTarget).get('documentId'))}`);
+    const identity = discussionDocs.find((doc) => doc.id === new FormData(event.currentTarget).get('identityId'));
+    if (!identity) return;
+    const itemScope = identity.embeddedItemId ? `&embeddedItemId=${encodeURIComponent(identity.embeddedItemId)}` : '';
+    navigate(`/discussions?documentId=${encodeURIComponent(identity.documentId)}${itemScope}`);
   });
   let turnstileToken = '';
   if (!me.authenticated) setupTurnstile(document.querySelector('#turnstile-box'), (token) => { turnstileToken = token; });
@@ -956,10 +983,11 @@ async function renderDiscussions(url) {
     try {
       const body = Object.fromEntries(new FormData(form));
       body.documentId = documentId;
+      if (embeddedItemId) body.embeddedItemId = embeddedItemId;
       body.turnstileToken = turnstileToken;
       const result = await api('/api/comments', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       toast(result.message);
-      if (result.status === 'approved') await loadComments(documentId);
+      if (result.status === 'approved') await loadComments(documentId, embeddedItemId);
       else window.turnstile?.reset();
       form.querySelector('textarea').value = '';
     } catch (error) {
@@ -969,7 +997,7 @@ async function renderDiscussions(url) {
       button.disabled = false;
     }
   });
-  loadComments(documentId);
+  loadComments(documentId, embeddedItemId);
 }
 
 async function renderAdmin() {

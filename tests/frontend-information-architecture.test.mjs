@@ -85,13 +85,17 @@ test('legacy pages remain merged into the two rail-launched workspaces', () => {
   assert.match(app, /path === '\/discussions'/);
 });
 
-test('embedded compendium identities keep their item-scoped reader and parent discussion boundary', () => {
+test('embedded compendium identities keep item-scoped reader and discussion boundaries', () => {
   assert.match(app, /identity_kind === 'embedded_item' \|\| id\.startsWith\('embedded:'\)/);
   assert.match(app, /embeddedItem \? '\/api\/items\/' : '\/api\/documents\/'/);
   assert.match(app, /const doc = data\.document \|\| data\.item/);
   assert.match(app, /const discussionDocumentId = data\.discussionDocumentId \|\| doc\.id/);
-  assert.match(app, /const documentId = requestedIdentity\?\.parent_document_id \|\| requestedDocumentId/);
-  assert.match(app, /id: doc\.parent_document_id \|\| doc\.id/);
+  assert.match(app, /const discussionEmbeddedItemId = data\.discussionEmbeddedItemId \|\| null/);
+  assert.match(app, /embeddedItemId=\$\{encodeURIComponent\(discussionEmbeddedItemId\)\}/);
+  assert.match(app, /body\.embeddedItemId = embeddedItemId/);
+  assert.match(app, /loadComments\(documentId, embeddedItemId\)/);
+  assert.match(app, /id: `carrier:\$\{doc\.parent_document_id\}`/);
+  assert.match(app, /既有父级讨论/);
   assert.match(app, /embeddedItem \? '汇编篇目'/);
 });
 

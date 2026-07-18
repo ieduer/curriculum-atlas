@@ -647,7 +647,7 @@ function buildEnvironmentState(root, policy, git, availableMigrations, corpusRel
   };
 }
 
-function verifyCrossAssetIntegrity(dataByRole, graphByRole) {
+function verifyCrossAssetIntegrity(dataByRole, graphByRole, corpusRelease) {
   const catalogAsset = dataByRole.get('catalog');
   const ingestAsset = dataByRole.get('ingest_manifest');
   const queueAsset = dataByRole.get('ocr_queue');
@@ -687,6 +687,12 @@ function verifyCrossAssetIntegrity(dataByRole, graphByRole) {
   for (const [label, graph] of [['core', core], ['academic', academic]]) {
     if (graph.input_fingerprints?.catalog_sha256 !== catalogAsset.sha256) throw new Error(`${label} graph catalog fingerprint is stale`);
     if (graph.input_fingerprints?.queue_sha256 !== queueAsset.sha256) throw new Error(`${label} graph OCR queue fingerprint is stale`);
+    if (graph.input_fingerprints?.corpus_manifest_sha256 !== corpusRelease.manifest_sha256) {
+      throw new Error(`${label} graph corpus manifest fingerprint is stale`);
+    }
+    if (graph.input_fingerprints?.corpus_release_fingerprint_sha256 !== corpusRelease.release_fingerprint_sha256) {
+      throw new Error(`${label} graph corpus release fingerprint is stale`);
+    }
   }
   for (const [key, expected] of Object.entries(core.academic_model_ref?.counts || {})) {
     const declared = (academic.shard_manifest?.assets || [])
@@ -828,7 +834,7 @@ export async function buildReleaseManifest({
   }
   if (graphAssets.length !== 2) throw new Error(`release policy must define exactly two graph assets; found ${graphAssets.length}`);
 
-  verifyCrossAssetIntegrity(dataByRole, graphByRole);
+  verifyCrossAssetIntegrity(dataByRole, graphByRole, corpusRelease);
 
   const graphShards = [];
   const descriptorIds = new Set();

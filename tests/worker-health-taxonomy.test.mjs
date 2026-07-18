@@ -5,6 +5,15 @@ import test from 'node:test';
 import { build } from 'esbuild';
 
 const root = new URL('../', import.meta.url);
+const graphAssetBytes = new Map(await Promise.all([
+  '/data/concept-evolution.json',
+  '/data/concept-evolution-academic.json',
+].map(async (pathname) => [pathname, await readFile(new URL(`public${pathname}`, root))])));
+
+async function graphAssetFetch(request) {
+  const bytes = graphAssetBytes.get(new URL(request.url).pathname);
+  return bytes ? new Response(bytes) : new Response('not found', { status: 404 });
+}
 
 async function loadWorker() {
   const bundle = await build({
@@ -33,6 +42,7 @@ const readyCoreCounts = {
   version_diffs: 0,
   online_verifications: 1,
   online_evidence: 5,
+  embedded_items: 0,
 };
 
 function readyCorpus(overrides = {}) {
@@ -88,6 +98,7 @@ function makeEnv(classification, corpus = readyCorpus()) {
                   { key: 'schema_version', value: '3' },
                   { key: 'document_classification_schema_version', value: '2' },
                   { key: 'page_publication_schema_version', value: '1' },
+                  { key: 'compendium_embedded_item_schema_version', value: '1' },
                 ],
               };
             },
@@ -102,9 +113,10 @@ function makeEnv(classification, corpus = readyCorpus()) {
     SOURCES: {},
     APIS: {},
     USER_CENTER: {},
-    ASSETS: {},
+    ASSETS: { fetch: graphAssetFetch },
     ENVIRONMENT: 'test',
     RELEASE_GIT_COMMIT: 'a'.repeat(40),
+    SITE_ORIGIN: 'https://curriculum.example',
   };
 }
 
@@ -184,7 +196,8 @@ test('Worker health fails closed unless the complete taxonomy distribution match
   assert.match(source, /classificationCounts\.scopes === REQUIRED_CLASSIFICATION_COUNTS\.scopes/);
   assert.match(source, /classificationCounts\.unclassified === REQUIRED_CLASSIFICATION_COUNTS\.unclassified/);
   assert.match(source, /schemaMeta\.get\('page_publication_schema_version'\) === '1'/);
-  assert.match(source, /schemaReady && classificationReady && corpusReady && releaseSourceReady \? 200 : 503/);
+  assert.match(source, /schemaMeta\.get\('compendium_embedded_item_schema_version'\) === '1'/);
+  assert.match(source, /schemaReady && classificationReady && corpusReady && releaseSourceReady && graphRelease\.ready \? 200 : 503/);
   assert.match(source, /corpusReleaseReady\(corpus\)/);
   assert.match(source, /coreTableCountsEqual\(expectedCore, actualCore\)/);
   assert.match(source, /coreTableCountsEqual\(expectedCore, liveCore\)/);

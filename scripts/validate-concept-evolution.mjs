@@ -7,6 +7,7 @@ import { createConceptPublicationGate } from './concept-page-publication.mjs';
 import { validateCompendiumItemBoundaries } from './validate-compendium-item-boundaries.mjs';
 import { isNativeTextRecord } from './page-publication-gate.mjs';
 import { semanticDocumentDisposition } from './semantic-publication-gate.mjs';
+import { validateCorpusManifest } from './import-corpus.mjs';
 import {
   GRAPH_SHARD_MAX_BYTES,
   GRAPH_SHARD_TRANSPORT,
@@ -45,6 +46,9 @@ const onlineVerificationSamples = JSON.parse(
   await readFile(path.join(root, 'data/online-verification-samples.json'), 'utf8'),
 );
 const queue = JSON.parse(await readFile(path.join(root, 'data/ocr-queue.json'), 'utf8'));
+const corpusManifest = validateCorpusManifest(JSON.parse(
+  await readFile(path.join(root, 'data/corpus-chunks/manifest.json'), 'utf8'),
+));
 const compendiumBoundaryValidation = validateCompendiumItemBoundaries(compendiumItemBoundaries, {
   catalog,
   queue,
@@ -124,6 +128,12 @@ fail(quality.input_fingerprints?.ocr_concept_publication_sha256 === conceptPubli
 fail(graph.input_fingerprints?.semantic_publication_revision_sha256 === semanticPublicationGate.revision_sha256, 'semantic publication fingerprint mismatch');
 fail(core.input_fingerprints?.semantic_publication_revision_sha256 === semanticPublicationGate.revision_sha256, 'core semantic publication fingerprint mismatch');
 fail(quality.input_fingerprints?.semantic_publication_revision_sha256 === semanticPublicationGate.revision_sha256, 'quality semantic publication fingerprint mismatch');
+for (const [label, artifact] of [['academic', graph], ['core', core], ['quality', quality]]) {
+  fail(artifact.input_fingerprints?.corpus_manifest_sha256 === corpusManifest.manifest_sha256,
+    `${label} corpus manifest fingerprint mismatch`);
+  fail(artifact.input_fingerprints?.corpus_release_fingerprint_sha256 === corpusManifest.release_fingerprint_sha256,
+    `${label} corpus release fingerprint mismatch`);
+}
 fail(graph.coverage?.ocr_display_accepted_pages === conceptPublicationGate.revision_projection.length, 'OCR display-accepted coverage count mismatch');
 fail(graph.coverage?.compendium_item_candidates === compendiumBoundaryValidation.counts.items,
   'compendium candidate coverage count mismatch');
@@ -395,6 +405,9 @@ for (const item of graph.embedded_items) {
   fail(item.page_publication_release_id === boundary.page_evidence.page_publication_release_id
     && item.page_set_sha256 === boundary.page_evidence.page_set_sha256,
   `${item.id}: page release evidence drift`);
+  fail(/^page-gate-[a-f0-9]{24}$/.test(item.page_publication_release_id)
+    && item.corpus_release_id === corpusManifest.release_id,
+  `${item.id}: page/corpus release identity drift`);
   fail(item.online_verification_status === boundary.online_verification.verification_status
     && JSON.stringify(item.online_source_ids) === JSON.stringify(boundary.online_verification.source_ids),
   `${item.id}: online evidence drift`);

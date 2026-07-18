@@ -96,7 +96,7 @@ test('frontend selectors use facets while compare, search, and AI expand exact c
   assert.match(app, /state\.meta\?\.queryIdentities \|\| state\.meta\?\.subjects/);
   assert.match(app, /state\.hideAllSubjects = subjects\.every/);
   assert.match(backend, /await requireExactQueryIdentity\(env, subject\)/);
-  assert.match(backend, /WHERE dc\.taxonomy_entity_kind = 'subject' AND dc\.canonical_subject=\?/);
+  assert.match(backend, /WHERE dc\.taxonomy_entity_kind\s*=\s*'subject' AND dc\.canonical_subject\s*=\s*\?/);
   assert.match(backend, /subjects: subjects\.results,[\s\S]*queryIdentities: queryIdentities\.results,[\s\S]*assessmentIdentities: assessmentIdentities\.results/);
   assert.match(backend, /dc\.taxonomy_entity_kind = 'assessment_subject' AND dc\.canonical_subject IS NOT NULL/);
   assert.match(backend, /dc\.canonical_subject = \?/);

@@ -52,6 +52,7 @@ type CoreTableCounts = Record<CoreTableCountKey, number>;
 
 interface CommentInput {
   documentId?: string;
+  embeddedItemId?: string;
   paragraphId?: number;
   parentId?: string;
   authorName?: string;
@@ -530,7 +531,7 @@ async function listDocuments(url: URL, env: Env): Promise<Response> {
               d.text_quality_status,d.ocr_engine,d.ocr_audit_ref,d.citation_allowed,d.page_count,
               dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family,dc.scope_kind,dc.scope_label,dc.source_subject_label,
               COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label,
-              'document' AS identity_kind, NULL AS parent_document_id
+              'document' AS identity_kind, NULL AS parent_document_id, NULL AS parent_title
        FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
        WHERE d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
          AND NOT EXISTS(
@@ -543,11 +544,12 @@ async function listDocuments(url: URL, env: Env): Promise<Response> {
               d.text_quality_status,d.ocr_engine,d.ocr_audit_ref,ei.citation_allowed,(ei.physical_page_end-ei.physical_page_start+1),
               dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family,dc.scope_kind,dc.scope_label,dc.source_subject_label,
               COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label),
-              'embedded_item',ei.parent_document_id
+              'embedded_item',ei.parent_document_id,d.title
        FROM embedded_items ei
        JOIN documents d ON d.id=ei.parent_document_id AND d.corpus_release_id=ei.corpus_release_id
        JOIN document_classifications dc ON dc.document_id=d.id
        WHERE ei.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+         AND ei.display_allowed=1
      )
      SELECT * FROM identities
      WHERE (? = '' OR (taxonomy_entity_kind = 'subject' AND canonical_subject = ?))
@@ -599,7 +601,8 @@ async function documentDetail(id: string, url: URL, env: Env): Promise<Response>
       p.online_verification_status,p.evidence_triad_status,p.uncertainty_note,p.embedded_item_id,
       ei.title AS embedded_item_title,ei.display_year AS embedded_item_year,ei.issuing_body AS embedded_item_issuing_body
       FROM paragraphs p LEFT JOIN embedded_items ei ON ei.id=p.embedded_item_id
-      WHERE p.document_id = ? AND p.display_allowed = 1 ORDER BY p.ordinal LIMIT ? OFFSET ?`).bind(id, limit, offset).all(),
+      WHERE p.document_id = ? AND p.embedded_item_id IS NULL AND p.display_allowed = 1
+      ORDER BY p.ordinal LIMIT ? OFFSET ?`).bind(id, limit, offset).all(),
     env.DB.prepare(`SELECT dr.relation_type, dr.note, d.id, d.title, d.subject, d.version_label,
       dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.scope_kind,dc.scope_label,
       COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label
@@ -638,7 +641,8 @@ async function embeddedItemDetail(id: string, url: URL, env: Env): Promise<Respo
     FROM embedded_items ei
     JOIN documents d ON d.id=ei.parent_document_id AND d.corpus_release_id=ei.corpus_release_id
     JOIN document_classifications dc ON dc.document_id=d.id
-    WHERE ei.id=? AND ei.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(id).first();
+    WHERE ei.id=? AND ei.display_allowed=1
+      AND ei.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(id).first();
   if (!item) throw new HttpError(404, '未找到该彙編內篇目');
   const offset = clampInt(url.searchParams.get('offset'), 0, 0, 100_000);
   const limit = clampInt(url.searchParams.get('limit'), 80, 1, 200);
@@ -668,6 +672,7 @@ async function embeddedItemDetail(id: string, url: URL, env: Env): Promise<Respo
     paragraphs: paragraphs.results,
     verifications: verificationRecords(verificationRows.results as Array<Record<string, unknown>>),
     discussionDocumentId: String((item as { parent_document_id: string }).parent_document_id),
+    discussionEmbeddedItemId: String((item as { id: string }).id),
     offset,
     limit,
   }, 200, { 'cache-control': 'private, no-store' });
@@ -728,6 +733,7 @@ async function compare(url: URL, env: Env): Promise<Response> {
       JOIN documents d ON d.id=ei.parent_document_id AND d.corpus_release_id=ei.corpus_release_id
       JOIN document_classifications dc ON dc.document_id=d.id
       WHERE ei.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+        AND ei.display_allowed=1
     )
     SELECT * FROM identities
     WHERE taxonomy_entity_kind='subject' AND canonical_subject=?
@@ -743,16 +749,41 @@ async function me(request: Request, env: Env): Promise<Response> {
 
 async function listComments(url: URL, env: Env, session: Session): Promise<Response> {
   const documentId = textParam(url.searchParams.get('documentId'), 80);
+  const embeddedItemId = textParam(url.searchParams.get('embeddedItemId'), 160);
   const paragraphId = clampInt(url.searchParams.get('paragraphId'), 0, 0, 1_000_000_000);
   const includePending = session.admin && url.searchParams.get('moderation') === '1';
+  if (embeddedItemId && !documentId) throw new HttpError(400, '篇目讨论缺少载体资料编号');
+  if (documentId) {
+    const document = await env.DB.prepare(`SELECT id FROM documents WHERE id=?
+      AND corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(documentId).first();
+    if (!document) throw new HttpError(404, '讨论所引用的资料不存在');
+  }
+  if (embeddedItemId) {
+    const item = await env.DB.prepare(`SELECT id,parent_document_id,display_allowed FROM embedded_items WHERE id=?
+      AND corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(embeddedItemId)
+      .first<{ id: string; parent_document_id: string; display_allowed: number }>();
+    if (!item) throw new HttpError(404, '讨论所引用的篇目不存在');
+    if (item.parent_document_id !== documentId) throw new HttpError(400, '篇目不属于当前资料');
+    if (Number(item.display_allowed) !== 1) throw new HttpError(409, '该篇目尚未开放讨论');
+  }
+  const scopeClause = !documentId
+    ? '1=1'
+    : embeddedItemId
+      ? 'document_id = ? AND embedded_item_id = ?'
+      : 'document_id = ? AND embedded_item_id IS NULL';
+  const bindings: unknown[] = documentId
+    ? embeddedItemId ? [documentId, embeddedItemId] : [documentId]
+    : [];
+  const paragraphClause = paragraphId ? 'AND paragraph_id = ?' : '';
+  if (paragraphId) bindings.push(paragraphId);
   const result = await env.DB.prepare(
-    `SELECT id,parent_id,document_id,paragraph_id,author_name,author_kind,body,status,created_at,updated_at
+    `SELECT id,parent_id,document_id,embedded_item_id,paragraph_id,author_name,author_kind,body,status,created_at,updated_at
      FROM comments
-     WHERE (? = '' OR document_id = ?)
-       AND (? = 0 OR paragraph_id = ?)
+     WHERE ${scopeClause}
+       ${paragraphClause}
        AND (${includePending ? "status IN ('pending','approved')" : "status = 'approved'"})
      ORDER BY created_at DESC LIMIT 100`,
-  ).bind(documentId, documentId, paragraphId, paragraphId).all();
+  ).bind(...bindings).all();
   return json({ comments: result.results });
 }
 
@@ -760,6 +791,7 @@ async function createComment(request: Request, env: Env, session: Session): Prom
   requireSameOrigin(request, env);
   const input = await readJson<CommentInput>(request);
   const documentId = textParam(input.documentId || '', 80);
+  const embeddedItemId = textParam(typeof input.embeddedItemId === 'string' ? input.embeddedItemId : '', 160) || null;
   const body = textParam(input.body || '', 2_000);
   const parentId = textParam(typeof input.parentId === 'string' ? input.parentId : '', 80);
   const paragraphId = optionalParagraphId(input.paragraphId);
@@ -768,17 +800,27 @@ async function createComment(request: Request, env: Env, session: Session): Prom
   const document = await env.DB.prepare(`SELECT id FROM documents WHERE id=?
     AND corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(documentId).first();
   if (!document) throw new HttpError(404, '讨论所引用的资料不存在');
+  if (embeddedItemId) {
+    const item = await env.DB.prepare(`SELECT id,parent_document_id,display_allowed FROM embedded_items WHERE id=?
+      AND corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(embeddedItemId)
+      .first<{ id: string; parent_document_id: string; display_allowed: number }>();
+    if (!item) throw new HttpError(404, '讨论所引用的篇目不存在');
+    if (item.parent_document_id !== documentId) throw new HttpError(400, '篇目不属于当前资料');
+    if (Number(item.display_allowed) !== 1) throw new HttpError(409, '该篇目尚未开放讨论');
+  }
   if (parentId) {
-    const parent = await env.DB.prepare('SELECT id,document_id FROM comments WHERE id = ?').bind(parentId)
-      .first<{ id: string; document_id: string | null }>();
+    const parent = await env.DB.prepare('SELECT id,document_id,embedded_item_id FROM comments WHERE id = ?').bind(parentId)
+      .first<{ id: string; document_id: string | null; embedded_item_id: string | null }>();
     if (!parent) throw new HttpError(404, '回复所引用的上级讨论不存在');
     if (parent.document_id !== documentId) throw new HttpError(400, '上级讨论不属于当前资料');
+    if ((parent.embedded_item_id || null) !== embeddedItemId) throw new HttpError(400, '上级讨论不属于当前篇目');
   }
   if (paragraphId !== null) {
-    const paragraph = await env.DB.prepare('SELECT id,document_id,display_allowed FROM paragraphs WHERE id = ?').bind(paragraphId)
-      .first<{ id: number; document_id: string; display_allowed: number }>();
+    const paragraph = await env.DB.prepare('SELECT id,document_id,embedded_item_id,display_allowed FROM paragraphs WHERE id = ?').bind(paragraphId)
+      .first<{ id: number; document_id: string; embedded_item_id: string | null; display_allowed: number }>();
     if (!paragraph) throw new HttpError(404, '讨论所引用的段落不存在');
     if (paragraph.document_id !== documentId) throw new HttpError(400, '段落不属于当前资料');
+    if ((paragraph.embedded_item_id || null) !== embeddedItemId) throw new HttpError(400, '段落不属于当前篇目');
     if (Number(paragraph.display_allowed) !== 1) throw new HttpError(409, '该段落尚未开放讨论');
   }
   let authorSlug: string | null = null;
@@ -801,10 +843,10 @@ async function createComment(request: Request, env: Env, session: Session): Prom
   }
   const id = crypto.randomUUID();
   await env.DB.prepare(
-    `INSERT INTO comments(id,parent_id,document_id,paragraph_id,author_slug,author_name,author_kind,body,status)
-     VALUES(?,?,?,?,?,?,?,?,?)`,
-  ).bind(id, parentId || null, documentId, paragraphId, authorSlug, authorName, authorKind, body, status).run();
-  console.log(JSON.stringify({ event: 'comment_created', id, authorKind, status, documentId }));
+    `INSERT INTO comments(id,parent_id,document_id,embedded_item_id,paragraph_id,author_slug,author_name,author_kind,body,status)
+     VALUES(?,?,?,?,?,?,?,?,?,?)`,
+  ).bind(id, parentId || null, documentId, embeddedItemId, paragraphId, authorSlug, authorName, authorKind, body, status).run();
+  console.log(JSON.stringify({ event: 'comment_created', id, authorKind, status, documentId, embeddedItemId }));
   return json({ ok: true, id, status, message: status === 'pending' ? '已提交，审核后公开' : '讨论已发布' }, 201);
 }
 

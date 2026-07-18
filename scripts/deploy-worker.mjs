@@ -26,6 +26,35 @@ export function assertManifestSourceGates(manifest) {
   return true;
 }
 
+export function assertManifestDeploymentGates(manifest, environment) {
+  if (!['preview', 'production'].includes(environment)) {
+    throw new Error(`unsupported deployment environment: ${environment || '<unset>'}`);
+  }
+  assertManifestSourceGates(manifest);
+  const target = manifest.environment_snapshot?.environments?.[environment];
+  if (!target) throw new Error(`Worker deployment ${environment} is blocked: target_environment_state_missing`);
+  const blockers = (manifest.release_blockers || [])
+    .filter((blocker) => blocker.environment === environment)
+    .map((blocker) => blocker.code);
+  if (!Array.isArray(target.pending_migrations) || target.pending_migrations.length > 0) {
+    blockers.push('pending_d1_migration');
+  }
+  if (target.asset_git_commit_deployment_parity !== true) {
+    blockers.push('worker_graph_shard_git_parity_required');
+  }
+  if (target.corpus_release_matches_local !== true) {
+    blockers.push('corpus_release_mismatch');
+  }
+  if (target.release_ready !== true && blockers.length === 0) {
+    blockers.push('target_environment_not_ready');
+  }
+  const codes = [...new Set(blockers)];
+  if (codes.length) {
+    throw new Error(`Worker deployment ${environment} is blocked: ${codes.join(', ')}`);
+  }
+  return true;
+}
+
 export async function deployWorker({
   environment,
   root = DEFAULT_ROOT,
@@ -33,7 +62,7 @@ export async function deployWorker({
 } = {}) {
   const git = assertCleanReleaseSource({ root, requireUpstream: true, runCommand });
   const manifest = await buildReleaseManifest({ root });
-  assertManifestSourceGates(manifest);
+  assertManifestDeploymentGates(manifest, environment);
   const arguments_ = wranglerDeployArgs(environment, git.head);
   const result = runCommand('npx', arguments_, { cwd: root, encoding: 'utf8', stdio: 'inherit' });
   if (result.status !== 0) throw new Error(`Wrangler deployment failed with exit ${result.status ?? 'unknown'}`);

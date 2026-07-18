@@ -18,6 +18,7 @@ import {
   validateCompendiumItemBoundaries,
 } from './validate-compendium-item-boundaries.mjs';
 import {
+  compendiumGraphEmbeddedItem,
   verifyCompendiumHeadingEvidence,
   verifyCompendiumItemPageEvidence,
   verifyCompendiumPageAssetEvidence,
@@ -68,6 +69,7 @@ const [
   semanticPublicationPolicy,
   compendiumItemBoundaries,
   onlineVerificationSamples,
+  rawCorpusManifest,
 ] = await Promise.all([
   readJson('data/catalog.json'),
   readJson('data/concept-lexicon.json'),
@@ -79,6 +81,7 @@ const [
   readJson('data/semantic-publication-policy.json'),
   readJson('data/compendium-item-boundaries.json'),
   readJson('data/online-verification-samples.json'),
+  readJson('data/corpus-chunks/manifest.json'),
 ]);
 
 if (model.schema_version !== 2) throw new Error('data/concept-model-v2.json must use schema_version 2');
@@ -109,6 +112,12 @@ const conceptPublicationGate = createConceptPublicationGate({
   records: catalog.documents,
 });
 const semanticPublicationGate = conceptPublicationGate.semantic_gate;
+let corpusManifest;
+try {
+  corpusManifest = validateCorpusManifest(rawCorpusManifest);
+} catch (error) {
+  throw new Error(`Concept graph requires a sealed corpus manifest: ${error.message}`);
+}
 const canonicalCatalogDocuments = catalog.documents.filter(
   (record) => !semanticDocumentDisposition(semanticPublicationGate, record).excluded,
 );
@@ -137,6 +146,8 @@ const inputFingerprints = {
   ].map(async ([key, relativePath]) => [key, sha256Bytes(await readFile(path.join(root, relativePath)))]))),
   ocr_concept_publication_sha256: conceptPublicationGate.revision_sha256,
   semantic_publication_revision_sha256: semanticPublicationGate.revision_sha256,
+  corpus_manifest_sha256: corpusManifest.manifest_sha256,
+  corpus_release_fingerprint_sha256: corpusManifest.release_fingerprint_sha256,
 };
 
 function normalizeBlock(value) {
@@ -976,21 +987,14 @@ const publishableCompendiumItems = compendiumItemBoundaries.documents
   .flatMap((document) => document.items
     .filter((item) => item.display_allowed)
     .map((item) => ({ document, item })));
-let currentCorpusReleaseId = null;
+const currentCorpusReleaseId = corpusManifest.release_id;
 const currentPagePublicationReleaseId = `page-gate-${conceptPublicationGate.revision_sha256.slice(0, 24)}`;
 if (publishableCompendiumItems.length > 0) {
-  const rawCorpusManifest = await readOptionalJson('data/corpus-chunks/manifest.json', null);
-  let corpusManifest;
-  try {
-    corpusManifest = validateCorpusManifest(rawCorpusManifest);
-  } catch (error) {
-    throw new Error(`Publishable compendium items require a sealed corpus manifest: ${error.message}`);
-  }
   if (!/^corpus-[a-f0-9]{24}$/.test(corpusManifest.release_id)
-    || corpusManifest.accepted_ocr_documents < 1) {
+    || corpusManifest.accepted_ocr_documents < 1
+    || corpusManifest.core_table_counts.embedded_items !== publishableCompendiumItems.length) {
     throw new Error('Publishable compendium items require the current sealed corpus release manifest');
   }
-  currentCorpusReleaseId = corpusManifest.release_id;
 }
 
 const compendiumPageAssetCache = new Map();
@@ -1114,31 +1118,15 @@ for (const documentBoundary of compendiumItemBoundaries.documents) {
     const workId = `work:${embeddedItemId}`;
     const editionId = `edition:${embeddedItemId}`;
     const parentWorkId = parentEdition.work_id;
-    embeddedItems.push({
-      id: embeddedItemId,
-      parent_document_id: documentId,
-      parent_work_id: parentWorkId,
-      parent_item_id: item.parent_item_id,
-      item_kind: item.item_kind,
-      title: item.title,
-      raw_title: item.raw_title,
-      identity_status: 'verified_full_item',
-      physical_page_start: item.candidate_physical_page_start,
-      physical_page_end: item.candidate_physical_page_end,
-      printed_page_start: item.printed_page_start,
-      display_year: item.display_year,
-      year_basis: item.year_basis,
-      stage,
-      issuing_body: item.issuing_body,
-      end_boundary_basis: nextItem ? 'next_verified_body_heading' : 'source_artifact_document_end',
-      page_publication_release_id: currentCorpusReleaseId,
-      page_set_sha256: pageSetSha256,
-      online_verification_status: item.online_verification.verification_status,
-      online_source_ids: item.online_verification.source_ids,
-      citation_allowed: item.citation_allowed,
-      semantic_claim_allowed: item.semantic_claim_allowed,
-      uncertainty_note: item.uncertainty_note,
-    });
+    embeddedItems.push(compendiumGraphEmbeddedItem({
+      item,
+      parentDocumentId: documentId,
+      parentWorkId,
+      pageSetSha256,
+      pagePublicationReleaseId: currentPagePublicationReleaseId,
+      corpusReleaseId: currentCorpusReleaseId,
+      endBoundaryBasis: nextItem ? 'next_verified_body_heading' : 'source_artifact_document_end',
+    }));
     worksById.set(workId, {
       id: workId,
       canonical_title: item.title,
@@ -1536,6 +1524,11 @@ const inputRevision = sha256(JSON.stringify({
     corpus_manifest_gate: inputFingerprints.corpus_manifest_gate_sha256,
   },
   concept_publication_sha256: conceptPublicationGate.revision_sha256,
+  corpus_release: {
+    release_id: corpusManifest.release_id,
+    release_fingerprint_sha256: corpusManifest.release_fingerprint_sha256,
+    manifest_sha256: corpusManifest.manifest_sha256,
+  },
   concept_published_ocr_pages: conceptPublishedOcrPages,
   evidence_hashes: evidence.map((item) => [item.id, item.body_sha256, item.primary_ocr_sha256]),
 }));

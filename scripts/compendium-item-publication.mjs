@@ -279,3 +279,52 @@ export function verifyCompendiumItemPageEvidence({
     item_citation_entitlement_sha256: citationEntitlementSha256,
   };
 }
+
+export function compendiumGraphEmbeddedItem({
+  item,
+  parentDocumentId,
+  parentWorkId,
+  pageSetSha256,
+  pagePublicationReleaseId,
+  corpusReleaseId,
+  endBoundaryBasis = 'next_verified_body_heading',
+}) {
+  if (item?.display_allowed !== true) fail(item || { item_id: '<missing>' }, 'graph item is not display-allowed');
+  if (!PAGE_PUBLICATION_RELEASE_PATTERN.test(pagePublicationReleaseId || '')
+    || item.page_evidence?.page_publication_release_id !== pagePublicationReleaseId) {
+    fail(item, 'graph item page-publication release is missing or stale');
+  }
+  if (!/^[a-f0-9]{64}$/.test(pageSetSha256 || '')
+    || item.page_evidence?.page_set_sha256 !== pageSetSha256) {
+    fail(item, 'graph item page set is missing or stale');
+  }
+  if (!/^corpus-[a-f0-9]{24}$/.test(corpusReleaseId || '')) {
+    fail(item, 'graph item corpus release is invalid');
+  }
+  return {
+    id: item.item_id,
+    parent_document_id: parentDocumentId,
+    parent_work_id: parentWorkId,
+    parent_item_id: item.parent_item_id,
+    item_kind: item.item_kind,
+    title: item.title,
+    raw_title: item.raw_title,
+    identity_status: 'verified_full_item',
+    physical_page_start: item.candidate_physical_page_start,
+    physical_page_end: item.candidate_physical_page_end,
+    printed_page_start: item.printed_page_start,
+    display_year: item.display_year,
+    year_basis: item.year_basis,
+    stage: item.section,
+    issuing_body: item.issuing_body,
+    end_boundary_basis: endBoundaryBasis,
+    page_publication_release_id: pagePublicationReleaseId,
+    page_set_sha256: pageSetSha256,
+    corpus_release_id: corpusReleaseId,
+    online_verification_status: item.online_verification.verification_status,
+    online_source_ids: item.online_verification.source_ids,
+    citation_allowed: item.citation_allowed,
+    semantic_claim_allowed: item.semantic_claim_allowed,
+    uncertainty_note: item.uncertainty_note,
+  };
+}

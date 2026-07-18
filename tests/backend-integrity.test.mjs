@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { build } from 'esbuild';
@@ -345,8 +346,8 @@ test('answerWithEvidence preserves curriculum-course and assessment-domain taxon
   }
 });
 
-function makeCommentEnv({ parent = null, paragraph = null, sources = {} } = {}) {
-  const state = { queries: [], commentInsert: null };
+function makeCommentEnv({ parent = null, paragraph = null, embeddedItem = null, comments = [], sources = {} } = {}) {
+  const state = { queries: [], commentInsert: null, listedComments: null };
   const DB = {
     prepare(sql) {
       const statement = {
@@ -386,10 +387,17 @@ function makeCommentEnv({ parent = null, paragraph = null, sources = {} } = {}) 
             live_core_counts_json: EMPTY_CORE_TABLE_COUNTS_JSON,
           };
           if (sql.includes('SELECT id FROM documents')) return { id: 'doc-a' };
-          if (sql.includes('SELECT id,document_id FROM comments')) return parent;
-          if (sql.includes('SELECT id,document_id,display_allowed FROM paragraphs')) return paragraph;
+          if (sql.includes('FROM embedded_items')) return embeddedItem;
+          if (sql.includes('SELECT id,document_id,embedded_item_id FROM comments')) return parent;
+          if (sql.includes('SELECT id,document_id,embedded_item_id,display_allowed FROM paragraphs')) return paragraph;
           if (sql.includes('INSERT INTO rate_limits')) return { count: 1 };
           throw new Error(`Unexpected first query: ${sql}`);
+        },
+        async all() {
+          state.queries.push({ operation: 'all', sql, bindings: this.bindings });
+          if (!sql.includes('FROM comments')) throw new Error(`Unexpected all query: ${sql}`);
+          state.listedComments = comments;
+          return { results: comments };
         },
         async run() {
           state.queries.push({ operation: 'run', sql, bindings: this.bindings });
@@ -474,7 +482,7 @@ test('comment creation rejects missing and cross-document parent references befo
     },
     {
       name: 'parent from another document',
-      parent: { id: 'parent-1', document_id: 'doc-b' },
+      parent: { id: 'parent-1', document_id: 'doc-b', embedded_item_id: null },
       status: 400,
       error: '上级讨论不属于当前资料',
     },
@@ -503,13 +511,13 @@ test('comment creation rejects missing, cross-document, and hidden paragraph ref
     },
     {
       name: 'paragraph from another document',
-      paragraph: { id: 12, document_id: 'doc-b', display_allowed: 1 },
+      paragraph: { id: 12, document_id: 'doc-b', embedded_item_id: null, display_allowed: 1 },
       status: 400,
       error: '段落不属于当前资料',
     },
     {
       name: 'paragraph blocked by publication gate',
-      paragraph: { id: 12, document_id: 'doc-a', display_allowed: 0 },
+      paragraph: { id: 12, document_id: 'doc-a', embedded_item_id: null, display_allowed: 0 },
       status: 409,
       error: '该段落尚未开放讨论',
     },
@@ -544,8 +552,8 @@ test('comment creation rejects non-integer paragraph ids', async (t) => {
 test('comment creation accepts same-document references and preserves authenticated rate limiting', async () => {
   const worker = await loadWorker();
   const { env, state } = makeCommentEnv({
-    parent: { id: 'parent-1', document_id: 'doc-a' },
-    paragraph: { id: 12, document_id: 'doc-a', display_allowed: 1 },
+    parent: { id: 'parent-1', document_id: 'doc-a', embedded_item_id: null },
+    paragraph: { id: 12, document_id: 'doc-a', embedded_item_id: null, display_allowed: 1 },
   });
   const response = await worker.fetch(commentRequest({ parentId: 'parent-1', paragraphId: 12 }), env);
   const result = await response.json();
@@ -556,6 +564,7 @@ test('comment creation accepts same-document references and preserves authentica
   assert.deepEqual(state.commentInsert.slice(1), [
     'parent-1',
     'doc-a',
+    null,
     12,
     'teacher',
     'Teacher',
@@ -563,6 +572,96 @@ test('comment creation accepts same-document references and preserves authentica
     '这是一条用于测试的教师讨论。',
     'approved',
   ]);
+});
+
+test('embedded-item discussions are item-scoped and never mix sibling or parent streams', async () => {
+  const worker = await loadWorker();
+  const embeddedItem = {
+    id: 'embedded:item-a',
+    parent_document_id: 'doc-a',
+    display_allowed: 1,
+  };
+  const itemAComment = { id: 'comment-a', document_id: 'doc-a', embedded_item_id: 'embedded:item-a' };
+  const { env, state } = makeCommentEnv({ embeddedItem, comments: [itemAComment] });
+  const response = await worker.fetch(new Request(
+    'https://curriculum.example/api/comments?documentId=doc-a&embeddedItemId=embedded%3Aitem-a',
+  ), env);
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).comments, [itemAComment]);
+  const listQuery = state.queries.find((query) => query.operation === 'all');
+  assert.match(listQuery.sql, /document_id = \? AND embedded_item_id = \?/);
+  assert.deepEqual(listQuery.bindings, ['doc-a', 'embedded:item-a']);
+
+  const parentScope = makeCommentEnv({ comments: [{ id: 'legacy-parent', embedded_item_id: null }] });
+  const parentResponse = await worker.fetch(new Request(
+    'https://curriculum.example/api/comments?documentId=doc-a',
+  ), parentScope.env);
+  assert.equal(parentResponse.status, 200);
+  const parentListQuery = parentScope.state.queries.find((query) => query.operation === 'all');
+  assert.match(parentListQuery.sql, /document_id = \? AND embedded_item_id IS NULL/);
+  assert.deepEqual(parentListQuery.bindings, ['doc-a']);
+});
+
+test('every public embedded-item read boundary requires the display gate', async () => {
+  const source = await readFile(new URL('src/index.ts', root), 'utf8');
+  const boundaries = [
+    source.slice(source.indexOf('async function listDocuments'), source.indexOf('function verificationRecords')),
+    source.slice(source.indexOf('async function embeddedItemDetail'), source.indexOf('async function search')),
+    source.slice(source.indexOf('async function compare'), source.indexOf('async function me(')),
+  ];
+  assert.equal(boundaries.every((boundary) => boundary.includes('ei.display_allowed=1')), true);
+});
+
+test('embedded-item comment creation rejects sibling parent and paragraph references before rate limiting', async (t) => {
+  const worker = await loadWorker();
+  const embeddedItem = {
+    id: 'embedded:item-a',
+    parent_document_id: 'doc-a',
+    display_allowed: 1,
+  };
+  const cases = [
+    {
+      name: 'parent belongs to sibling item',
+      body: { embeddedItemId: 'embedded:item-a', parentId: 'parent-1' },
+      parent: { id: 'parent-1', document_id: 'doc-a', embedded_item_id: 'embedded:item-b' },
+      paragraph: null,
+      error: '上级讨论不属于当前篇目',
+    },
+    {
+      name: 'paragraph belongs to sibling item',
+      body: { embeddedItemId: 'embedded:item-a', paragraphId: 12 },
+      parent: null,
+      paragraph: { id: 12, document_id: 'doc-a', embedded_item_id: 'embedded:item-b', display_allowed: 1 },
+      error: '段落不属于当前篇目',
+    },
+  ];
+  for (const item of cases) {
+    await t.test(item.name, async () => {
+      const { env, state } = makeCommentEnv({
+        embeddedItem,
+        parent: item.parent,
+        paragraph: item.paragraph,
+      });
+      const response = await worker.fetch(commentRequest(item.body), env);
+      assert.equal(response.status, 400);
+      assert.equal((await response.json()).error, item.error);
+      assert.equal(state.queries.some((query) => query.sql.includes('INSERT INTO rate_limits')), false);
+      assert.equal(state.commentInsert, null);
+    });
+  }
+});
+
+test('embedded-item comment creation persists the exact item scope', async () => {
+  const worker = await loadWorker();
+  const embeddedItem = {
+    id: 'embedded:item-a',
+    parent_document_id: 'doc-a',
+    display_allowed: 1,
+  };
+  const { env, state } = makeCommentEnv({ embeddedItem });
+  const response = await worker.fetch(commentRequest({ embeddedItemId: 'embedded:item-a' }), env);
+  assert.equal(response.status, 201);
+  assert.deepEqual(state.commentInsert.slice(1, 5), [null, 'doc-a', 'embedded:item-a', null]);
 });
 
 test('source manifest follows the integrity-checked immutable release pointer', async () => {
