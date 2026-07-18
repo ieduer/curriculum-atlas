@@ -664,6 +664,12 @@ async function retryPendingDelivery(config, nowMilliseconds, stateDir, sendAlert
 
 async function alertFailedMonitor(config, runtime, binding, nowMilliseconds, stateDir, sendAlert) {
   if ([0, 10].includes(runtime.monitor.exit_code) && runtime.monitor.result === 'success') {
+    await closeSentIncidents(
+      stateDir,
+      binding,
+      normalizeInvocationId(runtime.monitor.invocation_id, 'monitor InvocationID'),
+      nowMilliseconds,
+    );
     await writeResult(stateDir, nowMilliseconds, binding, 'successful_exit_no_alert');
     return { state: 'successful_exit_no_alert', sent: false };
   }

@@ -481,6 +481,63 @@ test('a failed delivery retries first and still persists and sends the newer fai
   assert.deepEqual(deliveryState.records[1].issue_codes, ['GPU_OVER_TEMPERATURE']);
 });
 
+test('a pending alert sent after healthy recovery advances the epoch before recurrence', async () => {
+  const fx = await fixture();
+  const armedAt = await arm(fx);
+  const failedAt = armedAt + 60_000;
+  await writeLatest(fx, failedAt, 12, ['B2_NO_PROGRESS']);
+  await assert.rejects(
+    invoke(
+      fx,
+      'alert',
+      failedAt,
+      12,
+      '33333333333333333333333333333333',
+      async () => { throw new Error('dummy send failure'); },
+    ),
+    /alert delivery failed/u,
+  );
+
+  const healthyAt = failedAt + 60_000;
+  await writeLatest(fx, healthyAt, 10);
+  const healthyObservation = await invoke(
+    fx,
+    'observe',
+    healthyAt,
+    10,
+    '44444444444444444444444444444444',
+  );
+  assert.equal(healthyObservation.state, 'armed_no_alert');
+
+  const sent = [];
+  const retry = await invoke(
+    fx,
+    'alert',
+    healthyAt + 1_000,
+    10,
+    '44444444444444444444444444444444',
+    async (payload) => sent.push(payload),
+  );
+  assert.equal(retry.state, 'successful_exit_no_alert');
+  assert.equal(retry.retried_pending, true);
+  assert.equal(sent.length, 1);
+  const firstFingerprint = sent[0].issue_fingerprint;
+
+  const recurredAt = healthyAt + 60_000;
+  await writeLatest(fx, recurredAt, 12, ['B2_NO_PROGRESS']);
+  const recurred = await invoke(
+    fx,
+    'alert',
+    recurredAt,
+    12,
+    '55555555555555555555555555555555',
+    async (payload) => sent.push(payload),
+  );
+  assert.equal(recurred.state, 'sent');
+  assert.equal(sent.length, 2);
+  assert.notEqual(sent[1].issue_fingerprint, firstFingerprint);
+});
+
 test('a tampered pending envelope fails closed before any sender or newer runtime is consulted', async () => {
   const fx = await fixture();
   const armedAt = await arm(fx);
