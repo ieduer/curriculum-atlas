@@ -2729,26 +2729,48 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
     if (progress.status !== 'running' && progress.status_json_sha256 !== statusRecord.sha256) {
       throw new Error('B2 terminal document status hash differs from run status');
     }
-    if (status.seed_lineage !== undefined) {
-      if (status.seed_lineage.seed_id !== seedId
-        || status.seed_lineage.predecessor_status_sha256 !== receiptDocument.predecessor_status_sha256
-        || status.seed_lineage.inherited_attempts !== receiptDocument.inherited_attempts
-        || status.seed_lineage.citation_allowed !== false) {
+    const statusLineage = receiptDocument.timeout_recovery
+      ? requireObject(status.seed_lineage, 'B2 timeout recovery document status seed lineage')
+      : status.seed_lineage;
+    if (statusLineage !== undefined) {
+      if (statusLineage.seed_id !== seedId
+        || statusLineage.predecessor_status_sha256 !== receiptDocument.predecessor_status_sha256
+        || statusLineage.inherited_attempts !== receiptDocument.inherited_attempts
+        || statusLineage.citation_allowed !== false) {
         throw new Error('B2 document status seed lineage is invalid');
       }
       if (receiptDocument.timeout_recovery) {
-        if (status.seed_lineage.timeout_recovery_grant_id
+        const expectedLineageKeys = [
+          'citation_allowed',
+          'granted_attempt',
+          'inherited_attempts',
+          'predecessor_status_sha256',
+          'schema_version',
+          'seed_id',
+          'timeout_recovery_first_missing_page',
+          'timeout_recovery_grant_id',
+          'timeout_recovery_grant_sha256',
+        ].sort();
+        if (!sameJson(Object.keys(statusLineage).sort(), expectedLineageKeys)
+          || statusLineage.schema_version !== 1
+          || statusLineage.timeout_recovery_grant_id
             !== receiptDocument.timeout_recovery.grant_id
-          || status.seed_lineage.timeout_recovery_grant_sha256
+          || statusLineage.timeout_recovery_grant_sha256
             !== receiptDocument.timeout_recovery.grant_raw_sha256
-          || status.seed_lineage.timeout_recovery_first_missing_page
+          || statusLineage.timeout_recovery_first_missing_page
             !== receiptDocument.timeout_recovery.first_missing_page
-          || status.seed_lineage.granted_attempt !== maxDocumentAttempts + 1) {
+          || statusLineage.granted_attempt !== maxDocumentAttempts + 1) {
           throw new Error('B2 document status timeout recovery lineage is invalid');
         }
+        if (progress.status === 'complete'
+          && (progress.attempts !== maxDocumentAttempts + 1
+            || status.attempt !== maxDocumentAttempts + 1
+            || status.max_attempts !== maxDocumentAttempts + 1)) {
+          throw new Error(`${documentId}: B2 timeout recovery completion did not consume granted attempt 6`);
+        }
       } else if (containsTimeoutRecoveryKey(status)
-        || containsTimeoutRecoveryKey(status.seed_lineage)
-        || status.seed_lineage.granted_attempt !== undefined) {
+        || containsTimeoutRecoveryKey(statusLineage)
+        || statusLineage.granted_attempt !== undefined) {
         throw new Error('B2 document status contains stray timeout recovery lineage');
       }
     }
@@ -2759,6 +2781,12 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
       content_markdown_sha256: stateSummary.pages[String(page)].content_markdown_sha256,
       citation_eligible: false,
     }));
+    if (receiptDocument.timeout_recovery
+      && stateSummary.completedPages.length === receiptDocument.page_count
+      && stateSummary.failedPageNumbers.length === 0
+      && (progress.status !== 'complete' || status.status !== 'complete')) {
+      throw new Error(`${documentId}: B2 timeout recovery completed artifacts were downgraded`);
+    }
     if (progress.status === 'complete') {
       if (stateSummary.completedPages.length !== receiptDocument.page_count
         || stateSummary.failedPageNumbers.length !== 0

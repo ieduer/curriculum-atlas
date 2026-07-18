@@ -2705,6 +2705,65 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   );
   const monitoredComplete = await inspectSuccessorB2(successorRoot, monitoredPredecessor);
   assert.equal(monitoredComplete.complete, true);
+  const tamperedDocumentId = recoveryDocuments[0].document_id;
+  const tamperedStatusPath = path.join(successorRoot, 'status', `${tamperedDocumentId}.json`);
+  const tamperedRunStatusPath = path.join(successorRoot, 'run-status.json');
+  const assertMonitorRejectsCompleteTamper = async ({ mutateStatus, mutateProgress, pattern }) => {
+    const originalFiles = await Promise.all([
+      tamperedStatusPath,
+      `${tamperedStatusPath}.sha256`,
+      tamperedRunStatusPath,
+      `${tamperedRunStatusPath}.sha256`,
+    ].map((pathname) => readFile(pathname)));
+    try {
+      const status = JSON.parse(originalFiles[0]);
+      const runStatus = JSON.parse(originalFiles[2]);
+      mutateStatus(status);
+      const statusSha256 = await writeJsonSidecar(tamperedStatusPath, status);
+      mutateProgress(runStatus.documents[tamperedDocumentId], runStatus);
+      runStatus.documents[tamperedDocumentId].status_json_sha256 = statusSha256;
+      await writeJsonSidecar(tamperedRunStatusPath, runStatus);
+      await assert.rejects(inspectSuccessorB2(successorRoot, monitoredPredecessor), pattern);
+    } finally {
+      await Promise.all([
+        tamperedStatusPath,
+        `${tamperedStatusPath}.sha256`,
+        tamperedRunStatusPath,
+        `${tamperedRunStatusPath}.sha256`,
+      ].map((pathname, index) => writeFile(pathname, originalFiles[index], { mode: 0o600 })));
+    }
+  };
+  await t.test('monitor rejects a resealed granted completion downgraded to attempt 5', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      mutateStatus: (status) => { status.attempt = 5; },
+      mutateProgress: (progress) => { progress.attempts = 5; },
+      pattern: /timeout recovery completion did not consume granted attempt 6/u,
+    });
+  });
+  await t.test('monitor rejects a resealed granted completion with missing status lineage', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      mutateStatus: (status) => { delete status.seed_lineage; },
+      mutateProgress: () => {},
+      pattern: /timeout recovery document status seed lineage must be an object/u,
+    });
+  });
+  await t.test('monitor rejects a resealed granted completion downgraded to retry_wait', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      mutateStatus: (status) => {
+        status.status = 'retry_wait';
+        status.attempt = 5;
+      },
+      mutateProgress: (progress, runStatus) => {
+        progress.status = 'retry_wait';
+        progress.attempts = 5;
+        runStatus.counts.complete -= 1;
+        runStatus.counts.retry_wait += 1;
+        runStatus.finished = false;
+        runStatus.settled = false;
+      },
+      pattern: /timeout recovery completed artifacts were downgraded/u,
+    });
+  });
   await chmod(archivedGrantPath, 0o644);
   await assert.rejects(
     inspectSuccessorB2(successorRoot, monitoredPredecessor),
