@@ -1,0 +1,7 @@
+# Non-secret, owner-maintained values for the B3 completion cleanup verifier.
+# Install as ~/.config/bdfz/curriculum-ocr-reprocess-b-r3-cleanup.conf with mode 0600.
+BDFZ_OCR_B3_CLEANUP_SCRIPT=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-b-r3/scripts/cleanup-remote-ocr-completion.mjs
+BDFZ_OCR_B3_OUTPUT_ROOT=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-b-r3
+BDFZ_OCR_B3_LIFECYCLE_LOCK=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/.b3-lifecycle.lock
+BDFZ_OCR_B3_WORKER_UNIT=curriculum-ocr-reprocess-b-r3.service
+BDFZ_OCR_B3_LLAMA_UNIT=curriculum-ocr-llama.service
