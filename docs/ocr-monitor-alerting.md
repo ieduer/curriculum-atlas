@@ -17,7 +17,9 @@ Observe mode always requires a live nonzero worker `InvocationID`. Alert mode
 may recover a temporarily empty live worker `InvocationID` only from a valid
 armed receipt whose run, boot, worker unit, and monitor hash all match the
 current configuration. A different nonempty worker `InvocationID` never reuses
-the prior receipt.
+the prior receipt. If no exact receipt exists yet, alert mode records a local
+`suppressed_disarmed` result and exits successfully without sending or entering
+a restart loop; observe mode remains the only path that can arm a new binding.
 
 Both systemd entrypoints use bounded `/usr/bin/flock` locking on the external
 state directory. The kernel releases the lock automatically when a process

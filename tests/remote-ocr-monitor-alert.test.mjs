@@ -227,7 +227,7 @@ test('alert mode recovers a missing live worker InvocationID only from the exact
   assert.deepEqual(sent[0].issue_codes, ['MEMORY_BELOW_MINIMUM']);
 });
 
-test('null worker recovery rejects every static binding mismatch and observe always requires live nonzero', async () => {
+test('null worker recovery suppresses every static binding mismatch and observe always requires live nonzero', async () => {
   const fx = await fixture();
   const armedAt = await arm(fx);
   const failedAt = armedAt + 60_000;
@@ -246,17 +246,15 @@ test('null worker recovery rejects every static binding mismatch and observe alw
     { monitorSha256: 'f'.repeat(64) },
   ];
   for (const mismatch of mismatches) {
-    await assert.rejects(
-      runOcrMonitorAlert(
-        { ...fx.config, ...mismatch, mode: 'alert' },
-        {
-          nowMilliseconds: failedAt,
-          runtime: structuredClone(nullWorker),
-          sendAlert: async (payload) => sent.push(payload),
-        },
-      ),
-      /no exact armed receipt binding/u,
+    const result = await runOcrMonitorAlert(
+      { ...fx.config, ...mismatch, mode: 'alert' },
+      {
+        nowMilliseconds: failedAt,
+        runtime: structuredClone(nullWorker),
+        sendAlert: async (payload) => sent.push(payload),
+      },
     );
+    assert.equal(result.state, 'suppressed_disarmed');
   }
   const differentBoot = runtime(
     failedAt,
@@ -266,10 +264,14 @@ test('null worker recovery rejects every static binding mismatch and observe alw
     null,
     '22222222-2222-4222-8222-222222222222',
   );
-  await assert.rejects(
-    invokeWithRuntime(fx, 'alert', failedAt, differentBoot, async (payload) => sent.push(payload)),
-    /no exact armed receipt binding/u,
+  const differentBootResult = await invokeWithRuntime(
+    fx,
+    'alert',
+    failedAt,
+    differentBoot,
+    async (payload) => sent.push(payload),
   );
+  assert.equal(differentBootResult.state, 'suppressed_disarmed');
   await writeLatest(fx, failedAt, 10);
   const observeWithoutWorker = runtime(
     failedAt,

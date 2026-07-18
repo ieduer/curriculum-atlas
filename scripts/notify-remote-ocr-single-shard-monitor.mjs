@@ -368,7 +368,7 @@ async function recoverBindingFromArmedReceipt(config, runtime, stateDir) {
   const receipt = parseArmedReceipt(await readStateJson(stateDir, stateFiles.armed));
   if (!receipt
     || !bindingMatchesStaticConfig(receipt.binding, config, runtime.boot_id)) {
-    throw new Error('live worker InvocationID is absent and no exact armed receipt binding can recover it');
+    return null;
   }
   return receipt.binding;
 }
@@ -851,6 +851,17 @@ export async function runOcrMonitorAlert(config, dependencies = {}) {
     binding = makeBinding(config, runtime);
   } else {
     binding = await recoverBindingFromArmedReceipt(config, runtime, stateDir);
+    if (!binding) {
+      const issueCodes = ['MONITOR_EXECUTION_FAILED'];
+      await writeResult(
+        stateDir,
+        nowMilliseconds,
+        { run_id: config.expectedRunId },
+        'suppressed_disarmed',
+        issueCodes,
+      );
+      return { state: 'suppressed_disarmed', sent: false, issue_codes: issueCodes };
+    }
   }
   return alertFailedMonitor(config, runtime, binding, nowMilliseconds, stateDir, sendAlert);
 }
