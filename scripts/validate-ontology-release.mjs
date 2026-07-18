@@ -23,7 +23,7 @@ import {
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_MANIFEST = 'data/ontology-release-manifest.json';
 const EXPECTED_PUBLIC_ONTOLOGY_NODES = 169;
-const PUBLIC_BASELINE_ARTIFACT_PATH = 'data/release-baselines/ontology-public-v1.json';
+const PUBLIC_BASELINE_ARTIFACT_PATH = 'data/release-baselines/ontology-public-v2.json';
 const SUBJECT_FACETS = Object.freeze([
   '语文',
   '数学',
