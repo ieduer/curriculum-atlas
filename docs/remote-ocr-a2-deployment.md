@@ -109,13 +109,44 @@ RUN_ROOT=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reproce
 A1="$RUN_ROOT/output/production-p4-mb16-shard-a-r1"
 A2="$RUN_ROOT/output/production-p1-mb16-shard-a-r2"
 WORKSPACE="$RUN_ROOT/workspace-a-r2"
+MONITOR_DIR="$RUN_ROOT/monitor-a-r2"
+ALERT_RUNTIME="$HOME/curriculum-ocr-offload/alert-runtime"
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 BACKUP="$RUN_ROOT/backups/pre-a2-release-$STAMP"
 EVIDENCE="$RUN_ROOT/a2-deploy-evidence/$STAMP"
-mkdir -m 700 -p "$BACKUP/files" "$EVIDENCE"
-printf '%s\n' "$BACKUP" > "$RUN_ROOT/.a2-current-backup"
-printf '%s\n' "$EVIDENCE" > "$RUN_ROOT/.a2-current-evidence"
-chmod 600 "$RUN_ROOT/.a2-current-backup" "$RUN_ROOT/.a2-current-evidence"
+test ! -e "$RUN_ROOT/.a2-current-backup"
+test ! -L "$RUN_ROOT/.a2-current-backup"
+test ! -e "$RUN_ROOT/.a2-current-evidence"
+test ! -L "$RUN_ROOT/.a2-current-evidence"
+test ! -e "$BACKUP"
+test ! -e "$EVIDENCE"
+mkdir -m 700 -p "$(dirname "$BACKUP")" "$(dirname "$EVIDENCE")"
+mkdir -m 700 "$BACKUP" "$EVIDENCE"
+mkdir -m 700 "$BACKUP/files"
+
+if test -L "$ALERT_RUNTIME"; then
+  echo 'alert-runtime must not be a symbolic link' >&2
+  exit 1
+elif test -d "$ALERT_RUNTIME"; then
+  test "$(stat -c %a "$ALERT_RUNTIME")" = 700
+  test "$(stat -c %u "$ALERT_RUNTIME")" = "$(id -u)"
+  printf 'state=present\nmode=700\n' > "$BACKUP/alert-runtime-state.env"
+elif test -e "$ALERT_RUNTIME"; then
+  echo 'alert-runtime exists but is not a directory' >&2
+  exit 1
+else
+  printf 'state=absent\n' > "$BACKUP/alert-runtime-state.env"
+fi
+chmod 600 "$BACKUP/alert-runtime-state.env"
+for alert_file in \
+  "$ALERT_RUNTIME/notify-remote-ocr-single-shard-monitor.mjs" \
+  "$ALERT_RUNTIME/SHA256SUMS"; do
+  if test -e "$alert_file" || test -L "$alert_file"; then
+    test -f "$alert_file"
+    test ! -L "$alert_file"
+    test "$(stat -c %u "$alert_file")" = "$(id -u)"
+  fi
+done
 
 paths=(
   "$HOME/.config/systemd/user/curriculum-ocr-llama.service"
@@ -124,8 +155,12 @@ paths=(
   "$HOME/.config/systemd/user/curriculum-ocr-reprocess-a-r2-monitor.service"
   "$HOME/.config/systemd/user/curriculum-ocr-reprocess-a-r2-monitor.timer"
   "$HOME/.config/systemd/user/curriculum-ocr-reprocess-a-r2-monitor.service.d/alert-only.conf"
+  "$HOME/.config/systemd/user/curriculum-ocr-monitor-alert@.service"
+  "$HOME/.config/systemd/user/curriculum-ocr-monitor-alert-retry@.timer"
   "$HOME/.config/bdfz/curriculum-ocr-reprocess-a-r2-cleanup.conf"
   "$HOME/.config/bdfz/curriculum-ocr-monitor-alert.conf"
+  "$HOME/curriculum-ocr-offload/alert-runtime/notify-remote-ocr-single-shard-monitor.mjs"
+  "$HOME/curriculum-ocr-offload/alert-runtime/SHA256SUMS"
 )
 for pathname in "${paths[@]}"; do
   relative=${pathname#"$HOME/"}
@@ -144,20 +179,33 @@ systemctl --user show curriculum-ocr-llama.service \
   curriculum-ocr-reprocess-a-r2-cleanup.service \
   curriculum-ocr-reprocess-a-r2-monitor.service \
   curriculum-ocr-reprocess-a-r2-monitor.timer \
+  curriculum-ocr-reprocess-b-r3-monitor.service \
+  curriculum-ocr-monitor-alert@curriculum-ocr-reprocess-b-r3-monitor.service.service \
   --property=Id --property=LoadState --property=UnitFileState \
   --property=ActiveState --property=SubState --property=MainPID \
   --property=InvocationID --property=NRestarts --no-pager \
   > "$BACKUP/systemd-before.txt"
+B3_MONITOR_STATE=$(systemctl --user is-enabled \
+  curriculum-ocr-reprocess-b-r3-monitor.timer 2>/dev/null || true)
+B3_ALERT_STATE=$(systemctl --user is-enabled \
+  curriculum-ocr-monitor-alert-retry@curriculum-ocr-reprocess-b-r3-monitor.service.timer \
+  2>/dev/null || true)
+for timer_state in "$B3_MONITOR_STATE" "$B3_ALERT_STATE"; do
+  case "$timer_state" in
+    enabled|enabled-runtime|disabled) ;;
+    *) echo "unexpected B-r3 timer state: $timer_state" >&2; exit 1 ;;
+  esac
+done
 printf 'b3_monitor_timer=%s\nb3_alert_retry_timer=%s\n' \
-  "$(systemctl --user is-enabled curriculum-ocr-reprocess-b-r3-monitor.timer 2>/dev/null || true)" \
-  "$(systemctl --user is-enabled curriculum-ocr-monitor-alert-retry@curriculum-ocr-reprocess-b-r3-monitor.service.timer 2>/dev/null || true)" \
-  > "$BACKUP/b3-timer-state.env"
+  "$B3_MONITOR_STATE" "$B3_ALERT_STATE" > "$BACKUP/b3-timer-state.env"
 chmod 600 "$BACKUP/b3-timer-state.env"
 
 test -d "$A1"
 test ! -L "$A1"
 test ! -e "$WORKSPACE"
 test ! -e "$A2"
+test ! -e "$MONITOR_DIR"
+test ! -L "$MONITOR_DIR"
 (
   cd "$A1"
   find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum
@@ -172,6 +220,9 @@ test "$(stat -c %a "$AUTHORITY")" = 700
 test -f "$AUTHORITY/ledger-identity.json"
 test -f "$AUTHORITY/ledger-identity.json.sha256"
 (cd "$AUTHORITY" && sha256sum --check --strict ledger-identity.json.sha256)
+printf '%s\n' "$BACKUP" > "$RUN_ROOT/.a2-current-backup"
+printf '%s\n' "$EVIDENCE" > "$RUN_ROOT/.a2-current-evidence"
+chmod 600 "$RUN_ROOT/.a2-current-backup" "$RUN_ROOT/.a2-current-evidence"
 printf 'backup=%s\nevidence=%s\n' "$BACKUP" "$EVIDENCE"
 REMOTE
 ```
@@ -196,6 +247,7 @@ git -C "$REPO" archive --format=tar "$A2_GIT_COMMIT" -- \
   scripts/run-remote-ocr-offload.mjs \
   scripts/monitor-remote-ocr-single-shard.mjs \
   scripts/monitor-remote-ocr-reprocess.mjs \
+  scripts/notify-remote-ocr-single-shard-monitor.mjs \
   scripts/cleanup-remote-ocr-completion.mjs \
   scripts/ocr-pdf-paddle.py \
   scripts/lib/remote-ocr-local-snapshot.mjs \
@@ -207,6 +259,8 @@ git -C "$REPO" archive --format=tar "$A2_GIT_COMMIT" -- \
   ops/systemd/curriculum-ocr-reprocess-a-r2-monitor.timer \
   ops/systemd/curriculum-ocr-reprocess-a-r2-monitor.service.d/alert-only.conf \
   ops/systemd/curriculum-ocr-reprocess-a-r2-monitor-alert.conf.example \
+  ops/systemd/curriculum-ocr-monitor-alert@.service \
+  ops/systemd/curriculum-ocr-monitor-alert-retry@.timer \
   | tar -xf - -C "$LOCAL_STAGE"
 
 printf '%s\n' "$A2_GIT_COMMIT" > "$LOCAL_STAGE/SOURCE_COMMIT"
@@ -352,11 +406,13 @@ find "$WORKSPACE" -type d -exec chmod 0500 {} +
 REMOTE
 ```
 
-## 5. Create the exact successor inode and clone the stable cache
+## 5. Create the exact successor inode, monitor directory, and stable cache
 
 The consumption claim binds the A2 path, filesystem device, and inode. Create
 it once, copy the stable PaddleX cache without hard links, and prove byte
-equality before seed preview.
+equality before seed preview. The monitor unit cannot create its own output
+root under `ProtectSystem=strict`; create one new private real directory before
+the worker can start.
 
 ```zsh
 "${SSH_INNER[@]}" 'bash -se' <<'REMOTE'
@@ -365,11 +421,19 @@ umask 077
 RUN_ROOT=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess
 A1="$RUN_ROOT/output/production-p4-mb16-shard-a-r1"
 A2="$RUN_ROOT/output/production-p1-mb16-shard-a-r2"
+MONITOR_DIR="$RUN_ROOT/monitor-a-r2"
 LOCK="$RUN_ROOT/.a2-lifecycle.lock"
 EVIDENCE=$(cat "$RUN_ROOT/.a2-current-evidence")
 test ! -e "$A2"
+test ! -e "$MONITOR_DIR"
+test ! -L "$MONITOR_DIR"
 test ! -e "$LOCK"
 mkdir -m 700 "$A2"
+mkdir -m 700 "$MONITOR_DIR"
+test -d "$MONITOR_DIR"
+test ! -L "$MONITOR_DIR"
+test "$(stat -c %a "$MONITOR_DIR")" = 700
+test "$(stat -c %u "$MONITOR_DIR")" = "$(id -u)"
 (set -o noclobber; : > "$LOCK")
 chmod 600 "$LOCK"
 cp -a --reflink=auto "$A1/paddlex-cache" "$A2/paddlex-cache"
@@ -383,6 +447,8 @@ stat -c 'output_device=%d output_inode=%i mode=%a owner=%u:%g' "$A2" \
   > "$EVIDENCE/a2-output-inode.txt"
 stat -c 'lock_device=%d lock_inode=%i mode=%a owner=%u:%g' "$LOCK" \
   > "$EVIDENCE/a2-lifecycle-lock.txt"
+stat -c 'monitor_device=%d monitor_inode=%i mode=%a owner=%u:%g' "$MONITOR_DIR" \
+  > "$EVIDENCE/a2-monitor-directory.txt"
 REMOTE
 ```
 
@@ -390,9 +456,13 @@ Do not remove or recreate this directory after seed preparation begins.
 
 ## 6. Install units and run `systemd-analyze --user verify`
 
-Install order is llama, cleanup, worker, monitor, monitor drop-in, monitor
-timer, cleanup config, and alert binding. The delivery credential is checked
-only for owner/mode; its contents are never read or printed.
+First stop the completed B-r3 monitor and its retry timer so the shared alert
+chain cannot execute while it is replaced. Install order is llama, reviewed
+alert handler, reviewed retry timer, hash-sealed notifier runtime, cleanup,
+worker, monitor, monitor drop-in, monitor timer, cleanup config, and A2 alert
+binding. Every shared alert artifact is exact-compared with the reviewed tree.
+The delivery credential is checked only for owner/mode; its contents are never
+read or printed.
 
 ```zsh
 "${SSH_INNER[@]}" 'bash -se' <<'REMOTE'
@@ -403,13 +473,59 @@ WORKSPACE="$RUN_ROOT/workspace-a-r2"
 SYSTEMD_USER="$HOME/.config/systemd/user"
 CONFIG="$HOME/.config/bdfz"
 ALERT_STATE="$HOME/.local/state/bdfz-curriculum-ocr-monitor-alert"
+ALERT_RUNTIME="$HOME/curriculum-ocr-offload/alert-runtime"
 EVIDENCE=$(cat "$RUN_ROOT/.a2-current-evidence")
-mkdir -p "$SYSTEMD_USER/curriculum-ocr-reprocess-a-r2-monitor.service.d" \
-  "$CONFIG" "$ALERT_STATE"
-chmod 700 "$CONFIG" "$ALERT_STATE"
+mkdir -p "$SYSTEMD_USER/curriculum-ocr-reprocess-a-r2-monitor.service.d"
+for private_dir in "$CONFIG" "$ALERT_STATE"; do
+  test -d "$private_dir"
+  test ! -L "$private_dir"
+  test "$(stat -c %a "$private_dir")" = 700
+  test "$(stat -c %u "$private_dir")" = "$(id -u)"
+done
+if ! test -d "$ALERT_RUNTIME"; then
+  mkdir -m 700 "$ALERT_RUNTIME"
+fi
+test -d "$ALERT_RUNTIME"
+test ! -L "$ALERT_RUNTIME"
+test "$(stat -c %a "$ALERT_RUNTIME")" = 700
+test "$(stat -c %u "$ALERT_RUNTIME")" = "$(id -u)"
+
+# The shared handler and retry chain must be quiescent before replacement.
+systemctl --user disable --now curriculum-ocr-reprocess-b-r3-monitor.timer
+systemctl --user disable --now \
+  curriculum-ocr-monitor-alert-retry@curriculum-ocr-reprocess-b-r3-monitor.service.timer
+for quiet_unit in \
+  curriculum-ocr-reprocess-b-r3-monitor.service \
+  curriculum-ocr-monitor-alert@curriculum-ocr-reprocess-b-r3-monitor.service.service; do
+  test "$(systemctl --user show "$quiet_unit" --property=ActiveState --value)" = inactive
+  test "$(systemctl --user show "$quiet_unit" --property=MainPID --value)" = 0
+done
 
 install -m 0644 "$WORKSPACE/ops/systemd/curriculum-ocr-llama.service" \
   "$SYSTEMD_USER/curriculum-ocr-llama.service"
+install -m 0644 "$WORKSPACE/ops/systemd/curriculum-ocr-monitor-alert@.service" \
+  "$SYSTEMD_USER/curriculum-ocr-monitor-alert@.service"
+install -m 0644 "$WORKSPACE/ops/systemd/curriculum-ocr-monitor-alert-retry@.timer" \
+  "$SYSTEMD_USER/curriculum-ocr-monitor-alert-retry@.timer"
+install -m 0400 "$WORKSPACE/scripts/notify-remote-ocr-single-shard-monitor.mjs" \
+  "$ALERT_RUNTIME/notify-remote-ocr-single-shard-monitor.mjs"
+cmp "$WORKSPACE/ops/systemd/curriculum-ocr-monitor-alert@.service" \
+  "$SYSTEMD_USER/curriculum-ocr-monitor-alert@.service"
+cmp "$WORKSPACE/ops/systemd/curriculum-ocr-monitor-alert-retry@.timer" \
+  "$SYSTEMD_USER/curriculum-ocr-monitor-alert-retry@.timer"
+cmp "$WORKSPACE/scripts/notify-remote-ocr-single-shard-monitor.mjs" \
+  "$ALERT_RUNTIME/notify-remote-ocr-single-shard-monitor.mjs"
+NOTIFIER_SHA=$(sha256sum "$WORKSPACE/scripts/notify-remote-ocr-single-shard-monitor.mjs" \
+  | awk '{print $1}')
+test "$(sha256sum "$ALERT_RUNTIME/notify-remote-ocr-single-shard-monitor.mjs" \
+  | awk '{print $1}')" = "$NOTIFIER_SHA"
+printf '%s  %s\n' "$NOTIFIER_SHA" \
+  "$ALERT_RUNTIME/notify-remote-ocr-single-shard-monitor.mjs" \
+  > "$EVIDENCE/alert-runtime.SHA256SUMS"
+install -m 0400 "$EVIDENCE/alert-runtime.SHA256SUMS" \
+  "$ALERT_RUNTIME/SHA256SUMS"
+(cd "$ALERT_RUNTIME" && sha256sum --check --strict SHA256SUMS)
+
 install -m 0644 "$WORKSPACE/ops/systemd/curriculum-ocr-reprocess-a-r2-cleanup.service" \
   "$SYSTEMD_USER/curriculum-ocr-reprocess-a-r2-cleanup.service"
 install -m 0644 "$WORKSPACE/ops/systemd/curriculum-ocr-reprocess-a-r2.service" \
@@ -424,11 +540,7 @@ install -m 0600 "$WORKSPACE/ops/systemd/curriculum-ocr-reprocess-a-r2-cleanup.co
   "$CONFIG/curriculum-ocr-reprocess-a-r2-cleanup.conf"
 
 MONITOR_SHA=$(sha256sum "$WORKSPACE/scripts/monitor-remote-ocr-single-shard.mjs" | awk '{print $1}')
-# The shared alert config can bind only one live lineage. Retire completed B-r3
-# monitor scheduling before installing the A2 binding.
-systemctl --user disable --now curriculum-ocr-reprocess-b-r3-monitor.timer
-systemctl --user disable --now \
-  curriculum-ocr-monitor-alert-retry@curriculum-ocr-reprocess-b-r3-monitor.service.timer
+# The shared alert config can bind only one live lineage.
 sed "s/<LOWERCASE_64_HEX_SHA256>/$MONITOR_SHA/" \
   "$WORKSPACE/ops/systemd/curriculum-ocr-reprocess-a-r2-monitor-alert.conf.example" \
   > "$EVIDENCE/curriculum-ocr-monitor-alert.conf"
@@ -439,11 +551,13 @@ install -m 0600 "$EVIDENCE/curriculum-ocr-monitor-alert.conf" \
 test -f "$CONFIG/curriculum-ocr-monitor-telegram.env"
 test "$(stat -c %a "$CONFIG/curriculum-ocr-monitor-telegram.env")" = 600
 test "$(stat -c %u "$CONFIG/curriculum-ocr-monitor-telegram.env")" = "$(id -u)"
-(cd "$HOME/curriculum-ocr-offload/alert-runtime" && sha256sum --check --strict SHA256SUMS)
+(cd "$ALERT_RUNTIME" && sha256sum --check --strict SHA256SUMS)
 
 systemctl --user daemon-reload
 systemd-analyze --user verify \
   "$SYSTEMD_USER/curriculum-ocr-llama.service" \
+  "$SYSTEMD_USER/curriculum-ocr-monitor-alert@.service" \
+  "$SYSTEMD_USER/curriculum-ocr-monitor-alert-retry@.timer" \
   "$SYSTEMD_USER/curriculum-ocr-reprocess-a-r2-cleanup.service" \
   "$SYSTEMD_USER/curriculum-ocr-reprocess-a-r2.service" \
   "$SYSTEMD_USER/curriculum-ocr-reprocess-a-r2-monitor.service" \
@@ -746,19 +860,31 @@ paired-union dry-run succeeds.
 
 ## 11. Rollback and irreversible boundary
 
-Before grant issuance, rollback may restore backed-up unit/config files. After
-issuance or consumption, rollback means **freeze** and restore only runtime
-presentation; it never rewinds OCR evidence or authority.
+Before grant issuance, rollback may restore backed-up unit, config, notifier,
+manifest, and runtime-directory state. After issuance or consumption, rollback
+means **freeze** and restore only that runtime presentation; it never rewinds
+OCR evidence or authority. The A2 successor, monitor evidence directory, alert
+state, lifecycle lock, grant, claim, and deployment evidence remain preserved.
 
 ```bash
 set -euo pipefail
 RUN_ROOT=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess
 BACKUP=$(cat "$RUN_ROOT/.a2-current-backup")
+ALERT_RUNTIME="$HOME/curriculum-ocr-offload/alert-runtime"
 systemctl --user disable --now curriculum-ocr-reprocess-a-r2-monitor.timer || true
 systemctl --user disable --now \
   curriculum-ocr-monitor-alert-retry@curriculum-ocr-reprocess-a-r2-monitor.service.timer || true
 systemctl --user disable --now curriculum-ocr-reprocess-a-r2.service || true
+systemctl --user stop curriculum-ocr-reprocess-a-r2-monitor.service || true
+systemctl --user stop \
+  curriculum-ocr-monitor-alert@curriculum-ocr-reprocess-a-r2-monitor.service.service || true
 systemctl --user stop curriculum-ocr-llama.service || true
+for quiet_unit in \
+  curriculum-ocr-reprocess-a-r2-monitor.service \
+  curriculum-ocr-monitor-alert@curriculum-ocr-reprocess-a-r2-monitor.service.service; do
+  test "$(systemctl --user show "$quiet_unit" --property=ActiveState --value)" = inactive
+  test "$(systemctl --user show "$quiet_unit" --property=MainPID --value)" = 0
+done
 
 while IFS=$'\t' read -r state relative; do
   target="$HOME/$relative"
@@ -771,17 +897,47 @@ while IFS=$'\t' read -r state relative; do
   fi
 done < "$BACKUP/file-state.tsv"
 
+ALERT_RUNTIME_STATE=$(sed -n 's/^state=//p' "$BACKUP/alert-runtime-state.env")
+case "$ALERT_RUNTIME_STATE" in
+  present)
+    test -d "$ALERT_RUNTIME"
+    test ! -L "$ALERT_RUNTIME"
+    test "$(stat -c %a "$ALERT_RUNTIME")" = 700
+    test "$(stat -c %u "$ALERT_RUNTIME")" = "$(id -u)"
+    ;;
+  absent)
+    test ! -e "$ALERT_RUNTIME/notify-remote-ocr-single-shard-monitor.mjs"
+    test ! -e "$ALERT_RUNTIME/SHA256SUMS"
+    rmdir "$ALERT_RUNTIME"
+    ;;
+  *)
+    echo 'invalid saved alert-runtime state' >&2
+    exit 1
+    ;;
+esac
+if grep -Fqx $'present\tcurriculum-ocr-offload/alert-runtime/SHA256SUMS' \
+  "$BACKUP/file-state.tsv"; then
+  (cd "$ALERT_RUNTIME" && sha256sum --check --strict SHA256SUMS)
+fi
+
 systemctl --user daemon-reload
 
 B3_MONITOR_STATE=$(sed -n 's/^b3_monitor_timer=//p' "$BACKUP/b3-timer-state.env")
 B3_ALERT_STATE=$(sed -n 's/^b3_alert_retry_timer=//p' "$BACKUP/b3-timer-state.env")
-if test "$B3_MONITOR_STATE" = enabled; then
-  systemctl --user enable --now curriculum-ocr-reprocess-b-r3-monitor.timer
-fi
-if test "$B3_ALERT_STATE" = enabled; then
-  systemctl --user enable --now \
-    curriculum-ocr-monitor-alert-retry@curriculum-ocr-reprocess-b-r3-monitor.service.timer
-fi
+restore_timer_state() {
+  state=$1
+  unit=$2
+  case "$state" in
+    enabled) systemctl --user enable --now "$unit" ;;
+    enabled-runtime) systemctl --user enable --runtime --now "$unit" ;;
+    disabled) systemctl --user disable --now "$unit" ;;
+    *) echo "invalid saved timer state for $unit" >&2; return 1 ;;
+  esac
+}
+restore_timer_state "$B3_MONITOR_STATE" \
+  curriculum-ocr-reprocess-b-r3-monitor.timer
+restore_timer_state "$B3_ALERT_STATE" \
+  curriculum-ocr-monitor-alert-retry@curriculum-ocr-reprocess-b-r3-monitor.service.timer
 
 systemctl --user show curriculum-ocr-reprocess-a-r2.service \
   --property=LoadState --property=UnitFileState --property=ActiveState \

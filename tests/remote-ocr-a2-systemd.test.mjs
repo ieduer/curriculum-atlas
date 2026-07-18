@@ -128,3 +128,62 @@ test('A2 deployment runbook is executable, ordered, and preserves the authority 
   assert.match(runbook, /must not.*restore|不得.*恢复/iu);
   assert.doesNotMatch(runbook, /(?:PASSWORD|TOKEN|COOKIE|API_KEY)\s*[=:]\s*[^<\s]/iu);
 });
+
+test('A2 deployment creates a new private monitor output directory before worker start', async () => {
+  const runbook = await readFile(new URL('../docs/remote-ocr-a2-deployment.md', import.meta.url), 'utf8');
+  for (const exact of [
+    'MONITOR_DIR="$RUN_ROOT/monitor-a-r2"',
+    'test ! -e "$MONITOR_DIR"',
+    'test ! -L "$MONITOR_DIR"',
+    'mkdir -m 700 "$MONITOR_DIR"',
+    'test -d "$MONITOR_DIR"',
+    'test "$(stat -c %a "$MONITOR_DIR")" = 700',
+    'test "$(stat -c %u "$MONITOR_DIR")" = "$(id -u)"',
+  ]) assert.ok(runbook.includes(exact), exact);
+  const createAt = runbook.indexOf('mkdir -m 700 "$MONITOR_DIR"');
+  const workerStartAt = runbook.indexOf('systemctl --user start curriculum-ocr-reprocess-a-r2.service');
+  assert.ok(createAt >= 0 && workerStartAt >= 0 && createAt < workerStartAt);
+});
+
+test('A2 deployment binds the exact reviewed alert handler and retry chain', async () => {
+  const runbook = await readFile(new URL('../docs/remote-ocr-a2-deployment.md', import.meta.url), 'utf8');
+  for (const exact of [
+    'scripts/notify-remote-ocr-single-shard-monitor.mjs',
+    'ops/systemd/curriculum-ocr-monitor-alert@.service',
+    'ops/systemd/curriculum-ocr-monitor-alert-retry@.timer',
+    '"$HOME/.config/systemd/user/curriculum-ocr-monitor-alert@.service"',
+    '"$HOME/.config/systemd/user/curriculum-ocr-monitor-alert-retry@.timer"',
+    '"$HOME/curriculum-ocr-offload/alert-runtime/notify-remote-ocr-single-shard-monitor.mjs"',
+    '"$HOME/curriculum-ocr-offload/alert-runtime/SHA256SUMS"',
+    '"$SYSTEMD_USER/curriculum-ocr-monitor-alert@.service"',
+    '"$SYSTEMD_USER/curriculum-ocr-monitor-alert-retry@.timer"',
+    'cmp "$WORKSPACE/scripts/notify-remote-ocr-single-shard-monitor.mjs"',
+    'cmp "$WORKSPACE/ops/systemd/curriculum-ocr-monitor-alert@.service"',
+    'cmp "$WORKSPACE/ops/systemd/curriculum-ocr-monitor-alert-retry@.timer"',
+    'ALERT_RUNTIME="$HOME/curriculum-ocr-offload/alert-runtime"',
+    'alert-runtime-state.env',
+  ]) assert.ok(runbook.includes(exact), exact);
+  assert.match(runbook, /sha256sum "\$ALERT_RUNTIME\/notify-remote-ocr-single-shard-monitor\.mjs"[\s\S]*SHA256SUMS/u);
+  const archiveBlock = runbook.slice(
+    runbook.indexOf('git -C "$REPO" archive'),
+    runbook.indexOf('| tar -xf - -C "$LOCAL_STAGE"'),
+  );
+  for (const exact of [
+    'scripts/notify-remote-ocr-single-shard-monitor.mjs',
+    'ops/systemd/curriculum-ocr-monitor-alert@.service',
+    'ops/systemd/curriculum-ocr-monitor-alert-retry@.timer',
+  ]) assert.ok(archiveBlock.includes(exact), exact);
+  const verifyBlock = runbook.slice(
+    runbook.indexOf('systemd-analyze --user verify'),
+    runbook.indexOf('! systemctl --user cat curriculum-ocr-reprocess-a-r2.service'),
+  );
+  assert.ok(verifyBlock.includes('"$SYSTEMD_USER/curriculum-ocr-monitor-alert@.service"'));
+  assert.ok(verifyBlock.includes('"$SYSTEMD_USER/curriculum-ocr-monitor-alert-retry@.timer"'));
+  const rollbackBlock = runbook.slice(runbook.indexOf('## 11. Rollback and irreversible boundary'));
+  assert.ok(rollbackBlock.includes('ALERT_RUNTIME_STATE='));
+  assert.ok(rollbackBlock.includes('alert-runtime-state.env'));
+  assert.ok(rollbackBlock.includes('sha256sum --check --strict SHA256SUMS'));
+  const disableOldAt = runbook.indexOf('systemctl --user disable --now curriculum-ocr-reprocess-b-r3-monitor.timer');
+  const installHandlerAt = runbook.indexOf('install -m 0644 "$WORKSPACE/ops/systemd/curriculum-ocr-monitor-alert@.service"');
+  assert.ok(disableOldAt >= 0 && installHandlerAt >= 0 && disableOldAt < installHandlerAt);
+});
