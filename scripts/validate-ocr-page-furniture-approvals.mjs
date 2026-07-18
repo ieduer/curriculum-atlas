@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import {
   readPinnedDirectoryEntries,
   readPinnedRegularFile,
+  readPinnedRegularFileReceipt,
   verifyPinnedDirectoryReceipt,
 } from './lib/safe-local-evidence.mjs';
 
@@ -185,7 +186,17 @@ function validateStructure(input) {
   return ledger;
 }
 
-async function validateWitnessBinding(ledger, witnessRoot) {
+function retainProtectedReceipt(protectedResources, receipt, role) {
+  if (!protectedResources) return;
+  receipt.protectedRole = role;
+  protectedResources.files.push(receipt);
+  protectedResources.evidenceRoots.push({
+    canonicalPath: receipt.rootCanonicalPath,
+    identity: receipt.rootIdentity,
+  });
+}
+
+async function validateWitnessBinding(ledger, witnessRoot, protectedResources = null) {
   const resolvedRoot = path.resolve(witnessRoot);
   for (const document of ledger.documents) {
     const visionRoot = path.join(resolvedRoot, document.document_id, 'vision');
@@ -211,9 +222,9 @@ async function validateWitnessBinding(ledger, witnessRoot) {
     for (const entry of entries) {
       const page = Number(entry.name.match(PAGE_FILE_PATTERN)[1]);
       const relativePath = `${document.document_id}/vision/${entry.name}`;
-      let raw;
+      let sidecarRead;
       try {
-        raw = await readPinnedRegularFile(path.join(visionRoot, entry.name), {
+        sidecarRead = await readPinnedRegularFileReceipt(path.join(visionRoot, entry.name), {
           label: relativePath,
           rootPath: resolvedRoot,
           encoding: 'utf8',
@@ -221,6 +232,8 @@ async function validateWitnessBinding(ledger, witnessRoot) {
       } catch (error) {
         fail(error.message);
       }
+      retainProtectedReceipt(protectedResources, sidecarRead, 'furniture_vision_sidecar');
+      const raw = sidecarRead.bytes;
       snapshotEntries.push(`${relativePath}\0${sha256(raw)}`);
       let sidecar;
       try {
@@ -271,15 +284,17 @@ async function validateWitnessBinding(ledger, witnessRoot) {
           'images',
           `page-${String(example.physical_page).padStart(3, '0')}.png`,
         );
-        let image;
+        let imageRead;
         try {
-          image = await readPinnedRegularFile(imagePath, {
+          imageRead = await readPinnedRegularFileReceipt(imagePath, {
             label: `${document.document_id} page ${example.physical_page} image`,
             rootPath: resolvedRoot,
           });
         } catch (error) {
           fail(error.message);
         }
+        retainProtectedReceipt(protectedResources, imageRead, 'furniture_rendered_image');
+        const image = imageRead.bytes;
         const imageSha = sha256(image);
         if (imageSha !== example.rendered_image_sha256) {
           fail(`${rule.rule_id} page ${example.physical_page} image bytes drifted`);
@@ -299,7 +314,9 @@ async function validateWitnessBinding(ledger, witnessRoot) {
 
 export async function validateOcrPageFurnitureApprovals(input, options = {}) {
   const ledger = validateStructure(input);
-  if (options.witnessRoot) await validateWitnessBinding(ledger, options.witnessRoot);
+  if (options.witnessRoot) {
+    await validateWitnessBinding(ledger, options.witnessRoot, options.protectedResources);
+  }
   const footerRules = ledger.documents.reduce(
     (total, document) => total + document.footer_rules.length,
     0,

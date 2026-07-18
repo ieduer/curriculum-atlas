@@ -1,17 +1,24 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
 import { constants } from 'node:fs';
 import {
   lstat,
+  mkdtemp,
   mkdir,
   open,
+  readdir,
   realpath,
   rename,
+  rm,
   stat,
   unlink,
+  writeFile,
 } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { stripExactTrailingPrintedPage } from './preview-ocr-page-furniture-impact.mjs';
 import { validateOcrPageFurnitureApprovals } from './validate-ocr-page-furniture-approvals.mjs';
 import {
@@ -47,7 +54,7 @@ const ONLINE_ARTIFACT_RELATIONS = new Set([
   'different_edition_reference',
 ]);
 const PAGE_TYPES = new Set(['prose', 'table', 'mixed']);
-const TABLE_SOURCE_FORMATS = new Set(['html', 'markdown_pipe', 'flattened_text', 'manual_grid']);
+const TABLE_SOURCE_FORMATS = new Set(['html', 'markdown_pipe', 'flattened_text']);
 const SNAPSHOT_SCOPES = new Set(['whole_page', 'embedded_item', 'stable_fact_excerpt', 'context_excerpt']);
 const ACCEPTED_TEXT_RELATIONS = new Set([
   'normalized_exact',
@@ -63,6 +70,11 @@ const REQUIRED_IDENTITY_FIELDS = [
   'version_label',
   'section_or_item_locator',
 ];
+const REGISTRY_DOCUMENT_IDENTITY_FIELDS = REQUIRED_IDENTITY_FIELDS.filter(
+  (field) => field !== 'section_or_item_locator',
+);
+const PDF_RENDER_PROFILE = 'pdftoppm-png-144dpi-cropbox-v1';
+const execFileAsync = promisify(execFile);
 
 function fail(message) {
   throw new Error(`OCR triangulation audit: ${message}`);
@@ -118,6 +130,20 @@ function onlineSourceIdentityProjection(source) {
     authority_record_id: source.authority_record_id,
     allowed_hosts: source.allowed_hosts,
     allowed_url_prefixes: source.allowed_url_prefixes,
+    document_binding: {
+      document_id: source.document_binding.document_id,
+      title: source.document_binding.title,
+      issuing_body_or_author: source.document_binding.issuing_body_or_author,
+      year_or_publication_context: source.document_binding.year_or_publication_context,
+      version_label: source.document_binding.version_label,
+      source_pdf_sha256: source.document_binding.source_pdf_sha256,
+    },
+    artifact_binding: {
+      artifact_id: source.artifact_binding.artifact_id,
+      media_type: source.artifact_binding.media_type,
+      artifact_sha256: source.artifact_binding.artifact_sha256,
+      exact_artifact_urls: source.artifact_binding.exact_artifact_urls,
+    },
   };
 }
 
@@ -132,6 +158,17 @@ function pageTypeBindingSha256(decision, manifestSha = null) {
     decision.rendered_image_sha256,
     decision.page_type,
     manifestSha || '',
+  ].join('\0'));
+}
+
+function scopedIdentityBindingSha256(kind, id, decision) {
+  return sha256([
+    kind,
+    id,
+    decision.document_id,
+    String(decision.physical_page),
+    decision.document_identity.section_or_item_locator,
+    decision.accepted_text_sha256,
   ].join('\0'));
 }
 
@@ -161,7 +198,7 @@ function detectTableFormats(value) {
   const flatLines = lines.filter((line) => {
     const tabs = (line.match(/\t+/g) || []).length;
     const spaces = (line.match(/ {2,}/g) || []).length;
-    return tabs >= 2 || spaces >= 2;
+    return tabs >= 1 || spaces >= 1;
   });
   if (flatLines.length >= 1) formats.push('flattened_text');
   return [...new Set(formats)];
@@ -170,6 +207,9 @@ function detectTableFormats(value) {
 function extractTableMatrix(value, sourceFormat) {
   const text = String(value || '');
   if (sourceFormat === 'html') {
+    if (/\b(?:rowspan|colspan)\s*=/i.test(text)) {
+      fail('HTML table spanning cells require an expanded cell-level representation');
+    }
     const rowMatches = [...text.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
     const rawRows = rowMatches.length ? rowMatches.map((match) => match[1]) : [text];
     return rawRows.map((row) => (
@@ -204,8 +244,11 @@ function validateOnlineSourceRegistry(input) {
   const policy = requireObject(registry.policy, 'online source registry policy');
   if (policy.authority_declared_only_here !== true
     || policy.https_only !== true
-    || policy.exact_hostname_match !== true) {
-    fail('online source registry policy must enforce registry-only authority and exact HTTPS hosts');
+    || policy.exact_hostname_match !== true
+    || policy.document_version_artifact_binding_required !== true
+    || policy.exact_artifact_url_required !== true
+    || policy.page_image_recomputation_required !== true) {
+    fail('online source registry policy must enforce registry-only document, version, artifact, URL, and page-image identity');
   }
   const sources = new Map();
   for (const [index, raw] of requireArray(registry.sources, 'online source registry sources').entries()) {
@@ -260,6 +303,63 @@ function validateOnlineSourceRegistry(input) {
         fail(`${label}.allowed_url_prefixes must be unique and sorted`);
       }
       previousPrefix = prefix;
+    }
+    const documentBinding = requireObject(source.document_binding, `${label}.document_binding`);
+    requireString(
+      documentBinding.document_id,
+      `${label}.document_binding.document_id`,
+      DOCUMENT_ID_PATTERN,
+    );
+    for (const field of REGISTRY_DOCUMENT_IDENTITY_FIELDS) {
+      requireString(documentBinding[field], `${label}.document_binding.${field}`);
+    }
+    requireString(
+      documentBinding.source_pdf_sha256,
+      `${label}.document_binding.source_pdf_sha256`,
+      SHA256_PATTERN,
+    );
+    const artifactBinding = requireObject(source.artifact_binding, `${label}.artifact_binding`);
+    requireString(
+      artifactBinding.artifact_id,
+      `${label}.artifact_binding.artifact_id`,
+      SCOPED_ID_PATTERN,
+    );
+    if (artifactBinding.media_type !== 'application/pdf') {
+      fail(`${label}.artifact_binding.media_type must equal application/pdf`);
+    }
+    requireString(
+      artifactBinding.artifact_sha256,
+      `${label}.artifact_binding.artifact_sha256`,
+      SHA256_PATTERN,
+    );
+    const exactUrls = requireArray(
+      artifactBinding.exact_artifact_urls,
+      `${label}.artifact_binding.exact_artifact_urls`,
+    );
+    if (!exactUrls.length) fail(`${label}.artifact_binding.exact_artifact_urls must not be empty`);
+    let previousExactUrl = '';
+    for (const [urlIndex, exactUrl] of exactUrls.entries()) {
+      requireString(exactUrl, `${label}.artifact_binding.exact_artifact_urls[${urlIndex}]`);
+      let parsedExactUrl;
+      try {
+        parsedExactUrl = new URL(exactUrl);
+      } catch {
+        fail(`${label}.artifact_binding.exact_artifact_urls[${urlIndex}] is invalid`);
+      }
+      if (parsedExactUrl.protocol !== 'https:'
+        || parsedExactUrl.username
+        || parsedExactUrl.password
+        || parsedExactUrl.port
+        || parsedExactUrl.hash
+        || parsedExactUrl.href !== exactUrl
+        || !hosts.includes(parsedExactUrl.hostname.toLowerCase())
+        || !prefixes.some((prefix) => parsedExactUrl.href.startsWith(prefix))) {
+        fail(`${label}.artifact_binding exact URL is outside its controlled HTTPS location`);
+      }
+      if (previousExactUrl && exactUrl.localeCompare(previousExactUrl, 'en') <= 0) {
+        fail(`${label}.artifact_binding.exact_artifact_urls must be unique and sorted`);
+      }
+      previousExactUrl = exactUrl;
     }
     const declaredIdentity = requireString(
       source.source_identity_sha256,
@@ -323,7 +423,8 @@ function validateTableCellManifest(decision, label) {
     if (row !== expectedRow || column !== expectedColumn) {
       fail(`${label}.table_cell_manifest cells must be in complete row-major order`);
     }
-    const text = requireString(cell.text, `${cellLabel}.text`);
+    if (typeof cell.text !== 'string') fail(`${cellLabel}.text must be a string`);
+    const text = cell.text;
     if (requireString(cell.text_sha256, `${cellLabel}.text_sha256`, SHA256_PATTERN) !== sha256(text)) {
       fail(`${cellLabel} text SHA-256 drifted`);
     }
@@ -331,9 +432,13 @@ function validateTableCellManifest(decision, label) {
     if (extracted && cellNormalized !== normalized(extracted[row - 1][column - 1])) {
       fail(`${cellLabel} does not match the accepted table cell`);
     }
-    const found = acceptedNormalized.indexOf(cellNormalized, searchOffset);
-    if (!cellNormalized || found < 0) fail(`${cellLabel} is absent or out of order in accepted_text`);
-    searchOffset = found + cellNormalized.length;
+    if (cellNormalized) {
+      const found = acceptedNormalized.indexOf(cellNormalized, searchOffset);
+      if (found < 0) fail(`${cellLabel} is absent or out of order in accepted_text`);
+      searchOffset = found + cellNormalized.length;
+    } else if (!extracted || normalized(extracted[row - 1][column - 1])) {
+      fail(`${cellLabel} empty text is not proven by the extracted accepted table`);
+    }
   }
   const manifestSha = requireString(
     manifest.manifest_sha256,
@@ -565,6 +670,13 @@ function validateDecisionLedger(input, registryRaw, registrySources) {
     fail('online source registry SHA-256 drifted');
   }
   const seen = new Set();
+  const embeddedItemIds = new Map();
+  const stableFactIds = new Map();
+  const stableFactSpanIds = new Map();
+  const documentScopedMap = (registry, documentId) => {
+    if (!registry.has(documentId)) registry.set(documentId, new Map());
+    return registry.get(documentId);
+  };
   return requireArray(ledger.decisions, 'decisions').map((raw, index) => {
     const label = `decisions[${index}]`;
     const decision = requireObject(raw, label);
@@ -579,7 +691,10 @@ function validateDecisionLedger(input, registryRaw, registrySources) {
         || !SCOPED_ID_PATTERN.test(decision.embedded_item_id)) {
         fail(`${decisionId} embedded_item_id is required`);
       }
-      if (decision.stable_fact_id !== null || decision.stable_fact_span_id !== null) {
+      if (decision.stable_fact_id !== null
+        || decision.stable_fact_span_id !== null
+        || decision.stable_fact_binding_sha256 !== null
+        || decision.stable_fact_span_binding_sha256 !== null) {
         fail(`${decisionId} embedded item must not declare stable-fact identifiers`);
       }
     } else if (decision.decision_scope === 'stable_fact') {
@@ -589,10 +704,15 @@ function validateDecisionLedger(input, registryRaw, registrySources) {
         || !SCOPED_ID_PATTERN.test(decision.stable_fact_span_id)) {
         fail(`${decisionId} stable_fact_id and stable_fact_span_id are required`);
       }
-      if (decision.embedded_item_id !== null) fail(`${decisionId} stable fact must not declare embedded_item_id`);
+      if (decision.embedded_item_id !== null || decision.embedded_item_binding_sha256 !== null) {
+        fail(`${decisionId} stable fact must not declare embedded-item identity`);
+      }
     } else if (decision.embedded_item_id !== null
+      || decision.embedded_item_binding_sha256 !== null
       || decision.stable_fact_id !== null
-      || decision.stable_fact_span_id !== null) {
+      || decision.stable_fact_span_id !== null
+      || decision.stable_fact_binding_sha256 !== null
+      || decision.stable_fact_span_binding_sha256 !== null) {
       fail(`${decisionId} whole-page decision must not declare scoped identifiers`);
     }
     for (const field of [
@@ -629,6 +749,49 @@ function validateDecisionLedger(input, registryRaw, registrySources) {
     for (const field of REQUIRED_IDENTITY_FIELDS) {
       requireString(identity[field], `${decisionId}.document_identity.${field}`);
     }
+    if (decision.decision_scope === 'embedded_item') {
+      if (requireString(
+        decision.embedded_item_binding_sha256,
+        `${decisionId}.embedded_item_binding_sha256`,
+        SHA256_PATTERN,
+      ) !== scopedIdentityBindingSha256('embedded_item', decision.embedded_item_id, decision)) {
+        fail(`${decisionId} embedded-item scoped identity binding drifted`);
+      }
+    } else if (decision.decision_scope === 'stable_fact') {
+      if (requireString(
+        decision.stable_fact_binding_sha256,
+        `${decisionId}.stable_fact_binding_sha256`,
+        SHA256_PATTERN,
+      ) !== scopedIdentityBindingSha256('stable_fact', decision.stable_fact_id, decision)) {
+        fail(`${decisionId} stable-fact scoped identity binding drifted`);
+      }
+      if (requireString(
+        decision.stable_fact_span_binding_sha256,
+        `${decisionId}.stable_fact_span_binding_sha256`,
+        SHA256_PATTERN,
+      ) !== scopedIdentityBindingSha256('stable_fact_span', decision.stable_fact_span_id, decision)) {
+        fail(`${decisionId} stable-fact span scoped identity binding drifted`);
+      }
+    }
+    if (decision.decision_scope === 'embedded_item') {
+      const items = documentScopedMap(embeddedItemIds, documentId);
+      if (items.has(decision.embedded_item_id)) {
+        fail(`${decisionId} duplicate embedded_item_id within document ${documentId}`);
+      }
+      items.set(decision.embedded_item_id, decision.embedded_item_binding_sha256);
+    } else if (decision.decision_scope === 'stable_fact') {
+      const facts = documentScopedMap(stableFactIds, documentId);
+      const existingFactBinding = facts.get(decision.stable_fact_id);
+      if (existingFactBinding && existingFactBinding !== decision.stable_fact_binding_sha256) {
+        fail(`${decisionId} duplicate stable_fact_id has a different semantic identity`);
+      }
+      facts.set(decision.stable_fact_id, decision.stable_fact_binding_sha256);
+      const spans = documentScopedMap(stableFactSpanIds, documentId);
+      if (spans.has(decision.stable_fact_span_id)) {
+        fail(`${decisionId} duplicate stable_fact_span_id within document ${documentId}`);
+      }
+      spans.set(decision.stable_fact_span_id, decision.stable_fact_span_binding_sha256);
+    }
     if (!EDITION_STATUSES.has(decision.edition_match_status)) {
       fail(`${decisionId}.edition_match_status is invalid`);
     }
@@ -650,6 +813,8 @@ function validateDecisionLedger(input, registryRaw, registrySources) {
         'authority_record_id',
         'allowed_hosts',
         'allowed_url_prefixes',
+        'document_binding',
+        'artifact_binding',
       ]) {
         if (Object.hasOwn(item, forbiddenField)) {
           fail(`${evidenceLabel} must not declare online authority field ${forbiddenField}`);
@@ -663,6 +828,13 @@ function validateDecisionLedger(input, registryRaw, registrySources) {
         SHA256_PATTERN,
       ) !== registeredSource.source_identity_sha256) {
         fail(`${evidenceLabel} online source identity SHA-256 drifted`);
+      }
+      if (registeredSource.document_binding.document_id !== decision.document_id
+        || registeredSource.document_binding.source_pdf_sha256 !== decision.source_pdf_sha256
+        || REGISTRY_DOCUMENT_IDENTITY_FIELDS.some((field) => (
+          registeredSource.document_binding[field] !== decision.document_identity[field]
+        ))) {
+        fail(`${evidenceLabel} document identity does not match the controlled registry binding`);
       }
       const sourceUrl = requireString(item.source_url, `${evidenceLabel}.source_url`);
       let parsed;
@@ -681,6 +853,10 @@ function validateDecisionLedger(input, registryRaw, registrySources) {
       if (!registeredSource.allowed_url_prefixes.some((prefix) => parsed.href.startsWith(prefix))) {
         fail(`${evidenceLabel}.source_url is outside allowed registry source locations`);
       }
+      if (!registeredSource.artifact_binding.exact_artifact_urls.includes(parsed.href)) {
+        fail(`${evidenceLabel}.source_url is not the exact registry-bound artifact URL`);
+      }
+      item.validated_registry_binding = registeredSource;
       requireIsoTimestamp(item.retrieved_at, `${evidenceLabel}.retrieved_at`);
       if (!EDITION_STATUSES.has(item.version_match)) fail(`${evidenceLabel}.version_match is invalid`);
       if (!ONLINE_ARTIFACT_RELATIONS.has(item.artifact_relation)) {
@@ -690,7 +866,10 @@ function validateDecisionLedger(input, registryRaw, registrySources) {
       if (item.artifact_relation === 'same_artifact_mirror' && item.independent_for_decision) {
         fail(`${evidenceLabel} same-artifact mirror cannot be independent`);
       }
-      requireString(item.section_locator, `${evidenceLabel}.section_locator`);
+      if (requireString(item.section_locator, `${evidenceLabel}.section_locator`)
+        !== decision.document_identity.section_or_item_locator) {
+        fail(`${evidenceLabel}.section_locator does not match the decision locator`);
+      }
       item.content_path = normalizeRelativeEvidencePath(
         item.content_path,
         `${evidenceLabel}.content_path`,
@@ -834,11 +1013,84 @@ function validateStructuredConflictResolution(decision, evidence, snapshotNormal
   requireString(conflict.resolution, `${label}.conflict_resolution.resolution`);
 }
 
-async function validateArtifactIdentityReceipt(decision, evidence, baseDirectory, protectedResources) {
+export async function derivePdfPageImageSequence(pdfBytes, label = 'PDF artifact') {
+  if (!Buffer.isBuffer(pdfBytes) || pdfBytes.length < 5
+    || pdfBytes.subarray(0, 5).toString('ascii') !== '%PDF-') {
+    fail(`${label} does not have a PDF file signature`);
+  }
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'ocr-pdf-sequence-'));
+  const inputPath = path.join(temporaryRoot, 'artifact.pdf');
+  const outputPrefix = path.join(temporaryRoot, 'page');
+  try {
+    await writeFile(inputPath, pdfBytes, { mode: 0o600 });
+    try {
+      await execFileAsync('pdftoppm', [
+        '-r',
+        '144',
+        '-cropbox',
+        '-png',
+        inputPath,
+        outputPrefix,
+      ], { timeout: 300_000, maxBuffer: 8 * 1024 * 1024 });
+    } catch (error) {
+      fail(`${label} page-image sequence cannot be rendered: ${error.message}`);
+    }
+    const pageEntries = (await readdir(temporaryRoot, { withFileTypes: true }))
+      .map((entry) => ({ entry, match: entry.name.match(/^page-(\d+)\.png$/) }))
+      .filter(({ match }) => match)
+      .sort((left, right) => Number(left.match[1]) - Number(right.match[1]));
+    if (!pageEntries.length) fail(`${label} rendered no page images`);
+    const pageImageSha256 = [];
+    for (const [index, { entry, match }] of pageEntries.entries()) {
+      if (!entry.isFile() || Number(match[1]) !== index + 1) {
+        fail(`${label} rendered page-image sequence is incomplete or unsafe`);
+      }
+      const pagePath = path.join(temporaryRoot, entry.name);
+      const handle = await open(pagePath, constants.O_RDONLY | constants.O_NOFOLLOW);
+      try {
+        const info = await handle.stat({ bigint: true });
+        if (!info.isFile()) fail(`${label} rendered page ${index + 1} is not a regular file`);
+        pageImageSha256.push(sha256(await handle.readFile()));
+      } finally {
+        await handle.close();
+      }
+    }
+    return {
+      render_profile: PDF_RENDER_PROFILE,
+      page_count: pageImageSha256.length,
+      page_image_sha256: pageImageSha256,
+      sequence_sha256: sha256(pageImageSha256.join('\n')),
+    };
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+}
+
+async function cachedPdfPageImageSequence(cache, pdfBytes, label) {
+  const key = sha256(pdfBytes);
+  if (!cache.has(key)) cache.set(key, derivePdfPageImageSequence(pdfBytes, label));
+  return cache.get(key);
+}
+
+function requirePageImageHashes(value, label) {
+  const hashes = requireArray(value, label);
+  if (!hashes.length) fail(`${label} must not be empty`);
+  return hashes.map((hash, index) => requireString(hash, `${label}[${index}]`, SHA256_PATTERN));
+}
+
+async function validateArtifactIdentityReceipt(
+  decision,
+  evidence,
+  baseDirectory,
+  protectedResources,
+  sourcePdfBytes,
+  pageSequenceCache,
+) {
   const reference = evidence.artifact_identity_receipt;
   if (!reference) {
-    if (evidence.artifact_relation === 'different_artifact_same_edition') {
-      fail(`${decision.decision_id}/${evidence.source_id} different-artifact evidence requires an identity receipt`);
+    if (evidence.version_match === 'exact_document_exact_edition'
+      || evidence.independent_for_decision) {
+      fail(`${decision.decision_id}/${evidence.source_id} artifact identity receipt is required`);
     }
     return null;
   }
@@ -852,6 +1104,7 @@ async function validateArtifactIdentityReceipt(decision, evidence, baseDirectory
   } catch (error) {
     fail(error.message);
   }
+  receiptRead.protectedRole = 'online_artifact_receipt';
   protectedResources.files.push(receiptRead);
   protectedResources.onlineDirectories.push({
     canonicalPath: receiptRead.parentCanonicalPath,
@@ -874,6 +1127,14 @@ async function validateArtifactIdentityReceipt(decision, evidence, baseDirectory
   }
   if (requireString(receipt.source_pdf_sha256, `${label}.source_pdf_sha256`, SHA256_PATTERN)
     !== decision.source_pdf_sha256) fail(`${label} source PDF identity drifted`);
+  const registryBinding = evidence.validated_registry_binding;
+  if (requireString(
+    receipt.source_identity_sha256,
+    `${label}.source_identity_sha256`,
+    SHA256_PATTERN,
+  ) !== evidence.source_identity_sha256) fail(`${label} controlled source identity drifted`);
+  if (requireString(receipt.artifact_id, `${label}.artifact_id`, SCOPED_ID_PATTERN)
+    !== registryBinding.artifact_binding.artifact_id) fail(`${label} artifact ID drifted`);
   if (requireString(
     receipt.evidence_snapshot_sha256,
     `${label}.evidence_snapshot_sha256`,
@@ -887,6 +1148,63 @@ async function validateArtifactIdentityReceipt(decision, evidence, baseDirectory
   if (onlineArtifactSha === decision.source_pdf_sha256) {
     fail(`${label} online artifact is the source PDF and cannot be independent`);
   }
+  if (onlineArtifactSha !== registryBinding.artifact_binding.artifact_sha256) {
+    fail(`${label} online artifact is not the controlled registry artifact`);
+  }
+  const onlineArtifactRelativePath = normalizeRelativeEvidencePath(
+    receipt.online_artifact_path,
+    `${label}.online_artifact_path`,
+  );
+  const onlineArtifactPath = path.resolve(baseDirectory, onlineArtifactRelativePath);
+  let onlineArtifactRead;
+  try {
+    onlineArtifactRead = await readPinnedRegularFileReceipt(onlineArtifactPath, {
+      label: `${label} online artifact`,
+      rootPath: baseDirectory,
+    });
+  } catch (error) {
+    fail(error.message);
+  }
+  onlineArtifactRead.protectedRole = 'online_artifact';
+  protectedResources.files.push(onlineArtifactRead);
+  protectedResources.onlineDirectories.push({
+    canonicalPath: onlineArtifactRead.parentCanonicalPath,
+    identity: onlineArtifactRead.parentIdentity,
+  });
+  if (sha256(onlineArtifactRead.bytes) !== onlineArtifactSha) {
+    fail(`${label} online artifact bytes drifted`);
+  }
+  if (onlineArtifactRead.bytes.length < 5
+    || onlineArtifactRead.bytes.subarray(0, 5).toString('ascii') !== '%PDF-') {
+    fail(`${label} online artifact must be a PDF`);
+  }
+  if (receipt.render_profile !== PDF_RENDER_PROFILE) {
+    fail(`${label}.render_profile must equal ${PDF_RENDER_PROFILE}`);
+  }
+  const sourceDeclaredHashes = requirePageImageHashes(
+    receipt.source_page_image_sha256,
+    `${label}.source_page_image_sha256`,
+  );
+  const onlineDeclaredHashes = requirePageImageHashes(
+    receipt.online_page_image_sha256,
+    `${label}.online_page_image_sha256`,
+  );
+  const [sourceSequence, onlineSequence] = await Promise.all([
+    cachedPdfPageImageSequence(
+      pageSequenceCache,
+      sourcePdfBytes,
+      `${decision.decision_id} source PDF`,
+    ),
+    cachedPdfPageImageSequence(
+      pageSequenceCache,
+      onlineArtifactRead.bytes,
+      `${decision.decision_id}/${evidence.source_id} online artifact`,
+    ),
+  ]);
+  if (JSON.stringify(sourceDeclaredHashes) !== JSON.stringify(sourceSequence.page_image_sha256)
+    || JSON.stringify(onlineDeclaredHashes) !== JSON.stringify(onlineSequence.page_image_sha256)) {
+    fail(`${label} recomputed page-image sequence drifted`);
+  }
   const sourceSequenceSha = requireString(
     receipt.source_page_asset_sequence_sha256,
     `${label}.source_page_asset_sequence_sha256`,
@@ -899,10 +1217,15 @@ async function validateArtifactIdentityReceipt(decision, evidence, baseDirectory
   );
   const sourceCount = requireInteger(receipt.source_page_asset_count, `${label}.source_page_asset_count`, 1);
   const onlineCount = requireInteger(receipt.online_page_asset_count, `${label}.online_page_asset_count`, 1);
-  if (sourceSequenceSha === onlineSequenceSha && sourceCount !== onlineCount) {
-    fail(`${label} equal page-asset sequence hashes have contradictory counts`);
+  if (sourceSequenceSha !== sourceSequence.sequence_sha256
+    || onlineSequenceSha !== onlineSequence.sequence_sha256
+    || sourceCount !== sourceSequence.page_count
+    || onlineCount !== onlineSequence.page_count) {
+    fail(`${label} recomputed page-image sequence aggregate or count drifted`);
   }
-  const sameSequence = sourceSequenceSha === onlineSequenceSha;
+  const sameSequence = sourceSequence.page_count === onlineSequence.page_count
+    && JSON.stringify(sourceSequence.page_image_sha256)
+      === JSON.stringify(onlineSequence.page_image_sha256);
   const expectedResult = sameSequence ? 'same_page_asset_sequence' : 'different_page_asset_sequence';
   if (receipt.identity_result !== expectedResult) fail(`${label} identity_result contradicts page assets`);
   if (sameSequence) {
@@ -923,7 +1246,9 @@ async function validateOnlineEvidenceSnapshots(
   decisions,
   decisionsPath,
   sourcePdfSha,
+  sourcePdfBytes,
   protectedResources,
+  pageSequenceCache,
 ) {
   const baseDirectory = path.dirname(path.resolve(decisionsPath));
   for (const decision of decisions) {
@@ -938,6 +1263,7 @@ async function validateOnlineEvidenceSnapshots(
       } catch (error) {
         fail(error.message);
       }
+      contentRead.protectedRole = 'online_snapshot';
       protectedResources.files.push(contentRead);
       protectedResources.onlineDirectories.push({
         canonicalPath: contentRead.parentCanonicalPath,
@@ -990,6 +1316,8 @@ async function validateOnlineEvidenceSnapshots(
         evidence,
         baseDirectory,
         protectedResources,
+        sourcePdfBytes,
+        pageSequenceCache,
       );
       evidence.validated_snapshot_relation = actualRelation;
       evidence.validated_artifact_identity = artifactIdentity;
@@ -1008,7 +1336,7 @@ function validateDecisionEntitlements(decisions) {
       && item.snapshot_identity.scope === 'whole_page'
       && ['normalized_exact', 'snapshot_contains_accepted_text', 'structured_conflicts_resolved']
         .includes(item.validated_snapshot_relation)
-      && item.validated_artifact_identity?.identity_result !== 'same_page_asset_sequence'
+      && item.validated_artifact_identity?.identity_result === 'different_page_asset_sequence'
     ));
     if (!eligible) {
       fail(`${decision.decision_id} citation decision requires an independent exact-edition online transcription`);
@@ -1027,6 +1355,7 @@ async function readRegularFileNoFollow(
   root = null,
   encoding = null,
   protectedResources = null,
+  protectedRole = 'protected_input',
 ) {
   let receipt;
   try {
@@ -1036,6 +1365,7 @@ async function readRegularFileNoFollow(
       encoding,
     });
     if (protectedResources) {
+      receipt.protectedRole = protectedRole;
       protectedResources.files.push(receipt);
       if (root) {
         protectedResources.evidenceRoots.push({
@@ -1074,7 +1404,6 @@ function bindDecision(decision, actual, tableFormats) {
   }
   if (tableFormats.length
     && decision.table_cell_manifest
-    && decision.table_cell_manifest.source_format !== 'manual_grid'
     && !tableFormats.includes(decision.table_cell_manifest.source_format)) {
     fail(`${prefix} table manifest source format does not match detected structure`);
   }
@@ -1085,6 +1414,12 @@ function bindDecision(decision, actual, tableFormats) {
   return {
     decision_id: decision.decision_id,
     decision_scope: decision.decision_scope,
+    embedded_item_id: decision.embedded_item_id,
+    embedded_item_binding_sha256: decision.embedded_item_binding_sha256,
+    stable_fact_id: decision.stable_fact_id,
+    stable_fact_binding_sha256: decision.stable_fact_binding_sha256,
+    stable_fact_span_id: decision.stable_fact_span_id,
+    stable_fact_span_binding_sha256: decision.stable_fact_span_binding_sha256,
     edition_match_status: decision.edition_match_status,
     verification_status: decision.verification_status,
     accepted_text_sha256: decision.accepted_text_sha256,
@@ -1103,6 +1438,7 @@ async function buildOcrTriangulationAuditInternal(options) {
     evidenceRoots: [],
     onlineDirectories: [],
   };
+  const pageSequenceCache = new Map();
   const documentId = requireString(options.documentId, 'documentId', DOCUMENT_ID_PATTERN);
   const start = requireInteger(options.start, 'start', 1);
   const end = requireInteger(options.end, 'end', start);
@@ -1116,6 +1452,7 @@ async function buildOcrTriangulationAuditInternal(options) {
     null,
     null,
     protectedResources,
+    'source_pdf',
   );
   if (sourcePdfBytes.length < 5 || sourcePdfBytes.subarray(0, 5).toString('ascii') !== '%PDF-') {
     fail(`${documentId} source PDF does not have a PDF file signature`);
@@ -1134,15 +1471,20 @@ async function buildOcrTriangulationAuditInternal(options) {
       null,
       'utf8',
       protectedResources,
+      'approval_ledger',
     );
     const approval = JSON.parse(approvalRaw);
-    await validateOcrPageFurnitureApprovals(approval, { witnessRoot });
+    await validateOcrPageFurnitureApprovals(approval, {
+      witnessRoot,
+      protectedResources,
+    });
     const activationRaw = await readRegularFileNoFollow(
       options.activationLedgerPath,
       'activation ledger',
       null,
       'utf8',
       protectedResources,
+      'activation_ledger',
     );
     const activation = JSON.parse(activationRaw);
     furnitureRules = validateOcrPageFurnitureActivation(activation, approvalRaw, approval);
@@ -1164,6 +1506,7 @@ async function buildOcrTriangulationAuditInternal(options) {
       null,
       'utf8',
       protectedResources,
+      'decision_ledger',
     );
     let rawLedger;
     try {
@@ -1186,6 +1529,7 @@ async function buildOcrTriangulationAuditInternal(options) {
         null,
         'utf8',
         protectedResources,
+        'online_source_registry',
       );
       let registry;
       try {
@@ -1201,7 +1545,9 @@ async function buildOcrTriangulationAuditInternal(options) {
       decisions,
       resolvedDecisionsPath,
       actualSourcePdfSha,
+      sourcePdfBytes,
       protectedResources,
+      pageSequenceCache,
     );
     validateDecisionEntitlements(decisions);
     decisionLedgerSha = sha256(raw);
@@ -1227,6 +1573,7 @@ async function buildOcrTriangulationAuditInternal(options) {
         primaryRoot,
         'utf8',
         protectedResources,
+        'primary_ocr',
       ),
       readRegularFileNoFollow(
         sidecarPath,
@@ -1234,6 +1581,7 @@ async function buildOcrTriangulationAuditInternal(options) {
         witnessRoot,
         'utf8',
         protectedResources,
+        'vision_sidecar',
       ),
       readRegularFileNoFollow(
         imagePath,
@@ -1241,6 +1589,7 @@ async function buildOcrTriangulationAuditInternal(options) {
         witnessRoot,
         null,
         protectedResources,
+        'rendered_image',
       ),
     ]);
     const witnessRecord = requireObject(JSON.parse(sidecarRaw), `${documentId} page ${page} sidecar`);
@@ -1388,6 +1737,8 @@ async function buildOcrTriangulationAuditInternal(options) {
       furniture_scope: 'comparison_only_and_exact_source_snapshot_bound',
       automatic_threshold_relaxation: 'forbidden',
       online_source_scope: 'exact_edition_for_page_wording_stable_fact_only_for_scoped_facts',
+      online_artifact_identity: 'registry_bound_actual_pdf_bytes_and_recomputed_page_images',
+      scoped_identity: 'document_page_locator_text_hash_bound_and_document_unique',
       search_snippets: 'discovery_only_never_evidence',
       citation_gate: 'hash_bound_whole_page_exact_edition_human_triangulation_only',
       unresolved_behavior: 'fail_closed',
@@ -1408,6 +1759,10 @@ async function buildOcrTriangulationAuditInternal(options) {
     },
     pages,
   };
+  if (options.onBeforeFinalInputVerificationForTest) {
+    await options.onBeforeFinalInputVerificationForTest();
+  }
+  await assertProtectedResourcesUnchanged(protectedResources, 'before return');
   return { report, protectedResources };
 }
 
@@ -1432,6 +1787,29 @@ function sameProtectedFileSnapshot(info, expected) {
     && String(info.ctimeNs) === expected.ctimeNs;
 }
 
+function assertNoForbiddenProtectedAliases(protectedResources) {
+  const files = protectedResources.files;
+  for (let leftIndex = 0; leftIndex < files.length; leftIndex += 1) {
+    const left = files[leftIndex];
+    for (let rightIndex = leftIndex + 1; rightIndex < files.length; rightIndex += 1) {
+      const right = files[rightIndex];
+      if (!sameFilesystemIdentity(left.fileIdentity, right.fileIdentity)) continue;
+      if (left.canonicalPath === right.canonicalPath
+        && left.protectedRole === right.protectedRole) continue;
+      const pair = new Set([left.protectedRole, right.protectedRole]);
+      if (pair.has('online_snapshot')) {
+        const other = left.protectedRole === 'online_snapshot'
+          ? right.protectedRole
+          : left.protectedRole;
+        fail(`online evidence snapshot aliases protected ${other.replaceAll('_', ' ')}`);
+      }
+      if (pair.has('online_artifact') && pair.has('source_pdf')) {
+        fail('online artifact aliases the source PDF');
+      }
+    }
+  }
+}
+
 async function prospectiveCanonicalParent(parentPath) {
   const missing = [];
   let cursor = path.resolve(parentPath);
@@ -1451,7 +1829,8 @@ async function prospectiveCanonicalParent(parentPath) {
   return path.join(await realpath(cursor), ...missing);
 }
 
-async function assertProtectedResourcesUnchanged(protectedResources) {
+async function assertProtectedResourcesUnchanged(protectedResources, phase = 'before output') {
+  assertNoForbiddenProtectedAliases(protectedResources);
   const seenFiles = new Set();
   for (const receipt of protectedResources.files) {
     const key = `${receipt.canonicalPath}\0${receipt.fileIdentity.dev}\0${receipt.fileIdentity.ino}`;
@@ -1459,7 +1838,7 @@ async function assertProtectedResourcesUnchanged(protectedResources) {
     seenFiles.add(key);
     const current = await lstat(receipt.canonicalPath, { bigint: true });
     if (!current.isFile() || !sameProtectedFileSnapshot(current, receipt.fileIdentity)) {
-      fail(`protected input identity changed before output: ${receipt.canonicalPath}`);
+      fail(`protected input identity changed ${phase}: ${receipt.canonicalPath}`);
     }
   }
   const directories = [...protectedResources.evidenceRoots, ...protectedResources.onlineDirectories];
@@ -1471,25 +1850,35 @@ async function assertProtectedResourcesUnchanged(protectedResources) {
     const current = await stat(directory.canonicalPath, { bigint: true });
     if (!current.isDirectory()
       || !sameFilesystemIdentity(filesystemIdentity(current), directory.identity)) {
-      fail(`protected evidence directory identity changed before output: ${directory.canonicalPath}`);
+      fail(`protected evidence directory identity changed ${phase}: ${directory.canonicalPath}`);
     }
   }
 }
 
-async function prepareSafeOutput(outputPath, protectedResources) {
+function assertOutputParentOutsideProtectedRoots(parentPath, protectedResources) {
+  if (protectedResources.evidenceRoots.some((directory) => (
+    pathIsWithin(directory.canonicalPath, parentPath)
+  ))) {
+    fail('output must be outside primary and witness evidence roots');
+  }
+  if (protectedResources.onlineDirectories.some((directory) => (
+    pathIsWithin(directory.canonicalPath, parentPath)
+  ))) {
+    fail('output must be outside every online evidence snapshot directory');
+  }
+}
+
+async function prepareSafeOutput(outputPath, protectedResources, options) {
   await assertProtectedResourcesUnchanged(protectedResources);
   const requestedParent = path.dirname(outputPath);
   const prospectiveParent = await prospectiveCanonicalParent(requestedParent);
-  const evidenceRoots = protectedResources.evidenceRoots;
-  const onlineDirectories = protectedResources.onlineDirectories;
-  if (evidenceRoots.some((directory) => pathIsWithin(directory.canonicalPath, prospectiveParent))) {
-    fail('output must be outside primary and witness evidence roots');
-  }
-  if (onlineDirectories.some((directory) => pathIsWithin(directory.canonicalPath, prospectiveParent))) {
-    fail('output must be outside every online evidence snapshot directory');
+  assertOutputParentOutsideProtectedRoots(prospectiveParent, protectedResources);
+  if (options.onAfterProspectiveOutputCheckForTest) {
+    await options.onAfterProspectiveOutputCheckForTest();
   }
   await mkdir(requestedParent, { recursive: true });
   const realOutputParent = await realpath(requestedParent);
+  assertOutputParentOutsideProtectedRoots(realOutputParent, protectedResources);
   const canonicalOutputPath = path.join(realOutputParent, path.basename(outputPath));
   const parentInfo = await stat(realOutputParent, { bigint: true });
   const parentIdentity = filesystemIdentity(parentInfo);
@@ -1513,7 +1902,12 @@ async function prepareSafeOutput(outputPath, protectedResources) {
       fail('output device/inode aliases a protected input');
     }
   }
-  return { canonicalOutputPath, realOutputParent, parentIdentity };
+  return {
+    canonicalOutputPath,
+    realOutputParent,
+    requestedParent,
+    parentIdentity,
+  };
 }
 
 export async function writeOcrTriangulationAudit(options) {
@@ -1532,14 +1926,16 @@ export async function writeOcrTriangulationAudit(options) {
   const {
     canonicalOutputPath,
     realOutputParent,
+    requestedParent,
     parentIdentity,
-  } = await prepareSafeOutput(outputPath, protectedResources);
+  } = await prepareSafeOutput(outputPath, protectedResources, options);
   const raw = `${JSON.stringify(report, null, 2)}\n`;
   const temporaryPath = path.join(
     realOutputParent,
     `.${path.basename(outputPath)}.${process.pid}.${Date.now()}.tmp`,
   );
   let handle;
+  let temporaryIdentity = null;
   try {
     handle = await open(
       temporaryPath,
@@ -1548,11 +1944,37 @@ export async function writeOcrTriangulationAudit(options) {
     );
     await handle.writeFile(raw, 'utf8');
     await handle.sync();
+    const temporaryInfo = await handle.stat({ bigint: true });
+    temporaryIdentity = {
+      ...filesystemIdentity(temporaryInfo),
+      mode: String(temporaryInfo.mode),
+      nlink: String(temporaryInfo.nlink),
+      size: String(temporaryInfo.size),
+      mtimeNs: String(temporaryInfo.mtimeNs),
+      ctimeNs: String(temporaryInfo.ctimeNs),
+    };
     await handle.close();
     handle = null;
+    if (options.onBeforeOutputActivationForTest) {
+      await options.onBeforeOutputActivationForTest();
+    }
+    await assertProtectedResourcesUnchanged(
+      protectedResources,
+      'before output activation',
+    );
+    const currentRequestedParent = await realpath(requestedParent);
+    if (currentRequestedParent !== realOutputParent) {
+      fail('output parent directory canonical path changed before activation');
+    }
     const currentParent = filesystemIdentity(await stat(realOutputParent, { bigint: true }));
     if (!sameFilesystemIdentity(parentIdentity, currentParent)) {
       fail('output parent directory identity changed before activation');
+    }
+    assertOutputParentOutsideProtectedRoots(currentRequestedParent, protectedResources);
+    const currentTemporary = await lstat(temporaryPath, { bigint: true });
+    if (!currentTemporary.isFile()
+      || !sameProtectedFileSnapshot(currentTemporary, temporaryIdentity)) {
+      fail('temporary output identity changed before activation');
     }
     await rename(temporaryPath, canonicalOutputPath);
     const finalParent = filesystemIdentity(await stat(realOutputParent, { bigint: true }));
@@ -1561,9 +1983,15 @@ export async function writeOcrTriangulationAudit(options) {
     }
   } catch (error) {
     await handle?.close();
-    await unlink(temporaryPath).catch((cleanupError) => {
-      if (cleanupError?.code !== 'ENOENT') throw cleanupError;
-    });
+    if (temporaryIdentity) {
+      await lstat(temporaryPath, { bigint: true }).then(async (info) => {
+        if (info.isFile() && sameProtectedFileSnapshot(info, temporaryIdentity)) {
+          await unlink(temporaryPath);
+        }
+      }).catch((cleanupError) => {
+        if (cleanupError?.code !== 'ENOENT') throw cleanupError;
+      });
+    }
     throw error;
   }
   return report;

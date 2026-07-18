@@ -14,14 +14,52 @@ import path from 'node:path';
 import test from 'node:test';
 import {
   buildOcrTriangulationAudit,
+  derivePdfPageImageSequence,
   validateOcrPageFurnitureActivation,
   writeOcrTriangulationAudit,
 } from '../scripts/build-ocr-triangulation-audit.mjs';
 import { validateOcrPageFurnitureApprovals } from '../scripts/validate-ocr-page-furniture-approvals.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
-const SOURCE_BYTES = Buffer.from('%PDF-1.7\nfixture source PDF bytes');
+
+function onePagePdf(label) {
+  const escaped = label.replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)');
+  const stream = `BT\n/F1 18 Tf\n72 720 Td\n(${escaped}) Tj\nET\n`;
+  const objects = [
+    '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+    '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
+    '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>\nendobj\n',
+    `4 0 obj\n<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}endstream\nendobj\n`,
+    '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+  for (const object of objects) {
+    offsets.push(Buffer.byteLength(pdf));
+    pdf += object;
+  }
+  const xrefOffset = Buffer.byteLength(pdf);
+  pdf += 'xref\n0 6\n0000000000 65535 f \n';
+  for (const offset of offsets.slice(1)) {
+    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return Buffer.from(pdf, 'ascii');
+}
+
+const SOURCE_BYTES = onePagePdf('Source artifact');
 const SOURCE_SHA = sha256(SOURCE_BYTES);
+const ONLINE_ARTIFACT_BYTES = onePagePdf('Independent online artifact');
+const ONLINE_ARTIFACT_SHA = sha256(ONLINE_ARTIFACT_BYTES);
+const sequenceCache = new Map();
+
+async function pageSequence(bytes, label) {
+  const key = sha256(bytes);
+  if (!sequenceCache.has(key)) {
+    sequenceCache.set(key, derivePdfPageImageSequence(bytes, label));
+  }
+  return sequenceCache.get(key);
+}
 
 const sourceIdentitySha256 = (source) => sha256(JSON.stringify({
   source_id: source.source_id,
@@ -31,7 +69,30 @@ const sourceIdentitySha256 = (source) => sha256(JSON.stringify({
   authority_record_id: source.authority_record_id,
   allowed_hosts: source.allowed_hosts,
   allowed_url_prefixes: source.allowed_url_prefixes,
+  document_binding: {
+    document_id: source.document_binding.document_id,
+    title: source.document_binding.title,
+    issuing_body_or_author: source.document_binding.issuing_body_or_author,
+    year_or_publication_context: source.document_binding.year_or_publication_context,
+    version_label: source.document_binding.version_label,
+    source_pdf_sha256: source.document_binding.source_pdf_sha256,
+  },
+  artifact_binding: {
+    artifact_id: source.artifact_binding.artifact_id,
+    media_type: source.artifact_binding.media_type,
+    artifact_sha256: source.artifact_binding.artifact_sha256,
+    exact_artifact_urls: source.artifact_binding.exact_artifact_urls,
+  },
 }));
+
+const scopedBindingSha256 = (kind, id, decision) => sha256([
+  kind,
+  id,
+  decision.document_id,
+  String(decision.physical_page),
+  decision.document_identity.section_or_item_locator,
+  decision.accepted_text_sha256,
+].join('\0'));
 
 const pageTypeBindingSha256 = ({ primarySha, acceptedSha, imageSha, pageType, manifestSha = null }) => (
   sha256([primarySha, acceptedSha, imageSha, pageType, manifestSha || ''].join('\0'))
@@ -195,6 +256,8 @@ async function fixture({ withDecision = false, decisionPatch = {} } = {}) {
   await mkdir(path.join(root, 'online'), { recursive: true });
   const onlineText = '第一章\n正文甲42\n';
   await writeFile(path.join(root, 'online', 'official-doc-a.txt'), onlineText);
+  const onlineArtifactPath = path.join(root, 'online', 'official-doc-a.pdf');
+  await writeFile(onlineArtifactPath, ONLINE_ARTIFACT_BYTES);
   const registrySource = {
     source_id: 'official-exact-doc-a',
     publisher: 'Official publisher',
@@ -203,6 +266,20 @@ async function fixture({ withDecision = false, decisionPatch = {} } = {}) {
     authority_record_id: 'fixture-official-publisher',
     allowed_hosts: ['example.edu'],
     allowed_url_prefixes: ['https://example.edu/'],
+    document_binding: {
+      document_id: documentId,
+      title: 'Doc A',
+      issuing_body_or_author: 'Official publisher',
+      year_or_publication_context: '2026',
+      version_label: 'Exact edition',
+      source_pdf_sha256: SOURCE_SHA,
+    },
+    artifact_binding: {
+      artifact_id: 'official-doc-a-pdf',
+      media_type: 'application/pdf',
+      artifact_sha256: ONLINE_ARTIFACT_SHA,
+      exact_artifact_urls: ['https://example.edu/doc-a'],
+    },
   };
   registrySource.source_identity_sha256 = sourceIdentitySha256(registrySource);
   const onlineSourceRegistry = {
@@ -212,12 +289,46 @@ async function fixture({ withDecision = false, decisionPatch = {} } = {}) {
       authority_declared_only_here: true,
       https_only: true,
       exact_hostname_match: true,
+      document_version_artifact_binding_required: true,
+      exact_artifact_url_required: true,
+      page_image_recomputation_required: true,
     },
     sources: [registrySource],
   };
   const onlineSourceRegistryRaw = `${JSON.stringify(onlineSourceRegistry, null, 2)}\n`;
   const onlineSourceRegistryPath = path.join(root, 'online-source-registry.json');
   await writeFile(onlineSourceRegistryPath, onlineSourceRegistryRaw);
+  let artifactReceiptReference = null;
+  if (withDecision) {
+    const [sourceSequence, onlineSequence] = await Promise.all([
+      pageSequence(SOURCE_BYTES, 'fixture source PDF'),
+      pageSequence(ONLINE_ARTIFACT_BYTES, 'fixture online PDF'),
+    ]);
+    const artifactReceipt = {
+      schema_version: 1,
+      artifact_profile: 'ocr-online-artifact-identity-receipt-v1',
+      source_identity_sha256: registrySource.source_identity_sha256,
+      artifact_id: registrySource.artifact_binding.artifact_id,
+      source_pdf_sha256: SOURCE_SHA,
+      evidence_snapshot_sha256: sha256(onlineText),
+      online_artifact_path: 'online/official-doc-a.pdf',
+      online_artifact_sha256: ONLINE_ARTIFACT_SHA,
+      render_profile: sourceSequence.render_profile,
+      source_page_image_sha256: sourceSequence.page_image_sha256,
+      online_page_image_sha256: onlineSequence.page_image_sha256,
+      source_page_asset_sequence_sha256: sourceSequence.sequence_sha256,
+      source_page_asset_count: sourceSequence.page_count,
+      online_page_asset_sequence_sha256: onlineSequence.sequence_sha256,
+      online_page_asset_count: onlineSequence.page_count,
+      identity_result: 'different_page_asset_sequence',
+    };
+    const artifactReceiptRaw = `${JSON.stringify(artifactReceipt, null, 2)}\n`;
+    await writeFile(path.join(root, 'online', 'official-doc-a-artifact.json'), artifactReceiptRaw);
+    artifactReceiptReference = {
+      receipt_path: 'online/official-doc-a-artifact.json',
+      receipt_sha256: sha256(artifactReceiptRaw),
+    };
+  }
   const decisions = {
     schema_version: 1,
     artifact_profile: 'ocr-page-triangulation-decisions-v1',
@@ -248,8 +359,11 @@ async function fixture({ withDecision = false, decisionPatch = {} } = {}) {
       }),
       table_cell_manifest: null,
       embedded_item_id: null,
+      embedded_item_binding_sha256: null,
       stable_fact_id: null,
+      stable_fact_binding_sha256: null,
       stable_fact_span_id: null,
+      stable_fact_span_binding_sha256: null,
       document_identity: {
         title: 'Doc A',
         issuing_body_or_author: 'Official publisher',
@@ -265,7 +379,7 @@ async function fixture({ withDecision = false, decisionPatch = {} } = {}) {
         source_url: 'https://example.edu/doc-a',
         retrieved_at: '2026-07-18T00:00:00Z',
         version_match: 'exact_document_exact_edition',
-        artifact_relation: 'independent_transcription',
+        artifact_relation: 'different_artifact_same_edition',
         independent_for_decision: true,
         section_locator: '第一章',
         content_path: 'online/official-doc-a.txt',
@@ -277,7 +391,7 @@ async function fixture({ withDecision = false, decisionPatch = {} } = {}) {
         },
         accepted_text_relation: 'normalized_exact',
         conflict_resolution: null,
-        artifact_identity_receipt: null,
+        artifact_identity_receipt: artifactReceiptReference,
       }],
       human_review: {
         reviewed_by: 'fixture reviewer',
@@ -306,6 +420,7 @@ async function fixture({ withDecision = false, decisionPatch = {} } = {}) {
     activationPath,
     decisionsPath,
     onlineSourceRegistryPath,
+    onlineArtifactPath,
     primary,
     witnessText,
     imageSha,
@@ -318,6 +433,31 @@ async function mutateDecision(value, mutator) {
   await mutator(ledger.decisions[0], ledger);
   await writeFile(value.decisionsPath, `${JSON.stringify(ledger, null, 2)}\n`);
   return ledger;
+}
+
+async function mutateArtifactReceipt(value, mutator) {
+  const receiptPath = path.join(value.root, 'online', 'official-doc-a-artifact.json');
+  const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+  await mutator(receipt);
+  const raw = `${JSON.stringify(receipt, null, 2)}\n`;
+  await writeFile(receiptPath, raw);
+  await mutateDecision(value, (decision) => {
+    decision.online_evidence[0].artifact_identity_receipt.receipt_sha256 = sha256(raw);
+  });
+  return receipt;
+}
+
+async function mutateOnlineSourceRegistry(value, mutator) {
+  const registry = JSON.parse(await readFile(value.onlineSourceRegistryPath, 'utf8'));
+  await mutator(registry.sources[0], registry);
+  registry.sources[0].source_identity_sha256 = sourceIdentitySha256(registry.sources[0]);
+  const raw = `${JSON.stringify(registry, null, 2)}\n`;
+  await writeFile(value.onlineSourceRegistryPath, raw);
+  await mutateDecision(value, (decision, ledger) => {
+    ledger.policy.online_source_registry_sha256 = sha256(raw);
+    decision.online_evidence[0].source_identity_sha256 = registry.sources[0].source_identity_sha256;
+  });
+  return registry.sources[0];
 }
 
 function auditOptions(value, overrides = {}) {
@@ -353,6 +493,9 @@ async function bindAcceptedSnapshot(value, acceptedText, { pageType = 'prose', m
     });
     decision.online_evidence[0].content_sha256 = sha256(acceptedText);
     decision.online_evidence[0].snapshot_identity.text_sha256 = sha256(acceptedText);
+  });
+  await mutateArtifactReceipt(value, (receipt) => {
+    receipt.evidence_snapshot_sha256 = sha256(acceptedText);
   });
 }
 
@@ -440,6 +583,16 @@ test('stable-fact or different-edition evidence never promotes a whole page', as
     },
   });
   await mutateDecision(value, (decision) => {
+    decision.stable_fact_binding_sha256 = scopedBindingSha256(
+      'stable_fact',
+      decision.stable_fact_id,
+      decision,
+    );
+    decision.stable_fact_span_binding_sha256 = scopedBindingSha256(
+      'stable_fact_span',
+      decision.stable_fact_span_id,
+      decision,
+    );
     decision.online_evidence[0].snapshot_identity.scope = 'stable_fact_excerpt';
     decision.online_evidence[0].snapshot_identity.locator_id = decision.stable_fact_span_id;
   });
@@ -507,6 +660,9 @@ test('online authority is controlled by a separately hash-bound source registry'
     const value = await fixture({ withDecision: true });
     const registry = JSON.parse(await readFile(value.onlineSourceRegistryPath, 'utf8'));
     registry.sources[0].allowed_url_prefixes = ['https://example.edu/official/'];
+    registry.sources[0].artifact_binding.exact_artifact_urls = [
+      'https://example.edu/official/doc-a',
+    ];
     registry.sources[0].source_identity_sha256 = sourceIdentitySha256(registry.sources[0]);
     const registryRaw = `${JSON.stringify(registry, null, 2)}\n`;
     await writeFile(value.onlineSourceRegistryPath, registryRaw);
@@ -519,6 +675,32 @@ test('online authority is controlled by a separately hash-bound source registry'
 });
 
 test('online snapshots must be distinct text evidence related to accepted text', async (t) => {
+  await t.test('snapshot cannot alias primary OCR through a hard link', async () => {
+    const value = await fixture({ withDecision: true });
+    const snapshotPath = path.join(value.root, 'online', 'official-doc-a.txt');
+    await unlink(snapshotPath);
+    await link(path.join(value.primaryRoot, '0001', 'content.md'), snapshotPath);
+    await mutateDecision(value, (decision) => {
+      decision.accepted_text = value.primary;
+      decision.accepted_text_sha256 = sha256(value.primary);
+      decision.page_type_binding_sha256 = pageTypeBindingSha256({
+        primarySha: sha256(value.primary),
+        acceptedSha: sha256(value.primary),
+        imageSha: value.imageSha,
+        pageType: 'prose',
+      });
+      decision.online_evidence[0].content_sha256 = sha256(value.primary);
+      decision.online_evidence[0].snapshot_identity.text_sha256 = sha256(value.primary);
+    });
+    await mutateArtifactReceipt(value, (receipt) => {
+      receipt.evidence_snapshot_sha256 = sha256(value.primary);
+    });
+    await assert.rejects(
+      buildOcrTriangulationAudit(auditOptions(value)),
+      /online evidence snapshot.*aliases.*primary OCR/i,
+    );
+  });
+
   await t.test('source PDF bytes cannot masquerade as an online text snapshot', async () => {
     const value = await fixture({ withDecision: true });
     await writeFile(path.join(value.root, 'online', 'official-doc-a.txt'), SOURCE_BYTES);
@@ -568,31 +750,82 @@ test('online snapshots must be distinct text evidence related to accepted text',
   });
 });
 
+test('exact-edition authority must bind the specific document, version, and artifact', async (t) => {
+  await t.test('a decision cannot self-declare a future edition', async () => {
+    const value = await fixture({ withDecision: true });
+    await mutateDecision(value, (decision) => {
+      decision.document_identity.year_or_publication_context = '2099';
+      decision.document_identity.version_label = 'Future exact edition';
+    });
+    await assert.rejects(
+      buildOcrTriangulationAudit(auditOptions(value)),
+      /document identity.*controlled registry/i,
+    );
+  });
+
+  await t.test('citation cannot treat a null artifact receipt as proof of inequality', async () => {
+    const value = await fixture({ withDecision: true });
+    await mutateDecision(value, (decision) => {
+      decision.online_evidence[0].artifact_identity_receipt = null;
+    });
+    await assert.rejects(
+      buildOcrTriangulationAudit(auditOptions(value)),
+      /artifact identity receipt.*required/i,
+    );
+  });
+});
+
 test('repackaged same-artifact receipts can never claim independent evidence', async () => {
   const value = await fixture({ withDecision: true });
-  const receipt = {
-    schema_version: 1,
-    artifact_profile: 'ocr-online-artifact-identity-receipt-v1',
-    source_pdf_sha256: SOURCE_SHA,
-    evidence_snapshot_sha256: sha256('第一章\n正文甲42\n'),
-    online_artifact_sha256: 'a'.repeat(64),
-    source_page_asset_sequence_sha256: 'b'.repeat(64),
-    source_page_asset_count: 2,
-    online_page_asset_sequence_sha256: 'b'.repeat(64),
-    online_page_asset_count: 2,
-    identity_result: 'same_page_asset_sequence',
-  };
-  const receiptRaw = `${JSON.stringify(receipt, null, 2)}\n`;
-  await writeFile(path.join(value.root, 'online', 'artifact-receipt.json'), receiptRaw);
-  await mutateDecision(value, (decision) => {
-    const evidence = decision.online_evidence[0];
-    evidence.artifact_relation = 'different_artifact_same_edition';
-    evidence.artifact_identity_receipt = {
-      receipt_path: 'online/artifact-receipt.json',
-      receipt_sha256: sha256(receiptRaw),
-    };
+  const repackaged = Buffer.concat([SOURCE_BYTES, Buffer.from('\n% repackaged mirror\n')]);
+  const repackagedSha = sha256(repackaged);
+  await writeFile(value.onlineArtifactPath, repackaged);
+  const source = await mutateOnlineSourceRegistry(value, (registrySource) => {
+    registrySource.artifact_binding.artifact_sha256 = repackagedSha;
   });
-  await assert.rejects(buildOcrTriangulationAudit(auditOptions(value)), /same page-asset sequence cannot be independent/);
+  await mutateArtifactReceipt(value, (receipt) => {
+    receipt.source_identity_sha256 = source.source_identity_sha256;
+    receipt.online_artifact_sha256 = repackagedSha;
+    receipt.source_page_image_sha256 = ['b'.repeat(64)];
+    receipt.online_page_image_sha256 = ['c'.repeat(64)];
+    receipt.source_page_asset_sequence_sha256 = 'b'.repeat(64);
+    receipt.online_page_asset_sequence_sha256 = 'c'.repeat(64);
+    receipt.source_page_asset_count = 1;
+    receipt.online_page_asset_count = 1;
+    receipt.identity_result = 'different_page_asset_sequence';
+  });
+  await assert.rejects(
+    buildOcrTriangulationAudit(auditOptions(value)),
+    /recomputed page-image sequence|same page-asset sequence cannot be independent/i,
+  );
+});
+
+test('page-image derivation identifies container-only repackaging', async () => {
+  const repackaged = Buffer.concat([SOURCE_BYTES, Buffer.from('\n% alternate container bytes\n')]);
+  const [source, mirror, different] = await Promise.all([
+    derivePdfPageImageSequence(SOURCE_BYTES, 'source fixture'),
+    derivePdfPageImageSequence(repackaged, 'repackaged source fixture'),
+    derivePdfPageImageSequence(ONLINE_ARTIFACT_BYTES, 'different fixture'),
+  ]);
+  assert.deepEqual(mirror.page_image_sha256, source.page_image_sha256);
+  assert.notDeepEqual(different.page_image_sha256, source.page_image_sha256);
+});
+
+test('self-declared page-sequence aggregates do not prove a different artifact', async () => {
+  const value = await fixture({ withDecision: true });
+  await mutateArtifactReceipt(value, (receipt) => {
+    receipt.source_page_image_sha256 = ['b'.repeat(64)];
+    receipt.online_page_image_sha256 = ['c'.repeat(64)];
+    receipt.source_page_asset_sequence_sha256 = 'b'.repeat(64);
+    receipt.online_page_asset_sequence_sha256 = 'c'.repeat(64);
+    receipt.source_page_asset_count = 1;
+    receipt.online_page_asset_count = 1;
+    receipt.identity_result = 'different_page_asset_sequence';
+  });
+  await assert.rejects(
+    buildOcrTriangulationAudit(auditOptions(value)),
+    /recomputed page-image sequence/i,
+  );
 });
 
 test('item and stable-fact decisions require durable scoped identifiers', async (t) => {
@@ -620,6 +853,23 @@ test('item and stable-fact decisions require durable scoped identifiers', async 
     });
     await assert.rejects(buildOcrTriangulationAudit(auditOptions(value)), /stable_fact_id.*stable_fact_span_id.*required/);
   });
+
+  await t.test('a formatted item ID without its exact binding is rejected', async () => {
+    const value = await fixture({ withDecision: true });
+    await mutateDecision(value, (decision) => {
+      decision.decision_scope = 'embedded_item';
+      decision.embedded_item_id = 'item-doc-a-p1-goal-1';
+      decision.embedded_item_binding_sha256 = 'a'.repeat(64);
+      decision.verification_status = 'verified_stable_fact_only';
+      decision.citation_allowed = false;
+      decision.online_evidence[0].snapshot_identity.scope = 'embedded_item';
+      decision.online_evidence[0].snapshot_identity.locator_id = decision.embedded_item_id;
+    });
+    await assert.rejects(
+      buildOcrTriangulationAudit(auditOptions(value)),
+      /embedded-item scoped identity binding drifted/i,
+    );
+  });
 });
 
 test('HTML, Markdown, and flattened tables cannot bypass the cell manifest gate', async (t) => {
@@ -628,6 +878,7 @@ test('HTML, Markdown, and flattened tables cannot bypass the cell manifest gate'
     ['Markdown', '| 甲 | 乙 |\n|---|---|\n| 1 | 2 |'],
     ['flattened', '甲  乙  丙\n1  2  3'],
     ['single-row Markdown', '| 甲 | 乙 |'],
+    ['single-row two-column flattened', '甲  乙'],
     ['single-row flattened', '甲  乙  丙'],
   ]) {
     await t.test(label, async () => {
@@ -653,6 +904,9 @@ test('HTML, Markdown, and flattened tables cannot bypass the cell manifest gate'
       [['甲', '乙'], ['1', '2']],
     ],
     ['flattened valid manifest', 'flattened_text', '甲  乙  丙\n1  2  3', [['甲', '乙', '丙'], ['1', '2', '3']]],
+    ['two-column flattened valid manifest', 'flattened_text', '甲  乙\n1  2', [['甲', '乙'], ['1', '2']]],
+    ['HTML blank-cell manifest', 'html', '<table><tr><td>甲</td><td></td></tr></table>', [['甲', '']]],
+    ['Markdown blank-cell manifest', 'markdown_pipe', '| 甲 | |', [['甲', '']]],
   ]) {
     await t.test(label, async () => {
       const value = await fixture({ withDecision: true });
@@ -683,6 +937,266 @@ test('HTML, Markdown, and flattened tables cannot bypass the cell manifest gate'
       decision.human_review.table_cells_checked = true;
     });
     await assert.rejects(buildOcrTriangulationAudit(auditOptions(value)), /does not match the accepted table cell/);
+  });
+
+  await t.test('manual grid cannot collapse a four-cell Markdown table to one cell', async () => {
+    const value = await fixture({ withDecision: true });
+    const tableText = '| 甲 | 乙 |\n|---|---|\n| 1 | 2 |';
+    const manifest = tableCellManifest('manual_grid', [['甲']]);
+    await bindAcceptedSnapshot(value, tableText, {
+      pageType: 'table',
+      manifestSha: manifest.manifest_sha256,
+    });
+    await mutateDecision(value, (decision) => {
+      decision.table_cell_manifest = manifest;
+      decision.human_review.table_cells_checked = true;
+    });
+    await assert.rejects(
+      buildOcrTriangulationAudit(auditOptions(value)),
+      /manual_grid|complete.*table|source[_ ]format/i,
+    );
+  });
+
+  await t.test('HTML spanning cells cannot masquerade as a complete one-cell grid', async () => {
+    const value = await fixture({ withDecision: true });
+    const tableText = '<table><tr><td colspan="4">甲</td></tr></table>';
+    const manifest = tableCellManifest('html', [['甲']]);
+    await bindAcceptedSnapshot(value, tableText, {
+      pageType: 'table',
+      manifestSha: manifest.manifest_sha256,
+    });
+    await mutateDecision(value, (decision) => {
+      decision.table_cell_manifest = manifest;
+      decision.human_review.table_cells_checked = true;
+    });
+    await assert.rejects(
+      buildOcrTriangulationAudit(auditOptions(value)),
+      /spanning cells require an expanded cell-level representation/i,
+    );
+  });
+});
+
+test('build API revalidates every protected input after all reads', async () => {
+  const value = await fixture({ withDecision: true });
+  const hugeSnapshot = `${'在线核对文本'.repeat(4_000_000)}\n第一章\n正文甲42\n`;
+  await writeFile(path.join(value.root, 'online', 'official-doc-a.txt'), hugeSnapshot);
+  await mutateDecision(value, (decision) => {
+    const evidence = decision.online_evidence[0];
+    evidence.content_sha256 = sha256(hugeSnapshot);
+    evidence.snapshot_identity.text_sha256 = sha256(hugeSnapshot);
+    evidence.accepted_text_relation = 'snapshot_contains_accepted_text';
+  });
+  await mutateArtifactReceipt(value, (receipt) => {
+    receipt.evidence_snapshot_sha256 = sha256(hugeSnapshot);
+  });
+  const pending = buildOcrTriangulationAudit(auditOptions(value));
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  await writeFile(value.sourcePdfPath, Buffer.concat([SOURCE_BYTES, Buffer.from('\n% replaced')]));
+  await assert.rejects(pending, /protected input identity changed before return/i);
+});
+
+test('build API also retains full furniture-snapshot inputs outside the requested page range', async () => {
+  const value = await fixture();
+  const outsideRangeSidecar = path.join(
+    value.witnessRoot,
+    value.documentId,
+    'vision',
+    'page-002.json',
+  );
+  await assert.rejects(buildOcrTriangulationAudit({
+    ...auditOptions(value),
+    onBeforeFinalInputVerificationForTest: async () => {
+      await writeFile(outsideRangeSidecar, '{"drifted":true}\n');
+    },
+  }), /protected input identity changed before return/i);
+});
+
+test('writer rechecks containment and every protected input immediately before rename', async (t) => {
+  await t.test('real parent is checked again after prospective containment', async () => {
+    const value = await fixture();
+    const parent = path.dirname(value.outputPath);
+    await assert.rejects(writeOcrTriangulationAudit({
+      ...auditOptions(value),
+      outputPath: value.outputPath,
+      onAfterProspectiveOutputCheckForTest: async () => {
+        await symlink(value.primaryRoot, parent);
+      },
+    }), /output must be outside primary and witness evidence roots/i);
+  });
+
+  await t.test('input replacement in the activation window is rejected', async () => {
+    const value = await fixture();
+    await assert.rejects(writeOcrTriangulationAudit({
+      ...auditOptions(value),
+      outputPath: value.outputPath,
+      onBeforeOutputActivationForTest: async () => {
+        await writeFile(value.sourcePdfPath, Buffer.concat([SOURCE_BYTES, Buffer.from('\n% changed')]));
+      },
+    }), /protected input identity changed before output activation/i);
+  });
+});
+
+test('scoped IDs are document-bound and duplicate spans fail closed', async () => {
+  const value = await fixture({ withDecision: true });
+  await mutateDecision(value, (decision, ledger) => {
+    Object.assign(decision, {
+      decision_scope: 'stable_fact',
+      stable_fact_id: 'fact-doc-a-author',
+      stable_fact_span_id: 'span-doc-a-p1-author',
+      edition_match_status: 'stable_fact_only',
+      verification_status: 'verified_stable_fact_only',
+      citation_allowed: false,
+    });
+    decision.stable_fact_binding_sha256 = scopedBindingSha256(
+      'stable_fact',
+      decision.stable_fact_id,
+      decision,
+    );
+    decision.stable_fact_span_binding_sha256 = scopedBindingSha256(
+      'stable_fact_span',
+      decision.stable_fact_span_id,
+      decision,
+    );
+    decision.online_evidence[0].snapshot_identity.scope = 'stable_fact_excerpt';
+    decision.online_evidence[0].snapshot_identity.locator_id = decision.stable_fact_span_id;
+    const duplicate = structuredClone(decision);
+    duplicate.decision_id = 'decision-doc-a-p1-duplicate';
+    ledger.decisions.push(duplicate);
+  });
+  await assert.rejects(
+    buildOcrTriangulationAudit(auditOptions(value)),
+    /duplicate stable_fact_span_id|scoped identity binding/i,
+  );
+});
+
+test('scoped identity bindings permit only exact stable-fact semantic reuse', async (t) => {
+  await t.test('a bound embedded item is accepted without promoting its page', async () => {
+    const value = await fixture({ withDecision: true });
+    await mutateDecision(value, (decision) => {
+      decision.decision_scope = 'embedded_item';
+      decision.embedded_item_id = 'item-doc-a-p1-goal-1';
+      decision.embedded_item_binding_sha256 = scopedBindingSha256(
+        'embedded_item',
+        decision.embedded_item_id,
+        decision,
+      );
+      decision.verification_status = 'verified_stable_fact_only';
+      decision.citation_allowed = false;
+      decision.online_evidence[0].snapshot_identity.scope = 'embedded_item';
+      decision.online_evidence[0].snapshot_identity.locator_id = decision.embedded_item_id;
+    });
+    const report = await buildOcrTriangulationAudit(auditOptions(value));
+    assert.equal(report.pages[0].release.citation_allowed, false);
+    assert.equal(report.pages[0].scoped_decisions.length, 1);
+  });
+
+  await t.test('an embedded item ID cannot be reused within its document', async () => {
+    const value = await fixture({ withDecision: true });
+    await mutateDecision(value, (decision, ledger) => {
+      decision.decision_scope = 'embedded_item';
+      decision.embedded_item_id = 'item-doc-a-p1-goal-1';
+      decision.embedded_item_binding_sha256 = scopedBindingSha256(
+        'embedded_item',
+        decision.embedded_item_id,
+        decision,
+      );
+      decision.verification_status = 'verified_stable_fact_only';
+      decision.citation_allowed = false;
+      decision.online_evidence[0].snapshot_identity.scope = 'embedded_item';
+      decision.online_evidence[0].snapshot_identity.locator_id = decision.embedded_item_id;
+      const duplicate = structuredClone(decision);
+      duplicate.decision_id = 'decision-doc-a-p1-duplicate-item';
+      ledger.decisions.push(duplicate);
+    });
+    await assert.rejects(
+      buildOcrTriangulationAudit(auditOptions(value)),
+      /duplicate embedded_item_id within document/i,
+    );
+  });
+
+  await t.test('the same fact ID may reuse an identical semantic binding with a unique span', async () => {
+    const value = await fixture({ withDecision: true });
+    await mutateDecision(value, (decision, ledger) => {
+      Object.assign(decision, {
+        decision_scope: 'stable_fact',
+        stable_fact_id: 'fact-doc-a-author',
+        stable_fact_span_id: 'span-doc-a-p1-author-a',
+        edition_match_status: 'stable_fact_only',
+        verification_status: 'verified_stable_fact_only',
+        citation_allowed: false,
+      });
+      decision.stable_fact_binding_sha256 = scopedBindingSha256(
+        'stable_fact',
+        decision.stable_fact_id,
+        decision,
+      );
+      decision.stable_fact_span_binding_sha256 = scopedBindingSha256(
+        'stable_fact_span',
+        decision.stable_fact_span_id,
+        decision,
+      );
+      decision.online_evidence[0].snapshot_identity.scope = 'stable_fact_excerpt';
+      decision.online_evidence[0].snapshot_identity.locator_id = decision.stable_fact_span_id;
+      const duplicate = structuredClone(decision);
+      duplicate.decision_id = 'decision-doc-a-p1-same-fact-second-span';
+      duplicate.stable_fact_span_id = 'span-doc-a-p1-author-b';
+      duplicate.stable_fact_span_binding_sha256 = scopedBindingSha256(
+        'stable_fact_span',
+        duplicate.stable_fact_span_id,
+        duplicate,
+      );
+      duplicate.online_evidence[0].snapshot_identity.locator_id = duplicate.stable_fact_span_id;
+      ledger.decisions.push(duplicate);
+    });
+    const report = await buildOcrTriangulationAudit(auditOptions(value));
+    assert.equal(report.pages[0].scoped_decisions.length, 2);
+  });
+
+  await t.test('the same fact ID cannot identify a different locator', async () => {
+    const value = await fixture({ withDecision: true });
+    await mutateDecision(value, (decision, ledger) => {
+      Object.assign(decision, {
+        decision_scope: 'stable_fact',
+        stable_fact_id: 'fact-doc-a-author',
+        stable_fact_span_id: 'span-doc-a-p1-author-a',
+        edition_match_status: 'stable_fact_only',
+        verification_status: 'verified_stable_fact_only',
+        citation_allowed: false,
+      });
+      decision.stable_fact_binding_sha256 = scopedBindingSha256(
+        'stable_fact',
+        decision.stable_fact_id,
+        decision,
+      );
+      decision.stable_fact_span_binding_sha256 = scopedBindingSha256(
+        'stable_fact_span',
+        decision.stable_fact_span_id,
+        decision,
+      );
+      decision.online_evidence[0].snapshot_identity.scope = 'stable_fact_excerpt';
+      decision.online_evidence[0].snapshot_identity.locator_id = decision.stable_fact_span_id;
+      const conflict = structuredClone(decision);
+      conflict.decision_id = 'decision-doc-a-p1-conflicting-fact';
+      conflict.stable_fact_span_id = 'span-doc-a-p1-author-b';
+      conflict.document_identity.section_or_item_locator = '另一位置';
+      conflict.online_evidence[0].section_locator = '另一位置';
+      conflict.stable_fact_binding_sha256 = scopedBindingSha256(
+        'stable_fact',
+        conflict.stable_fact_id,
+        conflict,
+      );
+      conflict.stable_fact_span_binding_sha256 = scopedBindingSha256(
+        'stable_fact_span',
+        conflict.stable_fact_span_id,
+        conflict,
+      );
+      conflict.online_evidence[0].snapshot_identity.locator_id = conflict.stable_fact_span_id;
+      ledger.decisions.push(conflict);
+    });
+    await assert.rejects(
+      buildOcrTriangulationAudit(auditOptions(value)),
+      /duplicate stable_fact_id has a different semantic identity/i,
+    );
   });
 });
 

@@ -4,7 +4,10 @@
   "policy": {
     "authority_declared_only_here": true,
     "https_only": true,
-    "exact_hostname_match": true
+    "exact_hostname_match": true,
+    "document_version_artifact_binding_required": true,
+    "exact_artifact_url_required": true,
+    "page_image_recomputation_required": true
   },
   "sources": []
 }
