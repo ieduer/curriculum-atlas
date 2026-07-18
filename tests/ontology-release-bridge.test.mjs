@@ -797,6 +797,77 @@ test('relation type and direction need an exact canonical predicate, not paragra
   });
 });
 
+test('relation statement offsets cannot omit negative wording from the containing clause', async (t) => {
+  await t.test('negative prefix remains part of the controlled clause', () => {
+    const statement = '核心素养支持语言运用';
+    const body = `并不认为${statement}；核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。`;
+    const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
+      relationStatement: statement,
+    });
+    const report = validateOntologyRelease(fixture.release, fixture.context);
+    assert.equal(report.valid, false);
+    assert.match(text(report), /relation_statement_clause_error/);
+  });
+
+  await t.test('negative suffix remains part of the controlled clause', () => {
+    const statement = '核心素养支持语言运用';
+    const body = `${statement}的说法并不成立；核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。`;
+    const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
+      relationStatement: statement,
+    });
+    const report = validateOntologyRelease(fixture.release, fixture.context);
+    assert.equal(report.valid, false);
+    assert.match(text(report), /relation_statement_clause_error/);
+  });
+});
+
+test('relation statements bind exact punctuation-bounded clauses and adjacent wrappers', async (t) => {
+  const statement = '核心素养支持语言运用';
+  const tail = '核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。';
+  const boundaryCases = [
+    ['Chinese period', `前置说明。${statement}；${tail}`],
+    ['Chinese semicolon', `前置说明；${statement}：${tail}`],
+    ['Chinese colon', `前置说明：${statement}。${tail}`],
+    ['newline', `前置说明\n${statement}；${tail}`],
+    ['edge whitespace only', `前置说明： \t${statement} ；${tail}`],
+  ];
+  for (const [name, body] of boundaryCases) {
+    await t.test(name, () => {
+      const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
+        relationStatement: statement,
+      });
+      const report = validateOntologyRelease(fixture.release, fixture.context);
+      assert.equal(report.valid, true, text(report));
+    });
+  }
+
+  const wrapperCases = [
+    ['Chinese quote', '“', '”'],
+    ['full-width parenthesis', '（', '）'],
+  ];
+  for (const [name, opening, closing] of wrapperCases) {
+    await t.test(`${name} is accepted when the complete wrapper is bound`, () => {
+      const wrappedStatement = `${opening}${statement}${closing}`;
+      const body = `前置说明：${wrappedStatement}；${tail}`;
+      const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
+        relationStatement: wrappedStatement,
+      });
+      const report = validateOntologyRelease(fixture.release, fixture.context);
+      assert.equal(report.valid, true, text(report));
+    });
+
+    await t.test(`${name} cannot be omitted from the bound clause`, () => {
+      const body = `前置说明：${opening}${statement}${closing}；${tail}`;
+      const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
+        relationStatement: statement,
+      });
+      const report = validateOntologyRelease(fixture.release, fixture.context);
+      assert.equal(report.valid, false);
+      assert.match(text(report), /relation_statement_clause_error/);
+    });
+  }
+});
+
 test('internal nodes are held to the same accepted provenance gate as leaves', () => {
   const body = '核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。';
   const fixture = addLanguageUseChild(reviewedFixture(11, body));

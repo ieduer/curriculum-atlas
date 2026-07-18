@@ -1362,8 +1362,68 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const RELATION_CLAUSE_BOUNDARY = /[。！？!?；;，,：:\n]/u;
+const RELATION_CLAUSE_WRAPPERS = new Map([
+  ['“', '”'],
+  ['‘', '’'],
+  ['"', '"'],
+  ["'", "'"],
+  ['（', '）'],
+  ['(', ')'],
+  ['【', '】'],
+  ['[', ']'],
+]);
+
+function completeContainingRelationClause(paragraphBody, startOffset, endOffset) {
+  if (typeof paragraphBody !== 'string'
+    || !Number.isInteger(startOffset)
+    || !Number.isInteger(endOffset)
+    || startOffset < 0
+    || endOffset <= startOffset
+    || endOffset > paragraphBody.length) {
+    return { complete: false, text: '' };
+  }
+  let clauseStart = 0;
+  for (let index = startOffset - 1; index >= 0; index -= 1) {
+    if (RELATION_CLAUSE_BOUNDARY.test(paragraphBody[index])) {
+      clauseStart = index + 1;
+      break;
+    }
+  }
+  let clauseEnd = paragraphBody.length;
+  for (let index = endOffset; index < paragraphBody.length; index += 1) {
+    if (RELATION_CLAUSE_BOUNDARY.test(paragraphBody[index])) {
+      clauseEnd = index;
+      break;
+    }
+  }
+  const boundText = paragraphBody.slice(startOffset, endOffset);
+  const completeText = paragraphBody.slice(clauseStart, clauseEnd);
+  const omittedPrefix = paragraphBody.slice(clauseStart, startOffset);
+  const omittedSuffix = paragraphBody.slice(endOffset, clauseEnd);
+  return {
+    complete: startOffset >= clauseStart
+      && endOffset <= clauseEnd
+      && omittedPrefix.trim() === ''
+      && omittedSuffix.trim() === ''
+      && boundText.trim() === completeText.trim()
+      && !RELATION_CLAUSE_BOUNDARY.test(boundText),
+    text: completeText.trim(),
+  };
+}
+
+function unwrapRelationClause(text) {
+  let unwrapped = text.trim();
+  while (unwrapped.length >= 2) {
+    const closing = RELATION_CLAUSE_WRAPPERS.get(unwrapped[0]);
+    if (!closing || !unwrapped.endsWith(closing)) break;
+    unwrapped = unwrapped.slice(1, -1).trim();
+  }
+  return unwrapped;
+}
+
 function canonicalStatementSupportsRelation(relationType, statement, sourceLabel, targetLabel) {
-  const text = statement.trim().replace(/\s+/g, '');
+  const text = unwrapRelationClause(statement).replace(/\s+/g, '');
   if (!text || /[。！？!?；;，,：:\n]/.test(text)) return false;
   if (/(?:不|未|无|非|否认|错误|不成立|不正确|不能|从未|尚未|没有)/.test(text)) return false;
   const source = escapeRegExp(sourceLabel.replace(/\s+/g, ''));
@@ -1441,7 +1501,14 @@ function validateRelations(manifest, scopes, assertionResult, nodes, errors) {
           'relation_target_content_mismatch', `${relation.id} target endpoint is not content-bound`);
       }
       if (binding.evidence_role === 'relation_statement' && source && target) {
-        relationStatements.push(boundText);
+        relationStatements.push({
+          bound_text: boundText,
+          clause: completeContainingRelationClause(
+            paragraph.body,
+            binding.text_start_offset,
+            binding.text_end_offset,
+          ),
+        });
         issue(errors, boundText.includes(source.label) && boundText.includes(target.label),
           'relation_statement_content_mismatch', `${relation.id} canonical statement does not name both endpoints`);
       }
@@ -1458,14 +1525,14 @@ function validateRelations(manifest, scopes, assertionResult, nodes, errors) {
     issue(errors, relationStatements.length === 1,
       'relation_statement_cardinality_error', `${relation.id} needs exactly one canonical relation statement`);
     if (source && target && relationStatements.length === 1) {
-      issue(errors, relationStatements[0] === relationStatements[0].trim()
-        && !/[。！？!?；;，,：:\n]/.test(relationStatements[0]),
+      const statement = relationStatements[0];
+      issue(errors, statement.clause.complete,
       'relation_statement_clause_error', `${relation.id} statement must be one exact punctuation-bounded clause`);
-      issue(errors, relation.assertion_basis === relationStatements[0],
+      issue(errors, relation.assertion_basis === statement.bound_text,
         'relation_basis_not_canonical_statement', `${relation.id} assertion_basis is not the exact canonical relation statement`);
-      issue(errors, canonicalStatementSupportsRelation(
+      issue(errors, statement.clause.complete && canonicalStatementSupportsRelation(
         relation.relation_type,
-        relationStatements[0],
+        statement.clause.text,
         source.label,
         target.label,
       ), 'relation_semantics_not_supported', `${relation.id} type or direction is not explicitly stated in canonical text`);
