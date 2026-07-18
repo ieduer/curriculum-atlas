@@ -11,6 +11,9 @@ function usage() {
     '  --manifest <project-relative-release-manifest>',
     '  --renderer <mutool-path>',
     '  --authority-registry-sha256 <externally-pinned-sha256>',
+    '  --source-identities-sha256 <externally-pinned-sha256>',
+    '  --renderer-sha256 <externally-pinned-sha256>',
+    '  --renderer-version <exact-mutool-version-output>',
     '  --require-publishable',
   ].join('\n'));
 }
@@ -20,6 +23,9 @@ const options = {
   evidenceManifestPath: 'scripts/page-evidence/fail-closed-manifest.json',
   rendererPath: null,
   authorityRegistrySha256: process.env.PAGE_EVIDENCE_AUTHORITY_SHA256 || null,
+  sourceIdentityRegistrySha256: process.env.PAGE_EVIDENCE_SOURCE_IDENTITIES_SHA256 || null,
+  rendererSha256: process.env.PAGE_EVIDENCE_RENDERER_SHA256 || null,
+  rendererVersion: process.env.PAGE_EVIDENCE_RENDERER_VERSION || null,
   requirePublishable: false,
 };
 
@@ -30,7 +36,15 @@ for (let index = 0; index < args.length; index += 1) {
     options.requirePublishable = true;
     continue;
   }
-  if (['--root', '--manifest', '--renderer', '--authority-registry-sha256'].includes(argument)) {
+  if ([
+    '--root',
+    '--manifest',
+    '--renderer',
+    '--authority-registry-sha256',
+    '--source-identities-sha256',
+    '--renderer-sha256',
+    '--renderer-version',
+  ].includes(argument)) {
     const value = args[index + 1];
     if (!value) {
       usage();
@@ -41,6 +55,9 @@ for (let index = 0; index < args.length; index += 1) {
     if (argument === '--manifest') options.evidenceManifestPath = value;
     if (argument === '--renderer') options.rendererPath = value;
     if (argument === '--authority-registry-sha256') options.authorityRegistrySha256 = value;
+    if (argument === '--source-identities-sha256') options.sourceIdentityRegistrySha256 = value;
+    if (argument === '--renderer-sha256') options.rendererSha256 = value;
+    if (argument === '--renderer-version') options.rendererVersion = value;
     continue;
   }
   usage();

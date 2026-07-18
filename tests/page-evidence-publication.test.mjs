@@ -22,6 +22,7 @@ import {
   renderPdfPage,
   sha256Buffer,
   stableJson,
+  normalizeOcrComparisonText,
   validatePageEvidenceRelease,
 } from '../scripts/page-evidence-publication.mjs';
 
@@ -32,6 +33,7 @@ const adjudicatedFixture = path.join(temporaryRoot, 'adjudicated-base');
 const reviewerId = 'fixture-reviewer';
 const decidedAt = '2026-07-18T12:00:00.000Z';
 const documentId = 'fixture-document';
+const fixturePrivateKeys = new Map();
 
 function writeJson(root, locator, value) {
   const target = path.join(root, locator);
@@ -52,6 +54,38 @@ function writeText(root, locator, text) {
 function artifactRef(root, locator) {
   const buffer = readFileSync(path.join(root, locator));
   return { locator, sha256: sha256Buffer(buffer), bytes: buffer.length };
+}
+
+function byteSliceRef(root, locator, exactText, occurrence = 0) {
+  const buffer = readFileSync(path.join(root, locator));
+  const needle = Buffer.from(exactText, 'utf8');
+  let start = -1;
+  let from = 0;
+  for (let index = 0; index <= occurrence; index += 1) {
+    start = buffer.indexOf(needle, from);
+    assert.notEqual(start, -1, `${JSON.stringify(exactText)} missing from ${locator}`);
+    from = start + needle.length;
+  }
+  return {
+    locator,
+    start_byte: start,
+    end_byte: start + needle.length,
+    slice_sha256: sha256Buffer(needle),
+  };
+}
+
+function resolvedCriticalFields(root, vision) {
+  return vision.critical_fields.map((field) => {
+    const primary = readFileSync(path.join(root, field.primary.locator)).subarray(
+      field.primary.start_byte,
+      field.primary.end_byte,
+    ).toString('utf8');
+    const visionText = readFileSync(path.join(root, field.vision.locator)).subarray(
+      field.vision.start_byte,
+      field.vision.end_byte,
+    ).toString('utf8');
+    return { ...field, primary_text: primary, vision_text: visionText };
+  });
 }
 
 function minimalPdf() {
@@ -78,8 +112,14 @@ function minimalPdf() {
   return Buffer.from(body, 'binary');
 }
 
-function auditReport(primaryText, vision) {
-  const recomputed = recomputeAuditPage({ primaryText, visionSidecar: vision });
+function auditReport(root, primaryText, vision) {
+  const visionText = readFileSync(path.join(root, 'evidence/vision-text.txt'), 'utf8');
+  const recomputed = recomputeAuditPage({
+    primaryText,
+    visionSidecar: vision,
+    visionText,
+    criticalFields: resolvedCriticalFields(root, vision),
+  });
   const { witness_text: ignoredWitness, critical_fields: ignoredFields, ...pageFields } = recomputed;
   return {
     schema_version: 1,
@@ -168,7 +208,12 @@ function makeSemanticPolicy(sourceRef, { pageCount = 1 } = {}) {
   };
 }
 
-function placeholderDecision({ adjudicated = false, semanticControlSha256 } = {}) {
+function placeholderDecision({
+  adjudicated = false,
+  semanticControlSha256,
+  qualityProfileSha256,
+  policyRevisionSha256,
+} = {}) {
   return {
     schema_version: 1,
     policy: 'signed_page_review_decision_v1',
@@ -193,6 +238,9 @@ function placeholderDecision({ adjudicated = false, semanticControlSha256 } = {}
     semantic_control_bindings: [{
       control_id: 'fixture-control',
       control_sha256: semanticControlSha256,
+      quality_profile: 'fixture-page',
+      quality_profile_sha256: qualityProfileSha256,
+      policy_revision_sha256: policyRevisionSha256,
     }],
     uncertainty_note: null,
     signature_algorithm: 'Ed25519',
@@ -229,6 +277,7 @@ function refreshChain(root) {
   writeJson(root, 'data/page-publication-manifest.json', pageManifest);
   const release = readJson(root, 'release.json');
   release.authority_registry = artifactRef(root, 'evidence/reviewer-authorities.json');
+  release.source_identity_registry = artifactRef(root, 'evidence/source-identities.json');
   release.bindings.catalog = artifactRef(root, 'data/catalog.json');
   release.bindings.page_publication_manifest = artifactRef(root, 'data/page-publication-manifest.json');
   release.bindings.semantic_publication_policy = artifactRef(root, 'data/semantic-publication-policy.json');
@@ -268,7 +317,9 @@ async function createBaseFixture(root, { adjudicated = false } = {}) {
     pages: {
       1: {
         status: 'ocr_complete_pending_audit',
+        source_pdf_sha256: sourceRef.sha256,
         physical_pdf_page: 1,
+        render_dpi: 144,
         rendered_image_sha256: rendered.sha256,
         result_json_sha256: primaryResultRef.sha256,
         content_markdown_sha256: primaryContentRef.sha256,
@@ -298,13 +349,92 @@ async function createBaseFixture(root, { adjudicated = false } = {}) {
     }],
     citation_allowed: false,
   };
+  writeText(root, 'evidence/vision-text.txt', vision.lines.map((line) => line.text).join('\n'));
+  vision.critical_fields = [{
+    field_id: 'year',
+    kind: 'date_or_version',
+    primary: byteSliceRef(
+      root,
+      'evidence/primary-content.md',
+      adjudicated ? '202Z' : '2022',
+    ),
+    vision: byteSliceRef(root, 'evidence/vision-text.txt', '2022'),
+  }];
   writeJson(root, 'evidence/vision.json', vision);
-  writeJson(root, 'evidence/audit.json', auditReport(primaryText, vision));
+  writeJson(root, 'evidence/audit.json', auditReport(root, primaryText, vision));
   writeText(root, 'evidence/final-text.md', finalText);
-  writeText(root, 'evidence/online-official.txt', `${finalText}\n官方同版页面记录。`);
-  writeText(root, 'evidence/online-academic.txt', `学术档案独立核查。\n${finalText}\n版本页定位完成。`);
   const version = versionIdentity();
-  const supportingText = finalText;
+  const onlineBody = (prefix, suffix) => [
+    prefix,
+    `Title: ${version.title}`,
+    `Issuer: ${version.issuing_body_or_author}`,
+    `Date: ${version.year_or_publication_context}`,
+    `Version: ${version.version_label}`,
+    `Locator: ${version.section_or_item_locator}`,
+    finalText,
+    suffix,
+  ].join('\n');
+  writeText(
+    root,
+    'evidence/online-official.txt',
+    onlineBody('OFFICIAL NAVIGATION', '官方同版页面记录。'),
+  );
+  writeText(
+    root,
+    'evidence/online-academic.txt',
+    onlineBody('ACADEMIC NAVIGATION', '学术档案独立核查与版本页定位完成。'),
+  );
+  const sourceIdentities = {
+    schema_version: 1,
+    policy: 'externally_pinned_online_source_identities_v1',
+    sources: [
+      {
+        source_id: 'fixture-official',
+        status: 'active',
+        canonical_origin: 'https://official.example.edu',
+        canonical_publisher: 'Fixture Ministry',
+        source_class: 'official',
+        independence_group: 'fixture-ministry',
+        allowed_path_prefixes: ['/standard/'],
+        boilerplate_markers: ['OFFICIAL NAVIGATION'],
+        search_service: false,
+      },
+      {
+        source_id: 'fixture-academic',
+        status: 'active',
+        canonical_origin: 'https://journal.example.org',
+        canonical_publisher: 'Fixture Academic Archive',
+        source_class: 'academic',
+        independence_group: 'fixture-academic-consortium',
+        allowed_path_prefixes: ['/archive/'],
+        boilerplate_markers: ['ACADEMIC NAVIGATION'],
+        search_service: false,
+      },
+    ],
+  };
+  writeJson(root, 'evidence/source-identities.json', sourceIdentities);
+  const makeOnlineClaim = ({ claimId, sourceId, locator, url }) => ({
+    claim_id: claimId,
+    document_id: documentId,
+    physical_pdf_page: 1,
+    stable_locator: `${documentId}:page:1`,
+    source_id: sourceId,
+    capture: {
+      capture_tool: 'fixture-fetch',
+      capture_tool_version: '1.0.0',
+      requested_url: url,
+      final_url: url,
+      http_status: 200,
+      media_type: 'text/plain; charset=utf-8',
+      captured_at: decidedAt,
+      body: artifactRef(root, locator),
+    },
+    supporting_slice: byteSliceRef(root, locator, finalText),
+    version_anchors: Object.entries(version).map(([field, value]) => ({
+      field,
+      ...byteSliceRef(root, locator, value),
+    })),
+  });
   const onlineClaims = {
     schema_version: 1,
     policy: 'version_aware_online_page_claims_v1',
@@ -314,40 +444,23 @@ async function createBaseFixture(root, { adjudicated = false } = {}) {
     target_version: version,
     same_version_status: 'verified_independent',
     claims: [
-      {
-        claim_id: 'official-page',
-        document_id: documentId,
-        physical_pdf_page: 1,
-        stable_locator: `${documentId}:page:1`,
+      makeOnlineClaim({
+        claimId: 'official-page',
+        sourceId: 'fixture-official',
+        locator: 'evidence/online-official.txt',
         url: 'https://official.example.edu/standard/page-1',
-        publisher: 'Fixture Ministry',
-        source_type: 'official',
-        retrieved_at: decidedAt,
-        version_match: 'exact_document_exact_edition',
-        observed_version: version,
-        snapshot: artifactRef(root, 'evidence/online-official.txt'),
-        supporting_text: supportingText,
-        supporting_text_sha256: sha256Buffer(Buffer.from(supportingText, 'utf8')),
-      },
-      {
-        claim_id: 'academic-page',
-        document_id: documentId,
-        physical_pdf_page: 1,
-        stable_locator: `${documentId}:page:1`,
+      }),
+      makeOnlineClaim({
+        claimId: 'academic-page',
+        sourceId: 'fixture-academic',
+        locator: 'evidence/online-academic.txt',
         url: 'https://journal.example.org/archive/page-1',
-        publisher: 'Fixture Academic Archive',
-        source_type: 'academic',
-        retrieved_at: decidedAt,
-        version_match: 'exact_document_exact_edition',
-        observed_version: version,
-        snapshot: artifactRef(root, 'evidence/online-academic.txt'),
-        supporting_text: supportingText,
-        supporting_text_sha256: sha256Buffer(Buffer.from(supportingText, 'utf8')),
-      },
+      }),
     ],
   };
   writeJson(root, 'evidence/online-claims.json', onlineClaims);
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  fixturePrivateKeys.set(root, privateKey);
   const authorities = {
     schema_version: 1,
     policy: 'pinned_ed25519_page_reviewers_v1',
@@ -373,7 +486,16 @@ async function createBaseFixture(root, { adjudicated = false } = {}) {
   const semanticControlSha256 = sha256Buffer(
     Buffer.from(stableJson(semanticPolicy.page_controls[0]), 'utf8'),
   );
-  const decision = placeholderDecision({ adjudicated, semanticControlSha256 });
+  const qualityProfileSha256 = sha256Buffer(
+    Buffer.from(stableJson(semanticPolicy.quality_profiles['fixture-page']), 'utf8'),
+  );
+  const policyRevisionSha256 = sha256Buffer(Buffer.from(stableJson(semanticPolicy), 'utf8'));
+  const decision = placeholderDecision({
+    adjudicated,
+    semanticControlSha256,
+    qualityProfileSha256,
+    policyRevisionSha256,
+  });
   const bundle = {
     schema_version: 1,
     policy: 'immutable_page_evidence_bundle_v1',
@@ -385,6 +507,7 @@ async function createBaseFixture(root, { adjudicated = false } = {}) {
     rendered_page: {
       mode: 'reproducible_render_v1',
       command_contract: 'mutool_draw_png_page_v1',
+      execution_binding: 'verified_private_fixed_inode_copy_v1',
       renderer_sha256: rendered.renderer.sha256,
       renderer_version: rendered.renderer.version,
       dpi: 144,
@@ -400,8 +523,10 @@ async function createBaseFixture(root, { adjudicated = false } = {}) {
       primary_content: primaryContentRef,
       primary_state: artifactRef(root, 'evidence/primary-state.json'),
       vision_sidecar: artifactRef(root, 'evidence/vision.json'),
+      vision_text: artifactRef(root, 'evidence/vision-text.txt'),
       audit: artifactRef(root, 'evidence/audit.json'),
       final_text: artifactRef(root, 'evidence/final-text.md'),
+      source_identity_registry: artifactRef(root, 'evidence/source-identities.json'),
       online_claims: artifactRef(root, 'evidence/online-claims.json'),
       reviewer_decision: { locator: 'evidence/decision.json', sha256: '0'.repeat(64), bytes: 1 },
     },
@@ -440,6 +565,7 @@ async function createBaseFixture(root, { adjudicated = false } = {}) {
     policy: 'immutable_page_evidence_release_v1',
     status: 'publication_candidate',
     authority_registry: artifactRef(root, 'evidence/reviewer-authorities.json'),
+    source_identity_registry: artifactRef(root, 'evidence/source-identities.json'),
     bindings: {
       catalog: artifactRef(root, 'data/catalog.json'),
       page_publication_manifest: artifactRef(root, 'data/page-publication-manifest.json'),
@@ -467,11 +593,70 @@ async function createBaseFixture(root, { adjudicated = false } = {}) {
 function cloneFixture(name, source = baseFixture) {
   const root = path.join(temporaryRoot, name);
   cpSync(source, root, { recursive: true });
+  fixturePrivateKeys.set(root, fixturePrivateKeys.get(source));
   return root;
+}
+
+function resignFixture(root) {
+  const privateKey = fixturePrivateKeys.get(root);
+  assert.ok(privateKey, `missing fixture signing key for ${root}`);
+  let bundle = readJson(root, 'evidence/bundle.json');
+  for (const [key, ref] of Object.entries(bundle.artifacts)) {
+    if (key !== 'reviewer_decision') bundle.artifacts[key] = artifactRef(root, ref.locator);
+  }
+  writeJson(root, 'evidence/bundle.json', bundle);
+  const decision = readJson(root, 'evidence/decision.json');
+  const catalog = readJson(root, 'data/catalog.json');
+  const prepared = preparePageReviewSigningPayload({
+    root,
+    bundle,
+    record: catalog.documents[0],
+    decision,
+  });
+  decision.signed_payload_sha256 = prepared.payload_sha256;
+  decision.signature_base64 = sign(
+    null,
+    Buffer.from(prepared.payload_text, 'utf8'),
+    privateKey,
+  ).toString('base64');
+  writeJson(root, 'evidence/decision.json', decision);
+  bundle = readJson(root, 'evidence/bundle.json');
+  bundle.artifacts.reviewer_decision = artifactRef(root, 'evidence/decision.json');
+  writeJson(root, 'evidence/bundle.json', bundle);
+  refreshChain(root);
+}
+
+function refreshOnlineClaimSlices(root, claimIndex, anchorOverrides = {}) {
+  const claims = readJson(root, 'evidence/online-claims.json');
+  const claim = claims.claims[claimIndex];
+  const locator = claim.capture.body.locator;
+  claim.capture.body = artifactRef(root, locator);
+  claim.supporting_slice = byteSliceRef(
+    root,
+    locator,
+    readFileSync(path.join(root, 'evidence/final-text.md'), 'utf8'),
+  );
+  claim.version_anchors = Object.entries(versionIdentity()).map(([field, value]) => ({
+    field,
+    ...byteSliceRef(root, locator, anchorOverrides[field] || value),
+  }));
+  writeJson(root, 'evidence/online-claims.json', claims);
 }
 
 function authorityPin(root) {
   return artifactRef(root, 'evidence/reviewer-authorities.json').sha256;
+}
+
+function sourceIdentityPin(root) {
+  return artifactRef(root, 'evidence/source-identities.json').sha256;
+}
+
+function rendererPins(root) {
+  const bundle = readJson(root, 'evidence/bundle.json');
+  return {
+    rendererSha256: bundle.rendered_page.renderer_sha256,
+    rendererVersion: bundle.rendered_page.renderer_version,
+  };
 }
 
 function validateFixture(root, overrides = {}) {
@@ -479,6 +664,8 @@ function validateFixture(root, overrides = {}) {
     root,
     evidenceManifestPath: 'release.json',
     authorityRegistrySha256: authorityPin(root),
+    sourceIdentityRegistrySha256: sourceIdentityPin(root),
+    ...rendererPins(root),
     ...overrides,
   });
 }
@@ -563,10 +750,11 @@ test('image/online adjudication records the exact deviating engine', () => {
 test('search snippets are not admissible online evidence for OCR adjudication', () => {
   const root = cloneFixture('adjudication-search-snippet', adjudicatedFixture);
   const claims = readJson(root, 'evidence/online-claims.json');
-  claims.claims[1].source_type = 'search_snippet';
+  claims.claims[1].capture.requested_url = 'https://journal.example.org/search?q=fixture';
+  claims.claims[1].capture.final_url = 'https://journal.example.org/search?q=fixture';
   writeJson(root, 'evidence/online-claims.json', claims);
   refreshChain(root);
-  assert.throws(() => validateFixture(root), /not an official or academic source class/);
+  assert.throws(() => validateFixture(root), /search-result URL/);
 });
 
 test('rejects a plausible-looking fake SHA-256 without trusting its format', () => {
@@ -591,36 +779,39 @@ test('rejects an out-of-range physical PDF page before OCR evidence can be promo
   );
 });
 
-test('rejects an exact-edition claim whose observed version is different', () => {
+test('rejects an online claim whose raw version anchor differs from the target edition', () => {
   const root = cloneFixture('version-mismatch');
-  const claims = readJson(root, 'evidence/online-claims.json');
-  claims.claims[1].observed_version.version_label = '2024 revision';
-  writeJson(root, 'evidence/online-claims.json', claims);
+  const locator = 'evidence/online-academic.txt';
+  writeText(
+    root,
+    locator,
+    readFileSync(path.join(root, locator), 'utf8').replace('2022 edition', '2024 revision'),
+  );
+  refreshOnlineClaimSlices(root, 1, { version_label: '2024 revision' });
   refreshChain(root);
-  assert.throws(() => validateFixture(root), /claims an exact edition but its observed version is different/);
+  assert.throws(() => validateFixture(root), /same_version_status differs from recomputed status single_source_only/);
 });
 
 test('rejects same-source and same-content mirrors as independent online witnesses', () => {
   const root = cloneFixture('same-source-mirror');
   const claims = readJson(root, 'evidence/online-claims.json');
-  claims.claims[1].url = 'https://official.example.edu/mirror/page-1';
+  claims.claims[1].source_id = 'fixture-official';
+  claims.claims[1].capture.requested_url = 'https://official.example.edu/standard/mirror-page-1';
+  claims.claims[1].capture.final_url = 'https://official.example.edu/standard/mirror-page-1';
   writeJson(root, 'evidence/online-claims.json', claims);
   refreshChain(root);
-  assert.throws(() => validateFixture(root), /reuse the same source host/);
+  assert.throws(() => validateFixture(root), /reuse the same externally pinned source origin/);
 });
 
 test('rejects different-host mirrors with identical normalized snapshot content', () => {
   const root = cloneFixture('same-content-mirror');
-  writeText(
-    root,
-    'evidence/online-academic.txt',
-    readFileSync(path.join(root, 'evidence/online-official.txt'), 'utf8'),
-  );
-  const claims = readJson(root, 'evidence/online-claims.json');
-  claims.claims[1].snapshot = artifactRef(root, 'evidence/online-academic.txt');
-  writeJson(root, 'evidence/online-claims.json', claims);
+  writeText(root, 'evidence/online-academic.txt', readFileSync(
+    path.join(root, 'evidence/online-official.txt'),
+    'utf8',
+  ).replace('OFFICIAL NAVIGATION', 'ACADEMIC NAVIGATION'));
+  refreshOnlineClaimSlices(root, 1);
   refreshChain(root);
-  assert.throws(() => validateFixture(root), /same-content mirrors/);
+  assert.throws(() => validateFixture(root), /same-content mirrors after pinned boilerplate removal/);
 });
 
 test('rejects accepted publication when critical_fields is empty even if hashes are refreshed', () => {
@@ -629,7 +820,7 @@ test('rejects accepted publication when critical_fields is empty even if hashes 
   vision.critical_fields = [];
   writeJson(root, 'evidence/vision.json', vision);
   const primaryText = readFileSync(path.join(root, 'evidence/primary-content.md'), 'utf8');
-  writeJson(root, 'evidence/audit.json', auditReport(primaryText, vision));
+  writeJson(root, 'evidence/audit.json', auditReport(root, primaryText, vision));
   const decision = readJson(root, 'evidence/decision.json');
   decision.critical_fields_complete = false;
   decision.critical_field_decisions = [];
@@ -711,4 +902,210 @@ test('changing reviewer registry and manifest in one batch cannot bypass the ext
     }),
     /external authority registry SHA-256 pin differs/,
   );
+});
+
+test('critical comparison preserves decimal, sign, range dash, slash, percent, and operators', () => {
+  for (const [left, right] of [
+    ['20-22', '2022'],
+    ['3.14', '314'],
+    ['-5', '5'],
+    ['1/2', '12'],
+    ['50%', '50'],
+    ['x>=3', 'x3'],
+  ]) {
+    assert.notEqual(normalizeOcrComparisonText(left), normalizeOcrComparisonText(right));
+  }
+});
+
+test('rejects critical fields that self-report equality instead of binding raw OCR byte slices', () => {
+  const root = cloneFixture('self-reported-critical-field');
+  const primaryText = '课程目标 20-22\n语言文字运用';
+  writeText(root, 'evidence/primary-content.md', primaryText);
+  const primaryState = readJson(root, 'evidence/primary-state.json');
+  primaryState.pages['1'].content_markdown_sha256 = artifactRef(root, 'evidence/primary-content.md').sha256;
+  writeJson(root, 'evidence/primary-state.json', primaryState);
+  const vision = readJson(root, 'evidence/vision.json');
+  vision.critical_fields[0].primary = { ...vision.critical_fields[0].vision };
+  writeJson(root, 'evidence/vision.json', vision);
+  writeJson(root, 'evidence/audit.json', auditReport(root, primaryText, vision));
+  refreshChain(root);
+  assert.throws(() => validateFixture(root), /raw OCR byte slice|critical field.*locator/i);
+});
+
+test('rejects a primary page state whose rendered image hash is not the fresh PDF render', () => {
+  const root = cloneFixture('primary-render-state-forgery');
+  const state = readJson(root, 'evidence/primary-state.json');
+  state.pages['1'].rendered_image_sha256 = 'f'.repeat(64);
+  writeJson(root, 'evidence/primary-state.json', state);
+  refreshChain(root);
+  assert.throws(() => validateFixture(root), /primary state rendered_image_sha256 differs from the fresh PDF render/);
+});
+
+test('rejects string OCR confidence instead of coercing it to a number', () => {
+  const root = cloneFixture('string-confidence');
+  const vision = readJson(root, 'evidence/vision.json');
+  vision.lines[0].confidence = '0.99';
+  vision.lines[1].confidence = '0.99';
+  writeJson(root, 'evidence/vision.json', vision);
+  const primaryText = readFileSync(path.join(root, 'evidence/primary-content.md'), 'utf8');
+  writeJson(root, 'evidence/audit.json', auditReport(root, primaryText, vision));
+  refreshChain(root);
+  assert.throws(() => validateFixture(root), /confidence must be a number/);
+});
+
+test('rejects search-result URLs even when the source id is externally classified as official', () => {
+  const root = cloneFixture('self-reported-official-search-url');
+  const claims = readJson(root, 'evidence/online-claims.json');
+  claims.claims[0].capture.requested_url = 'https://official.example.edu/search?q=fixture+standard';
+  claims.claims[0].capture.final_url = 'https://official.example.edu/search?q=fixture+standard';
+  writeJson(root, 'evidence/online-claims.json', claims);
+  refreshChain(root);
+  assert.throws(() => validateFixture(root), /search-result URL|search URL/i);
+});
+
+test('canonicalizes trailing-dot www hosts and zero-width publisher aliases before independence checks', () => {
+  const root = cloneFixture('canonical-source-alias');
+  const registry = readJson(root, 'evidence/source-identities.json');
+  registry.sources[1].canonical_origin = 'https://www.official.example.edu.';
+  registry.sources[1].canonical_publisher = '\u200bFixture Ministry';
+  writeJson(root, 'evidence/source-identities.json', registry);
+  const claims = readJson(root, 'evidence/online-claims.json');
+  claims.claims[1].capture.requested_url = 'https://www.official.example.edu./archive/page-1';
+  claims.claims[1].capture.final_url = 'https://www.official.example.edu./archive/page-1';
+  writeJson(root, 'evidence/online-claims.json', claims);
+  refreshChain(root);
+  assert.throws(() => validateFixture(root), /reuse the same (externally pinned source origin|independence group|publisher)/);
+});
+
+test('promotion requires externally pinned online source identities and exact renderer identity', () => {
+  const root = cloneFixture('missing-promotion-pins');
+  assert.throws(
+    () => validatePageEvidenceRelease({
+      root,
+      evidenceManifestPath: 'release.json',
+      authorityRegistrySha256: authorityPin(root),
+      requirePublishable: true,
+    }),
+    /SOURCE_IDENTITIES|source identit|renderer SHA-256|renderer version/i,
+  );
+});
+
+test('semantic signature binds the resolved quality profile and policy revision', () => {
+  const root = cloneFixture('semantic-profile-edit');
+  const semantic = readJson(root, 'data/semantic-publication-policy.json');
+  semantic.quality_profiles['fixture-page'].minimum_meaningful_characters_when_text_expected = 999;
+  writeJson(root, 'data/semantic-publication-policy.json', semantic);
+  refreshChain(root);
+  assert.throws(() => validateFixture(root), /quality profile|policy revision/i);
+});
+
+test('rejects duplicate JSON object keys before last-key-wins parsing', () => {
+  const root = cloneFixture('duplicate-json-key');
+  const releasePath = path.join(root, 'release.json');
+  const raw = readFileSync(releasePath, 'utf8').replace(
+    '"status": "publication_candidate",',
+    '"status": "publication_candidate",\n  "status": "publication_candidate",',
+  );
+  writeFileSync(releasePath, raw);
+  assert.throws(() => validateFixture(root), /duplicate JSON object key/);
+});
+
+test('rejects unsafe integers before range or page-count evaluation', () => {
+  const root = cloneFixture('unsafe-integer');
+  assert.throws(
+    () => renderPdfPage({
+      sourcePath: path.join(root, 'evidence/source.pdf'),
+      pageNumber: Number.MAX_SAFE_INTEGER + 1,
+      dpi: 144,
+    }),
+    /safe integer/,
+  );
+  const jsonRoot = cloneFixture('unsafe-json-integer');
+  const releasePath = path.join(jsonRoot, 'release.json');
+  writeFileSync(
+    releasePath,
+    readFileSync(releasePath, 'utf8').replace('"pages": 1,', '"pages": 9007199254740992,'),
+  );
+  assert.throws(() => validateFixture(jsonRoot), /unsafe integer/);
+});
+
+test('rejects non-canonical ISO timestamps even when Date.parse accepts them', () => {
+  const root = cloneFixture('non-canonical-time');
+  const registry = readJson(root, 'evidence/reviewer-authorities.json');
+  registry.reviewers[0].valid_from = '2026-01-01T00:00:00Z';
+  writeJson(root, 'evidence/reviewer-authorities.json', registry);
+  refreshChain(root);
+  assert.throws(() => validateFixture(root), /canonical ISO-8601 UTC timestamp/);
+});
+
+test('rejects an online capture whose raw supporting slice hash does not match the bound body', () => {
+  const root = cloneFixture('online-slice-forgery');
+  const claims = readJson(root, 'evidence/online-claims.json');
+  claims.claims[0].supporting_slice.slice_sha256 = 'e'.repeat(64);
+  writeJson(root, 'evidence/online-claims.json', claims);
+  refreshChain(root);
+  assert.throws(() => validateFixture(root), /supporting_slice\.slice_sha256 differs from the recomputed raw OCR byte slice/);
+});
+
+test('rejects online capture provenance with unsuccessful status or non-text media', () => {
+  const statusRoot = cloneFixture('online-http-status');
+  const statusClaims = readJson(statusRoot, 'evidence/online-claims.json');
+  statusClaims.claims[0].capture.http_status = 404;
+  writeJson(statusRoot, 'evidence/online-claims.json', statusClaims);
+  refreshChain(statusRoot);
+  assert.throws(() => validateFixture(statusRoot), /http_status must be successful/);
+
+  const mediaRoot = cloneFixture('online-media-type');
+  const mediaClaims = readJson(mediaRoot, 'evidence/online-claims.json');
+  mediaClaims.claims[0].capture.media_type = 'image/png';
+  writeJson(mediaRoot, 'evidence/online-claims.json', mediaClaims);
+  refreshChain(mediaRoot);
+  assert.throws(() => validateFixture(mediaRoot), /media_type is not inspectable text/);
+});
+
+test('external source identity registry pin rejects coordinated registry and manifest edits', () => {
+  const root = cloneFixture('source-registry-batch-edit');
+  const originalPin = sourceIdentityPin(root);
+  const registry = readJson(root, 'evidence/source-identities.json');
+  registry.sources[0].canonical_publisher = 'Coordinated Replacement';
+  writeJson(root, 'evidence/source-identities.json', registry);
+  resignFixture(root);
+  assert.throws(
+    () => validatePageEvidenceRelease({
+      root,
+      evidenceManifestPath: 'release.json',
+      authorityRegistrySha256: authorityPin(root),
+      sourceIdentityRegistrySha256: originalPin,
+      ...rendererPins(root),
+    }),
+    /external online source identity registry SHA-256 pin differs/,
+  );
+});
+
+test('promotion rejects a renderer SHA or version different from the external exact pins', () => {
+  const shaRoot = cloneFixture('renderer-sha-pin');
+  assert.throws(
+    () => validateFixture(shaRoot, { rendererSha256: 'd'.repeat(64), requirePublishable: true }),
+    /different renderer SHA-256/,
+  );
+  const versionRoot = cloneFixture('renderer-version-pin');
+  assert.throws(
+    () => validateFixture(versionRoot, { rendererVersion: 'mutool version forged', requirePublishable: true }),
+    /different renderer version/,
+  );
+});
+
+test('primary page state binds source PDF hash, physical page, and render DPI', () => {
+  for (const [name, mutate, pattern] of [
+    ['source', (page) => { page.source_pdf_sha256 = 'c'.repeat(64); }, /source_pdf_sha256 differs/],
+    ['page', (page) => { page.physical_pdf_page = 2; }, /physical page mismatch/],
+    ['dpi', (page) => { page.render_dpi = 300; }, /render_dpi differs/],
+  ]) {
+    const root = cloneFixture(`primary-page-binding-${name}`);
+    const state = readJson(root, 'evidence/primary-state.json');
+    mutate(state.pages['1']);
+    writeJson(root, 'evidence/primary-state.json', state);
+    refreshChain(root);
+    assert.throws(() => validateFixture(root), pattern);
+  }
 });

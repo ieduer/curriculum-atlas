@@ -4,14 +4,17 @@ import {
   verify as verifySignature,
 } from 'node:crypto';
 import {
+  chmodSync,
   closeSync,
   existsSync,
   fstatSync,
+  mkdirSync,
   mkdtempSync,
   openSync,
   readFileSync,
   realpathSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -30,7 +33,7 @@ export const PAGE_EVIDENCE_POLICY = 'immutable_page_evidence_release_v1';
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const DOCUMENT_ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const REVIEWER_ID_PATTERN = /^[a-z0-9][a-z0-9._-]*$/;
-const ISO_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
+const ISO_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const PUBLICATION_DISPOSITIONS = new Set([
   'unresolved_fail_closed',
   'accepted_display_non_citation',
@@ -78,7 +81,9 @@ function requireString(value, label, pattern = null) {
 }
 
 function requireInteger(value, label, minimum = 0) {
-  if (!Number.isInteger(value) || value < minimum) fail(`${label} must be an integer >= ${minimum}`);
+  if (!Number.isSafeInteger(value) || value < minimum) {
+    fail(`${label} must be a safe integer >= ${minimum}`);
+  }
   return value;
 }
 
@@ -93,8 +98,9 @@ function requireSha256(value, label) {
 
 function requireIsoUtc(value, label) {
   requireString(value, label);
-  if (!ISO_UTC_PATTERN.test(value) || Number.isNaN(Date.parse(value))) {
-    fail(`${label} must be an ISO-8601 UTC timestamp`);
+  const parsed = new Date(value);
+  if (!ISO_UTC_PATTERN.test(value) || Number.isNaN(parsed.getTime()) || parsed.toISOString() !== value) {
+    fail(`${label} must be a canonical ISO-8601 UTC timestamp with milliseconds`);
   }
   return value;
 }
@@ -211,10 +217,144 @@ export function readBoundArtifact({ root, ref, label = 'artifact', allowEmpty = 
   return { ...actual, path: resolved.path, buffer };
 }
 
+function assertNoDuplicateJsonObjectKeys(text, label) {
+  let index = 0;
+  const whitespace = /\s/u;
+  const skipWhitespace = () => {
+    while (index < text.length && whitespace.test(text[index])) index += 1;
+  };
+  const parseString = () => {
+    const start = index;
+    if (text[index] !== '"') throw new Error(`expected string at offset ${index}`);
+    index += 1;
+    while (index < text.length) {
+      const character = text[index];
+      if (character === '"') {
+        index += 1;
+        return JSON.parse(text.slice(start, index));
+      }
+      if (character === '\\') {
+        index += 1;
+        if (index >= text.length) throw new Error('unterminated escape');
+        if (text[index] === 'u') {
+          if (!/^[a-fA-F0-9]{4}$/.test(text.slice(index + 1, index + 5))) {
+            throw new Error(`invalid Unicode escape at offset ${index}`);
+          }
+          index += 5;
+        } else {
+          index += 1;
+        }
+        continue;
+      }
+      if (character.charCodeAt(0) < 0x20) throw new Error(`control character at offset ${index}`);
+      index += 1;
+    }
+    throw new Error('unterminated string');
+  };
+  const parsePrimitive = () => {
+    const start = index;
+    while (index < text.length && !/[\s,\]}]/u.test(text[index])) index += 1;
+    if (start === index) throw new Error(`expected value at offset ${index}`);
+    JSON.parse(text.slice(start, index));
+  };
+  const parseValue = () => {
+    skipWhitespace();
+    if (text[index] === '{') {
+      index += 1;
+      skipWhitespace();
+      const keys = new Set();
+      if (text[index] === '}') {
+        index += 1;
+        return;
+      }
+      while (index < text.length) {
+        skipWhitespace();
+        const key = parseString();
+        if (keys.has(key)) fail(`${label} contains duplicate JSON object key ${JSON.stringify(key)}`);
+        keys.add(key);
+        skipWhitespace();
+        if (text[index] !== ':') throw new Error(`expected colon at offset ${index}`);
+        index += 1;
+        parseValue();
+        skipWhitespace();
+        if (text[index] === '}') {
+          index += 1;
+          return;
+        }
+        if (text[index] !== ',') throw new Error(`expected comma at offset ${index}`);
+        index += 1;
+      }
+      throw new Error('unterminated object');
+    }
+    if (text[index] === '[') {
+      index += 1;
+      skipWhitespace();
+      if (text[index] === ']') {
+        index += 1;
+        return;
+      }
+      while (index < text.length) {
+        parseValue();
+        skipWhitespace();
+        if (text[index] === ']') {
+          index += 1;
+          return;
+        }
+        if (text[index] !== ',') throw new Error(`expected comma at offset ${index}`);
+        index += 1;
+      }
+      throw new Error('unterminated array');
+    }
+    if (text[index] === '"') {
+      parseString();
+      return;
+    }
+    parsePrimitive();
+  };
+  try {
+    skipWhitespace();
+    parseValue();
+    skipWhitespace();
+    if (index !== text.length) throw new Error(`trailing content at offset ${index}`);
+  } catch (error) {
+    if (String(error.message).startsWith('page evidence publication:')) throw error;
+    fail(`${label} is not valid JSON: ${error.message}`);
+  }
+}
+
+function assertJsonScalarSafety(value, label, key = '') {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) fail(`${label} contains a non-finite number`);
+    if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
+      fail(`${label} contains an unsafe integer`);
+    }
+    return;
+  }
+  if (typeof value === 'string'
+    && (key === 'generated_at' || key.endsWith('_at') || key === 'valid_from' || key === 'valid_until')) {
+    requireIsoUtc(value, label);
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => assertJsonScalarSafety(entry, `${label}[${index}]`));
+    return;
+  }
+  if (value && typeof value === 'object') {
+    for (const [childKey, childValue] of Object.entries(value)) {
+      if (childValue !== null) assertJsonScalarSafety(childValue, `${label}.${childKey}`, childKey);
+    }
+  }
+}
+
 function parseJsonBuffer(buffer, label) {
   try {
-    return JSON.parse(buffer.toString('utf8'));
+    const text = decodeUtf8(buffer, label);
+    assertNoDuplicateJsonObjectKeys(text, label);
+    const parsed = JSON.parse(text);
+    assertJsonScalarSafety(parsed, label);
+    return parsed;
   } catch (error) {
+    if (String(error.message).startsWith('page evidence publication:')) throw error;
     fail(`${label} is not valid JSON: ${error.message}`);
   }
 }
@@ -277,7 +417,7 @@ function pdfPageCount(rendererPath, sourcePath) {
   const output = runRenderer(rendererPath, ['info', sourcePath, '1'], 'PDF page count inspection');
   const match = output.match(/^Pages:\s+(\d+)\s*$/m);
   if (!match) fail('mutool info did not report an unambiguous PDF page count');
-  return Number(match[1]);
+  return requireInteger(Number(match[1]), 'actual PDF page count', 1);
 }
 
 function pngDimensions(buffer, label) {
@@ -288,21 +428,69 @@ function pngDimensions(buffer, label) {
   return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
 }
 
-export function renderPdfPage({ sourcePath, pageNumber, dpi, rendererPath = null }) {
+function sameFileIdentity(left, right) {
+  return left.dev === right.dev
+    && left.ino === right.ino
+    && left.size === right.size
+    && left.mtimeMs === right.mtimeMs;
+}
+
+export function renderPdfPage({ sourcePath, sourceBuffer = null, pageNumber, dpi, rendererPath = null }) {
   requireInteger(pageNumber, 'pageNumber', 1);
   requireInteger(dpi, 'dpi', 72);
   if (dpi > 600) fail('dpi must be <= 600');
-  const renderer = inspectMutoolRenderer(rendererPath);
-  const pageCount = pdfPageCount(renderer.path, sourcePath);
-  if (pageNumber > pageCount) fail(`physical PDF page ${pageNumber} exceeds actual page count ${pageCount}`);
+  const originalRendererPath = locateRenderer(rendererPath);
+  const rendererBuffer = readRegularFileStable(originalRendererPath, 'renderer binary');
+  const verifiedSourceBuffer = sourceBuffer === null
+    ? readRegularFileStable(sourcePath, 'source PDF')
+    : Buffer.from(sourceBuffer);
+  if (verifiedSourceBuffer.length === 0) fail('source PDF must not be empty');
   const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), 'curriculum-page-evidence-'));
+  chmodSync(temporaryDirectory, 0o700);
+  const protectedInputDirectory = path.join(temporaryDirectory, 'verified-inputs');
+  mkdirSync(protectedInputDirectory, { mode: 0o700 });
+  const privateRendererPath = path.join(protectedInputDirectory, 'mutool');
+  const privateSourcePath = path.join(protectedInputDirectory, 'source.pdf');
   const outputPath = path.join(temporaryDirectory, 'page.png');
+  let rendererDescriptor = null;
+  let sourceDescriptor = null;
   try {
+    writeFileSync(privateRendererPath, rendererBuffer, { mode: 0o700 });
+    writeFileSync(privateSourcePath, verifiedSourceBuffer, { mode: 0o600 });
+    chmodSync(privateRendererPath, 0o500);
+    chmodSync(privateSourcePath, 0o400);
+    rendererDescriptor = openSync(privateRendererPath, 'r');
+    sourceDescriptor = openSync(privateSourcePath, 'r');
+    const rendererIdentity = fstatSync(rendererDescriptor);
+    const sourceIdentity = fstatSync(sourceDescriptor);
+    chmodSync(protectedInputDirectory, 0o500);
+    const version = runRenderer(privateRendererPath, ['-v'], 'mutool version');
+    const renderer = {
+      path: originalRendererPath,
+      sha256: sha256Buffer(rendererBuffer),
+      bytes: rendererBuffer.length,
+      version: requireString(version, 'renderer version'),
+      execution_binding: 'verified_private_fixed_inode_copy_v1',
+    };
+    const pageCount = pdfPageCount(privateRendererPath, privateSourcePath);
+    if (pageNumber > pageCount) fail(`physical PDF page ${pageNumber} exceeds actual page count ${pageCount}`);
     runRenderer(
-      renderer.path,
-      ['draw', '-q', '-F', 'png', '-r', String(dpi), '-o', outputPath, sourcePath, String(pageNumber)],
+      privateRendererPath,
+      ['draw', '-q', '-F', 'png', '-r', String(dpi), '-o', outputPath, privateSourcePath, String(pageNumber)],
       'deterministic page render',
     );
+    if (!sameFileIdentity(rendererIdentity, fstatSync(rendererDescriptor))) {
+      fail('private renderer inode changed during deterministic render');
+    }
+    if (!sameFileIdentity(sourceIdentity, fstatSync(sourceDescriptor))) {
+      fail('private source PDF inode changed during deterministic render');
+    }
+    if (sha256Buffer(readRegularFileStable(privateRendererPath, 'private renderer binary')) !== renderer.sha256) {
+      fail('private renderer binary changed during deterministic render');
+    }
+    if (sha256Buffer(readRegularFileStable(privateSourcePath, 'private source PDF')) !== sha256Buffer(verifiedSourceBuffer)) {
+      fail('private source PDF changed during deterministic render');
+    }
     const buffer = readRegularFileStable(outputPath, 'temporary rendered page');
     const dimensions = pngDimensions(buffer, 'temporary rendered page');
     return {
@@ -314,6 +502,13 @@ export function renderPdfPage({ sourcePath, pageNumber, dpi, rendererPath = null
       height: dimensions.height,
     };
   } finally {
+    if (rendererDescriptor !== null) closeSync(rendererDescriptor);
+    if (sourceDescriptor !== null) closeSync(sourceDescriptor);
+    try {
+      chmodSync(protectedInputDirectory, 0o700);
+    } catch {
+      // The directory may already be unavailable after a failed spawn.
+    }
     rmSync(temporaryDirectory, { recursive: true, force: true });
   }
 }
@@ -323,16 +518,21 @@ function textual(value) {
     .replace(/<[^>]+>/g, '')
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     .replace(/```[\s\S]*?```/g, '')
-    .replace(/^[#>*+\-]+/gm, '')
+    .replace(/^[#>*]+(?:\s+|$)/gm, '')
     .normalize('NFKC');
 }
 
 export function normalizeOcrComparisonText(value) {
-  return textual(value).replace(/[^\p{Script=Han}A-Za-z0-9]/gu, '').toLocaleLowerCase('zh-CN');
-}
-
-function normalizedSnapshotText(value) {
-  return String(value || '').normalize('NFKC').replace(/\s+/gu, ' ').trim().toLocaleLowerCase('zh-CN');
+  return textual(value)
+    .replace(/[‐‑‒–—−﹣－]/gu, '-')
+    .replace(/[／⁄]/gu, '/')
+    .replace(/％/gu, '%')
+    .replace(/≤/gu, '<=')
+    .replace(/≥/gu, '>=')
+    .replace(/≠/gu, '!=')
+    .replace(/\s+/gu, '')
+    .replace(/[^\p{Script=Han}A-Za-z0-9.+\-\/%<>=:]/gu, '')
+    .toLocaleLowerCase('zh-CN');
 }
 
 function numbers(value) {
@@ -374,25 +574,69 @@ function sameHeading(left, right) {
     || normalizedRight.includes(normalizedLeft);
 }
 
+function normalizeByteSliceRef(value, label) {
+  requireExactKeys(value, label, ['locator', 'start_byte', 'end_byte', 'slice_sha256']);
+  const startByte = requireInteger(value.start_byte, `${label}.start_byte`, 0);
+  const endByte = requireInteger(value.end_byte, `${label}.end_byte`, 1);
+  if (endByte <= startByte) fail(`${label} must identify a non-empty byte slice`);
+  return {
+    locator: normalizeLocator(value.locator, `${label}.locator`),
+    start_byte: startByte,
+    end_byte: endByte,
+    slice_sha256: requireSha256(value.slice_sha256, `${label}.slice_sha256`),
+  };
+}
+
 function normalizeCriticalFields(value, label) {
   if (!Array.isArray(value)) fail(`${label} must be an array`);
   const ids = new Set();
   return value.map((field, index) => {
     const fieldLabel = `${label}[${index}]`;
-    requireExactKeys(field, fieldLabel, ['field_id', 'kind', 'primary', 'witness']);
+    requireExactKeys(field, fieldLabel, ['field_id', 'kind', 'primary', 'vision']);
     const fieldId = requireString(field.field_id, `${fieldLabel}.field_id`);
     if (ids.has(fieldId)) fail(`${label} contains duplicate field_id ${fieldId}`);
     ids.add(fieldId);
     return {
       field_id: fieldId,
       kind: requireString(field.kind, `${fieldLabel}.kind`),
-      primary: requireString(field.primary, `${fieldLabel}.primary`),
-      witness: requireString(field.witness, `${fieldLabel}.witness`),
+      primary: normalizeByteSliceRef(field.primary, `${fieldLabel}.primary`),
+      vision: normalizeByteSliceRef(field.vision, `${fieldLabel}.vision`),
     };
   });
 }
 
-export function recomputeAuditPage({ primaryText, visionSidecar }) {
+function resolveUtf8ByteSlice({ buffer, ref, expectedLocator, label }) {
+  if (ref.locator !== expectedLocator) fail(`${label}.locator does not bind the required raw text artifact`);
+  if (ref.end_byte > buffer.length) fail(`${label} byte range exceeds the bound raw text artifact`);
+  const slice = buffer.subarray(ref.start_byte, ref.end_byte);
+  if (sha256Buffer(slice) !== ref.slice_sha256) {
+    fail(`${label}.slice_sha256 differs from the recomputed raw OCR byte slice`);
+  }
+  const text = decodeUtf8(slice, label);
+  if (!normalizeOcrComparisonText(text)) fail(`${label} raw OCR byte slice has no meaningful text`);
+  return text;
+}
+
+function resolveCriticalFields({ rawFields, primaryArtifact, visionTextArtifact }) {
+  const fields = normalizeCriticalFields(rawFields, 'vision sidecar.critical_fields');
+  return fields.map((field) => ({
+    ...field,
+    primary_text: resolveUtf8ByteSlice({
+      buffer: primaryArtifact.buffer,
+      ref: field.primary,
+      expectedLocator: primaryArtifact.locator,
+      label: `critical field ${field.field_id}.primary`,
+    }),
+    vision_text: resolveUtf8ByteSlice({
+      buffer: visionTextArtifact.buffer,
+      ref: field.vision,
+      expectedLocator: visionTextArtifact.locator,
+      label: `critical field ${field.field_id}.vision`,
+    }),
+  }));
+}
+
+export function recomputeAuditPage({ primaryText, visionSidecar, visionText = null, criticalFields = null }) {
   requireObject(visionSidecar, 'vision sidecar');
   if (!Array.isArray(visionSidecar.lines)) fail('vision sidecar.lines must be an array');
   const witnessText = visionSidecar.lines.map((line, index) => {
@@ -400,6 +644,9 @@ export function recomputeAuditPage({ primaryText, visionSidecar }) {
     requireString(line.text, `vision sidecar.lines[${index}].text`);
     return line.text;
   }).join('\n');
+  if (visionText !== null && witnessText !== visionText) {
+    fail('bound Vision raw text differs from the exact ordered sidecar lines');
+  }
   const primaryNormalized = normalizeOcrComparisonText(primaryText);
   const witnessNormalized = normalizeOcrComparisonText(witnessText);
   const distance = editDistance(primaryNormalized, witnessNormalized);
@@ -408,16 +655,18 @@ export function recomputeAuditPage({ primaryText, visionSidecar }) {
   const witnessNumbers = numbers(witnessText);
   const numericExact = deepEqual(primaryNumbers, witnessNumbers);
   const titleExact = sameHeading(heading(primaryText), heading(witnessText));
-  const criticalFields = normalizeCriticalFields(visionSidecar.critical_fields, 'vision sidecar.critical_fields');
+  if (!Array.isArray(criticalFields)) {
+    fail('recomputeAuditPage requires critical fields resolved from bound raw OCR byte slices');
+  }
   const criticalFieldsExact = criticalFields.length > 0 && criticalFields.every((field) => {
-    const primaryValue = normalizeOcrComparisonText(field.primary);
-    const witnessValue = normalizeOcrComparisonText(field.witness);
+    const primaryValue = normalizeOcrComparisonText(field.primary_text);
+    const witnessValue = normalizeOcrComparisonText(field.vision_text);
     return primaryValue.length > 0 && primaryValue === witnessValue;
   });
   const tableDetected = /<table\b|<tr\b|<td\b/i.test(primaryText);
   const confidences = visionSidecar.lines
-    .map((line) => Number(line.confidence))
-    .filter(Number.isFinite);
+    .map((line) => line.confidence)
+    .filter((confidence) => typeof confidence === 'number' && Number.isFinite(confidence));
   const averageVisionConfidence = confidences.length
     ? confidences.reduce((sum, value) => sum + value, 0) / confidences.length
     : 0;
@@ -512,6 +761,7 @@ function normalizeReleaseManifest(manifest) {
     'policy',
     'status',
     'authority_registry',
+    'source_identity_registry',
     'bindings',
     'bundles',
     'expected_publication',
@@ -523,6 +773,7 @@ function normalizeReleaseManifest(manifest) {
     fail('release.status is invalid');
   }
   normalizeArtifactRef(manifest.authority_registry, 'release.authority_registry');
+  normalizeArtifactRef(manifest.source_identity_registry, 'release.source_identity_registry');
   requireExactKeys(manifest.bindings, 'release.bindings', [
     'catalog',
     'page_publication_manifest',
@@ -653,6 +904,7 @@ function normalizeBundle(bundle) {
   requireExactKeys(bundle.rendered_page, 'bundle.rendered_page', [
     'mode',
     'command_contract',
+    'execution_binding',
     'renderer_sha256',
     'renderer_version',
     'dpi',
@@ -667,6 +919,9 @@ function normalizeBundle(bundle) {
   }
   if (bundle.rendered_page.command_contract !== 'mutool_draw_png_page_v1') {
     fail('bundle.rendered_page.command_contract must equal mutool_draw_png_page_v1');
+  }
+  if (bundle.rendered_page.execution_binding !== 'verified_private_fixed_inode_copy_v1') {
+    fail('bundle.rendered_page.execution_binding must equal verified_private_fixed_inode_copy_v1');
   }
   if (bundle.rendered_page.format !== 'png') fail('bundle.rendered_page.format must equal png');
   requireSha256(bundle.rendered_page.renderer_sha256, 'bundle.rendered_page.renderer_sha256');
@@ -683,8 +938,10 @@ function normalizeBundle(bundle) {
     'primary_content',
     'primary_state',
     'vision_sidecar',
+    'vision_text',
     'audit',
     'final_text',
+    'source_identity_registry',
     'online_claims',
     'reviewer_decision',
   ];
@@ -764,7 +1021,23 @@ function validatePrimaryObjects({ record, bundle, sourceArtifact, primaryResult,
   }
   const pageState = primaryState.pages?.[String(pageNumber)];
   requireObject(pageState, `primary state.pages.${pageNumber}`);
+  requireExactKeys(pageState, `primary state.pages.${pageNumber}`, [
+    'status',
+    'source_pdf_sha256',
+    'physical_pdf_page',
+    'render_dpi',
+    'rendered_image_sha256',
+    'result_json_sha256',
+    'content_markdown_sha256',
+    'citation_eligible',
+  ]);
+  if (pageState.source_pdf_sha256 !== sourceArtifact.sha256) {
+    fail('primary state page source_pdf_sha256 differs from the bound source PDF');
+  }
   if (pageState.physical_pdf_page !== pageNumber) fail('primary state physical page mismatch');
+  if (pageState.render_dpi !== bundle.rendered_page.dpi) {
+    fail('primary state page render_dpi differs from the reproducible render DPI');
+  }
   if (pageState.result_json_sha256 !== bundle.artifacts.primary_result.sha256) {
     fail('primary state result hash does not match the actual bound primary result');
   }
@@ -772,6 +1045,9 @@ function validatePrimaryObjects({ record, bundle, sourceArtifact, primaryResult,
     fail('primary state content hash does not match the actual bound primary content');
   }
   requireSha256(pageState.rendered_image_sha256, 'primary state rendered_image_sha256');
+  if (pageState.rendered_image_sha256 !== rendered.sha256) {
+    fail('primary state rendered_image_sha256 differs from the fresh PDF render');
+  }
   if (!['ocr_complete_pending_audit', 'accepted_after_audit'].includes(pageState.status)) {
     fail('primary state page status is not a completed OCR state');
   }
@@ -789,7 +1065,14 @@ function validatePrimaryObjects({ record, bundle, sourceArtifact, primaryResult,
   if (typeof primaryContent !== 'string') fail('primary content must be UTF-8 text');
 }
 
-function validateVisionSidecar({ bundle, sourceArtifact, visionSidecar, rendered }) {
+function validateVisionSidecar({
+  bundle,
+  sourceArtifact,
+  primaryContentArtifact,
+  visionTextArtifact,
+  visionSidecar,
+  rendered,
+}) {
   requireObject(visionSidecar, 'vision sidecar');
   if (visionSidecar.schema_version !== 2) fail('vision sidecar.schema_version must equal 2');
   if (visionSidecar.document_id !== bundle.document_id) fail('vision sidecar.document_id mismatch');
@@ -815,15 +1098,143 @@ function validateVisionSidecar({ bundle, sourceArtifact, visionSidecar, rendered
   if (!Array.isArray(visionSidecar.lines)) fail('vision sidecar.lines must be an array');
   for (const [index, line] of visionSidecar.lines.entries()) {
     requireExactKeys(line, `vision sidecar.lines[${index}]`, ['confidence', 'text']);
-    if (!Number.isFinite(Number(line.confidence)) || Number(line.confidence) < 0 || Number(line.confidence) > 1) {
+    if (typeof line.confidence !== 'number' || !Number.isFinite(line.confidence)) {
+      fail(`vision sidecar.lines[${index}].confidence must be a number`);
+    }
+    if (line.confidence < 0 || line.confidence > 1) {
       fail(`vision sidecar.lines[${index}].confidence must be between 0 and 1`);
     }
     if (typeof line.text !== 'string') fail(`vision sidecar.lines[${index}].text must be a string`);
   }
-  return normalizeCriticalFields(visionSidecar.critical_fields, 'vision sidecar.critical_fields');
+  return resolveCriticalFields({
+    rawFields: visionSidecar.critical_fields,
+    primaryArtifact: primaryContentArtifact,
+    visionTextArtifact,
+  });
 }
 
-function validateOnlineClaims({ root, onlineClaims, bundle }) {
+function canonicalIdentityText(value) {
+  return requireString(value, 'identity text')
+    .replace(/[\u200B-\u200D\uFEFF]/gu, '')
+    .normalize('NFKC')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .toLocaleLowerCase('zh-CN');
+}
+
+function normalizedUrl(value, label) {
+  let url;
+  try {
+    url = new URL(requireString(value, label));
+  } catch (error) {
+    fail(`${label} is invalid: ${error.message}`);
+  }
+  if (url.protocol !== 'https:') fail(`${label} must use HTTPS`);
+  if (url.username || url.password) fail(`${label} must not contain credentials`);
+  if (url.port && url.port !== '443') fail(`${label} must not use a non-default port`);
+  let hostname = url.hostname.toLocaleLowerCase('en-US').replace(/\.+$/u, '');
+  hostname = hostname.replace(/^www\./u, '');
+  if (!hostname) fail(`${label} has no canonical hostname`);
+  url.hostname = hostname;
+  url.port = '';
+  url.hash = '';
+  return url;
+}
+
+function canonicalOrigin(url) {
+  return `${url.protocol}//${url.hostname}`;
+}
+
+function isSearchResultUrl(url) {
+  const host = url.hostname.replace(/^www\./u, '').replace(/\.+$/u, '');
+  const pathName = url.pathname.toLocaleLowerCase('en-US');
+  const knownSearchHost = /(^|\.)(google\.[a-z.]+|bing\.com|baidu\.com|sogou\.com|so\.com)$/u.test(host);
+  const searchPath = /(^|\/)(search|s)(\/|$)/u.test(pathName);
+  const searchQuery = [...url.searchParams.keys()].some((key) => (
+    ['q', 'query', 'wd', 'keyword', 'keywords', 'search_query'].includes(key.toLocaleLowerCase('en-US'))
+  ));
+  return knownSearchHost || searchPath || searchQuery;
+}
+
+function normalizeSourceIdentityRegistry(registry) {
+  requireExactKeys(registry, 'source identity registry', ['schema_version', 'policy', 'sources'], ['$schema']);
+  if (registry.schema_version !== 1) fail('source identity registry.schema_version must equal 1');
+  if (registry.policy !== 'externally_pinned_online_source_identities_v1') {
+    fail('source identity registry.policy must equal externally_pinned_online_source_identities_v1');
+  }
+  if (!Array.isArray(registry.sources)) fail('source identity registry.sources must be an array');
+  const byId = new Map();
+  const sources = registry.sources.map((source, index) => {
+    const label = `source identity registry.sources[${index}]`;
+    requireExactKeys(source, label, [
+      'source_id',
+      'status',
+      'canonical_origin',
+      'canonical_publisher',
+      'source_class',
+      'independence_group',
+      'allowed_path_prefixes',
+      'boilerplate_markers',
+      'search_service',
+    ]);
+    const sourceId = requireString(source.source_id, `${label}.source_id`, REVIEWER_ID_PATTERN);
+    if (byId.has(sourceId)) fail(`source identity registry contains duplicate source_id ${sourceId}`);
+    if (!['active', 'revoked'].includes(source.status)) fail(`${label}.status is invalid`);
+    const originUrl = normalizedUrl(source.canonical_origin, `${label}.canonical_origin`);
+    if (originUrl.pathname !== '/' || originUrl.search) {
+      fail(`${label}.canonical_origin must contain only an HTTPS origin`);
+    }
+    const sourceClass = requireString(source.source_class, `${label}.source_class`);
+    if (!['official', 'official_archive', 'academic', 'scholarly_database', 'official_library'].includes(sourceClass)) {
+      fail(`${label}.source_class is not an admissible official or academic class`);
+    }
+    const allowedPathPrefixes = requireUniqueStrings(
+      source.allowed_path_prefixes,
+      `${label}.allowed_path_prefixes`,
+      { allowEmpty: false },
+    );
+    for (const prefix of allowedPathPrefixes) {
+      if (!prefix.startsWith('/') || prefix.includes('..')) fail(`${label} has an invalid allowed path prefix`);
+    }
+    const normalized = {
+      source_id: sourceId,
+      status: source.status,
+      canonical_origin: canonicalOrigin(originUrl),
+      canonical_publisher: requireString(source.canonical_publisher, `${label}.canonical_publisher`),
+      publisher_key: canonicalIdentityText(source.canonical_publisher),
+      source_class: sourceClass,
+      independence_group: requireString(source.independence_group, `${label}.independence_group`),
+      independence_group_key: canonicalIdentityText(source.independence_group),
+      allowed_path_prefixes: allowedPathPrefixes,
+      boilerplate_markers: requireUniqueStrings(
+        source.boilerplate_markers,
+        `${label}.boilerplate_markers`,
+        { allowEmpty: true },
+      ),
+      search_service: requireBoolean(source.search_service, `${label}.search_service`),
+    };
+    byId.set(sourceId, normalized);
+    return normalized;
+  });
+  return { ...registry, sources, byId };
+}
+
+function stripPinnedBoilerplate(text, markers) {
+  const markerKeys = markers.map(canonicalIdentityText);
+  const lines = text
+    .replace(/[\u200B-\u200D\uFEFF]/gu, '')
+    .normalize('NFKC')
+    .split(/\r?\n/u)
+    .map((line) => textual(line).replace(/\s+/gu, ' ').trim())
+    .filter(Boolean)
+    .filter((line) => {
+      const key = canonicalIdentityText(line);
+      return !markerKeys.some((marker) => key.includes(marker));
+    });
+  return canonicalIdentityText(lines.join('\n'));
+}
+
+function validateOnlineClaims({ root, onlineClaims, bundle, sourceIdentities }) {
   requireExactKeys(onlineClaims, 'online claims', [
     'schema_version',
     'policy',
@@ -859,15 +1270,10 @@ function validateOnlineClaims({ root, onlineClaims, bundle }) {
       'document_id',
       'physical_pdf_page',
       'stable_locator',
-      'url',
-      'publisher',
-      'source_type',
-      'retrieved_at',
-      'version_match',
-      'observed_version',
-      'snapshot',
-      'supporting_text',
-      'supporting_text_sha256',
+      'source_id',
+      'capture',
+      'supporting_slice',
+      'version_anchors',
     ]);
     const claimId = requireString(claim.claim_id, `${label}.claim_id`);
     if (ids.has(claimId)) fail(`online claims contains duplicate claim_id ${claimId}`);
@@ -877,90 +1283,138 @@ function validateOnlineClaims({ root, onlineClaims, bundle }) {
       || claim.stable_locator !== bundle.stable_locator) {
       fail(`${label} is not bound to the same actual PDF page`);
     }
-    let url;
-    try {
-      url = new URL(requireString(claim.url, `${label}.url`));
-    } catch (error) {
-      fail(`${label}.url is invalid: ${error.message}`);
+    const sourceId = requireString(claim.source_id, `${label}.source_id`, REVIEWER_ID_PATTERN);
+    const source = sourceIdentities.byId.get(sourceId);
+    if (!source || source.status !== 'active') fail(`${label}.source_id is not an active externally pinned source identity`);
+    if (source.search_service) fail(`${label}.source_id is a search service and cannot support publication`);
+    requireExactKeys(claim.capture, `${label}.capture`, [
+      'capture_tool',
+      'capture_tool_version',
+      'requested_url',
+      'final_url',
+      'http_status',
+      'media_type',
+      'captured_at',
+      'body',
+    ]);
+    const requestedUrl = normalizedUrl(claim.capture.requested_url, `${label}.capture.requested_url`);
+    const finalUrl = normalizedUrl(claim.capture.final_url, `${label}.capture.final_url`);
+    if (isSearchResultUrl(requestedUrl) || isSearchResultUrl(finalUrl)) {
+      fail(`${label}.capture is a search-result URL, not admissible source evidence`);
     }
-    if (url.protocol !== 'https:') fail(`${label}.url must use HTTPS`);
-    const publisher = requireString(claim.publisher, `${label}.publisher`);
-    const sourceType = requireString(claim.source_type, `${label}.source_type`);
-    if (!['official', 'official_archive', 'academic', 'scholarly_database', 'official_library'].includes(sourceType)) {
-      fail(`${label}.source_type is not an official or academic source class`);
+    for (const [urlLabel, url] of [['requested_url', requestedUrl], ['final_url', finalUrl]]) {
+      if (canonicalOrigin(url) !== source.canonical_origin) {
+        fail(`${label}.capture.${urlLabel} differs from the externally pinned source origin`);
+      }
+      if (!source.allowed_path_prefixes.some((prefix) => url.pathname.startsWith(prefix))) {
+        fail(`${label}.capture.${urlLabel} is outside the externally pinned source path scope`);
+      }
     }
-    requireIsoUtc(claim.retrieved_at, `${label}.retrieved_at`);
-    if (![
-      EXACT_ONLINE_VERSION,
-      'exact_document_revision_uncertain',
-      'same_work_different_edition',
-      'stable_fact_only',
-      'not_matched',
-    ].includes(claim.version_match)) fail(`${label}.version_match is invalid`);
-    const observedVersion = normalizeVersionIdentity(claim.observed_version, `${label}.observed_version`);
-    if (claim.version_match === EXACT_ONLINE_VERSION && !deepEqual(observedVersion, targetVersion)) {
-      fail(`${label} claims an exact edition but its observed version is different`);
+    const httpStatus = requireInteger(claim.capture.http_status, `${label}.capture.http_status`, 100);
+    if (httpStatus < 200 || httpStatus >= 300) fail(`${label}.capture.http_status must be successful`);
+    const mediaType = requireString(claim.capture.media_type, `${label}.capture.media_type`)
+      .split(';', 1)[0].trim().toLocaleLowerCase('en-US');
+    if (!['text/html', 'text/plain', 'application/xhtml+xml'].includes(mediaType)) {
+      fail(`${label}.capture.media_type is not inspectable text`);
     }
-    if (claim.version_match !== EXACT_ONLINE_VERSION && deepEqual(observedVersion, targetVersion)) {
-      fail(`${label} labels an exact observed version as non-exact`);
+    const capturedAt = requireIsoUtc(claim.capture.captured_at, `${label}.capture.captured_at`);
+    const body = readBoundArtifact({ root, ref: claim.capture.body, label: `${label}.capture.body` });
+    const bodyText = decodeUtf8(body.buffer, `${label}.capture.body`);
+    const supportingRef = normalizeByteSliceRef(claim.supporting_slice, `${label}.supporting_slice`);
+    const supportingText = resolveUtf8ByteSlice({
+      buffer: body.buffer,
+      ref: supportingRef,
+      expectedLocator: body.locator,
+      label: `${label}.supporting_slice`,
+    });
+    if (!Array.isArray(claim.version_anchors)) fail(`${label}.version_anchors must be an array`);
+    const versionAnchorValues = {};
+    for (const [anchorIndex, anchor] of claim.version_anchors.entries()) {
+      const anchorLabel = `${label}.version_anchors[${anchorIndex}]`;
+      requireExactKeys(anchor, anchorLabel, ['field', 'locator', 'start_byte', 'end_byte', 'slice_sha256']);
+      const field = requireString(anchor.field, `${anchorLabel}.field`);
+      if (!Object.hasOwn(targetVersion, field)) fail(`${anchorLabel}.field is not a version identity field`);
+      if (Object.hasOwn(versionAnchorValues, field)) fail(`${label}.version_anchors repeats ${field}`);
+      const ref = normalizeByteSliceRef({
+        locator: anchor.locator,
+        start_byte: anchor.start_byte,
+        end_byte: anchor.end_byte,
+        slice_sha256: anchor.slice_sha256,
+      }, anchorLabel);
+      versionAnchorValues[field] = resolveUtf8ByteSlice({
+        buffer: body.buffer,
+        ref,
+        expectedLocator: body.locator,
+        label: anchorLabel,
+      });
     }
-    const snapshot = readBoundArtifact({ root, ref: claim.snapshot, label: `${label}.snapshot` });
-    const supportingText = requireString(claim.supporting_text, `${label}.supporting_text`);
-    const supportingHash = sha256Buffer(Buffer.from(supportingText, 'utf8'));
-    if (claim.supporting_text_sha256 !== supportingHash) {
-      fail(`${label}.supporting_text_sha256 does not match the actual supporting text`);
+    const identityFields = Object.keys(targetVersion);
+    if (!deepEqual(Object.keys(versionAnchorValues).sort(), [...identityFields].sort())) {
+      fail(`${label}.version_anchors must bind every exact version identity field`);
     }
-    const normalizedSnapshot = normalizedSnapshotText(decodeUtf8(snapshot.buffer, `${label}.snapshot`));
-    const normalizedSupport = normalizedSnapshotText(supportingText);
-    if (!normalizedSnapshot.includes(normalizedSupport)) {
-      fail(`${label}.supporting_text is absent from the bound online snapshot`);
-    }
+    const versionIsExact = identityFields.every((field) => (
+      normalizeOcrComparisonText(versionAnchorValues[field])
+        === normalizeOcrComparisonText(targetVersion[field])
+    ));
+    const strippedBody = stripPinnedBoilerplate(bodyText, source.boilerplate_markers);
+    if (!strippedBody) fail(`${label}.capture.body contains no independent content after boilerplate removal`);
     return {
       claim_id: claimId,
       document_id: claim.document_id,
       physical_pdf_page: claim.physical_pdf_page,
       stable_locator: claim.stable_locator,
-      url: url.toString(),
-      host: url.hostname.replace(/^www\./i, '').toLocaleLowerCase('en-US'),
-      publisher,
-      publisher_key: publisher.normalize('NFKC').trim().toLocaleLowerCase('zh-CN'),
-      source_type: sourceType,
-      retrieved_at: claim.retrieved_at,
-      version_match: claim.version_match,
-      observed_version: observedVersion,
-      snapshot: {
-        locator: snapshot.locator,
-        sha256: snapshot.sha256,
-        bytes: snapshot.bytes,
-        normalized_sha256: sha256Buffer(Buffer.from(normalizedSnapshot, 'utf8')),
+      source_id: sourceId,
+      source_identity: {
+        canonical_origin: source.canonical_origin,
+        canonical_publisher: source.canonical_publisher,
+        publisher_key: source.publisher_key,
+        source_class: source.source_class,
+        independence_group: source.independence_group,
+        independence_group_key: source.independence_group_key,
       },
+      capture: {
+        capture_tool: requireString(claim.capture.capture_tool, `${label}.capture.capture_tool`),
+        capture_tool_version: requireString(claim.capture.capture_tool_version, `${label}.capture.capture_tool_version`),
+        requested_url: requestedUrl.toString(),
+        final_url: finalUrl.toString(),
+        http_status: httpStatus,
+        media_type: mediaType,
+        captured_at: capturedAt,
+        body: artifactIdentity(body),
+      },
+      version_match: versionIsExact ? EXACT_ONLINE_VERSION : 'not_matched',
+      version_anchors: versionAnchorValues,
       supporting_text: supportingText,
-      supporting_text_sha256: supportingHash,
+      supporting_slice: supportingRef,
+      independent_content_sha256: sha256Buffer(Buffer.from(strippedBody, 'utf8')),
     };
   });
   const exactClaims = claims.filter((claim) => claim.version_match === EXACT_ONLINE_VERSION);
-  if (onlineClaims.same_version_status === 'verified_independent') {
+  let derivedStatus = 'conflict';
+  if (claims.length === 0) derivedStatus = 'not_found';
+  else if (exactClaims.length === 1) derivedStatus = 'single_source_only';
+  else if (exactClaims.length >= 2) derivedStatus = 'verified_independent';
+  if (derivedStatus === 'verified_independent') {
     if (exactClaims.length < 2) fail('verified_independent requires at least two exact-edition page claims');
-    if (new Set(exactClaims.map((claim) => claim.host)).size !== exactClaims.length) {
-      fail('verified_independent claims reuse the same source host');
+    if (new Set(exactClaims.map((claim) => claim.source_identity.canonical_origin)).size !== exactClaims.length) {
+      fail('verified_independent claims reuse the same externally pinned source origin');
     }
-    if (new Set(exactClaims.map((claim) => claim.publisher_key)).size !== exactClaims.length) {
+    if (new Set(exactClaims.map((claim) => claim.source_identity.publisher_key)).size !== exactClaims.length) {
       fail('verified_independent claims reuse the same publisher');
     }
-    if (new Set(exactClaims.map((claim) => claim.snapshot.normalized_sha256)).size !== exactClaims.length) {
-      fail('verified_independent claims are same-content mirrors');
+    if (new Set(exactClaims.map((claim) => claim.source_identity.independence_group_key)).size !== exactClaims.length) {
+      fail('verified_independent claims reuse the same independence group');
     }
-  } else if (onlineClaims.same_version_status === 'single_source_only') {
-    if (exactClaims.length !== 1) fail('single_source_only requires exactly one exact-edition page claim');
-  } else if (onlineClaims.same_version_status === 'not_found') {
-    if (onlineClaims.claims.length !== 0) fail('not_found must not contain an unverified text claim');
-  } else if (onlineClaims.same_version_status === 'conflict') {
-    if (onlineClaims.claims.length === 0) fail('conflict must retain the conflicting source evidence');
-    if (exactClaims.length >= 2) fail('conflict cannot contain two independently verified exact-edition claims');
+    if (new Set(exactClaims.map((claim) => claim.independent_content_sha256)).size !== exactClaims.length) {
+      fail('verified_independent claims are same-content mirrors after pinned boilerplate removal');
+    }
+  }
+  if (onlineClaims.same_version_status !== derivedStatus) {
+    fail(`online claims.same_version_status differs from recomputed status ${derivedStatus}`);
   }
   return {
     target_version: targetVersion,
-    same_version_status: onlineClaims.same_version_status,
+    same_version_status: derivedStatus,
     claims,
     exact_claims: exactClaims,
   };
@@ -1056,13 +1510,28 @@ function normalizeReviewDecision(decision) {
   const semanticBindingIds = new Set();
   const semanticControlBindings = decision.semantic_control_bindings.map((binding, index) => {
     const label = `review decision.semantic_control_bindings[${index}]`;
-    requireExactKeys(binding, label, ['control_id', 'control_sha256']);
+    requireExactKeys(binding, label, [
+      'control_id',
+      'control_sha256',
+      'quality_profile',
+      'quality_profile_sha256',
+      'policy_revision_sha256',
+    ]);
     const controlId = requireString(binding.control_id, `${label}.control_id`);
     if (semanticBindingIds.has(controlId)) fail(`review decision repeats semantic binding ${controlId}`);
     semanticBindingIds.add(controlId);
     return {
       control_id: controlId,
       control_sha256: requireSha256(binding.control_sha256, `${label}.control_sha256`),
+      quality_profile: requireString(binding.quality_profile, `${label}.quality_profile`, DOCUMENT_ID_PATTERN),
+      quality_profile_sha256: requireSha256(
+        binding.quality_profile_sha256,
+        `${label}.quality_profile_sha256`,
+      ),
+      policy_revision_sha256: requireSha256(
+        binding.policy_revision_sha256,
+        `${label}.policy_revision_sha256`,
+      ),
     };
   });
   if (!deepEqual([...semanticControlIds].sort(), [...semanticBindingIds].sort())) {
@@ -1117,8 +1586,8 @@ function validateDecisionSemantics({ decision, criticalFields, online, audit, fi
       fail(`reviewed critical field ${field.field_id} is absent from final_text`);
     }
     if (reviewed.status === 'verified_exact') {
-      if (accepted !== normalizeOcrComparisonText(field.primary)
-        || accepted !== normalizeOcrComparisonText(field.witness)) {
+      if (accepted !== normalizeOcrComparisonText(field.primary_text)
+        || accepted !== normalizeOcrComparisonText(field.vision_text)) {
         fail(`critical field ${field.field_id} is marked exact but OCR and Vision do not agree`);
       }
       if (reviewed.deviating_engines.length > 0) {
@@ -1126,8 +1595,8 @@ function validateDecisionSemantics({ decision, criticalFields, online, audit, fi
       }
     } else {
       const actualDeviations = [];
-      if (accepted !== normalizeOcrComparisonText(field.primary)) actualDeviations.push('primary_ocr');
-      if (accepted !== normalizeOcrComparisonText(field.witness)) actualDeviations.push('vision_ocr');
+      if (accepted !== normalizeOcrComparisonText(field.primary_text)) actualDeviations.push('primary_ocr');
+      if (accepted !== normalizeOcrComparisonText(field.vision_text)) actualDeviations.push('vision_ocr');
       if (!deepEqual([...reviewed.deviating_engines].sort(), actualDeviations.sort())) {
         fail(`critical field ${field.field_id} does not record the exact deviating OCR engines`);
       }
@@ -1232,6 +1701,7 @@ function buildSigningPayload({
     rendered_page: {
       mode: 'reproducible_render_v1',
       command_contract: 'mutool_draw_png_page_v1',
+      execution_binding: rendered.renderer.execution_binding,
       renderer_sha256: rendered.renderer.sha256,
       renderer_version: rendered.renderer.version,
       dpi: bundle.rendered_page.dpi,
@@ -1257,15 +1727,14 @@ function buildSigningPayload({
         document_id: claim.document_id,
         physical_pdf_page: claim.physical_pdf_page,
         stable_locator: claim.stable_locator,
-        url: claim.url,
-        publisher: claim.publisher,
-        source_type: claim.source_type,
-        retrieved_at: claim.retrieved_at,
+        source_id: claim.source_id,
+        source_identity: claim.source_identity,
+        capture: claim.capture,
         version_match: claim.version_match,
-        observed_version: claim.observed_version,
-        snapshot: claim.snapshot,
+        version_anchors: claim.version_anchors,
         supporting_text: claim.supporting_text,
-        supporting_text_sha256: claim.supporting_text_sha256,
+        supporting_slice: claim.supporting_slice,
+        independent_content_sha256: claim.independent_content_sha256,
       })),
     },
     decision: decisionSigningFields(decision),
@@ -1304,6 +1773,7 @@ function inspectBundleInputs({ root, bundle: rawBundle, record, rendererPath, de
   }
   const rendered = renderPdfPage({
     sourcePath: artifacts.source_pdf.path,
+    sourceBuffer: artifacts.source_pdf.buffer,
     pageNumber: bundle.physical_pdf_page,
     dpi: bundle.rendered_page.dpi,
     rendererPath,
@@ -1345,16 +1815,29 @@ function inspectBundleInputs({ root, bundle: rawBundle, record, rendererPath, de
   const criticalFields = validateVisionSidecar({
     bundle,
     sourceArtifact: artifacts.source_pdf,
+    primaryContentArtifact: artifacts.primary_content,
+    visionTextArtifact: artifacts.vision_text,
     visionSidecar,
     rendered,
   });
-  const recomputedAudit = recomputeAuditPage({ primaryText: primaryContent, visionSidecar });
+  const visionText = decodeUtf8(artifacts.vision_text.buffer, 'Vision raw text');
+  const recomputedAudit = recomputeAuditPage({
+    primaryText: primaryContent,
+    visionSidecar,
+    visionText,
+    criticalFields,
+  });
   const auditReport = parseJsonBuffer(artifacts.audit.buffer, 'audit report');
   validateAuditObject(auditReport, bundle.physical_pdf_page, recomputedAudit);
   const finalText = decodeUtf8(artifacts.final_text.buffer, 'final text');
   if (normalizeOcrComparisonText(finalText).length === 0) fail('final text has no meaningful OCR content');
+  const sourceIdentityRegistry = parseJsonBuffer(
+    artifacts.source_identity_registry.buffer,
+    'source identity registry',
+  );
+  const sourceIdentities = normalizeSourceIdentityRegistry(sourceIdentityRegistry);
   const onlineClaims = parseJsonBuffer(artifacts.online_claims.buffer, 'online claims');
-  const online = validateOnlineClaims({ root, onlineClaims, bundle });
+  const online = validateOnlineClaims({ root, onlineClaims, bundle, sourceIdentities });
   const rawDecision = decisionOverride
     || parseJsonBuffer(artifacts.reviewer_decision.buffer, 'review decision');
   const decision = normalizeReviewDecision(rawDecision);
@@ -1362,6 +1845,7 @@ function inspectBundleInputs({ root, bundle: rawBundle, record, rendererPath, de
     decision,
     criticalFields,
     online,
+    sourceIdentities,
     audit: recomputedAudit,
     finalText,
     record,
@@ -1543,7 +2027,7 @@ function validateSemanticDecisionBinding({ semanticGate, record, manifestPage, i
     fail(`${record.id}: page ${manifestPage.page_number} signed semantic controls differ from actual resolved controls`);
   }
   const signedBindings = new Map(
-    inspected.decision.semantic_control_bindings.map((binding) => [binding.control_id, binding.control_sha256]),
+    inspected.decision.semantic_control_bindings.map((binding) => [binding.control_id, binding]),
   );
   for (const control of controls) {
     if (control.status === 'unresolved_fail_closed' && manifestPage.display_allowed) {
@@ -1551,8 +2035,18 @@ function validateSemanticDecisionBinding({ semanticGate, record, manifestPage, i
     }
     if (control.status === 'resolved_after_review') {
       const actualControlSha256 = sha256Buffer(Buffer.from(stableJson(control), 'utf8'));
-      if (signedBindings.get(control.control_id) !== actualControlSha256) {
+      const binding = signedBindings.get(control.control_id);
+      if (binding?.control_sha256 !== actualControlSha256) {
         fail(`${control.control_id}: signed semantic control binding differs from the actual policy object`);
+      }
+      const qualityProfile = semanticGate.quality_profiles[control.quality_profile];
+      const qualityProfileSha256 = sha256Buffer(Buffer.from(stableJson(qualityProfile), 'utf8'));
+      if (binding.quality_profile !== control.quality_profile
+        || binding.quality_profile_sha256 !== qualityProfileSha256) {
+        fail(`${control.control_id}: signed semantic quality profile differs from the resolved full profile`);
+      }
+      if (binding.policy_revision_sha256 !== semanticGate.revision_sha256) {
+        fail(`${control.control_id}: signed semantic policy revision differs from the full normalized policy`);
       }
       if (!manifestPage.display_allowed) fail(`${control.control_id}: a resolved control must bind a display-accepted page`);
       if (control.resolved_by !== inspected.decision.reviewer_id
@@ -1568,6 +2062,9 @@ export function validatePageEvidenceRelease({
   evidenceManifestPath = 'scripts/page-evidence/fail-closed-manifest.json',
   requirePublishable = false,
   authorityRegistrySha256 = process.env.PAGE_EVIDENCE_AUTHORITY_SHA256 || null,
+  sourceIdentityRegistrySha256 = process.env.PAGE_EVIDENCE_SOURCE_IDENTITIES_SHA256 || null,
+  rendererSha256 = process.env.PAGE_EVIDENCE_RENDERER_SHA256 || null,
+  rendererVersion = process.env.PAGE_EVIDENCE_RENDERER_VERSION || null,
   rendererPath = null,
 } = {}) {
   const releaseFile = releaseManifestFromPath(root, evidenceManifestPath);
@@ -1578,6 +2075,12 @@ export function validatePageEvidenceRelease({
     label: 'release.authority_registry',
   });
   const authorities = normalizeAuthorityRegistry(authorityRead.value);
+  const sourceIdentityRead = readBoundJson({
+    root,
+    ref: release.source_identity_registry,
+    label: 'release.source_identity_registry',
+  });
+  normalizeSourceIdentityRegistry(sourceIdentityRead.value);
   const bindingObjects = {};
   const bindingArtifacts = {};
   for (const [key, ref] of Object.entries(release.bindings)) {
@@ -1638,6 +2141,12 @@ export function validatePageEvidenceRelease({
       record: publication.record,
       rendererPath,
     });
+    if (!deepEqual(
+      artifactIdentity(inspected.artifacts.source_identity_registry),
+      artifactIdentity(sourceIdentityRead.artifact),
+    )) {
+      fail(`${key}: bundle source identity registry differs from the release-pinned registry`);
+    }
     if (inspected.bundle.document_id !== entry.document_id
       || inspected.bundle.physical_pdf_page !== entry.page_number
       || inspected.bundle.stable_locator !== entry.stable_locator) {
@@ -1706,13 +2215,45 @@ export function validatePageEvidenceRelease({
   if (needsPinnedAuthority && !authorityRegistrySha256) {
     fail('non-zero publication requires an external PAGE_EVIDENCE_AUTHORITY_SHA256 pin');
   }
+  if (sourceIdentityRegistrySha256 !== null && sourceIdentityRegistrySha256 !== undefined) {
+    requireSha256(sourceIdentityRegistrySha256, 'sourceIdentityRegistrySha256');
+    if (sourceIdentityRegistrySha256 !== sourceIdentityRead.artifact.sha256) {
+      fail('external online source identity registry SHA-256 pin differs from the actual registry');
+    }
+  }
+  if (needsPinnedAuthority && !sourceIdentityRegistrySha256) {
+    fail('non-zero publication requires an external PAGE_EVIDENCE_SOURCE_IDENTITIES_SHA256 pin');
+  }
+  if (rendererSha256 !== null && rendererSha256 !== undefined) {
+    requireSha256(rendererSha256, 'rendererSha256');
+  }
+  if (rendererVersion !== null && rendererVersion !== undefined) {
+    requireString(rendererVersion, 'rendererVersion');
+  }
+  if (needsPinnedAuthority && !rendererSha256) {
+    fail('non-zero publication requires an external PAGE_EVIDENCE_RENDERER_SHA256 pin');
+  }
+  if (needsPinnedAuthority && !rendererVersion) {
+    fail('non-zero publication requires an external PAGE_EVIDENCE_RENDERER_VERSION pin');
+  }
+  for (const inspected of inspectedByKey.values()) {
+    if (rendererSha256 && inspected.rendered.renderer.sha256 !== rendererSha256) {
+      fail('fresh render uses a different renderer SHA-256 than the external promotion pin');
+    }
+    if (rendererVersion && inspected.rendered.renderer.version !== rendererVersion) {
+      fail('fresh render uses a different renderer version than the external promotion pin');
+    }
+  }
   const publishable = release.status === 'publication_candidate'
     && needsPinnedAuthority
     && Boolean(authorityRegistrySha256)
+    && Boolean(sourceIdentityRegistrySha256)
+    && Boolean(rendererSha256)
+    && Boolean(rendererVersion)
     && derivedCounts.pages > 0
     && derivedCounts.display_pages === derivedCounts.pages;
   if (requirePublishable && !publishable) {
-    fail('promotion requires a valid publication_candidate with complete display pages and pinned reviewer authority');
+    fail('promotion requires a valid publication_candidate with complete display pages and externally pinned reviewer, source, and renderer identities');
   }
   return {
     valid: true,
@@ -1724,6 +2265,11 @@ export function validatePageEvidenceRelease({
       bytes: releaseFile.bytes,
     },
     authority_registry_sha256: authorityRead.artifact.sha256,
+    source_identity_registry_sha256: sourceIdentityRead.artifact.sha256,
+    renderer_identity: inspectedByKey.size === 0 ? null : {
+      sha256: [...inspectedByKey.values()][0].rendered.renderer.sha256,
+      version: [...inspectedByKey.values()][0].rendered.renderer.version,
+    },
     bindings: Object.fromEntries(
       Object.entries(bindingArtifacts).map(([key, artifact]) => [key, artifactIdentity(artifact)]),
     ),

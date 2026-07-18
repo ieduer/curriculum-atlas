@@ -8,6 +8,11 @@
     "sha256": "4602217e96d83cbc9caf472742cdf0912ae0bdf33863bd2244417d31975d9325",
     "bytes": 144
   },
+  "source_identity_registry": {
+    "locator": "scripts/page-evidence/online-source-identities.json",
+    "sha256": "d8d51035d46f82b8f92d31eca384aba13db4d4d31d9a241ad4845cbce3686144",
+    "bytes": 159
+  },
   "bindings": {
     "catalog": {
       "locator": "data/catalog.json",

@@ -33,22 +33,25 @@ For each physical PDF page it verifies:
 
 1. The source PDF is the catalog PDF, its bytes match the catalog checksum, its
    page count is read by MuPDF, and the page number is in range.
-2. The page is rendered again in an operating-system temporary directory with
-   the fixed `mutool draw` contract. The validator binds the MuPDF binary hash,
-   version, DPI, PNG bytes, PNG hash, width, and height, then deletes only that
-   temporary render. A permanently resident witness PNG is optional cache, not
-   release evidence.
+2. The already-read source PDF bytes and already-hashed MuPDF bytes are copied
+   into a random mode-0700 private directory. The input directory and files
+   become read-only, their descriptors stay open, and device/inode/size/mtime
+   plus complete hashes are checked after `mutool info` and `mutool draw`.
+   MuPDF never reopens the original hash-then-path target. The signed render
+   binds `verified_private_fixed_inode_copy_v1`, the externally pinned binary
+   hash and exact version, DPI, PNG bytes/hash, width and height.
 3. The primary `result.json`, `content.md`, and `state.json` are read as actual
-   objects. Source identity, page completion, result/content hashes, DPI, page
-   number, and dimensions are recomputed and cross-checked.
-4. The Apple Vision sidecar is read independently. It must bind the same source
-   PDF, physical page, freshly reproduced PNG and DPI, while retaining
-   `citation_allowed: false` at the OCR-engine layer.
+   objects. Each page-state row must bind the source PDF hash, physical page,
+   DPI, fresh render hash, result/content hashes and completed state.
+4. The Apple Vision sidecar and a separate raw Vision-text artifact are read.
+   Ordered sidecar lines must reproduce the raw text byte for byte. Confidence
+   values must be JSON numbers, never coercible strings.
 5. The audit metrics are recomputed from primary text and Vision lines using the
    production comparison algorithm. Stored hashes, headings, numbers,
    agreement, confidence, tables, critical fields, gate and summary must agree.
-6. The adjudicated final text, online claim object, every captured online
-   snapshot, and the signed reviewer decision are read and rehashed.
+6. Duplicate JSON object keys, unsafe integers and noncanonical UTC timestamps
+   are rejected before content validation. The final text, retained online
+   capture bodies and signed decision are then read and rehashed.
 
 Existing witness PNGs must not be deleted merely because this contract supports
 reproducible rendering. A separate dry run must first prove that the exact
@@ -57,24 +60,34 @@ Legacy renders without that proof remain retained evidence.
 
 ## Version-aware online corroboration
 
-An online claim is bound to the same document id, physical PDF page, stable
-locator, and five-field version identity as the scanned source. A claim marked
-`exact_document_exact_edition` is rejected if any observed version field differs.
-Different editions may remain as conflict or stable-fact context, but cannot
-adjudicate exact wording or satisfy citation release.
+Online authority comes from an externally hash-pinned source registry. A claim
+may name only an active pinned source id; the registry, not claim prose,
+supplies canonical origin/publisher, official or academic class, independence
+group, allowed paths, search-service status and boilerplate markers.
 
-Citation release requires at least two exact-edition claims from distinct HTTPS
-hosts and distinct publishers, backed by different normalized snapshot content.
-Same-host copies and same-content mirrors are not independent. Supporting text
-must occur in the captured snapshot and both are rehashed. Search snippets or a
-claim without a retained snapshot cannot pass.
+Every capture binds tool/version, requested and final HTTPS URL, HTTP status,
+media type, canonical millisecond timestamp and retained body bytes. Search
+hosts, paths and query parameters are rejected. `www`, trailing-dot hosts,
+zero-width characters and Unicode publisher variants are canonicalized before
+identity and independence checks.
+
+Supporting text is an exact locator/start-byte/end-byte/slice-hash reference
+into the body. Five raw anchors bind title, issuing body, date/context, edition
+and page locator. Exact-edition status is recomputed from those bytes;
+claim-side `source_type` or `observed_version` labels cannot self-certify it.
+Citation requires two exact-edition claims with distinct pinned origins,
+canonical publishers and independence groups. Bodies must also remain distinct
+after pinned boilerplate removal, so cosmetic wrappers cannot create a second
+witness.
 
 ## Critical fields and human uncertainty
 
-Accepted pages require a non-empty Vision `critical_fields` array. Each field
-has a stable id, kind, primary reading, and independent Vision reading. The
-signed decision must cover the exact same field-id set and explicitly attest
-that the declaration is complete.
+Accepted pages require a non-empty Vision `critical_fields` array. A field does
+not contain self-reported OCR strings: primary and Vision readings both carry
+the raw-artifact locator, UTF-8 byte offsets and slice hash. The validator
+recomputes both slices and signs their references plus actual decoded values.
+Decimal points, signs, range dashes, slashes, percent signs and comparison
+operators remain significant (`20-22` is not `2022`).
 
 `accepted_citation` requires every critical field to be either
 `verified_exact` or `image_online_adjudicated`, no remaining uncertainty note,
@@ -107,24 +120,28 @@ non-self-referential recomputed hash and byte count. The reviewer-decision
 locator is signed; that decision file's hash and bytes are then bound by the
 bundle, page manifest, and release index to avoid a circular self-hash. Updating
 a manifest and its evidence together therefore invalidates the previous
-signature. The signed payload also includes the document citation gate and a
-canonical SHA-256 of every resolved semantic-control object; changing catalog
-citation authority or weakening a semantic policy while retaining its id cannot
-reuse an older signature.
+signature. The signed payload also includes the document citation gate, every
+complete resolved semantic-control object, its resolved full quality profile
+and the revision hash of the complete normalized semantic policy. A profile or
+policy edit cannot reuse a signature merely by retaining the same control id.
 
-Any non-zero publication also requires the actual reviewer registry hash to
-match an external pin:
+Any non-zero publication requires four independent release-environment pins:
+the reviewer registry, online source registry, exact MuPDF binary and exact
+MuPDF version output:
 
 ```bash
 PAGE_EVIDENCE_AUTHORITY_SHA256=<PINNED_SHA256> \
+PAGE_EVIDENCE_SOURCE_IDENTITIES_SHA256=<PINNED_SHA256> \
+PAGE_EVIDENCE_RENDERER_SHA256=<PINNED_SHA256> \
+PAGE_EVIDENCE_RENDERER_VERSION='<EXACT_MUTOOL_VERSION_OUTPUT>' \
   node scripts/validate-page-evidence-publication.mjs \
   --manifest <PROJECT_RELATIVE_RELEASE_MANIFEST> \
   --require-publishable
 ```
 
-The pin must come from the controlled release environment, not from the release
-manifest being validated. Editing the registry and manifest in the same batch
-cannot replace that authority.
+The pins must come from the controlled release environment, not from the
+release manifest. Coordinated registry, renderer declaration and manifest edits
+cannot replace those authorities.
 
 ## Page and semantic publication rules
 
@@ -154,6 +171,9 @@ validatePageEvidenceRelease({
   evidenceManifestPath: 'scripts/page-evidence/fail-closed-manifest.json',
   requirePublishable: pageEvidencePromotion,
   authorityRegistrySha256: process.env.PAGE_EVIDENCE_AUTHORITY_SHA256 || null,
+  sourceIdentityRegistrySha256: process.env.PAGE_EVIDENCE_SOURCE_IDENTITIES_SHA256 || null,
+  rendererSha256: process.env.PAGE_EVIDENCE_RENDERER_SHA256 || null,
+  rendererVersion: process.env.PAGE_EVIDENCE_RENDERER_VERSION || null,
 });
 ```
 
@@ -167,10 +187,12 @@ those files have separate active ownership.
 
 `tests/page-evidence-publication.test.mjs` creates a real PDF, renders it with
 the installed MuPDF binary, signs a complete candidate, and then attacks the
-gate with fake hashes, missing files, an out-of-range page, version mismatch,
-same-source and same-content mirrors, empty critical fields, a fake reviewer, a
-closed document citation gate, same-batch manifest/evidence edits, an authority
-registry swap, and a partial page list. It also proves that a signed
+gate with fake hashes, missing files, out-of-range pages, raw-slice/anchor
+forgeries, search URLs, invalid capture provenance, same-source and
+boilerplate-stripped mirrors, empty critical fields, string confidence,
+duplicate JSON keys, unsafe integers, noncanonical timestamps, state/render
+drift, authority/source/renderer pin swaps, semantic profile/policy revision
+edits and partial page lists. It also proves that a signed
 `image_online_adjudicated` correction can pass only with two independent
 exact-edition supporting texts, the exact deviating-engine record, and no search
 snippet substitution, and that a same-batch semantic-policy rewrite cannot reuse

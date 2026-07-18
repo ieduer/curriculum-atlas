@@ -30,6 +30,7 @@
       "required": [
         "mode",
         "command_contract",
+        "execution_binding",
         "renderer_sha256",
         "renderer_version",
         "dpi",
@@ -42,6 +43,7 @@
       "properties": {
         "mode": { "const": "reproducible_render_v1" },
         "command_contract": { "const": "mutool_draw_png_page_v1" },
+        "execution_binding": { "const": "verified_private_fixed_inode_copy_v1" },
         "renderer_sha256": { "$ref": "#/$defs/sha256" },
         "renderer_version": { "type": "string", "minLength": 1 },
         "dpi": { "type": "integer", "minimum": 72, "maximum": 600 },
@@ -61,8 +63,10 @@
         "primary_content",
         "primary_state",
         "vision_sidecar",
+        "vision_text",
         "audit",
         "final_text",
+        "source_identity_registry",
         "online_claims",
         "reviewer_decision"
       ],
@@ -72,8 +76,10 @@
         "primary_content": { "$ref": "#/$defs/artifact_ref" },
         "primary_state": { "$ref": "#/$defs/artifact_ref" },
         "vision_sidecar": { "$ref": "#/$defs/artifact_ref" },
+        "vision_text": { "$ref": "#/$defs/artifact_ref" },
         "audit": { "$ref": "#/$defs/artifact_ref" },
         "final_text": { "$ref": "#/$defs/artifact_ref" },
+        "source_identity_registry": { "$ref": "#/$defs/artifact_ref" },
         "online_claims": { "$ref": "#/$defs/artifact_ref" },
         "reviewer_decision": { "$ref": "#/$defs/artifact_ref" }
       }
