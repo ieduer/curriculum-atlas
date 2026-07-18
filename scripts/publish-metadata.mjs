@@ -2,7 +2,7 @@
 
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -10,6 +10,11 @@ import {
   assertBufferParity,
   buildReleaseManifest,
 } from './build-release-manifest.mjs';
+import { validateCorpusManifest } from './import-corpus.mjs';
+import {
+  assertPageEvidenceReleaseMode,
+  validatePageEvidenceForRelease,
+} from './page-evidence-release-hook.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const MAX_OBJECT_BYTES = 64 * 1024 * 1024;
@@ -20,13 +25,16 @@ function sha256(buffer) {
 
 function parseArgs(argv) {
   const args = new Map();
+  const booleanArguments = new Set(['--remote', '--bootstrap', '--page-evidence-promotion']);
+  const valueArguments = new Set(['--bucket', '--environment', '--renderer']);
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (!key.startsWith('--')) throw new Error(`unexpected argument: ${key}`);
-    if (key === '--remote' || key === '--bootstrap') {
+    if (booleanArguments.has(key)) {
       args.set(key.slice(2), true);
       continue;
     }
+    if (!valueArguments.has(key)) throw new Error(`unexpected argument: ${key}`);
     const value = argv[index + 1];
     if (!value || value.startsWith('--')) throw new Error(`missing value for ${key}`);
     args.set(key.slice(2), value);
@@ -164,6 +172,34 @@ async function verifyLocalObjects(root, objects) {
   }
 }
 
+async function verifyLocalCorpusEnvelope(root, expected) {
+  if (!expected || typeof expected !== 'object') {
+    throw new Error('release manifest is missing its corpus_release binding');
+  }
+  const source = String(expected.source || '');
+  const absolute = resolve(root, source);
+  const relativeToRoot = relative(root, absolute);
+  if (!source || isAbsolute(source) || relativeToRoot === '..'
+      || relativeToRoot.startsWith(`..${sep}`) || isAbsolute(relativeToRoot)) {
+    throw new Error('corpus_release.source must be project-relative and remain inside root');
+  }
+  const buffer = await readFile(absolute);
+  assertBufferParity(expected, buffer, `local corpus envelope ${source}`);
+  let parsed;
+  try {
+    parsed = JSON.parse(buffer.toString('utf8'));
+  } catch (error) {
+    throw new Error(`local corpus envelope is not valid JSON: ${error.message}`);
+  }
+  const manifest = validateCorpusManifest(parsed);
+  for (const key of ['release_id', 'release_fingerprint_sha256', 'manifest_sha256']) {
+    if (expected[key] !== manifest[key]) {
+      throw new Error(`local corpus envelope ${key} does not match generated release manifest`);
+    }
+  }
+  return manifest;
+}
+
 function inspectImmutableRemoteObject(bucket, key, expected, options) {
   const remote = getRemoteObject(bucket, key, { ...options, allowMissing: true });
   if (remote === null) return false;
@@ -186,11 +222,26 @@ export async function publishVersionedRelease({
   root = DEFAULT_ROOT,
   runCommand = spawnSync,
   publishedAt = new Date().toISOString(),
+  pageEvidencePromotion = false,
+  rendererPath = null,
+  pageEvidenceValidator = validatePageEvidenceForRelease,
 } = {}) {
   if (!bucket) throw new Error('--bucket is required');
   validateVersionedManifest(manifest);
+  assertPageEvidenceReleaseMode(manifest.page_evidence, { pageEvidencePromotion });
   const projectRoot = resolve(root);
   const commandOptions = { root: projectRoot, runCommand };
+  const currentPageEvidence = await pageEvidenceValidator({
+    root: projectRoot,
+    pageEvidencePromotion,
+    evidenceManifestPath: manifest.page_evidence?.manifest?.locator,
+    rendererPath,
+  });
+  assertPageEvidenceReleaseMode(currentPageEvidence, { pageEvidencePromotion });
+  if (JSON.stringify(currentPageEvidence) !== JSON.stringify(manifest.page_evidence)) {
+    throw new Error('page-evidence state changed after release-manifest generation');
+  }
+  await verifyLocalCorpusEnvelope(projectRoot, manifest.corpus_release);
   await verifyLocalObjects(projectRoot, manifest.r2.objects);
   process.stdout.write(`[preflight] local manifest parity exact for ${manifest.r2.objects.length} objects\n`);
 
@@ -289,12 +340,18 @@ export async function publishMetadata({
   bootstrap = false,
   root = DEFAULT_ROOT,
   runCommand = spawnSync,
+  pageEvidencePromotion = false,
+  rendererPath = null,
 } = {}) {
   if (!bucket) throw new Error('--bucket is required');
   if (!remote) throw new Error('refusing remote mutation without explicit --remote');
 
   const projectRoot = resolve(root);
-  const manifest = await buildReleaseManifest({ root: projectRoot });
+  const manifest = await buildReleaseManifest({
+    root: projectRoot,
+    pageEvidencePromotion,
+    rendererPath,
+  });
   assertReleaseSourceReady(manifest);
   const selectedEnvironment = environmentForBucket(manifest, bucket, environment);
   const environmentState = assertEnvironmentReleaseReady(manifest, selectedEnvironment);
@@ -305,6 +362,8 @@ export async function publishMetadata({
     bootstrap,
     root: projectRoot,
     runCommand,
+    pageEvidencePromotion,
+    rendererPath,
   });
   return { ...result, environment: selectedEnvironment };
 }
@@ -316,6 +375,8 @@ async function main() {
     environment: args.get('environment'),
     remote: args.get('remote') === true,
     bootstrap: args.get('bootstrap') === true,
+    pageEvidencePromotion: args.get('page-evidence-promotion') === true,
+    rendererPath: args.get('renderer') || null,
   });
 }
 

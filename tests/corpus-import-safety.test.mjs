@@ -11,7 +11,9 @@ import {
   buildCorpusChunkReceiptSql,
   CORE_TABLE_COUNT_KEYS,
   runCorpusFinalization,
+  sealCorpusManifest,
   validateCorpusManifest,
+  validateCorpusManifestSourceBindings,
 } from '../scripts/import-corpus.mjs';
 
 const root = new URL('../', import.meta.url);
@@ -20,6 +22,7 @@ const worker = await readFile(new URL('src/index.ts', root), 'utf8');
 
 function manifest(overrides = {}) {
   const projection = {
+    generated_at: '2026-07-18T00:00:00.000Z',
     schema_version: 1,
     release_id: `corpus-${'b'.repeat(24)}`,
     release_fingerprint_sha256: 'b'.repeat(64),
@@ -48,11 +51,30 @@ function manifest(overrides = {}) {
     text_assets: [{ document_id: 'doc-a', sha256: 'e'.repeat(64), bytes: 1 }],
     sql_chunks: 1,
     sql_files: [{ name: '000-core.sql', sha256: 'f'.repeat(64), bytes: 1 }],
+    closed_ocr_paragraphs: 0,
+    skipped_ocr_documents: 0,
+    excluded_exact_duplicate_alias_documents: 0,
+    semantic_excluded_pages: 0,
+    page_publication_schema_version: 1,
+    semantic_publication_schema_version: 1,
+    semantic_publication_revision_sha256: 'a'.repeat(64),
     ...overrides,
   };
+  return sealCorpusManifest(projection);
+}
+
+function rawAuditManifest(overrides = {}) {
   return {
-    ...projection,
-    manifest_sha256: createHash('sha256').update(JSON.stringify(projection)).digest('hex'),
+    generated_at: '2026-07-18T00:00:00.000Z',
+    ...manifest(),
+    closed_ocr_paragraphs: 0,
+    skipped_ocr_documents: 0,
+    excluded_exact_duplicate_alias_documents: 0,
+    semantic_excluded_pages: 0,
+    page_publication_schema_version: 1,
+    semantic_publication_schema_version: 1,
+    semantic_publication_revision_sha256: 'a'.repeat(64),
+    ...overrides,
   };
 }
 
@@ -223,6 +245,62 @@ test('manifest rejects count drift and forged snapshot hashes', () => {
   );
 });
 
+test('manifest hash binds the exact raw audit envelope and canonical timestamp', () => {
+  const raw = rawAuditManifest();
+  assert.equal(validateCorpusManifest(raw).release_id, raw.release_id);
+
+  const missing = { ...raw };
+  delete missing.closed_ocr_paragraphs;
+  assert.throws(() => validateCorpusManifest(missing), /exactly|closed_ocr_paragraphs/);
+  assert.throws(() => validateCorpusManifest({ ...raw, unexpected_audit_field: 0 }), /exactly|not allowed/);
+  assert.throws(() => validateCorpusManifest({ ...raw, generated_at: '2026-07-18T00:00:00Z' }), /generated_at.*canonical/);
+
+  for (const [field, value] of [
+    ['closed_ocr_paragraphs', 1],
+    ['skipped_ocr_documents', 1],
+    ['excluded_exact_duplicate_alias_documents', 1],
+    ['semantic_excluded_pages', 1],
+    ['page_publication_schema_version', 2],
+    ['semantic_publication_schema_version', 2],
+    ['semantic_publication_revision_sha256', 'c'.repeat(64)],
+  ]) {
+    assert.throws(
+      () => validateCorpusManifest({ ...raw, [field]: value }),
+      /hash mismatch|must equal|cannot exceed|count mismatch/,
+      `${field} must be authenticated and semantically checked`,
+    );
+  }
+});
+
+test('manifest rejects unsafe integers even when its snapshot hash is recomputed', () => {
+  assert.throws(
+    () => validateCorpusManifest(manifest({ documents: Number.MAX_SAFE_INTEGER + 1 })),
+    /safe non-negative integer/,
+  );
+});
+
+test('re-sealed semantic audit drift is rejected against the live source policy and text assets', async () => {
+  const current = JSON.parse(await readFile(new URL('data/corpus-chunks/manifest.json', root), 'utf8'));
+  await validateCorpusManifestSourceBindings(current, { root });
+  const { manifest_sha256: _manifestSha256, ...projection } = current;
+
+  const revisionDrift = sealCorpusManifest({
+    ...projection,
+    semantic_publication_revision_sha256: 'c'.repeat(64),
+  });
+  assert.equal(validateCorpusManifest(revisionDrift).semantic_publication_revision_sha256, 'c'.repeat(64));
+  await assert.rejects(
+    validateCorpusManifestSourceBindings(revisionDrift, { root }),
+    /semantic publication revision does not match source/,
+  );
+
+  const countDrift = sealCorpusManifest({ ...projection, semantic_excluded_pages: 1 });
+  await assert.rejects(
+    validateCorpusManifestSourceBindings(countDrift, { root }),
+    /semantic_excluded_pages does not match source/,
+  );
+});
+
 test('manifest core table counts are an exact set and legacy tables must remain empty', () => {
   assert.deepEqual(Object.keys(validateCorpusManifest(manifest()).core_table_counts), CORE_TABLE_COUNT_KEYS);
   for (const mutable of ['comments', 'comment_reports', 'rate_limits', 'ai_citation_logs', 'content_audit_log']) {
@@ -373,7 +451,7 @@ test('drift in a release-owned core table prevents finalization', async () => {
 test('interrupted or count-mixed release cannot become ready', async () => {
   const db = await database();
   seedOldCorpus(db);
-  const next = manifest({ paragraphs: 2, fts_rows: 2 });
+  const next = manifest({ paragraphs: 2, fts_rows: 2, displayed_paragraphs: 2 });
   db.exec(buildCorpusImportStartSql(next));
   importCurrentOneParagraph(db, next.release_id);
   recordAllChunks(db, next);

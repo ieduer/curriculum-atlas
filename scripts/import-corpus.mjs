@@ -3,10 +3,45 @@ import { readdir, readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  isNativeTextRecord,
+  validatePagePublicationManifest,
+} from './page-publication-gate.mjs';
+import {
+  createSemanticPublicationGate,
+  semanticDocumentDisposition,
+  semanticPageDisposition,
+} from './semantic-publication-gate.mjs';
 import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const RELEASE_ID_PATTERN = /^corpus-[a-f0-9]{24}$/;
+const CANONICAL_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+export const CORPUS_MANIFEST_PROJECTION_KEYS = [
+  'generated_at',
+  'schema_version',
+  'release_id',
+  'release_fingerprint_sha256',
+  'documents',
+  'paragraphs',
+  'fts_rows',
+  'page_publication_gates',
+  'displayed_paragraphs',
+  'accepted_ocr_documents',
+  'core_table_counts',
+  'text_asset_count',
+  'text_assets',
+  'sql_chunks',
+  'sql_files',
+  'closed_ocr_paragraphs',
+  'skipped_ocr_documents',
+  'excluded_exact_duplicate_alias_documents',
+  'semantic_excluded_pages',
+  'page_publication_schema_version',
+  'semantic_publication_schema_version',
+  'semantic_publication_revision_sha256',
+];
+export const CORPUS_MANIFEST_KEYS = [...CORPUS_MANIFEST_PROJECTION_KEYS, 'manifest_sha256'];
 export const CORE_TABLE_COUNT_KEYS = [
   'subjects',
   'periods',
@@ -68,8 +103,40 @@ DELETE FROM corpus_import_guards WHERE guard_key=${sql(guardKey)};`;
 }
 
 function nonNegativeInteger(value, label) {
-  if (!Number.isInteger(value) || value < 0) throw new Error(`${label} must be a non-negative integer`);
+  if (!Number.isSafeInteger(value) || value < 0) throw new Error(`${label} must be a safe non-negative integer`);
   return value;
+}
+
+function assertExactKeys(value, expected, label) {
+  const actual = Object.keys(value);
+  const missing = expected.filter((key) => !Object.hasOwn(value, key));
+  const extra = actual.filter((key) => !expected.includes(key));
+  if (missing.length || extra.length) {
+    throw new Error(`${label} must contain exactly the supported fields; missing=[${missing.join(', ')}] extra=[${extra.join(', ')}]`);
+  }
+}
+
+function canonicalTimestamp(value, label) {
+  if (typeof value !== 'string' || !CANONICAL_TIMESTAMP_PATTERN.test(value)
+      || Number.isNaN(Date.parse(value)) || new Date(value).toISOString() !== value) {
+    throw new Error(`${label} must be a canonical millisecond UTC timestamp`);
+  }
+  return value;
+}
+
+export function normalizeCorpusBlock(value) {
+  return value
+    .replace(/\u0000/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n+/g, ' ')
+    .replace(/\s+([，。；：！？、])/g, '$1')
+    .trim();
+}
+
+export function isUsefulCorpusBlock(value) {
+  if (value.length < 24 || value.length > 2200) return false;
+  const meaningful = (value.match(/[\p{Script=Han}A-Za-z0-9]/gu) || []).length;
+  return meaningful / value.length > 0.55 && !/^(目\s*录|contents?)$/i.test(value);
 }
 
 function sha256Asset(value, label) {
@@ -131,14 +198,14 @@ function validateCoreTableCounts(value) {
   return counts;
 }
 
-export function validateCorpusManifest(value, sqlFileCount = null) {
+function normalizeCorpusManifestProjection(value, { exactProjection = false } = {}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('corpus manifest must be an object');
+  if (exactProjection) assertExactKeys(value, CORPUS_MANIFEST_PROJECTION_KEYS, 'corpus manifest projection');
   if (value.schema_version !== 1) throw new Error('corpus manifest schema_version must equal 1');
   if (!RELEASE_ID_PATTERN.test(String(value.release_id || ''))) throw new Error('corpus manifest release_id is invalid');
   if (!SHA256_PATTERN.test(String(value.release_fingerprint_sha256 || ''))) {
     throw new Error('corpus manifest release_fingerprint_sha256 is invalid');
   }
-  if (!SHA256_PATTERN.test(String(value.manifest_sha256 || ''))) throw new Error('corpus manifest manifest_sha256 is invalid');
   const releaseFingerprint = String(value.release_fingerprint_sha256);
   if (value.release_id !== `corpus-${releaseFingerprint.slice(0, 24)}`) {
     throw new Error('corpus manifest release_id does not match release fingerprint');
@@ -146,6 +213,7 @@ export function validateCorpusManifest(value, sqlFileCount = null) {
   const textAssetCount = nonNegativeInteger(value.text_asset_count, 'text_asset_count');
   const sqlChunks = nonNegativeInteger(value.sql_chunks, 'sql_chunks');
   const manifest = {
+    generated_at: canonicalTimestamp(value.generated_at, 'generated_at'),
     schema_version: 1,
     release_id: value.release_id,
     release_fingerprint_sha256: releaseFingerprint,
@@ -160,17 +228,234 @@ export function validateCorpusManifest(value, sqlFileCount = null) {
     text_assets: validateTextAssets(value.text_assets, textAssetCount),
     sql_chunks: sqlChunks,
     sql_files: validateSqlFiles(value.sql_files, sqlChunks),
+    closed_ocr_paragraphs: nonNegativeInteger(value.closed_ocr_paragraphs, 'closed_ocr_paragraphs'),
+    skipped_ocr_documents: nonNegativeInteger(value.skipped_ocr_documents, 'skipped_ocr_documents'),
+    excluded_exact_duplicate_alias_documents: nonNegativeInteger(
+      value.excluded_exact_duplicate_alias_documents,
+      'excluded_exact_duplicate_alias_documents',
+    ),
+    semantic_excluded_pages: nonNegativeInteger(value.semantic_excluded_pages, 'semantic_excluded_pages'),
+    page_publication_schema_version: nonNegativeInteger(
+      value.page_publication_schema_version,
+      'page_publication_schema_version',
+    ),
+    semantic_publication_schema_version: nonNegativeInteger(
+      value.semantic_publication_schema_version,
+      'semantic_publication_schema_version',
+    ),
+    semantic_publication_revision_sha256: String(value.semantic_publication_revision_sha256 || ''),
   };
+  if (!SHA256_PATTERN.test(manifest.semantic_publication_revision_sha256)) {
+    throw new Error('semantic_publication_revision_sha256 is invalid');
+  }
   if (manifest.fts_rows !== manifest.paragraphs) throw new Error('fts_rows must equal paragraphs');
   if (manifest.displayed_paragraphs > manifest.paragraphs) {
     throw new Error('displayed_paragraphs cannot exceed paragraphs');
   }
+  if (manifest.displayed_paragraphs + manifest.closed_ocr_paragraphs !== manifest.paragraphs) {
+    throw new Error('displayed_paragraphs plus closed_ocr_paragraphs must equal paragraphs');
+  }
+  if (manifest.text_asset_count + manifest.skipped_ocr_documents
+      + manifest.excluded_exact_duplicate_alias_documents !== manifest.documents) {
+    throw new Error('text asset, skipped OCR and exact duplicate alias document counts must equal documents');
+  }
+  if (manifest.accepted_ocr_documents > manifest.text_asset_count) {
+    throw new Error('accepted_ocr_documents cannot exceed text_asset_count');
+  }
+  if (manifest.semantic_excluded_pages > manifest.page_publication_gates) {
+    throw new Error('semantic_excluded_pages cannot exceed page_publication_gates');
+  }
+  if (manifest.page_publication_schema_version !== 1) {
+    throw new Error('page_publication_schema_version must equal 1');
+  }
+  if (manifest.semantic_publication_schema_version !== 1) {
+    throw new Error('semantic_publication_schema_version must equal 1');
+  }
+  if (manifest.core_table_counts.document_classifications !== manifest.documents) {
+    throw new Error('core_table_counts.document_classifications must equal documents');
+  }
+  if (manifest.core_table_counts.primary_document_sources !== manifest.documents) {
+    throw new Error('core_table_counts.primary_document_sources must equal documents');
+  }
+  if (manifest.core_table_counts.document_sources < manifest.core_table_counts.primary_document_sources) {
+    throw new Error('core_table_counts.document_sources cannot be less than primary_document_sources');
+  }
+  return manifest;
+}
+
+export function sealCorpusManifest(projectionInput) {
+  const projection = normalizeCorpusManifestProjection(projectionInput, { exactProjection: true });
+  return {
+    ...projection,
+    manifest_sha256: createHash('sha256').update(JSON.stringify(projection)).digest('hex'),
+  };
+}
+
+export function validateCorpusManifest(value, sqlFileCount = null) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('corpus manifest must be an object');
+  assertExactKeys(value, CORPUS_MANIFEST_KEYS, 'corpus manifest');
+  if (!SHA256_PATTERN.test(String(value.manifest_sha256 || ''))) throw new Error('corpus manifest manifest_sha256 is invalid');
+  const manifest = normalizeCorpusManifestProjection(value);
   if (sqlFileCount !== null && manifest.sql_chunks !== sqlFileCount) {
     throw new Error(`corpus manifest expects ${manifest.sql_chunks} SQL chunks but found ${sqlFileCount}`);
   }
   const actualManifestSha256 = createHash('sha256').update(JSON.stringify(manifest)).digest('hex');
   if (actualManifestSha256 !== value.manifest_sha256) throw new Error('corpus manifest hash mismatch');
   return { ...manifest, manifest_sha256: value.manifest_sha256 };
+}
+
+export async function validateCorpusManifestSourceBindings(manifestInput, { root } = {}) {
+  const manifest = validateCorpusManifest(manifestInput);
+  if (!root) throw new Error('corpus manifest source binding validation requires root');
+  const source = (relativePath) => root instanceof URL
+    ? new URL(relativePath, root)
+    : path.resolve(String(root), relativePath);
+  const catalog = JSON.parse(await readFile(source('data/catalog.json'), 'utf8'));
+  const documentedSources = JSON.parse(
+    await readFile(source('data/document-sources.json'), 'utf8'),
+  ).sources;
+  const insights = JSON.parse(await readFile(source('data/subject-insights.json'), 'utf8'));
+  const onlineVerificationSamples = JSON.parse(
+    await readFile(source('data/online-verification-samples.json'), 'utf8'),
+  ).samples;
+  const pagePublication = validatePagePublicationManifest(
+    JSON.parse(await readFile(source('data/page-publication-manifest.json'), 'utf8')),
+  );
+  const semanticGate = createSemanticPublicationGate({
+    policy: JSON.parse(await readFile(source('data/semantic-publication-policy.json'), 'utf8')),
+    records: catalog.documents,
+  });
+  if (manifest.documents !== catalog.documents.length) {
+    throw new Error('corpus manifest documents do not match catalog');
+  }
+  if (manifest.page_publication_schema_version !== pagePublication.schema_version) {
+    throw new Error('corpus manifest page publication schema does not match source');
+  }
+  if (manifest.semantic_publication_schema_version !== semanticGate.schema_version) {
+    throw new Error('corpus manifest semantic publication schema does not match source');
+  }
+  if (manifest.semantic_publication_revision_sha256 !== semanticGate.revision_sha256) {
+    throw new Error('corpus manifest semantic publication revision does not match source');
+  }
+  if (manifest.excluded_exact_duplicate_alias_documents !== semanticGate.aliasById.size) {
+    throw new Error('corpus manifest exact duplicate alias count does not match source');
+  }
+  const sourceRows = new Map(
+    catalog.documents.map((record) => [`${record.id}\0${record.source_url}`, { is_primary: 1 }]),
+  );
+  for (const record of documentedSources) {
+    sourceRows.set(`${record.document_id}\0${record.source_url}`, record);
+  }
+  const expectedCoreTableCounts = {
+    subjects: 0,
+    periods: 5,
+    document_relations: 0,
+    chapters: 0,
+    document_classifications: catalog.documents.length,
+    document_sources: sourceRows.size,
+    primary_document_sources: [...sourceRows.values()].filter((record) => Number(record.is_primary) === 1).length,
+    subject_insights: insights.insights.length,
+    terms: insights.terms.length,
+    term_relations: insights.relations.length,
+    version_diffs: 0,
+    online_verifications: onlineVerificationSamples.length,
+    online_evidence: onlineVerificationSamples.reduce(
+      (count, verification) => count + verification.online_evidence.length,
+      0,
+    ),
+  };
+  if (JSON.stringify(manifest.core_table_counts) !== JSON.stringify(expectedCoreTableCounts)) {
+    throw new Error('corpus manifest core_table_counts do not match source');
+  }
+  const pagePublicationByDocument = new Map(
+    pagePublication.documents.map((document) => [document.document_id, document]),
+  );
+  const catalogById = new Map(catalog.documents.map((record) => [record.id, record]));
+  for (const document of pagePublication.documents) {
+    const record = catalogById.get(document.document_id);
+    if (!record) throw new Error(`corpus page publication source is absent from catalog: ${document.document_id}`);
+    if (semanticDocumentDisposition(semanticGate, record).excluded) {
+      throw new Error(`corpus page publication source is an exact duplicate alias: ${document.document_id}`);
+    }
+    if (isNativeTextRecord(record)) {
+      throw new Error(`corpus page publication source must not override native text: ${document.document_id}`);
+    }
+  }
+  const expectedTextAssets = [];
+  let skippedOcrDocuments = 0;
+  let acceptedOcrDocuments = 0;
+  let pagePublicationGates = 0;
+  let semanticExcludedPages = 0;
+  let paragraphs = 0;
+  let displayedParagraphs = 0;
+  let closedOcrParagraphs = 0;
+  for (const record of catalog.documents) {
+    if (semanticDocumentDisposition(semanticGate, record).excluded) continue;
+    const nativeText = isNativeTextRecord(record);
+    const acceptedOcr = pagePublicationByDocument.get(record.id);
+    if (!nativeText && !acceptedOcr) {
+      skippedOcrDocuments += 1;
+      continue;
+    }
+    let raw;
+    try {
+      raw = await readFile(source(`.cache/text/${record.id}.txt`), 'utf8');
+    } catch (error) {
+      if (error?.code === 'ENOENT') {
+        throw new Error(`corpus manifest source text is missing: ${record.id}`);
+      }
+      throw error;
+    }
+    expectedTextAssets.push({
+      document_id: record.id,
+      sha256: createHash('sha256').update(raw).digest('hex'),
+      bytes: Buffer.byteLength(raw, 'utf8'),
+    });
+    if (!nativeText) acceptedOcrDocuments += 1;
+    const pages = raw.split('\f');
+    if (acceptedOcr && acceptedOcr.pages.length !== pages.length) {
+      throw new Error(`corpus manifest OCR page count does not match source: ${record.id}`);
+    }
+    for (let pageIndex = 0; pageIndex < pages.length; pageIndex += 1) {
+      pagePublicationGates += 1;
+      const semantic = semanticPageDisposition({
+        gate: semanticGate,
+        record,
+        pageNumber: pageIndex + 1,
+        rawText: pages[pageIndex],
+      });
+      if (semantic.blocked) {
+        semanticExcludedPages += 1;
+        continue;
+      }
+      const displayAllowed = nativeText || acceptedOcr.pages[pageIndex].display_allowed;
+      for (const candidate of pages[pageIndex].split(/\n\s*\n/)) {
+        const body = normalizeCorpusBlock(candidate);
+        if (!isUsefulCorpusBlock(body)) continue;
+        paragraphs += 1;
+        if (displayAllowed) displayedParagraphs += 1;
+        else closedOcrParagraphs += 1;
+      }
+    }
+  }
+  const expected = {
+    text_assets: expectedTextAssets,
+    text_asset_count: expectedTextAssets.length,
+    skipped_ocr_documents: skippedOcrDocuments,
+    accepted_ocr_documents: acceptedOcrDocuments,
+    page_publication_gates: pagePublicationGates,
+    semantic_excluded_pages: semanticExcludedPages,
+    paragraphs,
+    fts_rows: paragraphs,
+    displayed_paragraphs: displayedParagraphs,
+    closed_ocr_paragraphs: closedOcrParagraphs,
+  };
+  for (const [field, value] of Object.entries(expected)) {
+    if (JSON.stringify(manifest[field]) !== JSON.stringify(value)) {
+      throw new Error(`corpus manifest ${field} does not match source`);
+    }
+  }
+  return manifest;
 }
 
 function coreCountsJsonSql(releaseId) {
@@ -519,6 +804,7 @@ async function main() {
     ),
     directory,
   );
+  await validateCorpusManifestSourceBindings(manifest, { root });
   if (args.get('finalize-only')) {
     if (args.get('core-only') || args.has('from') || args.has('to')) {
       throw new Error('--finalize-only cannot be combined with --core-only, --from, or --to');

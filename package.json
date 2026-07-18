@@ -32,6 +32,8 @@
     "corpus:import:production": "node scripts/import-corpus.mjs --database bdfz-curriculum-atlas --remote",
     "metadata:publish:preview": "node scripts/publish-metadata.mjs --bucket bdfz-curriculum-atlas-sources-preview --remote",
     "metadata:publish:production": "node scripts/publish-metadata.mjs --bucket bdfz-curriculum-atlas-sources --remote",
+    "metadata:publish:page-evidence:preview": "node scripts/publish-metadata.mjs --bucket bdfz-curriculum-atlas-sources-preview --remote --page-evidence-promotion",
+    "metadata:publish:page-evidence:production": "node scripts/publish-metadata.mjs --bucket bdfz-curriculum-atlas-sources --remote --page-evidence-promotion",
     "check": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "test:python": "/Users/ylsuen/.venv/bin/python -m unittest tests/test_ocr_pdf_paddle.py",

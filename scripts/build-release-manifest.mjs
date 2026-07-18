@@ -8,7 +8,10 @@ import { spawnSync } from 'node:child_process';
 import { auditProjectAssets } from './audit-project-assets.mjs';
 import { validateDownloadsAuditReceipt } from './build-downloads-asset-audit-receipt.mjs';
 import { validateEnvironmentEvidenceReceipt } from './collect-release-environment-evidence.mjs';
-import { validateCorpusManifest } from './import-corpus.mjs';
+import {
+  validateCorpusManifest,
+  validateCorpusManifestSourceBindings,
+} from './import-corpus.mjs';
 import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
@@ -367,6 +370,7 @@ async function inspectCorpusRelease(root) {
   const manifestJson = parseJsonAsset(manifestAsset);
   const sqlFiles = Array.isArray(manifestJson.sql_files) ? manifestJson.sql_files : [];
   const manifest = validateCorpusManifest(manifestJson, sqlFiles.length);
+  await validateCorpusManifestSourceBindings(manifest, { root });
   const actualSqlPaths = (await walkFiles(root, 'data/corpus-chunks'))
     .filter((file) => file.endsWith('.sql'));
   const expectedSqlPaths = sqlFiles.map((file) =>
@@ -386,6 +390,16 @@ async function inspectCorpusRelease(root) {
     release_id: manifest.release_id,
     release_fingerprint_sha256: manifest.release_fingerprint_sha256,
     manifest_sha256: manifest.manifest_sha256,
+    generated_at: manifest.generated_at,
+    audit: {
+      closed_ocr_paragraphs: manifest.closed_ocr_paragraphs,
+      skipped_ocr_documents: manifest.skipped_ocr_documents,
+      excluded_exact_duplicate_alias_documents: manifest.excluded_exact_duplicate_alias_documents,
+      semantic_excluded_pages: manifest.semantic_excluded_pages,
+      page_publication_schema_version: manifest.page_publication_schema_version,
+      semantic_publication_schema_version: manifest.semantic_publication_schema_version,
+      semantic_publication_revision_sha256: manifest.semantic_publication_revision_sha256,
+    },
     counts: {
       documents: manifest.documents,
       paragraphs: manifest.paragraphs,
@@ -516,9 +530,7 @@ function environmentSnapshotIdentity(snapshot) {
 }
 
 export function corpusReleaseIdentity(corpusRelease) {
-  // The emitted audit record retains these raw bindings; only the release ID uses validated canonical hashes.
-  const { sha256: _rawEnvelopeSha256, bytes: _rawEnvelopeBytes, ...canonicalIdentity } = corpusRelease;
-  return canonicalIdentity;
+  return corpusRelease;
 }
 
 export function releaseIdFromIdentity(releaseIdentity) {
@@ -695,9 +707,14 @@ export async function buildReleaseManifest({
   policyPath = DEFAULT_POLICY,
   generatedAt = new Date().toISOString(),
   pageEvidencePromotion = false,
+  rendererPath = null,
 } = {}) {
   const projectRoot = resolve(root);
-  validatePageEvidenceForRelease({ root: projectRoot, pageEvidencePromotion });
+  const pageEvidence = validatePageEvidenceForRelease({
+    root: projectRoot,
+    pageEvidencePromotion,
+    rendererPath,
+  });
   const normalizedPolicyPath = normalizeRelativePath(policyPath, 'policy path');
   const policyAsset = await inspectFile(projectRoot, normalizedPolicyPath);
   const policy = parseJsonAsset(policyAsset);
@@ -870,6 +887,7 @@ export async function buildReleaseManifest({
     source_tree_sha256: sourceTree.sha256,
     data_inventory: dataInventory,
     corpus_release: corpusReleaseIdentity(corpusRelease),
+    page_evidence: pageEvidence,
     downloads_asset_audit: downloadsReceiptIdentity(downloadsAssetAudit),
     data_assets: cleanDataAssets.map(({ role, source, key, sha256: hash, bytes }) => ({ role, source, key, sha256: hash, bytes })),
     graph_assets: cleanGraphAssets.map(({ role, source, deploy_path, sha256: hash, bytes, build_revision }) => ({ role, source, deploy_path, sha256: hash, bytes, build_revision })),
@@ -934,6 +952,7 @@ export async function buildReleaseManifest({
     source_tree: sourceTree,
     data_inventory: dataInventory,
     corpus_release: corpusRelease,
+    page_evidence: pageEvidence,
     downloads_asset_audit: downloadsAssetAudit,
     environment_snapshot: environmentState,
     data_assets: releasedDataAssets,
@@ -1005,6 +1024,7 @@ async function main() {
     policyPath: args.policy || DEFAULT_POLICY,
     generatedAt: args['generated-at'] || new Date().toISOString(),
     pageEvidencePromotion: args['page-evidence-promotion'] === true,
+    rendererPath: args.renderer || null,
   });
   const serialized = `${JSON.stringify(manifest, null, 2)}\n`;
   if (args.output) {

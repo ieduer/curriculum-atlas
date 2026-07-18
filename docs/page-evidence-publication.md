@@ -181,11 +181,47 @@ npm run deploy:page-evidence:preview
 npm run deploy:page-evidence:production
 ```
 
+The R2 metadata publication path has separate, default-off promotion commands:
+
+```bash
+npm run metadata:publish:page-evidence:preview
+npm run metadata:publish:page-evidence:production
+```
+
+Ordinary metadata commands require `publishable: false`; the two commands above
+pass the literal `--page-evidence-promotion` flag and require
+`publishable: true` before the first R2 read or write. Both the high-level
+metadata publisher and the lower-level immutable release publisher enforce the
+same explicit mode against the page-evidence result embedded in the generated
+release manifest. The lower-level publisher also rereads the exact raw corpus
+manifest and checks its full byte/hash binding before any remote command.
+
+For promotion, pin one renderer path for the whole command so release-manifest
+generation and its page-evidence validation open the same operator-selected
+binary. The validator still copies the already-open source PDF and renderer
+bytes into its private fixed-inode verification directory before rendering:
+
+```bash
+npm run metadata:publish:page-evidence:preview -- --renderer <MUTOOL_PATH>
+npm run deploy:page-evidence:preview -- --renderer <MUTOOL_PATH>
+```
+
 Those commands pass the literal `--page-evidence-promotion` flag. Direct corpus
 build, corpus import and release-manifest entrypoints accept that same explicit
 flag when they are part of the controlled promotion sequence. Promotion mode
 sets `requirePublishable: true`; it cannot be enabled by a generic environment
 toggle. The four external authority/source/renderer pins above remain mandatory.
+
+The generated corpus manifest itself is an exact-schema sealed envelope. Its
+canonical millisecond UTC timestamp, document and paragraph counts, OCR closure
+counts, alias/skip counts, page/semantic schema versions, semantic policy
+revision, text-asset inventory and SQL chunk inventory are all covered by
+`manifest_sha256`. Identical consecutive corpus builds reuse the previous
+validated timestamp only when the entire sealed envelope is byte-for-byte
+unchanged; a content change receives a fresh timestamp. Import and release
+generation also revalidate the live page/semantic source schema and semantic
+revision, while a generated R2 release keeps the raw corpus file SHA-256 and
+byte length in its release identity.
 
 ## Test coverage
 

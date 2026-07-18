@@ -17,6 +17,7 @@ import {
   assertReleaseSourceReady,
   publishVersionedRelease,
 } from '../scripts/publish-metadata.mjs';
+import { sealCorpusManifest } from '../scripts/import-corpus.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 
@@ -106,6 +107,8 @@ test('release manifest binds the complete data, graph, static, Git, and environm
   };
   assert.equal(manifest.corpus_release.sha256, rawCorpusBinding.sha256);
   assert.equal(manifest.corpus_release.bytes, rawCorpusBinding.bytes);
+  assert.equal(manifest.page_evidence.valid, true);
+  assert.equal(manifest.page_evidence.publishable, false);
 
   assert.equal(manifest.graph_assets.length, 2);
   assert.equal(manifest.graph_assets[0].build_revision, manifest.graph_assets[1].build_revision);
@@ -164,7 +167,7 @@ test('release identity is deterministic while generated_at remains an audit time
   assert.notEqual(first.generated_at, second.generated_at);
 });
 
-test('two same-content corpus build envelopes produce one release_id while canonical hashes remain bound', async () => {
+test('release identity retains the exact raw corpus envelope binding', async () => {
   const { corpusReleaseIdentity, releaseIdFromIdentity } = await import('../scripts/build-release-manifest.mjs');
   assert.equal(typeof corpusReleaseIdentity, 'function');
   const corpus = {
@@ -179,14 +182,102 @@ test('two same-content corpus build envelopes produce one release_id while canon
   };
   const first = corpusReleaseIdentity(corpus);
   const second = corpusReleaseIdentity({ ...corpus, sha256: 'e'.repeat(64), bytes: 101 });
-  assert.deepEqual(first, second);
-  assert.equal(
+  assert.notDeepEqual(first, second);
+  assert.notEqual(
     releaseIdFromIdentity({ fixed: true, corpus_release: first }),
     releaseIdFromIdentity({ fixed: true, corpus_release: second }),
   );
-  assert.equal(Object.hasOwn(first, 'sha256'), false);
-  assert.equal(Object.hasOwn(first, 'bytes'), false);
+  assert.equal(first.sha256, corpus.sha256);
+  assert.equal(first.bytes, corpus.bytes);
   assert.notDeepEqual(first, corpusReleaseIdentity({ ...corpus, manifest_sha256: 'f'.repeat(64) }));
+});
+
+test('both R2 publication modes reject a mismatched page-evidence state before any remote command', async () => {
+  for (const fixture of [
+    {
+      pageEvidencePromotion: false,
+      page_evidence: { valid: true, publishable: true },
+      message: /dedicated page-evidence promotion path/,
+    },
+    {
+      pageEvidencePromotion: true,
+      page_evidence: { valid: true, publishable: false },
+      message: /promotion requires publishable page evidence/,
+    },
+  ]) {
+    let remoteCommands = 0;
+    const manifest = {
+      schema_version: 1,
+      release_id: 'release-fixture',
+      page_evidence: fixture.page_evidence,
+      r2: {
+        release_prefix: 'releases',
+        current_pointer_key: 'release/current.json',
+        release_manifest_key: 'releases/release-fixture/manifest.json',
+        objects: [],
+      },
+    };
+    await assert.rejects(
+      publishVersionedRelease({
+        manifest,
+        bucket: 'fixture-bucket',
+        bootstrap: true,
+        pageEvidencePromotion: fixture.pageEvidencePromotion,
+        runCommand: () => {
+          remoteCommands += 1;
+          return { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.from('NoSuchKey') };
+        },
+      }),
+      fixture.message,
+    );
+    assert.equal(remoteCommands, 0);
+  }
+});
+
+test('R2 preflight revalidates the bound page evidence with the same renderer path', async () => {
+  const pageEvidence = {
+    valid: true,
+    publishable: false,
+    manifest: { locator: 'scripts/page-evidence/fail-closed-manifest.json' },
+  };
+  let observed = null;
+  await assert.rejects(
+    publishVersionedRelease({
+      manifest: {
+        schema_version: 1,
+        release_id: 'release-fixture',
+        page_evidence: pageEvidence,
+        r2: {
+          release_prefix: 'releases',
+          current_pointer_key: 'release/current.json',
+          release_manifest_key: 'releases/release-fixture/manifest.json',
+          objects: [],
+        },
+      },
+      bucket: 'fixture-bucket',
+      rendererPath: '/controlled/mutool',
+      pageEvidenceValidator: (options) => {
+        observed = options;
+        return pageEvidence;
+      },
+      runCommand: () => {
+        throw new Error('remote command must not run');
+      },
+    }),
+    /missing its corpus_release binding/,
+  );
+  assert.equal(observed.rendererPath, '/controlled/mutool');
+  assert.equal(observed.evidenceManifestPath, pageEvidence.manifest.locator);
+  assert.equal(observed.pageEvidencePromotion, false);
+});
+
+test('metadata publishing exposes explicit default-off promotion commands and renderer forwarding', async () => {
+  const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const publisher = await readFile(new URL('../scripts/publish-metadata.mjs', import.meta.url), 'utf8');
+  assert.match(packageJson.scripts['metadata:publish:page-evidence:preview'], /--page-evidence-promotion/);
+  assert.match(packageJson.scripts['metadata:publish:page-evidence:production'], /--page-evidence-promotion/);
+  assert.match(publisher, /rendererPath/);
+  assert.match(publisher, /--renderer/);
 });
 
 test('raw corpus audit envelope hash and byte binding still rejects tampering', async () => {
@@ -204,6 +295,52 @@ test('raw corpus audit envelope hash and byte binding still rejects tampering', 
     ),
     /parity failure/,
   );
+});
+
+test('a generated R2 release rejects raw corpus envelope drift before remote access', async () => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'release-corpus-drift-test-'));
+  try {
+    const raw = await readFile(new URL('../data/corpus-chunks/manifest.json', import.meta.url));
+    const parsed = JSON.parse(raw.toString('utf8'));
+    const drifted = Buffer.from(`${raw.toString('utf8').trimEnd()} \n`);
+    await writeFile(join(fixtureRoot, 'corpus-manifest.json'), drifted);
+    let remoteCommands = 0;
+    await assert.rejects(
+      publishVersionedRelease({
+        manifest: {
+          schema_version: 1,
+          release_id: 'release-fixture',
+          page_evidence: { valid: true, publishable: false },
+          corpus_release: {
+            source: 'corpus-manifest.json',
+            sha256: createHash('sha256').update(raw).digest('hex'),
+            bytes: raw.length,
+            release_id: parsed.release_id,
+            release_fingerprint_sha256: parsed.release_fingerprint_sha256,
+            manifest_sha256: parsed.manifest_sha256,
+          },
+          r2: {
+            release_prefix: 'releases',
+            current_pointer_key: 'release/current.json',
+            release_manifest_key: 'releases/release-fixture/manifest.json',
+            objects: [],
+          },
+        },
+        bucket: 'fixture-bucket',
+        bootstrap: true,
+        root: fixtureRoot,
+        pageEvidenceValidator: () => ({ valid: true, publishable: false }),
+        runCommand: () => {
+          remoteCommands += 1;
+          return { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.from('unexpected remote command') };
+        },
+      }),
+      /local corpus envelope.*parity failure/,
+    );
+    assert.equal(remoteCommands, 0);
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
 });
 
 test('hash and byte parity rejects stale content', () => {
@@ -315,9 +452,58 @@ test('a staging failure leaves the existing current pointer untouched', async ()
         counts: {},
       });
     }
+    const corpusManifest = sealCorpusManifest({
+      generated_at: '2026-07-18T00:00:00.000Z',
+      schema_version: 1,
+      release_id: `corpus-${'b'.repeat(24)}`,
+      release_fingerprint_sha256: 'b'.repeat(64),
+      documents: 1,
+      paragraphs: 1,
+      fts_rows: 1,
+      page_publication_gates: 1,
+      displayed_paragraphs: 1,
+      accepted_ocr_documents: 0,
+      core_table_counts: {
+        subjects: 0,
+        periods: 5,
+        document_relations: 0,
+        chapters: 0,
+        document_classifications: 1,
+        document_sources: 1,
+        primary_document_sources: 1,
+        subject_insights: 0,
+        terms: 0,
+        term_relations: 0,
+        version_diffs: 0,
+        online_verifications: 0,
+        online_evidence: 0,
+      },
+      text_asset_count: 1,
+      text_assets: [{ document_id: 'doc-a', sha256: 'e'.repeat(64), bytes: 1 }],
+      sql_chunks: 1,
+      sql_files: [{ name: '000-core.sql', sha256: 'f'.repeat(64), bytes: 1 }],
+      closed_ocr_paragraphs: 0,
+      skipped_ocr_documents: 0,
+      excluded_exact_duplicate_alias_documents: 0,
+      semantic_excluded_pages: 0,
+      page_publication_schema_version: 1,
+      semantic_publication_schema_version: 1,
+      semantic_publication_revision_sha256: 'a'.repeat(64),
+    });
+    const corpusBuffer = Buffer.from(`${JSON.stringify(corpusManifest, null, 2)}\n`);
+    await writeFile(join(fixtureRoot, 'corpus-manifest.json'), corpusBuffer);
     const manifest = {
       schema_version: 1,
       release_id: 'release-fixture',
+      page_evidence: { valid: true, publishable: false },
+      corpus_release: {
+        source: 'corpus-manifest.json',
+        sha256: createHash('sha256').update(corpusBuffer).digest('hex'),
+        bytes: corpusBuffer.length,
+        release_id: corpusManifest.release_id,
+        release_fingerprint_sha256: corpusManifest.release_fingerprint_sha256,
+        manifest_sha256: corpusManifest.manifest_sha256,
+      },
       r2: {
         release_prefix: 'releases',
         current_pointer_key: 'release/current.json',
@@ -354,7 +540,13 @@ test('a staging failure leaves the existing current pointer untouched', async ()
     };
 
     await assert.rejects(
-      publishVersionedRelease({ manifest, bucket: 'fixture-bucket', root: fixtureRoot, runCommand }),
+      publishVersionedRelease({
+        manifest,
+        bucket: 'fixture-bucket',
+        root: fixtureRoot,
+        runCommand,
+        pageEvidenceValidator: () => manifest.page_evidence,
+      }),
       /R2 put releases\/release-fixture\/quality\/asset-2\.json failed/,
     );
     assert.deepEqual(putKeys, [

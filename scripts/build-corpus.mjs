@@ -2,7 +2,13 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadDocumentClassificationResolver } from './document-classification.mjs';
-import { buildParagraphIdentityGuardSql } from './import-corpus.mjs';
+import {
+  buildParagraphIdentityGuardSql,
+  isUsefulCorpusBlock,
+  normalizeCorpusBlock,
+  sealCorpusManifest,
+  validateCorpusManifest,
+} from './import-corpus.mjs';
 import {
   bindAcceptedOcrDocument,
   isNativeTextRecord,
@@ -109,6 +115,19 @@ const corpusReleaseFingerprint = createHash('sha256').update(JSON.stringify({
 })).digest('hex');
 const corpusReleaseId = `corpus-${corpusReleaseFingerprint.slice(0, 24)}`;
 const outputDir = new URL('data/corpus-chunks/', projectRoot);
+let previousCorpusManifest = null;
+try {
+  const previousRawManifest = JSON.parse(
+    await readFile(new URL('manifest.json', outputDir), 'utf8'),
+  );
+  try {
+    previousCorpusManifest = validateCorpusManifest(previousRawManifest);
+  } catch {
+    // A legacy envelope cannot supply a reusable audit timestamp.
+  }
+} catch (error) {
+  if (error?.code !== 'ENOENT') throw error;
+}
 await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
 
@@ -120,21 +139,6 @@ function sql(value) {
 
 function stableHash(value) {
   return createHash('sha256').update(value).digest('hex');
-}
-
-function normalizeBlock(value) {
-  return value
-    .replace(/\u0000/g, '')
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n+/g, ' ')
-    .replace(/\s+([，。；：！？、])/g, '$1')
-    .trim();
-}
-
-function useful(value) {
-  if (value.length < 24 || value.length > 2200) return false;
-  const meaningful = (value.match(/[\p{Script=Han}A-Za-z0-9]/gu) || []).length;
-  return meaningful / value.length > 0.55 && !/^(目\s*录|contents?)$/i.test(value);
 }
 
 function yearFor(record) {
@@ -378,8 +382,8 @@ for (const record of catalog.documents) {
     const candidates = pages[pageIndex].split(/\n\s*\n/);
     for (let blockIndex = 0; blockIndex < candidates.length; blockIndex += 1) {
       const candidate = candidates[blockIndex];
-      const body = normalizeBlock(candidate);
-      if (!useful(body)) continue;
+      const body = normalizeCorpusBlock(candidate);
+      if (!isUsefulCorpusBlock(body)) continue;
       ordinal += 1;
       totalParagraphs += 1;
       if (pageGate.display_allowed) displayedParagraphs += 1;
@@ -410,6 +414,7 @@ await flush();
 await writeSqlFile('000-core.sql', `${statements.join('\n')}\n`);
 sqlFiles.sort((left, right) => left.name.localeCompare(right.name));
 const manifestProjection = {
+  generated_at: previousCorpusManifest?.generated_at || new Date().toISOString(),
   schema_version: 1,
   release_id: corpusReleaseId,
   release_fingerprint_sha256: corpusReleaseFingerprint,
@@ -424,12 +429,6 @@ const manifestProjection = {
   text_assets: corpusTextAssets,
   sql_chunks: sqlFiles.length,
   sql_files: sqlFiles,
-};
-const manifestSha256 = stableHash(JSON.stringify(manifestProjection));
-await writeFile(join(outputDir.pathname, 'manifest.json'), `${JSON.stringify({
-  generated_at: new Date().toISOString(),
-  ...manifestProjection,
-  manifest_sha256: manifestSha256,
   closed_ocr_paragraphs: closedOcrParagraphs,
   skipped_ocr_documents: skippedOcrDocuments,
   excluded_exact_duplicate_alias_documents: excludedAliasDocuments,
@@ -437,5 +436,13 @@ await writeFile(join(outputDir.pathname, 'manifest.json'), `${JSON.stringify({
   page_publication_schema_version: pagePublicationManifest.schema_version,
   semantic_publication_schema_version: semanticPublicationGate.schema_version,
   semantic_publication_revision_sha256: semanticPublicationGate.revision_sha256,
-}, null, 2)}\n`);
+};
+let corpusManifest = sealCorpusManifest(manifestProjection);
+if (previousCorpusManifest && JSON.stringify(corpusManifest) !== JSON.stringify(previousCorpusManifest)) {
+  corpusManifest = sealCorpusManifest({
+    ...manifestProjection,
+    generated_at: new Date().toISOString(),
+  });
+}
+await writeFile(join(outputDir.pathname, 'manifest.json'), `${JSON.stringify(corpusManifest, null, 2)}\n`);
 console.log(`Built ${totalParagraphs} paragraphs across ${sqlFiles.length} SQL chunks.`);

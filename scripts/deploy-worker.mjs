@@ -32,10 +32,11 @@ export async function deployWorker({
   root = DEFAULT_ROOT,
   runCommand = spawnSync,
   pageEvidencePromotion = false,
+  rendererPath = null,
 } = {}) {
-  validatePageEvidenceForRelease({ root, pageEvidencePromotion });
+  validatePageEvidenceForRelease({ root, pageEvidencePromotion, rendererPath });
   const git = assertCleanReleaseSource({ root, requireUpstream: true, runCommand });
-  const manifest = await buildReleaseManifest({ root, pageEvidencePromotion });
+  const manifest = await buildReleaseManifest({ root, pageEvidencePromotion, rendererPath });
   assertManifestSourceGates(manifest);
   const arguments_ = wranglerDeployArgs(environment, git.head);
   const result = runCommand('npx', arguments_, { cwd: root, encoding: 'utf8', stdio: 'inherit' });
@@ -46,6 +47,7 @@ export async function deployWorker({
 function parseArgs(argv) {
   let environment = null;
   let pageEvidencePromotion = false;
+  let rendererPath = null;
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === '--page-evidence-promotion') {
@@ -61,12 +63,20 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+    if (argument === '--renderer') {
+      if (rendererPath !== null) throw new Error('--renderer may be specified only once');
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) throw new Error('missing value for --renderer');
+      rendererPath = value;
+      index += 1;
+      continue;
+    }
     throw new Error(`unexpected argument: ${argument}`);
   }
   if (!environment) {
-    throw new Error('usage: node scripts/deploy-worker.mjs --environment <preview|production> [--page-evidence-promotion]');
+    throw new Error('usage: node scripts/deploy-worker.mjs --environment <preview|production> [--page-evidence-promotion] [--renderer <MUTOOL_PATH>]');
   }
-  return { environment, pageEvidencePromotion };
+  return { environment, pageEvidencePromotion, rendererPath };
 }
 
 async function main() {
