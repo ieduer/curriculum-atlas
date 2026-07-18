@@ -450,11 +450,14 @@ test('systemd template holds the complete lifecycle under one bounded no-fork fl
   assert.match(service, /^EnvironmentFile=%h\/\.config\/bdfz\/curriculum-ocr-reprocess-b-r3-cleanup\.conf$/mu);
   assert.doesNotMatch(service, /^EnvironmentFile=-/mu);
   assert.match(service, /^SuccessExitStatus=10 75$/mu);
+  assert.match(service, /^ExecStartPre=\/usr\/bin\/sha256sum --check --strict %h\/curriculum-ocr-offload\/runs\/20260716T1520Z-partial14-reprocess\/workspace-b-r3\/SHA256SUMS$/mu);
   assert.match(service, /^ExecStart=\/usr\/bin\/flock --no-fork --exclusive --wait 60 --conflict-exit-code 75 /mu);
   assert.match(service, /--output-root \$\{BDFZ_OCR_B3_OUTPUT_ROOT\}/u);
   assert.match(service, /--worker-unit \$\{BDFZ_OCR_B3_WORKER_UNIT\}/u);
   assert.match(service, /--llama-unit \$\{BDFZ_OCR_B3_LLAMA_UNIT\}/u);
   assert.match(service, /^Restart=no$/mu);
+  assert.match(service, /^ProtectHome=read-only$/mu);
+  assert.match(service, /^ReadWritePaths=%h\/\.config\/systemd\/user\/default\.target\.wants$/mu);
   assert.doesNotMatch(`${service}\n${config}`, /(?:PASSWORD|TOKEN|COOKIE|\.secrets\.env)/iu);
   assert.match(config, /^BDFZ_OCR_B3_CLEANUP_SCRIPT=\/home\/suen\/curriculum-ocr-offload\/runs\/20260716T1520Z-partial14-reprocess\/workspace-b-r3\/scripts\/cleanup-remote-ocr-completion\.mjs$/mu);
   assert.match(config, /^BDFZ_OCR_B3_OUTPUT_ROOT=\/home\/suen\/curriculum-ocr-offload\/runs\/20260716T1520Z-partial14-reprocess\/output\/production-p1-mb16-shard-b-r3$/mu);
