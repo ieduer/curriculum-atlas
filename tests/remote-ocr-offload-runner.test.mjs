@@ -2228,7 +2228,7 @@ test('schema-v2 timeout seed verifies and archives canonical issuance plus struc
   await Promise.all([rm(issuancePath), rm(`${issuancePath}.sha256`)]);
   await assert.rejects(
     runRemoteOcrOffload(optionsFor(rejectedRoot), dependencies),
-    /timeout recovery issuance claim is missing/u,
+    /timeout recovery issuance claim(?: SHA-256 sidecar)? is missing/u,
   );
   for (const forbidden of [
     'run-identity.json',
