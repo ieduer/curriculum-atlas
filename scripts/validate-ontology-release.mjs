@@ -1362,52 +1362,34 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-const RELATION_CONTEXT_BLOCKER = new RegExp([
-  '不', '未', '无', '非', '否', '难以', '存疑', '商榷',
-  '错误', '谬误', '误解', '误读', '臆断', '片面', '例外', '除非',
-  '纠正', '更正', '修正', '反驳', '质疑', '争议',
-  '但', '然而', '不过', '却', '相反', '反而', '虽然', '尽管',
-  '所谓', '观点', '说法', '认为', '声称', '宣称', '据称', '据说',
-  '表示', '指出', '强调', '提到', '提及', '写道', '主张', '转述', '引用',
-  '可能', '或许', '也许', '假定', '假设', '条件', '前提',
-  '仅', '只在', '限于', '适用范围',
-].map(escapeRegExp).join('|'), 'u');
-const RELATION_CONTEXT_WRAPPER = /[“”‘’"'（）()【】\[\]]/u;
-const RELATION_FOLLOWING_SENTENCE_END = /^[。！？!?]/u;
+const RELATION_TERMINAL_PUNCTUATION = /[。！？!?]$/u;
+const RELATION_DISALLOWED_INLINE_TEXT = /[。！？!?；;，,：:\r\n“”‘’"'（）()【】\[\]]/u;
 
-function canonicalRelationStatementContext(paragraphBody, startOffset, endOffset) {
-  if (typeof paragraphBody !== 'string'
-    || !Number.isInteger(startOffset)
-    || !Number.isInteger(endOffset)
-    || startOffset < 0
-    || endOffset <= startOffset
-    || endOffset > paragraphBody.length) {
+function canonicalRelationStatementContext(paragraphBody, assertion, binding) {
+  if (typeof paragraphBody !== 'string' || !assertion || !binding) {
     return { complete: false, statement: '' };
   }
-  const statement = paragraphBody.slice(startOffset, endOffset);
-  const precedingContext = paragraphBody.slice(0, startOffset).trimEnd();
-  const followingContext = paragraphBody.slice(endOffset).trimStart();
   const canonical = canonicalParagraphBody(paragraphBody);
-  const startsAsIndependentSentence = precedingContext.length === 0;
-  const endsAsIndependentSentence = followingContext.length === 0
-    || RELATION_FOLLOWING_SENTENCE_END.test(followingContext);
+  const canonicalLength = canonical.length;
+  const paragraphSha256 = sha256(paragraphBody);
   return {
     complete: canonical === paragraphBody
-      && statement === statement.trim()
-      && startsAsIndependentSentence
-      && endsAsIndependentSentence
-      && !RELATION_CONTEXT_BLOCKER.test(paragraphBody)
-      && !RELATION_CONTEXT_WRAPPER.test(paragraphBody),
-    statement,
+      && assertion.start_offset === 0
+      && binding.text_start_offset === 0
+      && assertion.end_offset === canonicalLength
+      && binding.text_end_offset === canonicalLength
+      && binding.text_sha256 === assertion.paragraph_body_sha256
+      && binding.text_sha256 === paragraphSha256,
+    statement: paragraphBody,
   };
 }
 
 function canonicalStatementSupportsRelation(relationType, statement, sourceLabel, targetLabel) {
-  const text = statement.trim().replace(/\s+/g, '');
-  if (!text || /[。！？!?；;，,：:\n]/.test(text)) return false;
-  if (/(?:不|未|无|非|否认|错误|不成立|不正确|不能|从未|尚未|没有)/.test(text)) return false;
-  const source = escapeRegExp(sourceLabel.replace(/\s+/g, ''));
-  const target = escapeRegExp(targetLabel.replace(/\s+/g, ''));
+  if (typeof statement !== 'string' || statement.length === 0 || statement.trim() !== statement) return false;
+  const text = RELATION_TERMINAL_PUNCTUATION.test(statement) ? statement.slice(0, -1) : statement;
+  if (!text || RELATION_DISALLOWED_INLINE_TEXT.test(text)) return false;
+  const source = escapeRegExp(sourceLabel);
+  const target = escapeRegExp(targetLabel);
   const tests = {
     supports: [
       new RegExp(`^${source}(?:直接|明确|有力)?(?:支持|支撑|促进|保障|有助于|服务于)${target}$`),
@@ -1485,8 +1467,8 @@ function validateRelations(manifest, scopes, assertionResult, nodes, errors) {
           bound_text: boundText,
           context: canonicalRelationStatementContext(
             paragraph.body,
-            binding.text_start_offset,
-            binding.text_end_offset,
+            assertion,
+            binding,
           ),
         });
         issue(errors, boundText.includes(source.label) && boundText.includes(target.label),
@@ -1507,9 +1489,9 @@ function validateRelations(manifest, scopes, assertionResult, nodes, errors) {
     if (source && target && relationStatements.length === 1) {
       const statement = relationStatements[0];
       issue(errors, statement.context.complete,
-      'relation_statement_context_error', `${relation.id} statement must be an unwrapped positive independent sentence in its complete canonical paragraph context`);
-      issue(errors, relation.assertion_basis === statement.bound_text,
-        'relation_basis_not_canonical_statement', `${relation.id} assertion_basis is not the exact canonical relation statement`);
+      'relation_statement_context_error', `${relation.id} relation statement and its accepted assertion must bind the complete canonical paragraph bytes`);
+      issue(errors, relation.assertion_basis === statement.context.statement,
+        'relation_basis_not_canonical_statement', `${relation.id} assertion_basis is not the complete canonical paragraph`);
       issue(errors, statement.context.complete && canonicalStatementSupportsRelation(
         relation.relation_type,
         statement.context.statement,

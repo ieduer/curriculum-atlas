@@ -217,7 +217,9 @@ function sealSyntheticPromotionEvidence(fixture) {
   return fixture;
 }
 
-function reviewedFixture(pageNumber = 11, paragraph = PARAGRAPH) {
+function reviewedFixture(pageNumber = 11, paragraph = PARAGRAPH, {
+  coreDefinition = NODE_DEFINITION,
+} = {}) {
   const release = copy(manifest);
   const pageFixture = acceptedPageFixture(pageNumber, paragraph);
   const pageReplacement = withArtifact(context, 'page_publication', pageFixture.manifest);
@@ -266,8 +268,8 @@ function reviewedFixture(pageNumber = 11, paragraph = PARAGRAPH) {
       candidate_parent_relation: null,
       label_start_offset: paragraph.indexOf(NODE_LABEL),
       label_end_offset: paragraph.indexOf(NODE_LABEL) + NODE_LABEL.length,
-      definition_start_offset: paragraph.indexOf(NODE_DEFINITION),
-      definition_end_offset: paragraph.indexOf(NODE_DEFINITION) + NODE_DEFINITION.length,
+      definition_start_offset: paragraph.indexOf(coreDefinition),
+      definition_end_offset: paragraph.indexOf(coreDefinition) + coreDefinition.length,
     },
     online_claim_ids: ['claim:core-competencies'],
     independent_online_source_ids: [
@@ -312,7 +314,7 @@ function reviewedFixture(pageNumber = 11, paragraph = PARAGRAPH) {
     candidate_parent_id: null,
     candidate_parent_relation: null,
     lexical_concept_id: 'core-competency',
-    definition: NODE_DEFINITION,
+    definition: coreDefinition,
     field_binding_assertion_id: 'assertion:zh-compulsory-2022-core-competencies-p011',
     source_assertion_ids: ['assertion:zh-compulsory-2022-core-competencies-p011'],
     review_status: 'editor_reviewed',
@@ -342,10 +344,11 @@ function reviewedFixture(pageNumber = 11, paragraph = PARAGRAPH) {
   });
 }
 
-function addLanguageUseChild(fixture) {
+function addLanguageUseChild(fixture, {
+  definition = '通过语言实践落实',
+} = {}) {
   const paragraph = fixture.context.canonical_paragraphs.get('moe-2022-03\u00001').body;
   const label = '语言运用';
-  const definition = '通过语言实践落实';
   assert.ok(paragraph.includes(label) && paragraph.includes(definition));
   const candidate = copy(fixture.context.artifacts.candidate.json);
   const languageUseCandidate = candidate.node_groups
@@ -410,7 +413,7 @@ function addExplicitRelation(fixture, {
   const body = fixture.context.canonical_paragraphs.get('moe-2022-03\u00001').body;
   const source = fixture.release.nodes[0];
   const target = fixture.release.nodes[1];
-  const statement = relationStatement ?? body.split(/[。！？!?；;，,：:\n]/, 1)[0];
+  const statement = relationStatement ?? body;
   const statementStart = body.indexOf(statement);
   const basis = assertionBasis ?? statement;
   fixture.release.relations = [{
@@ -855,18 +858,43 @@ test('relation statements inspect canonical full-paragraph context across punctu
   }
 });
 
+test('relation statements cannot hide disqualifying complete second sentences', async (t) => {
+  const statement = '核心素养支持语言运用';
+  const tail = '核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。';
+  for (const secondSentence of [
+    '以上断言为假',
+    '以上判断系讹传',
+    '实则两者彼此排斥',
+    '以上为张三原话',
+    '范围为小学一年级',
+  ]) {
+    await t.test(secondSentence, () => {
+      const body = canonicalParagraphBody(`${statement}。${secondSentence}。${tail}`);
+      const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
+        relationStatement: statement,
+      });
+      const report = validateOntologyRelease(fixture.release, fixture.context);
+      assert.equal(report.valid, false);
+      assert.match(text(report), /relation_statement_context_error|relation_semantics_not_supported/);
+    });
+  }
+});
+
 test('relation statements allow only an unwrapped positive independent sentence in neutral canonical context', async (t) => {
   const statement = '核心素养支持语言运用';
   const tail = '核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。';
   const positiveCases = [
-    ['paragraph-leading sentence', `${statement}。${tail}`],
+    ['whole paragraph without terminal punctuation', statement],
+    ['whole paragraph with one terminal full stop', `${statement}。`],
   ];
   for (const [name, rawBody] of positiveCases) {
     await t.test(name, () => {
       const body = canonicalParagraphBody(rawBody);
-      const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body)), {
-        relationStatement: statement,
-      });
+      const fixture = addExplicitRelation(addLanguageUseChild(reviewedFixture(11, body, {
+        coreDefinition: '核心素养',
+      }), {
+        definition: '语言运用',
+      }));
       const report = validateOntologyRelease(fixture.release, fixture.context);
       assert.equal(report.valid, true, text(report));
     });
@@ -932,9 +960,13 @@ test('internal nodes are held to the same accepted provenance gate as leaves', (
 });
 
 test('relations require exact content-level endpoint and statement evidence', () => {
-  const body = '核心素养支持语言运用。核心素养是课程育人价值的集中体现，语言运用通过语言实践落实课程目标与课程内容。';
-  const fixture = addLanguageUseChild(reviewedFixture(11, body));
-  const basis = '核心素养支持语言运用';
+  const body = '核心素养支持语言运用。';
+  const fixture = addLanguageUseChild(reviewedFixture(11, body, {
+    coreDefinition: '核心素养',
+  }), {
+    definition: '语言运用',
+  });
+  const basis = body;
   fixture.release.relations = [{
     id: 'relation:zh-compulsory-2022-core-to-language-use',
     relation_type: 'supports',
@@ -960,8 +992,8 @@ test('relations require exact content-level endpoint and statement evidence', ()
       assertion_id: fixture.release.assertions[0].assertion_id,
       evidence_role: 'relation_statement',
       text_start_offset: 0,
-      text_end_offset: basis.length,
-      text_sha256: digest(basis),
+      text_end_offset: body.length,
+      text_sha256: digest(body),
     }],
     provenance_mode: 'explicit_canonical_statement_v1',
     direction: 'source_to_target',
