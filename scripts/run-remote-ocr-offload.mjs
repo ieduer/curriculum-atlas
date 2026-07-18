@@ -4537,6 +4537,7 @@ function stripReceiptSuccessorFields(receiptDocument) {
 function reconstructCommittedInitialRunStatus({
   predecessorRunStatus,
   receipt,
+  receiptDocumentById,
   identity,
   manifest,
   recomputedDocuments,
@@ -4590,9 +4591,7 @@ function reconstructCommittedInitialRunStatus({
       delete progress.quarantined_at;
       delete progress.quarantine_reason;
     }
-    const receiptDocument = receipt.documents.find(
-      (value) => value.document_id === document.document_id,
-    );
+    const receiptDocument = receiptDocumentById.get(document.document_id);
     if (receiptDocument.successor_status_sha256) {
       progress.status_json_sha256 = receiptDocument.successor_status_sha256;
     }
@@ -4608,6 +4607,7 @@ async function validateCommittedSeedPredecessorEvidence({
   outputRoot,
   marker,
   receipt,
+  receiptDocumentById,
   identity,
   runStatus,
   manifest,
@@ -4741,7 +4741,7 @@ async function validateCommittedSeedPredecessorEvidence({
   const artifactRecords = [];
   for (const document of manifest.documents) {
     const progress = seedProgressRecord(progressById[document.id], document);
-    const receiptDocument = receipt.documents.find((value) => value.document_id === document.id);
+    const receiptDocument = receiptDocumentById.get(document.id);
     if (!receiptDocument || receiptDocument.inherited_attempts !== progress.attempts) {
       throw new Error(`${document.id}: archived predecessor attempt floor differs from the seed receipt`);
     }
@@ -5077,6 +5077,7 @@ async function validateCommittedSeedPredecessorEvidence({
   const initialRunStatus = reconstructCommittedInitialRunStatus({
     predecessorRunStatus,
     receipt,
+    receiptDocumentById,
     identity,
     manifest,
     recomputedDocuments,
@@ -5134,6 +5135,27 @@ async function validateCommittedSeedPredecessorEvidence({
   return { predecessorIdentity, predecessorRunStatus, recomputedDocuments };
 }
 
+function requireExactCommittedReceiptDocumentMap(receipt, manifest) {
+  if (!Array.isArray(receipt.documents)) {
+    throw new Error('committed seed receipt documents must be a JSON array');
+  }
+  const expectedIds = manifest.documents.map((document) => document.id);
+  const actualIds = [];
+  const documentsById = new Map();
+  for (const value of receipt.documents) {
+    const document = requireObject(value, 'committed seed receipt document');
+    if (typeof document.document_id !== 'string' || documentsById.has(document.document_id)) {
+      throw new Error('committed seed receipt documents must be unique and exactly match the manifest order');
+    }
+    actualIds.push(document.document_id);
+    documentsById.set(document.document_id, document);
+  }
+  if (!sameJsonValue(actualIds, expectedIds)) {
+    throw new Error('committed seed receipt documents must be unique and exactly match the manifest order');
+  }
+  return documentsById;
+}
+
 async function resumeCommittedSeed(outputRoot, expectedIdentity, manifest) {
   const markerPath = path.join(outputRoot, 'seed-commit.json');
   const markerPresent = await lstat(markerPath).then(() => true, (error) => {
@@ -5186,6 +5208,7 @@ async function resumeCommittedSeed(outputRoot, expectedIdentity, manifest) {
     || identity.whole_document_atomic !== true) {
     throw new Error('committed seed receipt or identity differs from the active manifest contract');
   }
+  const receiptDocumentById = requireExactCommittedReceiptDocumentMap(receipt, manifest);
   for (const key of Object.keys(expectedIdentity)) {
     if (!sameJsonValue(identity[key], expectedIdentity[key])) {
       throw new Error(`committed seed run identity differs from active successor field ${key}`);
@@ -5441,6 +5464,7 @@ async function resumeCommittedSeed(outputRoot, expectedIdentity, manifest) {
     outputRoot,
     marker,
     receipt,
+    receiptDocumentById,
     identity,
     runStatus: runStatusEvidence.value,
     manifest,
@@ -5452,6 +5476,7 @@ async function resumeCommittedSeed(outputRoot, expectedIdentity, manifest) {
     runStatus: runStatusEvidence.value,
     runStatusSha256: runStatusEvidence.digest,
     identity,
+    receiptDocumentById,
     resumedCommittedSeed: true,
   };
 }
@@ -5670,6 +5695,21 @@ function childMonitoringPolicy(options, pageCount) {
   };
 }
 
+function requireExactTimeoutRecoveryTransitionOptions(options, monitoringContract) {
+  const expectedMonitoring = {
+    ...defaultChildMonitoringPolicy,
+    idle_timeout_seconds: 1_200,
+  };
+  if (options.vlRecMaxConcurrency !== 1
+    || options.serverParallel !== 1
+    || options.microBatch !== 16
+    || options.useQueues !== true
+    || options.llamaUrl !== 'http://127.0.0.1:8112/v1'
+    || !sameJsonValue(monitoringContract, expectedMonitoring)) {
+    throw new Error('timeout recovery requires the exact audited p4-to-p1 transition');
+  }
+}
+
 async function progressSignature(pathname) {
   try {
     const fileStats = await stat(pathname);
@@ -5845,6 +5885,7 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
     })
     : false;
   let selfContainedSeedCandidate = false;
+  let timeoutRecoveryTransitionRequired = false;
   if (committedSeedCandidate) {
     const committedReceiptRaw = await readFile(
       path.join(requestedOutputRoot, 'seed-receipt.json'),
@@ -5856,9 +5897,11 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
     } catch {
       throw new Error('committed seed receipt is not valid JSON');
     }
+    requireExactCommittedReceiptDocumentMap(committedReceipt, manifest);
     selfContainedSeedCandidate = isAuditedP4ToP1Delta(
       committedReceipt.allowed_configuration_delta,
     );
+    timeoutRecoveryTransitionRequired = selfContainedSeedCandidate;
   }
   let seedPredecessorRoot = null;
   if (options.seedFromOutputRoot && !selfContainedSeedCandidate) {
@@ -5881,15 +5924,10 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
       if (error?.code === 'ENOENT') return false;
       throw error;
     });
-    if (timeoutRecoveryGrantPresent
-      && (options.vlRecMaxConcurrency !== 1
-        || options.serverParallel !== 1
-        || options.microBatch !== 16
-        || options.useQueues !== true
-        || options.childIdleTimeoutSeconds !== 1200
-        || options.llamaUrl !== 'http://127.0.0.1:8112/v1')) {
-      throw new Error('timeout recovery requires the exact audited p4-to-p1 transition');
-    }
+    timeoutRecoveryTransitionRequired = timeoutRecoveryGrantPresent;
+  }
+  if (timeoutRecoveryTransitionRequired) {
+    requireExactTimeoutRecoveryTransitionOptions(options, monitoringContract);
   }
   if (options.seedFromOutputRoot) {
     await mkdir(requestedOutputRoot, { recursive: false, mode: 0o700 }).catch(async (error) => {
@@ -6097,9 +6135,7 @@ export async function runRemoteOcrOffload(options, dependencies = {}) {
       preparedSeed = committedSeed;
       identity = committedSeed.identity;
       seededRunStatus = committedSeed.runStatus;
-      seedDocumentById = new Map(
-        committedSeed.receipt.documents.map((document) => [document.document_id, document]),
-      );
+      seedDocumentById = committedSeed.receiptDocumentById;
       if (options.seedDryRun) {
         return {
           exitCode: 0,

@@ -60,7 +60,7 @@ const legacyB1OcrScriptSha256 = 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53
 const seedAwareOcrScriptSha256 = '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3';
 const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca';
 const fixedB3RunnerScriptSha256 = '58a1e3826aca807bf62f4546f237597c305334ba1b0a56a8f47cacfaa5cfeaa7';
-const a1CompletedStatusRunnerScriptSha256 = '471072ae747877f5d0486f2142e736f7265c99e8cd6f1f61beba4ff994e34fbd';
+const a1CompletedStatusRunnerScriptSha256 = '0fbf3d284f324f5faa710ca09342cdef88d24e6349b6e5d590ccca215065354d';
 const seedAwareTransition = 'p4_to_p1_seed_aware_ocr_v2';
 const runtime = Object.freeze({
   pipeline: 'PaddleOCR-VL',
@@ -2058,6 +2058,12 @@ test('exact schema-v2 p4-to-p1 seeds preserve OCR identity and pass receiver and
       'p4_to_p1_v1',
     );
     await rm(predecessorRoot, { recursive: true });
+    const committedTreeBeforePolicyDrift = await inspectTree(successorRoot);
+    await assert.rejects(
+      runRemoteOcrOffload({ ...options, childPollIntervalSeconds: 6 }, seedDependencies),
+      /timeout recovery requires the exact audited p4-to-p1 transition/u,
+    );
+    assert.deepEqual(await inspectTree(successorRoot), committedTreeBeforePolicyDrift);
     const resumed = await runRemoteOcrOffload(options, seedDependencies);
     assert.equal(resumed.seedReceipt.seed_id, result.seedReceipt.seed_id);
     seeds.push({ result, successorIdentity });
@@ -2360,6 +2366,12 @@ test('schema-v2 timeout seed verifies and archives canonical issuance plus struc
   assert.equal(inventory.documents[0].timeout_incident.raw.sha256, incidentSummary.raw_sha256);
   const claimFiles = (await readdir(ledgerRoot)).filter((entry) => entry.endsWith('.claim.json'));
   assert.equal(claimFiles.length, 1);
+  const committedTreeBeforePolicyDrift = await inspectTree(successorRoot);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(successorRoot, { childPollIntervalSeconds: 6 }), dependencies),
+    /timeout recovery requires the exact audited p4-to-p1 transition/u,
+  );
+  assert.deepEqual(await inspectTree(successorRoot), committedTreeBeforePolicyDrift);
   await assert.rejects(
     runRemoteOcrOffload(optionsFor(path.join(root, 'timeout-p1-replay')), dependencies),
     /already consumed by a different successor/u,
@@ -2426,6 +2438,19 @@ test('schema-v2 timeout seed verifies and archives canonical issuance plus struc
     marker.installed_items_sha256 = sha256(canonicalJson(marker.installed_items));
     await writeJsonSidecar(markerPath, marker);
   };
+  await withRestoredCommittedControls(async () => {
+    const receiptPath = path.join(successorRoot, 'seed-receipt.json');
+    const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+    const duplicate = structuredClone(receipt.documents[0]);
+    delete duplicate.timeout_recovery;
+    receipt.documents.push(duplicate);
+    await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
+    await resealCommittedSeedControls();
+    await assert.rejects(
+      runRemoteOcrOffload(optionsFor(successorRoot), dependencies),
+      /committed seed receipt documents must be unique and exactly match the manifest order/u,
+    );
+  });
   await withRestoredCommittedControls(async () => {
     const archivedRunStatusPath = path.join(committedEvidenceRoot, 'run-status.json');
     const archivedRunStatus = JSON.parse(await readFile(archivedRunStatusPath, 'utf8'));
@@ -3153,6 +3178,30 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   assert.equal(preparedGrant.grant.raw_sha256, sha256(await readFile(
     path.join(predecessorRoot, 'timeout-recovery-grant.json'),
   )));
+  for (const [label, drift] of [
+    ['vlRecMaxConcurrency', { vlRecMaxConcurrency: 2 }],
+    ['serverParallel', { serverParallel: 4 }],
+    ['microBatch', { microBatch: 15 }],
+    ['useQueues', { microBatch: 1, useQueues: false }],
+    ['llamaUrl', { llamaUrl: 'http://127.0.0.1:8112/' }],
+    ['childStartupTimeoutSeconds', { childStartupTimeoutSeconds: 181 }],
+    ['childIdleTimeoutSeconds', { childIdleTimeoutSeconds: 1_199 }],
+    ['childWallFloorSeconds', { childWallFloorSeconds: 1_201 }],
+    ['childWallSecondsPerPage', { childWallSecondsPerPage: 26 }],
+    ['childTerminateGraceSeconds', { childTerminateGraceSeconds: 16 }],
+    ['childPollIntervalSeconds', { childPollIntervalSeconds: 6 }],
+  ]) {
+    const rejectedRoot = path.join(root, `recovery-policy-drift-${label}`);
+    await assert.rejects(
+      runRemoteOcrOffload(optionsFor(rejectedRoot, drift), dependencies),
+      /timeout recovery requires the exact audited p4-to-p1 transition/u,
+    );
+    await assert.rejects(stat(rejectedRoot), { code: 'ENOENT' });
+  }
+  assert.equal(
+    (await readdir(ledgerRoot)).filter((entry) => entry.endsWith('.claim.json')).length,
+    0,
+  );
   await assert.rejects(
     runRemoteOcrOffload(optionsFor(path.join(root, 'missing-ledger'), {
       timeoutRecoveryLedger: undefined,
