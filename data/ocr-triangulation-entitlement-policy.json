@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "artifact_profile": "ocr-triangulation-entitlement-policy-v1",
+  "policy": {
+    "production_citation_requires_repository_canonical_paths": true,
+    "production_citation_requires_reviewed_digests": true,
+    "non_public_test_mode_never_grants_citation": true
+  },
+  "canonical_online_source_registry": {
+    "path": "data/ocr-online-source-registry.json",
+    "sha256": "c77487dfe2dd69eb8d7f6e993aaa9e3ba1cdca91e983fca176148d4ca05b4524"
+  },
+  "approved_decision_ledgers": []
+}

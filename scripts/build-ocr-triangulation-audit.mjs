@@ -1,0 +1,2363 @@
+#!/usr/bin/env node
+import { createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { constants } from 'node:fs';
+import {
+  lstat,
+  mkdtemp,
+  mkdir,
+  open,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  stat,
+  unlink,
+  writeFile,
+} from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+import { stripExactTrailingPrintedPage } from './preview-ocr-page-furniture-impact.mjs';
+import { validateOcrPageFurnitureApprovals } from './validate-ocr-page-furniture-approvals.mjs';
+import {
+  pathIsWithin,
+  readPinnedRegularFileReceipt,
+} from './lib/safe-local-evidence.mjs';
+
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const DOCUMENT_ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+const SCOPED_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9:._-]*$/;
+const EDITION_STATUSES = new Set([
+  'exact_document_exact_edition',
+  'exact_document_revision_uncertain',
+  'same_work_different_edition',
+  'stable_fact_only',
+  'not_matched',
+]);
+const VERIFICATION_STATUSES = new Set([
+  'verified_exact',
+  'verified_stable_fact_only',
+  'version_variant_reference_only',
+  'conflict_requires_review',
+  'human_judgment_with_warning',
+  'unresolved_fail_closed',
+]);
+const DECISION_SCOPES = new Set(['whole_page', 'embedded_item', 'stable_fact']);
+const ONLINE_AUTHORITY_CLASSES = new Set(['official', 'government', 'academic', 'university', 'library']);
+const ONLINE_ARTIFACT_RELATIONS = new Set([
+  'independent_transcription',
+  'different_artifact_same_edition',
+  'same_artifact_mirror',
+  'stable_fact_reference',
+  'different_edition_reference',
+]);
+const PAGE_TYPES = new Set(['prose', 'table', 'mixed']);
+const TABLE_SOURCE_FORMATS = new Set(['html', 'markdown_pipe', 'flattened_text']);
+const SNAPSHOT_SCOPES = new Set(['whole_page', 'embedded_item', 'stable_fact_excerpt', 'context_excerpt']);
+const ACCEPTED_TEXT_RELATIONS = new Set([
+  'normalized_exact',
+  'snapshot_contains_accepted_text',
+  'accepted_text_contains_snapshot',
+  'structured_conflicts_resolved',
+]);
+const STRICT_UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
+const REQUIRED_IDENTITY_FIELDS = [
+  'title',
+  'issuing_body_or_author',
+  'year_or_publication_context',
+  'version_label',
+  'section_or_item_locator',
+];
+const REGISTRY_DOCUMENT_IDENTITY_FIELDS = REQUIRED_IDENTITY_FIELDS.filter(
+  (field) => field !== 'section_or_item_locator',
+);
+const PDF_RENDER_PROFILE = 'pdftoppm-png-144dpi-cropbox-v1';
+const ONLINE_ENTITLEMENT_MODES = new Set(['repository_canonical', 'non_public_test']);
+const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const CANONICAL_ENTITLEMENT_POLICY_PATH = path.join(
+  REPOSITORY_ROOT,
+  'data/ocr-triangulation-entitlement-policy.json',
+);
+const TRUSTED_ENTITLEMENT_POLICY_SHA256 = '055029cbc16c3e5b91cf8689ec05570d34c44ff8c6a7bdb18aafece674402aa7';
+const execFileAsync = promisify(execFile);
+
+function fail(message) {
+  throw new Error(`OCR triangulation audit: ${message}`);
+}
+
+function sha256(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function requireObject(value, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    fail(`${label} must be an object`);
+  }
+  return value;
+}
+
+function requireArray(value, label) {
+  if (!Array.isArray(value)) fail(`${label} must be an array`);
+  return value;
+}
+
+function requireString(value, label, pattern = null) {
+  if (typeof value !== 'string' || !value.trim()) fail(`${label} must be a non-empty string`);
+  if (pattern && !pattern.test(value)) fail(`${label} has an invalid format`);
+  return value;
+}
+
+function requireInteger(value, label, minimum = 0) {
+  if (!Number.isInteger(value) || value < minimum) fail(`${label} must be an integer >= ${minimum}`);
+  return value;
+}
+
+function requireBoolean(value, label) {
+  if (typeof value !== 'boolean') fail(`${label} must be a boolean`);
+  return value;
+}
+
+function requireIsoTimestamp(value, label) {
+  requireString(value, label);
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value)
+    || !Number.isFinite(Date.parse(value))) {
+    fail(`${label} must be an ISO-8601 UTC timestamp`);
+  }
+  return value;
+}
+
+function onlineSourceIdentityProjection(source) {
+  return {
+    source_id: source.source_id,
+    publisher: source.publisher,
+    source_type: source.source_type,
+    authority_class: source.authority_class,
+    authority_record_id: source.authority_record_id,
+    allowed_hosts: source.allowed_hosts,
+    allowed_url_prefixes: source.allowed_url_prefixes,
+    document_binding: {
+      document_id: source.document_binding.document_id,
+      title: source.document_binding.title,
+      issuing_body_or_author: source.document_binding.issuing_body_or_author,
+      year_or_publication_context: source.document_binding.year_or_publication_context,
+      version_label: source.document_binding.version_label,
+      source_pdf_sha256: source.document_binding.source_pdf_sha256,
+    },
+    artifact_binding: {
+      artifact_id: source.artifact_binding.artifact_id,
+      media_type: source.artifact_binding.media_type,
+      artifact_sha256: source.artifact_binding.artifact_sha256,
+      exact_artifact_urls: source.artifact_binding.exact_artifact_urls,
+    },
+  };
+}
+
+function onlineSourceIdentitySha256(source) {
+  return sha256(JSON.stringify(onlineSourceIdentityProjection(source)));
+}
+
+function pageTypeBindingSha256(decision, manifestSha = null) {
+  return sha256([
+    decision.primary_ocr_sha256,
+    decision.accepted_text_sha256,
+    decision.rendered_image_sha256,
+    decision.page_type,
+    manifestSha || '',
+  ].join('\0'));
+}
+
+function scopedIdentityBindingSha256(kind, id, decision) {
+  return sha256([
+    kind,
+    id,
+    decision.document_id,
+    String(decision.physical_page),
+    decision.document_identity.section_or_item_locator,
+    decision.accepted_text_sha256,
+  ].join('\0'));
+}
+
+function tableManifestProjection(manifest) {
+  return {
+    schema_version: manifest.schema_version,
+    source_format: manifest.source_format,
+    row_count: manifest.row_count,
+    column_count: manifest.column_count,
+    cells: manifest.cells.map((cell) => ({
+      cell_id: cell.cell_id,
+      row: cell.row,
+      column: cell.column,
+      text: cell.text,
+      text_sha256: cell.text_sha256,
+    })),
+  };
+}
+
+function splitMarkdownPipeRow(line) {
+  const trimmed = String(line || '').trim();
+  if ((trimmed.match(/\|/g) || []).length < 1) return null;
+  const cells = trimmed.replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
+  return cells.length >= 2 ? cells : null;
+}
+
+function isMarkdownDelimiterRow(cells) {
+  return Array.isArray(cells)
+    && cells.length >= 2
+    && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function detectTableFormats(value) {
+  const text = String(value || '');
+  const formats = [];
+  if (/<table\b|<tr\b|<t[dh]\b/i.test(text)) formats.push('html');
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const pipeLines = lines.filter((line) => (line.match(/\|/g) || []).length >= 2);
+  const standardPipeTable = lines.some((line, index) => {
+    const delimiter = splitMarkdownPipeRow(line);
+    const header = index > 0 ? splitMarkdownPipeRow(lines[index - 1]) : null;
+    return isMarkdownDelimiterRow(delimiter)
+      && header?.length === delimiter.length
+      && !isMarkdownDelimiterRow(header);
+  });
+  if (pipeLines.length >= 1 || standardPipeTable) formats.push('markdown_pipe');
+  const flatLines = lines.filter((line) => {
+    const tabs = (line.match(/\t+/g) || []).length;
+    const spaces = (line.match(/ {2,}/g) || []).length;
+    return tabs >= 1 || spaces >= 1;
+  });
+  if (flatLines.length >= 1) formats.push('flattened_text');
+  return [...new Set(formats)];
+}
+
+function extractTableMatrix(value, sourceFormat) {
+  const text = String(value || '');
+  if (sourceFormat === 'html') {
+    if (/\b(?:rowspan|colspan)\s*=/i.test(text)) {
+      fail('HTML table spanning cells require an expanded cell-level representation');
+    }
+    const rowMatches = [...text.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
+    const rawRows = rowMatches.length ? rowMatches.map((match) => match[1]) : [text];
+    return rawRows.map((row) => (
+      [...row.matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)]
+        .map((match) => textual(match[1]).trim())
+    )).filter((row) => row.length);
+  }
+  if (sourceFormat === 'markdown_pipe') {
+    return text.split(/\r?\n/)
+      .map((line) => splitMarkdownPipeRow(line))
+      .filter((cells) => cells && !isMarkdownDelimiterRow(cells));
+  }
+  if (sourceFormat === 'flattened_text') {
+    return text.split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && /\t+| {2,}/.test(line))
+      .map((line) => line.split(/\t+| {2,}/).map((cell) => cell.trim()).filter(Boolean));
+  }
+  return null;
+}
+
+function validateOnlineSourceRegistry(input) {
+  const registry = requireObject(input, 'online source registry');
+  if (registry.schema_version !== 1) fail('online source registry schema_version must equal 1');
+  if (registry.artifact_profile !== 'ocr-online-source-registry-v1') {
+    fail('online source registry artifact_profile is invalid');
+  }
+  const policy = requireObject(registry.policy, 'online source registry policy');
+  if (policy.authority_declared_only_here !== true
+    || policy.https_only !== true
+    || policy.exact_hostname_match !== true
+    || policy.document_version_artifact_binding_required !== true
+    || policy.exact_artifact_url_required !== true
+    || policy.page_image_recomputation_required !== true) {
+    fail('online source registry policy must enforce registry-only document, version, artifact, URL, and page-image identity');
+  }
+  const sources = new Map();
+  for (const [index, raw] of requireArray(registry.sources, 'online source registry sources').entries()) {
+    const label = `online source registry sources[${index}]`;
+    const source = requireObject(raw, label);
+    const sourceId = requireString(source.source_id, `${label}.source_id`, SCOPED_ID_PATTERN);
+    if (sources.has(sourceId)) fail(`duplicate online source registry source_id ${sourceId}`);
+    requireString(source.publisher, `${label}.publisher`);
+    requireString(source.source_type, `${label}.source_type`);
+    if (!ONLINE_AUTHORITY_CLASSES.has(source.authority_class)) {
+      fail(`${label}.authority_class is not controlled official or academic authority`);
+    }
+    requireString(source.authority_record_id, `${label}.authority_record_id`, SCOPED_ID_PATTERN);
+    const hosts = requireArray(source.allowed_hosts, `${label}.allowed_hosts`);
+    if (!hosts.length) fail(`${label}.allowed_hosts must not be empty`);
+    let previous = '';
+    const seenHosts = new Set();
+    for (const [hostIndex, rawHost] of hosts.entries()) {
+      const host = requireString(rawHost, `${label}.allowed_hosts[${hostIndex}]`).toLowerCase();
+      if (host !== rawHost || host.includes('*') || host.includes('/') || host.includes(':')) {
+        fail(`${label}.allowed_hosts must contain normalized exact hostnames`);
+      }
+      if (seenHosts.has(host) || (previous && host.localeCompare(previous, 'en') <= 0)) {
+        fail(`${label}.allowed_hosts must be unique and sorted`);
+      }
+      seenHosts.add(host);
+      previous = host;
+    }
+    const prefixes = requireArray(source.allowed_url_prefixes, `${label}.allowed_url_prefixes`);
+    if (!prefixes.length) fail(`${label}.allowed_url_prefixes must not be empty`);
+    let previousPrefix = '';
+    for (const [prefixIndex, prefix] of prefixes.entries()) {
+      requireString(prefix, `${label}.allowed_url_prefixes[${prefixIndex}]`);
+      let parsedPrefix;
+      try {
+        parsedPrefix = new URL(prefix);
+      } catch {
+        fail(`${label}.allowed_url_prefixes[${prefixIndex}] is invalid`);
+      }
+      if (parsedPrefix.protocol !== 'https:'
+        || parsedPrefix.username
+        || parsedPrefix.password
+        || parsedPrefix.port
+        || parsedPrefix.search
+        || parsedPrefix.hash
+        || !parsedPrefix.pathname.endsWith('/')
+        || parsedPrefix.href !== prefix
+        || !hosts.includes(parsedPrefix.hostname.toLowerCase())) {
+        fail(`${label}.allowed_url_prefixes must be normalized HTTPS locations on allowed hosts`);
+      }
+      if (previousPrefix && prefix.localeCompare(previousPrefix, 'en') <= 0) {
+        fail(`${label}.allowed_url_prefixes must be unique and sorted`);
+      }
+      previousPrefix = prefix;
+    }
+    const documentBinding = requireObject(source.document_binding, `${label}.document_binding`);
+    requireString(
+      documentBinding.document_id,
+      `${label}.document_binding.document_id`,
+      DOCUMENT_ID_PATTERN,
+    );
+    for (const field of REGISTRY_DOCUMENT_IDENTITY_FIELDS) {
+      requireString(documentBinding[field], `${label}.document_binding.${field}`);
+    }
+    requireString(
+      documentBinding.source_pdf_sha256,
+      `${label}.document_binding.source_pdf_sha256`,
+      SHA256_PATTERN,
+    );
+    const artifactBinding = requireObject(source.artifact_binding, `${label}.artifact_binding`);
+    requireString(
+      artifactBinding.artifact_id,
+      `${label}.artifact_binding.artifact_id`,
+      SCOPED_ID_PATTERN,
+    );
+    if (artifactBinding.media_type !== 'application/pdf') {
+      fail(`${label}.artifact_binding.media_type must equal application/pdf`);
+    }
+    requireString(
+      artifactBinding.artifact_sha256,
+      `${label}.artifact_binding.artifact_sha256`,
+      SHA256_PATTERN,
+    );
+    const exactUrls = requireArray(
+      artifactBinding.exact_artifact_urls,
+      `${label}.artifact_binding.exact_artifact_urls`,
+    );
+    if (!exactUrls.length) fail(`${label}.artifact_binding.exact_artifact_urls must not be empty`);
+    let previousExactUrl = '';
+    for (const [urlIndex, exactUrl] of exactUrls.entries()) {
+      requireString(exactUrl, `${label}.artifact_binding.exact_artifact_urls[${urlIndex}]`);
+      let parsedExactUrl;
+      try {
+        parsedExactUrl = new URL(exactUrl);
+      } catch {
+        fail(`${label}.artifact_binding.exact_artifact_urls[${urlIndex}] is invalid`);
+      }
+      if (parsedExactUrl.protocol !== 'https:'
+        || parsedExactUrl.username
+        || parsedExactUrl.password
+        || parsedExactUrl.port
+        || parsedExactUrl.hash
+        || parsedExactUrl.href !== exactUrl
+        || !hosts.includes(parsedExactUrl.hostname.toLowerCase())
+        || !prefixes.some((prefix) => parsedExactUrl.href.startsWith(prefix))) {
+        fail(`${label}.artifact_binding exact URL is outside its controlled HTTPS location`);
+      }
+      if (previousExactUrl && exactUrl.localeCompare(previousExactUrl, 'en') <= 0) {
+        fail(`${label}.artifact_binding.exact_artifact_urls must be unique and sorted`);
+      }
+      previousExactUrl = exactUrl;
+    }
+    const declaredIdentity = requireString(
+      source.source_identity_sha256,
+      `${label}.source_identity_sha256`,
+      SHA256_PATTERN,
+    );
+    if (declaredIdentity !== onlineSourceIdentitySha256(source)) {
+      fail(`${sourceId} online source identity SHA-256 drifted`);
+    }
+    sources.set(sourceId, {
+      ...source,
+      allowed_hosts: [...hosts],
+      allowed_url_prefixes: [...prefixes],
+    });
+  }
+  return sources;
+}
+
+function validateTableCellManifest(decision, label) {
+  const manifest = decision.table_cell_manifest;
+  if (!manifest) return null;
+  requireObject(manifest, `${label}.table_cell_manifest`);
+  if (manifest.schema_version !== 1) fail(`${label}.table_cell_manifest.schema_version must equal 1`);
+  if (!TABLE_SOURCE_FORMATS.has(manifest.source_format)) {
+    fail(`${label}.table_cell_manifest.source_format is invalid`);
+  }
+  const rowCount = requireInteger(manifest.row_count, `${label}.table_cell_manifest.row_count`, 1);
+  const columnCount = requireInteger(
+    manifest.column_count,
+    `${label}.table_cell_manifest.column_count`,
+    1,
+  );
+  const cells = requireArray(manifest.cells, `${label}.table_cell_manifest.cells`);
+  if (cells.length !== rowCount * columnCount) {
+    fail(`${label}.table_cell_manifest must contain every row and column cell`);
+  }
+  const ids = new Set();
+  const coordinates = new Set();
+  const extracted = extractTableMatrix(decision.accepted_text, manifest.source_format);
+  if (extracted) {
+    if (extracted.length !== rowCount || extracted.some((row) => row.length !== columnCount)) {
+      fail(`${label}.table_cell_manifest dimensions do not match accepted table structure`);
+    }
+  }
+  let searchOffset = 0;
+  const acceptedNormalized = normalized(decision.accepted_text);
+  for (const [index, raw] of cells.entries()) {
+    const cellLabel = `${label}.table_cell_manifest.cells[${index}]`;
+    const cell = requireObject(raw, cellLabel);
+    const cellId = requireString(cell.cell_id, `${cellLabel}.cell_id`, SCOPED_ID_PATTERN);
+    if (ids.has(cellId)) fail(`${label}.table_cell_manifest has duplicate cell_id ${cellId}`);
+    ids.add(cellId);
+    const row = requireInteger(cell.row, `${cellLabel}.row`, 1);
+    const column = requireInteger(cell.column, `${cellLabel}.column`, 1);
+    if (row > rowCount || column > columnCount) fail(`${cellLabel} coordinate exceeds table bounds`);
+    const coordinate = `${row}:${column}`;
+    if (coordinates.has(coordinate)) fail(`${label}.table_cell_manifest has duplicate coordinate ${coordinate}`);
+    coordinates.add(coordinate);
+    const expectedRow = Math.floor(index / columnCount) + 1;
+    const expectedColumn = (index % columnCount) + 1;
+    if (row !== expectedRow || column !== expectedColumn) {
+      fail(`${label}.table_cell_manifest cells must be in complete row-major order`);
+    }
+    if (typeof cell.text !== 'string') fail(`${cellLabel}.text must be a string`);
+    const text = cell.text;
+    if (requireString(cell.text_sha256, `${cellLabel}.text_sha256`, SHA256_PATTERN) !== sha256(text)) {
+      fail(`${cellLabel} text SHA-256 drifted`);
+    }
+    const cellNormalized = normalized(text);
+    if (extracted && cellNormalized !== normalized(extracted[row - 1][column - 1])) {
+      fail(`${cellLabel} does not match the accepted table cell`);
+    }
+    if (cellNormalized) {
+      const found = acceptedNormalized.indexOf(cellNormalized, searchOffset);
+      if (found < 0) fail(`${cellLabel} is absent or out of order in accepted_text`);
+      searchOffset = found + cellNormalized.length;
+    } else if (!extracted || normalized(extracted[row - 1][column - 1])) {
+      fail(`${cellLabel} empty text is not proven by the extracted accepted table`);
+    }
+  }
+  const manifestSha = requireString(
+    manifest.manifest_sha256,
+    `${label}.table_cell_manifest.manifest_sha256`,
+    SHA256_PATTERN,
+  );
+  if (manifestSha !== sha256(JSON.stringify(tableManifestProjection(manifest)))) {
+    fail(`${label}.table_cell_manifest SHA-256 drifted`);
+  }
+  return manifestSha;
+}
+
+function normalizeRelativeEvidencePath(value, label) {
+  requireString(value, label);
+  const portable = value.replaceAll('\\', '/');
+  const normalizedPath = path.posix.normalize(portable);
+  if (path.isAbsolute(value)
+    || normalizedPath === '.'
+    || normalizedPath === '..'
+    || normalizedPath.startsWith('../')) {
+    fail(`${label} must stay inside the decision-ledger directory`);
+  }
+  return normalizedPath;
+}
+
+function textual(value) {
+  return String(value || '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/^[#>*+\-]+/gm, '')
+    .normalize('NFKC');
+}
+
+function normalized(value) {
+  return textual(value).replace(/[^\p{Script=Han}A-Za-z0-9]/gu, '').toLocaleLowerCase('zh-CN');
+}
+
+function numbers(value) {
+  return textual(value).match(/\d+(?:[.,]\d+)*/g) || [];
+}
+
+function heading(value) {
+  const lines = textual(value).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  return lines.find((line) => /[\p{Script=Han}A-Za-z]/u.test(line)) || '';
+}
+
+function editDistance(left, right) {
+  if (left === right) return 0;
+  if (!left.length) return right.length;
+  if (!right.length) return left.length;
+  if (left.length > right.length) [left, right] = [right, left];
+  let previous = new Uint32Array(left.length + 1);
+  let current = new Uint32Array(left.length + 1);
+  for (let index = 0; index <= left.length; index += 1) previous[index] = index;
+  for (let row = 1; row <= right.length; row += 1) {
+    current[0] = row;
+    const rightChar = right.charCodeAt(row - 1);
+    for (let column = 1; column <= left.length; column += 1) {
+      const substitution = previous[column - 1]
+        + (left.charCodeAt(column - 1) === rightChar ? 0 : 1);
+      current[column] = Math.min(
+        previous[column] + 1,
+        current[column - 1] + 1,
+        substitution,
+      );
+    }
+    [previous, current] = [current, previous];
+  }
+  return previous[left.length];
+}
+
+function sameHeading(left, right) {
+  const a = normalized(left);
+  const b = normalized(right);
+  return Boolean(a && b && (a === b || a.includes(b) || b.includes(a)));
+}
+
+function comparisonMetrics(primary, witness) {
+  const primaryText = normalized(primary);
+  const witnessText = normalized(witness);
+  const distance = editDistance(primaryText, witnessText);
+  const denominator = Math.max(1, primaryText.length, witnessText.length);
+  const primaryNumbers = numbers(primary);
+  const witnessNumbers = numbers(witness);
+  return {
+    normalized_character_agreement: Number((1 - distance / denominator).toFixed(6)),
+    edit_distance: distance,
+    primary_character_count: primaryText.length,
+    witness_character_count: witnessText.length,
+    numeric_sequence_exact: JSON.stringify(primaryNumbers) === JSON.stringify(witnessNumbers),
+    primary_numbers: primaryNumbers,
+    witness_numbers: witnessNumbers,
+    title_exact: sameHeading(heading(primary), heading(witness)),
+    primary_heading: heading(primary),
+    witness_heading: heading(witness),
+  };
+}
+
+function transcriptionGate({ primary, witness, witnessRecord, metrics }) {
+  const criticalFields = Array.isArray(witnessRecord.critical_fields)
+    ? witnessRecord.critical_fields
+    : [];
+  const criticalFieldsExact = criticalFields.length > 0 && criticalFields.every((field) => {
+    const primaryValue = normalized(field?.primary);
+    const witnessValue = normalized(field?.witness);
+    return primaryValue.length > 0 && primaryValue === witnessValue;
+  });
+  const tableFormats = detectTableFormats(primary);
+  const tableDetected = tableFormats.length > 0;
+  const confidences = witnessRecord.lines
+    .map((line) => Number(line.confidence))
+    .filter(Number.isFinite);
+  const averageVisionConfidence = confidences.length
+    ? confidences.reduce((sum, value) => sum + value, 0) / confidences.length
+    : 0;
+  let gate = 'unresolved_fail_closed';
+  if (!normalized(primary) && !normalized(witness)) {
+    gate = 'blank_page_visual_confirmation_required';
+  } else if (metrics.normalized_character_agreement >= 0.995
+    && metrics.numeric_sequence_exact
+    && metrics.title_exact
+    && criticalFieldsExact
+    && !tableDetected
+    && averageVisionConfidence >= 0.8) {
+    gate = 'automatic_witness_pass';
+  } else if (metrics.normalized_character_agreement >= 0.985 && metrics.title_exact) {
+    gate = 'manual_image_review_required';
+  }
+  return {
+    gate,
+    critical_fields_declared: criticalFields.length,
+    critical_fields_exact: criticalFieldsExact,
+    table_detected: tableDetected,
+    table_formats: tableFormats,
+    average_vision_confidence: Number(averageVisionConfidence.toFixed(6)),
+    low_confidence_line_count: confidences.filter((value) => value < 0.8).length,
+  };
+}
+
+export function validateOcrPageFurnitureActivation(activation, approvalRaw, approval) {
+  const record = requireObject(activation, 'activation ledger');
+  if (record.schema_version !== 1) fail('activation ledger schema_version must equal 1');
+  if (record.artifact_profile !== 'ocr-page-furniture-activation-v1') {
+    fail('activation ledger artifact_profile is invalid');
+  }
+  if (record.activation_scope !== 'audit_comparison_only') {
+    fail('activation_scope must equal audit_comparison_only');
+  }
+  if (requireString(record.approval_ledger_sha256, 'approval_ledger_sha256', SHA256_PATTERN)
+    !== sha256(approvalRaw)) {
+    fail('approval ledger SHA-256 drifted');
+  }
+  const policy = requireObject(record.policy, 'activation policy');
+  for (const [key, expected] of [
+    ['raw_witness_mutation', 'forbidden'],
+    ['raw_primary_mutation', 'forbidden'],
+    ['gate_relaxation', 'forbidden'],
+    ['publication_effect', 'none'],
+  ]) {
+    if (policy[key] !== expected) fail(`activation policy ${key} must equal ${expected}`);
+  }
+  const approvalDocuments = new Map(approval.documents.map((document) => [document.document_id, document]));
+  const ruleMap = new Map();
+  const seenDocuments = new Set();
+  for (const [index, item] of requireArray(record.documents, 'activation documents').entries()) {
+    const label = `activation documents[${index}]`;
+    const document = requireObject(item, label);
+    const documentId = requireString(document.document_id, `${label}.document_id`, DOCUMENT_ID_PATTERN);
+    if (seenDocuments.has(documentId)) fail(`duplicate activation document ${documentId}`);
+    seenDocuments.add(documentId);
+    const approvedDocument = approvalDocuments.get(documentId);
+    if (!approvedDocument) fail(`activation document ${documentId} is absent from approval ledger`);
+    if (requireString(document.source_pdf_sha256, `${label}.source_pdf_sha256`, SHA256_PATTERN)
+      !== approvedDocument.source_pdf_sha256) {
+      fail(`${documentId} activation source PDF SHA-256 drifted`);
+    }
+    if (requireString(document.sidecar_snapshot_sha256, `${label}.sidecar_snapshot_sha256`, SHA256_PATTERN)
+      !== approvedDocument.sidecar_snapshot_sha256) {
+      fail(`${documentId} activation sidecar snapshot SHA-256 drifted`);
+    }
+    requireString(document.reviewed_by, `${label}.reviewed_by`);
+    requireIsoTimestamp(document.reviewed_at, `${label}.reviewed_at`);
+    const approvedRules = new Map(approvedDocument.footer_rules.map((rule) => [rule.rule_id, rule]));
+    const activatedIds = requireArray(document.activated_rule_ids, `${label}.activated_rule_ids`);
+    if (!activatedIds.length) fail(`${documentId} activated_rule_ids must not be empty`);
+    const seenRules = new Set();
+    for (const [ruleIndex, rawRuleId] of activatedIds.entries()) {
+      const ruleId = requireString(rawRuleId, `${label}.activated_rule_ids[${ruleIndex}]`);
+      if (seenRules.has(ruleId)) fail(`duplicate activated rule ${ruleId}`);
+      seenRules.add(ruleId);
+      const rule = approvedRules.get(ruleId);
+      if (!rule) fail(`activated rule ${ruleId} is absent from approval ledger`);
+      if (rule.eligible_for_audit_filter !== true
+        || rule.removal_scope !== 'audit_comparison_only'
+        || rule.approval_status !== 'approved_not_activated') {
+        fail(`activated rule ${ruleId} is not eligible for comparison-only activation`);
+      }
+      ruleMap.set(ruleId, { ...rule, document_id: documentId });
+    }
+  }
+  return ruleMap;
+}
+
+function validateDecisionLedger(input, registryRaw, registrySources) {
+  const ledger = requireObject(input, 'decision ledger');
+  if (ledger.schema_version !== 1) fail('decision ledger schema_version must equal 1');
+  if (ledger.artifact_profile !== 'ocr-page-triangulation-decisions-v1') {
+    fail('decision ledger artifact_profile is invalid');
+  }
+  const policy = requireObject(ledger.policy, 'decision policy');
+  if (policy.scan_is_primary !== true) fail('decision policy scan_is_primary must be true');
+  if (policy.raw_ocr_mutation !== 'forbidden') fail('decision policy raw_ocr_mutation must be forbidden');
+  if (policy.search_snippet_as_evidence !== 'forbidden') {
+    fail('decision policy search_snippet_as_evidence must be forbidden');
+  }
+  if (policy.whole_document_sampling_promotion !== 'forbidden') {
+    fail('decision policy whole_document_sampling_promotion must be forbidden');
+  }
+  const hasOnlineEvidence = Array.isArray(ledger.decisions)
+    && ledger.decisions.some((decision) => Array.isArray(decision?.online_evidence)
+      && decision.online_evidence.length > 0);
+  if (hasOnlineEvidence && !registryRaw) fail('online source registry is required for online evidence');
+  if (registryRaw && requireString(
+    policy.online_source_registry_sha256,
+    'decision policy online_source_registry_sha256',
+    SHA256_PATTERN,
+  ) !== sha256(registryRaw)) {
+    fail('online source registry SHA-256 drifted');
+  }
+  const seen = new Set();
+  const embeddedItemIds = new Map();
+  const stableFactIds = new Map();
+  const stableFactSpanIds = new Map();
+  const documentScopedMap = (registry, documentId) => {
+    if (!registry.has(documentId)) registry.set(documentId, new Map());
+    return registry.get(documentId);
+  };
+  return requireArray(ledger.decisions, 'decisions').map((raw, index) => {
+    const label = `decisions[${index}]`;
+    const decision = requireObject(raw, label);
+    const decisionId = requireString(decision.decision_id, `${label}.decision_id`);
+    if (seen.has(decisionId)) fail(`duplicate decision_id ${decisionId}`);
+    seen.add(decisionId);
+    const documentId = requireString(decision.document_id, `${label}.document_id`, DOCUMENT_ID_PATTERN);
+    const physicalPage = requireInteger(decision.physical_page, `${label}.physical_page`, 1);
+    if (!DECISION_SCOPES.has(decision.decision_scope)) fail(`${decisionId} decision_scope is invalid`);
+    if (decision.decision_scope === 'embedded_item') {
+      if (typeof decision.embedded_item_id !== 'string'
+        || !SCOPED_ID_PATTERN.test(decision.embedded_item_id)) {
+        fail(`${decisionId} embedded_item_id is required`);
+      }
+      if (decision.stable_fact_id !== null
+        || decision.stable_fact_span_id !== null
+        || decision.stable_fact_binding_sha256 !== null
+        || decision.stable_fact_span_binding_sha256 !== null) {
+        fail(`${decisionId} embedded item must not declare stable-fact identifiers`);
+      }
+    } else if (decision.decision_scope === 'stable_fact') {
+      if (typeof decision.stable_fact_id !== 'string'
+        || !SCOPED_ID_PATTERN.test(decision.stable_fact_id)
+        || typeof decision.stable_fact_span_id !== 'string'
+        || !SCOPED_ID_PATTERN.test(decision.stable_fact_span_id)) {
+        fail(`${decisionId} stable_fact_id and stable_fact_span_id are required`);
+      }
+      if (decision.embedded_item_id !== null || decision.embedded_item_binding_sha256 !== null) {
+        fail(`${decisionId} stable fact must not declare embedded-item identity`);
+      }
+    } else if (decision.embedded_item_id !== null
+      || decision.embedded_item_binding_sha256 !== null
+      || decision.stable_fact_id !== null
+      || decision.stable_fact_span_id !== null
+      || decision.stable_fact_binding_sha256 !== null
+      || decision.stable_fact_span_binding_sha256 !== null) {
+      fail(`${decisionId} whole-page decision must not declare scoped identifiers`);
+    }
+    for (const field of [
+      'source_pdf_sha256',
+      'rendered_image_sha256',
+      'primary_ocr_sha256',
+      'vision_text_sha256',
+      'accepted_text_sha256',
+    ]) {
+      requireString(decision[field], `${decisionId}.${field}`, SHA256_PATTERN);
+    }
+    if (typeof decision.accepted_text !== 'string' || !decision.accepted_text.trim()) {
+      fail(`${decisionId}.accepted_text must be non-empty`);
+    }
+    if (sha256(decision.accepted_text) !== decision.accepted_text_sha256) {
+      fail(`${decisionId} accepted text SHA-256 drifted`);
+    }
+    if (!PAGE_TYPES.has(decision.page_type)) fail(`${decisionId}.page_type is invalid`);
+    const tableManifestSha = validateTableCellManifest(decision, decisionId);
+    if ((decision.page_type === 'table' || decision.page_type === 'mixed') && !tableManifestSha) {
+      fail(`${decisionId}.table_cell_manifest is required for table or mixed pages`);
+    }
+    if (decision.page_type === 'prose' && decision.table_cell_manifest !== null) {
+      fail(`${decisionId}.table_cell_manifest must be null for prose pages`);
+    }
+    if (requireString(
+      decision.page_type_binding_sha256,
+      `${decisionId}.page_type_binding_sha256`,
+      SHA256_PATTERN,
+    ) !== pageTypeBindingSha256(decision, tableManifestSha)) {
+      fail(`${decisionId} page-type binding SHA-256 drifted`);
+    }
+    const identity = requireObject(decision.document_identity, `${decisionId}.document_identity`);
+    for (const field of REQUIRED_IDENTITY_FIELDS) {
+      requireString(identity[field], `${decisionId}.document_identity.${field}`);
+    }
+    if (decision.decision_scope === 'embedded_item') {
+      if (requireString(
+        decision.embedded_item_binding_sha256,
+        `${decisionId}.embedded_item_binding_sha256`,
+        SHA256_PATTERN,
+      ) !== scopedIdentityBindingSha256('embedded_item', decision.embedded_item_id, decision)) {
+        fail(`${decisionId} embedded-item scoped identity binding drifted`);
+      }
+    } else if (decision.decision_scope === 'stable_fact') {
+      if (requireString(
+        decision.stable_fact_binding_sha256,
+        `${decisionId}.stable_fact_binding_sha256`,
+        SHA256_PATTERN,
+      ) !== scopedIdentityBindingSha256('stable_fact', decision.stable_fact_id, decision)) {
+        fail(`${decisionId} stable-fact scoped identity binding drifted`);
+      }
+      if (requireString(
+        decision.stable_fact_span_binding_sha256,
+        `${decisionId}.stable_fact_span_binding_sha256`,
+        SHA256_PATTERN,
+      ) !== scopedIdentityBindingSha256('stable_fact_span', decision.stable_fact_span_id, decision)) {
+        fail(`${decisionId} stable-fact span scoped identity binding drifted`);
+      }
+    }
+    if (decision.decision_scope === 'embedded_item') {
+      const items = documentScopedMap(embeddedItemIds, documentId);
+      if (items.has(decision.embedded_item_id)) {
+        fail(`${decisionId} duplicate embedded_item_id within document ${documentId}`);
+      }
+      items.set(decision.embedded_item_id, decision.embedded_item_binding_sha256);
+    } else if (decision.decision_scope === 'stable_fact') {
+      const facts = documentScopedMap(stableFactIds, documentId);
+      const existingFactBinding = facts.get(decision.stable_fact_id);
+      if (existingFactBinding && existingFactBinding !== decision.stable_fact_binding_sha256) {
+        fail(`${decisionId} duplicate stable_fact_id has a different semantic identity`);
+      }
+      facts.set(decision.stable_fact_id, decision.stable_fact_binding_sha256);
+      const spans = documentScopedMap(stableFactSpanIds, documentId);
+      if (spans.has(decision.stable_fact_span_id)) {
+        fail(`${decisionId} duplicate stable_fact_span_id within document ${documentId}`);
+      }
+      spans.set(decision.stable_fact_span_id, decision.stable_fact_span_binding_sha256);
+    }
+    if (!EDITION_STATUSES.has(decision.edition_match_status)) {
+      fail(`${decisionId}.edition_match_status is invalid`);
+    }
+    if (!VERIFICATION_STATUSES.has(decision.verification_status)) {
+      fail(`${decisionId}.verification_status is invalid`);
+    }
+    const evidence = requireArray(decision.online_evidence, `${decisionId}.online_evidence`);
+    const evidenceIds = new Set();
+    for (const [evidenceIndex, rawEvidence] of evidence.entries()) {
+      const evidenceLabel = `${decisionId}.online_evidence[${evidenceIndex}]`;
+      const item = requireObject(rawEvidence, evidenceLabel);
+      const sourceId = requireString(item.source_id, `${evidenceLabel}.source_id`);
+      if (evidenceIds.has(sourceId)) fail(`${decisionId} has duplicate online source ${sourceId}`);
+      evidenceIds.add(sourceId);
+      for (const forbiddenField of [
+        'publisher',
+        'source_type',
+        'authority_class',
+        'authority_record_id',
+        'allowed_hosts',
+        'allowed_url_prefixes',
+        'document_binding',
+        'artifact_binding',
+      ]) {
+        if (Object.hasOwn(item, forbiddenField)) {
+          fail(`${evidenceLabel} must not declare online authority field ${forbiddenField}`);
+        }
+      }
+      const registeredSource = registrySources.get(sourceId);
+      if (!registeredSource) fail(`${evidenceLabel}.source_id is absent from controlled registry`);
+      if (requireString(
+        item.source_identity_sha256,
+        `${evidenceLabel}.source_identity_sha256`,
+        SHA256_PATTERN,
+      ) !== registeredSource.source_identity_sha256) {
+        fail(`${evidenceLabel} online source identity SHA-256 drifted`);
+      }
+      if (registeredSource.document_binding.document_id !== decision.document_id
+        || registeredSource.document_binding.source_pdf_sha256 !== decision.source_pdf_sha256
+        || REGISTRY_DOCUMENT_IDENTITY_FIELDS.some((field) => (
+          registeredSource.document_binding[field] !== decision.document_identity[field]
+        ))) {
+        fail(`${evidenceLabel} document identity does not match the controlled registry binding`);
+      }
+      const sourceUrl = requireString(item.source_url, `${evidenceLabel}.source_url`);
+      let parsed;
+      try {
+        parsed = new URL(sourceUrl);
+      } catch {
+        fail(`${evidenceLabel}.source_url is invalid`);
+      }
+      if (parsed.protocol !== 'https:') fail(`${evidenceLabel}.source_url must use HTTPS`);
+      if (parsed.username || parsed.password || parsed.port) {
+        fail(`${evidenceLabel}.source_url must not contain credentials or a non-default port`);
+      }
+      if (!registeredSource.allowed_hosts.includes(parsed.hostname.toLowerCase())) {
+        fail(`${evidenceLabel}.source_url hostname is not allowed by its registry source identity`);
+      }
+      if (!registeredSource.allowed_url_prefixes.some((prefix) => parsed.href.startsWith(prefix))) {
+        fail(`${evidenceLabel}.source_url is outside allowed registry source locations`);
+      }
+      if (!registeredSource.artifact_binding.exact_artifact_urls.includes(parsed.href)) {
+        fail(`${evidenceLabel}.source_url is not the exact registry-bound artifact URL`);
+      }
+      item.validated_registry_binding = registeredSource;
+      requireIsoTimestamp(item.retrieved_at, `${evidenceLabel}.retrieved_at`);
+      if (!EDITION_STATUSES.has(item.version_match)) fail(`${evidenceLabel}.version_match is invalid`);
+      if (!ONLINE_ARTIFACT_RELATIONS.has(item.artifact_relation)) {
+        fail(`${evidenceLabel}.artifact_relation is invalid`);
+      }
+      requireBoolean(item.independent_for_decision, `${evidenceLabel}.independent_for_decision`);
+      if (item.artifact_relation === 'same_artifact_mirror' && item.independent_for_decision) {
+        fail(`${evidenceLabel} same-artifact mirror cannot be independent`);
+      }
+      if (requireString(item.section_locator, `${evidenceLabel}.section_locator`)
+        !== decision.document_identity.section_or_item_locator) {
+        fail(`${evidenceLabel}.section_locator does not match the decision locator`);
+      }
+      item.content_path = normalizeRelativeEvidencePath(
+        item.content_path,
+        `${evidenceLabel}.content_path`,
+      );
+      requireString(item.content_sha256, `${evidenceLabel}.content_sha256`, SHA256_PATTERN);
+      const snapshotIdentity = requireObject(item.snapshot_identity, `${evidenceLabel}.snapshot_identity`);
+      if (!SNAPSHOT_SCOPES.has(snapshotIdentity.scope)) {
+        fail(`${evidenceLabel}.snapshot_identity.scope is invalid`);
+      }
+      requireString(
+        snapshotIdentity.locator_id,
+        `${evidenceLabel}.snapshot_identity.locator_id`,
+        SCOPED_ID_PATTERN,
+      );
+      if (decision.decision_scope === 'whole_page'
+        && !['whole_page', 'context_excerpt'].includes(snapshotIdentity.scope)) {
+        fail(`${evidenceLabel}.snapshot_identity.scope does not match whole-page decision`);
+      }
+      if (decision.decision_scope === 'embedded_item') {
+        if (!['embedded_item', 'context_excerpt'].includes(snapshotIdentity.scope)) {
+          fail(`${evidenceLabel}.snapshot_identity.scope does not match embedded item`);
+        }
+        if (snapshotIdentity.scope === 'embedded_item'
+          && snapshotIdentity.locator_id !== decision.embedded_item_id) {
+          fail(`${evidenceLabel}.snapshot_identity.locator_id does not match embedded_item_id`);
+        }
+      }
+      if (decision.decision_scope === 'stable_fact') {
+        if (!['stable_fact_excerpt', 'context_excerpt'].includes(snapshotIdentity.scope)) {
+          fail(`${evidenceLabel}.snapshot_identity.scope does not match stable fact`);
+        }
+        if (snapshotIdentity.scope === 'stable_fact_excerpt'
+          && snapshotIdentity.locator_id !== decision.stable_fact_span_id) {
+          fail(`${evidenceLabel}.snapshot_identity.locator_id does not match stable_fact_span_id`);
+        }
+      }
+      requireString(
+        snapshotIdentity.text_sha256,
+        `${evidenceLabel}.snapshot_identity.text_sha256`,
+        SHA256_PATTERN,
+      );
+      if (!ACCEPTED_TEXT_RELATIONS.has(item.accepted_text_relation)) {
+        fail(`${evidenceLabel}.accepted_text_relation is invalid`);
+      }
+      if (item.conflict_resolution !== null && typeof item.conflict_resolution !== 'object') {
+        fail(`${evidenceLabel}.conflict_resolution must be null or an object`);
+      }
+      if (item.artifact_identity_receipt !== null) {
+        const receipt = requireObject(
+          item.artifact_identity_receipt,
+          `${evidenceLabel}.artifact_identity_receipt`,
+        );
+        receipt.receipt_path = normalizeRelativeEvidencePath(
+          receipt.receipt_path,
+          `${evidenceLabel}.artifact_identity_receipt.receipt_path`,
+        );
+        requireString(
+          receipt.receipt_sha256,
+          `${evidenceLabel}.artifact_identity_receipt.receipt_sha256`,
+          SHA256_PATTERN,
+        );
+      }
+    }
+    const human = requireObject(decision.human_review, `${decisionId}.human_review`);
+    requireString(human.reviewed_by, `${decisionId}.human_review.reviewed_by`);
+    requireIsoTimestamp(human.reviewed_at, `${decisionId}.human_review.reviewed_at`);
+    for (const field of [
+      'scan_checked',
+      'all_engine_conflicts_resolved',
+      'critical_fields_checked',
+      'table_cells_checked',
+    ]) requireBoolean(human[field], `${decisionId}.human_review.${field}`);
+    requireString(human.resolution, `${decisionId}.human_review.resolution`);
+    if (human.uncertainty_note !== null
+      && (typeof human.uncertainty_note !== 'string' || !human.uncertainty_note.trim())) {
+      fail(`${decisionId}.human_review.uncertainty_note must be null or non-empty`);
+    }
+    requireBoolean(decision.citation_allowed, `${decisionId}.citation_allowed`);
+    if (decision.citation_allowed) {
+      if (decision.decision_scope !== 'whole_page') {
+        fail(`${decisionId} citation decision must have whole_page scope`);
+      }
+      if (decision.edition_match_status !== 'exact_document_exact_edition') {
+        fail(`${decisionId} citation decision requires exact document and edition`);
+      }
+      if (decision.verification_status !== 'verified_exact') {
+        fail(`${decisionId} citation decision requires verified_exact status`);
+      }
+      if (human.scan_checked !== true) fail('citation decision requires scan_checked=true');
+      if (human.all_engine_conflicts_resolved !== true) {
+        fail('citation decision requires all_engine_conflicts_resolved=true');
+      }
+      if (human.critical_fields_checked !== true) {
+        fail('citation decision requires critical_fields_checked=true');
+      }
+      if (human.uncertainty_note !== null) fail(`${decisionId} citation decision cannot retain uncertainty`);
+    }
+    if (decision.verification_status === 'human_judgment_with_warning'
+      && !human.uncertainty_note) {
+      fail(`${decisionId} warning decision requires uncertainty_note`);
+    }
+    return { ...decision, document_id: documentId, physical_page: physicalPage };
+  });
+}
+
+function validateStructuredConflictResolution(decision, evidence, snapshotNormalized, acceptedNormalized) {
+  const label = `${decision.decision_id}/${evidence.source_id}`;
+  const conflict = requireObject(
+    evidence.conflict_resolution,
+    `${label}.conflict_resolution`,
+  );
+  if (conflict.schema_version !== 1) fail(`${label}.conflict_resolution.schema_version must equal 1`);
+  requireString(conflict.resolution_id, `${label}.conflict_resolution.resolution_id`, SCOPED_ID_PATTERN);
+  if (conflict.comparison_algorithm !== 'nfkc-han-alnum-v1') {
+    fail(`${label}.conflict_resolution.comparison_algorithm is invalid`);
+  }
+  if (requireString(
+    conflict.snapshot_normalized_sha256,
+    `${label}.conflict_resolution.snapshot_normalized_sha256`,
+    SHA256_PATTERN,
+  ) !== sha256(snapshotNormalized)) fail(`${label} conflict snapshot identity drifted`);
+  if (requireString(
+    conflict.accepted_normalized_sha256,
+    `${label}.conflict_resolution.accepted_normalized_sha256`,
+    SHA256_PATTERN,
+  ) !== sha256(acceptedNormalized)) fail(`${label} conflict accepted-text identity drifted`);
+  if (requireString(
+    conflict.comparison_pair_sha256,
+    `${label}.conflict_resolution.comparison_pair_sha256`,
+    SHA256_PATTERN,
+  ) !== sha256(`${snapshotNormalized}\0${acceptedNormalized}`)) {
+    fail(`${label} conflict comparison-pair identity drifted`);
+  }
+  if (conflict.resolved_against_scan !== true) fail(`${label} conflict must be resolved against scan`);
+  if (requireString(
+    conflict.rendered_image_sha256,
+    `${label}.conflict_resolution.rendered_image_sha256`,
+    SHA256_PATTERN,
+  ) !== decision.rendered_image_sha256) fail(`${label} conflict scan image identity drifted`);
+  requireString(conflict.scan_locator, `${label}.conflict_resolution.scan_locator`);
+  requireString(conflict.resolution, `${label}.conflict_resolution.resolution`);
+}
+
+export async function derivePdfPageImageSequence(pdfBytes, label = 'PDF artifact') {
+  if (!Buffer.isBuffer(pdfBytes) || pdfBytes.length < 5
+    || pdfBytes.subarray(0, 5).toString('ascii') !== '%PDF-') {
+    fail(`${label} does not have a PDF file signature`);
+  }
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'ocr-pdf-sequence-'));
+  const inputPath = path.join(temporaryRoot, 'artifact.pdf');
+  const outputPrefix = path.join(temporaryRoot, 'page');
+  try {
+    await writeFile(inputPath, pdfBytes, { mode: 0o600 });
+    try {
+      await execFileAsync('pdftoppm', [
+        '-r',
+        '144',
+        '-cropbox',
+        '-png',
+        inputPath,
+        outputPrefix,
+      ], { timeout: 300_000, maxBuffer: 8 * 1024 * 1024 });
+    } catch (error) {
+      fail(`${label} page-image sequence cannot be rendered: ${error.message}`);
+    }
+    const pageEntries = (await readdir(temporaryRoot, { withFileTypes: true }))
+      .map((entry) => ({ entry, match: entry.name.match(/^page-(\d+)\.png$/) }))
+      .filter(({ match }) => match)
+      .sort((left, right) => Number(left.match[1]) - Number(right.match[1]));
+    if (!pageEntries.length) fail(`${label} rendered no page images`);
+    const pageImageSha256 = [];
+    for (const [index, { entry, match }] of pageEntries.entries()) {
+      if (!entry.isFile() || Number(match[1]) !== index + 1) {
+        fail(`${label} rendered page-image sequence is incomplete or unsafe`);
+      }
+      const pagePath = path.join(temporaryRoot, entry.name);
+      const handle = await open(pagePath, constants.O_RDONLY | constants.O_NOFOLLOW);
+      try {
+        const info = await handle.stat({ bigint: true });
+        if (!info.isFile()) fail(`${label} rendered page ${index + 1} is not a regular file`);
+        pageImageSha256.push(sha256(await handle.readFile()));
+      } finally {
+        await handle.close();
+      }
+    }
+    return {
+      render_profile: PDF_RENDER_PROFILE,
+      page_count: pageImageSha256.length,
+      page_image_sha256: pageImageSha256,
+      sequence_sha256: sha256(pageImageSha256.join('\n')),
+    };
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+}
+
+async function cachedPdfPageImageSequence(cache, pdfBytes, label) {
+  const key = sha256(pdfBytes);
+  if (!cache.has(key)) cache.set(key, derivePdfPageImageSequence(pdfBytes, label));
+  return cache.get(key);
+}
+
+function requirePageImageHashes(value, label) {
+  const hashes = requireArray(value, label);
+  if (!hashes.length) fail(`${label} must not be empty`);
+  return hashes.map((hash, index) => requireString(hash, `${label}[${index}]`, SHA256_PATTERN));
+}
+
+function validatePageTextRegion(region, label, expectedTextSha) {
+  const value = requireObject(region, label);
+  if (value.coordinate_space !== 'normalized_page_v1') {
+    fail(`${label}.coordinate_space must equal normalized_page_v1`);
+  }
+  const bbox = requireArray(value.bbox, `${label}.bbox`);
+  if (bbox.length !== 4
+    || bbox.some((coordinate) => typeof coordinate !== 'number'
+      || !Number.isFinite(coordinate)
+      || coordinate < 0
+      || coordinate > 1)
+    || bbox[0] >= bbox[2]
+    || bbox[1] >= bbox[3]) {
+    fail(`${label}.bbox must be a non-empty normalized [x0,y0,x1,y1] rectangle`);
+  }
+  if (requireString(value.text_sha256, `${label}.text_sha256`, SHA256_PATTERN)
+    !== expectedTextSha) {
+    fail(`${label} text identity drifted`);
+  }
+}
+
+function validateCitedPageMappings(
+  receipt,
+  decision,
+  evidence,
+  sourceSequence,
+  onlineSequence,
+  label,
+) {
+  const mappings = requireArray(receipt.cited_page_mappings, `${label}.cited_page_mappings`);
+  if (!mappings.length) fail(`${label}.cited_page_mappings must not be empty`);
+  if (requireString(
+    receipt.cited_page_mapping_sha256,
+    `${label}.cited_page_mapping_sha256`,
+    SHA256_PATTERN,
+  ) !== sha256(JSON.stringify(mappings))) {
+    fail(`${label} cited-page mapping SHA-256 drifted`);
+  }
+  const seenOnlinePages = new Set();
+  let hasSameCitedImage = false;
+  for (const [index, rawMapping] of mappings.entries()) {
+    const mappingLabel = `${label}.cited_page_mappings[${index}]`;
+    const mapping = requireObject(rawMapping, mappingLabel);
+    const sourcePage = requireInteger(
+      mapping.source_physical_page,
+      `${mappingLabel}.source_physical_page`,
+      1,
+    );
+    const onlinePage = requireInteger(
+      mapping.online_physical_page,
+      `${mappingLabel}.online_physical_page`,
+      1,
+    );
+    if (sourcePage !== decision.physical_page || sourcePage > sourceSequence.page_count) {
+      fail(`${mappingLabel} does not map the exact cited source page`);
+    }
+    if (onlinePage > onlineSequence.page_count) {
+      fail(`${mappingLabel}.online_physical_page exceeds the online artifact`);
+    }
+    if (seenOnlinePages.has(onlinePage)) fail(`${label} repeats an online cited page mapping`);
+    seenOnlinePages.add(onlinePage);
+    const sourcePageSha = sourceSequence.page_image_sha256[sourcePage - 1];
+    const onlinePageSha = onlineSequence.page_image_sha256[onlinePage - 1];
+    if (requireString(
+      mapping.source_page_image_sha256,
+      `${mappingLabel}.source_page_image_sha256`,
+      SHA256_PATTERN,
+    ) !== sourcePageSha
+      || requireString(
+        mapping.online_page_image_sha256,
+        `${mappingLabel}.online_page_image_sha256`,
+        SHA256_PATTERN,
+      ) !== onlinePageSha) {
+      fail(`${mappingLabel} cited-page image identity drifted`);
+    }
+    validatePageTextRegion(
+      mapping.source_text_region,
+      `${mappingLabel}.source_text_region`,
+      decision.accepted_text_sha256,
+    );
+    validatePageTextRegion(
+      mapping.online_text_region,
+      `${mappingLabel}.online_text_region`,
+      evidence.snapshot_identity.text_sha256,
+    );
+    if (sourcePageSha === onlinePageSha) hasSameCitedImage = true;
+  }
+  const expectedResult = hasSameCitedImage
+    ? 'same_cited_page_image'
+    : 'different_cited_page_images';
+  if (receipt.cited_page_identity_result !== expectedResult) {
+    fail(`${label}.cited_page_identity_result contradicts exact mapped page images`);
+  }
+  if (hasSameCitedImage && evidence.independent_for_decision) {
+    fail(`${decision.decision_id}/${evidence.source_id} same cited page image cannot be independent`);
+  }
+  return expectedResult;
+}
+
+async function validateArtifactIdentityReceipt(
+  decision,
+  evidence,
+  baseDirectory,
+  protectedResources,
+  sourcePdfBytes,
+  pageSequenceCache,
+) {
+  const reference = evidence.artifact_identity_receipt;
+  if (!reference) {
+    if (evidence.version_match === 'exact_document_exact_edition'
+      || evidence.independent_for_decision) {
+      fail(`${decision.decision_id}/${evidence.source_id} artifact identity receipt is required`);
+    }
+    return null;
+  }
+  const receiptPath = path.resolve(baseDirectory, reference.receipt_path);
+  let receiptRead;
+  try {
+    receiptRead = await readPinnedRegularFileReceipt(receiptPath, {
+      label: `${decision.decision_id}/${evidence.source_id} artifact identity receipt`,
+      rootPath: baseDirectory,
+    });
+  } catch (error) {
+    fail(error.message);
+  }
+  receiptRead.protectedRole = 'online_artifact_receipt';
+  protectedResources.files.push(receiptRead);
+  protectedResources.onlineDirectories.push({
+    requestedPath: receiptRead.parentRequestedPath,
+    canonicalPath: receiptRead.parentCanonicalPath,
+    identity: receiptRead.parentIdentity,
+  });
+  if (sha256(receiptRead.bytes) !== reference.receipt_sha256) {
+    fail(`${decision.decision_id}/${evidence.source_id} artifact identity receipt SHA-256 drifted`);
+  }
+  let receipt;
+  try {
+    receipt = JSON.parse(receiptRead.bytes.toString('utf8'));
+  } catch (error) {
+    fail(`${decision.decision_id}/${evidence.source_id} artifact identity receipt JSON is invalid: ${error.message}`);
+  }
+  const label = `${decision.decision_id}/${evidence.source_id} artifact identity receipt`;
+  requireObject(receipt, label);
+  if (receipt.schema_version !== 2
+    || receipt.artifact_profile !== 'ocr-online-artifact-identity-receipt-v2') {
+    fail(`${label} schema or artifact profile is invalid`);
+  }
+  if (requireString(receipt.source_pdf_sha256, `${label}.source_pdf_sha256`, SHA256_PATTERN)
+    !== decision.source_pdf_sha256) fail(`${label} source PDF identity drifted`);
+  const registryBinding = evidence.validated_registry_binding;
+  if (requireString(
+    receipt.source_identity_sha256,
+    `${label}.source_identity_sha256`,
+    SHA256_PATTERN,
+  ) !== evidence.source_identity_sha256) fail(`${label} controlled source identity drifted`);
+  if (requireString(receipt.artifact_id, `${label}.artifact_id`, SCOPED_ID_PATTERN)
+    !== registryBinding.artifact_binding.artifact_id) fail(`${label} artifact ID drifted`);
+  if (requireString(
+    receipt.evidence_snapshot_sha256,
+    `${label}.evidence_snapshot_sha256`,
+    SHA256_PATTERN,
+  ) !== evidence.content_sha256) fail(`${label} evidence snapshot identity drifted`);
+  const onlineArtifactSha = requireString(
+    receipt.online_artifact_sha256,
+    `${label}.online_artifact_sha256`,
+    SHA256_PATTERN,
+  );
+  if (onlineArtifactSha === decision.source_pdf_sha256) {
+    fail(`${label} online artifact is the source PDF and cannot be independent`);
+  }
+  if (onlineArtifactSha !== registryBinding.artifact_binding.artifact_sha256) {
+    fail(`${label} online artifact is not the controlled registry artifact`);
+  }
+  const onlineArtifactRelativePath = normalizeRelativeEvidencePath(
+    receipt.online_artifact_path,
+    `${label}.online_artifact_path`,
+  );
+  const onlineArtifactPath = path.resolve(baseDirectory, onlineArtifactRelativePath);
+  let onlineArtifactRead;
+  try {
+    onlineArtifactRead = await readPinnedRegularFileReceipt(onlineArtifactPath, {
+      label: `${label} online artifact`,
+      rootPath: baseDirectory,
+    });
+  } catch (error) {
+    fail(error.message);
+  }
+  onlineArtifactRead.protectedRole = 'online_artifact';
+  protectedResources.files.push(onlineArtifactRead);
+  protectedResources.onlineDirectories.push({
+    requestedPath: onlineArtifactRead.parentRequestedPath,
+    canonicalPath: onlineArtifactRead.parentCanonicalPath,
+    identity: onlineArtifactRead.parentIdentity,
+  });
+  if (sha256(onlineArtifactRead.bytes) !== onlineArtifactSha) {
+    fail(`${label} online artifact bytes drifted`);
+  }
+  if (onlineArtifactRead.bytes.length < 5
+    || onlineArtifactRead.bytes.subarray(0, 5).toString('ascii') !== '%PDF-') {
+    fail(`${label} online artifact must be a PDF`);
+  }
+  if (receipt.render_profile !== PDF_RENDER_PROFILE) {
+    fail(`${label}.render_profile must equal ${PDF_RENDER_PROFILE}`);
+  }
+  const sourceDeclaredHashes = requirePageImageHashes(
+    receipt.source_page_image_sha256,
+    `${label}.source_page_image_sha256`,
+  );
+  const onlineDeclaredHashes = requirePageImageHashes(
+    receipt.online_page_image_sha256,
+    `${label}.online_page_image_sha256`,
+  );
+  const [sourceSequence, onlineSequence] = await Promise.all([
+    cachedPdfPageImageSequence(
+      pageSequenceCache,
+      sourcePdfBytes,
+      `${decision.decision_id} source PDF`,
+    ),
+    cachedPdfPageImageSequence(
+      pageSequenceCache,
+      onlineArtifactRead.bytes,
+      `${decision.decision_id}/${evidence.source_id} online artifact`,
+    ),
+  ]);
+  if (JSON.stringify(sourceDeclaredHashes) !== JSON.stringify(sourceSequence.page_image_sha256)
+    || JSON.stringify(onlineDeclaredHashes) !== JSON.stringify(onlineSequence.page_image_sha256)) {
+    fail(`${label} recomputed page-image sequence drifted`);
+  }
+  const sourceSequenceSha = requireString(
+    receipt.source_page_asset_sequence_sha256,
+    `${label}.source_page_asset_sequence_sha256`,
+    SHA256_PATTERN,
+  );
+  const onlineSequenceSha = requireString(
+    receipt.online_page_asset_sequence_sha256,
+    `${label}.online_page_asset_sequence_sha256`,
+    SHA256_PATTERN,
+  );
+  const sourceCount = requireInteger(receipt.source_page_asset_count, `${label}.source_page_asset_count`, 1);
+  const onlineCount = requireInteger(receipt.online_page_asset_count, `${label}.online_page_asset_count`, 1);
+  if (sourceSequenceSha !== sourceSequence.sequence_sha256
+    || onlineSequenceSha !== onlineSequence.sequence_sha256
+    || sourceCount !== sourceSequence.page_count
+    || onlineCount !== onlineSequence.page_count) {
+    fail(`${label} recomputed page-image sequence aggregate or count drifted`);
+  }
+  const citedPageIdentityResult = validateCitedPageMappings(
+    receipt,
+    decision,
+    evidence,
+    sourceSequence,
+    onlineSequence,
+    label,
+  );
+  const sameSequence = sourceSequence.page_count === onlineSequence.page_count
+    && JSON.stringify(sourceSequence.page_image_sha256)
+      === JSON.stringify(onlineSequence.page_image_sha256);
+  const expectedResult = sameSequence ? 'same_page_asset_sequence' : 'different_page_asset_sequence';
+  if (receipt.identity_result !== expectedResult) fail(`${label} identity_result contradicts page assets`);
+  if (sameSequence) {
+    if (evidence.independent_for_decision) {
+      fail(`${decision.decision_id}/${evidence.source_id} same page-asset sequence cannot be independent`);
+    }
+    if (evidence.artifact_relation !== 'same_artifact_mirror') {
+      fail(`${decision.decision_id}/${evidence.source_id} same page-asset sequence must be a same-artifact mirror`);
+    }
+  } else if (evidence.artifact_relation === 'different_artifact_same_edition'
+    && !evidence.independent_for_decision) {
+    fail(`${decision.decision_id}/${evidence.source_id} different artifact is not marked independent`);
+  }
+  return {
+    identity_result: expectedResult,
+    cited_page_identity_result: citedPageIdentityResult,
+    online_artifact_sha256: onlineArtifactSha,
+  };
+}
+
+async function validateOnlineEvidenceSnapshots(
+  decisions,
+  decisionsPath,
+  sourcePdfSha,
+  sourcePdfBytes,
+  protectedResources,
+  pageSequenceCache,
+) {
+  const baseDirectory = path.dirname(path.resolve(decisionsPath));
+  for (const decision of decisions) {
+    for (const evidence of decision.online_evidence) {
+      const absolutePath = path.resolve(baseDirectory, evidence.content_path);
+      let contentRead;
+      try {
+        contentRead = await readPinnedRegularFileReceipt(absolutePath, {
+          label: `${decision.decision_id}/${evidence.source_id} online evidence snapshot`,
+          rootPath: baseDirectory,
+        });
+      } catch (error) {
+        fail(error.message);
+      }
+      contentRead.protectedRole = 'online_snapshot';
+      protectedResources.files.push(contentRead);
+      protectedResources.onlineDirectories.push({
+        requestedPath: contentRead.parentRequestedPath,
+        canonicalPath: contentRead.parentCanonicalPath,
+        identity: contentRead.parentIdentity,
+      });
+      const contentSha = sha256(contentRead.bytes);
+      if (contentSha !== evidence.content_sha256) {
+        fail(`${decision.decision_id} online evidence content SHA-256 drifted`);
+      }
+      if (contentSha === sourcePdfSha || contentSha === decision.source_pdf_sha256) {
+        fail(`${decision.decision_id} online evidence snapshot must not equal the source PDF`);
+      }
+      let snapshotText;
+      try {
+        snapshotText = STRICT_UTF8_DECODER.decode(contentRead.bytes);
+      } catch {
+        fail(`${decision.decision_id}/${evidence.source_id} online evidence snapshot is not valid UTF-8 text`);
+      }
+      if (sha256(snapshotText) !== evidence.snapshot_identity.text_sha256) {
+        fail(`${decision.decision_id}/${evidence.source_id} snapshot text identity drifted`);
+      }
+      const snapshotNormalized = normalized(snapshotText);
+      const acceptedNormalized = normalized(decision.accepted_text);
+      if (!snapshotNormalized) fail(`${decision.decision_id}/${evidence.source_id} snapshot text is empty`);
+      let actualRelation = 'structured_conflicts_resolved';
+      if (snapshotNormalized === acceptedNormalized) actualRelation = 'normalized_exact';
+      else if (snapshotNormalized.includes(acceptedNormalized)) {
+        actualRelation = 'snapshot_contains_accepted_text';
+      } else if (acceptedNormalized.includes(snapshotNormalized)) {
+        actualRelation = 'accepted_text_contains_snapshot';
+      }
+      if (evidence.accepted_text_relation !== actualRelation) {
+        fail(`${decision.decision_id}/${evidence.source_id} accepted-text relation drifted`);
+      }
+      if (actualRelation === 'structured_conflicts_resolved') {
+        if (!evidence.conflict_resolution) {
+          fail(`${decision.decision_id}/${evidence.source_id} structured conflict_resolution is required`);
+        }
+        validateStructuredConflictResolution(
+          decision,
+          evidence,
+          snapshotNormalized,
+          acceptedNormalized,
+        );
+      } else if (evidence.conflict_resolution !== null) {
+        fail(`${decision.decision_id}/${evidence.source_id} conflict_resolution must be null without conflict`);
+      }
+      const artifactIdentity = await validateArtifactIdentityReceipt(
+        decision,
+        evidence,
+        baseDirectory,
+        protectedResources,
+        sourcePdfBytes,
+        pageSequenceCache,
+      );
+      evidence.validated_snapshot_relation = actualRelation;
+      evidence.validated_artifact_identity = artifactIdentity;
+    }
+  }
+}
+
+function validateDecisionEntitlements(decisions) {
+  for (const decision of decisions) {
+    if (!decision.citation_allowed) continue;
+    const eligible = decision.online_evidence.some((item) => (
+      item.version_match === 'exact_document_exact_edition'
+      && item.independent_for_decision === true
+      && ['independent_transcription', 'different_artifact_same_edition']
+        .includes(item.artifact_relation)
+      && item.snapshot_identity.scope === 'whole_page'
+      && ['normalized_exact', 'snapshot_contains_accepted_text', 'structured_conflicts_resolved']
+        .includes(item.validated_snapshot_relation)
+      && item.validated_artifact_identity?.identity_result === 'different_page_asset_sequence'
+      && item.validated_artifact_identity?.cited_page_identity_result
+        === 'different_cited_page_images'
+    ));
+    if (!eligible) {
+      fail(`${decision.decision_id} citation decision requires an independent exact-edition online transcription`);
+    }
+  }
+}
+
+function pathContains(parent, child) {
+  const relative = path.relative(path.resolve(parent), path.resolve(child));
+  return !relative.startsWith('..') && !path.isAbsolute(relative);
+}
+
+async function readRegularFileNoFollow(
+  filePath,
+  label,
+  root = null,
+  encoding = null,
+  protectedResources = null,
+  protectedRole = 'protected_input',
+) {
+  let receipt;
+  try {
+    receipt = await readPinnedRegularFileReceipt(filePath, {
+      label,
+      rootPath: root || undefined,
+      encoding,
+    });
+    if (protectedResources) {
+      receipt.protectedRole = protectedRole;
+      protectedResources.files.push(receipt);
+      if (root) {
+        protectedResources.evidenceRoots.push({
+          requestedPath: receipt.rootRequestedPath,
+          canonicalPath: receipt.rootCanonicalPath,
+          identity: receipt.rootIdentity,
+        });
+      }
+    }
+    return receipt.bytes;
+  } catch (error) {
+    if (String(error?.message || '').startsWith('OCR triangulation audit:')) throw error;
+    fail(error.message);
+  }
+}
+
+function validateEntitlementPolicy(input, raw) {
+  if (sha256(raw) !== TRUSTED_ENTITLEMENT_POLICY_SHA256) {
+    fail('repository citation entitlement policy is not the Git-reviewed trusted digest');
+  }
+  const policyDocument = requireObject(input, 'citation entitlement policy');
+  if (policyDocument.schema_version !== 1
+    || policyDocument.artifact_profile !== 'ocr-triangulation-entitlement-policy-v1') {
+    fail('citation entitlement policy schema or artifact profile is invalid');
+  }
+  const policy = requireObject(policyDocument.policy, 'citation entitlement policy.policy');
+  if (policy.production_citation_requires_repository_canonical_paths !== true
+    || policy.production_citation_requires_reviewed_digests !== true
+    || policy.non_public_test_mode_never_grants_citation !== true) {
+    fail('citation entitlement policy must require canonical paths, reviewed digests, and test fail-closed behavior');
+  }
+  const registry = requireObject(
+    policyDocument.canonical_online_source_registry,
+    'citation entitlement policy.canonical_online_source_registry',
+  );
+  const registryPath = normalizeRelativeEvidencePath(
+    registry.path,
+    'citation entitlement policy.canonical_online_source_registry.path',
+  );
+  if (registryPath !== 'data/ocr-online-source-registry.json') {
+    fail('citation entitlement policy registry path must be the repository canonical registry');
+  }
+  requireString(
+    registry.sha256,
+    'citation entitlement policy.canonical_online_source_registry.sha256',
+    SHA256_PATTERN,
+  );
+  const approvedLedgers = new Map();
+  let previousPath = '';
+  for (const [index, rawLedger] of requireArray(
+    policyDocument.approved_decision_ledgers,
+    'citation entitlement policy.approved_decision_ledgers',
+  ).entries()) {
+    const label = `citation entitlement policy.approved_decision_ledgers[${index}]`;
+    const ledger = requireObject(rawLedger, label);
+    const ledgerPath = normalizeRelativeEvidencePath(ledger.path, `${label}.path`);
+    if (!ledgerPath.startsWith('data/ocr-triangulation-decisions/')) {
+      fail(`${label}.path must be beneath data/ocr-triangulation-decisions`);
+    }
+    if (previousPath && ledgerPath.localeCompare(previousPath, 'en') <= 0) {
+      fail('citation entitlement policy decision ledgers must be unique and sorted');
+    }
+    previousPath = ledgerPath;
+    approvedLedgers.set(
+      ledgerPath,
+      requireString(ledger.sha256, `${label}.sha256`, SHA256_PATTERN),
+    );
+  }
+  return { registryPath, registrySha256: registry.sha256, approvedLedgers };
+}
+
+async function validateProductionCitationTrust({
+  decisionsPath,
+  decisionsRaw,
+  onlineSourceRegistryPath,
+  registryRaw,
+  protectedResources,
+}) {
+  const entitlementRaw = await readRegularFileNoFollow(
+    CANONICAL_ENTITLEMENT_POLICY_PATH,
+    'repository citation entitlement policy',
+    REPOSITORY_ROOT,
+    'utf8',
+    protectedResources,
+    'citation_entitlement_policy',
+  );
+  let parsed;
+  try {
+    parsed = JSON.parse(entitlementRaw);
+  } catch (error) {
+    fail(`citation entitlement policy contains invalid JSON: ${error.message}`);
+  }
+  const policy = validateEntitlementPolicy(parsed, entitlementRaw);
+  const expectedRegistryPath = path.join(REPOSITORY_ROOT, policy.registryPath);
+  if (path.resolve(onlineSourceRegistryPath) !== expectedRegistryPath
+    || await realpath(onlineSourceRegistryPath) !== await realpath(expectedRegistryPath)) {
+    fail('production citation requires the repository canonical online source registry path');
+  }
+  if (sha256(registryRaw) !== policy.registrySha256) {
+    fail('production citation registry bytes are absent from the trusted entitlement policy');
+  }
+  const resolvedDecisionPath = path.resolve(decisionsPath);
+  const relativeDecisionPath = path.relative(REPOSITORY_ROOT, resolvedDecisionPath);
+  if (relativeDecisionPath.startsWith('..') || path.isAbsolute(relativeDecisionPath)) {
+    fail('production citation decision ledger must use a repository canonical path');
+  }
+  const expectedLedgerSha = policy.approvedLedgers.get(relativeDecisionPath);
+  if (!expectedLedgerSha || expectedLedgerSha !== sha256(decisionsRaw)) {
+    fail('production citation decision ledger is absent from the Git-reviewed entitlement policy');
+  }
+  const expectedDecisionPath = path.join(REPOSITORY_ROOT, relativeDecisionPath);
+  if (resolvedDecisionPath !== expectedDecisionPath
+    || await realpath(decisionsPath) !== await realpath(expectedDecisionPath)) {
+    fail('production citation requires a repository canonical decision ledger path');
+  }
+  return {
+    policy_sha256: TRUSTED_ENTITLEMENT_POLICY_SHA256,
+    registry_path: policy.registryPath,
+    decision_ledger_path: relativeDecisionPath,
+  };
+}
+
+function pageKey(page, width) {
+  return String(page).padStart(width, '0');
+}
+
+function selectFurnitureRule(documentId, page, rules) {
+  const matches = [...rules.values()].filter((rule) => (
+    rule.document_id === documentId && page >= rule.start_page && page <= rule.end_page
+  ));
+  if (matches.length > 1) fail(`${documentId} page ${page} matches multiple activated furniture rules`);
+  return matches[0] || null;
+}
+
+function bindDecision(decision, actual, tableFormats, productionCitationEntitled) {
+  const prefix = decision.decision_id;
+  if (decision.source_pdf_sha256 !== actual.sourcePdfSha) fail(`${prefix} source PDF SHA-256 drifted`);
+  if (decision.rendered_image_sha256 !== actual.imageSha) fail(`${prefix} rendered image SHA-256 drifted`);
+  if (decision.primary_ocr_sha256 !== actual.primarySha) fail(`${prefix} primary OCR SHA-256 drifted`);
+  if (decision.vision_text_sha256 !== actual.witnessTextSha) fail(`${prefix} vision text SHA-256 drifted`);
+  if (tableFormats.length && decision.page_type === 'prose') {
+    fail(`${prefix} declared prose but table structure was detected`);
+  }
+  if (tableFormats.length
+    && decision.table_cell_manifest
+    && !tableFormats.includes(decision.table_cell_manifest.source_format)) {
+    fail(`${prefix} table manifest source format does not match detected structure`);
+  }
+  if (decision.citation_allowed && tableFormats.length
+    && decision.human_review.table_cells_checked !== true) {
+    fail(`${prefix} citation decision for a table requires table_cells_checked=true`);
+  }
+  return {
+    decision_id: decision.decision_id,
+    decision_scope: decision.decision_scope,
+    embedded_item_id: decision.embedded_item_id,
+    embedded_item_binding_sha256: decision.embedded_item_binding_sha256,
+    stable_fact_id: decision.stable_fact_id,
+    stable_fact_binding_sha256: decision.stable_fact_binding_sha256,
+    stable_fact_span_id: decision.stable_fact_span_id,
+    stable_fact_span_binding_sha256: decision.stable_fact_span_binding_sha256,
+    edition_match_status: decision.edition_match_status,
+    verification_status: decision.verification_status,
+    accepted_text_sha256: decision.accepted_text_sha256,
+    online_source_ids: decision.online_evidence.map((item) => item.source_id),
+    reviewed_by: decision.human_review.reviewed_by,
+    reviewed_at: decision.human_review.reviewed_at,
+    resolution: decision.human_review.resolution,
+    uncertainty_note: decision.human_review.uncertainty_note,
+    citation_candidate_requested: decision.citation_allowed,
+    production_entitlement_applied: decision.citation_allowed && productionCitationEntitled,
+    citation_allowed: decision.citation_allowed && productionCitationEntitled,
+  };
+}
+
+async function buildOcrTriangulationAuditInternal(options) {
+  const protectedResources = {
+    files: [],
+    evidenceRoots: [],
+    onlineDirectories: [],
+  };
+  const pageSequenceCache = new Map();
+  const onlineEntitlementMode = options.onlineEntitlementMode || 'repository_canonical';
+  if (!ONLINE_ENTITLEMENT_MODES.has(onlineEntitlementMode)) {
+    fail('onlineEntitlementMode must equal repository_canonical or non_public_test');
+  }
+  const documentId = requireString(options.documentId, 'documentId', DOCUMENT_ID_PATTERN);
+  const start = requireInteger(options.start, 'start', 1);
+  const end = requireInteger(options.end, 'end', start);
+  if (end < start) fail('end must be greater than or equal to start');
+  const primaryRoot = path.resolve(requireString(options.primaryRoot, 'primaryRoot'));
+  const witnessRoot = path.resolve(requireString(options.witnessRoot, 'witnessRoot'));
+  const sourcePdfPath = path.resolve(requireString(options.sourcePdfPath, 'sourcePdfPath'));
+  const sourcePdfBytes = await readRegularFileNoFollow(
+    sourcePdfPath,
+    `${documentId} source PDF`,
+    null,
+    null,
+    protectedResources,
+    'source_pdf',
+  );
+  if (sourcePdfBytes.length < 5 || sourcePdfBytes.subarray(0, 5).toString('ascii') !== '%PDF-') {
+    fail(`${documentId} source PDF does not have a PDF file signature`);
+  }
+  const actualSourcePdfSha = sha256(sourcePdfBytes);
+  if (Boolean(options.approvalLedgerPath) !== Boolean(options.activationLedgerPath)) {
+    fail('approval and activation ledgers must be supplied together');
+  }
+
+  let furnitureRules = new Map();
+  let furnitureBinding = null;
+  if (options.approvalLedgerPath) {
+    const approvalRaw = await readRegularFileNoFollow(
+      options.approvalLedgerPath,
+      'approval ledger',
+      null,
+      'utf8',
+      protectedResources,
+      'approval_ledger',
+    );
+    const approval = JSON.parse(approvalRaw);
+    await validateOcrPageFurnitureApprovals(approval, {
+      witnessRoot,
+      protectedResources,
+    });
+    const activationRaw = await readRegularFileNoFollow(
+      options.activationLedgerPath,
+      'activation ledger',
+      null,
+      'utf8',
+      protectedResources,
+      'activation_ledger',
+    );
+    const activation = JSON.parse(activationRaw);
+    furnitureRules = validateOcrPageFurnitureActivation(activation, approvalRaw, approval);
+    furnitureBinding = {
+      approval_ledger_sha256: sha256(approvalRaw),
+      activation_ledger_sha256: sha256(activationRaw),
+      activation_scope: activation.activation_scope,
+    };
+  }
+
+  let decisions = [];
+  let decisionLedgerSha = null;
+  let onlineSourceRegistrySha = null;
+  let entitlementTrust = null;
+  if (options.decisionsPath) {
+    const resolvedDecisionsPath = path.resolve(options.decisionsPath);
+    const raw = await readRegularFileNoFollow(
+      resolvedDecisionsPath,
+      'decision ledger',
+      null,
+      'utf8',
+      protectedResources,
+      'decision_ledger',
+    );
+    let rawLedger;
+    try {
+      rawLedger = JSON.parse(raw);
+    } catch (error) {
+      fail(`decision ledger contains invalid JSON: ${error.message}`);
+    }
+    const hasOnlineEvidence = Array.isArray(rawLedger?.decisions)
+      && rawLedger.decisions.some((decision) => Array.isArray(decision?.online_evidence)
+        && decision.online_evidence.length > 0);
+    if (hasOnlineEvidence && !options.onlineSourceRegistryPath) {
+      fail('online source registry is required for online evidence');
+    }
+    let registryRaw = null;
+    let registrySources = new Map();
+    if (options.onlineSourceRegistryPath) {
+      registryRaw = await readRegularFileNoFollow(
+        options.onlineSourceRegistryPath,
+        'online source registry',
+        null,
+        'utf8',
+        protectedResources,
+        'online_source_registry',
+      );
+      let registry;
+      try {
+        registry = JSON.parse(registryRaw);
+      } catch (error) {
+        fail(`online source registry contains invalid JSON: ${error.message}`);
+      }
+      registrySources = validateOnlineSourceRegistry(registry);
+      onlineSourceRegistrySha = sha256(registryRaw);
+    }
+    const ledgerDecisions = validateDecisionLedger(rawLedger, registryRaw, registrySources);
+    decisions = ledgerDecisions.filter((decision) => decision.document_id === documentId);
+    await validateOnlineEvidenceSnapshots(
+      decisions,
+      resolvedDecisionsPath,
+      actualSourcePdfSha,
+      sourcePdfBytes,
+      protectedResources,
+      pageSequenceCache,
+    );
+    validateDecisionEntitlements(decisions);
+    if (decisions.some((decision) => decision.citation_allowed)
+      && onlineEntitlementMode === 'repository_canonical') {
+      entitlementTrust = await validateProductionCitationTrust({
+        decisionsPath: resolvedDecisionsPath,
+        decisionsRaw: raw,
+        onlineSourceRegistryPath: options.onlineSourceRegistryPath,
+        registryRaw,
+        protectedResources,
+      });
+    }
+    decisionLedgerSha = sha256(raw);
+  }
+  const productionCitationEntitled = Boolean(entitlementTrust)
+    && onlineEntitlementMode === 'repository_canonical';
+  const decisionsByPage = new Map();
+  for (const decision of decisions) {
+    const list = decisionsByPage.get(decision.physical_page) || [];
+    list.push(decision);
+    decisionsByPage.set(decision.physical_page, list);
+  }
+
+  const pages = [];
+  let sourcePdfSha = null;
+  for (let page = start; page <= end; page += 1) {
+    const primaryPath = path.join(primaryRoot, pageKey(page, 4), 'content.md');
+    const sidecarPath = path.join(witnessRoot, documentId, 'vision', `page-${pageKey(page, 3)}.json`);
+    const imagePath = path.join(witnessRoot, documentId, 'images', `page-${pageKey(page, 3)}.png`);
+    const [primary, sidecarRaw, image] = await Promise.all([
+      readRegularFileNoFollow(
+        primaryPath,
+        `${documentId} page ${page} primary OCR`,
+        primaryRoot,
+        'utf8',
+        protectedResources,
+        'primary_ocr',
+      ),
+      readRegularFileNoFollow(
+        sidecarPath,
+        `${documentId} page ${page} Vision sidecar`,
+        witnessRoot,
+        'utf8',
+        protectedResources,
+        'vision_sidecar',
+      ),
+      readRegularFileNoFollow(
+        imagePath,
+        `${documentId} page ${page} rendered image`,
+        witnessRoot,
+        null,
+        protectedResources,
+        'rendered_image',
+      ),
+    ]);
+    const witnessRecord = requireObject(JSON.parse(sidecarRaw), `${documentId} page ${page} sidecar`);
+    if (witnessRecord.document_id !== documentId) fail(`${documentId} page ${page} sidecar document drifted`);
+    if (witnessRecord.physical_pdf_page !== page) fail(`${documentId} page ${page} sidecar page drifted`);
+    if (witnessRecord.file !== `page-${pageKey(page, 3)}.png`) fail(`${documentId} page ${page} sidecar file drifted`);
+    const pageSourceSha = requireString(
+      witnessRecord.source_pdf_sha256,
+      `${documentId} page ${page} source_pdf_sha256`,
+      SHA256_PATTERN,
+    );
+    if (pageSourceSha !== actualSourcePdfSha) {
+      fail(`${documentId} page ${page} source PDF bytes drifted`);
+    }
+    if (sourcePdfSha && pageSourceSha !== sourcePdfSha) fail(`${documentId} source PDF SHA-256 changed inside range`);
+    sourcePdfSha = pageSourceSha;
+    const recordedImageSha = requireString(
+      witnessRecord.rendered_image_sha256,
+      `${documentId} page ${page} rendered_image_sha256`,
+      SHA256_PATTERN,
+    );
+    const imageSha = sha256(image);
+    if (recordedImageSha !== imageSha) fail(`${documentId} page ${page} rendered image bytes drifted`);
+    const lines = requireArray(witnessRecord.lines, `${documentId} page ${page} lines`);
+    const witness = lines.map((line, index) => {
+      requireObject(line, `${documentId} page ${page} lines[${index}]`);
+      if (typeof line.text !== 'string') fail(`${documentId} page ${page} lines[${index}].text must be a string`);
+      return line.text;
+    }).join('\n');
+    const primarySha = sha256(primary);
+    const witnessTextSha = sha256(witness);
+    const rawMetrics = comparisonMetrics(primary, witness);
+    const rule = selectFurnitureRule(documentId, page, furnitureRules);
+    let comparisonPrimary = primary;
+    let comparisonWitness = witness;
+    let furniture = null;
+    if (rule) {
+      const printedPage = page + rule.physical_to_printed_offset;
+      const filteredPrimary = stripExactTrailingPrintedPage(primary, printedPage);
+      const filteredWitness = stripExactTrailingPrintedPage(witness, printedPage);
+      if (!filteredWitness.removed) fail(`${rule.rule_id} page ${page} lost its approved exact witness footer`);
+      comparisonPrimary = filteredPrimary.value;
+      comparisonWitness = filteredWitness.value;
+      furniture = {
+        rule_id: rule.rule_id,
+        printed_page: printedPage,
+        primary_footer_removed: filteredPrimary.removed,
+        witness_footer_removed: filteredWitness.removed,
+        comparison_only: true,
+      };
+    }
+    const metrics = comparisonMetrics(comparisonPrimary, comparisonWitness);
+    const transcription = transcriptionGate({
+      primary: comparisonPrimary,
+      witness: comparisonWitness,
+      witnessRecord,
+      metrics,
+    });
+    const actual = {
+      sourcePdfSha: pageSourceSha,
+      imageSha,
+      primarySha,
+      witnessTextSha,
+    };
+    const scopedDecisions = (decisionsByPage.get(page) || []).map((decision) => (
+      bindDecision(
+        decision,
+        actual,
+        transcription.table_formats,
+        productionCitationEntitled,
+      )
+    ));
+    const citationDecisions = scopedDecisions.filter((decision) => (
+      decision.decision_scope === 'whole_page' && decision.citation_allowed
+    ));
+    if (citationDecisions.length > 1) fail(`${documentId} page ${page} has multiple citation decisions`);
+    const warningDecisions = scopedDecisions.filter((decision) => (
+      decision.decision_scope === 'whole_page'
+      && decision.verification_status === 'human_judgment_with_warning'
+      && !decision.citation_allowed
+    ));
+    if (warningDecisions.length > 1) fail(`${documentId} page ${page} has multiple warning decisions`);
+    let release = {
+      verification_status: 'unresolved_fail_closed',
+      release_gate: 'no_hash_bound_exact_edition_human_decision',
+      accepted_text_sha256: null,
+      uncertainty_note: null,
+      citation_allowed: false,
+    };
+    if (citationDecisions.length === 1) {
+      const decision = citationDecisions[0];
+      release = {
+        verification_status: 'verified_exact',
+        release_gate: 'verified_exact_human_triangulation',
+        accepted_text_sha256: decision.accepted_text_sha256,
+        uncertainty_note: null,
+        citation_allowed: true,
+        decision_id: decision.decision_id,
+      };
+    } else if (warningDecisions.length === 1) {
+      const decision = warningDecisions[0];
+      release = {
+        verification_status: 'human_judgment_with_warning',
+        release_gate: 'human_image_judgment_non_citation',
+        accepted_text_sha256: decision.accepted_text_sha256,
+        uncertainty_note: decision.uncertainty_note,
+        citation_allowed: false,
+        decision_id: decision.decision_id,
+      };
+    }
+    pages.push({
+      physical_page: page,
+      primary_path: primaryPath,
+      vision_sidecar_path: sidecarPath,
+      rendered_image_path: imagePath,
+      raw: {
+        source_pdf_sha256: pageSourceSha,
+        rendered_image_sha256: imageSha,
+        primary_ocr_sha256: primarySha,
+        vision_sidecar_sha256: sha256(sidecarRaw),
+        witness_text_sha256: witnessTextSha,
+        ...rawMetrics,
+      },
+      furniture,
+      comparison: {
+        primary_text_sha256: sha256(comparisonPrimary),
+        witness_text_sha256: sha256(comparisonWitness),
+        ...metrics,
+      },
+      transcription: {
+        ...transcription,
+        policy: 'thresholds_unchanged_after_source_bound_comparison_filter',
+      },
+      scoped_decisions: scopedDecisions,
+      release,
+    });
+  }
+
+  const gateCount = (gate) => pages.filter((page) => page.transcription.gate === gate).length;
+  const report = {
+    schema_version: 2,
+    artifact_profile: 'ocr-page-triangulation-audit-v2',
+    document_id: documentId,
+    source_pdf_sha256: sourcePdfSha,
+    source_pdf_bytes: sourcePdfBytes.length,
+    page_range: [start, end],
+    policy: {
+      scan_is_primary: true,
+      raw_ocr_and_witness_mutation: 'forbidden',
+      furniture_scope: 'comparison_only_and_exact_source_snapshot_bound',
+      automatic_threshold_relaxation: 'forbidden',
+      online_source_scope: 'exact_edition_for_page_wording_stable_fact_only_for_scoped_facts',
+      online_artifact_identity: 'registry_bound_actual_pdf_bytes_and_recomputed_page_images',
+      scoped_identity: 'document_page_locator_text_hash_bound_and_document_unique',
+      search_snippets: 'discovery_only_never_evidence',
+      citation_gate: 'hash_bound_whole_page_exact_edition_human_triangulation_only',
+      citation_entitlement: 'repository_canonical_git_reviewed_digest_only',
+      non_public_test_mode: 'validation_only_never_grants_citation',
+      unresolved_behavior: 'fail_closed',
+    },
+    furniture_binding: furnitureBinding,
+    decision_ledger_sha256: decisionLedgerSha,
+    online_source_registry_sha256: onlineSourceRegistrySha,
+    online_citation_entitlement: {
+      mode: onlineEntitlementMode,
+      production_entitled: productionCitationEntitled,
+      trust: entitlementTrust,
+    },
+    summary: {
+      pages: pages.length,
+      automatic_witness_pass: gateCount('automatic_witness_pass'),
+      manual_image_review_required: gateCount('manual_image_review_required'),
+      blank_page_visual_confirmation_required: gateCount('blank_page_visual_confirmation_required'),
+      unresolved_fail_closed: gateCount('unresolved_fail_closed'),
+      verified_exact_human_triangulation: pages.filter(
+        (page) => page.release.release_gate === 'verified_exact_human_triangulation',
+      ).length,
+      citation_allowed: pages.filter((page) => page.release.citation_allowed).length,
+    },
+    pages,
+  };
+  if (options.onBeforeFinalInputVerificationForTest) {
+    await options.onBeforeFinalInputVerificationForTest();
+  }
+  await assertProtectedResourcesUnchanged(protectedResources, 'before return');
+  return { report, protectedResources };
+}
+
+export async function buildOcrTriangulationAudit(options) {
+  return (await buildOcrTriangulationAuditInternal(options)).report;
+}
+
+function filesystemIdentity(info) {
+  return { dev: String(info.dev), ino: String(info.ino) };
+}
+
+function sameFilesystemIdentity(left, right) {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+
+function sameProtectedFileSnapshot(info, expected) {
+  return sameFilesystemIdentity(filesystemIdentity(info), expected)
+    && String(info.mode) === expected.mode
+    && String(info.nlink) === expected.nlink
+    && String(info.size) === expected.size
+    && String(info.mtimeNs) === expected.mtimeNs
+    && String(info.ctimeNs) === expected.ctimeNs;
+}
+
+function assertNoForbiddenProtectedAliases(protectedResources) {
+  const files = protectedResources.files;
+  for (let leftIndex = 0; leftIndex < files.length; leftIndex += 1) {
+    const left = files[leftIndex];
+    for (let rightIndex = leftIndex + 1; rightIndex < files.length; rightIndex += 1) {
+      const right = files[rightIndex];
+      if (!sameFilesystemIdentity(left.fileIdentity, right.fileIdentity)) continue;
+      if (left.canonicalPath === right.canonicalPath
+        && left.protectedRole === right.protectedRole) continue;
+      const pair = new Set([left.protectedRole, right.protectedRole]);
+      if (pair.has('online_snapshot')) {
+        const other = left.protectedRole === 'online_snapshot'
+          ? right.protectedRole
+          : left.protectedRole;
+        fail(`online evidence snapshot aliases protected ${other.replaceAll('_', ' ')}`);
+      }
+      if (pair.has('online_artifact') && pair.has('source_pdf')) {
+        fail('online artifact aliases the source PDF');
+      }
+    }
+  }
+}
+
+async function prospectiveCanonicalParent(parentPath) {
+  const missing = [];
+  let cursor = path.resolve(parentPath);
+  while (true) {
+    try {
+      await lstat(cursor);
+      break;
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+      const basename = path.basename(cursor);
+      const next = path.dirname(cursor);
+      if (next === cursor) throw error;
+      missing.unshift(basename);
+      cursor = next;
+    }
+  }
+  return path.join(await realpath(cursor), ...missing);
+}
+
+async function assertRequestedPathStillCanonical(requestedPath, canonicalPath, label, phase) {
+  let currentCanonicalPath;
+  try {
+    currentCanonicalPath = await realpath(requestedPath);
+  } catch (error) {
+    fail(`${label} requested path cannot be resolved ${phase}: ${error.message}`);
+  }
+  if (currentCanonicalPath !== canonicalPath) {
+    fail(`${label} requested canonical path changed ${phase}: ${requestedPath}`);
+  }
+}
+
+async function assertProtectedResourcesUnchanged(protectedResources, phase = 'before output') {
+  assertNoForbiddenProtectedAliases(protectedResources);
+  const seenFiles = new Set();
+  for (const receipt of protectedResources.files) {
+    await assertRequestedPathStillCanonical(
+      receipt.requestedPath,
+      receipt.canonicalPath,
+      'protected input',
+      phase,
+    );
+    await assertRequestedPathStillCanonical(
+      receipt.parentRequestedPath,
+      receipt.parentCanonicalPath,
+      'protected input parent',
+      phase,
+    );
+    await assertRequestedPathStillCanonical(
+      receipt.rootRequestedPath,
+      receipt.rootCanonicalPath,
+      'protected input root',
+      phase,
+    );
+    const key = `${receipt.canonicalPath}\0${receipt.fileIdentity.dev}\0${receipt.fileIdentity.ino}`;
+    if (seenFiles.has(key)) continue;
+    seenFiles.add(key);
+    const current = await lstat(receipt.canonicalPath, { bigint: true });
+    if (!current.isFile() || !sameProtectedFileSnapshot(current, receipt.fileIdentity)) {
+      fail(`protected input identity changed ${phase}: ${receipt.canonicalPath}`);
+    }
+  }
+  const directories = [...protectedResources.evidenceRoots, ...protectedResources.onlineDirectories];
+  const seenDirectories = new Set();
+  for (const directory of directories) {
+    await assertRequestedPathStillCanonical(
+      directory.requestedPath,
+      directory.canonicalPath,
+      'protected evidence directory',
+      phase,
+    );
+    const key = `${directory.canonicalPath}\0${directory.identity.dev}\0${directory.identity.ino}`;
+    if (seenDirectories.has(key)) continue;
+    seenDirectories.add(key);
+    const current = await stat(directory.canonicalPath, { bigint: true });
+    if (!current.isDirectory()
+      || !sameFilesystemIdentity(filesystemIdentity(current), directory.identity)) {
+      fail(`protected evidence directory identity changed ${phase}: ${directory.canonicalPath}`);
+    }
+  }
+}
+
+function assertOutputParentOutsideProtectedRoots(parentPath, protectedResources) {
+  if (protectedResources.evidenceRoots.some((directory) => (
+    pathIsWithin(directory.canonicalPath, parentPath)
+  ))) {
+    fail('output must be outside primary and witness evidence roots');
+  }
+  if (protectedResources.onlineDirectories.some((directory) => (
+    pathIsWithin(directory.canonicalPath, parentPath)
+  ))) {
+    fail('output must be outside every online evidence snapshot directory');
+  }
+}
+
+async function prepareSafeOutput(outputPath, protectedResources, options) {
+  await assertProtectedResourcesUnchanged(protectedResources);
+  const requestedParent = path.dirname(outputPath);
+  const prospectiveParent = await prospectiveCanonicalParent(requestedParent);
+  assertOutputParentOutsideProtectedRoots(prospectiveParent, protectedResources);
+  if (options.onAfterProspectiveOutputCheckForTest) {
+    await options.onAfterProspectiveOutputCheckForTest();
+  }
+  await mkdir(requestedParent, { recursive: true });
+  const realOutputParent = await realpath(requestedParent);
+  assertOutputParentOutsideProtectedRoots(realOutputParent, protectedResources);
+  const canonicalOutputPath = path.join(realOutputParent, path.basename(outputPath));
+  const parentInfo = await stat(realOutputParent, { bigint: true });
+  const parentIdentity = filesystemIdentity(parentInfo);
+  for (const receipt of protectedResources.files) {
+    if (canonicalOutputPath === receipt.canonicalPath) {
+      fail('output must not replace a protected input');
+    }
+  }
+  let outputInfo = null;
+  try {
+    outputInfo = await lstat(canonicalOutputPath, { bigint: true });
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  if (outputInfo) {
+    if (outputInfo.isSymbolicLink()) fail('output path must not be a symbolic link');
+    const outputIdentity = filesystemIdentity(outputInfo);
+    if (protectedResources.files.some((receipt) => (
+      sameFilesystemIdentity(outputIdentity, receipt.fileIdentity)
+    ))) {
+      fail('output device/inode aliases a protected input');
+    }
+  }
+  return {
+    canonicalOutputPath,
+    realOutputParent,
+    requestedParent,
+    parentIdentity,
+  };
+}
+
+export async function writeOcrTriangulationAudit(options) {
+  const outputPath = path.resolve(requireString(options.outputPath, 'outputPath'));
+  if (pathContains(options.primaryRoot, outputPath) || pathContains(options.witnessRoot, outputPath)) {
+    fail('output must be outside primary and witness evidence roots');
+  }
+  for (const ledgerPath of [
+    options.approvalLedgerPath,
+    options.activationLedgerPath,
+    options.decisionsPath,
+  ].filter(Boolean)) {
+    if (outputPath === path.resolve(ledgerPath)) fail('output must not replace an input ledger');
+  }
+  const { report, protectedResources } = await buildOcrTriangulationAuditInternal(options);
+  const {
+    canonicalOutputPath,
+    realOutputParent,
+    requestedParent,
+    parentIdentity,
+  } = await prepareSafeOutput(outputPath, protectedResources, options);
+  const raw = `${JSON.stringify(report, null, 2)}\n`;
+  const temporaryPath = path.join(
+    realOutputParent,
+    `.${path.basename(outputPath)}.${process.pid}.${Date.now()}.tmp`,
+  );
+  let handle;
+  let temporaryIdentity = null;
+  try {
+    handle = await open(
+      temporaryPath,
+      constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW,
+      0o600,
+    );
+    await handle.writeFile(raw, 'utf8');
+    await handle.sync();
+    const temporaryInfo = await handle.stat({ bigint: true });
+    temporaryIdentity = {
+      ...filesystemIdentity(temporaryInfo),
+      mode: String(temporaryInfo.mode),
+      nlink: String(temporaryInfo.nlink),
+      size: String(temporaryInfo.size),
+      mtimeNs: String(temporaryInfo.mtimeNs),
+      ctimeNs: String(temporaryInfo.ctimeNs),
+    };
+    await handle.close();
+    handle = null;
+    if (options.onBeforeOutputActivationForTest) {
+      await options.onBeforeOutputActivationForTest();
+    }
+    await assertProtectedResourcesUnchanged(
+      protectedResources,
+      'before output activation',
+    );
+    const currentRequestedParent = await realpath(requestedParent);
+    if (currentRequestedParent !== realOutputParent) {
+      fail('output parent directory canonical path changed before activation');
+    }
+    const currentParent = filesystemIdentity(await stat(realOutputParent, { bigint: true }));
+    if (!sameFilesystemIdentity(parentIdentity, currentParent)) {
+      fail('output parent directory identity changed before activation');
+    }
+    assertOutputParentOutsideProtectedRoots(currentRequestedParent, protectedResources);
+    const currentTemporary = await lstat(temporaryPath, { bigint: true });
+    if (!currentTemporary.isFile()
+      || !sameProtectedFileSnapshot(currentTemporary, temporaryIdentity)) {
+      fail('temporary output identity changed before activation');
+    }
+    await rename(temporaryPath, canonicalOutputPath);
+    const finalParent = filesystemIdentity(await stat(realOutputParent, { bigint: true }));
+    if (!sameFilesystemIdentity(parentIdentity, finalParent)) {
+      fail('output parent directory identity changed during activation');
+    }
+  } catch (error) {
+    await handle?.close();
+    if (temporaryIdentity) {
+      await lstat(temporaryPath, { bigint: true }).then(async (info) => {
+        if (info.isFile() && sameProtectedFileSnapshot(info, temporaryIdentity)) {
+          await unlink(temporaryPath);
+        }
+      }).catch((cleanupError) => {
+        if (cleanupError?.code !== 'ENOENT') throw cleanupError;
+      });
+    }
+    throw error;
+  }
+  return report;
+}
+
+function parseArgs(argv) {
+  const mapping = new Map([
+    ['--document', 'documentId'],
+    ['--primary-root', 'primaryRoot'],
+    ['--witness-root', 'witnessRoot'],
+    ['--source-pdf', 'sourcePdfPath'],
+    ['--approval-ledger', 'approvalLedgerPath'],
+    ['--activation-ledger', 'activationLedgerPath'],
+    ['--decisions', 'decisionsPath'],
+    ['--online-source-registry', 'onlineSourceRegistryPath'],
+    ['--output', 'outputPath'],
+    ['--start', 'start'],
+    ['--end', 'end'],
+  ]);
+  const options = {};
+  for (let index = 0; index < argv.length; index += 2) {
+    const key = argv[index];
+    const value = argv[index + 1];
+    if (!mapping.has(key)) fail(`unknown argument ${key}`);
+    if (!value) fail(`${key} requires a value`);
+    const property = mapping.get(key);
+    if (options[property] !== undefined) fail(`duplicate argument ${key}`);
+    options[property] = value;
+  }
+  for (const property of [
+    'documentId',
+    'primaryRoot',
+    'witnessRoot',
+    'sourcePdfPath',
+    'outputPath',
+    'start',
+    'end',
+  ]) {
+    if (options[property] === undefined) fail(`${property} is required`);
+  }
+  options.start = Number(options.start);
+  options.end = Number(options.end);
+  return options;
+}
+
+async function main() {
+  const report = await writeOcrTriangulationAudit(parseArgs(process.argv.slice(2)));
+  process.stdout.write(`${JSON.stringify(report.summary)}\n`);
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  main().catch((error) => {
+    process.stderr.write(`${error.message}\n`);
+    process.exitCode = 1;
+  });
+}

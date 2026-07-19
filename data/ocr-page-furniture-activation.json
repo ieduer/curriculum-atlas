@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "artifact_profile": "ocr-page-furniture-activation-v1",
+  "activation_scope": "audit_comparison_only",
+  "approval_ledger_sha256": "3c5616581addeb0601db9d927f348bdce41b47807cbcea7b243f78c38c1cefad",
+  "policy": {
+    "raw_witness_mutation": "forbidden",
+    "raw_primary_mutation": "forbidden",
+    "gate_relaxation": "forbidden",
+    "publication_effect": "none"
+  },
+  "documents": [
+    {
+      "document_id": "moe-2022-03",
+      "source_pdf_sha256": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a",
+      "sidecar_snapshot_sha256": "68b24b515dec01b7f60af3ef153fca27b28a52787ae816b741e5ad7b441914f7",
+      "activated_rule_ids": [
+        "moe-2022-03-footer-002-005-offset-minus-1",
+        "moe-2022-03-footer-006-007-offset-minus-5",
+        "moe-2022-03-footer-008-063-offset-minus-7",
+        "moe-2022-03-footer-065-077-offset-minus-7",
+        "moe-2022-03-footer-081-088-offset-minus-7",
+        "moe-2022-03-footer-090-097-offset-minus-7",
+        "moe-2022-03-footer-101-102-offset-minus-7",
+        "moe-2022-03-footer-104-109-offset-minus-7"
+      ],
+      "reviewed_by": "Codex source-bound comparison activation review",
+      "reviewed_at": "2026-07-18T20:09:40Z"
+    }
+  ]
+}

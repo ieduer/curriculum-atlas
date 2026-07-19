@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
-import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  readPinnedDirectoryEntries,
+  readPinnedRegularFile,
+  readPinnedRegularFileReceipt,
+  verifyPinnedDirectoryReceipt,
+} from './lib/safe-local-evidence.mjs';
 
 const DOCUMENT_ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
@@ -181,13 +186,35 @@ function validateStructure(input) {
   return ledger;
 }
 
-async function validateWitnessBinding(ledger, witnessRoot) {
+function retainProtectedReceipt(protectedResources, receipt, role) {
+  if (!protectedResources) return;
+  receipt.protectedRole = role;
+  protectedResources.files.push(receipt);
+  protectedResources.evidenceRoots.push({
+    requestedPath: receipt.rootRequestedPath,
+    canonicalPath: receipt.rootCanonicalPath,
+    identity: receipt.rootIdentity,
+  });
+}
+
+async function validateWitnessBinding(ledger, witnessRoot, protectedResources = null) {
   const resolvedRoot = path.resolve(witnessRoot);
   for (const document of ledger.documents) {
     const visionRoot = path.join(resolvedRoot, document.document_id, 'vision');
-    const entries = (await readdir(visionRoot, { withFileTypes: true }))
-      .filter((entry) => entry.isFile() && PAGE_FILE_PATTERN.test(entry.name))
-      .sort((left, right) => left.name.localeCompare(right.name, 'en'));
+    let directory;
+    try {
+      directory = await readPinnedDirectoryEntries(visionRoot, {
+        label: `${document.document_id} Vision directory`,
+        rootPath: resolvedRoot,
+      });
+    } catch (error) {
+      fail(error.message);
+    }
+    const candidates = directory.entries.filter((entry) => PAGE_FILE_PATTERN.test(entry.name));
+    for (const entry of candidates) {
+      if (!entry.isFile()) fail(`${document.document_id}/vision/${entry.name} cannot be read safely`);
+    }
+    const entries = candidates.sort((left, right) => left.name.localeCompare(right.name, 'en'));
     if (entries.length !== document.page_count) {
       fail(`${document.document_id} witness page count drifted`);
     }
@@ -196,7 +223,18 @@ async function validateWitnessBinding(ledger, witnessRoot) {
     for (const entry of entries) {
       const page = Number(entry.name.match(PAGE_FILE_PATTERN)[1]);
       const relativePath = `${document.document_id}/vision/${entry.name}`;
-      const raw = await readFile(path.join(visionRoot, entry.name), 'utf8');
+      let sidecarRead;
+      try {
+        sidecarRead = await readPinnedRegularFileReceipt(path.join(visionRoot, entry.name), {
+          label: relativePath,
+          rootPath: resolvedRoot,
+          encoding: 'utf8',
+        });
+      } catch (error) {
+        fail(error.message);
+      }
+      retainProtectedReceipt(protectedResources, sidecarRead, 'furniture_vision_sidecar');
+      const raw = sidecarRead.bytes;
       snapshotEntries.push(`${relativePath}\0${sha256(raw)}`);
       let sidecar;
       try {
@@ -247,18 +285,39 @@ async function validateWitnessBinding(ledger, witnessRoot) {
           'images',
           `page-${String(example.physical_page).padStart(3, '0')}.png`,
         );
-        const imageSha = sha256(await readFile(imagePath));
+        let imageRead;
+        try {
+          imageRead = await readPinnedRegularFileReceipt(imagePath, {
+            label: `${document.document_id} page ${example.physical_page} image`,
+            rootPath: resolvedRoot,
+          });
+        } catch (error) {
+          fail(error.message);
+        }
+        retainProtectedReceipt(protectedResources, imageRead, 'furniture_rendered_image');
+        const image = imageRead.bytes;
+        const imageSha = sha256(image);
         if (imageSha !== example.rendered_image_sha256) {
           fail(`${rule.rule_id} page ${example.physical_page} image bytes drifted`);
         }
       }
+    }
+    try {
+      await verifyPinnedDirectoryReceipt(
+        directory,
+        `${document.document_id} Vision directory`,
+      );
+    } catch (error) {
+      fail(error.message);
     }
   }
 }
 
 export async function validateOcrPageFurnitureApprovals(input, options = {}) {
   const ledger = validateStructure(input);
-  if (options.witnessRoot) await validateWitnessBinding(ledger, options.witnessRoot);
+  if (options.witnessRoot) {
+    await validateWitnessBinding(ledger, options.witnessRoot, options.protectedResources);
+  }
   const footerRules = ledger.documents.reduce(
     (total, document) => total + document.footer_rules.length,
     0,
@@ -304,7 +363,10 @@ export function parseOcrPageFurnitureApprovalArgs(argv) {
 
 async function main() {
   const options = parseOcrPageFurnitureApprovalArgs(process.argv.slice(2));
-  const ledger = JSON.parse(await readFile(options.ledgerPath, 'utf8'));
+  const ledger = JSON.parse(await readPinnedRegularFile(options.ledgerPath, {
+    label: 'approval ledger',
+    encoding: 'utf8',
+  }));
   const summary = await validateOcrPageFurnitureApprovals(ledger, {
     witnessRoot: options.witnessRoot,
   });

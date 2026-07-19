@@ -20,6 +20,7 @@
     "concepts:build": "node scripts/build-concept-evolution.mjs",
     "concepts:validate": "node scripts/validate-concept-evolution.mjs",
     "ocr:status": "node scripts/ocr-supervisor.mjs status",
+    "ocr:audit:triangulate": "node scripts/build-ocr-triangulation-audit.mjs",
     "ocr:check": "node scripts/ocr-supervisor.mjs check",
     "ocr:once": "node scripts/ocr-supervisor.mjs once",
     "ocr:recover": "node scripts/ocr-supervisor.mjs recover --batch-pages 1 --force-immediate",
