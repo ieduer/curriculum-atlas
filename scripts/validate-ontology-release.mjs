@@ -1681,9 +1681,14 @@ export async function validateOntologyReleaseFile({
   if (manifestPath !== resolvedRoot && !manifestPath.startsWith(`${resolvedRoot}${path.sep}`)) {
     throw new Error('ontology release manifest must remain inside the project root');
   }
-  const value = JSON.parse(await readFile(manifestPath, 'utf8'));
+  const manifestRaw = await readFile(manifestPath);
+  const value = JSON.parse(manifestRaw.toString('utf8'));
   const context = await loadOntologyReleaseContext(resolvedRoot);
-  const report = validateOntologyRelease(value, context);
+  const report = {
+    ...validateOntologyRelease(value, context),
+    manifest_path: path.relative(resolvedRoot, manifestPath).replaceAll('\\', '/'),
+    manifest_sha256: sha256(manifestRaw),
+  };
   assertOntologyReleaseGate(report, { requirePublishable });
   return report;
 }

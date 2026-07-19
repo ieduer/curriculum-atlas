@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   assertBufferParity,
+  assertGitSnapshotUnchanged,
   assertGitCommitExists,
   buildReleaseManifest,
   compareManagedKeySets,
@@ -154,6 +155,37 @@ test('release identity is deterministic while generated_at remains an audit time
   assert.equal(first.release_id, second.release_id);
   assert.equal(first.source_tree.sha256, second.source_tree.sha256);
   assert.notEqual(first.generated_at, second.generated_at);
+});
+
+test('release manifest content read is fenced by an exact final Git snapshot recheck', async () => {
+  const clean = {
+    head: 'a'.repeat(40),
+    branch: 'codex/release-fixture',
+    upstream_head: 'a'.repeat(40),
+    dirty: false,
+    status_entries: 0,
+    status_sha256: createHash('sha256').update('').digest('hex'),
+  };
+  assert.equal(assertGitSnapshotUnchanged(clean, { ...clean }), true);
+  assert.throws(
+    () => assertGitSnapshotUnchanged(clean, { ...clean, head: 'b'.repeat(40) }),
+    /Git HEAD changed while release content was read/,
+  );
+  assert.throws(
+    () => assertGitSnapshotUnchanged(clean, {
+      ...clean,
+      dirty: true,
+      status_entries: 1,
+      status_sha256: 'c'.repeat(64),
+    }),
+    /Git status changed while release content was read/,
+  );
+
+  const source = await readFile(new URL('../scripts/build-release-manifest.mjs', import.meta.url), 'utf8');
+  const initial = source.indexOf('const initialGit = inspectGitSnapshot(');
+  const contentRead = source.indexOf('const policyAsset = await inspectFile(');
+  const final = source.indexOf('const finalGit = inspectGitSnapshot(');
+  assert.ok(initial >= 0 && initial < contentRead && contentRead < final);
 });
 
 test('hash and byte parity rejects stale content', () => {

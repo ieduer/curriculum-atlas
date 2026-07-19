@@ -131,7 +131,26 @@ curl -fsS https://bdfz-curriculum-atlas-preview.bdfz.workers.dev/api/source-mani
 
 完成 desktop/mobile 星图、全隐藏、单科自动适配、语文深挖、年代、资料/版本、AI/讨论、刷新和深链接；再回归 User Center、Nav、Portal、Companion、APIS 与 Pulse。关闭任务浏览器并执行 Playwright orphan dry-run。
 
-Production 重复同一链路：migration → compatible Worker → exact corpus import → evidence commit/push → verify → R2 release → API/browser/dependency QA。
+普通 compatible Worker 发布和 preview ontology promotion 不读取 preview acceptance receipt。只有把可发布 ontology 从已验收 preview 提升到 production 时，必须提供一个符合 `data/ontology-preview-acceptance-receipt.schema.json` 的 content-addressed receipt：
+
+- `source.git_head` 必须等于本次 production deploy 的初始 clean/upstream-exact Git HEAD；
+- `source.ontology_manifest.sha256` 必须同时等于 ontology validator 实际读取的 manifest bytes 和 release manifest source-tree 中同一路径的 SHA-256；
+- `preview.deployment_id` 与 `preview.version_id` 必须是本次验收对象的精确 UUID，Worker 固定为 `bdfz-curriculum-atlas-preview`；
+- `acceptance.status` 必须为 `accepted`，并保留验收人和 RFC3339 UTC 时间；
+- `receipt_sha256` 是删除该字段后按稳定键序 JSON 序列化所得 SHA-256。任一字段变化都会让 receipt 失效。
+
+测试夹具只说明格式，不得用于真实 promotion：`tests/fixtures/ontology-preview-acceptance/accepted.json`。真实 receipt 应保存到任务证据目录并作为不可变验收证据保留，不要把未验收或伪造的 deployment/version 写成 accepted。
+
+Production ontology promotion 使用：
+
+```bash
+npm run deploy:production:ontology-promotion -- \
+  --preview-acceptance-receipt <PREVIEW_ACCEPTANCE_RECEIPT_JSON>
+```
+
+Deploy wrapper 会在调用 Wrangler 前依次证明：initial Git clean/upstream exact；ontology validation bytes 与 release manifest source tree 相同；release manifest 的 `git.head` 等于 initial HEAD 且 `git.dirty=false`；receipt 精确绑定同一 HEAD/ontology SHA/preview deployment/version/accepted status；最后再次证明 clean/upstream/head 仍与 initial 完全相同。任何阶段漂移都 fail closed，Wrangler 不会启动。
+
+Production 其余链路仍为：migration → compatible Worker → exact corpus import → evidence commit/push → verify → R2 release → API/browser/dependency QA。
 
 ## 当前 production R2 独立读回
 
