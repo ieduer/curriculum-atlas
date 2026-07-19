@@ -3,7 +3,8 @@ node_modules
 .wrangler/
 .playwright-cli/
 dist/
-data/corpus-chunks/
+data/corpus-chunks/*
+!data/corpus-chunks/manifest.json
 output/
 .env
 .env.*

@@ -79,6 +79,11 @@ export async function prepareRelease({
     const corpusManifest = validateCorpusManifest(JSON.parse(
       await readFile(resolve(gitTree.root, 'data/corpus-chunks/manifest.json'), 'utf8'),
     ));
+    for (const entry of corpusManifest.sql_files) {
+      const relativePath = `data/corpus-chunks/${entry.name}`;
+      const buffer = await readFile(resolve(repositoryRoot, relativePath));
+      await materializeVerifiedBuffer(gitTree.root, relativePath, buffer, entry);
+    }
     for (const entry of corpusManifest.text_assets) {
       const relativePath = `.cache/text/${entry.document_id}.txt`;
       const buffer = await readFile(resolve(repositoryRoot, relativePath));
