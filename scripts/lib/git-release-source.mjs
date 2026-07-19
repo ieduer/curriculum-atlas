@@ -42,6 +42,7 @@ export function exactGitHead(root, requested = null) {
 
 export function listGitTree(root, head) {
   const output = Buffer.from(git(root, [
+    '-c', 'core.quotePath=false',
     'ls-tree', '-rz', '--full-tree', '--format=%(objectmode)%x00%(objecttype)%x00%(objectname)%x00%(path)', head,
   ])).toString('utf8');
   const fields = output.split('\0');

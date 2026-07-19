@@ -20,6 +20,7 @@ test('exact Git blob snapshot and build stay on HEAD when the worktree changes a
     await Promise.all([
       mkdir(join(repository, 'data'), { recursive: true }),
       mkdir(join(repository, 'public'), { recursive: true }),
+      mkdir(join(repository, 'public', '星图'), { recursive: true }),
       mkdir(join(repository, 'scripts'), { recursive: true }),
       mkdir(join(repository, 'src'), { recursive: true }),
     ]);
@@ -32,6 +33,7 @@ test('exact Git blob snapshot and build stay on HEAD when the worktree changes a
     };
     await writeFile(join(repository, 'data/release-assets-policy.json'), `${JSON.stringify(policy)}\n`);
     await writeFile(join(repository, 'public/index.txt'), 'HEAD-public\n');
+    await writeFile(join(repository, 'public', '星图', '语文.json'), '{"label":"语文"}\n');
     await writeFile(join(repository, 'src/index.ts'), 'export const identity = "HEAD-source";\n');
     await writeFile(join(repository, 'scripts/build-site.mjs'), `
       import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -52,10 +54,12 @@ test('exact Git blob snapshot and build stay on HEAD when the worktree changes a
     });
     assert.equal(build.status, 0, build.stderr);
     assert.equal(await readFile(join(snapshot.root, 'dist/index.txt'), 'utf8'), 'HEAD-public\n');
+    assert.equal(await readFile(join(snapshot.root, 'public', '星图', '语文.json'), 'utf8'), '{"label":"语文"}\n');
     assert.equal(await readFile(join(snapshot.root, 'src/index.ts'), 'utf8'), 'export const identity = "HEAD-source";\n');
     await snapshot.verify();
     assert.equal(snapshot.git_head, head);
     assert.equal(snapshot.source_tree.materialized_from_git_blobs, true);
+    assert.ok(snapshot.source_tree.files.some((entry) => entry.path === 'public/星图/语文.json'));
     assert.ok(snapshot.source_tree.files.every((entry) => /^[a-f0-9]{64}$/.test(entry.sha256)));
   } finally {
     await snapshot?.cleanup();
