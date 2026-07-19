@@ -130,6 +130,138 @@ test('A2 deployment runbook is executable, ordered, and preserves the authority 
   assert.doesNotMatch(runbook, /(?:PASSWORD|TOKEN|COOKIE|API_KEY)\s*[=:]\s*[^<\s]/iu);
 });
 
+test('A2 source materialization rejects AppleDouble and every unlisted regular file', async () => {
+  const runbook = await readFile(new URL('../docs/remote-ocr-a2-deployment.md', import.meta.url), 'utf8');
+  const step2 = runbook.slice(
+    runbook.indexOf('## 2. Materialize the exact reviewed Git tree'),
+    runbook.indexOf('## 3. Authority and grant'),
+  );
+  assert.match(step2, /export COPYFILE_DISABLE=1/u);
+  assert.match(step2, /MAC_TAR=\(tar --no-mac-metadata --no-xattrs\)/u);
+  assert.match(step2, /"\$\{MAC_TAR\[@\]\}" -xf - -C "\$LOCAL_STAGE"/u);
+  assert.match(step2, /"\$\{MAC_TAR\[@\]\}" -C "\$LOCAL_STAGE" -cf "\$LOCAL_TAR" \./u);
+  assert.match(step2, /tar -tf "\$LOCAL_TAR"[\s\S]*\(\^\|\/\)\\\._/u);
+  assert.doesNotMatch(step2, /"\$\{MAC_TAR\[@\]\}" -tf/u);
+  const remoteMaterialization = step2.slice(step2.indexOf('EXPECTED_TAR_SHA=$2'));
+  assert.match(remoteMaterialization, /tar -xf "\$REMOTE_UPLOAD" -C/u);
+  assert.doesNotMatch(remoteMaterialization, /tar --no-mac-metadata|tar --no-xattrs/u);
+
+  const noAppleDouble = step2.match(/^[ \t]*assert_no_appledouble\(\) \{\n[\s\S]*?^[ \t]*\}/mu)?.[0];
+  const exactTree = step2.match(/^[ \t]*assert_exact_source_tree\(\) \{\n[\s\S]*?^[ \t]*\}/mu)?.[0];
+  assert.ok(noAppleDouble, 'assert_no_appledouble function');
+  assert.ok(exactTree, 'assert_exact_source_tree function');
+  assert.match(noAppleDouble, /-name '\._\*'/u);
+  assert.match(exactTree, /cmp SOURCE_SHA256SUMS/u);
+
+  const probe = spawnSync('/bin/bash', ['-se'], {
+    encoding: 'utf8',
+    input: `set -euo pipefail
+${noAppleDouble}
+${exactTree}
+ROOT=$(mktemp -d)
+ACTUAL=$(mktemp)
+trap 'rm -rf "$ROOT" "$ACTUAL"' EXIT INT TERM
+printf '%s\\n' payload > "$ROOT/payload.txt"
+(
+  cd "$ROOT"
+  find . -type f ! -name SOURCE_SHA256SUMS -print0 \
+    | LC_ALL=C sort -z | xargs -0 sha256sum > SOURCE_SHA256SUMS
+)
+assert_no_appledouble "$ROOT"
+assert_exact_source_tree "$ROOT" "$ACTUAL"
+printf '%s\\n' AppleDouble > "$ROOT/._payload.txt"
+if assert_no_appledouble "$ROOT"; then exit 91; fi
+rm "$ROOT/._payload.txt"
+printf '%s\\n' unlisted > "$ROOT/unexpected.txt"
+if assert_exact_source_tree "$ROOT" "$ACTUAL"; then exit 92; fi
+`,
+  });
+  assert.equal(probe.status, 0, probe.stderr);
+});
+
+test('A2 workspace and anchor evidence is created with a real noclobber failure', async () => {
+  const runbook = await readFile(new URL('../docs/remote-ocr-a2-deployment.md', import.meta.url), 'utf8');
+  const step4 = runbook.slice(
+    runbook.indexOf('## 4. Compute `a1-anchors.env`'),
+    runbook.indexOf('## 4A. Forward repair'),
+  );
+  const noclobber = step4.match(/^write_noclobber_stdin\(\) \{\n[\s\S]*?^\}/mu)?.[0];
+  assert.ok(noclobber, 'write_noclobber_stdin function');
+  for (const exact of [
+    'WORKSPACE_SEAL_EVIDENCE="$EVIDENCE/workspace-SHA256SUMS.sha256"',
+    'ANCHOR_EVIDENCE="$EVIDENCE/a1-anchors.env"',
+    'ANCHOR_SEAL_EVIDENCE="$EVIDENCE/a1-anchors.env.sha256"',
+    'test ! -e "$evidence_path"',
+    'test ! -L "$evidence_path"',
+    'write_noclobber_stdin "$WORKSPACE_SEAL_EVIDENCE"',
+    'write_noclobber_stdin "$ANCHOR_EVIDENCE"',
+    'write_noclobber_stdin "$ANCHOR_SEAL_EVIDENCE"',
+  ]) assert.ok(step4.includes(exact), exact);
+
+  const probe = spawnSync('/bin/bash', ['-se'], {
+    encoding: 'utf8',
+    input: `set -euo pipefail
+${noclobber}
+TARGET=$(mktemp -u)
+trap 'rm -f "$TARGET"' EXIT INT TERM
+printf '%s\\n' first | write_noclobber_stdin "$TARGET"
+if printf '%s\\n' second | write_noclobber_stdin "$TARGET"; then exit 93; fi
+test "$(cat "$TARGET")" = first
+`,
+  });
+  assert.equal(probe.status, 0, probe.stderr);
+});
+
+test('A2 pre-claim AppleDouble repair preserves evidence and never reapplies the grant', async () => {
+  const runbook = await readFile(new URL('../docs/remote-ocr-a2-deployment.md', import.meta.url), 'utf8');
+  const repair = runbook.slice(
+    runbook.indexOf('## 4A. Forward repair'),
+    runbook.indexOf('## 5. Create the exact successor inode'),
+  );
+  assert.ok(repair.length > 0, 'forward repair section');
+  for (const exact of [
+    'd4360775194aaf8593a9fa5db10cf7465b222534',
+    'QUARANTINED_WORKSPACE="$INCIDENT/workspace-a-r2-contaminated"',
+    'mv -T "$WORKSPACE" "$QUARANTINED_WORKSPACE"',
+    'test "$WORKSPACE_DEVICE_BEFORE" = "$WORKSPACE_DEVICE_AFTER"',
+    'test "$WORKSPACE_INODE_BEFORE" = "$WORKSPACE_INODE_AFTER"',
+    'AUTHORITY_CLAIM_COUNT=',
+    'test "$AUTHORITY_CLAIM_COUNT" -eq 0',
+    'test ! -e "$A2"',
+    'test ! -e "$MONITOR_DIR"',
+    'test ! -e "$LOCK"',
+    'cmp "$QUARANTINED_WORKSPACE/SOURCE_SHA256SUMS" "$WORKSPACE/SOURCE_SHA256SUMS"',
+    'cmp "$EVIDENCE/a1-anchors.env" "$ANCHORS"',
+    'verified_idempotent',
+    'FORWARD_REPAIR_SHA256SUMS',
+    'write_noclobber_stdin "$INCIDENT/FORWARD_REPAIR_SHA256SUMS"',
+    'REPAIR_PROTOCOL_COMMIT="<REVIEWED_A2_FORWARD_REPAIR_COMMIT>"',
+    'git -C "$REPO" status --porcelain=v1 --untracked-files=all',
+    "--abbrev-ref --symbolic-full-name '@{upstream}'",
+    'REPAIR_PROTOCOL_COMMIT=$1',
+    'REPAIR_RUNBOOK_BLOB=$2',
+    'REPAIR_TEST_BLOB=$3',
+    '"${REPAIR_PROTOCOL_COMMIT}:docs/remote-ocr-a2-deployment.md"',
+    '"${REPAIR_PROTOCOL_COMMIT}:tests/remote-ocr-a2-systemd.test.mjs"',
+    'test "$REPAIR_PROTOCOL_COMMIT" != "$EXPECTED_COMMIT"',
+    'write_noclobber_stdin "$INCIDENT/repair-protocol.env"',
+    'repair_protocol_commit=',
+    'runbook_blob=',
+    'test_blob=',
+  ]) assert.ok(repair.includes(exact), exact);
+  assert.doesNotMatch(repair, /rm\s+(?:-[^\s]+\s+)*"?\$WORKSPACE/u);
+  const code = [...repair.matchAll(/```(?:zsh|bash)\n([\s\S]*?)```/gu)]
+    .map((match) => match[1])
+    .join('\n');
+  assert.doesNotMatch(code, /--apply/u);
+  assert.doesNotMatch(code, /--seed-(?:dry-run|only)/u);
+  assert.equal(
+    (code.match(/scripts\/prepare-timeout-recovery-grant\.mjs/gu) || []).length,
+    2,
+  );
+  assert.match(code, /grant-repair-preview-1\.json[\s\S]*grant-repair-preview-2\.json[\s\S]*cmp/u);
+});
+
 test('A2 deployment creates a new private monitor output directory before worker start', async () => {
   const runbook = await readFile(new URL('../docs/remote-ocr-a2-deployment.md', import.meta.url), 'utf8');
   for (const exact of [
@@ -167,7 +299,7 @@ test('A2 deployment binds the exact reviewed alert handler and retry chain', asy
   assert.match(runbook, /sha256sum "\$ALERT_RUNTIME\/notify-remote-ocr-single-shard-monitor\.mjs"[\s\S]*SHA256SUMS/u);
   const archiveBlock = runbook.slice(
     runbook.indexOf('git -C "$REPO" archive'),
-    runbook.indexOf('| tar -xf - -C "$LOCAL_STAGE"'),
+    runbook.indexOf('| "${MAC_TAR[@]}" -xf - -C "$LOCAL_STAGE"'),
   );
   for (const exact of [
     'scripts/notify-remote-ocr-single-shard-monitor.mjs',

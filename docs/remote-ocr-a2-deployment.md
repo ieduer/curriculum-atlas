@@ -237,58 +237,114 @@ contains every transitive local module used by grant, runner, monitor, and
 cleanup, plus the exact units to install.
 
 ```zsh
-LOCAL_STAGE=$(mktemp -d /private/tmp/curriculum-a2-source.XXXXXX)
-LOCAL_TAR="$LOCAL_STAGE.tar"
-trap 'rm -rf "$LOCAL_STAGE" "$LOCAL_TAR"' EXIT INT TERM
-
-git -C "$REPO" archive --format=tar "$A2_GIT_COMMIT" -- \
-  scripts/provision-timeout-recovery-authority.mjs \
-  scripts/prepare-timeout-recovery-grant.mjs \
-  scripts/run-remote-ocr-offload.mjs \
-  scripts/monitor-remote-ocr-single-shard.mjs \
-  scripts/monitor-remote-ocr-reprocess.mjs \
-  scripts/notify-remote-ocr-single-shard-monitor.mjs \
-  scripts/cleanup-remote-ocr-completion.mjs \
-  scripts/ocr-pdf-paddle.py \
-  scripts/lib/remote-ocr-local-snapshot.mjs \
-  ops/systemd/curriculum-ocr-llama.service \
-  ops/systemd/curriculum-ocr-reprocess-a-r2.service \
-  ops/systemd/curriculum-ocr-reprocess-a-r2-cleanup.service \
-  ops/systemd/curriculum-ocr-reprocess-a-r2-cleanup.conf.example \
-  ops/systemd/curriculum-ocr-reprocess-a-r2-monitor.service \
-  ops/systemd/curriculum-ocr-reprocess-a-r2-monitor.timer \
-  ops/systemd/curriculum-ocr-reprocess-a-r2-monitor.service.d/alert-only.conf \
-  ops/systemd/curriculum-ocr-reprocess-a-r2-monitor-alert.conf.example \
-  ops/systemd/curriculum-ocr-monitor-alert@.service \
-  ops/systemd/curriculum-ocr-monitor-alert-retry@.timer \
-  | tar -xf - -C "$LOCAL_STAGE"
-
-printf '%s\n' "$A2_GIT_COMMIT" > "$LOCAL_STAGE/SOURCE_COMMIT"
 (
-  cd "$LOCAL_STAGE"
-  find . -type f ! -name SOURCE_SHA256SUMS -print0 \
-    | LC_ALL=C sort -z | xargs -0 sha256sum > SOURCE_SHA256SUMS
-  sha256sum --check --strict SOURCE_SHA256SUMS
-)
-tar -C "$LOCAL_STAGE" -cf "$LOCAL_TAR" .
-LOCAL_TAR_SHA=$(sha256sum "$LOCAL_TAR" | awk '{print $1}')
+  set -euo pipefail
+  umask 077
+  export COPYFILE_DISABLE=1
+  typeset -a MAC_TAR
+  MAC_TAR=(tar --no-mac-metadata --no-xattrs)
 
-REMOTE_UPLOAD=/home/suen/curriculum-ocr-offload/staging/$(basename "$LOCAL_TAR")
-"${SSH_INNER[@]}" 'mkdir -p -m 700 /home/suen/curriculum-ocr-offload/staging'
-"${SCP_INNER[@]}" "$LOCAL_TAR" "suen@localhost:$REMOTE_UPLOAD"
-"${SSH_INNER[@]}" "set -eu
+  assert_no_appledouble() {
+    local root=$1
+    test -z "$(find "$root" -type f -name '._*' -print -quit)"
+  }
+
+  assert_exact_source_tree() {
+    local root=$1
+    local actual=$2
+    (
+      cd "$root"
+      find . -type f ! -name SOURCE_SHA256SUMS -print0 \
+        | LC_ALL=C sort -z | xargs -0 sha256sum > "$actual"
+      cmp SOURCE_SHA256SUMS "$actual"
+    )
+  }
+
+  LOCAL_STAGE=$(mktemp -d /private/tmp/curriculum-a2-source.XXXXXX)
+  LOCAL_TAR="$LOCAL_STAGE.tar"
+  LOCAL_ACTUAL_SOURCE_SHA="$LOCAL_STAGE.actual.SOURCE_SHA256SUMS"
+  trap 'rm -rf "$LOCAL_STAGE" "$LOCAL_TAR" "$LOCAL_ACTUAL_SOURCE_SHA"' \
+    EXIT INT TERM
+
+  git -C "$REPO" archive --format=tar "$A2_GIT_COMMIT" -- \
+    scripts/provision-timeout-recovery-authority.mjs \
+    scripts/prepare-timeout-recovery-grant.mjs \
+    scripts/run-remote-ocr-offload.mjs \
+    scripts/monitor-remote-ocr-single-shard.mjs \
+    scripts/monitor-remote-ocr-reprocess.mjs \
+    scripts/notify-remote-ocr-single-shard-monitor.mjs \
+    scripts/cleanup-remote-ocr-completion.mjs \
+    scripts/ocr-pdf-paddle.py \
+    scripts/lib/remote-ocr-local-snapshot.mjs \
+    ops/systemd/curriculum-ocr-llama.service \
+    ops/systemd/curriculum-ocr-reprocess-a-r2.service \
+    ops/systemd/curriculum-ocr-reprocess-a-r2-cleanup.service \
+    ops/systemd/curriculum-ocr-reprocess-a-r2-cleanup.conf.example \
+    ops/systemd/curriculum-ocr-reprocess-a-r2-monitor.service \
+    ops/systemd/curriculum-ocr-reprocess-a-r2-monitor.timer \
+    ops/systemd/curriculum-ocr-reprocess-a-r2-monitor.service.d/alert-only.conf \
+    ops/systemd/curriculum-ocr-reprocess-a-r2-monitor-alert.conf.example \
+    ops/systemd/curriculum-ocr-monitor-alert@.service \
+    ops/systemd/curriculum-ocr-monitor-alert-retry@.timer \
+    | "${MAC_TAR[@]}" -xf - -C "$LOCAL_STAGE"
+
+  printf '%s\n' "$A2_GIT_COMMIT" > "$LOCAL_STAGE/SOURCE_COMMIT"
+  (
+    cd "$LOCAL_STAGE"
+    find . -type f ! -name SOURCE_SHA256SUMS -print0 \
+      | LC_ALL=C sort -z | xargs -0 sha256sum > SOURCE_SHA256SUMS
+    sha256sum --check --strict SOURCE_SHA256SUMS
+  )
+  assert_no_appledouble "$LOCAL_STAGE"
+  assert_exact_source_tree "$LOCAL_STAGE" "$LOCAL_ACTUAL_SOURCE_SHA"
+
+  "${MAC_TAR[@]}" -C "$LOCAL_STAGE" -cf "$LOCAL_TAR" .
+  if tar -tf "$LOCAL_TAR" | LC_ALL=C grep -Eq '(^|/)\._'; then
+    echo 'local A2 archive contains forbidden AppleDouble entries' >&2
+    exit 1
+  fi
+  LOCAL_TAR_SHA=$(sha256sum "$LOCAL_TAR" | awk '{print $1}')
+
+  REMOTE_UPLOAD=/home/suen/curriculum-ocr-offload/staging/$(basename "$LOCAL_TAR")
+  "${SSH_INNER[@]}" 'mkdir -p -m 700 /home/suen/curriculum-ocr-offload/staging'
+  "${SCP_INNER[@]}" "$LOCAL_TAR" "suen@localhost:$REMOTE_UPLOAD"
+  "${SSH_INNER[@]}" bash -se -- \
+    "$REMOTE_UPLOAD" "$LOCAL_TAR_SHA" "$A2_GIT_COMMIT" <<'REMOTE'
+set -euo pipefail
+umask 077
+REMOTE_UPLOAD=$1
+EXPECTED_TAR_SHA=$2
+EXPECTED_COMMIT=$3
 RUN_ROOT=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess
-WORKSPACE=\$RUN_ROOT/workspace-a-r2
-STAGE=\$RUN_ROOT/.workspace-a-r2.stage-$A2_GIT_COMMIT
-test ! -e \"\$WORKSPACE\"
-test ! -e \"\$STAGE\"
-test \"\$(sha256sum '$REMOTE_UPLOAD' | awk '{print \$1}')\" = '$LOCAL_TAR_SHA'
-mkdir -m 700 \"\$STAGE\"
-tar -xf '$REMOTE_UPLOAD' -C \"\$STAGE\"
-test \"\$(cat \"\$STAGE/SOURCE_COMMIT\")\" = '$A2_GIT_COMMIT'
-(cd \"\$STAGE\" && sha256sum --check --strict SOURCE_SHA256SUMS)
-mv -T \"\$STAGE\" \"\$WORKSPACE\"
-rm -f '$REMOTE_UPLOAD'"
+WORKSPACE="$RUN_ROOT/workspace-a-r2"
+STAGE="$RUN_ROOT/.workspace-a-r2.stage-$EXPECTED_COMMIT"
+REMOTE_ACTUAL_SOURCE_SHA=$(mktemp "$RUN_ROOT/.a2-source-actual.XXXXXX")
+trap 'rm -f "$REMOTE_ACTUAL_SOURCE_SHA"' EXIT INT TERM
+test ! -e "$WORKSPACE"
+test ! -L "$WORKSPACE"
+test ! -e "$STAGE"
+test ! -L "$STAGE"
+test "$(sha256sum "$REMOTE_UPLOAD" | awk '{print $1}')" = "$EXPECTED_TAR_SHA"
+if tar -tf "$REMOTE_UPLOAD" | LC_ALL=C grep -Eq '(^|/)\._'; then
+  echo 'uploaded A2 archive contains forbidden AppleDouble entries' >&2
+  exit 1
+fi
+mkdir -m 700 "$STAGE"
+tar -xf "$REMOTE_UPLOAD" -C "$STAGE"
+test -z "$(find "$STAGE" -type f -name '._*' -print -quit)"
+test "$(cat "$STAGE/SOURCE_COMMIT")" = "$EXPECTED_COMMIT"
+(
+  cd "$STAGE"
+  sha256sum --check --strict SOURCE_SHA256SUMS
+  find . -type f ! -name SOURCE_SHA256SUMS -print0 \
+    | LC_ALL=C sort -z | xargs -0 sha256sum > "$REMOTE_ACTUAL_SOURCE_SHA"
+  cmp SOURCE_SHA256SUMS "$REMOTE_ACTUAL_SOURCE_SHA"
+)
+mv -T "$STAGE" "$WORKSPACE"
+rm -f "$REMOTE_UPLOAD" "$REMOTE_ACTUAL_SOURCE_SHA"
+trap - EXIT INT TERM
+REMOTE
+)
 ```
 
 `workspace-a-r2` is never updated in place.
@@ -359,7 +415,23 @@ WORKSPACE="$RUN_ROOT/workspace-a-r2"
 A1="$RUN_ROOT/output/production-p4-mb16-shard-a-r1"
 ANCHORS="$WORKSPACE/a1-anchors.env"
 EVIDENCE=$(cat "$RUN_ROOT/.a2-current-evidence")
+WORKSPACE_SEAL_EVIDENCE="$EVIDENCE/workspace-SHA256SUMS.sha256"
+ANCHOR_EVIDENCE="$EVIDENCE/a1-anchors.env"
+ANCHOR_SEAL_EVIDENCE="$EVIDENCE/a1-anchors.env.sha256"
+
+write_noclobber_stdin() {
+  local pathname=$1
+  (set -o noclobber; cat > "$pathname")
+}
+
 test ! -e "$ANCHORS"
+for evidence_path in \
+  "$WORKSPACE_SEAL_EVIDENCE" \
+  "$ANCHOR_EVIDENCE" \
+  "$ANCHOR_SEAL_EVIDENCE"; do
+  test ! -e "$evidence_path"
+  test ! -L "$evidence_path"
+done
 
 A1_ROOT="$A1" ANCHOR_FILE="$ANCHORS" \
 MONITOR_MODULE="$WORKSPACE/scripts/monitor-remote-ocr-single-shard.mjs" \
@@ -397,14 +469,463 @@ test "$(grep -Ec '^BDFZ_OCR_A1_[A-Z0-9_]+=[a-f0-9]{64}$' "$ANCHORS")" -eq 5
     | LC_ALL=C sort -z | xargs -0 sha256sum > SHA256SUMS
   sha256sum --check --strict SHA256SUMS
 )
-sha256sum "$WORKSPACE/SHA256SUMS" > "$EVIDENCE/workspace-SHA256SUMS.sha256"
-cp "$ANCHORS" "$EVIDENCE/a1-anchors.env"
-sha256sum "$EVIDENCE/a1-anchors.env" > "$EVIDENCE/a1-anchors.env.sha256"
+sha256sum "$WORKSPACE/SHA256SUMS" \
+  | write_noclobber_stdin "$WORKSPACE_SEAL_EVIDENCE"
+cat "$ANCHORS" | write_noclobber_stdin "$ANCHOR_EVIDENCE"
+sha256sum "$ANCHOR_EVIDENCE" \
+  | write_noclobber_stdin "$ANCHOR_SEAL_EVIDENCE"
+sha256sum --check --strict "$WORKSPACE_SEAL_EVIDENCE"
+sha256sum --check --strict "$ANCHOR_SEAL_EVIDENCE"
+cmp "$ANCHORS" "$ANCHOR_EVIDENCE"
 find "$WORKSPACE" -type f -exec chmod 0400 {} +
 find "$WORKSPACE" -type d -exec chmod 0500 {} +
 (cd "$WORKSPACE" && sha256sum --check --strict SHA256SUMS)
 REMOTE
 ```
+
+## 4A. Forward repair after pre-claim AppleDouble contamination
+
+Use this forward-only branch only when Step 3 completed once, Step 4 sealed a
+workspace that contains AppleDouble `._*` files, and Steps 5 onward never
+started. It does not delete or rewrite the contaminated tree. It first proves
+the one authority and grant are intact, proves no consumption claim or A2
+runtime inode exists, and then moves the complete workspace to an evidence
+directory on the same filesystem while preserving its device, inode, and
+hashes.
+
+The reviewed repair-protocol commit is separate from the runtime payload:
+`SOURCE_COMMIT` remains the exact `d4360775...` tree installed in Step 2. The
+local clean/upstream gate below binds the operator-reviewed runbook and test
+blobs to evidence without adding them to the payload. A local-only or
+upstream-divergent protocol commit is an intentional hard stop.
+
+```zsh
+REPAIR_PROTOCOL_COMMIT="<REVIEWED_A2_FORWARD_REPAIR_COMMIT>"
+test "${#REPAIR_PROTOCOL_COMMIT}" -eq 40
+printf '%s\n' "$REPAIR_PROTOCOL_COMMIT" | grep -Eq '^[0-9a-f]{40}$'
+git -C "$REPO" cat-file -e "$REPAIR_PROTOCOL_COMMIT^{commit}"
+test "$(git -C "$REPO" rev-parse HEAD)" = "$REPAIR_PROTOCOL_COMMIT"
+test -z "$(git -C "$REPO" status --porcelain=v1 --untracked-files=all)"
+git -C "$REPO" diff --quiet
+git -C "$REPO" diff --cached --quiet
+git -C "$REPO" merge-base --is-ancestor \
+  d4360775194aaf8593a9fa5db10cf7465b222534 "$REPAIR_PROTOCOL_COMMIT"
+REPAIR_PROTOCOL_UPSTREAM=$(git -C "$REPO" rev-parse \
+  --abbrev-ref --symbolic-full-name '@{upstream}')
+test "$(git -C "$REPO" rev-parse "$REPAIR_PROTOCOL_UPSTREAM^{commit}")" \
+  = "$REPAIR_PROTOCOL_COMMIT"
+REPAIR_RUNBOOK_BLOB=$(git -C "$REPO" rev-parse \
+  "${REPAIR_PROTOCOL_COMMIT}:docs/remote-ocr-a2-deployment.md")
+REPAIR_TEST_BLOB=$(git -C "$REPO" rev-parse \
+  "${REPAIR_PROTOCOL_COMMIT}:tests/remote-ocr-a2-systemd.test.mjs")
+printf '%s\n%s\n' "$REPAIR_RUNBOOK_BLOB" "$REPAIR_TEST_BLOB" \
+  | grep -Ec '^[0-9a-f]{40}$' | grep -qx 2
+
+"${SSH_INNER[@]}" bash -se -- \
+  "$REPAIR_PROTOCOL_COMMIT" "$REPAIR_RUNBOOK_BLOB" "$REPAIR_TEST_BLOB" <<'REMOTE'
+set -euo pipefail
+umask 077
+REPAIR_PROTOCOL_COMMIT=$1
+REPAIR_RUNBOOK_BLOB=$2
+REPAIR_TEST_BLOB=$3
+EXPECTED_COMMIT=d4360775194aaf8593a9fa5db10cf7465b222534
+RUN_ROOT=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess
+WORKSPACE="$RUN_ROOT/workspace-a-r2"
+INPUT="$RUN_ROOT/input/pdfs-verified"
+A1="$RUN_ROOT/output/production-p4-mb16-shard-a-r1"
+A2="$RUN_ROOT/output/production-p1-mb16-shard-a-r2"
+AUTHORITY="$RUN_ROOT/input/timeout-recovery-authority-v1"
+MONITOR_DIR="$RUN_ROOT/monitor-a-r2"
+LOCK="$RUN_ROOT/.a2-lifecycle.lock"
+EVIDENCE_POINTER="$RUN_ROOT/.a2-current-evidence"
+
+write_noclobber_stdin() {
+  local pathname=$1
+  (set -o noclobber; cat > "$pathname")
+}
+
+printf '%s\n%s\n%s\n' \
+  "$REPAIR_PROTOCOL_COMMIT" "$REPAIR_RUNBOOK_BLOB" "$REPAIR_TEST_BLOB" \
+  | grep -Ec '^[0-9a-f]{40}$' | grep -qx 3
+test "$REPAIR_PROTOCOL_COMMIT" != "$EXPECTED_COMMIT"
+
+test -f "$EVIDENCE_POINTER"
+test ! -L "$EVIDENCE_POINTER"
+test "$(stat -c %a "$EVIDENCE_POINTER")" = 600
+test "$(stat -c %u "$EVIDENCE_POINTER")" = "$(id -u)"
+EVIDENCE=$(cat "$EVIDENCE_POINTER")
+case "$EVIDENCE" in
+  "$RUN_ROOT"/a2-deploy-evidence/*) ;;
+  *) echo 'A2 evidence pointer escaped the run root' >&2; exit 1 ;;
+esac
+test -d "$EVIDENCE"
+test ! -L "$EVIDENCE"
+test "$(realpath -e "$EVIDENCE")" = "$EVIDENCE"
+test "$(stat -c %a "$EVIDENCE")" = 700
+test "$(stat -c %u "$EVIDENCE")" = "$(id -u)"
+
+INCIDENT_PARENT="$EVIDENCE/incidents"
+INCIDENT="$INCIDENT_PARENT/appledouble-preclaim-d4360775"
+QUARANTINED_WORKSPACE="$INCIDENT/workspace-a-r2-contaminated"
+test ! -e "$INCIDENT"
+test ! -L "$INCIDENT"
+if test -e "$INCIDENT_PARENT" || test -L "$INCIDENT_PARENT"; then
+  test -d "$INCIDENT_PARENT"
+  test ! -L "$INCIDENT_PARENT"
+  test "$(stat -c %a "$INCIDENT_PARENT")" = 700
+  test "$(stat -c %u "$INCIDENT_PARENT")" = "$(id -u)"
+else
+  mkdir -m 700 "$INCIDENT_PARENT"
+fi
+
+test -d "$AUTHORITY"
+test ! -L "$AUTHORITY"
+test "$(realpath -e "$AUTHORITY")" = "$AUTHORITY"
+test "$(stat -c %a "$AUTHORITY")" = 700
+test "$(stat -c %u "$AUTHORITY")" = "$(id -u)"
+test -f "$AUTHORITY/ledger-identity.json"
+test ! -L "$AUTHORITY/ledger-identity.json"
+test -f "$AUTHORITY/ledger-identity.json.sha256"
+test ! -L "$AUTHORITY/ledger-identity.json.sha256"
+(cd "$AUTHORITY" && sha256sum --check --strict ledger-identity.json.sha256)
+
+GRANT="$A1/timeout-recovery-grant.json"
+test -f "$GRANT"
+test ! -L "$GRANT"
+test -f "$GRANT.sha256"
+test ! -L "$GRANT.sha256"
+(cd "$A1" && sha256sum --check --strict timeout-recovery-grant.json.sha256)
+test "$(jq -r '.consumption.ledger_root' "$GRANT")" = "$AUTHORITY"
+test "$(jq -r '.consumption.ledger_device' "$GRANT")" = "$(stat -c %d "$AUTHORITY")"
+test "$(jq -r '.consumption.ledger_inode' "$GRANT")" = "$(stat -c %i "$AUTHORITY")"
+
+shopt -s nullglob
+ISSUANCE_FILES=("$AUTHORITY"/*.issuance.json)
+ISSUANCE_SEALS=("$AUTHORITY"/*.issuance.json.sha256)
+CLAIM_FILES=("$AUTHORITY"/*.claim.json)
+CLAIM_SEALS=("$AUTHORITY"/*.claim.json.sha256)
+test "${#ISSUANCE_FILES[@]}" -eq 1
+test "${#ISSUANCE_SEALS[@]}" -eq 1
+test "${ISSUANCE_FILES[0]}.sha256" = "${ISSUANCE_SEALS[0]}"
+(cd "$AUTHORITY" && sha256sum --check --strict "$(basename "${ISSUANCE_SEALS[0]}")")
+AUTHORITY_CLAIM_COUNT=${#CLAIM_FILES[@]}
+test "$AUTHORITY_CLAIM_COUNT" -eq 0
+test "${#CLAIM_SEALS[@]}" -eq 0
+test ! -e "$A2"
+test ! -L "$A2"
+test ! -e "$MONITOR_DIR"
+test ! -L "$MONITOR_DIR"
+test ! -e "$LOCK"
+test ! -L "$LOCK"
+A2_RUNTIME_PATHS=(
+  "$HOME/.config/systemd/user/curriculum-ocr-reprocess-a-r2.service"
+  "$HOME/.config/systemd/user/curriculum-ocr-reprocess-a-r2-cleanup.service"
+  "$HOME/.config/systemd/user/curriculum-ocr-reprocess-a-r2-monitor.service"
+  "$HOME/.config/systemd/user/curriculum-ocr-reprocess-a-r2-monitor.timer"
+  "$HOME/.config/systemd/user/curriculum-ocr-reprocess-a-r2-monitor.service.d/alert-only.conf"
+  "$HOME/.config/bdfz/curriculum-ocr-reprocess-a-r2-cleanup.conf"
+)
+for runtime_path in "${A2_RUNTIME_PATHS[@]}"; do
+  test ! -e "$runtime_path"
+  test ! -L "$runtime_path"
+done
+
+test -f "$EVIDENCE/a1-pregrant.SHA256SUMS"
+test -f "$EVIDENCE/a1-pregrant.SHA256SUMS.sha256"
+sha256sum --check --strict "$EVIDENCE/a1-pregrant.SHA256SUMS.sha256"
+(cd "$A1" && sha256sum --check --strict "$EVIDENCE/a1-pregrant.SHA256SUMS")
+test -f "$EVIDENCE/authority-grant-evidence.SHA256SUMS"
+sha256sum --check --strict "$EVIDENCE/authority-grant-evidence.SHA256SUMS"
+test -f "$EVIDENCE/workspace-SHA256SUMS.sha256"
+test -f "$EVIDENCE/a1-anchors.env"
+test -f "$EVIDENCE/a1-anchors.env.sha256"
+sha256sum --check --strict "$EVIDENCE/workspace-SHA256SUMS.sha256"
+sha256sum --check --strict "$EVIDENCE/a1-anchors.env.sha256"
+
+test -d "$WORKSPACE"
+test ! -L "$WORKSPACE"
+test "$(realpath -e "$WORKSPACE")" = "$WORKSPACE"
+test "$(cat "$WORKSPACE/SOURCE_COMMIT")" = "$EXPECTED_COMMIT"
+(cd "$WORKSPACE" && sha256sum --check --strict SOURCE_SHA256SUMS)
+(cd "$WORKSPACE" && sha256sum --check --strict SHA256SUMS)
+APPLEDOUBLE_COUNT=$(find "$WORKSPACE" -type f -name '._*' -printf . | wc -c)
+test "$APPLEDOUBLE_COUNT" -gt 0
+
+mkdir -m 700 "$INCIDENT"
+test "$(stat -c %d "$INCIDENT")" = "$(stat -c %d "$WORKSPACE")"
+printf 'schema_version=1\nstate=preclaim_appledouble_quarantine\nsource_commit=%s\nappledouble_count=%s\ncitation_allowed=false\n' \
+  "$EXPECTED_COMMIT" "$APPLEDOUBLE_COUNT" \
+  | write_noclobber_stdin "$INCIDENT/incident.env"
+printf 'repair_protocol_commit=%s\nrunbook_blob=%s\ntest_blob=%s\n' \
+  "$REPAIR_PROTOCOL_COMMIT" "$REPAIR_RUNBOOK_BLOB" "$REPAIR_TEST_BLOB" \
+  | write_noclobber_stdin "$INCIDENT/repair-protocol.env"
+(cd "$WORKSPACE" && find . -type f -name '._*' -print0 \
+  | LC_ALL=C sort -z | tr '\0' '\n') \
+  | write_noclobber_stdin "$INCIDENT/appledouble-files.txt"
+(cd "$WORKSPACE" && find . -type f -name '._*' -print0 \
+  | LC_ALL=C sort -z | xargs -0 -r sha256sum) \
+  | write_noclobber_stdin "$INCIDENT/appledouble-files.SHA256SUMS"
+sha256sum "$WORKSPACE/SOURCE_COMMIT" "$WORKSPACE/SOURCE_SHA256SUMS" \
+  "$WORKSPACE/a1-anchors.env" "$WORKSPACE/SHA256SUMS" \
+  | write_noclobber_stdin "$INCIDENT/contaminated-workspace-seals.sha256"
+stat -c 'device=%d\ninode=%i\nmode=%a\nuid=%u\ngid=%g' "$WORKSPACE" \
+  | write_noclobber_stdin "$INCIDENT/workspace-stat-before.env"
+
+WORKSPACE_DEVICE_BEFORE=$(stat -c %d "$WORKSPACE")
+WORKSPACE_INODE_BEFORE=$(stat -c %i "$WORKSPACE")
+mv -T "$WORKSPACE" "$QUARANTINED_WORKSPACE"
+test ! -e "$WORKSPACE"
+test ! -L "$WORKSPACE"
+test -d "$QUARANTINED_WORKSPACE"
+test ! -L "$QUARANTINED_WORKSPACE"
+WORKSPACE_DEVICE_AFTER=$(stat -c %d "$QUARANTINED_WORKSPACE")
+WORKSPACE_INODE_AFTER=$(stat -c %i "$QUARANTINED_WORKSPACE")
+test "$WORKSPACE_DEVICE_BEFORE" = "$WORKSPACE_DEVICE_AFTER"
+test "$WORKSPACE_INODE_BEFORE" = "$WORKSPACE_INODE_AFTER"
+test "$(cat "$QUARANTINED_WORKSPACE/SOURCE_COMMIT")" = "$EXPECTED_COMMIT"
+(cd "$QUARANTINED_WORKSPACE" && sha256sum --check --strict SOURCE_SHA256SUMS)
+(cd "$QUARANTINED_WORKSPACE" && sha256sum --check --strict SHA256SUMS)
+stat -c 'device=%d\ninode=%i\nmode=%a\nuid=%u\ngid=%g' "$QUARANTINED_WORKSPACE" \
+  | write_noclobber_stdin "$INCIDENT/workspace-stat-after.env"
+(
+  cd "$INCIDENT"
+  find . -type f ! -name QUARANTINE_EVIDENCE_SHA256SUMS -print0 \
+    | LC_ALL=C sort -z | xargs -0 sha256sum
+) | write_noclobber_stdin "$INCIDENT/QUARANTINE_EVIDENCE_SHA256SUMS"
+(cd "$INCIDENT" && sha256sum --check --strict QUARANTINE_EVIDENCE_SHA256SUMS)
+REMOTE
+```
+
+After the quarantine command succeeds, set local `A2_GIT_COMMIT` to exactly
+`d4360775194aaf8593a9fa5db10cf7465b222534` and rerun **only Step 2 once**.
+Do not rerun Step 1, Step 3, or any authority/grant write. Then run the
+following read-only revalidation and evidence-sealing command before Step 5.
+
+```zsh
+REPAIR_PROTOCOL_COMMIT="<REVIEWED_A2_FORWARD_REPAIR_COMMIT>"
+test "${#REPAIR_PROTOCOL_COMMIT}" -eq 40
+test "$(git -C "$REPO" rev-parse HEAD)" = "$REPAIR_PROTOCOL_COMMIT"
+test -z "$(git -C "$REPO" status --porcelain=v1 --untracked-files=all)"
+git -C "$REPO" diff --quiet
+git -C "$REPO" diff --cached --quiet
+git -C "$REPO" merge-base --is-ancestor \
+  d4360775194aaf8593a9fa5db10cf7465b222534 "$REPAIR_PROTOCOL_COMMIT"
+REPAIR_PROTOCOL_UPSTREAM=$(git -C "$REPO" rev-parse \
+  --abbrev-ref --symbolic-full-name '@{upstream}')
+test "$(git -C "$REPO" rev-parse "$REPAIR_PROTOCOL_UPSTREAM^{commit}")" \
+  = "$REPAIR_PROTOCOL_COMMIT"
+REPAIR_RUNBOOK_BLOB=$(git -C "$REPO" rev-parse \
+  "${REPAIR_PROTOCOL_COMMIT}:docs/remote-ocr-a2-deployment.md")
+REPAIR_TEST_BLOB=$(git -C "$REPO" rev-parse \
+  "${REPAIR_PROTOCOL_COMMIT}:tests/remote-ocr-a2-systemd.test.mjs")
+
+"${SSH_INNER[@]}" bash -se -- \
+  "$REPAIR_PROTOCOL_COMMIT" "$REPAIR_RUNBOOK_BLOB" "$REPAIR_TEST_BLOB" <<'REMOTE'
+set -euo pipefail
+umask 077
+REPAIR_PROTOCOL_COMMIT=$1
+REPAIR_RUNBOOK_BLOB=$2
+REPAIR_TEST_BLOB=$3
+EXPECTED_COMMIT=d4360775194aaf8593a9fa5db10cf7465b222534
+RUN_ROOT=/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess
+WORKSPACE="$RUN_ROOT/workspace-a-r2"
+INPUT="$RUN_ROOT/input/pdfs-verified"
+MANIFEST="$RUN_ROOT/manifests/offload-shard-a.json"
+A1="$RUN_ROOT/output/production-p4-mb16-shard-a-r1"
+A2="$RUN_ROOT/output/production-p1-mb16-shard-a-r2"
+AUTHORITY="$RUN_ROOT/input/timeout-recovery-authority-v1"
+MONITOR_DIR="$RUN_ROOT/monitor-a-r2"
+LOCK="$RUN_ROOT/.a2-lifecycle.lock"
+EVIDENCE=$(cat "$RUN_ROOT/.a2-current-evidence")
+INCIDENT="$EVIDENCE/incidents/appledouble-preclaim-d4360775"
+QUARANTINED_WORKSPACE="$INCIDENT/workspace-a-r2-contaminated"
+ANCHORS="$WORKSPACE/a1-anchors.env"
+SOURCE_ACTUAL=$(mktemp "$RUN_ROOT/.a2-forward-source-actual.XXXXXX")
+FINAL_ACTUAL=$(mktemp "$RUN_ROOT/.a2-forward-final-actual.XXXXXX")
+trap 'rm -f "$SOURCE_ACTUAL" "$FINAL_ACTUAL"' EXIT INT TERM
+
+write_noclobber_stdin() {
+  local pathname=$1
+  (set -o noclobber; cat > "$pathname")
+}
+
+test -d "$EVIDENCE"
+test ! -L "$EVIDENCE"
+test "$(realpath -e "$EVIDENCE")" = "$EVIDENCE"
+test "$(stat -c %a "$EVIDENCE")" = 700
+test "$(stat -c %u "$EVIDENCE")" = "$(id -u)"
+test -d "$INCIDENT"
+test ! -L "$INCIDENT"
+test -d "$QUARANTINED_WORKSPACE"
+test ! -L "$QUARANTINED_WORKSPACE"
+(cd "$INCIDENT" && sha256sum --check --strict QUARANTINE_EVIDENCE_SHA256SUMS)
+test "$(sed -n 's/^repair_protocol_commit=//p' \
+  "$INCIDENT/repair-protocol.env")" = "$REPAIR_PROTOCOL_COMMIT"
+test "$(sed -n 's/^runbook_blob=//p' \
+  "$INCIDENT/repair-protocol.env")" = "$REPAIR_RUNBOOK_BLOB"
+test "$(sed -n 's/^test_blob=//p' \
+  "$INCIDENT/repair-protocol.env")" = "$REPAIR_TEST_BLOB"
+
+test -d "$AUTHORITY"
+test ! -L "$AUTHORITY"
+test "$(realpath -e "$AUTHORITY")" = "$AUTHORITY"
+test "$(stat -c %a "$AUTHORITY")" = 700
+test "$(stat -c %u "$AUTHORITY")" = "$(id -u)"
+(cd "$AUTHORITY" && sha256sum --check --strict ledger-identity.json.sha256)
+GRANT="$A1/timeout-recovery-grant.json"
+(cd "$A1" && sha256sum --check --strict timeout-recovery-grant.json.sha256)
+test "$(jq -r '.consumption.ledger_root' "$GRANT")" = "$AUTHORITY"
+test "$(jq -r '.consumption.ledger_device' "$GRANT")" = "$(stat -c %d "$AUTHORITY")"
+test "$(jq -r '.consumption.ledger_inode' "$GRANT")" = "$(stat -c %i "$AUTHORITY")"
+shopt -s nullglob
+ISSUANCE_FILES=("$AUTHORITY"/*.issuance.json)
+ISSUANCE_SEALS=("$AUTHORITY"/*.issuance.json.sha256)
+CLAIM_FILES=("$AUTHORITY"/*.claim.json)
+CLAIM_SEALS=("$AUTHORITY"/*.claim.json.sha256)
+test "${#ISSUANCE_FILES[@]}" -eq 1
+test "${#ISSUANCE_SEALS[@]}" -eq 1
+(cd "$AUTHORITY" && sha256sum --check --strict "$(basename "${ISSUANCE_SEALS[0]}")")
+AUTHORITY_CLAIM_COUNT=${#CLAIM_FILES[@]}
+test "$AUTHORITY_CLAIM_COUNT" -eq 0
+test "${#CLAIM_SEALS[@]}" -eq 0
+test ! -e "$A2"
+test ! -L "$A2"
+test ! -e "$MONITOR_DIR"
+test ! -L "$MONITOR_DIR"
+test ! -e "$LOCK"
+test ! -L "$LOCK"
+A2_RUNTIME_PATHS=(
+  "$HOME/.config/systemd/user/curriculum-ocr-reprocess-a-r2.service"
+  "$HOME/.config/systemd/user/curriculum-ocr-reprocess-a-r2-cleanup.service"
+  "$HOME/.config/systemd/user/curriculum-ocr-reprocess-a-r2-monitor.service"
+  "$HOME/.config/systemd/user/curriculum-ocr-reprocess-a-r2-monitor.timer"
+  "$HOME/.config/systemd/user/curriculum-ocr-reprocess-a-r2-monitor.service.d/alert-only.conf"
+  "$HOME/.config/bdfz/curriculum-ocr-reprocess-a-r2-cleanup.conf"
+)
+for runtime_path in "${A2_RUNTIME_PATHS[@]}"; do
+  test ! -e "$runtime_path"
+  test ! -L "$runtime_path"
+done
+(cd "$A1" && sha256sum --check --strict "$EVIDENCE/a1-pregrant.SHA256SUMS")
+sha256sum --check --strict "$EVIDENCE/authority-grant-evidence.SHA256SUMS"
+
+test -d "$WORKSPACE"
+test ! -L "$WORKSPACE"
+test "$(realpath -e "$WORKSPACE")" = "$WORKSPACE"
+test "$(cat "$WORKSPACE/SOURCE_COMMIT")" = "$EXPECTED_COMMIT"
+test -z "$(find "$WORKSPACE" -type f -name '._*' -print -quit)"
+(
+  cd "$WORKSPACE"
+  sha256sum --check --strict SOURCE_SHA256SUMS
+  find . -type f ! -name SOURCE_SHA256SUMS -print0 \
+    | LC_ALL=C sort -z | xargs -0 sha256sum > "$SOURCE_ACTUAL"
+  cmp SOURCE_SHA256SUMS "$SOURCE_ACTUAL"
+)
+cmp "$QUARANTINED_WORKSPACE/SOURCE_SHA256SUMS" "$WORKSPACE/SOURCE_SHA256SUMS"
+
+node "$WORKSPACE/scripts/provision-timeout-recovery-authority.mjs" \
+  --input-root "$INPUT" \
+  | write_noclobber_stdin "$INCIDENT/authority-repair-preview-1.json"
+node "$WORKSPACE/scripts/provision-timeout-recovery-authority.mjs" \
+  --input-root "$INPUT" \
+  | write_noclobber_stdin "$INCIDENT/authority-repair-preview-2.json"
+cmp "$INCIDENT/authority-repair-preview-1.json" \
+  "$INCIDENT/authority-repair-preview-2.json"
+jq -e '.status == "verified_idempotent" and (.planned_writes | length == 0)' \
+  "$INCIDENT/authority-repair-preview-1.json" >/dev/null
+
+node "$WORKSPACE/scripts/prepare-timeout-recovery-grant.mjs" \
+  --manifest "$MANIFEST" --predecessor-root "$A1" \
+  --ledger-root "$AUTHORITY" \
+  | write_noclobber_stdin "$INCIDENT/grant-repair-preview-1.json"
+node "$WORKSPACE/scripts/prepare-timeout-recovery-grant.mjs" \
+  --manifest "$MANIFEST" --predecessor-root "$A1" \
+  --ledger-root "$AUTHORITY" \
+  | write_noclobber_stdin "$INCIDENT/grant-repair-preview-2.json"
+cmp "$INCIDENT/grant-repair-preview-1.json" \
+  "$INCIDENT/grant-repair-preview-2.json"
+for preview in \
+  "$INCIDENT/grant-repair-preview-1.json" \
+  "$INCIDENT/grant-repair-preview-2.json"; do
+  jq -e '.status == "verified_idempotent" and (.planned_writes | length == 0)' \
+    "$preview" >/dev/null
+done
+
+test ! -e "$ANCHORS"
+A1_ROOT="$A1" ANCHOR_FILE="$ANCHORS" \
+MONITOR_MODULE="$WORKSPACE/scripts/monitor-remote-ocr-single-shard.mjs" \
+node --input-type=module <<'NODE'
+import { open } from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
+const { inspectPredecessorB1 } = await import(pathToFileURL(process.env.MONITOR_MODULE));
+const snapshot = await inspectPredecessorB1(process.env.A1_ROOT);
+const mapping = [
+  ['BDFZ_OCR_A1_IDENTITY_SHA256', 'identity_sha256'],
+  ['BDFZ_OCR_A1_RUN_STATUS_SHA256', 'run_status_sha256'],
+  ['BDFZ_OCR_A1_STATE_HASHSET_SHA256', 'state_hashset_sha256'],
+  ['BDFZ_OCR_A1_STATUS_HASHSET_SHA256', 'status_hashset_sha256'],
+  ['BDFZ_OCR_A1_ARTIFACT_HASHSET_SHA256', 'artifact_hashset_sha256'],
+];
+const lines = mapping.map(([name, key]) => {
+  const value = snapshot.anchors[key];
+  if (!/^[a-f0-9]{64}$/.test(value)) throw new Error(`${key} is invalid`);
+  return `${name}=${value}`;
+});
+const handle = await open(process.env.ANCHOR_FILE, 'wx', 0o600);
+try {
+  await handle.writeFile(`${lines.join('\n')}\n`);
+  await handle.sync();
+} finally {
+  await handle.close();
+}
+NODE
+test "$(wc -l < "$ANCHORS")" -eq 5
+test "$(grep -Ec '^BDFZ_OCR_A1_[A-Z0-9_]+=[a-f0-9]{64}$' "$ANCHORS")" -eq 5
+sha256sum --check --strict "$EVIDENCE/a1-anchors.env.sha256"
+cmp "$EVIDENCE/a1-anchors.env" "$ANCHORS"
+
+(
+  cd "$WORKSPACE"
+  find . -type f ! -name SHA256SUMS -print0 \
+    | LC_ALL=C sort -z | xargs -0 sha256sum > SHA256SUMS
+  sha256sum --check --strict SHA256SUMS
+  find . -type f ! -name SHA256SUMS -print0 \
+    | LC_ALL=C sort -z | xargs -0 sha256sum > "$FINAL_ACTUAL"
+  cmp SHA256SUMS "$FINAL_ACTUAL"
+)
+test -z "$(find "$WORKSPACE" -type f -name '._*' -print -quit)"
+sha256sum "$WORKSPACE/SOURCE_COMMIT" "$WORKSPACE/SOURCE_SHA256SUMS" \
+  "$WORKSPACE/a1-anchors.env" "$WORKSPACE/SHA256SUMS" \
+  | write_noclobber_stdin "$INCIDENT/clean-workspace-seals.sha256"
+stat -c 'device=%d\ninode=%i\nmode=%a\nuid=%u\ngid=%g' "$WORKSPACE" \
+  | write_noclobber_stdin "$INCIDENT/clean-workspace-stat.env"
+
+test ! -e "$A2"
+test ! -e "$MONITOR_DIR"
+test ! -e "$LOCK"
+AUTHORITY_CLAIM_COUNT=$(find "$AUTHORITY" -maxdepth 1 -type f -name '*.claim.json' -printf . | wc -c)
+test "$AUTHORITY_CLAIM_COUNT" -eq 0
+(
+  cd "$INCIDENT"
+  find . -type f ! -name FORWARD_REPAIR_SHA256SUMS -print0 \
+    | LC_ALL=C sort -z | xargs -0 sha256sum
+) | write_noclobber_stdin "$INCIDENT/FORWARD_REPAIR_SHA256SUMS"
+(cd "$INCIDENT" && sha256sum --check --strict FORWARD_REPAIR_SHA256SUMS)
+find "$WORKSPACE" -type f -exec chmod 0400 {} +
+find "$WORKSPACE" -type d -exec chmod 0500 {} +
+find "$INCIDENT" -type f -exec chmod 0400 {} +
+find "$INCIDENT" -type d -exec chmod 0500 {} +
+(cd "$WORKSPACE" && sha256sum --check --strict SHA256SUMS)
+trap - EXIT INT TERM
+rm -f "$SOURCE_ACTUAL" "$FINAL_ACTUAL"
+REMOTE
+```
+
+The clean workspace final seal is expected to differ from the quarantined
+workspace final seal because the unlisted AppleDouble files are gone. The
+reviewed source manifest and all five A1 anchor bytes must remain identical.
+Any failed gate freezes both trees for review; it never authorizes another
+grant, authority, or destructive in-place cleanup.
 
 ## 5. Create the exact successor inode, monitor directory, and stable cache
 
