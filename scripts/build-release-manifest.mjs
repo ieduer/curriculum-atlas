@@ -267,8 +267,8 @@ export function assertBufferParity(expected, actualBuffer, label) {
   return actual;
 }
 
-function gitValue(root, arguments_, { optional = false } = {}) {
-  const result = spawnSync('git', arguments_, { cwd: root, encoding: 'utf8' });
+function gitValue(root, arguments_, { optional = false, runCommand = spawnSync } = {}) {
+  const result = runCommand('git', arguments_, { cwd: root, encoding: 'utf8' });
   if (result.status !== 0) {
     if (optional) return null;
     throw new Error(`git ${arguments_.join(' ')} failed: ${(result.stderr || '').trim()}`);
@@ -276,19 +276,52 @@ function gitValue(root, arguments_, { optional = false } = {}) {
   return result.stdout.trim();
 }
 
-export function assertGitCommitExists(root, value, label = 'Git commit') {
+function inspectGitSnapshot(root, runCommand = spawnSync) {
+  const head = gitValue(root, ['rev-parse', 'HEAD'], { runCommand });
+  const branch = gitValue(root, ['branch', '--show-current'], { runCommand });
+  const upstreamHead = gitValue(root, ['rev-parse', '@{upstream}'], {
+    optional: true,
+    runCommand,
+  });
+  const status = gitValue(root, ['status', '--porcelain=v1', '--untracked-files=all'], { runCommand });
+  return {
+    head,
+    branch,
+    upstream_head: upstreamHead,
+    dirty: Boolean(status),
+    status_entries: status ? status.split('\n').length : 0,
+    status_sha256: sha256(Buffer.from(status)),
+  };
+}
+
+export function assertGitSnapshotUnchanged(initial, final) {
+  if (final.head !== initial.head) {
+    throw new Error(`Git HEAD changed while release content was read: ${initial.head} -> ${final.head}`);
+  }
+  if (final.branch !== initial.branch || final.upstream_head !== initial.upstream_head) {
+    throw new Error('Git branch or upstream changed while release content was read');
+  }
+  if (final.dirty !== initial.dirty
+    || final.status_entries !== initial.status_entries
+    || final.status_sha256 !== initial.status_sha256) {
+    throw new Error('Git status changed while release content was read');
+  }
+  return true;
+}
+
+export function assertGitCommitExists(root, value, label = 'Git commit', runCommand = spawnSync) {
   const commit = String(value || '').toLowerCase();
   if (!/^[0-9a-f]{40}$/.test(commit)) {
     throw new Error(`${label} must be an exact 40-character Git commit SHA: ${value || '<unset>'}`);
   }
-  const result = spawnSync('git', ['cat-file', '-t', commit], {
+  const result = runCommand('git', ['cat-file', '-t', commit], {
     cwd: root,
     encoding: 'utf8',
   });
   if (result.status !== 0 || result.stdout.trim() !== 'commit') {
     throw new Error(`${label} does not exist as a commit in this repository: ${commit}`);
   }
-  const ancestor = spawnSync('git', ['merge-base', '--is-ancestor', commit, 'HEAD'], {
+  const ancestor = runCommand('git', ['merge-base', '--is-ancestor', commit, 'HEAD'], {
     cwd: root,
     encoding: 'utf8',
   });
@@ -296,8 +329,8 @@ export function assertGitCommitExists(root, value, label = 'Git commit') {
   return commit;
 }
 
-async function buildSourceTree(root, policy) {
-  const trackedFiles = gitValue(root, ['ls-files', '-z']).split('\0').filter(Boolean)
+async function buildSourceTree(root, policy, runCommand) {
+  const trackedFiles = gitValue(root, ['ls-files', '-z'], { runCommand }).split('\0').filter(Boolean)
     .map((file) => normalizeRelativePath(file, 'tracked source file'));
   const trackedSet = new Set(trackedFiles);
   const roots = (policy.source_tree?.roots || []).map((directory) => normalizeRelativePath(directory, 'source tree root'));
@@ -514,7 +547,7 @@ function environmentSnapshotIdentity(snapshot) {
   };
 }
 
-function buildEnvironmentState(root, policy, git, availableMigrations, corpusRelease, evidenceAsset) {
+function buildEnvironmentState(root, policy, git, availableMigrations, corpusRelease, evidenceAsset, runCommand) {
   const snapshot = policy.environment_snapshot || {};
   const requiredMigration = String(snapshot.required_migration || '');
   const requiredReleaseReader = String(snapshot.required_r2_release_reader || '');
@@ -566,7 +599,12 @@ function buildEnvironmentState(root, policy, git, availableMigrations, corpusRel
     const configuredAssetCommit = configured?.asset_git_commit === '$git_head'
       ? git.head
       : configured?.asset_git_commit;
-    const assetGitCommit = assertGitCommitExists(root, configuredAssetCommit, `${name}.asset_git_commit`);
+    const assetGitCommit = assertGitCommitExists(
+      root,
+      configuredAssetCommit,
+      `${name}.asset_git_commit`,
+      runCommand,
+    );
     const assetParityValid = local || configured?.asset_parity?.valid === true;
     if (!assetParityValid) {
       blockers.push({ code: 'worker_asset_git_parity_required', message: `${name} Worker assets lack byte-exact Git parity evidence` });
@@ -683,8 +721,10 @@ export async function buildReleaseManifest({
   root = DEFAULT_ROOT,
   policyPath = DEFAULT_POLICY,
   generatedAt = new Date().toISOString(),
+  runCommand = spawnSync,
 } = {}) {
   const projectRoot = resolve(root);
+  const initialGit = inspectGitSnapshot(projectRoot, runCommand);
   const normalizedPolicyPath = normalizeRelativePath(policyPath, 'policy path');
   const policyAsset = await inspectFile(projectRoot, normalizedPolicyPath);
   const policy = parseJsonAsset(policyAsset);
@@ -700,17 +740,8 @@ export async function buildReleaseManifest({
 
   const r2Objects = await validateR2PolicyCoverage(projectRoot, policy);
   const dataInventory = await validateDataInventory(projectRoot, policy, r2Objects);
-  const gitStatus = gitValue(projectRoot, ['status', '--porcelain=v1', '--untracked-files=all']);
-  const git = {
-    head: gitValue(projectRoot, ['rev-parse', 'HEAD']),
-    branch: gitValue(projectRoot, ['branch', '--show-current']),
-    upstream_head: gitValue(projectRoot, ['rev-parse', '@{upstream}'], { optional: true }),
-    dirty: Boolean(gitStatus),
-    status_entries: gitStatus ? gitStatus.split('\n').length : 0,
-    status_sha256: sha256(Buffer.from(gitStatus)),
-  };
 
-  const sourceTree = await buildSourceTree(projectRoot, policy);
+  const sourceTree = await buildSourceTree(projectRoot, policy, runCommand);
   const corpusRelease = await inspectCorpusRelease(projectRoot);
   const dataAssets = [];
   const dataByRole = new Map();
@@ -830,16 +861,21 @@ export async function buildReleaseManifest({
   const environmentState = buildEnvironmentState(
     projectRoot,
     policy,
-    git,
+    initialGit,
     migrationFiles,
     corpusRelease,
     environmentEvidence,
+    runCommand,
   );
 
   const publicAssetPaths = [...staticAssets.map((item) => item.path), ...graphAssets.map((item) => item.source)];
   assertExactSet(publicFiles, publicAssetPaths, 'public static asset coverage');
   const manifestDeployPaths = [...staticAssets.map((item) => item.deploy_path), ...graphAssets.map((item) => item.deploy_path)];
   assertExactSet(deployFiles, manifestDeployPaths, 'deploy static asset coverage');
+
+  const finalGit = inspectGitSnapshot(projectRoot, runCommand);
+  assertGitSnapshotUnchanged(initialGit, finalGit);
+  const git = initialGit;
 
   const cleanDataAssets = dataAssets.map(({ json, ...asset }) => asset);
   const cleanGraphAssets = graphAssets.map(({ json, ...asset }) => asset);

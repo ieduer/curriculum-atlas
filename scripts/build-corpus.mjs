@@ -15,6 +15,10 @@ import {
   createSemanticPublicationGate,
   semanticDocumentDisposition,
 } from './semantic-publication-gate.mjs';
+import {
+  canonicalParagraphBody,
+  isCanonicalParagraphBody,
+} from './canonical-paragraph-text.mjs';
 
 const projectRoot = new URL('../', import.meta.url);
 const catalog = JSON.parse(await readFile(new URL('data/catalog.json', projectRoot), 'utf8'));
@@ -110,21 +114,6 @@ function sql(value) {
 
 function stableHash(value) {
   return createHash('sha256').update(value).digest('hex');
-}
-
-function normalizeBlock(value) {
-  return value
-    .replace(/\u0000/g, '')
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n+/g, ' ')
-    .replace(/\s+([，。；：！？、])/g, '$1')
-    .trim();
-}
-
-function useful(value) {
-  if (value.length < 24 || value.length > 2200) return false;
-  const meaningful = (value.match(/[\p{Script=Han}A-Za-z0-9]/gu) || []).length;
-  return meaningful / value.length > 0.55 && !/^(目\s*录|contents?)$/i.test(value);
 }
 
 function yearFor(record) {
@@ -368,8 +357,8 @@ for (const record of catalog.documents) {
     const candidates = pages[pageIndex].split(/\n\s*\n/);
     for (let blockIndex = 0; blockIndex < candidates.length; blockIndex += 1) {
       const candidate = candidates[blockIndex];
-      const body = normalizeBlock(candidate);
-      if (!useful(body)) continue;
+      const body = canonicalParagraphBody(candidate);
+      if (!isCanonicalParagraphBody(body)) continue;
       ordinal += 1;
       totalParagraphs += 1;
       if (pageGate.display_allowed) displayedParagraphs += 1;

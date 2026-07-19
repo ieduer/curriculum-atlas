@@ -1,0 +1,25 @@
+{
+  "$schema": "./ontology-preview-acceptance-receipt.schema.json",
+  "schema_version": 1,
+  "receipt_id": "ontology-preview-acceptance:fixture-v1",
+  "policy": "immutable_preview_ontology_acceptance_v1",
+  "source": {
+    "git_head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "ontology_manifest": {
+      "path": "data/ontology-release-manifest.json",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  },
+  "preview": {
+    "worker_name": "bdfz-curriculum-atlas-preview",
+    "environment": "preview",
+    "deployment_id": "11111111-1111-4111-8111-111111111111",
+    "version_id": "22222222-2222-4222-8222-222222222222"
+  },
+  "acceptance": {
+    "status": "accepted",
+    "accepted_by": "fixture-reviewer",
+    "accepted_at": "2026-07-18T20:00:00.000Z"
+  },
+  "receipt_sha256": "0604b89e0274685a56253967f46b5d8fc235e1612cca35c5952662822de6c07f"
+}

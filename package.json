@@ -19,6 +19,7 @@
     "corpus:build": "node scripts/build-corpus.mjs",
     "concepts:build": "node scripts/build-concept-evolution.mjs",
     "concepts:validate": "node scripts/validate-concept-evolution.mjs",
+    "ontology:release:validate": "node scripts/validate-ontology-release.mjs",
     "ocr:status": "node scripts/ocr-supervisor.mjs status",
     "ocr:audit:triangulate": "node scripts/build-ocr-triangulation-audit.mjs",
     "ocr:check": "node scripts/ocr-supervisor.mjs check",
@@ -34,11 +35,13 @@
     "check": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "test:python": "/Users/ylsuen/.venv/bin/python -m unittest tests/test_ocr_pdf_paddle.py",
-    "verify": "npm run catalog && npm run assets:audit && npm run corpus:build && npm run concepts:build && npm run concepts:validate && node scripts/validate-online-verification.mjs && npm run build && npm run check && npm test && npm run test:python && npm run release:manifest && wrangler deploy --dry-run --outdir .wrangler/dry-run && node scripts/assert-clean-release-source.mjs",
+    "verify": "npm run catalog && npm run assets:audit && npm run corpus:build && npm run concepts:build && npm run concepts:validate && npm run ontology:release:validate && node scripts/validate-online-verification.mjs && npm run build && npm run check && npm test && npm run test:python && npm run release:manifest && wrangler deploy --dry-run --outdir .wrangler/dry-run && node scripts/assert-clean-release-source.mjs",
     "dev": "wrangler dev",
     "db:local": "wrangler d1 migrations apply bdfz-curriculum-atlas --local",
     "deploy:preview": "node scripts/deploy-worker.mjs --environment preview",
-    "deploy:production": "node scripts/deploy-worker.mjs --environment production"
+    "deploy:production": "node scripts/deploy-worker.mjs --environment production",
+    "deploy:preview:ontology-promotion": "node scripts/deploy-worker.mjs --environment preview --ontology-promotion",
+    "deploy:production:ontology-promotion": "node scripts/deploy-worker.mjs --environment production --ontology-promotion"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260715.1",

@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/ontology-preview-acceptance-receipt-v1.json",
+  "title": "Immutable preview acceptance receipt for ontology production promotion",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "receipt_id",
+    "policy",
+    "source",
+    "preview",
+    "acceptance",
+    "receipt_sha256"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "./ontology-preview-acceptance-receipt.schema.json"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^ontology-preview-acceptance:[a-z0-9][a-z0-9:-]*$"
+    },
+    "policy": {
+      "const": "immutable_preview_ontology_acceptance_v1"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["git_head", "ontology_manifest"],
+      "properties": {
+        "git_head": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "ontology_manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": {
+              "const": "data/ontology-release-manifest.json"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "preview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["worker_name", "environment", "deployment_id", "version_id"],
+      "properties": {
+        "worker_name": {
+          "const": "bdfz-curriculum-atlas-preview"
+        },
+        "environment": {
+          "const": "preview"
+        },
+        "deployment_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "accepted_by", "accepted_at"],
+      "properties": {
+        "status": {
+          "enum": ["accepted", "rejected"]
+        },
+        "accepted_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "accepted_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "receipt_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 of canonical stable-key JSON with receipt_sha256 omitted."
+    }
+  }
+}

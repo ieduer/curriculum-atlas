@@ -1,0 +1,1041 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/ontology-release-v1.json",
+  "title": "Evidence-bound curriculum ontology release bridge",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "manifest_id",
+    "policy",
+    "publication_state",
+    "builder_input_allowed",
+    "public_data_update_allowed",
+    "input_fingerprints",
+    "scopes",
+    "facet_coverage",
+    "assertions",
+    "nodes",
+    "relations",
+    "negative_historical_assertions",
+    "release_gate"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "./ontology-release.schema.json"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "manifest_id": {
+      "type": "string",
+      "pattern": "^ontology-release:[a-z0-9][a-z0-9:-]*$"
+    },
+    "policy": {
+      "const": "evidence_bound_manual_promotion_v1"
+    },
+    "publication_state": {
+      "enum": [
+        "empty_fail_closed",
+        "reviewed_release"
+      ]
+    },
+    "builder_input_allowed": {
+      "type": "boolean"
+    },
+    "public_data_update_allowed": {
+      "type": "boolean"
+    },
+    "input_fingerprints": {
+      "$ref": "#/$defs/inputFingerprints"
+    },
+    "scopes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/scope"
+      }
+    },
+    "facet_coverage": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "$ref": "#/$defs/facetCoverage"
+      }
+    },
+    "assertions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/assertion"
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relation"
+      }
+    },
+    "negative_historical_assertions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/negativeHistoricalAssertion"
+      }
+    },
+    "release_gate": {
+      "$ref": "#/$defs/releaseGate"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nullableNonEmptyString": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "subjectFacet": {
+      "enum": [
+        "语文",
+        "数学",
+        "外语",
+        "思想政治与道德法治",
+        "历史",
+        "历史与社会",
+        "地理",
+        "科学类",
+        "技术",
+        "劳动",
+        "艺术",
+        "体育与健康"
+      ]
+    },
+    "ontologyNodeType": {
+      "enum": [
+        "subject_model",
+        "competency_framework",
+        "core_competency_dimension",
+        "course_goal",
+        "practice_framework",
+        "practice_domain",
+        "content_organizer",
+        "task_group",
+        "task_requirement",
+        "student_ability",
+        "ability_descriptor",
+        "language_activity",
+        "quality_framework",
+        "quality_level",
+        "quality_context",
+        "quality_dimension",
+        "performance_indicator",
+        "official_term",
+        "curriculum_construct",
+        "editorial_container"
+      ]
+    },
+    "artifactFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "ontologyFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "ontology_node_count"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "ontology_node_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "inputFingerprints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate",
+        "page_publication",
+        "online_verification",
+        "catalog",
+        "semantic_publication",
+        "formal_ontology",
+        "public_core",
+        "public_academic",
+        "source_artifact_sha256"
+      ],
+      "properties": {
+        "candidate": {
+          "$ref": "#/$defs/artifactFingerprint"
+        },
+        "page_publication": {
+          "$ref": "#/$defs/artifactFingerprint"
+        },
+        "online_verification": {
+          "$ref": "#/$defs/artifactFingerprint"
+        },
+        "catalog": {
+          "$ref": "#/$defs/artifactFingerprint"
+        },
+        "semantic_publication": {
+          "$ref": "#/$defs/artifactFingerprint"
+        },
+        "formal_ontology": {
+          "$ref": "#/$defs/ontologyFingerprint"
+        },
+        "public_core": {
+          "$ref": "#/$defs/ontologyFingerprint"
+        },
+        "public_academic": {
+          "$ref": "#/$defs/ontologyFingerprint"
+        },
+        "source_artifact_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope_id",
+        "subject_facet",
+        "stage",
+        "school_type",
+        "edition_id",
+        "version_label",
+        "document_id",
+        "source_artifact_sha256"
+      ],
+      "properties": {
+        "scope_id": {
+          "type": "string",
+          "pattern": "^scope:[a-z0-9][a-z0-9:-]*$"
+        },
+        "subject_facet": {
+          "$ref": "#/$defs/subjectFacet"
+        },
+        "stage": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "school_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "edition_id": {
+          "type": "string",
+          "pattern": "^edition:[a-z0-9][a-z0-9:-]*$"
+        },
+        "version_label": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "document_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "source_artifact_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "facetCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_facet",
+        "status",
+        "released_scope_count",
+        "released_node_count",
+        "candidate_scope_count",
+        "candidate_node_count"
+      ],
+      "properties": {
+        "subject_facet": {
+          "$ref": "#/$defs/subjectFacet"
+        },
+        "status": {
+          "enum": [
+            "not_started",
+            "candidate",
+            "released"
+          ]
+        },
+        "released_scope_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "released_node_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidate_scope_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "candidate_node_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewer_id",
+        "reviewed_at",
+        "method"
+      ],
+      "properties": {
+        "reviewer_id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "reviewed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "method": {
+          "enum": [
+            "manual_source_image_review",
+            "manual_cross_version_review"
+          ]
+        }
+      }
+    },
+    "nodeFieldBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_id",
+        "candidate_node_id",
+        "node_type",
+        "lexical_concept_id",
+        "candidate_normative_role",
+        "candidate_parent_id",
+        "candidate_parent_relation",
+        "label_start_offset",
+        "label_end_offset",
+        "definition_start_offset",
+        "definition_end_offset"
+      ],
+      "properties": {
+        "node_id": {
+          "type": "string",
+          "pattern": "^ontology:[a-z0-9][a-z0-9:-]*$"
+        },
+        "candidate_node_id": {
+          "type": "string",
+          "pattern": "^candidate:[a-z0-9][a-z0-9:-]*$"
+        },
+        "node_type": {
+          "$ref": "#/$defs/ontologyNodeType"
+        },
+        "lexical_concept_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "candidate_normative_role": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "candidate_parent_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^candidate:[a-z0-9][a-z0-9:-]*$"
+        },
+        "candidate_parent_relation": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "contains_candidate",
+            "editorial_cluster_candidate",
+            null
+          ]
+        },
+        "label_start_offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "label_end_offset": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "definition_start_offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "definition_end_offset": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "onlineTermBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "term",
+        "start_offset",
+        "end_offset",
+        "text_sha256"
+      ],
+      "properties": {
+        "term": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "start_offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_offset": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "text_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "onlineSourceQuoteBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "content_sha256",
+        "quote_start_offset",
+        "quote_end_offset",
+        "quote_sha256",
+        "exact_terms"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "pattern": "^source:[a-z0-9][a-z0-9:-]*$"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "quote_start_offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "quote_end_offset": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "quote_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "exact_terms": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "onlineEvidenceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "source_image_page",
+        "candidate_anchor_id",
+        "term_bindings",
+        "independent_source_ids",
+        "source_quote_bindings"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "pattern": "^claim:[a-z0-9][a-z0-9:-]*$"
+        },
+        "source_image_page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "candidate_anchor_id": {
+          "type": "string",
+          "pattern": "^anchor:[a-z0-9][a-z0-9:-]*$"
+        },
+        "term_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/onlineTermBinding"
+          }
+        },
+        "independent_source_ids": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^source:[a-z0-9][a-z0-9:-]*$"
+          }
+        },
+        "source_quote_bindings": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/onlineSourceQuoteBinding"
+          }
+        }
+      }
+    },
+    "assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assertion_id",
+        "scope_id",
+        "assertion_type",
+        "document_id",
+        "edition_id",
+        "physical_page",
+        "paragraph_ordinal",
+        "start_offset",
+        "end_offset",
+        "candidate_anchor_id",
+        "paragraph_body_sha256",
+        "source_page_sha256",
+        "final_text_sha256",
+        "evidence_bundle_sha256",
+        "asserted_text_sha256",
+        "node_binding",
+        "online_claim_ids",
+        "independent_online_source_ids",
+        "online_evidence_bindings",
+        "version_relation",
+        "adjudication",
+        "uncertainty_note",
+        "reviewer",
+        "citation_allowed"
+      ],
+      "properties": {
+        "assertion_id": {
+          "type": "string",
+          "pattern": "^assertion:[a-z0-9][a-z0-9:-]*$"
+        },
+        "scope_id": {
+          "type": "string",
+          "pattern": "^scope:[a-z0-9][a-z0-9:-]*$"
+        },
+        "assertion_type": {
+          "enum": [
+            "presence",
+            "definition",
+            "official_structure",
+            "course_goal",
+            "practice_domain",
+            "task_group",
+            "student_ability",
+            "task_requirement",
+            "quality_context",
+            "quality_dimension",
+            "performance_indicator"
+          ]
+        },
+        "document_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "edition_id": {
+          "type": "string",
+          "pattern": "^edition:[a-z0-9][a-z0-9:-]*$"
+        },
+        "physical_page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "paragraph_ordinal": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "start_offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_offset": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "candidate_anchor_id": {
+          "type": "string",
+          "pattern": "^anchor:[a-z0-9][a-z0-9:-]*$"
+        },
+        "paragraph_body_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_page_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "final_text_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "evidence_bundle_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "asserted_text_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "node_binding": {
+          "$ref": "#/$defs/nodeFieldBinding"
+        },
+        "online_claim_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^claim:[a-z0-9][a-z0-9:-]*$"
+          }
+        },
+        "independent_online_source_ids": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^source:[a-z0-9][a-z0-9:-]*$"
+          }
+        },
+        "online_evidence_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/onlineEvidenceBinding"
+          }
+        },
+        "version_relation": {
+          "const": "exact_document_exact_edition"
+        },
+        "adjudication": {
+          "enum": [
+            "accepted",
+            "unresolved",
+            "rejected"
+          ]
+        },
+        "uncertainty_note": {
+          "$ref": "#/$defs/nullableNonEmptyString"
+        },
+        "reviewer": {
+          "$ref": "#/$defs/reviewer"
+        },
+        "citation_allowed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "candidate_node_id",
+        "scope_id",
+        "node_type",
+        "label",
+        "label_kind",
+        "normative_role",
+        "candidate_normative_role",
+        "parent_id",
+        "candidate_parent_id",
+        "candidate_parent_relation",
+        "lexical_concept_id",
+        "definition",
+        "field_binding_assertion_id",
+        "source_assertion_ids",
+        "review_status",
+        "citation_allowed"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^ontology:[a-z0-9][a-z0-9:-]*$"
+        },
+        "candidate_node_id": {
+          "type": "string",
+          "pattern": "^candidate:[a-z0-9][a-z0-9:-]*$"
+        },
+        "scope_id": {
+          "type": "string",
+          "pattern": "^scope:[a-z0-9][a-z0-9:-]*$"
+        },
+        "node_type": {
+          "$ref": "#/$defs/ontologyNodeType"
+        },
+        "label": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "label_kind": {
+          "enum": [
+            "official_term",
+            "editorial_summary",
+            "navigation_container"
+          ]
+        },
+        "normative_role": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "candidate_normative_role": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "parent_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^ontology:[a-z0-9][a-z0-9:-]*$"
+        },
+        "candidate_parent_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^candidate:[a-z0-9][a-z0-9:-]*$"
+        },
+        "candidate_parent_relation": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "contains_candidate",
+            "editorial_cluster_candidate",
+            null
+          ]
+        },
+        "lexical_concept_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        },
+        "definition": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "field_binding_assertion_id": {
+          "type": "string",
+          "pattern": "^assertion:[a-z0-9][a-z0-9:-]*$"
+        },
+        "source_assertion_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^assertion:[a-z0-9][a-z0-9:-]*$"
+          }
+        },
+        "review_status": {
+          "enum": [
+            "editor_reviewed",
+            "reviewed_inference"
+          ]
+        },
+        "citation_allowed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "relationContentBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assertion_id",
+        "evidence_role",
+        "text_start_offset",
+        "text_end_offset",
+        "text_sha256"
+      ],
+      "properties": {
+        "assertion_id": {
+          "type": "string",
+          "pattern": "^assertion:[a-z0-9][a-z0-9:-]*$"
+        },
+        "evidence_role": {
+          "enum": [
+            "source_endpoint",
+            "target_endpoint",
+            "relation_statement"
+          ]
+        },
+        "text_start_offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "text_end_offset": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "text_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "relation_type",
+        "source",
+        "target",
+        "scope_ids",
+        "assertion_basis",
+        "assertion_basis_sha256",
+        "evidence_assertion_ids",
+        "content_bindings",
+        "provenance_mode",
+        "direction",
+        "polarity",
+        "review_status",
+        "reviewer",
+        "semantic_relation_allowed"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^relation:[a-z0-9][a-z0-9:-]*$"
+        },
+        "relation_type": {
+          "enum": [
+            "related_to",
+            "supports",
+            "reframed_by",
+            "split_into",
+            "merged_from",
+            "replaced_by"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^ontology:[a-z0-9][a-z0-9:-]*$"
+        },
+        "target": {
+          "type": "string",
+          "pattern": "^ontology:[a-z0-9][a-z0-9:-]*$"
+        },
+        "scope_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^scope:[a-z0-9][a-z0-9:-]*$"
+          }
+        },
+        "assertion_basis": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "assertion_basis_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "evidence_assertion_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^assertion:[a-z0-9][a-z0-9:-]*$"
+          }
+        },
+        "content_bindings": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/relationContentBinding"
+          }
+        },
+        "provenance_mode": {
+          "const": "explicit_canonical_statement_v1"
+        },
+        "direction": {
+          "enum": [
+            "source_to_target",
+            "symmetric"
+          ]
+        },
+        "polarity": {
+          "const": "positive"
+        },
+        "review_status": {
+          "const": "editor_reviewed"
+        },
+        "reviewer": {
+          "$ref": "#/$defs/reviewer"
+        },
+        "semantic_relation_allowed": {
+          "const": true
+        }
+      }
+    },
+    "negativeHistoricalAssertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "claim_type",
+        "scope_ids",
+        "surface_aliases",
+        "coverage_digest_sha256",
+        "evidence_assertion_ids",
+        "reviewer"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "pattern": "^negative-claim:[a-z0-9][a-z0-9:-]*$"
+        },
+        "claim_type": {
+          "enum": [
+            "not_present",
+            "first_appearance",
+            "disappearance",
+            "replacement"
+          ]
+        },
+        "scope_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^scope:[a-z0-9][a-z0-9:-]*$"
+          }
+        },
+        "surface_aliases": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "coverage_digest_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "evidence_assertion_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^assertion:[a-z0-9][a-z0-9:-]*$"
+          }
+        },
+        "reviewer": {
+          "$ref": "#/$defs/reviewer"
+        }
+      }
+    },
+    "releaseGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release_authorized",
+        "candidate_nodes_promoted",
+        "accepted_leaf_nodes",
+        "source_controls_resolved",
+        "complete_historical_coverage",
+        "negative_historical_assertions_allowed",
+        "reviewed_by",
+        "reviewed_at",
+        "reason_codes"
+      ],
+      "properties": {
+        "release_authorized": {
+          "type": "boolean"
+        },
+        "candidate_nodes_promoted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "accepted_leaf_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_controls_resolved": {
+          "type": "boolean"
+        },
+        "complete_historical_coverage": {
+          "type": "boolean"
+        },
+        "negative_historical_assertions_allowed": {
+          "type": "boolean"
+        },
+        "reviewed_by": {
+          "$ref": "#/$defs/nullableNonEmptyString"
+        },
+        "reviewed_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        }
+      }
+    }
+  }
+}
