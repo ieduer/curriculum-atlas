@@ -1,6 +1,6 @@
 # 数据模型
 
-D1 的线上规范结构目前由 `migrations/0001_initial.sql` 至 `0007_document_taxonomy_contract.sql` 顺序定义。Preview 与 production 均只确认应用 `0001`–`0007`；`0008_compendium_embedded_items.sql` 是本地待集成 migration，尚未应用、尚未上线，不得从源代码存在推断线上已有篇目表。当前 Worker v10 health 合同仍为全局 schema 3、taxonomy schema 2、page publication schema 1。
+D1 的线上规范结构目前由 `migrations/0001_initial.sql` 至 `0007_document_taxonomy_contract.sql` 顺序定义。Preview 与 production 均只确认应用 `0001`–`0007`；本地候选按序新增 `0008_release_ownership_fences.sql` 与 `0009_compendium_embedded_items.sql`，尚未应用、尚未上线，不得从源代码存在推断线上已有 fence 或篇目表。当前 Worker v10 health 合同仍为全局 schema 3、taxonomy schema 2、page publication schema 1。
 
 ## 主要实体
 
@@ -12,7 +12,7 @@ D1 的线上规范结构目前由 `migrations/0001_initial.sql` 至 `0007_docume
 | OCR 溯源 | `source_artifacts`, `ocr_runs`, `ocr_page_reviews` | 源哈希、引擎版本、页级结果和复核状态 |
 | 在线核查 | `online_verifications`, `online_evidence` | 篇目身份、版次、权威在线证据、冲突与裁决 |
 | 页级发布 | `page_publication_gates` | 源页、最终文本、证据 bundle、显示与引文的独立门 |
-| 汇编篇目（待 `0008`） | `embedded_items` | 卷内独立篇目身份、稳定目录证据 ID、页范围、在线同版核对与墓碑状态 |
+| 汇编篇目（待 `0009`） | `embedded_items` | 卷内独立篇目身份、稳定目录证据 ID、页范围、在线同版核对与墓碑状态 |
 | Corpus release | `corpus_import_releases`, `corpus_import_chunks`, `corpus_import_guards` | 整批状态、预期/实际计数、SQL 分块哈希与回执 |
 | 学术身份与展示 | `document_classifications` | `taxonomy_entity_kind`、精确普通学科身份、12 个展示分面，以及课程/范围隔离 |
 | 讨论 | `comments`, `comment_reports` | 版本绑定评论、回复、举报和审核状态 |
@@ -56,13 +56,13 @@ Builder、D1 finalizer 与 Worker retrieval 使用同一真值规则。`all_page
 
 新 release 缩短文档时，未被引用的旧段落可删除；被讨论或在线核验引用的旧段落保留稳定 ID，但关闭 display/citation。这样既清除 stale search rows，又避免评论级联删除。
 
-`0008` 的篇目退役规则同样 fail closed：被评论或保留段落引用的旧篇目转为 `closed_tombstone`，关闭 display/citation/semantic 并保留外键；无任何引用的旧篇目才可删除。公共 current 查询同时绑定 `current_corpus_release_id`，因此墓碑不混入当前资料、检索或讨论列表，但旧评论和外键身份不会因一次 corpus rebuild 漂移。`UNIQUE(parent_document_id, corpus_release_id, sequence)` 允许同一载体的新 release 与旧墓碑并存。
+`0009` 的篇目退役规则同样 fail closed：被评论或保留段落引用的旧篇目转为 `closed_tombstone`，关闭 display/citation/semantic 并保留外键；无任何引用的旧篇目才可删除。公共 current 查询同时绑定 `current_corpus_release_id`，因此墓碑不混入当前资料、检索或讨论列表，但旧评论和外键身份不会因一次 corpus rebuild 漂移。`UNIQUE(parent_document_id, corpus_release_id, sequence)` 允许同一载体的新 release 与旧墓碑并存。
 
 `GET /api/documents` 的候选合同返回 `{documents,total,hasMore,cursor}`，排序末键固定为 `id`。Cursor 绑定 current corpus release 与完整筛选条件；版本或筛选漂移返回 409。前端必须沿不透明 cursor 拉至 `hasMore=false` 并校验总数、重复 ID 与游标前进；不能把单页 `limit=200` 当作完整身份集。讨论接口保留 `parent_id`，前端以 `parentId` 提交回复并按父子关系显示层级。
 
 ## R2 release identity
 
-R2 不是 D1 的来源真相，只保存可公开重建的质量元数据。每个对象发布到 `releases/<release_id>/...`，完整 manifest 与对象 hash/bytes readback 通过后，才原子更新 `release/current.json`。Worker 若看到 pointer，就必须完整验证 pointer、manifest 与目标对象；pointer 损坏时不允许回退旧 fixed key。
+R2 不是 D1 的来源真相，只保存可公开重建的质量元数据。每个对象发布到 `releases/<release_id>/...`；publisher 先取得环境 D1 的 cooperative single-writer lease，从私有只读快照写入并完成 manifest 与对象 hash/bytes readback，随后再次核对同一 predecessor pointer 的原始 bytes，才更新 `release/current.json`。同一 release id 的 immutable manifest 使用不含观测时间的稳定投影，已有 key 若非逐字节相同必须拒绝而非覆盖。Worker 若看到 pointer，就必须完整验证 pointer、manifest 与目标对象；pointer 损坏时不允许回退旧 fixed key。
 
 Production current 为 `release-9cb02f77c06ee0535e7981a22b312373`；preview current 为 `release-841a528f0086ce69f2f7a6f2d07c0999`。`data/release-environment-evidence.json` 保存采集时的 pointer snapshot：production 首次 bootstrap 与 preview successor activation 都发生在 evidence 之后，因此当前 R2 identity 必须结合 append-only post-activation readback，而不能只读 evidence 内的旧 pointer 字段。
 

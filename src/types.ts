@@ -6,6 +6,12 @@ export interface Env {
   USER_CENTER: Fetcher;
   ENVIRONMENT: string;
   RELEASE_GIT_COMMIT?: string;
+  RELEASE_ID?: string;
+  RELEASE_MANIFEST_SHA256?: string;
+  RELEASE_SOURCE_TREE_SHA256?: string;
+  CORPUS_RELEASE_ID?: string;
+  CORPUS_MANIFEST_SHA256?: string;
+  RELEASE_COORDINATOR_TOKEN?: string;
   SITE_ORIGIN: string;
   AI_ORIGIN: string;
   USER_CENTER_ORIGIN: string;

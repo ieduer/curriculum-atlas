@@ -28,5 +28,11 @@ export function buildCommentThread(comments) {
 
 export function commentReplyTarget(comment) {
   if (!comment?.id) throw new Error('回复目标无效');
-  return { parentId: String(comment.id), label: String(comment.body || '') };
+  return {
+    parentId: String(comment.id),
+    paragraphId: Number.isSafeInteger(Number(comment.paragraph_id)) && Number(comment.paragraph_id) > 0
+      ? Number(comment.paragraph_id)
+      : null,
+    label: String(comment.body || ''),
+  };
 }

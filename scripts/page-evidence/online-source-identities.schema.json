@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/online-source-identities-v1.json",
+  "title": "Externally pinned online source identities",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy", "sources"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "policy": { "const": "externally_pinned_online_source_identities_v1" },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_id",
+          "status",
+          "canonical_origin",
+          "canonical_publisher",
+          "source_class",
+          "independence_group",
+          "allowed_path_prefixes",
+          "boilerplate_markers",
+          "search_service"
+        ],
+        "properties": {
+          "source_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+          "status": { "enum": ["active", "revoked"] },
+          "canonical_origin": { "type": "string", "format": "uri" },
+          "canonical_publisher": { "type": "string", "minLength": 1 },
+          "source_class": {
+            "enum": ["official", "official_archive", "academic", "scholarly_database", "official_library"]
+          },
+          "independence_group": { "type": "string", "minLength": 1 },
+          "allowed_path_prefixes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^/" }
+          },
+          "boilerplate_markers": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "search_service": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

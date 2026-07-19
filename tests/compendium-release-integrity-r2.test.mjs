@@ -144,12 +144,12 @@ test('graph evidence deep links prefer embedded item identities', () => {
 
 test('comment replies retain parent identity and deterministic hierarchy', () => {
   const comments = [
-    { id: 'child', parent_id: 'root', body: 'reply' },
+    { id: 'child', parent_id: 'root', paragraph_id: 42, body: 'reply' },
     { id: 'root', parent_id: null, body: 'topic' },
     { id: 'orphan', parent_id: 'missing', body: 'orphan' },
   ];
   const thread = buildCommentThread(comments);
   assert.deepEqual(thread.map((item) => item.id), ['root', 'orphan']);
   assert.deepEqual(thread[0].children.map((item) => item.id), ['child']);
-  assert.deepEqual(commentReplyTarget(comments[0]), { parentId: 'child', label: 'reply' });
+  assert.deepEqual(commentReplyTarget(comments[0]), { parentId: 'child', paragraphId: 42, label: 'reply' });
 });

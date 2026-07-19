@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/page-evidence-release-v1.json",
+  "title": "Fail-closed page evidence release manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy",
+    "status",
+    "authority_registry",
+    "source_identity_registry",
+    "bindings",
+    "bundles",
+    "expected_publication",
+    "unresolved_reasons"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "policy": { "const": "immutable_page_evidence_release_v1" },
+    "status": { "enum": ["unresolved_fail_closed", "publication_candidate"] },
+    "authority_registry": { "$ref": "#/$defs/artifact_ref" },
+    "source_identity_registry": { "$ref": "#/$defs/artifact_ref" },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "catalog",
+        "page_publication_manifest",
+        "semantic_publication_policy",
+        "online_verification_standard"
+      ],
+      "properties": {
+        "catalog": { "$ref": "#/$defs/artifact_ref" },
+        "page_publication_manifest": { "$ref": "#/$defs/artifact_ref" },
+        "semantic_publication_policy": { "$ref": "#/$defs/artifact_ref" },
+        "online_verification_standard": { "$ref": "#/$defs/artifact_ref" }
+      }
+    },
+    "bundles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["document_id", "page_number", "stable_locator", "bundle"],
+        "properties": {
+          "document_id": { "type": "string" },
+          "page_number": { "type": "integer", "minimum": 1 },
+          "stable_locator": { "type": "string" },
+          "bundle": { "$ref": "#/$defs/artifact_ref" }
+        }
+      }
+    },
+    "expected_publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "documents",
+        "pages",
+        "display_pages",
+        "citation_pages",
+        "resolved_semantic_controls"
+      ],
+      "properties": {
+        "documents": { "type": "integer", "minimum": 0 },
+        "pages": { "type": "integer", "minimum": 0 },
+        "display_pages": { "type": "integer", "minimum": 0 },
+        "citation_pages": { "type": "integer", "minimum": 0 },
+        "resolved_semantic_controls": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "unresolved_reasons": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locator", "sha256", "bytes"],
+      "properties": {
+        "locator": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

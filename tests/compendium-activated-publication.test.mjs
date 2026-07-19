@@ -16,6 +16,7 @@ import {
 import {
   buildCorpusChunkReceiptSql,
   buildEmbeddedItemRetirementSql,
+  buildCorpusImportOwnerAcquireSql,
   buildCorpusImportFinalizeSql,
   buildCorpusImportStartSql,
 } from '../scripts/import-corpus.mjs';
@@ -182,7 +183,7 @@ test('compendium migration preserves legacy carrier comments as explicit null it
   const db = new DatabaseSync(':memory:');
   db.exec('PRAGMA foreign_keys=ON;');
   const migrations = (await readdir(path.join(root, 'migrations'))).filter((name) => name.endsWith('.sql')).sort();
-  for (const name of migrations.filter((name) => name < '0008_compendium_embedded_items.sql')) {
+  for (const name of migrations.filter((name) => name < '0009_compendium_embedded_items.sql')) {
     db.exec(await readFile(path.join(root, 'migrations', name), 'utf8'));
   }
   db.exec(`INSERT INTO documents(
@@ -193,7 +194,7 @@ test('compendium migration preserves legacy carrier comments as explicit null it
     'pdf','metadata_only','ocr_required',0);
   INSERT INTO comments(id,document_id,author_name,author_kind,body,status)
     VALUES('legacy-comment','legacy-carrier','教师','authenticated','迁移前的载体讨论','approved');`);
-  db.exec(await readFile(path.join(root, 'migrations/0008_compendium_embedded_items.sql'), 'utf8'));
+  db.exec(await readFile(path.join(root, 'migrations/0009_compendium_embedded_items.sql'), 'utf8'));
   assert.deepEqual(
     { ...db.prepare("SELECT id,embedded_item_id FROM comments WHERE id='legacy-comment'").get() },
     { id: 'legacy-comment', embedded_item_id: null },
@@ -262,14 +263,15 @@ test('referenced prior-release items become closed tombstones while unreferenced
 
 function corpusManifest() {
   const projection = {
+    generated_at: '2026-07-18T00:00:00.000Z',
     schema_version: 1,
     release_id: `corpus-${'b'.repeat(24)}`,
     release_fingerprint_sha256: 'b'.repeat(64),
     documents: 1,
-    paragraphs: 1,
-    fts_rows: 1,
+    paragraphs: 205,
+    fts_rows: 205,
     page_publication_gates: 1,
-    displayed_paragraphs: 1,
+    displayed_paragraphs: 205,
     accepted_ocr_documents: 1,
     core_table_counts: {
       subjects: 0,
@@ -291,10 +293,37 @@ function corpusManifest() {
     text_assets: [{ document_id: 'legacy-compendium-chinese', sha256: 'e'.repeat(64), bytes: 1 }],
     sql_chunks: 1,
     sql_files: [{ name: '000-core.sql', sha256: 'f'.repeat(64), bytes: 1 }],
+    closed_ocr_paragraphs: 0,
+    skipped_ocr_documents: 0,
+    excluded_exact_duplicate_alias_documents: 0,
+    semantic_excluded_pages: 0,
+    page_publication_schema_version: 1,
+    semantic_publication_schema_version: 1,
+    semantic_publication_revision_sha256: 'a'.repeat(64),
   };
   return {
     ...projection,
     manifest_sha256: digest(JSON.stringify(projection)),
+  };
+}
+
+function acquireCorpusOwner(db, manifest) {
+  const ownerToken = ['fixture', 'compendium', 'owner', '20260718'].join('-');
+  const ttlSeconds = 600;
+  db.exec(buildCorpusImportOwnerAcquireSql(manifest, { ownerToken, ttlSeconds }));
+  const ownerFence = Number(db.prepare('SELECT owner_fence FROM corpus_import_ownership WHERE id=1').get().owner_fence);
+  const raw = `${JSON.stringify([{ bookmark: 'fixture-compendium-prechange', timestamp: '2026-07-18T00:00:00.000Z' }])}\n`;
+  return {
+    ownerToken,
+    ownerFence,
+    ttlSeconds,
+    prechange: {
+      bookmark: 'fixture-compendium-prechange',
+      timestamp: '2026-07-18T00:00:00.000Z',
+      sha256: digest(raw),
+      bytes: Buffer.byteLength(raw),
+      raw_json: raw,
+    },
   };
 }
 
@@ -354,7 +383,8 @@ test('activated item remains independently citable from verified receipts throug
   assert.equal(projectedItem.citation_allowed, 1);
 
   const db = await migratedDatabase();
-  db.exec(buildCorpusImportStartSql(manifest));
+  const ownerOptions = acquireCorpusOwner(db, manifest);
+  db.exec(buildCorpusImportStartSql(manifest, ownerOptions));
   db.prepare(`INSERT INTO documents(
     id,title,subject,stage,document_type,version_label,issued_by,current_status,source_tier,
     access_status,source_page_url,source_url,file_format,redistribution,checksum_sha256,
@@ -404,19 +434,24 @@ test('activated item remains independently citable from verified receipts throug
     boundPage.source_page_sha256, boundPage.final_text_sha256, boundPage.evidence_bundle_sha256,
     boundPage.stable_locator, manifest.release_id,
   );
-  const body = '课程目标包括识字能力、阅读能力与语言文字运用。';
-  db.prepare(`INSERT INTO paragraphs(
+  const insertParagraph = db.prepare(`INSERT INTO paragraphs(
     document_id,ordinal,page_number,heading,body,source_locator,body_sha256,text_quality_status,
     citation_allowed,display_allowed,source_artifact_sha256,source_page_sha256,page_final_text_sha256,
     evidence_bundle_sha256,provenance_locator,corpus_release_id,embedded_item_id
-  ) VALUES(?,1,?,?,?,?,?,'verified_ocr_item',1,1,?,?,?,?,?,?,?)`).run(
-    document.document_id, boundPage.page_number, item.title, body, '第3页', digest(body),
-    boundPage.source_artifact_sha256, boundPage.source_page_sha256, boundPage.final_text_sha256,
-    boundPage.evidence_bundle_sha256, `${item.item_id}:page:${boundPage.page_number}:paragraph:1`,
-    manifest.release_id, item.item_id,
-  );
-  db.exec(buildCorpusChunkReceiptSql(manifest, '000-core.sql'));
-  const finalizeSql = buildCorpusImportFinalizeSql(manifest);
+  ) VALUES(?,?,?,?,?,?,?,'verified_ocr_item',1,1,?,?,?,?,?,?,?)`);
+  for (let ordinal = 1; ordinal <= manifest.paragraphs; ordinal += 1) {
+    const body = ordinal === 1
+      ? '课程目标包括识字能力、阅读能力与语言文字运用。'
+      : `篇目分页完整性测试段落 ${ordinal}`;
+    insertParagraph.run(
+      document.document_id, ordinal, boundPage.page_number, item.title, body, `第3页#${ordinal}`, digest(body),
+      boundPage.source_artifact_sha256, boundPage.source_page_sha256, boundPage.final_text_sha256,
+      boundPage.evidence_bundle_sha256, `${item.item_id}:page:${boundPage.page_number}:paragraph:${ordinal}`,
+      manifest.release_id, item.item_id,
+    );
+  }
+  db.exec(buildCorpusChunkReceiptSql(manifest, '000-core.sql', null, ownerOptions));
+  const finalizeSql = buildCorpusImportFinalizeSql(manifest, ownerOptions);
   db.prepare('UPDATE page_publication_gates SET citation_allowed=0 WHERE document_id=? AND page_number=?').run(
     document.document_id, boundPage.page_number,
   );
@@ -436,6 +471,16 @@ test('activated item remains independently citable from verified receipts throug
   );
   db.exec(finalizeSql);
   assert.equal(db.prepare('SELECT state FROM corpus_import_releases WHERE release_id=?').get(manifest.release_id).state, 'ready');
+  assert.notEqual(
+    db.prepare("SELECT value FROM site_meta WHERE key='current_corpus_release_id'").get()?.value,
+    manifest.release_id,
+    'finalization stages the corpus and must not activate the current pointer',
+  );
+  const activateMeta = db.prepare(`INSERT INTO site_meta(key,value) VALUES(?,?)
+    ON CONFLICT(key) DO UPDATE SET value=excluded.value`);
+  activateMeta.run('current_corpus_release_id', manifest.release_id);
+  activateMeta.run('current_corpus_manifest_sha256', manifest.manifest_sha256);
+  activateMeta.run('corpus_import_state', 'ready');
 
   const retrieve = await bundledRetrieve();
   const results = await retrieve({ DB: d1Adapter(db) }, {
@@ -468,7 +513,7 @@ test('activated item remains independently citable from verified receipts throug
 
   const worker = await bundledWorker();
   const itemResponse = await worker.fetch(new Request(
-    `https://curriculum.example/api/items/${encodeURIComponent(item.item_id)}`,
+    `https://curriculum.example/api/items/${encodeURIComponent(item.item_id)}?limit=200`,
   ), {
     DB: d1Adapter(db),
     ENVIRONMENT: 'test',
@@ -483,9 +528,30 @@ test('activated item remains independently citable from verified receipts throug
   assert.equal(itemDetail.item.id, item.item_id);
   assert.equal(itemDetail.item.issued_by, null);
   assert.equal(itemDetail.discussionDocumentId, document.document_id);
-  assert.equal(itemDetail.paragraphs.length, 1);
+  assert.equal(itemDetail.paragraphs.length, 200);
+  assert.equal(itemDetail.total, 205);
+  assert.equal(itemDetail.hasMore, true);
+  assert.equal(typeof itemDetail.cursor, 'string');
   assert.equal(itemDetail.verifications.length, 1);
   assert.equal(itemDetail.verifications[0].id, sourceId);
+  const finalItemPageResponse = await worker.fetch(new Request(
+    `https://curriculum.example/api/items/${encodeURIComponent(item.item_id)}?limit=200&cursor=${encodeURIComponent(itemDetail.cursor)}`,
+  ), {
+    DB: d1Adapter(db),
+    ENVIRONMENT: 'test',
+    SITE_ORIGIN: 'https://curriculum.example',
+    ASSETS: { fetch: async () => new Response('not used') },
+    SOURCES: {},
+    APIS: {},
+    USER_CENTER: {},
+  });
+  assert.equal(finalItemPageResponse.status, 200);
+  const finalItemPage = await finalItemPageResponse.json();
+  assert.equal(finalItemPage.paragraphs.length, 5);
+  assert.equal(finalItemPage.total, 205);
+  assert.equal(finalItemPage.hasMore, false);
+  assert.equal(finalItemPage.cursor, null);
+  assert.equal(new Set([...itemDetail.paragraphs, ...finalItemPage.paragraphs].map((paragraph) => paragraph.id)).size, 205);
 
   const documentsResponse = await worker.fetch(new Request(
     'https://curriculum.example/api/documents?limit=1',
@@ -527,8 +593,13 @@ test('activated item finalizer binds every cited source id to an exact-edition D
   const projected = buildCompendiumCorpusProjection(boundaries, manifest.release_id).rows[0];
   const db = await migratedDatabase();
   assert.equal(projected.citation_allowed, 1);
-  assert.match(buildCorpusImportFinalizeSql(manifest), /JOIN json_each\(ei\.online_source_ids_json\)/);
-  assert.match(buildCorpusImportFinalizeSql(manifest), /ov\.verification_status='verified_exact'/);
+  const finalizeSql = buildCorpusImportFinalizeSql(manifest, {
+    ownerToken: ['fixture', 'compendium', 'owner', '20260718'].join('-'),
+    ownerFence: 1,
+    ttlSeconds: 600,
+  });
+  assert.match(finalizeSql, /JOIN json_each\(ei\.online_source_ids_json\)/);
+  assert.match(finalizeSql, /ov\.verification_status='verified_exact'/);
   db.close();
 });
 

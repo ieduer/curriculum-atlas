@@ -23,7 +23,7 @@
 - 不为叶项目创建 Gemini key；只用 `APIS` binding。
 - 不绕过 User Center 自建账户系统。
 - 不直接试错生产；先在 preview 完成迁移、数据和浏览器验证。
-- 不把 `data/release-environment-evidence.json` 当作会自动跟随 R2 pointer 更新的实时状态；采集后的 pointer 激活必须查 append-only readback 事件。
+- 不把 tracked `data/release-environment-evidence.json` 当作会自动跟随 R2 pointer 更新的实时状态。Fenced publication v2 的运行期 evidence 在 `.wrangler`，且 pointer 激活必须查 coordinator exact-prefix/pointer readback 与 append-only 事件。
 - 不在新并发/idle/runtime 配置下直接复制 B-r1 state；复用完成页必须有 hash-bound seed lineage 与 predecessor receipt。
 
 ## 修改闭环
@@ -38,6 +38,7 @@
 ## 当前已上线基线
 
 - Preview/production 均已应用 migration `0001`–`0007`，运行 v10、schema 3 / taxonomy 2 / page 1。
+- 这是 legacy 线上基线；本仓库的 `0008_release_ownership_fences.sql`、唯一 desired-release v2 artifact、D1 owner/fence 与 R2 conditional coordinator 在完成真实 preview/production 验证前均不得写成已上线。
 - Corpus `corpus-358471fcce862b2f0ae446fc` 两端 ready：196 documents、16,456 paragraphs、16,456 FTS、6,031 page gates、16,456 displayed、0 accepted OCR、91 chunks。
 - Taxonomy 精确为 159 subject、1 assessment subject、16 curriculum course、20 scope、12 display facets、28 ordinary query identities。
 - Production version/deployment 为 `28c7e6d4-1638-42bc-b371-bd8d24210b93` / `baa8a92f-ccc8-4972-b0ad-6d67876cdc84`，Assets Git `57487dc95481391cbcd40e0be0c92ee2d1ed8fdf`；preview 为 `2d107d38-cf31-49b6-82b1-20b32a32e824` / `32b91e16-302a-4672-b55d-4e73bcedf54a`，Assets Git `40cb114e410e5f2afc886732eb146707edf8477b`。
@@ -60,5 +61,5 @@
 ## 回滚边界
 
 - Production Worker v7 `7d1766b2-32be-4ce1-9528-f6c69bb2a092` 与 D1 bookmark `0000002b-00002585-000050ab-8645885d977dc9bf5678e6cdf12b084f` 是耦合回滚；只回 Worker 会因 taxonomy schema 不兼容而 503。
-- Production R2-only fallback 是删除且只删除 `release/current.json`，恢复 v10 stable-key reader；immutable release objects 保留。
-- Publisher 或 corpus importer 中断时先核远端 pointer/receipts，只从未提交边界继续；禁止盲目重跑。
+- 正常 R2-only 回滚是取得新的 D1 publication owner/higher fence，再通过 coordinator 条件激活一份经过核验的 predecessor forward release；备份 pointer 只作取证，不直接覆盖或删除 `release/current.json`。stable-key fallback 删除属于另行审批且先冻结 publisher 的灾难恢复。
+- Publisher 或 corpus importer 中断时先核远端 pointer/exact prefix/receipts，只从未提交边界继续；过期 owner 不可复用，必须由 higher-fence takeover 继续，禁止盲目重跑。

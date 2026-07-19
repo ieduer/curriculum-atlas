@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -11,27 +12,84 @@ import {
   assertGitCommitExists,
   buildReleaseManifest,
   compareManagedKeySets,
+  releaseIdFromIdentity,
 } from '../scripts/build-release-manifest.mjs';
 import {
   assertEnvironmentReleaseReady,
   assertReleaseSourceReady,
+  buildPublicationLeaseAcquireSql,
+  buildPublicationLeaseReleaseSql,
+  immutableVersionedManifestArtifact,
   publishVersionedRelease,
 } from '../scripts/publish-metadata.mjs';
+import {
+  desiredReleaseManifestArtifact,
+  desiredReleasePin,
+  parseDesiredReleaseManifestArtifact,
+} from '../scripts/lib/desired-release-manifest.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+const FIXTURE_RELEASE_ID = `release-${'f'.repeat(32)}`;
+
+function publicationCoordination() {
+  return {
+    policy: 'd1_activation_claimed_r2_binding_v3',
+    lease_key: 'r2_release_publication_lease',
+    lease_ttl_seconds: 3600,
+    databases: { preview: 'fixture-preview', production: 'fixture-production' },
+    coordinator_urls: {
+      preview: 'https://preview.example.test/api/admin/release-coordinate',
+      production: 'https://production.example.test/api/admin/release-coordinate',
+    },
+  };
+}
+
+async function buildHermeticReleaseManifest(generatedAt) {
+  const registry = JSON.parse(await readFile(new URL('../data/artifact-registry.json', import.meta.url), 'utf8'));
+  const counts = registry.expected_counts;
+  return buildReleaseManifest({
+    root,
+    generatedAt,
+    corpusSourceBindingValidator: async (manifest) => manifest,
+    projectAssetAuditor: async () => ({
+      ok: true,
+      policy: registry.policy,
+      checks: ['tracked_fixture_registry_shape'],
+      source_inventory: {
+        roots: registry.source_roots,
+        pdf_files: counts.source_pdf_files,
+        unique_artifacts: counts.unique_source_pdf_artifacts,
+        valid_pdf_files: counts.source_pdf_files - counts.invalid_pdf_files,
+        invalid_pdf_files: counts.invalid_pdf_files,
+        dispositions: {},
+        explicit_artifacts: Array.from({ length: counts.explicit_artifacts }, () => ({})),
+        duplicate_artifacts: [],
+        source_archive_containers: Array.from({ length: counts.source_archive_containers }, () => ({})),
+      },
+      queue: {
+        nominal_documents: counts.nominal_queue_documents,
+        nominal_pages: counts.nominal_queue_pages,
+        unique_artifacts: counts.unique_queue_artifacts,
+        unique_pages: counts.unique_queue_pages,
+        blocked_documents: counts.blocked_documents,
+        duplicate_artifacts: [],
+      },
+      warnings: [],
+      errors: [],
+    }),
+  });
+}
 
 test('release manifest binds the complete data, graph, static, Git, and environment state', async () => {
   const environmentEvidence = JSON.parse(await readFile(new URL('../data/release-environment-evidence.json', import.meta.url), 'utf8'));
-  const manifest = await buildReleaseManifest({
-    root,
-    generatedAt: '2026-07-17T00:00:00.000Z',
-  });
+  const manifest = await buildHermeticReleaseManifest('2026-07-17T00:00:00.000Z');
   const catalog = JSON.parse(await readFile(new URL('../data/catalog.json', import.meta.url), 'utf8'));
   const queue = JSON.parse(await readFile(new URL('../data/ocr-queue.json', import.meta.url), 'utf8'));
 
   assert.equal(manifest.schema_version, 1);
   assert.match(manifest.release_id, /^release-[0-9a-f]{32}$/);
   assert.equal(manifest.integrity.valid, true);
+  assert.equal(releaseIdFromIdentity(manifest.release_identity), manifest.release_id);
   assert.equal(
     manifest.release_blockers.some((blocker) => blocker.code === 'dirty_git_tree'),
     manifest.git.dirty,
@@ -63,7 +121,6 @@ test('release manifest binds the complete data, graph, static, Git, and environm
     'online_verification_zh_compulsory_2022_claims',
     'online_verification_zh_compulsory_2022_schema',
     'release_assets_policy',
-    'release_environment_evidence',
   ]) assert.ok(byRole.has(role), `missing ${role}`);
 
   assert.equal(byRole.get('catalog').counts.documents, catalog.documents.length);
@@ -100,6 +157,16 @@ test('release manifest binds the complete data, graph, static, Git, and environm
   assert.equal(assetAudit.queue.nominal_pages, queue.documents.reduce((total, item) => total + item.page_count, 0));
   assert.equal(assetAudit.errors, 0);
 
+  const rawCorpusManifest = await readFile(new URL('../data/corpus-chunks/manifest.json', import.meta.url));
+  const rawCorpusBinding = {
+    sha256: createHash('sha256').update(rawCorpusManifest).digest('hex'),
+    bytes: rawCorpusManifest.byteLength,
+  };
+  assert.equal(manifest.corpus_release.sha256, rawCorpusBinding.sha256);
+  assert.equal(manifest.corpus_release.bytes, rawCorpusBinding.bytes);
+  assert.equal(manifest.page_evidence.valid, true);
+  assert.equal(manifest.page_evidence.publishable, false);
+
   assert.equal(manifest.graph_assets.length, 2);
   assert.equal(manifest.graph_assets[0].build_revision, manifest.graph_assets[1].build_revision);
   assert.ok(manifest.graph_assets.every((asset) => asset.sha256.length === 64 && asset.bytes > 0));
@@ -115,9 +182,13 @@ test('release manifest binds the complete data, graph, static, Git, and environm
   assert.ok(manifest.static_assets.files.some((asset) => asset.path === 'public/index.html'));
   assert.ok(manifest.static_assets.files.every((asset) => asset.deploy_path.startsWith('dist/')));
 
-  assert.equal(manifest.environment_snapshot.environments.local.worker_revision, 'working-tree-v11');
-  assert.equal(manifest.environment_snapshot.required_migration, '0008_compendium_embedded_items.sql');
-  assert.equal(manifest.environment_snapshot.environments.local.r2_release_reader, 'versioned_manifest_v1');
+  assert.equal(manifest.environment_snapshot.environments.local.worker_revision, 'working-tree-v13');
+  assert.equal(manifest.environment_snapshot.required_migration, '0008_release_ownership_fences.sql');
+  assert.deepEqual(manifest.environment_snapshot.required_migrations, [
+    '0008_release_ownership_fences.sql',
+    '0009_compendium_embedded_items.sql',
+  ]);
+  assert.equal(manifest.environment_snapshot.environments.local.r2_release_reader, 'versioned_manifest_v2_fenced');
   assert.equal(
     manifest.environment_snapshot.environments.local.release_blockers.some((blocker) => blocker.code === 'versioned_r2_reader_required'),
     false,
@@ -158,11 +229,269 @@ test('environment asset commits must be exact existing Git commit objects', () =
 });
 
 test('release identity is deterministic while generated_at remains an audit timestamp', async () => {
-  const first = await buildReleaseManifest({ root, generatedAt: '2026-07-17T00:00:00.000Z' });
-  const second = await buildReleaseManifest({ root, generatedAt: '2026-07-17T00:01:00.000Z' });
+  const first = await buildHermeticReleaseManifest('2026-07-17T00:00:00.000Z');
+  const second = await buildHermeticReleaseManifest('2026-07-17T00:01:00.000Z');
   assert.equal(first.release_id, second.release_id);
   assert.equal(first.source_tree.sha256, second.source_tree.sha256);
   assert.notEqual(first.generated_at, second.generated_at);
+});
+
+test('immutable versioned manifest bytes exclude every volatile audit age for retry-safe keys', async () => {
+  const firstManifest = await buildHermeticReleaseManifest('2026-07-17T00:00:00.000Z');
+  const secondManifest = await buildHermeticReleaseManifest('2026-07-17T00:01:00.000Z');
+  assert.equal(firstManifest.release_id, secondManifest.release_id);
+  assert.notEqual(firstManifest.generated_at, secondManifest.generated_at);
+  assert.notEqual(
+    firstManifest.downloads_asset_audit.age_hours,
+    secondManifest.downloads_asset_audit.age_hours,
+  );
+  const first = immutableVersionedManifestArtifact(firstManifest);
+  const second = immutableVersionedManifestArtifact(secondManifest);
+  assert.deepEqual(first.buffer, second.buffer);
+  assert.equal(first.sha256, second.sha256);
+});
+
+test('one canonical desired release artifact is complete across Worker, R2, and evidence without observations', async () => {
+  const manifest = await buildHermeticReleaseManifest('2026-07-17T00:00:00.000Z');
+  const artifact = desiredReleaseManifestArtifact(manifest);
+  const parsed = parseDesiredReleaseManifestArtifact(artifact.buffer);
+  const pin = desiredReleasePin(parsed);
+  assert.equal(pin.git_head, manifest.git.head);
+  assert.equal(pin.release_id, manifest.release_id);
+  assert.equal(pin.release_manifest_sha256, artifact.sha256);
+  assert.equal(pin.release_manifest_bytes, artifact.bytes);
+  assert.equal(pin.source_tree_sha256, manifest.source_tree.sha256);
+  assert.equal(pin.corpus_release_id, manifest.corpus_release.release_id);
+  assert.equal(pin.corpus_manifest_sha256, manifest.corpus_release.manifest_sha256);
+  assert.equal(parsed.value.r2.release_manifest_key, `releases/${manifest.release_id}/manifest.json`);
+  assert.equal(parsed.value.r2.managed_object_count, parsed.value.r2.objects.length);
+  const serialized = artifact.buffer.toString('utf8');
+  for (const forbidden of ['environment_snapshot', 'release_blockers', 'published_at', 'observed_at', 'health', 'generated_at']) {
+    assert.doesNotMatch(serialized, new RegExp(`"${forbidden}"`));
+  }
+
+  const drift = structuredClone(parsed.value);
+  drift.release_id = `release-${'0'.repeat(32)}`;
+  assert.throws(
+    () => parseDesiredReleaseManifestArtifact(Buffer.from(`${JSON.stringify(drift, null, 2)}\n`)),
+    /release_id does not match release_identity/,
+  );
+});
+
+test('D1 publication lease serializes different owners even for the same release', () => {
+  const db = new DatabaseSync(':memory:');
+  db.exec(`CREATE TABLE corpus_import_guards(guard_key TEXT PRIMARY KEY,ok INTEGER NOT NULL CHECK(ok=1));
+    CREATE TABLE release_publication_fence_state(id INTEGER PRIMARY KEY,last_fence INTEGER NOT NULL);
+    INSERT INTO release_publication_fence_state(id,last_fence) VALUES(1,0);
+    CREATE TABLE release_publication_ownership(
+      id INTEGER PRIMARY KEY,release_id TEXT NOT NULL,manifest_sha256 TEXT NOT NULL,
+      owner_token_sha256 TEXT NOT NULL,owner_fence INTEGER NOT NULL,expires_unix INTEGER NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE release_publication_activation_claim(
+      id INTEGER PRIMARY KEY,release_id TEXT NOT NULL,manifest_sha256 TEXT NOT NULL,
+      owner_token_sha256 TEXT NOT NULL,owner_fence INTEGER NOT NULL,expires_unix INTEGER NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );`);
+  const common = {
+    releaseId: FIXTURE_RELEASE_ID,
+    manifestSha256: 'f'.repeat(64),
+    ttlSeconds: 3600,
+  };
+  db.exec(buildPublicationLeaseAcquireSql({ ...common, token: 'publication-owner-a' }));
+  assert.throws(
+    () => db.exec(buildPublicationLeaseAcquireSql({ ...common, token: 'publication-owner-b' })),
+    /CHECK constraint failed/,
+  );
+  assert.equal(Number(db.prepare('SELECT owner_fence FROM release_publication_ownership WHERE id=1').get().owner_fence), 1);
+  db.exec(buildPublicationLeaseReleaseSql({ ...common, token: 'publication-owner-a', ownerFence: 1 }));
+  db.exec(buildPublicationLeaseAcquireSql({ ...common, token: 'publication-owner-b' }));
+  assert.equal(Number(db.prepare('SELECT owner_fence FROM release_publication_ownership WHERE id=1').get().owner_fence), 2);
+  db.close();
+});
+
+test('release identity retains the exact raw corpus envelope binding', async () => {
+  const { corpusReleaseIdentity, releaseIdFromIdentity } = await import('../scripts/build-release-manifest.mjs');
+  assert.equal(typeof corpusReleaseIdentity, 'function');
+  const corpus = {
+    source: 'data/corpus-chunks/manifest.json',
+    sha256: 'a'.repeat(64),
+    bytes: 100,
+    release_id: `corpus-${'b'.repeat(24)}`,
+    release_fingerprint_sha256: 'b'.repeat(64),
+    manifest_sha256: 'c'.repeat(64),
+    counts: { documents: 1 },
+    chunks: [{ source: 'data/corpus-chunks/000-core.sql', sha256: 'd'.repeat(64), bytes: 50 }],
+  };
+  const first = corpusReleaseIdentity(corpus);
+  const second = corpusReleaseIdentity({ ...corpus, sha256: 'e'.repeat(64), bytes: 101 });
+  assert.notDeepEqual(first, second);
+  assert.notEqual(
+    releaseIdFromIdentity({ fixed: true, corpus_release: first }),
+    releaseIdFromIdentity({ fixed: true, corpus_release: second }),
+  );
+  assert.equal(first.sha256, corpus.sha256);
+  assert.equal(first.bytes, corpus.bytes);
+  assert.notDeepEqual(first, corpusReleaseIdentity({ ...corpus, manifest_sha256: 'f'.repeat(64) }));
+});
+
+test('both R2 publication modes reject a mismatched page-evidence state before any remote command', async () => {
+  for (const fixture of [
+    {
+      pageEvidencePromotion: false,
+      page_evidence: { valid: true, publishable: true },
+      message: /dedicated page-evidence promotion path/,
+    },
+    {
+      pageEvidencePromotion: true,
+      page_evidence: { valid: true, publishable: false },
+      message: /promotion requires publishable page evidence/,
+    },
+  ]) {
+    let remoteCommands = 0;
+    const manifest = {
+      schema_version: 1,
+      release_id: FIXTURE_RELEASE_ID,
+      page_evidence: fixture.page_evidence,
+      r2: {
+        release_prefix: 'releases',
+        current_pointer_key: 'release/current.json',
+        release_manifest_key: `releases/${FIXTURE_RELEASE_ID}/manifest.json`,
+        objects: [],
+      },
+    };
+    await assert.rejects(
+      publishVersionedRelease({
+        manifest,
+        bucket: 'fixture-bucket',
+        bootstrap: true,
+        pageEvidencePromotion: fixture.pageEvidencePromotion,
+        runCommand: () => {
+          remoteCommands += 1;
+          return { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.from('NoSuchKey') };
+        },
+      }),
+      fixture.message,
+    );
+    assert.equal(remoteCommands, 0);
+  }
+});
+
+test('R2 preflight revalidates the bound page evidence with the same renderer path', async () => {
+  const pageEvidence = {
+    valid: true,
+    publishable: false,
+    manifest: { locator: 'scripts/page-evidence/fail-closed-manifest.json' },
+  };
+  let observed = null;
+  await assert.rejects(
+    publishVersionedRelease({
+      manifest: {
+        schema_version: 1,
+        release_id: FIXTURE_RELEASE_ID,
+        page_evidence: pageEvidence,
+        r2: {
+          release_prefix: 'releases',
+          current_pointer_key: 'release/current.json',
+          release_manifest_key: `releases/${FIXTURE_RELEASE_ID}/manifest.json`,
+          publication_coordination: publicationCoordination(),
+          objects: [],
+        },
+      },
+      bucket: 'fixture-bucket',
+      environment: 'preview',
+      rendererPath: '/controlled/mutool',
+      pageEvidenceValidator: (options) => {
+        observed = options;
+        return pageEvidence;
+      },
+      runCommand: () => {
+        throw new Error('remote command must not run');
+      },
+    }),
+    /missing its corpus_release binding/,
+  );
+  assert.equal(observed.rendererPath, '/controlled/mutool');
+  assert.equal(observed.evidenceManifestPath, pageEvidence.manifest.locator);
+  assert.equal(observed.pageEvidencePromotion, false);
+});
+
+test('metadata publishing exposes explicit default-off promotion commands and renderer forwarding', async () => {
+  const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  const publisher = await readFile(new URL('../scripts/publish-metadata.mjs', import.meta.url), 'utf8');
+  assert.match(packageJson.scripts['release:evidence:preview'], /--output \.wrangler\/release-environment-evidence\.json/);
+  assert.match(packageJson.scripts['metadata:publish:preview'], /--evidence \.wrangler\/release-environment-evidence\.json/);
+  assert.match(packageJson.scripts['metadata:publish:production'], /--evidence \.wrangler\/release-environment-evidence\.json/);
+  assert.match(packageJson.scripts['metadata:publish:page-evidence:preview'], /--page-evidence-promotion/);
+  assert.match(packageJson.scripts['metadata:publish:page-evidence:production'], /--page-evidence-promotion/);
+  assert.match(publisher, /rendererPath/);
+  assert.match(publisher, /--renderer/);
+  assert.doesNotMatch(publisher, /buildReleaseManifest/);
+});
+
+test('raw corpus audit envelope hash and byte binding still rejects tampering', async () => {
+  const raw = await readFile(new URL('../data/corpus-chunks/manifest.json', import.meta.url));
+  const binding = {
+    sha256: createHash('sha256').update(raw).digest('hex'),
+    bytes: raw.byteLength,
+  };
+  assert.deepEqual(assertBufferParity(binding, raw, 'raw corpus manifest'), binding);
+  assert.throws(
+    () => assertBufferParity(
+      binding,
+      Buffer.concat([raw, Buffer.from(' ')]),
+      'tampered raw corpus manifest',
+    ),
+    /parity failure/,
+  );
+});
+
+test('a generated R2 release rejects raw corpus envelope drift before remote access', async () => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), 'release-corpus-drift-test-'));
+  try {
+    const raw = await readFile(new URL('../data/corpus-chunks/manifest.json', import.meta.url));
+    const parsed = JSON.parse(raw.toString('utf8'));
+    const drifted = Buffer.from(`${raw.toString('utf8').trimEnd()} \n`);
+    await writeFile(join(fixtureRoot, 'corpus-manifest.json'), drifted);
+    let remoteCommands = 0;
+    await assert.rejects(
+      publishVersionedRelease({
+        manifest: {
+          schema_version: 1,
+          release_id: FIXTURE_RELEASE_ID,
+          page_evidence: { valid: true, publishable: false },
+          corpus_release: {
+            source: 'corpus-manifest.json',
+            sha256: createHash('sha256').update(raw).digest('hex'),
+            bytes: raw.length,
+            release_id: parsed.release_id,
+            release_fingerprint_sha256: parsed.release_fingerprint_sha256,
+            manifest_sha256: parsed.manifest_sha256,
+          },
+          r2: {
+            release_prefix: 'releases',
+            current_pointer_key: 'release/current.json',
+            release_manifest_key: `releases/${FIXTURE_RELEASE_ID}/manifest.json`,
+            publication_coordination: publicationCoordination(),
+            objects: [],
+          },
+        },
+        bucket: 'fixture-bucket',
+        environment: 'preview',
+        bootstrap: true,
+        root: fixtureRoot,
+        pageEvidenceValidator: () => ({ valid: true, publishable: false }),
+        runCommand: () => {
+          remoteCommands += 1;
+          return { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.from('unexpected remote command') };
+        },
+      }),
+      /local corpus envelope.*parity failure/,
+    );
+    assert.equal(remoteCommands, 0);
+  } finally {
+    await rm(fixtureRoot, { recursive: true, force: true });
+  }
 });
 
 test('hash and byte parity rejects stale content', () => {
@@ -253,75 +582,4 @@ test('dirty or unbound release source blocks publication independently of enviro
     assertReleaseSourceReady({ git: { head: 'a'.repeat(40), dirty: false }, release_blockers: [] }),
     { head: 'a'.repeat(40), dirty: false },
   );
-});
-
-test('a staging failure leaves the existing current pointer untouched', async () => {
-  const fixtureRoot = await mkdtemp(join(tmpdir(), 'release-pointer-test-'));
-  try {
-    const contents = [Buffer.from('{"asset":1}\n'), Buffer.from('{"asset":2}\n')];
-    const objects = [];
-    for (const [index, buffer] of contents.entries()) {
-      const source = `asset-${index + 1}.json`;
-      await writeFile(join(fixtureRoot, source), buffer);
-      objects.push({
-        role: `asset_${index + 1}`,
-        source,
-        key: `quality/${source}`,
-        release_key: `releases/release-fixture/quality/${source}`,
-        content_type: 'application/json',
-        sha256: createHash('sha256').update(buffer).digest('hex'),
-        bytes: buffer.length,
-        counts: {},
-      });
-    }
-    const manifest = {
-      schema_version: 1,
-      release_id: 'release-fixture',
-      r2: {
-        release_prefix: 'releases',
-        current_pointer_key: 'release/current.json',
-        release_manifest_key: 'releases/release-fixture/manifest.json',
-        objects,
-      },
-    };
-
-    const oldManifest = Buffer.from('{"release_id":"release-old"}\n');
-    const oldPointer = Buffer.from(`${JSON.stringify({
-      schema_version: 1,
-      release_id: 'release-old',
-      release_manifest_key: 'releases/release-old/manifest.json',
-      release_manifest_sha256: createHash('sha256').update(oldManifest).digest('hex'),
-      release_manifest_bytes: oldManifest.length,
-    })}\n`);
-    const putKeys = [];
-    const runCommand = (_command, arguments_) => {
-      const objectIndex = arguments_.indexOf('object');
-      const operation = arguments_[objectIndex + 1];
-      const objectPath = arguments_[objectIndex + 2];
-      const key = objectPath.slice(objectPath.indexOf('/') + 1);
-      if (operation === 'get') {
-        if (key === 'release/current.json') return { status: 0, stdout: oldPointer, stderr: Buffer.alloc(0) };
-        if (key === 'releases/release-old/manifest.json') return { status: 0, stdout: oldManifest, stderr: Buffer.alloc(0) };
-        return { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.from('NoSuchKey') };
-      }
-      if (operation === 'put') {
-        putKeys.push(key);
-        if (putKeys.length === 2) return { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.from('simulated staging failure') };
-        return { status: 0, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
-      }
-      throw new Error(`unexpected operation ${operation}`);
-    };
-
-    await assert.rejects(
-      publishVersionedRelease({ manifest, bucket: 'fixture-bucket', root: fixtureRoot, runCommand }),
-      /R2 put releases\/release-fixture\/quality\/asset-2\.json failed/,
-    );
-    assert.deepEqual(putKeys, [
-      'releases/release-fixture/quality/asset-1.json',
-      'releases/release-fixture/quality/asset-2.json',
-    ]);
-    assert.equal(putKeys.includes('release/current.json'), false);
-  } finally {
-    await rm(fixtureRoot, { recursive: true, force: true });
-  }
 });

@@ -346,7 +346,16 @@ test('answerWithEvidence preserves curriculum-course and assessment-domain taxon
   }
 });
 
-function makeCommentEnv({ parent = null, paragraph = null, embeddedItem = null, comments = [], sources = {} } = {}) {
+function makeCommentEnv({
+  parent = null,
+  paragraph = null,
+  embeddedItem = null,
+  comments = [],
+  commentTotal = comments.length,
+  commentPage = null,
+  releaseId = 'corpus-test-ready',
+  sources = {},
+} = {}) {
   const state = { queries: [], commentInsert: null, listedComments: null };
   const DB = {
     prepare(sql) {
@@ -358,8 +367,9 @@ function makeCommentEnv({ parent = null, paragraph = null, embeddedItem = null, 
         },
         async first() {
           state.queries.push({ operation: 'first', sql, bindings: this.bindings });
+          if (sql.includes('SELECT COUNT(*) AS count FROM comments')) return { count: commentTotal };
           if (sql.includes('FROM corpus_import_releases r')) return {
-            release_id: 'corpus-test-ready',
+            release_id: releaseId,
             manifest_sha256: 'a'.repeat(64),
             state: 'ready',
             expected_documents: 1,
@@ -389,15 +399,21 @@ function makeCommentEnv({ parent = null, paragraph = null, embeddedItem = null, 
           if (sql.includes('SELECT id FROM documents')) return { id: 'doc-a' };
           if (sql.includes('FROM embedded_items')) return embeddedItem;
           if (sql.includes('FROM comments WHERE id')) return parent;
-          if (sql.includes('SELECT id,document_id,embedded_item_id,display_allowed FROM paragraphs')) return paragraph;
+          if (sql.includes('SELECT id,document_id,embedded_item_id,display_allowed')
+              && sql.includes('FROM paragraphs WHERE id = ?')) return paragraph;
           if (sql.includes('INSERT INTO rate_limits')) return { count: 1 };
           throw new Error(`Unexpected first query: ${sql}`);
         },
         async all() {
           state.queries.push({ operation: 'all', sql, bindings: this.bindings });
+          if (sql.includes('FROM sqlite_master')) {
+            return { results: [{ name: 'release_publication_ownership' }, { name: 'embedded_items' }] };
+          }
+          if (sql.includes('SELECT key,value FROM site_meta')) return { results: [] };
           if (!sql.includes('FROM comments')) throw new Error(`Unexpected all query: ${sql}`);
-          state.listedComments = comments;
-          return { results: comments };
+          const listed = commentPage ? commentPage(this.bindings) : comments;
+          state.listedComments = listed;
+          return { results: listed };
         },
         async run() {
           state.queries.push({ operation: 'run', sql, bindings: this.bindings });
@@ -582,8 +598,9 @@ test('comment creation rejects non-integer paragraph ids', async (t) => {
       const response = await worker.fetch(commentRequest({ paragraphId }), env);
       assert.equal(response.status, 400);
       assert.equal((await response.json()).error, '段落编号无效');
-      assert.equal(state.queries.length, 1);
-      assert.match(state.queries[0].sql, /FROM corpus_import_releases r/);
+      assert.equal(state.queries.some((query) => query.sql.includes('FROM corpus_import_releases r')), true);
+      assert.equal(state.queries.some((query) => query.sql.includes('SELECT id FROM documents')), false);
+      assert.equal(state.queries.some((query) => query.sql.includes('INSERT INTO rate_limits')), false);
     });
   }
 });
@@ -630,18 +647,77 @@ test('embedded-item discussions are item-scoped and never mix sibling or parent 
   ), env);
   assert.equal(response.status, 200);
   assert.deepEqual((await response.json()).comments, [itemAComment]);
-  const listQuery = state.queries.find((query) => query.operation === 'all');
-  assert.match(listQuery.sql, /document_id = \? AND embedded_item_id = \?/);
-  assert.deepEqual(listQuery.bindings, ['doc-a', 'embedded:item-a']);
+  const listQuery = state.queries.find((query) => query.operation === 'all' && query.sql.includes('WITH RECURSIVE visible'));
+  assert.match(listQuery.sql, /c\.document_id = \? AND c\.embedded_item_id = \?/);
+  assert.deepEqual(listQuery.bindings, [
+    'doc-a', 'embedded:item-a', 'corpus-test-ready', 'corpus-test-ready', 80, 0,
+  ]);
 
   const parentScope = makeCommentEnv({ comments: [{ id: 'legacy-parent', embedded_item_id: null }] });
   const parentResponse = await worker.fetch(new Request(
     'https://curriculum.example/api/comments?documentId=doc-a',
   ), parentScope.env);
   assert.equal(parentResponse.status, 200);
-  const parentListQuery = parentScope.state.queries.find((query) => query.operation === 'all');
-  assert.match(parentListQuery.sql, /document_id = \? AND embedded_item_id IS NULL/);
-  assert.deepEqual(parentListQuery.bindings, ['doc-a']);
+  const parentListQuery = parentScope.state.queries.find(
+    (query) => query.operation === 'all' && query.sql.includes('WITH RECURSIVE visible'),
+  );
+  assert.match(parentListQuery.sql, /c\.document_id = \? AND c\.embedded_item_id IS NULL/);
+  assert.deepEqual(parentListQuery.bindings, ['doc-a', 'corpus-test-ready', 'corpus-test-ready', 80, 0]);
+});
+
+test('comment cursors bind the exact release and filter while returning stable cross-page ancestor bytes', async () => {
+  const worker = await loadWorker();
+  const rootComment = {
+    id: 'comment-root', parent_id: null, document_id: 'doc-a', embedded_item_id: null,
+    paragraph_id: null, body: 'root', status: 'approved', created_at: '2026-07-18T00:00:00Z',
+  };
+  const pageRows = ({ limit, offset }) => {
+    if (offset === 0) return [
+      {
+        id: 'comment-child', parent_id: 'comment-root', document_id: 'doc-a', embedded_item_id: null,
+        paragraph_id: null, body: 'child', status: 'approved', created_at: '2026-07-18T00:00:02Z', page_member: 1,
+      },
+      {
+        id: 'comment-peer', parent_id: null, document_id: 'doc-a', embedded_item_id: null,
+        paragraph_id: null, body: 'peer', status: 'approved', created_at: '2026-07-18T00:00:01Z', page_member: 1,
+      },
+      { ...rootComment, page_member: 0 },
+    ];
+    assert.equal(limit, 2);
+    assert.equal(offset, 2);
+    return [{ ...rootComment, page_member: 1 }];
+  };
+  const { env } = makeCommentEnv({
+    releaseId: `corpus-${'a'.repeat(24)}`,
+    commentTotal: 3,
+    commentPage(bindings) {
+      return pageRows({ limit: Number(bindings.at(-2)), offset: Number(bindings.at(-1)) });
+    },
+  });
+  const firstResponse = await worker.fetch(new Request(
+    'https://curriculum.example/api/comments?documentId=doc-a&limit=2',
+  ), env);
+  assert.equal(firstResponse.status, 200);
+  const first = await firstResponse.json();
+  assert.deepEqual(first.pageCommentIds, ['comment-child', 'comment-peer']);
+  assert.equal(first.comments.some((comment) => Object.hasOwn(comment, 'page_member')), false);
+  assert.equal(first.hasMore, true);
+  assert.equal(typeof first.cursor, 'string');
+
+  const secondResponse = await worker.fetch(new Request(
+    `https://curriculum.example/api/comments?documentId=doc-a&limit=2&cursor=${encodeURIComponent(first.cursor)}`,
+  ), env);
+  assert.equal(secondResponse.status, 200, await secondResponse.clone().text());
+  const second = await secondResponse.json();
+  assert.deepEqual(second.pageCommentIds, ['comment-root']);
+  assert.deepEqual(second.comments, [rootComment]);
+  assert.equal(second.hasMore, false);
+  assert.equal(second.cursor, null);
+
+  const mismatchedFilter = await worker.fetch(new Request(
+    `https://curriculum.example/api/comments?documentId=doc-a&paragraphId=12&limit=2&cursor=${encodeURIComponent(first.cursor)}`,
+  ), env);
+  assert.equal(mismatchedFilter.status, 409);
 });
 
 test('every public embedded-item read boundary requires the display gate', async () => {
@@ -716,6 +792,7 @@ test('source manifest follows the integrity-checked immutable release pointer', 
   const assetKey = `releases/${releaseId}/catalog/ingest-manifest.json`;
   const releaseManifestKey = `releases/${releaseId}/manifest.json`;
   const releaseManifestBytes = Buffer.from(`${JSON.stringify({
+    manifest_contract: 'curriculum_desired_release_v2',
     schema_version: 1,
     release_id: releaseId,
     r2: {
@@ -731,12 +808,13 @@ test('source manifest follows the integrity-checked immutable release pointer', 
     },
   })}\n`);
   const pointerBytes = Buffer.from(`${JSON.stringify({
-    schema_version: 1,
+    schema_version: 2,
     release_id: releaseId,
     release_manifest_key: releaseManifestKey,
     release_manifest_sha256: sha256(releaseManifestBytes),
     release_manifest_bytes: releaseManifestBytes.byteLength,
     managed_object_count: 1,
+    fence: 1,
   })}\n`);
   const calls = [];
   const objects = new Map([
@@ -761,6 +839,33 @@ test('source manifest follows the integrity-checked immutable release pointer', 
   assert.equal(response.headers.get('x-curriculum-graph-build-revision'), GRAPH_BUILD_REVISION);
   assert.equal(response.headers.get('x-curriculum-graph-shard-count'), '1');
   assert.match(response.headers.get('x-curriculum-graph-descriptor-sha256'), /^[a-f0-9]{64}$/);
+});
+
+test('source manifest rejects coerced schema-2 pointers before reading a release manifest', async () => {
+  const worker = await loadWorker();
+  const releaseId = `release-${'7'.repeat(32)}`;
+  const pointerBytes = Buffer.from(`${JSON.stringify({
+    schema_version: '2',
+    release_id: releaseId,
+    release_manifest_key: `releases/${releaseId}/manifest.json`,
+    release_manifest_sha256: '7'.repeat(64),
+    release_manifest_bytes: 100,
+    managed_object_count: 1,
+    fence: 1,
+  })}\n`);
+  const calls = [];
+  const { env } = makeCommentEnv({
+    sources: {
+      async get(key) {
+        calls.push(key);
+        return key === 'release/current.json' ? mockR2Object(pointerBytes) : null;
+      },
+    },
+  });
+  const response = await worker.fetch(new Request('https://curriculum.example/api/source-manifest'), env);
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, '来源校验清单发布状态异常');
+  assert.deepEqual(calls, ['release/current.json']);
 });
 
 test('source manifest retains a stable-key bootstrap fallback only when no release pointer exists', async () => {

@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/online-page-claims-v1.json",
+  "title": "Raw-byte-bound, version-aware online claims for one physical PDF page",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy",
+    "document_id",
+    "physical_pdf_page",
+    "stable_locator",
+    "target_version",
+    "same_version_status",
+    "claims"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "policy": { "const": "version_aware_online_page_claims_v1" },
+    "document_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "physical_pdf_page": { "type": "integer", "minimum": 1 },
+    "stable_locator": { "type": "string" },
+    "target_version": { "$ref": "#/$defs/version_identity" },
+    "same_version_status": {
+      "enum": ["verified_independent", "single_source_only", "not_found", "conflict"]
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim_id",
+          "document_id",
+          "physical_pdf_page",
+          "stable_locator",
+          "source_id",
+          "capture",
+          "supporting_slice",
+          "version_anchors"
+        ],
+        "properties": {
+          "claim_id": { "type": "string", "minLength": 1 },
+          "document_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "physical_pdf_page": { "type": "integer", "minimum": 1 },
+          "stable_locator": { "type": "string" },
+          "source_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+          "capture": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "capture_tool",
+              "capture_tool_version",
+              "requested_url",
+              "final_url",
+              "http_status",
+              "media_type",
+              "captured_at",
+              "body"
+            ],
+            "properties": {
+              "capture_tool": { "type": "string", "minLength": 1 },
+              "capture_tool_version": { "type": "string", "minLength": 1 },
+              "requested_url": { "type": "string", "format": "uri" },
+              "final_url": { "type": "string", "format": "uri" },
+              "http_status": { "type": "integer", "minimum": 100, "maximum": 599 },
+              "media_type": { "type": "string", "minLength": 1 },
+              "captured_at": { "type": "string", "format": "date-time" },
+              "body": { "$ref": "#/$defs/artifact_ref" }
+            }
+          },
+          "supporting_slice": { "$ref": "#/$defs/byte_slice" },
+          "version_anchors": {
+            "type": "array",
+            "minItems": 5,
+            "maxItems": 5,
+            "items": { "$ref": "#/$defs/version_anchor" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locator", "sha256", "bytes"],
+      "properties": {
+        "locator": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "byte_slice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locator", "start_byte", "end_byte", "slice_sha256"],
+      "properties": {
+        "locator": { "type": "string", "minLength": 1 },
+        "start_byte": { "type": "integer", "minimum": 0 },
+        "end_byte": { "type": "integer", "minimum": 1 },
+        "slice_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "version_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "locator", "start_byte", "end_byte", "slice_sha256"],
+      "properties": {
+        "field": {
+          "enum": [
+            "title",
+            "issuing_body_or_author",
+            "year_or_publication_context",
+            "version_label",
+            "section_or_item_locator"
+          ]
+        },
+        "locator": { "type": "string", "minLength": 1 },
+        "start_byte": { "type": "integer", "minimum": 0 },
+        "end_byte": { "type": "integer", "minimum": 1 },
+        "slice_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "version_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "issuing_body_or_author",
+        "year_or_publication_context",
+        "version_label",
+        "section_or_item_locator"
+      ],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "issuing_body_or_author": { "type": "string", "minLength": 1 },
+        "year_or_publication_context": { "type": "string", "minLength": 1 },
+        "version_label": { "type": "string", "minLength": 1 },
+        "section_or_item_locator": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

@@ -11,6 +11,7 @@ import { GraphShardStore } from './graph-loader.js?v=20260718v19';
 import { loadAllDocumentIdentities } from './document-pagination.js?v=20260718v19';
 import { buildCommentThread, commentReplyTarget } from './comment-thread.js?v=20260718v19';
 import { evidenceIdentityHref } from './identity-links.js?v=20260718v19';
+import { loadAllCommentPages, loadAllParagraphPages } from './release-pagination.js?v=20260718v19';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -106,6 +107,14 @@ async function api(path, options) {
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || `请求失败（${response.status}）`);
   return data;
+}
+
+async function loadAllParagraphs(path) {
+  return loadAllParagraphPages(api, path);
+}
+
+async function loadAllComments(path) {
+  return loadAllCommentPages(api, path);
 }
 
 async function loadBase() {
@@ -815,7 +824,7 @@ async function renderDocument(id) {
   try {
     const listedIdentity = state.documents.find((entry) => entry.id === id);
     const embeddedItem = listedIdentity?.identity_kind === 'embedded_item' || id.startsWith('embedded:');
-    const data = await api(`${embeddedItem ? '/api/items/' : '/api/documents/'}${encodeURIComponent(id)}?limit=200`);
+    const data = await loadAllParagraphs(`${embeddedItem ? '/api/items/' : '/api/documents/'}${encodeURIComponent(id)}`);
     const doc = data.document || data.item;
     state.selectedDocument = doc;
     const source = doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener">发布页 / 原件 ↗</a>` : '原件链接待补';
@@ -931,7 +940,7 @@ async function loadComments(documentId, embeddedItemId = null) {
   if (!root) return;
   try {
     const embeddedScope = embeddedItemId ? `&embeddedItemId=${encodeURIComponent(embeddedItemId)}` : '';
-    const data = await api(`/api/comments?documentId=${encodeURIComponent(documentId)}${embeddedScope}`);
+    const data = await loadAllComments(`/api/comments?documentId=${encodeURIComponent(documentId)}${embeddedScope}`);
     const byId = new Map(data.comments.map((item) => [item.id, item]));
     const renderNodes = (nodes, depth = 0) => nodes.map((item) => `<article class="comment-row" data-depth="${Math.min(depth, 6)}">
       <h3>${escapeHtml(item.author_name)}</h3>
@@ -950,6 +959,7 @@ async function loadComments(documentId, embeddedItemId = null) {
       if (!comment || !form || !panel) return;
       const target = commentReplyTarget(comment);
       form.elements.parentId.value = target.parentId;
+      form.elements.paragraphId.value = target.paragraphId || '';
       panel.querySelector('span').textContent = `回复：${target.label.slice(0, 48)}`;
       panel.hidden = false;
       form.elements.body.focus();
@@ -990,7 +1000,7 @@ async function renderDiscussions(url) {
   const selectedScopeId = embeddedItemId
     || (requestedIdentity?.identity_kind !== 'embedded_item' ? requestedIdentity?.id : '')
     || (documentId ? `carrier:${documentId}` : '');
-  workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>围绕同一证据讨论</h2><p>统一登录内容直接公开；匿名内容经 Turnstile 后进入审核。不要写入学生个人信息。</p><form class="work-form" id="discussion-picker"><label for="discussion-document">资料</label><select id="discussion-document" name="identityId">${discussionDocs.map((doc) => `<option value="${escapeHtml(doc.id)}" ${doc.id === selectedScopeId ? 'selected' : ''}>${escapeHtml(doc.sort_year)} · ${escapeHtml(doc.title)}</option>`).join('')}</select><button class="work-button secondary" type="submit">切换讨论</button></form><form class="work-form" id="comment-form"><h2>提交讨论</h2>${me.authenticated ? `<p>以 ${escapeHtml(me.user.display_name || me.user.slug)} 发布。</p>` : '<label for="author-name">署名</label><input id="author-name" name="authorName" maxlength="40" value="匿名教师">'}<input type="hidden" name="parentId" value=""><p class="reply-target" id="reply-target" hidden><span></span><button type="button" data-cancel-reply>取消回复</button></p><label for="comment-body">内容</label><textarea id="comment-body" name="body" rows="6" minlength="8" maxlength="2000" required></textarea><div class="turnstile-slot" id="turnstile-box"></div><button class="work-button" type="submit">${me.authenticated ? '发布讨论' : '提交审核'}</button></form></aside><main class="workspace-main"><h2>教师讨论</h2><div class="comment-list" id="comment-list"><div class="empty-state">正在加载…</div></div></main></div>`;
+  workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>围绕同一证据讨论</h2><p>统一登录内容直接公开；匿名内容经 Turnstile 后进入审核。不要写入学生个人信息。</p><form class="work-form" id="discussion-picker"><label for="discussion-document">资料</label><select id="discussion-document" name="identityId">${discussionDocs.map((doc) => `<option value="${escapeHtml(doc.id)}" ${doc.id === selectedScopeId ? 'selected' : ''}>${escapeHtml(doc.sort_year)} · ${escapeHtml(doc.title)}</option>`).join('')}</select><button class="work-button secondary" type="submit">切换讨论</button></form><form class="work-form" id="comment-form"><h2>提交讨论</h2>${me.authenticated ? `<p>以 ${escapeHtml(me.user.display_name || me.user.slug)} 发布。</p>` : '<label for="author-name">署名</label><input id="author-name" name="authorName" maxlength="40" value="匿名教师">'}<input type="hidden" name="parentId" value=""><input type="hidden" name="paragraphId" value=""><p class="reply-target" id="reply-target" hidden><span></span><button type="button" data-cancel-reply>取消回复</button></p><label for="comment-body">内容</label><textarea id="comment-body" name="body" rows="6" minlength="8" maxlength="2000" required></textarea><div class="turnstile-slot" id="turnstile-box"></div><button class="work-button" type="submit">${me.authenticated ? '发布讨论' : '提交审核'}</button></form></aside><main class="workspace-main"><h2>教师讨论</h2><div class="comment-list" id="comment-list"><div class="empty-state">正在加载…</div></div></main></div>`;
   document.querySelector('#discussion-picker').addEventListener('submit', (event) => {
     event.preventDefault();
     const identity = discussionDocs.find((doc) => doc.id === new FormData(event.currentTarget).get('identityId'));
@@ -1004,6 +1014,7 @@ async function renderDiscussions(url) {
   document.querySelector('[data-cancel-reply]').addEventListener('click', () => {
     const form = document.querySelector('#comment-form');
     form.elements.parentId.value = '';
+    form.elements.paragraphId.value = '';
     document.querySelector('#reply-target').hidden = true;
   });
   document.querySelector('#comment-form').addEventListener('submit', async (event) => {
@@ -1015,6 +1026,8 @@ async function renderDiscussions(url) {
       const body = Object.fromEntries(new FormData(form));
       body.documentId = documentId;
       if (embeddedItemId) body.embeddedItemId = embeddedItemId;
+      if (body.paragraphId) body.paragraphId = Number(body.paragraphId);
+      else delete body.paragraphId;
       body.turnstileToken = turnstileToken;
       const result = await api('/api/comments', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       toast(result.message);
@@ -1022,6 +1035,7 @@ async function renderDiscussions(url) {
       else window.turnstile?.reset();
       form.querySelector('textarea').value = '';
       form.elements.parentId.value = '';
+      form.elements.paragraphId.value = '';
       document.querySelector('#reply-target').hidden = true;
     } catch (error) {
       toast(error.message);
@@ -1040,7 +1054,7 @@ async function renderAdmin() {
     return;
   }
   try {
-    const [summary, comments] = await Promise.all([api('/api/admin/summary'), api('/api/comments?moderation=1')]);
+    const [summary, comments] = await Promise.all([api('/api/admin/summary'), loadAllComments('/api/comments?moderation=1')]);
     workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>审核概况</h2><p>待审核 ${summary.pending.count || 0} · 开放举报 ${summary.reports.count || 0} · 7 日 AI 引文失败 ${summary.aiFailures.count || 0}</p></aside><main class="workspace-main"><h2>待审核讨论</h2><div class="comment-list">${comments.comments.filter((item) => item.status === 'pending').map((item) => `<article class="comment-row"><h3>${escapeHtml(item.author_name)}</h3><p>${escapeHtml(item.body)}</p><div class="inspector-actions"><button class="work-button" data-moderate="approved" data-id="${item.id}">通过</button><button class="work-button secondary" data-moderate="rejected" data-id="${item.id}">拒绝</button></div></article>`).join('') || '<div class="empty-state">当前没有待审核讨论。</div>'}</div></main></div>`;
     document.querySelectorAll('[data-moderate]').forEach((button) => button.addEventListener('click', async () => {
       try {

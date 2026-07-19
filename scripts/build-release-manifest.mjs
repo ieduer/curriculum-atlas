@@ -8,7 +8,13 @@ import { spawnSync } from 'node:child_process';
 import { auditProjectAssets } from './audit-project-assets.mjs';
 import { validateDownloadsAuditReceipt } from './build-downloads-asset-audit-receipt.mjs';
 import { validateEnvironmentEvidenceReceipt } from './collect-release-environment-evidence.mjs';
-import { validateCorpusManifest } from './import-corpus.mjs';
+import {
+  validateCorpusManifest,
+  validateCorpusManifestSourceBindings,
+} from './import-corpus.mjs';
+import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
+import { desiredReleaseManifestArtifact } from './lib/desired-release-manifest.mjs';
+import { validateDualSchemaBootstrapReceipt } from './verify-dual-schema-bootstrap.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const DEFAULT_POLICY = 'data/release-assets-policy.json';
@@ -361,11 +367,60 @@ async function validateR2PolicyCoverage(root, policy) {
   }));
 }
 
-async function inspectCorpusRelease(root) {
+function validatePublicationCoordination(policy) {
+  const coordination = policy.r2?.publication_coordination;
+  if (!coordination || coordination.policy !== 'd1_activation_claimed_r2_binding_v3') {
+    throw new Error('r2 publication coordination must use d1_activation_claimed_r2_binding_v3');
+  }
+  const leaseKey = String(coordination.lease_key || '');
+  if (!/^[a-z0-9][a-z0-9_:-]{2,127}$/.test(leaseKey)) {
+    throw new Error('r2 publication coordination lease_key is invalid');
+  }
+  const ttl = coordination.lease_ttl_seconds;
+  if (!Number.isSafeInteger(ttl) || ttl < 60 || ttl > 7200) {
+    throw new Error('r2 publication coordination lease_ttl_seconds must be between 60 and 7200');
+  }
+  const bucketEnvironments = Object.keys(policy.r2?.buckets || {}).sort();
+  const databaseEnvironments = Object.keys(coordination.databases || {}).sort();
+  const coordinatorEnvironments = Object.keys(coordination.coordinator_urls || {}).sort();
+  assertExactSet(bucketEnvironments, databaseEnvironments, 'r2 publication coordination environment coverage');
+  assertExactSet(bucketEnvironments, coordinatorEnvironments, 'r2 coordinator environment coverage');
+  const databases = {};
+  const coordinatorUrls = {};
+  for (const environment of bucketEnvironments) {
+    const database = String(coordination.databases[environment] || '');
+    if (!/^[a-z0-9][a-z0-9-]{2,127}$/.test(database)) {
+      throw new Error(`r2 publication coordination database is invalid for ${environment}`);
+    }
+    databases[environment] = database;
+    const coordinatorUrl = String(coordination.coordinator_urls[environment] || '');
+    let parsed;
+    try {
+      parsed = new URL(coordinatorUrl);
+    } catch {
+      throw new Error(`r2 publication coordinator URL is invalid for ${environment}`);
+    }
+    if (parsed.protocol !== 'https:' || parsed.pathname !== '/api/admin/release-coordinate'
+        || parsed.search || parsed.hash) {
+      throw new Error(`r2 publication coordinator URL is not canonical for ${environment}`);
+    }
+    coordinatorUrls[environment] = parsed.href;
+  }
+  return {
+    policy: coordination.policy,
+    lease_key: leaseKey,
+    lease_ttl_seconds: ttl,
+    databases,
+    coordinator_urls: coordinatorUrls,
+  };
+}
+
+async function inspectCorpusRelease(root, sourceBindingValidator = validateCorpusManifestSourceBindings) {
   const manifestAsset = await inspectFile(root, 'data/corpus-chunks/manifest.json');
   const manifestJson = parseJsonAsset(manifestAsset);
   const sqlFiles = Array.isArray(manifestJson.sql_files) ? manifestJson.sql_files : [];
   const manifest = validateCorpusManifest(manifestJson, sqlFiles.length);
+  await sourceBindingValidator(manifest, { root });
   const actualSqlPaths = (await walkFiles(root, 'data/corpus-chunks'))
     .filter((file) => file.endsWith('.sql'));
   const expectedSqlPaths = sqlFiles.map((file) =>
@@ -385,6 +440,16 @@ async function inspectCorpusRelease(root) {
     release_id: manifest.release_id,
     release_fingerprint_sha256: manifest.release_fingerprint_sha256,
     manifest_sha256: manifest.manifest_sha256,
+    generated_at: manifest.generated_at,
+    audit: {
+      closed_ocr_paragraphs: manifest.closed_ocr_paragraphs,
+      skipped_ocr_documents: manifest.skipped_ocr_documents,
+      excluded_exact_duplicate_alias_documents: manifest.excluded_exact_duplicate_alias_documents,
+      semantic_excluded_pages: manifest.semantic_excluded_pages,
+      page_publication_schema_version: manifest.page_publication_schema_version,
+      semantic_publication_schema_version: manifest.semantic_publication_schema_version,
+      semantic_publication_revision_sha256: manifest.semantic_publication_revision_sha256,
+    },
     counts: {
       documents: manifest.documents,
       paragraphs: manifest.paragraphs,
@@ -476,6 +541,9 @@ async function inspectEnvironmentEvidence(root, policy, generatedAt) {
   );
   const asset = await inspectFile(root, source);
   const receipt = validateEnvironmentEvidenceReceipt(parseJsonAsset(asset));
+  if (receipt.dual_schema_bootstrap_receipt) {
+    validateDualSchemaBootstrapReceipt(receipt.dual_schema_bootstrap_receipt, { root });
+  }
   const maximumAgeHours = Number(policy.release_governance?.environment_evidence_max_age_hours);
   if (!Number.isFinite(maximumAgeHours) || maximumAgeHours <= 0) {
     throw new Error('environment_evidence_max_age_hours must be positive');
@@ -491,35 +559,33 @@ function sameCorpusRelease(observed, expected) {
   return stableStringify(observed.counts) === stableStringify(expected.counts);
 }
 
-function downloadsReceiptIdentity(receipt) {
-  const { age_hours: _ageHours, fresh: _fresh, ...stable } = receipt;
+function pageEvidenceIdentity(pageEvidence) {
+  const { renderer_identity: _rendererIdentity, ...sourceBound } = pageEvidence || {};
+  return sourceBound;
+}
+
+export function corpusReleaseIdentity(corpusRelease) {
+  const { generated_at: _generatedAt, ...stable } = corpusRelease;
   return stable;
 }
 
-function environmentSnapshotIdentity(snapshot) {
-  return {
-    ...snapshot,
-    environments: Object.fromEntries(Object.entries(snapshot.environments).map(([name, environment]) => {
-      const {
-        evidence_age_hours: _evidenceAgeHours,
-        evidence_fresh: _evidenceFresh,
-        release_blockers: blockers = [],
-        ...stableEnvironment
-      } = environment;
-      return [name, {
-        ...stableEnvironment,
-        release_blockers: blockers.filter((blocker) => blocker.code !== 'environment_evidence_stale'),
-      }];
-    })),
-  };
+export function releaseIdFromIdentity(releaseIdentity) {
+  return `release-${sha256(Buffer.from(stableStringify(releaseIdentity))).slice(0, 32)}`;
 }
 
 function buildEnvironmentState(root, policy, git, availableMigrations, corpusRelease, evidenceAsset, graphRelease) {
   const snapshot = policy.environment_snapshot || {};
-  const requiredMigration = String(snapshot.required_migration || '');
+  const requiredMigrations = Array.isArray(snapshot.required_migrations)
+    ? snapshot.required_migrations.map(String)
+    : [String(snapshot.required_migration || '')].filter(Boolean);
+  const requiredMigration = requiredMigrations[0] || '';
   const requiredReleaseReader = String(snapshot.required_r2_release_reader || '');
-  if (!requiredMigration || !availableMigrations.includes(requiredMigration)) {
-    throw new Error(`required migration is absent from source: ${requiredMigration || '<unset>'}`);
+  if (!requiredMigrations.length || requiredMigrations.some((migration) => !availableMigrations.includes(migration))) {
+    throw new Error(`required migration sequence is absent from source: ${requiredMigrations.join(',') || '<unset>'}`);
+  }
+  const requiredIndexes = requiredMigrations.map((migration) => availableMigrations.indexOf(migration));
+  if (requiredIndexes.some((index, position) => position > 0 && index !== requiredIndexes[position - 1] + 1)) {
+    throw new Error('required migration sequence is not contiguous and ordered');
   }
   if (!requiredReleaseReader) throw new Error('required_r2_release_reader is absent from environment snapshot');
 
@@ -542,6 +608,12 @@ function buildEnvironmentState(root, policy, git, availableMigrations, corpusRel
     }));
     if (!configured) {
       blockers.push({ code: 'environment_evidence_required', message: `${name} has no collected environment evidence` });
+    }
+    if (!evidenceAsset.receipt.dual_schema_bootstrap_receipt) {
+      blockers.push({
+        code: 'dual_schema_bootstrap_receipt_required',
+        message: `${name} has no executable bridge and ordered migration receipt`,
+      });
     }
     const observedAt = local ? null : configured?.observed_at;
     const ageHours = local ? null : (generatedTimestamp - Date.parse(observedAt)) / 3_600_000;
@@ -625,6 +697,7 @@ function buildEnvironmentState(root, policy, git, availableMigrations, corpusRel
       asset_parity: configured?.asset_parity || null,
       health: configured?.health || null,
       r2_current_pointer: configured?.r2_current_pointer || null,
+      dual_schema_bootstrap_receipt: evidenceAsset.receipt.dual_schema_bootstrap_receipt || null,
       release_blockers: blockers,
       readiness_status: blockers.length ? 'blocked' : applied === null ? 'not_assessed' : 'ready',
       release_ready: blockers.length ? false : applied === null ? null : true,
@@ -641,6 +714,8 @@ function buildEnvironmentState(root, policy, git, availableMigrations, corpusRel
       maximum_age_hours: evidenceAsset.maximumAgeHours,
     },
     required_migration: requiredMigration,
+    required_migrations: requiredMigrations,
+    dual_schema_bootstrap_receipt: evidenceAsset.receipt.dual_schema_bootstrap_receipt || null,
     required_r2_release_reader: requiredReleaseReader,
     graph_release: graphRelease,
     environments,
@@ -706,10 +781,24 @@ function verifyCrossAssetIntegrity(dataByRole, graphByRole, corpusRelease) {
 
 export async function buildReleaseManifest({
   root = DEFAULT_ROOT,
+  repositoryRoot = root,
   policyPath = DEFAULT_POLICY,
   generatedAt = new Date().toISOString(),
+  pageEvidencePromotion = false,
+  rendererPath = null,
+  projectAssetAuditor = auditProjectAssets,
+  corpusSourceBindingValidator = validateCorpusManifestSourceBindings,
+  gitOverride = null,
+  sourceTreeOverride = null,
+  pageEvidenceOverride = null,
 } = {}) {
   const projectRoot = resolve(root);
+  const gitRepositoryRoot = resolve(repositoryRoot);
+  const pageEvidence = pageEvidenceOverride || validatePageEvidenceForRelease({
+    root: projectRoot,
+    pageEvidencePromotion,
+    rendererPath,
+  });
   const normalizedPolicyPath = normalizeRelativePath(policyPath, 'policy path');
   const policyAsset = await inspectFile(projectRoot, normalizedPolicyPath);
   const policy = parseJsonAsset(policyAsset);
@@ -717,16 +806,17 @@ export async function buildReleaseManifest({
     throw new Error(`unsupported release assets policy: ${policy.policy || '<unset>'} schema ${policy.schema_version ?? '<unset>'}`);
   }
 
-  const projectAssetAudit = await auditProjectAssets({ projectRoot });
+  const projectAssetAudit = await projectAssetAuditor({ projectRoot });
   if (!projectAssetAudit.ok) {
     const issues = projectAssetAudit.errors.map((issue) => `${issue.area}:${issue.code}`).join(', ');
     throw new Error(`project asset audit failed closed: ${issues || 'unknown error'}`);
   }
 
   const r2Objects = await validateR2PolicyCoverage(projectRoot, policy);
+  const publicationCoordination = validatePublicationCoordination(policy);
   const dataInventory = await validateDataInventory(projectRoot, policy, r2Objects);
-  const gitStatus = gitValue(projectRoot, ['status', '--porcelain=v1', '--untracked-files=all']);
-  const git = {
+  const gitStatus = gitOverride ? null : gitValue(projectRoot, ['status', '--porcelain=v1', '--untracked-files=all']);
+  const git = gitOverride || {
     head: gitValue(projectRoot, ['rev-parse', 'HEAD']),
     branch: gitValue(projectRoot, ['branch', '--show-current']),
     upstream_head: gitValue(projectRoot, ['rev-parse', '@{upstream}'], { optional: true }),
@@ -735,8 +825,8 @@ export async function buildReleaseManifest({
     status_sha256: sha256(Buffer.from(gitStatus)),
   };
 
-  const sourceTree = await buildSourceTree(projectRoot, policy);
-  const corpusRelease = await inspectCorpusRelease(projectRoot);
+  const sourceTree = sourceTreeOverride || await buildSourceTree(projectRoot, policy);
+  const corpusRelease = await inspectCorpusRelease(projectRoot, corpusSourceBindingValidator);
   const dataAssets = [];
   const dataByRole = new Map();
   for (const object of r2Objects) {
@@ -920,7 +1010,7 @@ export async function buildReleaseManifest({
     asset_paths: graphReleaseAssetPaths,
   };
   const environmentState = buildEnvironmentState(
-    projectRoot,
+    gitRepositoryRoot,
     policy,
     git,
     migrationFiles,
@@ -957,16 +1047,14 @@ export async function buildReleaseManifest({
     git: { head: git.head },
     source_tree_sha256: sourceTree.sha256,
     data_inventory: dataInventory,
-    corpus_release: corpusRelease,
-    downloads_asset_audit: downloadsReceiptIdentity(downloadsAssetAudit),
+    corpus_release: corpusReleaseIdentity(corpusRelease),
+    page_evidence: pageEvidenceIdentity(pageEvidence),
     data_assets: cleanDataAssets.map(({ role, source, key, sha256: hash, bytes }) => ({ role, source, key, sha256: hash, bytes })),
     graph_assets: cleanGraphAssets.map(({ role, source, deploy_path, sha256: hash, bytes, build_revision }) => ({ role, source, deploy_path, sha256: hash, bytes, build_revision })),
     graph_shards: graphShards,
     static_assets: staticAssets.map(({ path, deploy_path, sha256: hash, bytes }) => ({ path, deploy_path, sha256: hash, bytes })),
-    environment_snapshot: environmentSnapshotIdentity(environmentState),
-    project_asset_audit: assetAuditSummary,
   };
-  const releaseId = `release-${sha256(Buffer.from(stableStringify(releaseIdentity))).slice(0, 32)}`;
+  const releaseId = releaseIdFromIdentity(releaseIdentity);
   const releasePrefix = normalizeRelativePath(policy.r2.release_prefix, 'r2 release prefix');
   const releasedDataAssets = cleanDataAssets.map((asset) => ({
     ...asset,
@@ -1017,12 +1105,14 @@ export async function buildReleaseManifest({
     policy: policy.policy,
     generated_at: generatedAt,
     release_id: releaseId,
+    release_identity: releaseIdentity,
     release_ready: allBlockers.length === 0,
     release_blockers: allBlockers,
     git,
     source_tree: sourceTree,
     data_inventory: dataInventory,
     corpus_release: corpusRelease,
+    page_evidence: pageEvidence,
     downloads_asset_audit: downloadsAssetAudit,
     environment_snapshot: environmentState,
     data_assets: releasedDataAssets,
@@ -1034,6 +1124,7 @@ export async function buildReleaseManifest({
       release_prefix: releasePrefix,
       release_manifest_key: releaseManifestKey,
       buckets: policy.r2.buckets,
+      publication_coordination: publicationCoordination,
       managed_object_count: releasedDataAssets.length,
       objects: releasedDataAssets.map(({ role, source, key, release_key, content_type, sha256: hash, bytes, counts }) => ({
         role, source, key, release_key, content_type, sha256: hash, bytes, counts,
@@ -1075,6 +1166,10 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (!key.startsWith('--')) throw new Error(`unexpected argument: ${key}`);
+    if (key === '--page-evidence-promotion') {
+      args[key.slice(2)] = true;
+      continue;
+    }
     const value = argv[index + 1];
     if (!value || value.startsWith('--')) throw new Error(`missing value for ${key}`);
     args[key.slice(2)] = value;
@@ -1090,8 +1185,11 @@ async function main() {
     root,
     policyPath: args.policy || DEFAULT_POLICY,
     generatedAt: args['generated-at'] || new Date().toISOString(),
+    pageEvidencePromotion: args['page-evidence-promotion'] === true,
+    rendererPath: args.renderer || null,
   });
-  const serialized = `${JSON.stringify(manifest, null, 2)}\n`;
+  const artifact = desiredReleaseManifestArtifact(manifest);
+  const serialized = artifact.buffer;
   if (args.output) {
     const output = resolve(args.output);
     const relativeOutput = relative(root, output).replaceAll('\\', '/');
@@ -1100,8 +1198,8 @@ async function main() {
       throw new Error(`output path is part of the governed source tree and would make the manifest self-referential: ${relativeOutput}`);
     }
     await mkdir(dirname(output), { recursive: true });
-    await writeFile(output, serialized, 'utf8');
-    process.stdout.write(`${manifest.release_id} assets=${manifest.static_assets.file_count + manifest.graph_assets.length} r2=${manifest.r2.managed_object_count} blockers=${manifest.release_blockers.length}\n`);
+    await writeFile(output, serialized);
+    process.stdout.write(`${manifest.release_id} manifest_sha256=${artifact.sha256} assets=${manifest.static_assets.file_count + manifest.graph_assets.length} r2=${manifest.r2.managed_object_count} blockers=${manifest.release_blockers.length}\n`);
   } else {
     process.stdout.write(serialized);
   }
