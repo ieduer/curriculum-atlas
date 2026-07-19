@@ -32,11 +32,14 @@ import {
   validateLlamaSystemdUnitName,
   validateOcrDocumentOutput,
   validateRemoteOcrManifest,
+  validateRunIdentitySeedLineageContract,
+  validateRunStatusSeedLineageContract,
   verifyLlamaServerAttestation,
   verifyPinnedRuntime,
 } from '../scripts/run-remote-ocr-offload.mjs';
 import {
   receiveRemoteOcrOffload,
+  validateDirectedRunnerCompatibilityEvidence,
   validateP4ToP1SeedDelta,
 } from '../scripts/receive-remote-ocr-offload.mjs';
 import {
@@ -56,6 +59,8 @@ const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const legacyB1OcrScriptSha256 = 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53aff3ebeae48d9b048';
 const seedAwareOcrScriptSha256 = '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3';
 const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca';
+const fixedB3RunnerScriptSha256 = '58a1e3826aca807bf62f4546f237597c305334ba1b0a56a8f47cacfaa5cfeaa7';
+const a1CompletedStatusRunnerScriptSha256 = '0fbf3d284f324f5faa710ca09342cdef88d24e6349b6e5d590ccca215065354d';
 const seedAwareTransition = 'p4_to_p1_seed_aware_ocr_v2';
 const runtime = Object.freeze({
   pipeline: 'PaddleOCR-VL',
@@ -502,6 +507,56 @@ async function writeJsonSidecar(pathname, value) {
   return sha256(contents);
 }
 
+async function withCoherentlyTamperedSeedLineage(outputRoot, target, mutate, inspect) {
+  const paths = target === 'identity'
+    ? [
+      'run-identity.json',
+      'seed-commit.json',
+      'seed-commit.json.sha256',
+      '.seed-journal.json',
+      '.seed-journal.json.sha256',
+    ]
+    : ['run-status.json', 'run-status.json.sha256'];
+  const originals = await Promise.all(paths.map((relative) => readFile(path.join(outputRoot, relative))));
+  try {
+    if (target === 'identity') {
+      const identityPath = path.join(outputRoot, 'run-identity.json');
+      const markerPath = path.join(outputRoot, 'seed-commit.json');
+      const journalPath = path.join(outputRoot, '.seed-journal.json');
+      const [identity, marker, journal] = await Promise.all([
+        readFile(identityPath, 'utf8').then(JSON.parse),
+        readFile(markerPath, 'utf8').then(JSON.parse),
+        readFile(journalPath, 'utf8').then(JSON.parse),
+      ]);
+      mutate(identity.seed_lineage);
+      const identityRaw = Buffer.from(`${JSON.stringify(identity, null, 2)}\n`);
+      const identityFingerprint = { sha256: sha256(identityRaw), bytes: identityRaw.byteLength };
+      marker.run_identity_sha256 = identityFingerprint.sha256;
+      journal.run_identity_sha256 = identityFingerprint.sha256;
+      marker.installed_items.find((item) => item.name === 'run-identity.json').fingerprint
+        = identityFingerprint;
+      journal.items.find((item) => item.name === 'run-identity.json').fingerprint
+        = identityFingerprint;
+      marker.installed_items_sha256 = sha256(canonicalJson(marker.installed_items));
+      await Promise.all([
+        writeFile(identityPath, identityRaw, { mode: 0o600 }),
+        writeJsonSidecar(markerPath, marker),
+        writeJsonSidecar(journalPath, journal),
+      ]);
+    } else {
+      const runStatusPath = path.join(outputRoot, 'run-status.json');
+      const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+      mutate(runStatus.seed_lineage);
+      await writeJsonSidecar(runStatusPath, runStatus);
+    }
+    await inspect();
+  } finally {
+    await Promise.all(paths.map(
+      (relative, index) => writeFile(path.join(outputRoot, relative), originals[index], { mode: 0o600 }),
+    ));
+  }
+}
+
 async function resealCommittedSeedReceipt(outputRoot, mutateReceipt) {
   const receiptPath = path.join(outputRoot, 'seed-receipt.json');
   const identityPath = path.join(outputRoot, 'run-identity.json');
@@ -597,6 +652,7 @@ async function createTimeoutRecoveryPredecessor({
   receiverNativeArtifacts = false,
   ocrScriptSha256 = '8'.repeat(64),
   materializePaddlexCache = false,
+  completeStatusFormat = 'legacy_reverified',
 }) {
   const ledgerRoot = path.join(path.dirname(await realpath(inputRoot)), 'timeout-recovery-authority-v1');
   const ledgerIdentity = await createTimeoutRecoveryLedger(ledgerRoot, inputRoot);
@@ -683,7 +739,8 @@ async function createTimeoutRecoveryPredecessor({
     });
     let statusRecord;
     if (status === 'complete') {
-      statusRecord = {
+      const completedAt = '2026-07-17T04:10:00.000Z';
+      const completeIdentity = {
         schema_version: 1,
         document_id: id,
         status,
@@ -693,15 +750,27 @@ async function createTimeoutRecoveryPredecessor({
         citation_allowed: false,
         whole_document_atomic: true,
         artifacts,
-        verified_at: '2026-07-17T04:10:00.000Z',
       };
+      if (completeStatusFormat === 'completed_at') {
+        statusRecord = {
+          ...completeIdentity,
+          attempt: attempts,
+          completed_at: completedAt,
+        };
+      } else {
+        assert.equal(completeStatusFormat, 'legacy_reverified');
+        statusRecord = {
+          ...completeIdentity,
+          verified_at: completedAt,
+        };
+      }
       progressById[id] = {
         status,
         attempts,
         page_count: pageCount,
         started_at: '2026-07-16T15:00:00.000Z',
-        completed_at: statusRecord.verified_at,
-        verified_at: statusRecord.verified_at,
+        completed_at: completedAt,
+        ...(completeStatusFormat === 'legacy_reverified' ? { verified_at: completedAt } : {}),
       };
     } else if (status === 'retry_wait') {
       const failedAt = '2026-07-17T03:50:00.000Z';
@@ -1002,6 +1071,84 @@ test('manifest validation requires whole untouched documents and citation fail-c
   const wrongDpi = structuredClone(manifest);
   wrongDpi.runtime.render_dpi = 300;
   assert.throws(() => validateRemoteOcrManifest(wrongDpi), /render_dpi must equal 240/);
+});
+
+test('identity and run-status seed-lineage contracts reject missing, extra, and wrong values', () => {
+  const timeoutRecovery = {
+    grantId: '8'.repeat(64),
+    grantSha256: '9'.repeat(64),
+    ledgerId: 'a'.repeat(64),
+    claimSha256: 'b'.repeat(64),
+    issuanceClaimKey: 'c'.repeat(64),
+    issuanceSha256: 'd'.repeat(64),
+    documentIds: ['doc-a'],
+  };
+  const identityExpected = {
+    seedId: '1'.repeat(64),
+    seedReceiptSha256: '2'.repeat(64),
+    predecessorRunIdentitySha256: '3'.repeat(64),
+    predecessorRunStatusSha256: '4'.repeat(64),
+    predecessorSnapshotSha256: '5'.repeat(64),
+    inheritedPages: 7,
+  };
+  const runStatusExpected = {
+    seedId: identityExpected.seedId,
+    predecessorRunIdentitySha256: identityExpected.predecessorRunIdentitySha256,
+    predecessorRunStatusSha256: identityExpected.predecessorRunStatusSha256,
+  };
+  const recoveryFields = {
+    timeout_recovery_grant_id: timeoutRecovery.grantId,
+    timeout_recovery_grant_sha256: timeoutRecovery.grantSha256,
+    timeout_recovery_ledger_id: timeoutRecovery.ledgerId,
+    timeout_recovery_claim_sha256: timeoutRecovery.claimSha256,
+    timeout_recovery_issuance_claim_key: timeoutRecovery.issuanceClaimKey,
+    timeout_recovery_issuance_sha256: timeoutRecovery.issuanceSha256,
+    timeout_recovery_documents: timeoutRecovery.documentIds,
+  };
+  const identityLineage = {
+    schema_version: 1,
+    mode: 'hash_bound_output_seed',
+    seed_id: identityExpected.seedId,
+    seed_receipt_sha256: identityExpected.seedReceiptSha256,
+    predecessor_run_identity_sha256: identityExpected.predecessorRunIdentitySha256,
+    predecessor_run_status_sha256: identityExpected.predecessorRunStatusSha256,
+    predecessor_snapshot_sha256: identityExpected.predecessorSnapshotSha256,
+    inherited_pages: identityExpected.inheritedPages,
+    citation_allowed: false,
+  };
+  const runStatusLineage = {
+    schema_version: 1,
+    mode: 'hash_bound_output_seed',
+    seed_id: runStatusExpected.seedId,
+    predecessor_run_identity_sha256: runStatusExpected.predecessorRunIdentitySha256,
+    predecessor_run_status_sha256: runStatusExpected.predecessorRunStatusSha256,
+    citation_allowed: false,
+  };
+  for (const grant of [false, true]) {
+    const identity = grant ? { ...identityLineage, ...recoveryFields } : identityLineage;
+    const runStatus = grant ? { ...runStatusLineage, ...recoveryFields } : runStatusLineage;
+    const identityContract = { ...identityExpected, timeoutRecovery: grant ? timeoutRecovery : null };
+    const runStatusContract = { ...runStatusExpected, timeoutRecovery: grant ? timeoutRecovery : null };
+    assert.doesNotThrow(() => validateRunIdentitySeedLineageContract(identity, identityContract));
+    assert.doesNotThrow(() => validateRunStatusSeedLineageContract(runStatus, runStatusContract));
+    for (const [validator, lineage, contract] of [
+      [validateRunIdentitySeedLineageContract, identity, identityContract],
+      [validateRunStatusSeedLineageContract, runStatus, runStatusContract],
+    ]) {
+      const missing = structuredClone(lineage);
+      delete missing.predecessor_run_status_sha256;
+      assert.throws(() => validator(missing, contract), /field set/u);
+      const extra = { ...structuredClone(lineage), unexpected: true };
+      assert.throws(() => validator(extra, contract), /field set/u);
+      const wrong = { ...structuredClone(lineage), mode: 'wrong-mode' };
+      assert.throws(() => validator(wrong, contract), /differs/u);
+      if (grant) {
+        const missingRecovery = structuredClone(lineage);
+        delete missingRecovery.timeout_recovery_issuance_sha256;
+        assert.throws(() => validator(missingRecovery, contract), /field set/u);
+      }
+    }
+  }
 });
 
 test('manifest validation accepts only hash-valid explicit local replacement snapshots', async (t) => {
@@ -1911,6 +2058,12 @@ test('exact schema-v2 p4-to-p1 seeds preserve OCR identity and pass receiver and
       'p4_to_p1_v1',
     );
     await rm(predecessorRoot, { recursive: true });
+    const committedTreeBeforePolicyDrift = await inspectTree(successorRoot);
+    await assert.rejects(
+      runRemoteOcrOffload({ ...options, childPollIntervalSeconds: 6 }, seedDependencies),
+      /timeout recovery requires the exact audited p4-to-p1 transition/u,
+    );
+    assert.deepEqual(await inspectTree(successorRoot), committedTreeBeforePolicyDrift);
     const resumed = await runRemoteOcrOffload(options, seedDependencies);
     assert.equal(resumed.seedReceipt.seed_id, result.seedReceipt.seed_id);
     seeds.push({ result, successorIdentity });
@@ -2075,7 +2228,7 @@ test('schema-v2 timeout seed verifies and archives canonical issuance plus struc
   await Promise.all([rm(issuancePath), rm(`${issuancePath}.sha256`)]);
   await assert.rejects(
     runRemoteOcrOffload(optionsFor(rejectedRoot), dependencies),
-    /timeout recovery issuance claim is missing/u,
+    /timeout recovery issuance claim(?: SHA-256 sidecar)? is missing/u,
   );
   for (const forbidden of [
     'run-identity.json',
@@ -2095,6 +2248,53 @@ test('schema-v2 timeout seed verifies and archives canonical issuance plus struc
   );
   await writeFile(issuancePath, issuanceRaw, { mode: 0o600 });
   await writeFile(`${issuancePath}.sha256`, issuanceSealRaw, { mode: 0o600 });
+
+  const unauditedTransitionRoot = path.join(root, 'timeout-p4-to-p4-rejected');
+  const authorityBeforeUnauditedTransition = await inspectTree(ledgerRoot);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(unauditedTransitionRoot, {
+      serverParallel: 4,
+      seedDryRun: true,
+    }), {
+      ...dependencies,
+      llamaServerAttestation: predecessorAttestation,
+    }),
+    /timeout recovery requires the exact audited p4-to-p1 transition/u,
+  );
+  assert.deepEqual(await inspectTree(ledgerRoot), authorityBeforeUnauditedTransition);
+  await assert.rejects(stat(unauditedTransitionRoot), { code: 'ENOENT' });
+
+  const authorityMovedRoot = path.join(root, 'timeout-recovery-authority-original');
+  const replacementAuthorityRoot = path.join(root, 'timeout-recovery-authority-replacement');
+  await cp(ledgerRoot, replacementAuthorityRoot, { recursive: true, preserveTimestamps: true });
+  const swapRaceRoot = path.join(root, 'timeout-p1-authority-swap');
+  try {
+    await assert.rejects(
+      runRemoteOcrOffload(optionsFor(swapRaceRoot), {
+        ...dependencies,
+        beforeTimeoutRecoveryClaimPublication: async () => {
+          await rename(ledgerRoot, authorityMovedRoot);
+          await rename(replacementAuthorityRoot, ledgerRoot);
+        },
+      }),
+      /authority directory inode changed before claim publication/u,
+    );
+    assert.deepEqual(
+      (await readdir(ledgerRoot)).filter((entry) => entry.endsWith('.claim.json')),
+      [],
+    );
+    assert.deepEqual(
+      (await readdir(authorityMovedRoot)).filter((entry) => entry.endsWith('.claim.json')),
+      [],
+    );
+  } finally {
+    const movedPresent = await stat(authorityMovedRoot).then(() => true, () => false);
+    if (movedPresent) {
+      await rm(ledgerRoot, { recursive: true, force: true });
+      await rename(authorityMovedRoot, ledgerRoot);
+    }
+    await rm(replacementAuthorityRoot, { recursive: true, force: true });
+  }
 
   const predecessorBeforeDryRun = await inspectTree(predecessorRoot);
   const authorityBeforeDryRun = await inspectTree(ledgerRoot);
@@ -2166,6 +2366,12 @@ test('schema-v2 timeout seed verifies and archives canonical issuance plus struc
   assert.equal(inventory.documents[0].timeout_incident.raw.sha256, incidentSummary.raw_sha256);
   const claimFiles = (await readdir(ledgerRoot)).filter((entry) => entry.endsWith('.claim.json'));
   assert.equal(claimFiles.length, 1);
+  const committedTreeBeforePolicyDrift = await inspectTree(successorRoot);
+  await assert.rejects(
+    runRemoteOcrOffload(optionsFor(successorRoot, { childPollIntervalSeconds: 6 }), dependencies),
+    /timeout recovery requires the exact audited p4-to-p1 transition/u,
+  );
+  assert.deepEqual(await inspectTree(successorRoot), committedTreeBeforePolicyDrift);
   await assert.rejects(
     runRemoteOcrOffload(optionsFor(path.join(root, 'timeout-p1-replay')), dependencies),
     /already consumed by a different successor/u,
@@ -2186,6 +2392,112 @@ test('schema-v2 timeout seed verifies and archives canonical issuance plus struc
   assert.equal(resumed.seedOnly, true);
   assert.equal(resumed.seedReceipt.seed_id, seeded.seedReceipt.seed_id);
   assert.equal(resumed.seedReceipt.timeout_recovery_issuance.claim_key, issuance.claim_key);
+
+  const committedEvidenceRoot = path.join(successorRoot, 'seed-predecessor-evidence');
+  const committedControlPaths = [
+    path.join(committedEvidenceRoot, 'run-status.json'),
+    path.join(committedEvidenceRoot, 'run-status.json.sha256'),
+    path.join(committedEvidenceRoot, 'inventory.json'),
+    path.join(successorRoot, 'seed-receipt.json'),
+    path.join(successorRoot, 'seed-receipt.json.sha256'),
+    path.join(successorRoot, 'run-identity.json'),
+    path.join(successorRoot, 'seed-commit.json'),
+    path.join(successorRoot, 'seed-commit.json.sha256'),
+  ];
+  const withRestoredCommittedControls = async (operation) => {
+    const originals = await Promise.all(committedControlPaths.map((pathname) => readFile(pathname)));
+    try {
+      await operation();
+    } finally {
+      await Promise.all(committedControlPaths.map(
+        (pathname, index) => writeFile(pathname, originals[index], { mode: 0o600 }),
+      ));
+    }
+  };
+  const resealCommittedSeedControls = async () => {
+    const receiptPath = path.join(successorRoot, 'seed-receipt.json');
+    const identityPath = path.join(successorRoot, 'run-identity.json');
+    const markerPath = path.join(successorRoot, 'seed-commit.json');
+    const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+    const receiptSha256 = await writeJsonSidecar(receiptPath, receipt);
+    const identity = JSON.parse(await readFile(identityPath, 'utf8'));
+    identity.seed_lineage.seed_receipt_sha256 = receiptSha256;
+    await writeFile(identityPath, `${JSON.stringify(identity, null, 2)}\n`, { mode: 0o600 });
+    const marker = JSON.parse(await readFile(markerPath, 'utf8'));
+    marker.seed_receipt_sha256 = receiptSha256;
+    marker.run_identity_sha256 = sha256(await readFile(identityPath));
+    for (const item of marker.installed_items) {
+      if (item.name === 'seed-predecessor-evidence') {
+        item.fingerprint = await inspectTree(committedEvidenceRoot);
+      } else if (['seed-receipt.json', 'seed-receipt.json.sha256', 'run-identity.json'].includes(item.name)) {
+        const pathname = path.join(successorRoot, item.name);
+        const info = await stat(pathname);
+        item.fingerprint = { sha256: sha256(await readFile(pathname)), bytes: info.size };
+      }
+    }
+    marker.installed_items_sha256 = sha256(canonicalJson(marker.installed_items));
+    await writeJsonSidecar(markerPath, marker);
+  };
+  await withRestoredCommittedControls(async () => {
+    const receiptPath = path.join(successorRoot, 'seed-receipt.json');
+    const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+    const duplicate = structuredClone(receipt.documents[0]);
+    delete duplicate.timeout_recovery;
+    receipt.documents.push(duplicate);
+    await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
+    await resealCommittedSeedControls();
+    await assert.rejects(
+      runRemoteOcrOffload(optionsFor(successorRoot), dependencies),
+      /committed seed receipt documents must be unique and exactly match the manifest order/u,
+    );
+  });
+  await withRestoredCommittedControls(async () => {
+    const archivedRunStatusPath = path.join(committedEvidenceRoot, 'run-status.json');
+    const archivedRunStatus = JSON.parse(await readFile(archivedRunStatusPath, 'utf8'));
+    archivedRunStatus.documents[documents[0].id].attempts = 4;
+    await writeJsonSidecar(archivedRunStatusPath, archivedRunStatus);
+    const inventoryPath = path.join(committedEvidenceRoot, 'inventory.json');
+    const inventory = JSON.parse(await readFile(inventoryPath, 'utf8'));
+    for (const relativePath of ['run-status.json', 'run-status.json.sha256']) {
+      const pathname = path.join(committedEvidenceRoot, relativePath);
+      const info = await stat(pathname);
+      const record = inventory.files.find((item) => item.path === relativePath);
+      record.bytes = info.size;
+      record.sha256 = sha256(await readFile(pathname));
+    }
+    await writeFile(inventoryPath, `${JSON.stringify(inventory, null, 2)}\n`, { mode: 0o600 });
+    await resealCommittedSeedControls();
+    await assert.rejects(
+      runRemoteOcrOffload(optionsFor(successorRoot), dependencies),
+      /committed seed predecessor inventory or tree differs from the receipt|archived predecessor attempt floor differs from the seed receipt/u,
+    );
+  });
+  await withRestoredCommittedControls(async () => {
+    const receiptPath = path.join(successorRoot, 'seed-receipt.json');
+    const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+    receipt.seed_basis_sha256 = '0'.repeat(64);
+    await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
+    await resealCommittedSeedControls();
+    await assert.rejects(
+      runRemoteOcrOffload(optionsFor(successorRoot), dependencies),
+      /committed seed basis or seed ID differs from recomputed evidence/u,
+    );
+  });
+  await withRestoredCommittedControls(async () => {
+    const receiptPath = path.join(successorRoot, 'seed-receipt.json');
+    const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+    receipt.successor.initial_run_status_sha256 = '0'.repeat(64);
+    await writeFile(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
+    await resealCommittedSeedControls();
+    const markerPath = path.join(successorRoot, 'seed-commit.json');
+    const marker = JSON.parse(await readFile(markerPath, 'utf8'));
+    marker.initial_run_status_sha256 = '0'.repeat(64);
+    await writeJsonSidecar(markerPath, marker);
+    await assert.rejects(
+      runRemoteOcrOffload(optionsFor(successorRoot), dependencies),
+      /committed initial run-status hash differs from recomputed seed state/u,
+    );
+  });
 
   const copiedSuccessorRoot = path.join(root, 'timeout-p1-copy');
   await cp(successorRoot, copiedSuccessorRoot, { recursive: true, preserveTimestamps: true });
@@ -2257,7 +2569,7 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
     micro_batch: 16,
     use_queues: true,
     runtime_device: runtimeDevice,
-    paddlex_cache_home: path.join(predecessorRoot, 'paddlex-cache'),
+    paddlex_cache_home: await realpath(path.join(predecessorRoot, 'paddlex-cache')),
     python_runtime: pythonRuntime,
     paddlex_layout_model_cache_sha256: fixturePaddlexLayoutModelCache.tree_sha256,
   };
@@ -2393,6 +2705,7 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
     settled: false,
   };
   await writeJsonSidecar(path.join(predecessorRoot, 'run-status.json'), predecessorRunStatus);
+  const monitoredPredecessor = await inspectPredecessorB1(predecessorRoot);
   const predecessorBefore = await inspectTree(predecessorRoot);
   const artsBefore = await stat(path.join(
     predecessorRoot,
@@ -2529,6 +2842,61 @@ test('real B-r1 six-state 1259-page seed is runner-to-receiver compatible and pr
   assert.equal(completed.exitCode, 0);
   assert.equal(completed.runStatus.finished, true);
   assert.equal(completedInvocations, 5);
+  const monitoredComplete = await inspectSuccessorB2(successorRoot, monitoredPredecessor);
+  assert.equal(monitoredComplete.complete, true);
+  const runStatusPath = path.join(successorRoot, 'run-status.json');
+  const assertMonitorRejectsCompletedProgressTamper = async ({ documentId, mutate, pattern }) => {
+    const originalFiles = await Promise.all([
+      runStatusPath,
+      `${runStatusPath}.sha256`,
+    ].map((pathname) => readFile(pathname)));
+    try {
+      const runStatus = JSON.parse(originalFiles[0]);
+      mutate(runStatus.documents[documentId]);
+      await writeJsonSidecar(runStatusPath, runStatus);
+      await assert.rejects(inspectSuccessorB2(successorRoot, monitoredPredecessor), pattern);
+    } finally {
+      await Promise.all([
+        runStatusPath,
+        `${runStatusPath}.sha256`,
+      ].map((pathname, index) => writeFile(pathname, originalFiles[index], { mode: 0o600 })));
+    }
+  };
+  for (const [documentId, predecessorStatus] of [
+    ['legacy-compendium-arts-labor', 'complete'],
+    ['legacy-compendium-chemistry', 'retry_wait'],
+    ['legacy-compendium-history', 'interrupted'],
+    ['legacy-compendium-physics', 'pending'],
+  ]) {
+    await t.test(`monitor rejects an extra ${predecessorStatus}-to-complete progress field`, async () => {
+      await assertMonitorRejectsCompletedProgressTamper({
+        documentId,
+        mutate: (progress) => { progress.extra = true; },
+        pattern: /complete progress field set differs/u,
+      });
+    });
+  }
+  await t.test('monitor rejects changed retained retry_wait failed_at', async () => {
+    await assertMonitorRejectsCompletedProgressTamper({
+      documentId: 'legacy-compendium-chemistry',
+      mutate: (progress) => { progress.failed_at = '2026-07-17T00:01:31.000Z'; },
+      pattern: /complete progress retained timestamp differs/u,
+    });
+  });
+  await t.test('monitor rejects changed retained interrupted_at', async () => {
+    await assertMonitorRejectsCompletedProgressTamper({
+      documentId: 'legacy-compendium-history',
+      mutate: (progress) => { progress.interrupted_at = '2026-07-17T00:01:01.000Z'; },
+      pattern: /complete progress retained timestamp differs/u,
+    });
+  });
+  await t.test('monitor rejects a noncanonical pending-to-complete started_at', async () => {
+    await assertMonitorRejectsCompletedProgressTamper({
+      documentId: 'legacy-compendium-physics',
+      mutate: (progress) => { progress.started_at = '2026-07-18T00:00:00Z'; },
+      pattern: /complete progress timestamp is not canonical/u,
+    });
+  });
   const received = await receiveRemoteOcrOffload({
     manifest: manifestPath,
     shards: [{ manifestPath, root: successorRoot }],
@@ -2700,6 +3068,10 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   const successorAttestation = llamaAttestationForParallel(1);
   const ocrScriptSha256 = sha256(await readFile(ocrScript));
   assert.equal(ocrScriptSha256, seedAwareOcrScriptSha256);
+  assert.equal(
+    sha256(await readFile(new URL('../scripts/run-remote-ocr-offload.mjs', import.meta.url))),
+    a1CompletedStatusRunnerScriptSha256,
+  );
   const {
     documents,
     grant,
@@ -2715,7 +3087,41 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     receiverNativeArtifacts: true,
     ocrScriptSha256: legacyB1OcrScriptSha256,
     materializePaddlexCache: true,
+    completeStatusFormat: 'completed_at',
   });
+  const a1RunStatus = JSON.parse(await readFile(path.join(predecessorRoot, 'run-status.json'), 'utf8'));
+  const expectedA1CompleteKeys = [
+    'artifacts',
+    'attempt',
+    'citation_allowed',
+    'completed_at',
+    'document_id',
+    'page_count',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'source_sha256',
+    'status',
+    'whole_document_atomic',
+  ].sort();
+  for (const [documentId, , , status, attempts] of specifications.filter((entry) => entry[3] === 'complete')) {
+    assert.equal(status, 'complete');
+    const documentStatus = JSON.parse(await readFile(
+      path.join(predecessorRoot, 'status', `${documentId}.json`),
+      'utf8',
+    ));
+    const progress = a1RunStatus.documents[documentId];
+    assert.deepEqual(Object.keys(documentStatus).sort(), expectedA1CompleteKeys);
+    assert.deepEqual(Object.keys(documentStatus.artifacts).sort(), [
+      'page_artifacts',
+      'page_artifacts_sha256',
+      'state_sha256',
+    ]);
+    assert.equal(documentStatus.attempt, attempts);
+    assert.equal(progress.attempts, attempts);
+    assert.equal(documentStatus.completed_at, progress.completed_at);
+    assert.equal(Object.hasOwn(documentStatus, 'verified_at'), false);
+    assert.equal(Object.hasOwn(documentStatus, 'max_attempts'), false);
+  }
   const provisioned = await provisionTimeoutRecoveryAuthority({
     inputRoot: await realpath(inputRoot),
     apply: true,
@@ -2752,7 +3158,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     llamaServerAttestation: successorAttestation,
     pythonRuntime,
     paddlexLayoutModelCache: fixturePaddlexLayoutModelCache,
-    runnerScriptSha256: 'e'.repeat(64),
+    runnerScriptSha256: a1CompletedStatusRunnerScriptSha256,
     nowMilliseconds: () => Date.parse('2026-07-18T06:00:00.000Z'),
     handleSignals: false,
   };
@@ -2772,6 +3178,30 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   assert.equal(preparedGrant.grant.raw_sha256, sha256(await readFile(
     path.join(predecessorRoot, 'timeout-recovery-grant.json'),
   )));
+  for (const [label, drift] of [
+    ['vlRecMaxConcurrency', { vlRecMaxConcurrency: 2 }],
+    ['serverParallel', { serverParallel: 4 }],
+    ['microBatch', { microBatch: 15 }],
+    ['useQueues', { microBatch: 1, useQueues: false }],
+    ['llamaUrl', { llamaUrl: 'http://127.0.0.1:8112/' }],
+    ['childStartupTimeoutSeconds', { childStartupTimeoutSeconds: 181 }],
+    ['childIdleTimeoutSeconds', { childIdleTimeoutSeconds: 1_199 }],
+    ['childWallFloorSeconds', { childWallFloorSeconds: 1_201 }],
+    ['childWallSecondsPerPage', { childWallSecondsPerPage: 26 }],
+    ['childTerminateGraceSeconds', { childTerminateGraceSeconds: 16 }],
+    ['childPollIntervalSeconds', { childPollIntervalSeconds: 6 }],
+  ]) {
+    const rejectedRoot = path.join(root, `recovery-policy-drift-${label}`);
+    await assert.rejects(
+      runRemoteOcrOffload(optionsFor(rejectedRoot, drift), dependencies),
+      /timeout recovery requires the exact audited p4-to-p1 transition/u,
+    );
+    await assert.rejects(stat(rejectedRoot), { code: 'ENOENT' });
+  }
+  assert.equal(
+    (await readdir(ledgerRoot)).filter((entry) => entry.endsWith('.claim.json')).length,
+    0,
+  );
   await assert.rejects(
     runRemoteOcrOffload(optionsFor(path.join(root, 'missing-ledger'), {
       timeoutRecoveryLedger: undefined,
@@ -2798,6 +3228,16 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     }), dependencies),
     /single canonical authority root|bound to a different ledger authority/,
   );
+  const a1AnchorsBeforeSeed = (await inspectPredecessorB1(predecessorRoot)).anchors;
+  assert.equal(
+    a1AnchorsBeforeSeed.identity_sha256,
+    sha256(await readFile(path.join(predecessorRoot, 'run-identity.json'))),
+  );
+  assert.equal(
+    a1AnchorsBeforeSeed.run_status_sha256,
+    sha256(await readFile(path.join(predecessorRoot, 'run-status.json'))),
+  );
+  for (const digest of Object.values(a1AnchorsBeforeSeed)) assert.match(digest, /^[a-f0-9]{64}$/u);
   const predecessorBefore = await inspectTree(predecessorRoot);
   const seeded = await runRemoteOcrOffload(optionsFor(successorRoot), dependencies);
   await rm(path.join(successorRoot, 'paddlex-cache'), { recursive: true, force: true });
@@ -2877,6 +3317,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   assert.equal(evidenceInventory.documents.filter((document) => document.timeout_log).length, 4);
   assert.equal(evidenceInventory.documents.filter((document) => document.timeout_incident).length, 4);
   const monitoredPredecessor = await inspectPredecessorB1(predecessorRoot);
+  assert.deepEqual(monitoredPredecessor.anchors, a1AnchorsBeforeSeed);
   const authorityNegativeProductionRoot = path.join(inputRoot, 'authority-negative-production');
   const authorityNegativeReceiptRoot = path.join(inputRoot, 'authority-negative-receipts');
   const authorityReceiveOptions = {
@@ -2942,6 +3383,124 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   const monitoredSeed = await inspectSuccessorB2(successorRoot, monitoredPredecessor);
   assert.equal(monitoredSeed.configuration_transition, seedAwareTransition);
   assert.equal(monitoredSeed.complete, false);
+  const inheritedCompleteDocumentId = 'moe-2011-01';
+  const inheritedCompleteStatusPath = path.join(
+    successorRoot,
+    'status',
+    `${inheritedCompleteDocumentId}.json`,
+  );
+  const inheritedCompleteRunStatusPath = path.join(successorRoot, 'run-status.json');
+  const assertMonitorRejectsStateLineageTamper = async ({ documentId, mutateState, pattern }) => {
+    const statePath = path.join(successorRoot, 'documents', documentId, 'state.json');
+    const originalState = await readFile(statePath);
+    try {
+      const state = JSON.parse(originalState);
+      mutateState(state);
+      await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
+      await assert.rejects(inspectSuccessorB2(successorRoot, monitoredPredecessor), pattern);
+    } finally {
+      await writeFile(statePath, originalState, { mode: 0o600 });
+    }
+  };
+  const assertMonitorRejectsInitialCompleteTamper = async ({
+    mutateStatus,
+    mutateProgress,
+    pattern,
+  }) => {
+    const originalFiles = await Promise.all([
+      inheritedCompleteStatusPath,
+      `${inheritedCompleteStatusPath}.sha256`,
+      inheritedCompleteRunStatusPath,
+      `${inheritedCompleteRunStatusPath}.sha256`,
+    ].map((pathname) => readFile(pathname)));
+    try {
+      const status = JSON.parse(originalFiles[0]);
+      const runStatus = JSON.parse(originalFiles[2]);
+      mutateStatus(status);
+      const statusSha256 = await writeJsonSidecar(inheritedCompleteStatusPath, status);
+      mutateProgress(runStatus.documents[inheritedCompleteDocumentId]);
+      runStatus.documents[inheritedCompleteDocumentId].status_json_sha256 = statusSha256;
+      await writeJsonSidecar(inheritedCompleteRunStatusPath, runStatus);
+      await assert.rejects(inspectSuccessorB2(successorRoot, monitoredPredecessor), pattern);
+    } finally {
+      await Promise.all([
+        inheritedCompleteStatusPath,
+        `${inheritedCompleteStatusPath}.sha256`,
+        inheritedCompleteRunStatusPath,
+        `${inheritedCompleteRunStatusPath}.sha256`,
+      ].map((pathname, index) => writeFile(pathname, originalFiles[index], { mode: 0o600 })));
+    }
+  };
+  await t.test('monitor rejects an extra field on a resealed inherited complete status', async () => {
+    await assertMonitorRejectsInitialCompleteTamper({
+      mutateStatus: (status) => { status.extra = true; },
+      mutateProgress: () => {},
+      pattern: /initial inherited complete status field set differs/u,
+    });
+  });
+  await t.test('monitor rejects an extra artifact field on a resealed inherited complete status', async () => {
+    await assertMonitorRejectsInitialCompleteTamper({
+      mutateStatus: (status) => { status.artifacts.extra = true; },
+      mutateProgress: () => {},
+      pattern: /initial inherited complete status artifacts field set differs/u,
+    });
+  });
+  await t.test('monitor rejects unexpected verified_at in initial completed run progress', async () => {
+    await assertMonitorRejectsInitialCompleteTamper({
+      mutateStatus: () => {},
+      mutateProgress: (progress) => { progress.verified_at = progress.completed_at; },
+      pattern: /complete progress field set differs/u,
+    });
+  });
+  await t.test('monitor rejects an extra lineage field on a resealed inherited complete status', async () => {
+    await assertMonitorRejectsInitialCompleteTamper({
+      mutateStatus: (status) => { status.seed_lineage.extra = true; },
+      mutateProgress: () => {},
+      pattern: /initial inherited complete status seed lineage field set differs/u,
+    });
+  });
+  await t.test('monitor rejects inherited complete lineage that differs from the seed receipt', async () => {
+    await assertMonitorRejectsInitialCompleteTamper({
+      mutateStatus: (status) => {
+        status.seed_lineage.predecessor_status_sha256 = '0'.repeat(64);
+      },
+      mutateProgress: () => {},
+      pattern: /initial inherited complete status identity differs/u,
+    });
+  });
+  await t.test('monitor rejects resealed inherited complete page artifacts that differ from state', async () => {
+    await assertMonitorRejectsInitialCompleteTamper({
+      mutateStatus: (status) => {
+        status.artifacts.page_artifacts[0].content_markdown_sha256 = '0'.repeat(64);
+        status.artifacts.page_artifacts_sha256 = sha256(
+          `${JSON.stringify(status.artifacts.page_artifacts)}\n`,
+        );
+      },
+      mutateProgress: () => {},
+      pattern: /initial inherited complete status artifacts differ from state/u,
+    });
+  });
+  await t.test('monitor rejects a resealed inherited complete timestamp not bound to its predecessor', async () => {
+    await assertMonitorRejectsInitialCompleteTamper({
+      mutateStatus: (status) => { status.completed_at = '2026-07-17T04:11:00.000Z'; },
+      mutateProgress: (progress) => { progress.completed_at = '2026-07-17T04:11:00.000Z'; },
+      pattern: /complete progress retained timestamp differs/u,
+    });
+  });
+  await t.test('monitor rejects an extra no-grant state seed lineage field', async () => {
+    await assertMonitorRejectsStateLineageTamper({
+      documentId: inheritedCompleteDocumentId,
+      mutateState: (state) => { state.seed_lineage.extra = true; },
+      pattern: /state seed lineage field set differs/u,
+    });
+  });
+  await t.test('monitor rejects an extra granted state seed lineage field', async () => {
+    await assertMonitorRejectsStateLineageTamper({
+      documentId: recoveryDocuments[0].document_id,
+      mutateState: (state) => { state.seed_lineage.extra = true; },
+      pattern: /state seed lineage field set differs/u,
+    });
+  });
   const claimFilename = (await readdir(ledgerRoot)).find((entry) => entry.endsWith('.claim.json'));
   assert.ok(claimFilename);
   const claimPath = path.join(ledgerRoot, claimFilename);
@@ -2976,6 +3535,22 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     const progress = completed.runStatus.documents[receiptDocument.document_id];
     assert.equal(progress.status, 'complete');
     assert.equal(progress.attempts, 6);
+    assert.deepEqual(Object.keys(progress).sort(), [
+      'attempt_ceiling',
+      'attempts',
+      'completed_at',
+      'failed_at',
+      'inherited_attempts',
+      'page_count',
+      'predecessor_status',
+      'seed_id',
+      'started_at',
+      'status',
+      'status_json_sha256',
+      'timeout_recovery_first_missing_page',
+      'timeout_recovery_grant_id',
+      'timeout_recovery_grant_sha256',
+    ].sort());
     const status = JSON.parse(await readFile(
       path.join(successorRoot, 'status', `${receiptDocument.document_id}.json`),
       'utf8',
@@ -2985,6 +3560,53 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     assert.equal(status.seed_lineage.granted_attempt, 6);
     assert.equal(status.seed_lineage.timeout_recovery_grant_id, grant.grant_id);
   }
+  const crashWindowDocument = recoveryDocuments[0];
+  const crashWindowStatusPath = path.join(
+    successorRoot,
+    'status',
+    `${crashWindowDocument.document_id}.json`,
+  );
+  const completedCrashWindowStatus = JSON.parse(await readFile(crashWindowStatusPath, 'utf8'));
+  const crashWindowRunStatusPath = path.join(successorRoot, 'run-status.json');
+  const crashWindowRunStatus = JSON.parse(await readFile(crashWindowRunStatusPath, 'utf8'));
+  const crashWindowProgress = crashWindowRunStatus.documents[crashWindowDocument.document_id];
+  const crashWindowStatusSha256 = await writeJsonSidecar(crashWindowStatusPath, {
+    schema_version: 1,
+    document_id: crashWindowDocument.document_id,
+    status: 'running',
+    attempt: 6,
+    max_attempts: 6,
+    page_count: crashWindowDocument.page_count,
+    runtime_fingerprint_sha256: completedCrashWindowStatus.runtime_fingerprint_sha256,
+    citation_allowed: false,
+    started_at: crashWindowProgress.started_at,
+    seed_lineage: completedCrashWindowStatus.seed_lineage,
+  });
+  crashWindowProgress.status = 'running';
+  crashWindowProgress.status_json_sha256 = crashWindowStatusSha256;
+  delete crashWindowProgress.completed_at;
+  delete crashWindowProgress.verified_at;
+  crashWindowRunStatus.finished = false;
+  crashWindowRunStatus.settled = false;
+  crashWindowRunStatus.counts.complete -= 1;
+  crashWindowRunStatus.counts.running = 1;
+  await writeJsonSidecar(crashWindowRunStatusPath, crashWindowRunStatus);
+  const crashWindowRestart = await runRemoteOcrOffload(
+    optionsFor(successorRoot, { seedOnly: false }),
+    {
+      ...dependencies,
+      invokeOcr: async () => assert.fail('valid granted attempt 6 output must seal before quarantine'),
+    },
+  );
+  assert.equal(crashWindowRestart.exitCode, 0);
+  assert.equal(
+    crashWindowRestart.runStatus.documents[crashWindowDocument.document_id].status,
+    'complete',
+  );
+  assert.equal(
+    crashWindowRestart.runStatus.documents[crashWindowDocument.document_id].attempts,
+    6,
+  );
   const restart = await runRemoteOcrOffload(optionsFor(successorRoot, { seedOnly: false }), {
     ...dependencies,
     invokeOcr: async () => assert.fail('successful granted attempt 6 must not run again'),
@@ -3015,26 +3637,39 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   const monitoredComplete = await inspectSuccessorB2(successorRoot, monitoredPredecessor);
   assert.equal(monitoredComplete.complete, true);
   const tamperedDocumentId = recoveryDocuments[0].document_id;
-  const tamperedStatusPath = path.join(successorRoot, 'status', `${tamperedDocumentId}.json`);
   const tamperedRunStatusPath = path.join(successorRoot, 'run-status.json');
-  const assertMonitorRejectsCompleteTamper = async ({ mutateStatus, mutateProgress, pattern }) => {
+  const assertMonitorRejectsCompleteTamper = async ({
+    documentId = tamperedDocumentId,
+    mutateState = () => {},
+    mutateStatus,
+    mutateProgress,
+    pattern,
+  }) => {
+    const tamperedStatusPath = path.join(successorRoot, 'status', `${documentId}.json`);
+    const tamperedStatePath = path.join(successorRoot, 'documents', documentId, 'state.json');
     const originalFiles = await Promise.all([
+      tamperedStatePath,
       tamperedStatusPath,
       `${tamperedStatusPath}.sha256`,
       tamperedRunStatusPath,
       `${tamperedRunStatusPath}.sha256`,
     ].map((pathname) => readFile(pathname)));
     try {
-      const status = JSON.parse(originalFiles[0]);
-      const runStatus = JSON.parse(originalFiles[2]);
-      mutateStatus(status);
+      const state = JSON.parse(originalFiles[0]);
+      const status = JSON.parse(originalFiles[1]);
+      const runStatus = JSON.parse(originalFiles[3]);
+      mutateState(state);
+      await writeFile(tamperedStatePath, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
+      const stateSha256 = sha256(await readFile(tamperedStatePath));
+      mutateStatus(status, { stateSha256 });
       const statusSha256 = await writeJsonSidecar(tamperedStatusPath, status);
-      mutateProgress(runStatus.documents[tamperedDocumentId], runStatus);
-      runStatus.documents[tamperedDocumentId].status_json_sha256 = statusSha256;
+      mutateProgress(runStatus.documents[documentId], runStatus);
+      runStatus.documents[documentId].status_json_sha256 = statusSha256;
       await writeJsonSidecar(tamperedRunStatusPath, runStatus);
       await assert.rejects(inspectSuccessorB2(successorRoot, monitoredPredecessor), pattern);
     } finally {
       await Promise.all([
+        tamperedStatePath,
         tamperedStatusPath,
         `${tamperedStatusPath}.sha256`,
         tamperedRunStatusPath,
@@ -3053,7 +3688,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     await assertMonitorRejectsCompleteTamper({
       mutateStatus: (status) => { delete status.seed_lineage; },
       mutateProgress: () => {},
-      pattern: /timeout recovery document status seed lineage must be an object/u,
+      pattern: /full complete status field set differs/u,
     });
   });
   await t.test('monitor rejects a resealed granted completion downgraded to retry_wait', async () => {
@@ -3071,6 +3706,60 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
         runStatus.settled = false;
       },
       pattern: /timeout recovery completed artifacts were downgraded/u,
+    });
+  });
+  await t.test('monitor rejects coordinated inherited-complete state status and run-status resealing', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      documentId: inheritedCompleteDocumentId,
+      mutateState: (state) => { state.updated_at = '2026-07-17T04:12:00Z'; },
+      mutateStatus: (status, { stateSha256 }) => { status.artifacts.state_sha256 = stateSha256; },
+      mutateProgress: () => {},
+      pattern: /inherited full complete state SHA differs from seed receipt/u,
+    });
+  });
+  await t.test('monitor rejects an extra inherited complete progress field after reverify', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      documentId: inheritedCompleteDocumentId,
+      mutateStatus: () => {},
+      mutateProgress: (progress) => { progress.extra = true; },
+      pattern: /complete progress field set differs/u,
+    });
+  });
+  await t.test('monitor rejects changed inherited completed_at after reverify', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      documentId: inheritedCompleteDocumentId,
+      mutateStatus: () => {},
+      mutateProgress: (progress) => { progress.completed_at = '2026-07-17T04:11:00.000Z'; },
+      pattern: /complete progress retained timestamp differs/u,
+    });
+  });
+  await t.test('monitor rejects changed inherited started_at after reverify', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      documentId: inheritedCompleteDocumentId,
+      mutateStatus: () => {},
+      mutateProgress: (progress) => { progress.started_at = '2026-07-16T15:00:01.000Z'; },
+      pattern: /complete progress retained timestamp differs/u,
+    });
+  });
+  await t.test('monitor rejects an extra granted completion progress field', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      mutateStatus: () => {},
+      mutateProgress: (progress) => { progress.extra = true; },
+      pattern: /complete progress field set differs/u,
+    });
+  });
+  await t.test('monitor rejects changed retained granted failed_at', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      mutateStatus: () => {},
+      mutateProgress: (progress) => { progress.failed_at = '2026-07-17T03:50:01.000Z'; },
+      pattern: /complete progress retained timestamp differs/u,
+    });
+  });
+  await t.test('monitor rejects a noncanonical granted completion started_at', async () => {
+    await assertMonitorRejectsCompleteTamper({
+      mutateStatus: () => {},
+      mutateProgress: (progress) => { progress.started_at = '2026-07-18T00:00:00Z'; },
+      pattern: /complete progress timestamp is not canonical/u,
     });
   });
   await chmod(archivedGrantPath, 0o644);
@@ -3135,6 +3824,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
 
   const bPredecessorRoot = path.join(canonicalRoot, 'b-r1-union');
   const bSuccessorRoot = path.join(canonicalRoot, 'b-r2-union');
+  const bSameRunnerSuccessorRoot = path.join(canonicalRoot, 'b-r2-union-same-runner');
   const bManifestPath = path.join(inputRoot, 'b-union-shard.json');
   const bSpecifications = [
     ['legacy-compendium-arts-labor', 491, 491, 'complete', 1],
@@ -3157,6 +3847,20 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     ocrScriptSha256: legacyB1OcrScriptSha256,
     materializePaddlexCache: true,
   });
+  const bLegacyPredecessorVerifiedAt = '2099-07-18T06:00:00.000Z';
+  const bPredecessorRunStatusPath = path.join(bPredecessorRoot, 'run-status.json');
+  const bPredecessorRunStatus = JSON.parse(await readFile(bPredecessorRunStatusPath, 'utf8'));
+  for (const document of bDocuments) {
+    const statusPath = path.join(bPredecessorRoot, 'status', `${document.id}.json`);
+    const status = JSON.parse(await readFile(statusPath, 'utf8'));
+    assert.equal(status.status, 'complete');
+    assert.equal(Object.hasOwn(status, 'verified_at'), true);
+    status.verified_at = bLegacyPredecessorVerifiedAt;
+    const statusSha256 = await writeJsonSidecar(statusPath, status);
+    bPredecessorRunStatus.documents[document.id].verified_at = bLegacyPredecessorVerifiedAt;
+    bPredecessorRunStatus.documents[document.id].status_json_sha256 = statusSha256;
+  }
+  await writeJsonSidecar(bPredecessorRunStatusPath, bPredecessorRunStatus);
   const bSeeded = await runRemoteOcrOffload({
     ...optionsFor(bSuccessorRoot),
     manifest: bManifestPath,
@@ -3164,6 +3868,7 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     timeoutRecoveryLedger: undefined,
   }, {
     ...dependencies,
+    runnerScriptSha256: fixedB3RunnerScriptSha256,
     paddlexLayoutModelCache: bFixturePaddlexLayoutModelCache,
     pageCounter: (_python, sourcePath) => bDocuments.find(
       (document) => path.basename(document.source_path) === path.basename(sourcePath),
@@ -3183,12 +3888,64 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
   const monitoredB = await inspectSuccessorB2(bSuccessorRoot, monitoredBPredecessor);
   assert.equal(monitoredB.configuration_transition, seedAwareTransition);
   assert.equal(monitoredB.complete, true);
+  const bSameRunnerSeeded = await runRemoteOcrOffload({
+    ...optionsFor(bSameRunnerSuccessorRoot),
+    manifest: bManifestPath,
+    seedFromOutputRoot: bPredecessorRoot,
+    timeoutRecoveryLedger: undefined,
+  }, {
+    ...dependencies,
+    runnerScriptSha256: a1CompletedStatusRunnerScriptSha256,
+    paddlexLayoutModelCache: bFixturePaddlexLayoutModelCache,
+    pageCounter: (_python, sourcePath) => bDocuments.find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+  });
+  await rm(path.join(bSameRunnerSuccessorRoot, 'paddlex-cache'), { recursive: true, force: true });
+  await cp(
+    path.join(bPredecessorRoot, 'paddlex-cache'),
+    path.join(bSameRunnerSuccessorRoot, 'paddlex-cache'),
+    { recursive: true },
+  );
+  assert.equal(bSameRunnerSeeded.seedReceipt.counts.inherited_pages, 3_182);
+  const monitoredSameRunnerB = await inspectSuccessorB2(
+    bSameRunnerSuccessorRoot,
+    monitoredBPredecessor,
+  );
+  assert.equal(monitoredSameRunnerB.configuration_transition, seedAwareTransition);
+  assert.equal(monitoredSameRunnerB.complete, true);
   const unionManifestPath = path.join(inputRoot, 'a-b-r2-union.json');
   await writeFile(
     unionManifestPath,
     `${JSON.stringify(manifestFor([...documents, ...bDocuments]), null, 2)}\n`,
   );
-  const union = await receiveRemoteOcrOffload({
+  const unionReceiveDependencies = {
+    pageCounter: (_python, sourcePath) => [...documents, ...bDocuments].find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+  };
+  const sameRunnerUnionOptions = {
+    manifest: unionManifestPath,
+    shards: [
+      { manifestPath, root: successorRoot },
+      { manifestPath: bManifestPath, root: bSameRunnerSuccessorRoot },
+    ],
+    projectRoot: inputRoot,
+    productionRoot: path.join(inputRoot, 'same-runner-union-local-production'),
+    textRoot: path.join(inputRoot, 'same-runner-union-local-text'),
+    supervisorRoot: path.join(inputRoot, 'same-runner-union-local-supervisor'),
+    receiptRoot: path.join(inputRoot, 'same-runner-union-receipts'),
+    python: process.execPath,
+  };
+  const sameRunnerUnion = await receiveRemoteOcrOffload(
+    sameRunnerUnionOptions,
+    unionReceiveDependencies,
+  );
+  assert.equal(sameRunnerUnion.status, 'dry_run_validated');
+  assert.equal(sameRunnerUnion.counts.documents, 14);
+  assert.equal(sameRunnerUnion.counts.pages, 6364);
+  assert.equal(sameRunnerUnion.source_shard_compatibility, undefined);
+  const unionReceiveOptions = {
     manifest: unionManifestPath,
     shards: [
       { manifestPath, root: successorRoot },
@@ -3200,16 +3957,175 @@ test('exact A-r1 timeout grant recovers attempt 6 and joins no-grant B-r2 as an 
     supervisorRoot: path.join(inputRoot, 'union-local-supervisor'),
     receiptRoot: path.join(inputRoot, 'union-receipts'),
     python: process.execPath,
-  }, {
-    pageCounter: (_python, sourcePath) => [...documents, ...bDocuments].find(
-      (document) => path.basename(document.source_path) === path.basename(sourcePath),
-    ).page_count,
-  });
+  };
+  const union = await receiveRemoteOcrOffload(unionReceiveOptions, unionReceiveDependencies);
   assert.equal(union.status, 'dry_run_validated');
   assert.equal(union.counts.documents, 14);
   assert.equal(union.counts.pages, 6364);
   assert.equal(union.source_shards.filter((shard) => shard.timeout_recovery_grant_sha256).length, 1);
   assert.equal(union.documents.filter((document) => document.timeout_recovery).length, 4);
+  const compatibility = validateDirectedRunnerCompatibilityEvidence(
+    union.source_shard_compatibility,
+  );
+  assert.equal(compatibility.transition, 'a1_completed_status_to_fixed_b3_union_v1');
+  assert.deepEqual(
+    compatibility.shards.map((shard) => [
+      shard.role,
+      shard.runner_script_sha256,
+      shard.documents,
+      shard.pages,
+    ]),
+    [
+      ['shard_a', a1CompletedStatusRunnerScriptSha256, 8, 3_182],
+      ['shard_b', fixedB3RunnerScriptSha256, 6, 3_182],
+    ],
+  );
+  const bSameRunnerOptions = {
+    ...optionsFor(bSameRunnerSuccessorRoot),
+    manifest: bManifestPath,
+    seedFromOutputRoot: bPredecessorRoot,
+    timeoutRecoveryLedger: undefined,
+  };
+  const bSameRunnerDependencies = {
+    ...dependencies,
+    runnerScriptSha256: a1CompletedStatusRunnerScriptSha256,
+    paddlexLayoutModelCache: bFixturePaddlexLayoutModelCache,
+    pageCounter: (_python, sourcePath) => bDocuments.find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+  };
+  const lineageContracts = [
+    {
+      grant: 'grant',
+      root: successorRoot,
+      probes: {
+        runner: () => runRemoteOcrOffload(optionsFor(successorRoot), dependencies),
+        monitor: () => inspectSuccessorB2(successorRoot, monitoredPredecessor),
+        receiver: () => receiveRemoteOcrOffload(unionReceiveOptions, unionReceiveDependencies),
+      },
+    },
+    {
+      grant: 'no-grant',
+      root: bSameRunnerSuccessorRoot,
+      probes: {
+        runner: () => runRemoteOcrOffload(bSameRunnerOptions, bSameRunnerDependencies),
+        monitor: () => inspectSuccessorB2(bSameRunnerSuccessorRoot, monitoredBPredecessor),
+        receiver: () => receiveRemoteOcrOffload(sameRunnerUnionOptions, unionReceiveDependencies),
+      },
+    },
+  ];
+  for (const contract of lineageContracts) {
+    for (const target of ['identity', 'run-status']) {
+      for (const [component, probe] of Object.entries(contract.probes)) {
+        await t.test(`${component} rejects extra ${contract.grant} ${target} seed lineage`, async () => {
+          await withCoherentlyTamperedSeedLineage(
+            contract.root,
+            target === 'identity' ? 'identity' : 'run-status',
+            (lineage) => { lineage.unexpected_lineage_field = true; },
+            () => assert.rejects(probe(), /seed lineage.*field set/u),
+          );
+        });
+      }
+    }
+  }
+
+  const bSameRunnerReverified = await runRemoteOcrOffload(
+    { ...bSameRunnerOptions, seedOnly: false },
+    {
+      ...bSameRunnerDependencies,
+      invokeOcr: async () => assert.fail('inherited legacy complete documents must only be reverified'),
+    },
+  );
+  await t.test('runner never re-verifies legacy completion before predecessor verified_at', () => {
+    for (const document of bDocuments) {
+      const progress = bSameRunnerReverified.runStatus.documents[document.id];
+      assert.ok(
+        Date.parse(progress.verified_at) >= Date.parse(bLegacyPredecessorVerifiedAt),
+        `${document.id} successor verified_at must not predate its legacy predecessor`,
+      );
+    }
+  });
+  const legacyVerifiedDocument = bDocuments[0];
+  const legacyVerifiedStatusPath = path.join(
+    bSameRunnerSuccessorRoot,
+    'status',
+    `${legacyVerifiedDocument.id}.json`,
+  );
+  const legacyVerifiedRunStatusPath = path.join(bSameRunnerSuccessorRoot, 'run-status.json');
+  const legacyVerifiedOriginals = await Promise.all([
+    legacyVerifiedStatusPath,
+    `${legacyVerifiedStatusPath}.sha256`,
+    legacyVerifiedRunStatusPath,
+    `${legacyVerifiedRunStatusPath}.sha256`,
+  ].map((pathname) => readFile(pathname)));
+  try {
+    const status = JSON.parse(legacyVerifiedOriginals[0]);
+    const runStatus = JSON.parse(legacyVerifiedOriginals[2]);
+    const impossibleVerifiedAt = '2099-07-18T05:59:59.999Z';
+    status.verified_at = impossibleVerifiedAt;
+    const statusSha256 = await writeJsonSidecar(legacyVerifiedStatusPath, status);
+    runStatus.documents[legacyVerifiedDocument.id].verified_at = impossibleVerifiedAt;
+    runStatus.documents[legacyVerifiedDocument.id].status_json_sha256 = statusSha256;
+    await writeJsonSidecar(legacyVerifiedRunStatusPath, runStatus);
+    await t.test('monitor rejects legacy successor verified before predecessor', async () => {
+      await assert.rejects(
+        inspectSuccessorB2(bSameRunnerSuccessorRoot, monitoredBPredecessor),
+        /verified_at.*predecessor|predecessor.*verified_at/u,
+      );
+    });
+    await t.test('receiver rejects legacy successor verified before predecessor', async () => {
+      await assert.rejects(
+        receiveRemoteOcrOffload(sameRunnerUnionOptions, unionReceiveDependencies),
+        /verified_at.*predecessor|predecessor.*verified_at/u,
+      );
+    });
+  } finally {
+    await Promise.all([
+      legacyVerifiedStatusPath,
+      `${legacyVerifiedStatusPath}.sha256`,
+      legacyVerifiedRunStatusPath,
+      `${legacyVerifiedRunStatusPath}.sha256`,
+    ].map((pathname, index) => writeFile(pathname, legacyVerifiedOriginals[index], { mode: 0o600 })));
+  }
+  const resealCompatibility = (mutate) => {
+    const value = structuredClone(compatibility);
+    delete value.compatibility_sha256;
+    mutate(value);
+    value.compatibility_sha256 = sha256(canonicalJson(value));
+    return value;
+  };
+  assert.throws(
+    () => validateDirectedRunnerCompatibilityEvidence({
+      ...compatibility,
+      compatibility_sha256: '0'.repeat(64),
+    }),
+    /evidence SHA-256 is invalid/u,
+  );
+  assert.throws(
+    () => validateDirectedRunnerCompatibilityEvidence(resealCompatibility((value) => {
+      value.extra = true;
+    })),
+    /field set differs/u,
+  );
+  assert.throws(
+    () => validateDirectedRunnerCompatibilityEvidence(resealCompatibility((value) => {
+      delete value.transition;
+    })),
+    /field set differs/u,
+  );
+  assert.throws(
+    () => validateDirectedRunnerCompatibilityEvidence(resealCompatibility((value) => {
+      [value.shards[0].runner_script_sha256, value.shards[1].runner_script_sha256]
+        = [value.shards[1].runner_script_sha256, value.shards[0].runner_script_sha256];
+    })),
+    /not the unique A-new to B-fixed pair/u,
+  );
+  assert.throws(
+    () => validateDirectedRunnerCompatibilityEvidence(resealCompatibility((value) => {
+      value.shards[0].runner_script_sha256 = 'f'.repeat(64);
+    })),
+    /not the unique A-new to B-fixed pair/u,
+  );
   assert.deepEqual(await inspectTree(predecessorRoot), predecessorBefore);
 });
 
@@ -3222,20 +4138,15 @@ test('timeout grant rejects drift and a failed granted attempt 6 is quarantined 
     ['doc-timeout-fails', 2, 1, 'quarantined', 5],
     ['doc-timeout-recovers', 2, 1, 'quarantined', 5],
   ];
-  const attestation = {
-    ...llamaServerAttestation,
-    parallel: 4,
-    production_command_contract: {
-      values: { '--host': '127.0.0.1', '--port': '8112', '--parallel': '4' },
-      flags: ['--mmproj-offload'],
-    },
-  };
+  const predecessorAttestation = llamaAttestationForParallel(4);
+  const successorAttestation = llamaAttestationForParallel(1);
   const { documents, grant, ledgerRoot } = await createTimeoutRecoveryPredecessor({
     inputRoot,
     predecessorRoot,
     manifestPath,
     specifications,
-    attestation,
+    attestation: predecessorAttestation,
+    ocrScriptSha256: sha256(await readFile(ocrScript)),
   });
   const optionsFor = (outputRoot, extra = {}) => ({
     manifest: manifestPath,
@@ -3251,7 +4162,7 @@ test('timeout grant rejects drift and a failed granted attempt 6 is quarantined 
     llamaUrl: workerConfiguration.llama_url,
     runtimeDevice,
     vlRecMaxConcurrency: 1,
-    serverParallel: 4,
+    serverParallel: 1,
     microBatch: 16,
     useQueues: true,
     childIdleTimeoutSeconds: 1200,
@@ -3263,7 +4174,7 @@ test('timeout grant rejects drift and a failed granted attempt 6 is quarantined 
   const dependencies = {
     pageCounter: () => 2,
     runtime,
-    llamaServerAttestation: attestation,
+    llamaServerAttestation: successorAttestation,
     pythonRuntime,
     paddlexLayoutModelCache,
     runnerScriptSha256: 'e'.repeat(64),
@@ -4242,4 +5153,204 @@ test('persistent OCR failure quarantines after five attempts and restart does no
   assert.equal(invocations, 5, 'a quarantined document must not be invoked again after restart');
   assert.equal(sleeps.length, sleepCount, 'a quarantined document must not schedule another backoff');
   assert.equal(second.runStatus.documents['doc-failing'].status, 'quarantined');
+});
+
+test('seed runner rejects a noncanonical legacy completed timestamp', async (t) => {
+  const { root, inputRoot } = await fixture(t);
+  const predecessorRoot = path.join(root, 'legacy-complete-predecessor');
+  const successorRoot = path.join(root, 'legacy-complete-successor');
+  const manifestPath = path.join(inputRoot, 'legacy-complete.json');
+  const predecessorAttestation = llamaAttestationForParallel(4);
+  const successorAttestation = llamaAttestationForParallel(1);
+  const { documents, paddlexLayoutModelCache: fixtureCache } = await createTimeoutRecoveryPredecessor({
+    inputRoot,
+    predecessorRoot,
+    manifestPath,
+    specifications: [['doc-complete', 1, 1, 'complete', 1]],
+    attestation: predecessorAttestation,
+    receiverNativeArtifacts: true,
+    ocrScriptSha256: legacyB1OcrScriptSha256,
+    materializePaddlexCache: true,
+    completeStatusFormat: 'legacy_reverified',
+  });
+  const noncanonical = '2026-07-17T04:10:00Z';
+  const statusPath = path.join(predecessorRoot, 'status', 'doc-complete.json');
+  const status = JSON.parse(await readFile(statusPath, 'utf8'));
+  status.verified_at = noncanonical;
+  const statusSha256 = await writeJsonSidecar(statusPath, status);
+  const runStatusPath = path.join(predecessorRoot, 'run-status.json');
+  const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+  runStatus.documents['doc-complete'].verified_at = noncanonical;
+  runStatus.documents['doc-complete'].status_json_sha256 = statusSha256;
+  await writeJsonSidecar(runStatusPath, runStatus);
+
+  await assert.rejects(runRemoteOcrOffload({
+    manifest: manifestPath,
+    inputRoot,
+    outputRoot: successorRoot,
+    python: process.execPath,
+    ocrScript: fileURLToPath(new URL('../scripts/ocr-pdf-paddle.py', import.meta.url)),
+    model: '/unused/model',
+    mmproj: '/unused/mmproj',
+    llamaRepo: '/unused/llama',
+    llamaServerBin,
+    llamaSystemdUnit,
+    llamaUrl: workerConfiguration.llama_url,
+    runtimeDevice,
+    vlRecMaxConcurrency: 1,
+    serverParallel: 1,
+    microBatch: 16,
+    useQueues: true,
+    childIdleTimeoutSeconds: 1200,
+    seedFromOutputRoot: predecessorRoot,
+    seedOnly: true,
+  }, {
+    pageCounter: (_python, sourcePath) => documents.find(
+      (document) => path.basename(document.source_path) === path.basename(sourcePath),
+    ).page_count,
+    runtime,
+    llamaServerAttestation: successorAttestation,
+    pythonRuntime,
+    paddlexLayoutModelCache: fixtureCache,
+    runnerScriptSha256: 'e'.repeat(64),
+    handleSignals: false,
+  }), /canonical|timestamp/u);
+});
+
+test('restart validates final-attempt output before sealing or quarantine', async (t) => {
+  const prepareCrashWindow = async (testContext, suffix, { corruptState = false } = {}) => {
+    const { inputRoot, outputRoot, ocrScript } = await fixture(testContext);
+    const source = `final-attempt-${suffix}-source`;
+    await writeFile(path.join(inputRoot, `pdfs/${suffix}.pdf`), source);
+    const document = documentFor(`doc-${suffix}`, `pdfs/${suffix}.pdf`, source, 1);
+    const manifestPath = path.join(inputRoot, `${suffix}.json`);
+    await writeFile(manifestPath, `${JSON.stringify(manifestFor([document]), null, 2)}\n`);
+    const options = offloadOptions({ manifestPath, inputRoot, outputRoot, ocrScript });
+    const dependencies = {
+      pageCounter: () => 1,
+      runtime,
+      llamaServerAttestation,
+      pythonRuntime,
+      paddlexLayoutModelCache,
+      runnerScriptSha256: 'e'.repeat(64),
+      handleSignals: false,
+      invokeOcr: async () => {
+        await createCompletedOutput(outputRoot, document);
+        return { code: 0, signal: null };
+      },
+    };
+    assert.equal((await runRemoteOcrOffload(options, dependencies)).exitCode, 0);
+    if (corruptState) {
+      const statePath = path.join(outputRoot, 'documents', document.id, 'state.json');
+      const state = JSON.parse(await readFile(statePath, 'utf8'));
+      state.completed_pages = [];
+      state.selected_pages_complete = false;
+      await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`);
+    }
+    const identity = JSON.parse(await readFile(path.join(outputRoot, 'run-identity.json'), 'utf8'));
+    const startedAt = '2026-07-18T07:00:00.000Z';
+    const statusPath = path.join(outputRoot, 'status', `${document.id}.json`);
+    const statusSha256 = await writeJsonSidecar(statusPath, {
+      schema_version: 1,
+      document_id: document.id,
+      status: 'running',
+      attempt: 5,
+      max_attempts: 5,
+      page_count: 1,
+      runtime_fingerprint_sha256: identity.runtime_fingerprint_sha256,
+      citation_allowed: false,
+      started_at: startedAt,
+    });
+    const runStatusPath = path.join(outputRoot, 'run-status.json');
+    const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+    runStatus.documents[document.id] = {
+      status: 'running',
+      attempts: 5,
+      page_count: 1,
+      started_at: startedAt,
+      status_json_sha256: statusSha256,
+    };
+    runStatus.finished = false;
+    runStatus.settled = false;
+    runStatus.counts = {
+      total: 1,
+      complete: 0,
+      failed: 0,
+      interrupted: 0,
+      pending: 0,
+      running: 1,
+      retry_wait: 0,
+      quarantined: 0,
+    };
+    await writeJsonSidecar(runStatusPath, runStatus);
+    return { dependencies, document, options };
+  };
+
+  await t.test('valid attempt 5 state is sealed without attempt 6', async (t) => {
+    const { dependencies, document, options } = await prepareCrashWindow(t, 'valid');
+    const restarted = await runRemoteOcrOffload(options, {
+      ...dependencies,
+      invokeOcr: async () => assert.fail('valid final-attempt output must not consume another attempt'),
+    });
+    assert.equal(restarted.exitCode, 0);
+    assert.equal(restarted.runStatus.documents[document.id].status, 'complete');
+    assert.equal(restarted.runStatus.documents[document.id].attempts, 5);
+  });
+
+  await t.test('incomplete attempt 5 state remains fail-closed', async (t) => {
+    const { dependencies, document, options } = await prepareCrashWindow(
+      t,
+      'incomplete',
+      { corruptState: true },
+    );
+    const restarted = await runRemoteOcrOffload(options, {
+      ...dependencies,
+      invokeOcr: async () => assert.fail('incomplete final-attempt output must not consume another attempt'),
+    });
+    assert.equal(restarted.exitCode, 12);
+    assert.equal(restarted.runStatus.documents[document.id].status, 'quarantined');
+  });
+});
+
+test('runner rejects a resealed completion whose completed_at predates started_at', async (t) => {
+  const { inputRoot, outputRoot, ocrScript } = await fixture(t);
+  const source = 'impossible completion timeline';
+  await writeFile(path.join(inputRoot, 'pdfs/impossible-timeline.pdf'), source);
+  const document = documentFor('doc-impossible-timeline', 'pdfs/impossible-timeline.pdf', source, 1);
+  const manifestPath = path.join(inputRoot, 'impossible-timeline.json');
+  await writeFile(manifestPath, `${JSON.stringify(manifestFor([document]), null, 2)}\n`);
+  const options = offloadOptions({ manifestPath, inputRoot, outputRoot, ocrScript });
+  const dependencies = {
+    pageCounter: () => 1,
+    runtime,
+    llamaServerAttestation,
+    pythonRuntime,
+    paddlexLayoutModelCache,
+    runnerScriptSha256: 'e'.repeat(64),
+    handleSignals: false,
+    invokeOcr: async () => {
+      await createCompletedOutput(outputRoot, document);
+      return { code: 0, signal: null };
+    },
+  };
+  assert.equal((await runRemoteOcrOffload(options, dependencies)).exitCode, 0);
+  const impossibleCompletedAt = '2026-07-17T00:00:00.000Z';
+  const laterStartedAt = '2026-07-17T00:05:00.000Z';
+  const statusPath = path.join(outputRoot, 'status', `${document.id}.json`);
+  const status = JSON.parse(await readFile(statusPath, 'utf8'));
+  status.completed_at = impossibleCompletedAt;
+  const statusSha256 = await writeJsonSidecar(statusPath, status);
+  const runStatusPath = path.join(outputRoot, 'run-status.json');
+  const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+  runStatus.documents[document.id].started_at = laterStartedAt;
+  runStatus.documents[document.id].completed_at = impossibleCompletedAt;
+  runStatus.documents[document.id].status_json_sha256 = statusSha256;
+  await writeJsonSidecar(runStatusPath, runStatus);
+  await assert.rejects(
+    runRemoteOcrOffload(options, {
+      ...dependencies,
+      invokeOcr: async () => assert.fail('invalid lifecycle must fail before OCR invocation'),
+    }),
+    /timestamp|chronological|before|after/u,
+  );
 });

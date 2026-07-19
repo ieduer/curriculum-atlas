@@ -2012,7 +2012,7 @@ test('receiver independently verifies seeded lineage, attempt floors, and archiv
     });
     await assert.rejects(
       receiveRemoteOcrOffload(value.options, value.dependencies),
-      /p1 shard execution contracts differ/,
+      /p1 shard union runner drift is outside the unique directed A\+B compatibility pair/,
     );
   });
 
@@ -2820,4 +2820,162 @@ test('a mixed reprocess commit failure restores the exact original partial tree 
     'utf8',
   ));
   assert.equal(receipt.status, 'rolled_back_after_apply_failure');
+});
+
+test('receiver rejects malformed later inherited completion lifecycle records', async (t) => {
+  const value = await fixture(t);
+  await convertShardToHashBoundSeed(value.shardA, { transition: seedAwareTransition });
+  await convertShardToHashBoundSeed(value.shardB, { transition: seedAwareTransition });
+
+  const statusPath = path.join(value.shardA.shardRoot, 'status', 'doc-a.json');
+  const status = JSON.parse(await readFile(statusPath, 'utf8'));
+  status.attempt = 1;
+  status.max_attempts = 5;
+  status.verified_at = 'not-a-canonical-timestamp';
+  status.unexpected_status_field = true;
+  delete status.seed_lineage;
+  const statusWritten = await writeJson(statusPath, status);
+  await writeSidecar(statusPath, statusWritten.sha256);
+
+  const runStatusPath = path.join(value.shardA.shardRoot, 'run-status.json');
+  const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+  const progress = runStatus.documents['doc-a'];
+  progress.status_json_sha256 = statusWritten.sha256;
+  progress.verified_at = status.verified_at;
+  progress.unexpected_progress_field = true;
+  const runStatusWritten = await writeJson(runStatusPath, runStatus);
+  await writeSidecar(runStatusPath, runStatusWritten.sha256);
+
+  await assert.rejects(
+    receiveRemoteOcrOffload(value.options, value.dependencies),
+    /field set|canonical|timestamp/u,
+  );
+});
+
+test('receiver preserves receipt state linkage and exact no-grant seed lineage after reverify', async (t) => {
+  const assertRejectsStateMutation = async (testContext, writeMutation, expected) => {
+    const value = await fixture(testContext);
+    await convertShardToHashBoundSeed(value.shardA, { transition: seedAwareTransition });
+    await convertShardToHashBoundSeed(value.shardB, { transition: seedAwareTransition });
+
+    const statePath = path.join(value.shardA.shardRoot, 'documents', 'doc-a', 'state.json');
+    const state = JSON.parse(await readFile(statePath, 'utf8'));
+    const stateSha256 = await writeMutation(statePath, state);
+
+    const statusPath = path.join(value.shardA.shardRoot, 'status', 'doc-a.json');
+    const status = JSON.parse(await readFile(statusPath, 'utf8'));
+    status.attempt = 1;
+    status.max_attempts = 5;
+    status.verified_at = '2026-07-16T00:31:00.000Z';
+    status.artifacts.state_sha256 = stateSha256;
+    delete status.seed_lineage;
+    const statusWritten = await writeJson(statusPath, status);
+    await writeSidecar(statusPath, statusWritten.sha256);
+
+    const runStatusPath = path.join(value.shardA.shardRoot, 'run-status.json');
+    const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+    runStatus.documents['doc-a'].verified_at = status.verified_at;
+    runStatus.documents['doc-a'].status_json_sha256 = statusWritten.sha256;
+    const runStatusWritten = await writeJson(runStatusPath, runStatus);
+    await writeSidecar(runStatusPath, runStatusWritten.sha256);
+
+    await assert.rejects(
+      receiveRemoteOcrOffload(value.options, value.dependencies),
+      expected,
+    );
+  };
+
+  await t.test('receipt successor state SHA-256 remains binding', async (t) => {
+    await assertRejectsStateMutation(t, async (statePath, state) => {
+      const raw = `${JSON.stringify(state, null, 2)} \n`;
+      await writeFile(statePath, raw);
+      return sha256(raw);
+    }, /successor_state|state.*receipt/u);
+  });
+
+  await t.test('no-grant state lineage retains an exact field set', async (t) => {
+    await assertRejectsStateMutation(t, async (statePath, state) => {
+      state.seed_lineage.unexpected_lineage_field = true;
+      return (await writeJson(statePath, state)).sha256;
+    }, /lineage.*field set/u);
+  });
+});
+
+test('receiver rejects noncanonical legacy predecessor completion timestamps', async (t) => {
+  const value = await fixture(t);
+  const statusPath = path.join(value.shardA.shardRoot, 'status', 'doc-a.json');
+  const status = JSON.parse(await readFile(statusPath, 'utf8'));
+  status.verified_at = '2026-07-16T00:30:00Z';
+  const statusWritten = await writeJson(statusPath, status);
+  await writeSidecar(statusPath, statusWritten.sha256);
+  const runStatusPath = path.join(value.shardA.shardRoot, 'run-status.json');
+  const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+  runStatus.documents['doc-a'].verified_at = status.verified_at;
+  runStatus.documents['doc-a'].status_json_sha256 = statusWritten.sha256;
+  const runStatusWritten = await writeJson(runStatusPath, runStatus);
+  await writeSidecar(runStatusPath, runStatusWritten.sha256);
+  await convertShardToHashBoundSeed(value.shardA, { transition: seedAwareTransition });
+  await convertShardToHashBoundSeed(value.shardB, { transition: seedAwareTransition });
+  await assert.rejects(
+    receiveRemoteOcrOffload(value.options, value.dependencies),
+    /canonical|timestamp/u,
+  );
+});
+
+test('receiver rejects a legacy successor verified before its predecessor', async (t) => {
+  const value = await fixture(t);
+  await convertShardToHashBoundSeed(value.shardA, { transition: seedAwareTransition });
+  await convertShardToHashBoundSeed(value.shardB, { transition: seedAwareTransition });
+
+  const statusPath = path.join(value.shardA.shardRoot, 'status', 'doc-a.json');
+  const status = JSON.parse(await readFile(statusPath, 'utf8'));
+  status.attempt = 1;
+  status.max_attempts = 5;
+  status.verified_at = '2026-07-16T00:29:00.000Z';
+  delete status.seed_lineage;
+  const statusWritten = await writeJson(statusPath, status);
+  await writeSidecar(statusPath, statusWritten.sha256);
+
+  const runStatusPath = path.join(value.shardA.shardRoot, 'run-status.json');
+  const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+  runStatus.documents['doc-a'].verified_at = status.verified_at;
+  runStatus.documents['doc-a'].status_json_sha256 = statusWritten.sha256;
+  const runStatusWritten = await writeJson(runStatusPath, runStatus);
+  await writeSidecar(runStatusPath, runStatusWritten.sha256);
+
+  await assert.rejects(
+    receiveRemoteOcrOffload(value.options, value.dependencies),
+    /verified_at.*predecessor|predecessor.*verified_at|timestamp.*predecessor/u,
+  );
+});
+
+test('receiver rejects completed_at before started_at', async (t) => {
+  const value = await fixture(t);
+  const completedAt = '2026-07-16T00:20:00.000Z';
+  const startedAt = '2026-07-16T00:25:00.000Z';
+  for (const [shard, documentId] of [
+    [value.shardA, 'doc-a'],
+    [value.shardB, 'doc-b'],
+  ]) {
+    const statusPath = path.join(shard.shardRoot, 'status', `${documentId}.json`);
+    const status = JSON.parse(await readFile(statusPath, 'utf8'));
+    status.attempt = 1;
+    status.max_attempts = 5;
+    status.completed_at = completedAt;
+    delete status.verified_at;
+    const statusWritten = await writeJson(statusPath, status);
+    await writeSidecar(statusPath, statusWritten.sha256);
+    const runStatusPath = path.join(shard.shardRoot, 'run-status.json');
+    const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+    runStatus.documents[documentId].started_at = startedAt;
+    runStatus.documents[documentId].completed_at = completedAt;
+    delete runStatus.documents[documentId].verified_at;
+    runStatus.documents[documentId].status_json_sha256 = statusWritten.sha256;
+    const runStatusWritten = await writeJson(runStatusPath, runStatus);
+    await writeSidecar(runStatusPath, runStatusWritten.sha256);
+  }
+  await assert.rejects(
+    receiveRemoteOcrOffload(value.options, value.dependencies),
+    /timestamp|chronological|before|after/u,
+  );
 });

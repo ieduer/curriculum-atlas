@@ -458,7 +458,7 @@ async function main() {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
-    process.stderr.write(`B3 completion cleanup failed closed: ${error.message}\n`);
+    process.stderr.write(`Remote OCR completion cleanup failed closed: ${error.message}\n`);
     process.exitCode = 2;
   });
 }

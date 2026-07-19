@@ -24,7 +24,12 @@ import {
   parseNvidiaSmi,
   parseSystemdShow,
 } from './monitor-remote-ocr-reprocess.mjs';
-import { fingerprintPaddlexLayoutModelCache } from './run-remote-ocr-offload.mjs';
+import {
+  fingerprintPaddlexLayoutModelCache,
+  validateCompleteProgressContract,
+  validateRunIdentitySeedLineageContract,
+  validateRunStatusSeedLineageContract,
+} from './run-remote-ocr-offload.mjs';
 
 const execFile = promisify(execFileCallback);
 const gib = 1024 ** 3;
@@ -850,14 +855,122 @@ async function exactDirectoryEntries(root, expectedNames, label) {
   return entries;
 }
 
-function predecessorStatusFormat(progress, status) {
+function predecessorStatusFormat(identity, progress, status, statusSha256, state, stateSha256, pageArtifacts) {
+  if (progress.status_json_sha256 !== statusSha256
+    || status.schema_version !== 1
+    || status.document_id !== state.document_id
+    || status.status !== progress.status
+    || status.citation_allowed !== false) {
+    throw new Error(`${state.document_id}: B1 predecessor document status identity mismatch`);
+  }
   if (progress.status === 'pending') return 'pending_no_status';
-  if (progress.status === 'complete' && status.attempt === undefined && status.max_attempts === undefined) {
+  const keys = Object.keys(status).sort();
+  const retryWaitKeys = [
+    'attempt',
+    'citation_allowed',
+    'document_id',
+    'error',
+    'failed_at',
+    'max_attempts',
+    'next_retry_at',
+    'page_count',
+    'retry_delay_seconds',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'status',
+  ].sort();
+  if (progress.status === 'retry_wait'
+    && sameJson(keys, retryWaitKeys)
+    && status.attempt === progress.attempts
+    && status.max_attempts === maxDocumentAttempts
+    && status.page_count === progress.page_count
+    && status.runtime_fingerprint_sha256 === identity.runtime_fingerprint_sha256
+    && status.next_retry_at === progress.next_retry_at
+    && status.error === progress.error
+    && status.failed_at === progress.failed_at
+    && [2, 10, 30, 60].includes(status.retry_delay_seconds)) {
+    return 'complete_identity_v1';
+  }
+  const completedKeys = [
+    'artifacts',
+    'attempt',
+    'citation_allowed',
+    'completed_at',
+    'document_id',
+    'page_count',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'source_sha256',
+    'status',
+    'whole_document_atomic',
+  ].sort();
+  const legacyCompleteKeys = [
+    'artifacts',
+    'citation_allowed',
+    'document_id',
+    'page_count',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'source_sha256',
+    'status',
+    'verified_at',
+    'whole_document_atomic',
+  ].sort();
+  const validateComplete = (timestampField) => {
+    const artifacts = requireObject(status.artifacts, `${state.document_id} B1 complete status artifacts`);
+    if (!sameJson(Object.keys(artifacts).sort(), [
+      'page_artifacts',
+      'page_artifacts_sha256',
+      'state_sha256',
+    ])) {
+      throw new Error(`${state.document_id}: B1 complete status artifacts field set differs`);
+    }
+    if (status.page_count !== progress.page_count
+      || status.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
+      || status.source_sha256 !== state.source_sha256
+      || status.whole_document_atomic !== true
+      || typeof status[timestampField] !== 'string'
+      || !Number.isFinite(Date.parse(status[timestampField]))
+      || new Date(Date.parse(status[timestampField])).toISOString() !== status[timestampField]
+      || status[timestampField] !== progress[timestampField]
+      || artifacts.state_sha256 !== stateSha256
+      || artifacts.page_artifacts_sha256 !== sha256(`${JSON.stringify(pageArtifacts)}\n`)
+      || !sameJson(artifacts.page_artifacts, pageArtifacts)) {
+      throw new Error(`${state.document_id}: B1 complete status identity or artifacts mismatch`);
+    }
+  };
+  if (progress.status === 'complete'
+    && sameJson(keys, completedKeys)
+    && status.attempt === progress.attempts) {
+    validateComplete('completed_at');
+    return 'complete_identity_v1';
+  }
+  if (progress.status === 'complete'
+    && sameJson(keys, legacyCompleteKeys)
+    && status.attempt === undefined
+    && status.max_attempts === undefined) {
+    validateComplete('verified_at');
     return 'legacy_b1_complete_reverified';
   }
+  const legacyInterruptedKeys = [
+    'attempt',
+    'citation_allowed',
+    'document_id',
+    'interrupted_at',
+    'max_attempts',
+    'schema_version',
+    'status',
+  ].sort();
   if (progress.status === 'interrupted'
+    && sameJson(keys, legacyInterruptedKeys)
+    && status.attempt === progress.attempts
+    && status.max_attempts === maxDocumentAttempts
     && status.page_count === undefined
-    && status.runtime_fingerprint_sha256 === undefined) {
+    && status.runtime_fingerprint_sha256 === undefined
+    && typeof status.interrupted_at === 'string'
+    && Number.isFinite(Date.parse(status.interrupted_at))
+    && new Date(Date.parse(status.interrupted_at)).toISOString() === status.interrupted_at
+    && status.interrupted_at === progress.interrupted_at) {
     return 'legacy_b1_interrupted';
   }
   if (progress.status === 'quarantined') {
@@ -889,7 +1002,246 @@ function predecessorStatusFormat(progress, status) {
     }
     return 'timeout_only_quarantine_granted_v1';
   }
-  return 'complete_identity_v1';
+  throw new Error(`${state.document_id}: B1 predecessor document status shape is not exact`);
+}
+
+function validateCompleteProgress({
+  receiptDocument,
+  progress,
+  predecessorProgress,
+  phase,
+  statusTimestampField,
+}) {
+  return validateCompleteProgressContract({
+    receiptDocument,
+    progress,
+    predecessorProgress,
+    phase,
+    statusTimestampField,
+  });
+}
+
+function validateInitialCompleteStatus({
+  receiptDocument,
+  progress,
+  status,
+  statusSha256,
+  state,
+  stateSha256,
+  pageArtifacts,
+  seedId,
+  identity,
+  predecessorProgress,
+}) {
+  if (receiptDocument.predecessor_status !== 'complete'
+    || status.max_attempts !== undefined) return false;
+  const modern = receiptDocument.predecessor_status_format === 'complete_identity_v1';
+  const legacy = receiptDocument.predecessor_status_format === 'legacy_b1_complete_reverified';
+  if (!modern && !legacy) {
+    throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status format is invalid`);
+  }
+  validateCompleteProgress({
+    receiptDocument,
+    progress,
+    predecessorProgress,
+    phase: 'initial',
+    statusTimestampField: receiptDocument.predecessor_status_format === 'complete_identity_v1'
+      ? 'completed_at'
+      : 'verified_at',
+  });
+  const expectedStatusKeys = [
+    'artifacts',
+    'citation_allowed',
+    'document_id',
+    'page_count',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'seed_lineage',
+    'source_sha256',
+    'status',
+    'whole_document_atomic',
+    ...(modern ? ['attempt', 'completed_at'] : ['verified_at']),
+  ].sort();
+  if (!sameJson(Object.keys(status).sort(), expectedStatusKeys)) {
+    throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status field set differs`);
+  }
+  const lineage = requireObject(
+    status.seed_lineage,
+    `${receiptDocument.document_id} B2 initial inherited complete status seed lineage`,
+  );
+  const expectedLineageKeys = [
+    'citation_allowed',
+    'inherited_attempts',
+    'predecessor_status_sha256',
+    'schema_version',
+    'seed_id',
+  ].sort();
+  if (!sameJson(Object.keys(lineage).sort(), expectedLineageKeys)) {
+    throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status seed lineage field set differs`);
+  }
+  const artifacts = requireObject(
+    status.artifacts,
+    `${receiptDocument.document_id} B2 initial inherited complete status artifacts`,
+  );
+  const expectedArtifactKeys = [
+    'page_artifacts',
+    'page_artifacts_sha256',
+    'state_sha256',
+  ].sort();
+  if (!sameJson(Object.keys(artifacts).sort(), expectedArtifactKeys)) {
+    throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status artifacts field set differs`);
+  }
+  if (artifacts.state_sha256 !== stateSha256
+    || artifacts.page_artifacts_sha256 !== sha256(`${JSON.stringify(pageArtifacts)}\n`)
+    || !sameJson(artifacts.page_artifacts, pageArtifacts)) {
+    throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status artifacts differ from state`);
+  }
+  const timestampField = modern ? 'completed_at' : 'verified_at';
+  if (progress.status !== 'complete'
+    || progress.attempts !== receiptDocument.inherited_attempts
+    || status.schema_version !== 1
+    || status.document_id !== receiptDocument.document_id
+    || status.status !== 'complete'
+    || status.citation_allowed !== false
+    || status.page_count !== receiptDocument.page_count
+    || status.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
+    || status.source_sha256 !== state.source_sha256
+    || status.whole_document_atomic !== true
+    || typeof status[timestampField] !== 'string'
+    || !Number.isFinite(Date.parse(status[timestampField]))
+    || new Date(Date.parse(status[timestampField])).toISOString() !== status[timestampField]
+    || status[timestampField] !== progress[timestampField]
+    || (modern && status.attempt !== progress.attempts)
+    || lineage.schema_version !== 1
+    || lineage.seed_id !== seedId
+    || lineage.predecessor_status_sha256 !== receiptDocument.predecessor_status_sha256
+    || lineage.inherited_attempts !== receiptDocument.inherited_attempts
+    || lineage.citation_allowed !== false) {
+    throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status identity differs`);
+  }
+  if (statusSha256 !== receiptDocument.successor_status_sha256
+    || progress.status_json_sha256 !== statusSha256
+    || stateSha256 !== receiptDocument.successor_state_sha256) {
+    throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status or state SHA differs from seed receipt`);
+  }
+  return true;
+}
+
+function validateFullCompleteStatus({
+  receiptDocument,
+  progress,
+  status,
+  state,
+  stateSha256,
+  pageArtifacts,
+  seedId,
+  identity,
+  attemptCeiling,
+  predecessorProgress,
+}) {
+  if (progress.status !== 'complete' || status.max_attempts === undefined) return false;
+  const hasCompletedAt = Object.hasOwn(status, 'completed_at');
+  const hasVerifiedAt = Object.hasOwn(status, 'verified_at');
+  if (hasCompletedAt === hasVerifiedAt) {
+    throw new Error(`${receiptDocument.document_id}: B2 full complete status timestamp field is not exact`);
+  }
+  const timestampField = hasCompletedAt ? 'completed_at' : 'verified_at';
+  validateCompleteProgress({
+    receiptDocument,
+    progress,
+    predecessorProgress,
+    phase: 'full',
+    statusTimestampField: timestampField,
+  });
+  if (receiptDocument.predecessor_status === 'complete') {
+    if (timestampField !== 'verified_at') {
+      throw new Error(`${receiptDocument.document_id}: B2 inherited full complete status timestamp is invalid`);
+    }
+  }
+  const expectedStatusKeys = [
+    'artifacts',
+    'attempt',
+    'citation_allowed',
+    'document_id',
+    'max_attempts',
+    'page_count',
+    'runtime_fingerprint_sha256',
+    'schema_version',
+    'source_sha256',
+    'status',
+    timestampField,
+    'whole_document_atomic',
+    ...(receiptDocument.timeout_recovery ? ['seed_lineage'] : []),
+  ].sort();
+  if (!sameJson(Object.keys(status).sort(), expectedStatusKeys)) {
+    throw new Error(`${receiptDocument.document_id}: B2 full complete status field set differs`);
+  }
+  const artifacts = requireObject(
+    status.artifacts,
+    `${receiptDocument.document_id} B2 full complete status artifacts`,
+  );
+  if (!sameJson(Object.keys(artifacts).sort(), [
+    'page_artifacts',
+    'page_artifacts_sha256',
+    'state_sha256',
+  ])) {
+    throw new Error(`${receiptDocument.document_id}: B2 full complete status artifacts field set differs`);
+  }
+  if (artifacts.state_sha256 !== stateSha256
+    || artifacts.page_artifacts_sha256 !== sha256(`${JSON.stringify(pageArtifacts)}\n`)
+    || !sameJson(artifacts.page_artifacts, pageArtifacts)) {
+    throw new Error(`${receiptDocument.document_id}: B2 full complete status artifacts differ from state`);
+  }
+  if (receiptDocument.predecessor_status === 'complete'
+    && stateSha256 !== receiptDocument.successor_state_sha256) {
+    throw new Error(`${receiptDocument.document_id}: B2 inherited full complete state SHA differs from seed receipt`);
+  }
+  if (status.schema_version !== 1
+    || status.document_id !== receiptDocument.document_id
+    || status.status !== 'complete'
+    || status.attempt !== progress.attempts
+    || status.max_attempts !== attemptCeiling
+    || status.page_count !== receiptDocument.page_count
+    || status.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
+    || status.source_sha256 !== state.source_sha256
+    || status.citation_allowed !== false
+    || status.whole_document_atomic !== true
+    || typeof status[timestampField] !== 'string'
+    || !Number.isFinite(Date.parse(status[timestampField]))
+    || new Date(Date.parse(status[timestampField])).toISOString() !== status[timestampField]
+    || status[timestampField] !== progress[timestampField]) {
+    throw new Error(`${receiptDocument.document_id}: B2 full complete status identity differs`);
+  }
+  if (receiptDocument.timeout_recovery) {
+    const lineage = requireObject(
+      status.seed_lineage,
+      `${receiptDocument.document_id} B2 full complete status seed lineage`,
+    );
+    const expectedLineageKeys = [
+      'citation_allowed',
+      'granted_attempt',
+      'inherited_attempts',
+      'predecessor_status_sha256',
+      'schema_version',
+      'seed_id',
+      'timeout_recovery_first_missing_page',
+      'timeout_recovery_grant_id',
+      'timeout_recovery_grant_sha256',
+    ].sort();
+    if (!sameJson(Object.keys(lineage).sort(), expectedLineageKeys)
+      || lineage.schema_version !== 1
+      || lineage.seed_id !== seedId
+      || lineage.predecessor_status_sha256 !== receiptDocument.predecessor_status_sha256
+      || lineage.inherited_attempts !== receiptDocument.inherited_attempts
+      || lineage.timeout_recovery_grant_id !== receiptDocument.timeout_recovery.grant_id
+      || lineage.timeout_recovery_grant_sha256 !== receiptDocument.timeout_recovery.grant_raw_sha256
+      || lineage.timeout_recovery_first_missing_page !== receiptDocument.timeout_recovery.first_missing_page
+      || lineage.granted_attempt !== attemptCeiling
+      || lineage.citation_allowed !== false) {
+      throw new Error(`${receiptDocument.document_id}: B2 full complete status seed lineage differs`);
+    }
+  }
+  return true;
 }
 
 async function inspectPageTree(root, documentId, page, statePage) {
@@ -1372,11 +1724,26 @@ export async function inspectPredecessorB1(predecessorRoot) {
       sidecar_sha256: statusRecord.sidecar_sha256,
     });
     completedPages += stateSummary.completedPages.length;
+    const validationPageArtifacts = stateSummary.completedPages.map((page) => ({
+      page_number: page,
+      rendered_image_sha256: stateSummary.pages[String(page)].rendered_image_sha256,
+      result_json_sha256: stateSummary.pages[String(page)].result_json_sha256,
+      content_markdown_sha256: stateSummary.pages[String(page)].content_markdown_sha256,
+      citation_eligible: false,
+    }));
     publicDocuments.push({
       document_id: documentId,
       page_count: progress.page_count,
       predecessor_status: progress.status,
-      predecessor_status_format: predecessorStatusFormat(progress, status),
+      predecessor_status_format: predecessorStatusFormat(
+        identity,
+        progress,
+        status,
+        statusRecord.sha256,
+        state,
+        stateRecord.sha256,
+        validationPageArtifacts,
+      ),
       inherited_attempts: progress.attempts,
       completed_pages: stateSummary.completedPages,
       failed_pages: [],
@@ -2510,17 +2877,26 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
     throw new Error('B2 run identity contract is invalid');
   }
   const lineage = requireObject(identity.seed_lineage, 'B2 run identity seed lineage');
-  if (lineage.schema_version !== 1
-    || lineage.mode !== seedMode
-    || lineage.seed_id !== seedId
-    || lineage.seed_receipt_sha256 !== receiptRecord.sha256
-    || lineage.predecessor_run_identity_sha256 !== predecessor.anchors.identity_sha256
-    || lineage.predecessor_run_status_sha256 !== predecessor.anchors.run_status_sha256
-    || lineage.predecessor_snapshot_sha256 !== predecessor.snapshot_sha256
-    || lineage.inherited_pages !== receipt.counts?.inherited_pages
-    || lineage.citation_allowed !== false) {
-    throw new Error('B2 run identity is not bound to the exact seed receipt and B1');
-  }
+  const lineageTimeoutRecovery = receipt.timeout_recovery_grant ? {
+    grantId: receipt.timeout_recovery_grant.grant_id,
+    grantSha256: receipt.timeout_recovery_grant.raw_sha256,
+    ledgerId: receipt.timeout_recovery_consumption?.ledger_id,
+    claimSha256: receipt.timeout_recovery_consumption?.claim_sha256,
+    issuanceClaimKey: receipt.timeout_recovery_issuance?.claim_key,
+    issuanceSha256: receipt.timeout_recovery_issuance?.raw_sha256,
+    documentIds: (receipt.timeout_recovery_grant.documents || []).map(
+      (document) => document.document_id,
+    ),
+  } : null;
+  validateRunIdentitySeedLineageContract(lineage, {
+    seedId,
+    seedReceiptSha256: receiptRecord.sha256,
+    predecessorRunIdentitySha256: predecessor.anchors.identity_sha256,
+    predecessorRunStatusSha256: predecessor.anchors.run_status_sha256,
+    predecessorSnapshotSha256: predecessor.snapshot_sha256,
+    inheritedPages: receipt.counts?.inherited_pages,
+    timeoutRecovery: lineageTimeoutRecovery,
+  }, 'B2 run identity seed lineage');
   if (!sameJson(successorContract.runtime, identity.runtime)
     || !sameJson(successorContract.runtime_fingerprint, identity.runtime_fingerprint)
     || successorContract.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256
@@ -2587,27 +2963,13 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
     throw new Error('B2 run status differs from its run identity');
   }
   const runLineage = requireObject(runStatus.seed_lineage, 'B2 run status seed lineage');
-  if (runLineage.schema_version !== 1
-    || runLineage.mode !== seedMode
-    || runLineage.seed_id !== seedId
-    || runLineage.predecessor_run_identity_sha256 !== predecessor.anchors.identity_sha256
-    || runLineage.predecessor_run_status_sha256 !== predecessor.anchors.run_status_sha256
-    || runLineage.citation_allowed !== false) {
-    throw new Error('B2 run status seed lineage differs from identity');
-  }
-  if (timeoutRecoveryEvidence) {
-    if (runLineage.timeout_recovery_grant_id !== lineage.timeout_recovery_grant_id
-      || runLineage.timeout_recovery_grant_sha256 !== lineage.timeout_recovery_grant_sha256
-      || !sameJson(runLineage.timeout_recovery_documents, lineage.timeout_recovery_documents)
-      || runLineage.timeout_recovery_ledger_id !== lineage.timeout_recovery_ledger_id
-      || runLineage.timeout_recovery_claim_sha256 !== lineage.timeout_recovery_claim_sha256
-      || runLineage.timeout_recovery_issuance_claim_key
-        !== lineage.timeout_recovery_issuance_claim_key
-      || runLineage.timeout_recovery_issuance_sha256
-        !== lineage.timeout_recovery_issuance_sha256) {
-      throw new Error('B2 run status timeout recovery lineage differs from identity');
-    }
-  } else {
+  validateRunStatusSeedLineageContract(runLineage, {
+    seedId,
+    predecessorRunIdentitySha256: predecessor.anchors.identity_sha256,
+    predecessorRunStatusSha256: predecessor.anchors.run_status_sha256,
+    timeoutRecovery: lineageTimeoutRecovery,
+  }, 'B2 run status seed lineage');
+  if (!timeoutRecoveryEvidence) {
     const strayRecoveryLineage = [identity, runStatus, lineage, runLineage]
       .some(containsTimeoutRecoveryKey);
     if (strayRecoveryLineage) throw new Error('B2 no-grant seed contains timeout recovery lineage');
@@ -2691,6 +3053,23 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
       throw new Error('B2 state configuration differs from the successor identity');
     }
     const stateLineage = requireObject(state.seed_lineage, 'B2 state seed lineage');
+    const expectedStateLineageKeys = [
+      'citation_allowed',
+      'inherited_completed_pages',
+      'mode',
+      'predecessor_configuration_sha256',
+      'predecessor_run_identity_sha256',
+      'schema_version',
+      'seed_id',
+      ...(receiptDocument.timeout_recovery ? [
+        'timeout_recovery_first_missing_page',
+        'timeout_recovery_grant_id',
+        'timeout_recovery_grant_sha256',
+      ] : []),
+    ].sort();
+    if (!sameJson(Object.keys(stateLineage).sort(), expectedStateLineageKeys)) {
+      throw new Error(`${documentId}: B2 state seed lineage field set differs`);
+    }
     if (stateLineage.schema_version !== 1
       || stateLineage.mode !== seedMode
       || stateLineage.seed_id !== seedId
@@ -2742,13 +3121,30 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
         if (!sameJson(publicArtifact, expectedArtifact)) throw new Error('B2 inherited page artifact identity drifted');
       }
     }
+    const pageArtifacts = stateSummary.completedPages.map((page) => ({
+      page_number: page,
+      rendered_image_sha256: stateSummary.pages[String(page)].rendered_image_sha256,
+      result_json_sha256: stateSummary.pages[String(page)].result_json_sha256,
+      content_markdown_sha256: stateSummary.pages[String(page)].content_markdown_sha256,
+      citation_eligible: false,
+    }));
     const status = requireObject(statusRecord.value, 'B2 document status');
-    const legacyCompleteInitial = receiptDocument.predecessor_status_format === 'legacy_b1_complete_reverified'
-      && progress.status === 'complete'
-      && progress.attempts === receiptDocument.inherited_attempts
-      && status.attempt === undefined
-      && status.max_attempts === undefined
-      && status.page_count === receiptDocument.page_count;
+    const predecessorProgress = requireObject(
+      predecessor.run_status?.documents?.[documentId],
+      `${documentId} B1 predecessor progress`,
+    );
+    const initialCompleteStatus = validateInitialCompleteStatus({
+      receiptDocument,
+      progress,
+      status,
+      statusSha256: statusRecord.sha256,
+      state,
+      stateSha256: stateRecord.sha256,
+      pageArtifacts,
+      seedId,
+      identity,
+      predecessorProgress,
+    });
     const legacyInterruptedInitial = receiptDocument.predecessor_status_format === 'legacy_b1_interrupted'
       && progress.status === 'interrupted'
       && progress.attempts === receiptDocument.inherited_attempts
@@ -2758,9 +3154,23 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
     const documentAttemptCeiling = receiptDocument.timeout_recovery
       ? maxDocumentAttempts + 1
       : maxDocumentAttempts;
-    const fullSuccessorStatus = status.attempt === progress.attempts
-      && status.max_attempts === documentAttemptCeiling
-      && status.page_count === receiptDocument.page_count;
+    const fullCompleteStatus = validateFullCompleteStatus({
+      receiptDocument,
+      progress,
+      status,
+      state,
+      stateSha256: stateRecord.sha256,
+      pageArtifacts,
+      seedId,
+      identity,
+      attemptCeiling: documentAttemptCeiling,
+      predecessorProgress,
+    });
+    const fullSuccessorStatus = fullCompleteStatus
+      || (progress.status !== 'complete'
+        && status.attempt === progress.attempts
+        && status.max_attempts === documentAttemptCeiling
+        && status.page_count === receiptDocument.page_count);
     const normalizedRecoveryStatus = validateNormalizedRecoveryStatus(
       receiptDocument,
       progress,
@@ -2773,7 +3183,9 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
       || status.document_id !== documentId
       || status.citation_allowed !== false
       || !((rawStatusMatchesProgress
-        && (fullSuccessorStatus || legacyCompleteInitial || legacyInterruptedInitial))
+        && (fullSuccessorStatus
+          || initialCompleteStatus
+          || legacyInterruptedInitial))
         || normalizedRecoveryStatus)
       || status.runtime_fingerprint_sha256 !== identity.runtime_fingerprint_sha256) {
       throw new Error('B2 document status differs from run status or identity');
@@ -2826,13 +3238,6 @@ export async function inspectSuccessorB2(successorRoot, predecessor, nowMillisec
         throw new Error('B2 document status contains stray timeout recovery lineage');
       }
     }
-    const pageArtifacts = stateSummary.completedPages.map((page) => ({
-      page_number: page,
-      rendered_image_sha256: stateSummary.pages[String(page)].rendered_image_sha256,
-      result_json_sha256: stateSummary.pages[String(page)].result_json_sha256,
-      content_markdown_sha256: stateSummary.pages[String(page)].content_markdown_sha256,
-      citation_eligible: false,
-    }));
     if (receiptDocument.timeout_recovery
       && stateSummary.completedPages.length === receiptDocument.page_count
       && stateSummary.failedPageNumbers.length === 0
