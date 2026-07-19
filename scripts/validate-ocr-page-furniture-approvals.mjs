@@ -191,6 +191,7 @@ function retainProtectedReceipt(protectedResources, receipt, role) {
   receipt.protectedRole = role;
   protectedResources.files.push(receipt);
   protectedResources.evidenceRoots.push({
+    requestedPath: receipt.rootRequestedPath,
     canonicalPath: receipt.rootCanonicalPath,
     identity: receipt.rootIdentity,
   });

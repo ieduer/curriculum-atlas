@@ -74,6 +74,13 @@ const REGISTRY_DOCUMENT_IDENTITY_FIELDS = REQUIRED_IDENTITY_FIELDS.filter(
   (field) => field !== 'section_or_item_locator',
 );
 const PDF_RENDER_PROFILE = 'pdftoppm-png-144dpi-cropbox-v1';
+const ONLINE_ENTITLEMENT_MODES = new Set(['repository_canonical', 'non_public_test']);
+const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const CANONICAL_ENTITLEMENT_POLICY_PATH = path.join(
+  REPOSITORY_ROOT,
+  'data/ocr-triangulation-entitlement-policy.json',
+);
+const TRUSTED_ENTITLEMENT_POLICY_SHA256 = '055029cbc16c3e5b91cf8689ec05570d34c44ff8c6a7bdb18aafece674402aa7';
 const execFileAsync = promisify(execFile);
 
 function fail(message) {
@@ -188,13 +195,33 @@ function tableManifestProjection(manifest) {
   };
 }
 
+function splitMarkdownPipeRow(line) {
+  const trimmed = String(line || '').trim();
+  if ((trimmed.match(/\|/g) || []).length < 1) return null;
+  const cells = trimmed.replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
+  return cells.length >= 2 ? cells : null;
+}
+
+function isMarkdownDelimiterRow(cells) {
+  return Array.isArray(cells)
+    && cells.length >= 2
+    && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
 function detectTableFormats(value) {
   const text = String(value || '');
   const formats = [];
   if (/<table\b|<tr\b|<t[dh]\b/i.test(text)) formats.push('html');
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const pipeLines = lines.filter((line) => (line.match(/\|/g) || []).length >= 2);
-  if (pipeLines.length >= 1) formats.push('markdown_pipe');
+  const standardPipeTable = lines.some((line, index) => {
+    const delimiter = splitMarkdownPipeRow(line);
+    const header = index > 0 ? splitMarkdownPipeRow(lines[index - 1]) : null;
+    return isMarkdownDelimiterRow(delimiter)
+      && header?.length === delimiter.length
+      && !isMarkdownDelimiterRow(header);
+  });
+  if (pipeLines.length >= 1 || standardPipeTable) formats.push('markdown_pipe');
   const flatLines = lines.filter((line) => {
     const tabs = (line.match(/\t+/g) || []).length;
     const spaces = (line.match(/ {2,}/g) || []).length;
@@ -218,13 +245,9 @@ function extractTableMatrix(value, sourceFormat) {
     )).filter((row) => row.length);
   }
   if (sourceFormat === 'markdown_pipe') {
-    return text.split(/\r?\n/).map((line) => {
-      const trimmed = line.trim();
-      if ((trimmed.match(/\|/g) || []).length < 2) return null;
-      const cells = trimmed.replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
-      if (cells.every((cell) => /^:?-{3,}:?$/.test(cell))) return null;
-      return cells;
-    }).filter(Boolean);
+    return text.split(/\r?\n/)
+      .map((line) => splitMarkdownPipeRow(line))
+      .filter((cells) => cells && !isMarkdownDelimiterRow(cells));
   }
   if (sourceFormat === 'flattened_text') {
     return text.split(/\r?\n/)
@@ -1078,6 +1101,105 @@ function requirePageImageHashes(value, label) {
   return hashes.map((hash, index) => requireString(hash, `${label}[${index}]`, SHA256_PATTERN));
 }
 
+function validatePageTextRegion(region, label, expectedTextSha) {
+  const value = requireObject(region, label);
+  if (value.coordinate_space !== 'normalized_page_v1') {
+    fail(`${label}.coordinate_space must equal normalized_page_v1`);
+  }
+  const bbox = requireArray(value.bbox, `${label}.bbox`);
+  if (bbox.length !== 4
+    || bbox.some((coordinate) => typeof coordinate !== 'number'
+      || !Number.isFinite(coordinate)
+      || coordinate < 0
+      || coordinate > 1)
+    || bbox[0] >= bbox[2]
+    || bbox[1] >= bbox[3]) {
+    fail(`${label}.bbox must be a non-empty normalized [x0,y0,x1,y1] rectangle`);
+  }
+  if (requireString(value.text_sha256, `${label}.text_sha256`, SHA256_PATTERN)
+    !== expectedTextSha) {
+    fail(`${label} text identity drifted`);
+  }
+}
+
+function validateCitedPageMappings(
+  receipt,
+  decision,
+  evidence,
+  sourceSequence,
+  onlineSequence,
+  label,
+) {
+  const mappings = requireArray(receipt.cited_page_mappings, `${label}.cited_page_mappings`);
+  if (!mappings.length) fail(`${label}.cited_page_mappings must not be empty`);
+  if (requireString(
+    receipt.cited_page_mapping_sha256,
+    `${label}.cited_page_mapping_sha256`,
+    SHA256_PATTERN,
+  ) !== sha256(JSON.stringify(mappings))) {
+    fail(`${label} cited-page mapping SHA-256 drifted`);
+  }
+  const seenOnlinePages = new Set();
+  let hasSameCitedImage = false;
+  for (const [index, rawMapping] of mappings.entries()) {
+    const mappingLabel = `${label}.cited_page_mappings[${index}]`;
+    const mapping = requireObject(rawMapping, mappingLabel);
+    const sourcePage = requireInteger(
+      mapping.source_physical_page,
+      `${mappingLabel}.source_physical_page`,
+      1,
+    );
+    const onlinePage = requireInteger(
+      mapping.online_physical_page,
+      `${mappingLabel}.online_physical_page`,
+      1,
+    );
+    if (sourcePage !== decision.physical_page || sourcePage > sourceSequence.page_count) {
+      fail(`${mappingLabel} does not map the exact cited source page`);
+    }
+    if (onlinePage > onlineSequence.page_count) {
+      fail(`${mappingLabel}.online_physical_page exceeds the online artifact`);
+    }
+    if (seenOnlinePages.has(onlinePage)) fail(`${label} repeats an online cited page mapping`);
+    seenOnlinePages.add(onlinePage);
+    const sourcePageSha = sourceSequence.page_image_sha256[sourcePage - 1];
+    const onlinePageSha = onlineSequence.page_image_sha256[onlinePage - 1];
+    if (requireString(
+      mapping.source_page_image_sha256,
+      `${mappingLabel}.source_page_image_sha256`,
+      SHA256_PATTERN,
+    ) !== sourcePageSha
+      || requireString(
+        mapping.online_page_image_sha256,
+        `${mappingLabel}.online_page_image_sha256`,
+        SHA256_PATTERN,
+      ) !== onlinePageSha) {
+      fail(`${mappingLabel} cited-page image identity drifted`);
+    }
+    validatePageTextRegion(
+      mapping.source_text_region,
+      `${mappingLabel}.source_text_region`,
+      decision.accepted_text_sha256,
+    );
+    validatePageTextRegion(
+      mapping.online_text_region,
+      `${mappingLabel}.online_text_region`,
+      evidence.snapshot_identity.text_sha256,
+    );
+    if (sourcePageSha === onlinePageSha) hasSameCitedImage = true;
+  }
+  const expectedResult = hasSameCitedImage
+    ? 'same_cited_page_image'
+    : 'different_cited_page_images';
+  if (receipt.cited_page_identity_result !== expectedResult) {
+    fail(`${label}.cited_page_identity_result contradicts exact mapped page images`);
+  }
+  if (hasSameCitedImage && evidence.independent_for_decision) {
+    fail(`${decision.decision_id}/${evidence.source_id} same cited page image cannot be independent`);
+  }
+  return expectedResult;
+}
+
 async function validateArtifactIdentityReceipt(
   decision,
   evidence,
@@ -1107,6 +1229,7 @@ async function validateArtifactIdentityReceipt(
   receiptRead.protectedRole = 'online_artifact_receipt';
   protectedResources.files.push(receiptRead);
   protectedResources.onlineDirectories.push({
+    requestedPath: receiptRead.parentRequestedPath,
     canonicalPath: receiptRead.parentCanonicalPath,
     identity: receiptRead.parentIdentity,
   });
@@ -1121,8 +1244,8 @@ async function validateArtifactIdentityReceipt(
   }
   const label = `${decision.decision_id}/${evidence.source_id} artifact identity receipt`;
   requireObject(receipt, label);
-  if (receipt.schema_version !== 1
-    || receipt.artifact_profile !== 'ocr-online-artifact-identity-receipt-v1') {
+  if (receipt.schema_version !== 2
+    || receipt.artifact_profile !== 'ocr-online-artifact-identity-receipt-v2') {
     fail(`${label} schema or artifact profile is invalid`);
   }
   if (requireString(receipt.source_pdf_sha256, `${label}.source_pdf_sha256`, SHA256_PATTERN)
@@ -1168,6 +1291,7 @@ async function validateArtifactIdentityReceipt(
   onlineArtifactRead.protectedRole = 'online_artifact';
   protectedResources.files.push(onlineArtifactRead);
   protectedResources.onlineDirectories.push({
+    requestedPath: onlineArtifactRead.parentRequestedPath,
     canonicalPath: onlineArtifactRead.parentCanonicalPath,
     identity: onlineArtifactRead.parentIdentity,
   });
@@ -1223,6 +1347,14 @@ async function validateArtifactIdentityReceipt(
     || onlineCount !== onlineSequence.page_count) {
     fail(`${label} recomputed page-image sequence aggregate or count drifted`);
   }
+  const citedPageIdentityResult = validateCitedPageMappings(
+    receipt,
+    decision,
+    evidence,
+    sourceSequence,
+    onlineSequence,
+    label,
+  );
   const sameSequence = sourceSequence.page_count === onlineSequence.page_count
     && JSON.stringify(sourceSequence.page_image_sha256)
       === JSON.stringify(onlineSequence.page_image_sha256);
@@ -1239,7 +1371,11 @@ async function validateArtifactIdentityReceipt(
     && !evidence.independent_for_decision) {
     fail(`${decision.decision_id}/${evidence.source_id} different artifact is not marked independent`);
   }
-  return { identity_result: expectedResult, online_artifact_sha256: onlineArtifactSha };
+  return {
+    identity_result: expectedResult,
+    cited_page_identity_result: citedPageIdentityResult,
+    online_artifact_sha256: onlineArtifactSha,
+  };
 }
 
 async function validateOnlineEvidenceSnapshots(
@@ -1266,6 +1402,7 @@ async function validateOnlineEvidenceSnapshots(
       contentRead.protectedRole = 'online_snapshot';
       protectedResources.files.push(contentRead);
       protectedResources.onlineDirectories.push({
+        requestedPath: contentRead.parentRequestedPath,
         canonicalPath: contentRead.parentCanonicalPath,
         identity: contentRead.parentIdentity,
       });
@@ -1337,6 +1474,8 @@ function validateDecisionEntitlements(decisions) {
       && ['normalized_exact', 'snapshot_contains_accepted_text', 'structured_conflicts_resolved']
         .includes(item.validated_snapshot_relation)
       && item.validated_artifact_identity?.identity_result === 'different_page_asset_sequence'
+      && item.validated_artifact_identity?.cited_page_identity_result
+        === 'different_cited_page_images'
     ));
     if (!eligible) {
       fail(`${decision.decision_id} citation decision requires an independent exact-edition online transcription`);
@@ -1369,6 +1508,7 @@ async function readRegularFileNoFollow(
       protectedResources.files.push(receipt);
       if (root) {
         protectedResources.evidenceRoots.push({
+          requestedPath: receipt.rootRequestedPath,
           canonicalPath: receipt.rootCanonicalPath,
           identity: receipt.rootIdentity,
         });
@@ -1379,6 +1519,112 @@ async function readRegularFileNoFollow(
     if (String(error?.message || '').startsWith('OCR triangulation audit:')) throw error;
     fail(error.message);
   }
+}
+
+function validateEntitlementPolicy(input, raw) {
+  if (sha256(raw) !== TRUSTED_ENTITLEMENT_POLICY_SHA256) {
+    fail('repository citation entitlement policy is not the Git-reviewed trusted digest');
+  }
+  const policyDocument = requireObject(input, 'citation entitlement policy');
+  if (policyDocument.schema_version !== 1
+    || policyDocument.artifact_profile !== 'ocr-triangulation-entitlement-policy-v1') {
+    fail('citation entitlement policy schema or artifact profile is invalid');
+  }
+  const policy = requireObject(policyDocument.policy, 'citation entitlement policy.policy');
+  if (policy.production_citation_requires_repository_canonical_paths !== true
+    || policy.production_citation_requires_reviewed_digests !== true
+    || policy.non_public_test_mode_never_grants_citation !== true) {
+    fail('citation entitlement policy must require canonical paths, reviewed digests, and test fail-closed behavior');
+  }
+  const registry = requireObject(
+    policyDocument.canonical_online_source_registry,
+    'citation entitlement policy.canonical_online_source_registry',
+  );
+  const registryPath = normalizeRelativeEvidencePath(
+    registry.path,
+    'citation entitlement policy.canonical_online_source_registry.path',
+  );
+  if (registryPath !== 'data/ocr-online-source-registry.json') {
+    fail('citation entitlement policy registry path must be the repository canonical registry');
+  }
+  requireString(
+    registry.sha256,
+    'citation entitlement policy.canonical_online_source_registry.sha256',
+    SHA256_PATTERN,
+  );
+  const approvedLedgers = new Map();
+  let previousPath = '';
+  for (const [index, rawLedger] of requireArray(
+    policyDocument.approved_decision_ledgers,
+    'citation entitlement policy.approved_decision_ledgers',
+  ).entries()) {
+    const label = `citation entitlement policy.approved_decision_ledgers[${index}]`;
+    const ledger = requireObject(rawLedger, label);
+    const ledgerPath = normalizeRelativeEvidencePath(ledger.path, `${label}.path`);
+    if (!ledgerPath.startsWith('data/ocr-triangulation-decisions/')) {
+      fail(`${label}.path must be beneath data/ocr-triangulation-decisions`);
+    }
+    if (previousPath && ledgerPath.localeCompare(previousPath, 'en') <= 0) {
+      fail('citation entitlement policy decision ledgers must be unique and sorted');
+    }
+    previousPath = ledgerPath;
+    approvedLedgers.set(
+      ledgerPath,
+      requireString(ledger.sha256, `${label}.sha256`, SHA256_PATTERN),
+    );
+  }
+  return { registryPath, registrySha256: registry.sha256, approvedLedgers };
+}
+
+async function validateProductionCitationTrust({
+  decisionsPath,
+  decisionsRaw,
+  onlineSourceRegistryPath,
+  registryRaw,
+  protectedResources,
+}) {
+  const entitlementRaw = await readRegularFileNoFollow(
+    CANONICAL_ENTITLEMENT_POLICY_PATH,
+    'repository citation entitlement policy',
+    REPOSITORY_ROOT,
+    'utf8',
+    protectedResources,
+    'citation_entitlement_policy',
+  );
+  let parsed;
+  try {
+    parsed = JSON.parse(entitlementRaw);
+  } catch (error) {
+    fail(`citation entitlement policy contains invalid JSON: ${error.message}`);
+  }
+  const policy = validateEntitlementPolicy(parsed, entitlementRaw);
+  const expectedRegistryPath = path.join(REPOSITORY_ROOT, policy.registryPath);
+  if (path.resolve(onlineSourceRegistryPath) !== expectedRegistryPath
+    || await realpath(onlineSourceRegistryPath) !== await realpath(expectedRegistryPath)) {
+    fail('production citation requires the repository canonical online source registry path');
+  }
+  if (sha256(registryRaw) !== policy.registrySha256) {
+    fail('production citation registry bytes are absent from the trusted entitlement policy');
+  }
+  const resolvedDecisionPath = path.resolve(decisionsPath);
+  const relativeDecisionPath = path.relative(REPOSITORY_ROOT, resolvedDecisionPath);
+  if (relativeDecisionPath.startsWith('..') || path.isAbsolute(relativeDecisionPath)) {
+    fail('production citation decision ledger must use a repository canonical path');
+  }
+  const expectedLedgerSha = policy.approvedLedgers.get(relativeDecisionPath);
+  if (!expectedLedgerSha || expectedLedgerSha !== sha256(decisionsRaw)) {
+    fail('production citation decision ledger is absent from the Git-reviewed entitlement policy');
+  }
+  const expectedDecisionPath = path.join(REPOSITORY_ROOT, relativeDecisionPath);
+  if (resolvedDecisionPath !== expectedDecisionPath
+    || await realpath(decisionsPath) !== await realpath(expectedDecisionPath)) {
+    fail('production citation requires a repository canonical decision ledger path');
+  }
+  return {
+    policy_sha256: TRUSTED_ENTITLEMENT_POLICY_SHA256,
+    registry_path: policy.registryPath,
+    decision_ledger_path: relativeDecisionPath,
+  };
 }
 
 function pageKey(page, width) {
@@ -1393,7 +1639,7 @@ function selectFurnitureRule(documentId, page, rules) {
   return matches[0] || null;
 }
 
-function bindDecision(decision, actual, tableFormats) {
+function bindDecision(decision, actual, tableFormats, productionCitationEntitled) {
   const prefix = decision.decision_id;
   if (decision.source_pdf_sha256 !== actual.sourcePdfSha) fail(`${prefix} source PDF SHA-256 drifted`);
   if (decision.rendered_image_sha256 !== actual.imageSha) fail(`${prefix} rendered image SHA-256 drifted`);
@@ -1428,7 +1674,9 @@ function bindDecision(decision, actual, tableFormats) {
     reviewed_at: decision.human_review.reviewed_at,
     resolution: decision.human_review.resolution,
     uncertainty_note: decision.human_review.uncertainty_note,
-    citation_allowed: decision.citation_allowed,
+    citation_candidate_requested: decision.citation_allowed,
+    production_entitlement_applied: decision.citation_allowed && productionCitationEntitled,
+    citation_allowed: decision.citation_allowed && productionCitationEntitled,
   };
 }
 
@@ -1439,6 +1687,10 @@ async function buildOcrTriangulationAuditInternal(options) {
     onlineDirectories: [],
   };
   const pageSequenceCache = new Map();
+  const onlineEntitlementMode = options.onlineEntitlementMode || 'repository_canonical';
+  if (!ONLINE_ENTITLEMENT_MODES.has(onlineEntitlementMode)) {
+    fail('onlineEntitlementMode must equal repository_canonical or non_public_test');
+  }
   const documentId = requireString(options.documentId, 'documentId', DOCUMENT_ID_PATTERN);
   const start = requireInteger(options.start, 'start', 1);
   const end = requireInteger(options.end, 'end', start);
@@ -1498,6 +1750,7 @@ async function buildOcrTriangulationAuditInternal(options) {
   let decisions = [];
   let decisionLedgerSha = null;
   let onlineSourceRegistrySha = null;
+  let entitlementTrust = null;
   if (options.decisionsPath) {
     const resolvedDecisionsPath = path.resolve(options.decisionsPath);
     const raw = await readRegularFileNoFollow(
@@ -1540,7 +1793,8 @@ async function buildOcrTriangulationAuditInternal(options) {
       registrySources = validateOnlineSourceRegistry(registry);
       onlineSourceRegistrySha = sha256(registryRaw);
     }
-    decisions = validateDecisionLedger(rawLedger, registryRaw, registrySources);
+    const ledgerDecisions = validateDecisionLedger(rawLedger, registryRaw, registrySources);
+    decisions = ledgerDecisions.filter((decision) => decision.document_id === documentId);
     await validateOnlineEvidenceSnapshots(
       decisions,
       resolvedDecisionsPath,
@@ -1550,11 +1804,22 @@ async function buildOcrTriangulationAuditInternal(options) {
       pageSequenceCache,
     );
     validateDecisionEntitlements(decisions);
+    if (decisions.some((decision) => decision.citation_allowed)
+      && onlineEntitlementMode === 'repository_canonical') {
+      entitlementTrust = await validateProductionCitationTrust({
+        decisionsPath: resolvedDecisionsPath,
+        decisionsRaw: raw,
+        onlineSourceRegistryPath: options.onlineSourceRegistryPath,
+        registryRaw,
+        protectedResources,
+      });
+    }
     decisionLedgerSha = sha256(raw);
   }
+  const productionCitationEntitled = Boolean(entitlementTrust)
+    && onlineEntitlementMode === 'repository_canonical';
   const decisionsByPage = new Map();
   for (const decision of decisions) {
-    if (decision.document_id !== documentId) continue;
     const list = decisionsByPage.get(decision.physical_page) || [];
     list.push(decision);
     decisionsByPage.set(decision.physical_page, list);
@@ -1655,7 +1920,12 @@ async function buildOcrTriangulationAuditInternal(options) {
       witnessTextSha,
     };
     const scopedDecisions = (decisionsByPage.get(page) || []).map((decision) => (
-      bindDecision(decision, actual, transcription.table_formats)
+      bindDecision(
+        decision,
+        actual,
+        transcription.table_formats,
+        productionCitationEntitled,
+      )
     ));
     const citationDecisions = scopedDecisions.filter((decision) => (
       decision.decision_scope === 'whole_page' && decision.citation_allowed
@@ -1741,11 +2011,18 @@ async function buildOcrTriangulationAuditInternal(options) {
       scoped_identity: 'document_page_locator_text_hash_bound_and_document_unique',
       search_snippets: 'discovery_only_never_evidence',
       citation_gate: 'hash_bound_whole_page_exact_edition_human_triangulation_only',
+      citation_entitlement: 'repository_canonical_git_reviewed_digest_only',
+      non_public_test_mode: 'validation_only_never_grants_citation',
       unresolved_behavior: 'fail_closed',
     },
     furniture_binding: furnitureBinding,
     decision_ledger_sha256: decisionLedgerSha,
     online_source_registry_sha256: onlineSourceRegistrySha,
+    online_citation_entitlement: {
+      mode: onlineEntitlementMode,
+      production_entitled: productionCitationEntitled,
+      trust: entitlementTrust,
+    },
     summary: {
       pages: pages.length,
       automatic_witness_pass: gateCount('automatic_witness_pass'),
@@ -1829,10 +2106,40 @@ async function prospectiveCanonicalParent(parentPath) {
   return path.join(await realpath(cursor), ...missing);
 }
 
+async function assertRequestedPathStillCanonical(requestedPath, canonicalPath, label, phase) {
+  let currentCanonicalPath;
+  try {
+    currentCanonicalPath = await realpath(requestedPath);
+  } catch (error) {
+    fail(`${label} requested path cannot be resolved ${phase}: ${error.message}`);
+  }
+  if (currentCanonicalPath !== canonicalPath) {
+    fail(`${label} requested canonical path changed ${phase}: ${requestedPath}`);
+  }
+}
+
 async function assertProtectedResourcesUnchanged(protectedResources, phase = 'before output') {
   assertNoForbiddenProtectedAliases(protectedResources);
   const seenFiles = new Set();
   for (const receipt of protectedResources.files) {
+    await assertRequestedPathStillCanonical(
+      receipt.requestedPath,
+      receipt.canonicalPath,
+      'protected input',
+      phase,
+    );
+    await assertRequestedPathStillCanonical(
+      receipt.parentRequestedPath,
+      receipt.parentCanonicalPath,
+      'protected input parent',
+      phase,
+    );
+    await assertRequestedPathStillCanonical(
+      receipt.rootRequestedPath,
+      receipt.rootCanonicalPath,
+      'protected input root',
+      phase,
+    );
     const key = `${receipt.canonicalPath}\0${receipt.fileIdentity.dev}\0${receipt.fileIdentity.ino}`;
     if (seenFiles.has(key)) continue;
     seenFiles.add(key);
@@ -1844,6 +2151,12 @@ async function assertProtectedResourcesUnchanged(protectedResources, phase = 'be
   const directories = [...protectedResources.evidenceRoots, ...protectedResources.onlineDirectories];
   const seenDirectories = new Set();
   for (const directory of directories) {
+    await assertRequestedPathStillCanonical(
+      directory.requestedPath,
+      directory.canonicalPath,
+      'protected evidence directory',
+      phase,
+    );
     const key = `${directory.canonicalPath}\0${directory.identity.dev}\0${directory.identity.ino}`;
     if (seenDirectories.has(key)) continue;
     seenDirectories.add(key);

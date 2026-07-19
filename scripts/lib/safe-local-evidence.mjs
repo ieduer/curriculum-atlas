@@ -120,6 +120,9 @@ export async function readPinnedRegularFileReceipt(filePath, options = {}) {
     }
     return {
       bytes: options.encoding ? bytes.toString(options.encoding) : bytes,
+      requestedPath,
+      parentRequestedPath: parentPin.requestedPath,
+      rootRequestedPath: rootPin.requestedPath,
       canonicalPath: canonicalFilePath,
       parentCanonicalPath: parentPin.canonicalPath,
       rootCanonicalPath: rootPin.canonicalPath,
@@ -156,6 +159,7 @@ export async function readPinnedDirectoryEntries(directoryPath, options = {}) {
     await verifyPinnedDirectory(rootPin, `${label} root`);
     return {
       requestedPath: directoryPin.requestedPath,
+      rootRequestedPath: rootPin.requestedPath,
       entries,
       canonicalPath: directoryPin.canonicalPath,
       directoryIdentity: directoryPin.identity,
