@@ -19,7 +19,7 @@ work/edition ─────┘
 - 编辑分义前每个 concept 只有一个 `undifferentiated_unresolved` sense；定义、有效期和上下位关系保持 `null`/空数组，学科语境留在 occurrence/episode。只有定义证据或人工审核确认实际语义差异后才拆分 sense。
 - `surface_form` 区分 canonical、正字变体、缩略、扩展词形、历史相关形式和语义相关形式。后两类不得自动匹配。
 - `work` 当前按目录文档隔离，不自动去重；`edition` 与 `revision` 分开。版次无法证明时不合并。
-- 历史汇编只按已定位物理页建立 `embedded_item`，不把一页冒充完整篇目。
+- 历史汇编先建立不公开的目录候选；只有正文首标题、下一篇正文标题（末篇则为源文件精确卷末）、候选范围内每一页及当前 corpus release 全部互相绑定后，才建立完整 `embedded_item`。一页片段不再进入图。
 - `occurrence` 是一次有起止偏移的精确词面命中；章节路径、标题、规范角色没有解析证据时分别为 `null`/`unknown`。
 - `relation` 必须有两端证据和 `relation_review`。自动关系一律 `semantic=false`、`influence_claim_allowed=false`。
 
@@ -104,14 +104,15 @@ work/edition ─────┘
 - 频率分子是后者，分母是排除共享段落后的 `eligible_meaningful_characters`；
 - `comparability=within_edition_descriptive_only`，`interpretation=null`。
 
-每个 edition/page fragment 都有 coverage cell。当前所有 cell 固定 `negative_claim_eligible=false`、`alias_search_complete=false`；OCR 页片段固定 `complete=false`。所以语料未命中不能被转述为概念尚未出现、已经消失或被取代。
+每个 edition/完整汇编篇目都有 coverage cell。所有 cell 固定 `negative_claim_eligible=false`、`alias_search_complete=false`；完整汇编篇目只有逐页证据闭合后才可 `complete=true`，该完整性只表示篇目范围已覆盖，不表示概念义项搜索完整。所以语料未命中仍不能被转述为概念尚未出现、已经消失或被取代。
 
 ## 校验
 
 ```bash
 node scripts/build-concept-evolution.mjs
 node scripts/validate-concept-evolution.mjs
+node scripts/validate-compendium-item-boundaries.mjs
 node --test tests/concept-evolution-academic-schema.test.mjs
 ```
 
-校验器检查实体 ID/FK、12 个展示 facet 与全部精确学科身份的唯一映射、目录分类精确计数、课程族/关联学科、显式 `course_entity`、盲校与聋校课程线隔离、2017/2020 版次修订、逐次词面偏移、未知字段不推断、关系双端证据、非语义关系禁止影响主张、OCR 禁止引文、coverage 负面结论关闭，以及非学科来源值不得进入 subject facet。它还逐一验证 76 个本体节点的 scope、父节点、证据锚点和关系端点，固定检查 12 项课程目标、15 项学生能力、18 个任务群、5 个质量等级，并对全部 12 个学科执行隔离回归。
+校验器检查实体 ID/FK、12 个展示 facet 与全部精确学科身份的唯一映射、目录分类精确计数、课程族/关联学科、显式 `course_entity`、盲校与聋校课程线隔离、2017/2020 版次修订、逐次词面偏移、未知字段不推断、关系双端证据、非语义关系禁止影响主张、OCR 页级引文上界、汇编完整篇目边界、coverage 负面结论关闭，以及非学科来源值不得进入 subject facet。它还逐一验证本体节点的 scope、父节点、证据锚点和关系端点，并对全部 12 个学科执行隔离回归。

@@ -4,8 +4,16 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createConceptPublicationGate } from './concept-page-publication.mjs';
+import { validateCompendiumItemBoundaries } from './validate-compendium-item-boundaries.mjs';
 import { isNativeTextRecord } from './page-publication-gate.mjs';
 import { semanticDocumentDisposition } from './semantic-publication-gate.mjs';
+import { validateCorpusManifest } from './import-corpus.mjs';
+import {
+  GRAPH_SHARD_MAX_BYTES,
+  GRAPH_SHARD_TRANSPORT,
+  materializeAcademicGraph,
+  verifyGraphIndexShards,
+} from './graph-shards.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const graphPath = process.env.CONCEPT_GRAPH_OUTPUT_PATH
@@ -20,7 +28,10 @@ const academicPath = process.env.CONCEPT_ACADEMIC_OUTPUT_PATH
 const coreText = await readFile(graphPath, 'utf8');
 const academicText = await readFile(academicPath, 'utf8');
 const core = JSON.parse(coreText);
-const graph = JSON.parse(academicText);
+const academicIndex = JSON.parse(academicText);
+await verifyGraphIndexShards(core, path.dirname(path.dirname(graphPath)));
+await verifyGraphIndexShards(academicIndex, path.dirname(path.dirname(academicPath)));
+const graph = await materializeAcademicGraph(academicIndex, path.dirname(path.dirname(academicPath)));
 const quality = JSON.parse(await readFile(qualityPath, 'utf8'));
 const model = JSON.parse(await readFile(path.join(root, 'data/concept-model-v2.json'), 'utf8'));
 const catalog = JSON.parse(await readFile(path.join(root, 'data/catalog.json'), 'utf8'));
@@ -28,6 +39,21 @@ const pagePublicationManifest = JSON.parse(await readFile(path.join(root, 'data/
 const semanticPublicationPolicy = JSON.parse(
   await readFile(path.join(root, 'data/semantic-publication-policy.json'), 'utf8'),
 );
+const compendiumItemBoundaries = JSON.parse(
+  await readFile(path.join(root, 'data/compendium-item-boundaries.json'), 'utf8'),
+);
+const onlineVerificationSamples = JSON.parse(
+  await readFile(path.join(root, 'data/online-verification-samples.json'), 'utf8'),
+);
+const queue = JSON.parse(await readFile(path.join(root, 'data/ocr-queue.json'), 'utf8'));
+const corpusManifest = validateCorpusManifest(JSON.parse(
+  await readFile(path.join(root, 'data/corpus-chunks/manifest.json'), 'utf8'),
+));
+const compendiumBoundaryValidation = validateCompendiumItemBoundaries(compendiumItemBoundaries, {
+  catalog,
+  queue,
+  onlineVerifications: onlineVerificationSamples,
+});
 const conceptPublicationGate = createConceptPublicationGate({
   manifest: pagePublicationManifest,
   semanticPolicy: semanticPublicationPolicy,
@@ -38,6 +64,7 @@ const catalogById = new Map(catalog.documents.map((record) => [record.id, record
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const currentBuildLogicSha256 = {
   builder_sha256: sha256(await readFile(path.join(root, 'scripts/build-concept-evolution.mjs'))),
+  graph_sharder_sha256: sha256(await readFile(path.join(root, 'scripts/graph-shards.mjs'))),
   concept_publication_gate_sha256: sha256(await readFile(path.join(root, 'scripts/concept-page-publication.mjs'))),
   page_publication_gate_sha256: sha256(await readFile(path.join(root, 'scripts/page-publication-gate.mjs'))),
   semantic_publication_policy_sha256: sha256(
@@ -46,11 +73,27 @@ const currentBuildLogicSha256 = {
   semantic_publication_gate_sha256: sha256(
     await readFile(path.join(root, 'scripts/semantic-publication-gate.mjs')),
   ),
+  compendium_item_boundaries_sha256: sha256(
+    await readFile(path.join(root, 'data/compendium-item-boundaries.json')),
+  ),
+  compendium_item_boundary_gate_sha256: sha256(
+    await readFile(path.join(root, 'scripts/validate-compendium-item-boundaries.mjs')),
+  ),
+  compendium_item_publication_gate_sha256: sha256(
+    await readFile(path.join(root, 'scripts/compendium-item-publication.mjs')),
+  ),
+  online_verification_samples_sha256: sha256(
+    await readFile(path.join(root, 'data/online-verification-samples.json')),
+  ),
+  corpus_manifest_gate_sha256: sha256(
+    await readFile(path.join(root, 'scripts/import-corpus.mjs')),
+  ),
   validator_sha256: sha256(await readFile(path.join(root, 'scripts/validate-concept-evolution.mjs'))),
 };
 
 const failures = [];
 const fail = (condition, message) => { if (!condition) failures.push(message); };
+fail(compendiumBoundaryValidation.valid, `compendium item boundary gate failed: ${JSON.stringify(compendiumBoundaryValidation.errors)}`);
 const facetEntityKinds = new Set(['subject', 'assessment_subject']);
 const isFacetEntity = (item) => facetEntityKinds.has(item?.entity_kind) && item?.facet_eligible === true;
 const arrays = [
@@ -74,7 +117,10 @@ fail(graph.build_revision === quality.build_revision, 'quality/build revision mi
 fail(core.build_revision === graph.build_revision, 'core/academic build revision mismatch');
 fail(core.academic_model_ref?.build_revision === graph.build_revision, 'core academic reference revision mismatch');
 fail(core.academic_model_ref?.sha256 === sha256(academicText), 'core academic reference hash mismatch');
-fail(Buffer.byteLength(coreText) < 4 * 1024 * 1024, 'core artifact exceeds 4 MiB');
+fail(core.transport_profile === GRAPH_SHARD_TRANSPORT && academicIndex.transport_profile === GRAPH_SHARD_TRANSPORT,
+  'graph transport profile mismatch');
+fail(Buffer.byteLength(coreText) <= GRAPH_SHARD_MAX_BYTES, 'core graph index exceeds shard cap');
+fail(Buffer.byteLength(academicText) <= GRAPH_SHARD_MAX_BYTES, 'academic graph index exceeds shard cap');
 fail(quality.passed === true, 'quality report is not passing');
 fail(graph.input_fingerprints?.ocr_concept_publication_sha256 === conceptPublicationGate.revision_sha256, 'OCR concept publication fingerprint mismatch');
 fail(core.input_fingerprints?.ocr_concept_publication_sha256 === conceptPublicationGate.revision_sha256, 'core OCR concept publication fingerprint mismatch');
@@ -82,7 +128,19 @@ fail(quality.input_fingerprints?.ocr_concept_publication_sha256 === conceptPubli
 fail(graph.input_fingerprints?.semantic_publication_revision_sha256 === semanticPublicationGate.revision_sha256, 'semantic publication fingerprint mismatch');
 fail(core.input_fingerprints?.semantic_publication_revision_sha256 === semanticPublicationGate.revision_sha256, 'core semantic publication fingerprint mismatch');
 fail(quality.input_fingerprints?.semantic_publication_revision_sha256 === semanticPublicationGate.revision_sha256, 'quality semantic publication fingerprint mismatch');
+for (const [label, artifact] of [['academic', graph], ['core', core], ['quality', quality]]) {
+  fail(artifact.input_fingerprints?.corpus_manifest_sha256 === corpusManifest.manifest_sha256,
+    `${label} corpus manifest fingerprint mismatch`);
+  fail(artifact.input_fingerprints?.corpus_release_fingerprint_sha256 === corpusManifest.release_fingerprint_sha256,
+    `${label} corpus release fingerprint mismatch`);
+}
 fail(graph.coverage?.ocr_display_accepted_pages === conceptPublicationGate.revision_projection.length, 'OCR display-accepted coverage count mismatch');
+fail(graph.coverage?.compendium_item_candidates === compendiumBoundaryValidation.counts.items,
+  'compendium candidate coverage count mismatch');
+fail(graph.coverage?.compendium_display_verified_items === compendiumBoundaryValidation.counts.display_allowed
+  && graph.coverage?.compendium_citation_verified_items === compendiumBoundaryValidation.counts.citation_allowed
+  && graph.coverage?.compendium_semantic_reviewed_items === compendiumBoundaryValidation.counts.semantic_claim_allowed,
+'compendium publication coverage counts mismatch');
 fail(graph.coverage?.catalog_alias_documents === semanticPublicationGate.aliasById.size, 'catalog alias coverage count mismatch');
 fail(graph.coverage?.catalog_documents === catalog.documents.length - semanticPublicationGate.aliasById.size, 'canonical catalog coverage count mismatch');
 for (const [key, value] of Object.entries(currentBuildLogicSha256)) {
@@ -109,6 +167,12 @@ const works = index('works');
 const editions = index('editions');
 const revisions = index('revisions');
 const embeddedItems = index('embedded_items');
+const compendiumBoundaryItems = compendiumItemBoundaries.documents.flatMap((document) => document.items
+  .map((item) => ({ ...item, boundary_document: document })));
+const compendiumBoundaryItemById = new Map(compendiumBoundaryItems.map((item) => [item.item_id, item]));
+const publishableCompendiumBoundaryIds = new Set(
+  compendiumBoundaryItems.filter((item) => item.display_allowed).map((item) => item.item_id),
+);
 const occurrences = index('occurrences');
 const episodes = index('episodes');
 const relations = index('relations');
@@ -281,7 +345,24 @@ for (const edition of graph.editions) {
   fail(works.has(edition.work_id), `${edition.id}: work missing`);
   fail(lines.has(edition.curriculum_line_id), `${edition.id}: curriculum line missing`);
   fail(edition.effective_date === null, `${edition.id}: unknown effective date was inferred`);
-  if (edition.embedded_item_id !== null) fail(embeddedItems.has(edition.embedded_item_id), `${edition.id}: embedded item missing`);
+  if (edition.embedded_item_id !== null) {
+    fail(embeddedItems.has(edition.embedded_item_id), `${edition.id}: embedded item missing`);
+    const boundary = compendiumBoundaryItemById.get(edition.embedded_item_id);
+    const boundaryItem = embeddedItems.get(edition.embedded_item_id);
+    fail(boundary?.display_allowed === true
+      && edition.id === `edition:${edition.embedded_item_id}`
+      && edition.identity_status === 'verified_compendium_item_edition_boundary'
+      && edition.document_id === boundary.boundary_document.document_id
+      && edition.observation_year === boundary.display_year
+      && edition.observation_year_basis === boundary.year_basis
+      && edition.source_artifact_sha256 === boundary.boundary_document.source_artifact_sha256,
+    `${edition.id}: compendium edition identity drift`);
+    const work = works.get(edition.work_id);
+    fail(work?.identity_status === 'verified_compendium_item_boundary'
+      && work?.canonical_title === boundaryItem?.title
+      && work?.parent_work_id === boundaryItem?.parent_work_id,
+    `${edition.id}: compendium work identity drift`);
+  }
   if (edition.revision_year !== null) {
     fail(graph.revisions.some((revision) => revision.edition_id === edition.id && revision.revision_year === edition.revision_year), `${edition.id}: revision record missing`);
   }
@@ -303,11 +384,46 @@ for (const revision of graph.revisions) {
 }
 
 for (const item of graph.embedded_items) {
+  const boundary = compendiumBoundaryItemById.get(item.id);
   fail(works.has(item.parent_work_id), `${item.id}: parent work missing`);
-  fail(Number.isInteger(item.physical_page_start) && item.physical_page_start === item.physical_page_end, `${item.id}: page fragment silently expanded`);
-  fail(item.identity_status.includes('page_fragment'), `${item.id}: fragment identity not explicit`);
-  fail(Boolean(item.uncertainty_note), `${item.id}: uncertainty note missing`);
+  fail(boundary?.display_allowed === true, `${item.id}: no publishable compendium boundary`);
+  if (!boundary) continue;
+  fail(item.parent_document_id === boundary.boundary_document.document_id
+    && item.parent_item_id === boundary.parent_item_id
+    && item.item_kind === boundary.item_kind,
+  `${item.id}: parent document/item identity drift`);
+  fail(item.title === boundary.title && item.raw_title === boundary.raw_title,
+    `${item.id}: reviewed title drift`);
+  fail(item.identity_status === 'verified_full_item'
+    && item.physical_page_start === boundary.candidate_physical_page_start
+    && item.physical_page_end === boundary.candidate_physical_page_end
+    && item.printed_page_start === boundary.printed_page_start,
+  `${item.id}: verified full-item range drift`);
+  fail(item.display_year === boundary.display_year && item.year_basis === boundary.year_basis
+    && item.stage === boundary.section,
+  `${item.id}: reviewed time/stage drift`);
+  fail(item.page_publication_release_id === boundary.page_evidence.page_publication_release_id
+    && item.page_set_sha256 === boundary.page_evidence.page_set_sha256,
+  `${item.id}: page release evidence drift`);
+  fail(/^page-gate-[a-f0-9]{24}$/.test(item.page_publication_release_id)
+    && item.corpus_release_id === corpusManifest.release_id,
+  `${item.id}: page/corpus release identity drift`);
+  fail(item.online_verification_status === boundary.online_verification.verification_status
+    && JSON.stringify(item.online_source_ids) === JSON.stringify(boundary.online_verification.source_ids),
+  `${item.id}: online evidence drift`);
+  fail(item.citation_allowed === boundary.citation_allowed
+    && item.semantic_claim_allowed === boundary.semantic_claim_allowed,
+  `${item.id}: item claim gate drift`);
+  fail(item.end_boundary_basis === (boundary.sequence < boundary.boundary_document.items.length
+    ? 'next_verified_body_heading' : 'source_artifact_document_end'),
+  `${item.id}: end-boundary basis drift`);
+  fail(item.semantic_claim_allowed === false || item.citation_allowed === true,
+    `${item.id}: semantic claim exceeds citation gate`);
+  if (!item.semantic_claim_allowed) fail(Boolean(item.uncertainty_note), `${item.id}: uncertainty note missing`);
 }
+fail(embeddedItems.size === publishableCompendiumBoundaryIds.size
+  && [...publishableCompendiumBoundaryIds].every((id) => embeddedItems.has(id)),
+'embedded items do not exactly equal the publishable compendium boundary set');
 
 for (const occurrence of graph.occurrences) {
   fail(concepts.has(occurrence.concept_id), `${occurrence.id}: concept missing`);
@@ -316,6 +432,14 @@ for (const occurrence of graph.occurrences) {
   fail(lines.has(occurrence.curriculum_line_id) && works.has(occurrence.work_id) && editions.has(occurrence.edition_id), `${occurrence.id}: identity references missing`);
   fail(evidence.has(occurrence.evidence_id), `${occurrence.id}: evidence missing`);
   if (occurrence.embedded_item_id !== null) fail(embeddedItems.has(occurrence.embedded_item_id), `${occurrence.id}: embedded item missing`);
+  if (occurrence.embedded_item_id !== null) {
+    const item = embeddedItems.get(occurrence.embedded_item_id);
+    fail(occurrence.position?.physical_page >= item?.physical_page_start
+      && occurrence.position?.physical_page <= item?.physical_page_end,
+    `${occurrence.id}: occurrence escaped its verified item range`);
+    fail(occurrence.semantic_claim_allowed === false,
+      `${occurrence.id}: automatic compendium lexical occurrence became semantic`);
+  }
   fail(Number.isInteger(occurrence.year) && occurrence.year >= 1800 && occurrence.year <= 2030, `${occurrence.id}: invalid year`);
   fail(Number.isInteger(occurrence.position?.start) && Number.isInteger(occurrence.position?.end) && occurrence.position.end > occurrence.position.start, `${occurrence.id}: invalid offsets`);
   fail(occurrence.section_context?.section_type === 'unknown' && occurrence.section_context?.normative_role === 'unknown', `${occurrence.id}: unknown section/role was inferred`);
@@ -335,6 +459,25 @@ for (const item of graph.evidence) {
   fail(item.match_offsets.length > 0 && item.match_offsets.every((offset) => Number.isInteger(offset.start) && offset.end > offset.start && surfaces.has(offset.surface_form_id)), `${item.id}: match offsets invalid`);
   fail(item.section_context?.section_type === 'unknown' && item.section_context?.normative_role === 'unknown', `${item.id}: section/role inference not allowed`);
   fail(item.online_verification_id === null || typeof item.online_verification_id === 'string', `${item.id}: invalid online verification ID`);
+  if (item.embedded_item_id !== null) {
+    const embedded = embeddedItems.get(item.embedded_item_id);
+    const boundary = compendiumBoundaryItemById.get(item.embedded_item_id);
+    fail(item.physical_pdf_page >= embedded?.physical_page_start
+      && item.physical_pdf_page <= embedded?.physical_page_end,
+    `${item.id}: evidence escaped its verified item range`);
+    fail(item.document_id === embedded?.parent_document_id
+      && item.parent_compendium_id === embedded?.parent_document_id,
+    `${item.id}: compendium evidence parent drift`);
+    fail(item.citation_allowed === true ? boundary?.citation_allowed === true : true,
+      `${item.id}: evidence citation exceeds the item gate`);
+    fail(item.online_verification_id === null
+      || boundary?.online_verification.source_ids.includes(item.online_verification_id),
+    `${item.id}: online verification ID is outside the reviewed item sources`);
+    fail(item.witness_sha256 && /^[a-f0-9]{64}$/.test(item.witness_sha256),
+      `${item.id}: compendium page witness hash is missing`);
+    fail(item.semantic_claim_allowed === false,
+      `${item.id}: automatic compendium evidence became semantic`);
+  }
   if (item.evidence_status !== 'citation_ready') {
     fail(item.citation_allowed === false, `${item.id}: candidate evidence is citation allowed`);
     fail(item.citation_gate?.paragraph_allowed === false, `${item.id}: candidate paragraph citation gate is open`);
@@ -342,7 +485,6 @@ for (const item of graph.evidence) {
       fail(item.citation_gate?.document_allowed === false, `${item.id}: non-OCR candidate document citation gate is open`);
     }
   }
-  if (item.embedded_item_id !== null) fail(item.citation_allowed === false, `${item.id}: OCR fragment is quotable`);
   const sourceRecord = catalogById.get(item.document_id);
   const ocrDerived = sourceRecord ? !isNativeTextRecord(sourceRecord) : item.embedded_item_id !== null;
   if (ocrDerived) {
@@ -521,7 +663,13 @@ for (const cell of graph.coverage_cells) {
   }
   if (cell.embedded_item_id !== null) {
     fail(embeddedItems.has(cell.embedded_item_id), `${cell.id}: embedded item missing`);
-    fail(cell.complete === false, `${cell.id}: page fragment declared complete`);
+    const item = embeddedItems.get(cell.embedded_item_id);
+    const expectedPages = item.physical_page_end - item.physical_page_start + 1;
+    fail(cell.complete === true && cell.expected_pages === expectedPages
+      && cell.usable_pages === expectedPages,
+    `${cell.id}: full verified item coverage is incomplete`);
+    fail(cell.lexical_search_scope === 'automatic_surface_forms_only_full_verified_item',
+      `${cell.id}: compendium lexical scope drift`);
   }
 }
 

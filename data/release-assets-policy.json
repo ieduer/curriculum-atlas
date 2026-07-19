@@ -27,7 +27,10 @@
       "tsconfig.json",
       "wrangler.jsonc"
     ],
-    "excluded_paths": []
+    "excluded_paths": [
+      "data/downloads-asset-audit-receipt.json",
+      "data/release-environment-evidence.json"
+    ]
   },
   "release_governance": {
     "downloads_receipt_source": "data/downloads-asset-audit-receipt.json",
@@ -51,6 +54,8 @@
     "files": [
       { "path": "data/artifact-registry.json", "disposition": "r2_public_metadata", "consumers": ["asset_audit", "release_manifest"] },
       { "path": "data/catalog.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "concept_builder", "d1_import"] },
+      { "path": "data/compendium-item-boundaries.json", "disposition": "r2_public_metadata", "consumers": ["concept_builder", "compendium_boundary_validator", "release_manifest"] },
+      { "path": "data/compendium-item-boundaries.schema.json", "disposition": "r2_public_metadata", "consumers": ["compendium_boundary_validator", "release_manifest"] },
       { "path": "data/concept-evolution-quality.json", "disposition": "static_build_input", "consumers": ["concept_validator"] },
       { "path": "data/concept-lexicon.json", "disposition": "static_build_input", "consumers": ["concept_builder"] },
       { "path": "data/concept-model-v2.json", "disposition": "static_build_input", "consumers": ["concept_builder"] },
@@ -86,7 +91,7 @@
       { "path": "data/release-assets-policy.json", "disposition": "r2_public_metadata", "consumers": ["release_manifest"] },
       { "path": "data/release-baselines/ontology-promotion-evidence-v1.json", "disposition": "candidate_fail_closed", "consumers": ["ontology_release_validator", "release_manifest", "deploy_gate"] },
       { "path": "data/release-baselines/ontology-public-v2.json", "disposition": "candidate_fail_closed", "consumers": ["ontology_release_validator", "release_manifest", "deploy_gate"] },
-      { "path": "data/release-environment-evidence.json", "disposition": "r2_public_metadata", "consumers": ["release_manifest", "metadata_publisher"] },
+      { "path": "data/release-environment-evidence.json", "disposition": "release_governance_receipt", "consumers": ["release_readiness", "environment_evidence_collector"] },
       { "path": "data/semantic-publication-policy.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "semantic_gate"] },
       { "path": "data/semantic-publication-policy.schema.json", "disposition": "r2_public_metadata", "consumers": ["semantic_gate"] },
       { "path": "data/subject-insights.json", "disposition": "d1_build_input", "consumers": ["corpus_builder", "concept_builder"] },
@@ -103,6 +108,12 @@
       "source": "public/data/concept-evolution-academic.json"
     }
   ],
+  "graph_shards": {
+    "source_prefix": "public/data/graph-shards",
+    "transport_profile": "immutable-content-addressed-graph-shards-v1",
+    "maximum_asset_bytes": 524288,
+    "required_descriptor_fields": ["id", "kind", "path", "bytes", "sha256", "counts", "build_revision", "filters"]
+  },
   "static_assets": {
     "source_root": "public",
     "deploy_root": "dist"
@@ -114,13 +125,27 @@
       "preview": "bdfz-curriculum-atlas-sources-preview",
       "production": "bdfz-curriculum-atlas-sources"
     },
+    "publication_coordination": {
+      "policy": "d1_activation_claimed_r2_binding_v3",
+      "lease_key": "r2_release_publication_lease",
+      "lease_ttl_seconds": 3600,
+      "databases": {
+        "preview": "bdfz-curriculum-atlas-preview",
+        "production": "bdfz-curriculum-atlas"
+      },
+      "coordinator_urls": {
+        "preview": "https://bdfz-curriculum-atlas-preview.bdfz.workers.dev/api/admin/release-coordinate",
+        "production": "https://curriculum.bdfz.net/api/admin/release-coordinate"
+      }
+    },
     "governed_source_files": [
       "data/artifact-registry.json",
       "data/catalog.json",
+      "data/compendium-item-boundaries.json",
+      "data/compendium-item-boundaries.schema.json",
       "data/ingest-manifest.json",
       "data/ocr-queue.json",
-      "data/release-assets-policy.json",
-      "data/release-environment-evidence.json"
+      "data/release-assets-policy.json"
     ],
     "governed_source_prefixes": [
       "data/online-verification",
@@ -139,6 +164,18 @@
         "source": "data/catalog.json",
         "key": "catalog/catalog.json",
         "content_type": "application/json"
+      },
+      {
+        "role": "compendium_item_boundaries",
+        "source": "data/compendium-item-boundaries.json",
+        "key": "quality/compendium-item-boundaries.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "compendium_item_boundaries_schema",
+        "source": "data/compendium-item-boundaries.schema.json",
+        "key": "quality/compendium-item-boundaries.schema.json",
+        "content_type": "application/schema+json"
       },
       {
         "role": "ingest_manifest",
@@ -223,24 +260,22 @@
         "source": "data/release-assets-policy.json",
         "key": "release/release-assets-policy.json",
         "content_type": "application/json"
-      },
-      {
-        "role": "release_environment_evidence",
-        "source": "data/release-environment-evidence.json",
-        "key": "release/release-environment-evidence.json",
-        "content_type": "application/json"
       }
     ]
   },
   "environment_snapshot": {
-    "required_migration": "0007_document_taxonomy_contract.sql",
-    "required_r2_release_reader": "versioned_manifest_v1",
+    "required_migrations": [
+      "0008_release_ownership_fences.sql",
+      "0009_compendium_embedded_items.sql"
+    ],
+    "required_migration": "0008_release_ownership_fences.sql",
+    "required_r2_release_reader": "versioned_manifest_v2_fenced",
     "local": {
-      "worker_revision": "working-tree-v10",
+      "worker_revision": "working-tree-v13",
       "worker_version_id": null,
       "asset_git_commit": "$git_head",
       "migration_state": "source_inventory_only",
-      "r2_release_reader": "versioned_manifest_v1",
+      "r2_release_reader": "versioned_manifest_v2_fenced",
       "applied_migrations": null
     }
   }

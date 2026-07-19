@@ -1,0 +1,6 @@
+{
+  "$schema": "./reviewer-authorities.schema.json",
+  "schema_version": 1,
+  "policy": "pinned_ed25519_page_reviewers_v1",
+  "reviewers": []
+}

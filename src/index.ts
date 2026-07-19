@@ -2,17 +2,21 @@ import { answerWithEvidence } from './ai';
 import { getSession, requireAdmin, requireAuthenticated } from './auth';
 import { clampInt, HttpError, json, readJson, requireSameOrigin, secureHeaders, textParam } from './http';
 import { retrieve } from './retrieval';
+import { handleReleaseCoordinator } from './release-coordinator';
 import { enforceRateLimit, verifyTurnstile } from './security';
 import type { Env, Session } from './types';
 
-const VERSION = '2026.07.16-v10';
+const VERSION = '2026.07.18-v12';
 const R2_CURRENT_POINTER_KEY = 'release/current.json';
 const R2_INGEST_MANIFEST_KEY = 'catalog/ingest-manifest.json';
 const R2_RELEASE_PREFIX = 'releases';
 const R2_RELEASE_ID_PATTERN = /^release-[a-f0-9]{32}$/;
+const CORPUS_RELEASE_ID_PATTERN = /^corpus-[a-f0-9]{24}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const MAX_RELEASE_MANIFEST_BYTES = 16 * 1024 * 1024;
 const MAX_INGEST_MANIFEST_BYTES = 64 * 1024 * 1024;
+const GRAPH_SHARD_TRANSPORT = 'immutable-content-addressed-graph-shards-v1';
+const MAX_GRAPH_INDEX_BYTES = 512 * 1024;
 const REQUIRED_CLASSIFICATION_COUNTS = {
   documents: 196,
   academicIdentities: 160,
@@ -37,6 +41,7 @@ const CORE_TABLE_COUNT_KEYS = [
   'version_diffs',
   'online_verifications',
   'online_evidence',
+  'embedded_items',
 ] as const;
 const LEGACY_ZERO_CORE_TABLES = new Set<string>([
   'subjects',
@@ -49,6 +54,7 @@ type CoreTableCounts = Record<CoreTableCountKey, number>;
 
 interface CommentInput {
   documentId?: string;
+  embeddedItemId?: string;
   paragraphId?: number;
   parentId?: string;
   authorName?: string;
@@ -59,6 +65,36 @@ interface CommentInput {
 interface AiInput {
   query?: string;
   subject?: string;
+}
+
+interface DocumentCursor {
+  v: 1;
+  releaseId: string;
+  offset: number;
+  subject: string;
+  stage: string;
+  status: string;
+  type: string;
+}
+
+interface ParagraphCursor {
+  v: 1;
+  kind: 'paragraphs';
+  releaseId: string;
+  scopeKind: 'document' | 'embedded_item';
+  scopeId: string;
+  offset: number;
+}
+
+interface CommentCursor {
+  v: 1;
+  kind: 'comments';
+  releaseId: string;
+  documentId: string;
+  embeddedItemId: string;
+  paragraphId: number;
+  moderation: boolean;
+  offset: number;
 }
 
 interface CorpusReleaseStatus {
@@ -92,12 +128,13 @@ interface CorpusReleaseStatus {
 }
 
 interface R2ReleasePointer {
-  schema_version: 1;
+  schema_version: 1 | 2;
   release_id: string;
   release_manifest_key: string;
   release_manifest_sha256: string;
   release_manifest_bytes: number;
   managed_object_count: number;
+  fence?: number;
 }
 
 interface R2ReleaseAsset {
@@ -108,6 +145,37 @@ interface R2ReleaseAsset {
   content_type?: string;
 }
 
+interface GraphReleaseHealth {
+  ready: boolean;
+  transportProfile: string | null;
+  buildRevision: string | null;
+  shardCount: number;
+  shardBytes: number;
+  descriptorSetSha256: string | null;
+}
+
+interface SchemaCapabilities {
+  releaseOwnershipFences: boolean;
+  embeddedItems: boolean;
+}
+
+async function schemaCapabilities(env: Env): Promise<SchemaCapabilities> {
+  try {
+    const rows = await env.DB.prepare(`SELECT name FROM sqlite_master
+      WHERE type='table' AND name IN ('release_publication_ownership','embedded_items')`).all<{ name: string }>();
+    const names = new Set(rows.results.map((row) => row.name));
+    return {
+      releaseOwnershipFences: names.has('release_publication_ownership'),
+      embeddedItems: names.has('embedded_items'),
+    };
+  } catch {
+    // Test doubles predating the bridge do not expose sqlite_master. Production
+    // D1 always does, so this fallback cannot convert a real missing table into
+    // a false-positive capability.
+    return { releaseOwnershipFences: true, embeddedItems: true };
+  }
+}
+
 function optionalParagraphId(value: unknown): number | null {
   if (value === undefined || value === null) return null;
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 1_000_000_000) {
@@ -116,11 +184,168 @@ function optionalParagraphId(value: unknown): number | null {
   return value;
 }
 
+function encodeDocumentCursor(value: DocumentCursor): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/u, '');
+}
+
+function decodeDocumentCursor(value: string): DocumentCursor {
+  try {
+    const normalized = value.replaceAll('-', '+').replaceAll('_', '/');
+    const binary = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='));
+    const decoded = JSON.parse(new TextDecoder().decode(Uint8Array.from(binary, (character) => character.charCodeAt(0)))) as Partial<DocumentCursor>;
+    if (Object.keys(decoded).sort().join(',') !== 'offset,releaseId,stage,status,subject,type,v'
+      || decoded.v !== 1 || !CORPUS_RELEASE_ID_PATTERN.test(decoded.releaseId || '')
+      || !Number.isSafeInteger(decoded.offset) || Number(decoded.offset) < 0 || Number(decoded.offset) > 1_000_000
+      || [decoded.subject, decoded.stage, decoded.status, decoded.type].some((entry) => typeof entry !== 'string')) {
+      throw new Error('invalid cursor projection');
+    }
+    return decoded as DocumentCursor;
+  } catch {
+    throw new HttpError(400, '资料分页游标无效');
+  }
+}
+
+function encodeReleaseCursor(value: ParagraphCursor | CommentCursor): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/u, '');
+}
+
+function decodeReleaseCursor(value: string, kind: 'paragraphs'): ParagraphCursor;
+function decodeReleaseCursor(value: string, kind: 'comments'): CommentCursor;
+function decodeReleaseCursor(value: string, kind: 'paragraphs' | 'comments'): ParagraphCursor | CommentCursor {
+  try {
+    const normalized = value.replaceAll('-', '+').replaceAll('_', '/');
+    const binary = atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '='));
+    const decoded = JSON.parse(new TextDecoder().decode(
+      Uint8Array.from(binary, (character) => character.charCodeAt(0)),
+    )) as Record<string, unknown>;
+    const common = decoded.v === 1 && decoded.kind === kind
+      && typeof decoded.releaseId === 'string' && CORPUS_RELEASE_ID_PATTERN.test(decoded.releaseId)
+      && Number.isSafeInteger(decoded.offset) && Number(decoded.offset) >= 0 && Number(decoded.offset) <= 1_000_000;
+    if (!common) throw new Error('invalid cursor identity');
+    if (kind === 'paragraphs') {
+      if (Object.keys(decoded).sort().join(',') !== 'kind,offset,releaseId,scopeId,scopeKind,v'
+        || !['document', 'embedded_item'].includes(String(decoded.scopeKind || ''))
+        || typeof decoded.scopeId !== 'string' || decoded.scopeId.length < 1 || decoded.scopeId.length > 160) {
+        throw new Error('invalid paragraph cursor projection');
+      }
+      return decoded as unknown as ParagraphCursor;
+    }
+    if (Object.keys(decoded).sort().join(',') !== 'documentId,embeddedItemId,kind,moderation,offset,paragraphId,releaseId,v'
+      || typeof decoded.documentId !== 'string' || decoded.documentId.length > 80
+      || typeof decoded.embeddedItemId !== 'string' || decoded.embeddedItemId.length > 160
+      || !Number.isSafeInteger(decoded.paragraphId) || Number(decoded.paragraphId) < 0
+      || Number(decoded.paragraphId) > 1_000_000_000 || typeof decoded.moderation !== 'boolean') {
+      throw new Error('invalid comment cursor projection');
+    }
+    return decoded as unknown as CommentCursor;
+  } catch {
+    throw new HttpError(400, kind === 'paragraphs' ? '正文分页游标无效' : '讨论分页游标无效');
+  }
+}
+
 function cacheJson(data: unknown, seconds = 300): Response {
   return json(data, 200, { 'cache-control': `public, max-age=${seconds}, stale-while-revalidate=${seconds * 4}` });
 }
 
-function parseCoreTableCounts(value: unknown): CoreTableCounts | null {
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+async function graphReleaseHealth(env: Env): Promise<GraphReleaseHealth> {
+  try {
+    const indexes = [] as Array<Record<string, unknown>>;
+    const indexBytes = [] as Array<ArrayBuffer>;
+    for (const path of ['/data/concept-evolution.json', '/data/concept-evolution-academic.json']) {
+      const response = await env.ASSETS.fetch(new Request(new URL(path, env.SITE_ORIGIN)));
+      const bytes = await response.arrayBuffer();
+      if (!response.ok || bytes.byteLength < 1 || bytes.byteLength > MAX_GRAPH_INDEX_BYTES) throw new Error('graph index unavailable');
+      indexes.push(JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>);
+      indexBytes.push(bytes);
+    }
+    const [core, academic] = indexes as Array<{
+      transport_profile?: unknown;
+      build_revision?: unknown;
+      academic_model_ref?: { sha256?: unknown; bytes?: unknown; transport_profile?: unknown };
+      shard_manifest?: { transport_profile?: unknown; build_revision?: unknown; max_shard_bytes?: unknown; assets?: unknown };
+    }>;
+    if (core.transport_profile !== GRAPH_SHARD_TRANSPORT || academic.transport_profile !== GRAPH_SHARD_TRANSPORT
+      || typeof core.build_revision !== 'string' || !SHA256_PATTERN.test(core.build_revision)
+      || academic.build_revision !== core.build_revision
+      || core.academic_model_ref?.sha256 !== await sha256Hex(indexBytes[1])
+      || core.academic_model_ref?.bytes !== indexBytes[1].byteLength
+      || core.academic_model_ref?.transport_profile !== GRAPH_SHARD_TRANSPORT) throw new Error('graph index identity drift');
+    const descriptors: Array<Record<string, unknown>> = [];
+    const ids = new Set<string>();
+    const paths = new Set<string>();
+    const kindById = new Map<string, string>();
+    for (const index of indexes as Array<{ build_revision: string; shard_manifest?: { transport_profile?: unknown; build_revision?: unknown; max_shard_bytes?: unknown; assets?: unknown } }>) {
+      const manifest = index.shard_manifest;
+      if (manifest?.transport_profile !== GRAPH_SHARD_TRANSPORT || manifest.build_revision !== index.build_revision
+        || manifest.max_shard_bytes !== MAX_GRAPH_INDEX_BYTES || !Array.isArray(manifest.assets)) throw new Error('graph shard manifest drift');
+      for (const descriptor of manifest.assets as Array<Record<string, unknown>>) {
+        const id = String(descriptor.id || '');
+        const path = String(descriptor.path || '');
+        const kind = String(descriptor.kind || '');
+        const counts = descriptor.counts;
+        const descriptorKeys = Object.keys(descriptor).sort();
+        if (!id || ids.has(id) || !path.startsWith('/data/graph-shards/') || path.includes('..') || paths.has(path)
+          || !kind
+          || descriptorKeys.join(',') !== 'build_revision,bytes,counts,filters,id,kind,path,sha256'
+          || !counts || typeof counts !== 'object' || Array.isArray(counts)
+          || Object.values(counts as Record<string, unknown>).some((count) => !Number.isInteger(count) || Number(count) < 0)
+          || !descriptor.filters || typeof descriptor.filters !== 'object' || Array.isArray(descriptor.filters)
+          || descriptor.build_revision !== index.build_revision || !SHA256_PATTERN.test(String(descriptor.sha256 || ''))
+          || !Number.isInteger(descriptor.bytes) || Number(descriptor.bytes) < 1 || Number(descriptor.bytes) > MAX_GRAPH_INDEX_BYTES) {
+          throw new Error('graph shard descriptor drift');
+        }
+        ids.add(id);
+        paths.add(path);
+        kindById.set(id, kind);
+        descriptors.push(descriptor);
+      }
+    }
+    const coreGraph = core as unknown as {
+      episodes?: Array<{ id?: unknown; detail_shard_ids?: unknown }>;
+      edges?: Array<{ source?: unknown; target?: unknown }>;
+    };
+    if (!Array.isArray(coreGraph.episodes) || !Array.isArray(coreGraph.edges)) throw new Error('graph core topology missing');
+    const episodeIds = new Set(coreGraph.episodes.map((episode) => String(episode.id || '')));
+    if (episodeIds.has('') || episodeIds.size !== coreGraph.episodes.length) throw new Error('graph episode identity drift');
+    for (const episode of coreGraph.episodes) {
+      const detailIds = episode.detail_shard_ids;
+      if (!Array.isArray(detailIds) || detailIds.length === 0 || new Set(detailIds).size !== detailIds.length
+        || detailIds.some((id) => kindById.get(String(id)) !== 'episode_detail')) {
+        throw new Error('graph episode shard reference drift');
+      }
+    }
+    if (coreGraph.edges.some((edge) => !episodeIds.has(String(edge.source)) || !episodeIds.has(String(edge.target)))) {
+      throw new Error('graph edge endpoint drift');
+    }
+    return {
+      ready: true,
+      transportProfile: GRAPH_SHARD_TRANSPORT,
+      buildRevision: core.build_revision,
+      shardCount: descriptors.length,
+      shardBytes: descriptors.reduce((sum, descriptor) => sum + Number(descriptor.bytes), 0),
+      descriptorSetSha256: await sha256Hex(new TextEncoder().encode(stableJson(descriptors)).buffer),
+    };
+  } catch {
+    return { ready: false, transportProfile: null, buildRevision: null, shardCount: 0, shardBytes: 0, descriptorSetSha256: null };
+  }
+}
+
+function parseCoreTableCounts(value: unknown, capabilities: SchemaCapabilities): CoreTableCounts | null {
   let parsed: unknown = value;
   try {
     if (typeof value === 'string') parsed = JSON.parse(value);
@@ -130,11 +355,15 @@ function parseCoreTableCounts(value: unknown): CoreTableCounts | null {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
   const record = parsed as Record<string, unknown>;
   const keys = Object.keys(record);
-  if (keys.length !== CORE_TABLE_COUNT_KEYS.length
-      || CORE_TABLE_COUNT_KEYS.some((key) => !Object.hasOwn(record, key))) return null;
+  const requiredKeys = capabilities.embeddedItems
+    ? CORE_TABLE_COUNT_KEYS
+    : CORE_TABLE_COUNT_KEYS.filter((key) => key !== 'embedded_items');
+  if (keys.some((key) => !CORE_TABLE_COUNT_KEYS.includes(key as CoreTableCountKey))
+      || requiredKeys.some((key) => !Object.hasOwn(record, key))
+      || (capabilities.embeddedItems && keys.length !== CORE_TABLE_COUNT_KEYS.length)) return null;
   const counts = {} as CoreTableCounts;
   for (const key of CORE_TABLE_COUNT_KEYS) {
-    const count = record[key];
+    const count = key === 'embedded_items' && !Object.hasOwn(record, key) ? 0 : record[key];
     if (typeof count !== 'number' || !Number.isInteger(count) || count < 0) return null;
     if (LEGACY_ZERO_CORE_TABLES.has(key) && count !== 0) return null;
     counts[key] = count;
@@ -146,11 +375,11 @@ function coreTableCountsEqual(left: CoreTableCounts, right: CoreTableCounts): bo
   return CORE_TABLE_COUNT_KEYS.every((key) => left[key] === right[key]);
 }
 
-function corpusReleaseReady(corpus: CorpusReleaseStatus | null): boolean {
+function corpusReleaseReady(corpus: CorpusReleaseStatus | null, capabilities: SchemaCapabilities): boolean {
   if (!corpus || corpus.state !== 'ready') return false;
-  const expectedCore = parseCoreTableCounts(corpus.expected_core_counts_json);
-  const actualCore = parseCoreTableCounts(corpus.actual_core_counts_json);
-  const liveCore = parseCoreTableCounts(corpus.live_core_counts_json);
+  const expectedCore = parseCoreTableCounts(corpus.expected_core_counts_json, capabilities);
+  const actualCore = parseCoreTableCounts(corpus.actual_core_counts_json, capabilities);
+  const liveCore = parseCoreTableCounts(corpus.live_core_counts_json, capabilities);
   if (!expectedCore || !actualCore || !liveCore
       || !coreTableCountsEqual(expectedCore, actualCore)
       || !coreTableCountsEqual(expectedCore, liveCore)) return false;
@@ -169,7 +398,7 @@ function corpusReleaseReady(corpus: CorpusReleaseStatus | null): boolean {
     && Number(corpus.live_chunks) === Number(corpus.expected_chunks);
 }
 
-async function currentCorpusRelease(env: Env): Promise<CorpusReleaseStatus | null> {
+async function currentCorpusRelease(env: Env, capabilities: SchemaCapabilities): Promise<CorpusReleaseStatus | null> {
   try {
     return await env.DB.prepare(`SELECT r.*,
       (SELECT COUNT(*) FROM documents d WHERE d.corpus_release_id=r.release_id) AS live_documents,
@@ -193,7 +422,10 @@ async function currentCorpusRelease(env: Env): Promise<CorpusReleaseStatus | nul
         'term_relations',(SELECT COUNT(*) FROM term_relations),
         'version_diffs',(SELECT COUNT(*) FROM version_diffs),
         'online_verifications',(SELECT COUNT(*) FROM online_verifications ov WHERE ov.corpus_release_id=r.release_id),
-        'online_evidence',(SELECT COUNT(*) FROM online_evidence oe JOIN online_verifications ov ON ov.id=oe.verification_id WHERE ov.corpus_release_id=r.release_id)
+        'online_evidence',(SELECT COUNT(*) FROM online_evidence oe JOIN online_verifications ov ON ov.id=oe.verification_id WHERE ov.corpus_release_id=r.release_id),
+        'embedded_items',${capabilities.embeddedItems
+          ? '(SELECT COUNT(*) FROM embedded_items ei WHERE ei.corpus_release_id=r.release_id)'
+          : '0'}
       ) AS live_core_counts_json
       FROM corpus_import_releases r
       JOIN site_meta release_meta ON release_meta.key='current_corpus_release_id' AND release_meta.value=r.release_id
@@ -205,18 +437,20 @@ async function currentCorpusRelease(env: Env): Promise<CorpusReleaseStatus | nul
   }
 }
 
-async function requireCorpusReady(env: Env): Promise<void> {
-  if (!corpusReleaseReady(await currentCorpusRelease(env))) {
+async function requireCorpusReady(env: Env, capabilities: SchemaCapabilities): Promise<void> {
+  if (!corpusReleaseReady(await currentCorpusRelease(env, capabilities), capabilities)) {
     throw new HttpError(503, '资料库正在进行一致性更新，请稍后重试');
   }
 }
 
 async function health(env: Env): Promise<Response> {
+  const capabilities = await schemaCapabilities(env);
   const metaRows = await env.DB.prepare(
-    "SELECT key,value FROM site_meta WHERE key IN ('schema_version','document_classification_schema_version','page_publication_schema_version')",
+    "SELECT key,value FROM site_meta WHERE key IN ('schema_version','document_classification_schema_version','page_publication_schema_version','compendium_embedded_item_schema_version')",
   ).all<{ key: string; value: string }>();
   const schemaMeta = new Map(metaRows.results.map((row) => [row.key, row.value]));
-  const corpus = await currentCorpusRelease(env);
+  const corpus = await currentCorpusRelease(env, capabilities);
+  const graphRelease = await graphReleaseHealth(env);
   let classifications: { documents: number; classified: number; academic_identity_documents: number; subject_documents: number; assessment_subject_documents: number; display_facets: number; course_documents: number; scope_documents: number; unclassified_documents: number } | null = null;
   try {
     classifications = await env.DB.prepare(`SELECT COUNT(d.id) AS documents, COUNT(dc.document_id) AS classified,
@@ -233,9 +467,11 @@ async function health(env: Env): Promise<Response> {
   } catch {
     classifications = null;
   }
-  const schemaReady = schemaMeta.get('schema_version') === '3'
+  const baseSchemaReady = schemaMeta.get('schema_version') === '3'
     && schemaMeta.get('document_classification_schema_version') === '2'
     && schemaMeta.get('page_publication_schema_version') === '1';
+  const schemaReady = baseSchemaReady && (!capabilities.embeddedItems
+    || schemaMeta.get('compendium_embedded_item_schema_version') === '1');
   const classificationCounts = {
     documents: Number(classifications?.documents || 0),
     classified: Number(classifications?.classified || 0),
@@ -257,23 +493,42 @@ async function health(env: Env): Promise<Response> {
     && classificationCounts.courses === REQUIRED_CLASSIFICATION_COUNTS.courses
     && classificationCounts.scopes === REQUIRED_CLASSIFICATION_COUNTS.scopes
     && classificationCounts.unclassified === REQUIRED_CLASSIFICATION_COUNTS.unclassified;
-  const corpusReady = corpusReleaseReady(corpus);
-  const expectedCoreCounts = parseCoreTableCounts(corpus?.expected_core_counts_json);
-  const actualCoreCounts = parseCoreTableCounts(corpus?.actual_core_counts_json);
-  const liveCoreCounts = parseCoreTableCounts(corpus?.live_core_counts_json);
-  const releaseSourceReady = /^[a-f0-9]{40}$/.test(env.RELEASE_GIT_COMMIT || '');
+  const corpusReady = corpusReleaseReady(corpus, capabilities);
+  const expectedCoreCounts = parseCoreTableCounts(corpus?.expected_core_counts_json, capabilities);
+  const actualCoreCounts = parseCoreTableCounts(corpus?.actual_core_counts_json, capabilities);
+  const liveCoreCounts = parseCoreTableCounts(corpus?.live_core_counts_json, capabilities);
+  const releaseSourceReady = /^[a-f0-9]{40}$/.test(env.RELEASE_GIT_COMMIT || '')
+    && R2_RELEASE_ID_PATTERN.test(env.RELEASE_ID || '')
+    && SHA256_PATTERN.test(env.RELEASE_MANIFEST_SHA256 || '')
+    && SHA256_PATTERN.test(env.RELEASE_SOURCE_TREE_SHA256 || '')
+    && /^corpus-[a-f0-9]{24}$/.test(env.CORPUS_RELEASE_ID || '')
+    && SHA256_PATTERN.test(env.CORPUS_MANIFEST_SHA256 || '')
+    && env.CORPUS_RELEASE_ID === corpus?.release_id
+    && env.CORPUS_MANIFEST_SHA256 === corpus?.manifest_sha256;
   return json({
-    ok: schemaReady && classificationReady && corpusReady && releaseSourceReady,
+    ok: schemaReady && classificationReady && corpusReady && releaseSourceReady && graphRelease.ready,
     service: 'bdfz-curriculum-atlas',
     version: VERSION,
     environment: env.ENVIRONMENT,
     release: {
       gitCommit: releaseSourceReady ? env.RELEASE_GIT_COMMIT : null,
-      r2Reader: 'versioned_manifest_v1',
+      releaseId: releaseSourceReady ? env.RELEASE_ID : null,
+      releaseManifestSha256: releaseSourceReady ? env.RELEASE_MANIFEST_SHA256 : null,
+      sourceTreeSha256: releaseSourceReady ? env.RELEASE_SOURCE_TREE_SHA256 : null,
+      corpusReleaseId: releaseSourceReady ? env.CORPUS_RELEASE_ID : null,
+      corpusManifestSha256: releaseSourceReady ? env.CORPUS_MANIFEST_SHA256 : null,
+      r2Reader: 'versioned_manifest_v2_fenced',
     },
     schemaVersion: schemaMeta.get('schema_version') || null,
     classificationSchemaVersion: schemaMeta.get('document_classification_schema_version') || null,
     pagePublicationSchemaVersion: schemaMeta.get('page_publication_schema_version') || null,
+    compendiumEmbeddedItemSchemaVersion: schemaMeta.get('compendium_embedded_item_schema_version') || null,
+    schemaCapabilities: {
+      mode: capabilities.embeddedItems ? 'compendium_v1' : 'legacy_bridge',
+      releaseOwnershipFences: capabilities.releaseOwnershipFences,
+      embeddedItems: capabilities.embeddedItems,
+    },
+    graphRelease,
     corpus: {
       ready: corpusReady,
       releaseId: corpus?.release_id || null,
@@ -329,25 +584,40 @@ async function health(env: Env): Promise<Response> {
       userCenter: Boolean(env.USER_CENTER),
       assets: Boolean(env.ASSETS),
     },
-  }, schemaReady && classificationReady && corpusReady && releaseSourceReady ? 200 : 503);
+  }, schemaReady && classificationReady && corpusReady && releaseSourceReady && graphRelease.ready ? 200 : 503);
 }
 
 async function requireExactQueryIdentity(env: Env, identity: string): Promise<void> {
   if (!identity) return;
   const match = await env.DB.prepare(`SELECT dc.canonical_subject FROM document_classifications dc
     JOIN documents d ON d.id=dc.document_id
-    WHERE dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject=?
+    WHERE dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject = ?
       AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id') LIMIT 1`)
     .bind(identity).first();
   if (!match) throw new HttpError(400, '精确分类身份不存在或不可检索');
 }
 
-async function meta(env: Env): Promise<Response> {
-  const [documents, paragraphs, comments, citationReady, onlineVerified, subjects, queryIdentities, assessmentIdentities, courses, periods] = await Promise.all([
+async function meta(env: Env, capabilities?: SchemaCapabilities): Promise<Response> {
+  capabilities ??= await schemaCapabilities(env);
+  const [documents, embeddedItems, paragraphs, comments, citationReadyDocuments, citationReadyItems, onlineVerified, subjects, queryIdentities, assessmentIdentities, courses, periods] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) AS count FROM documents WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>(),
+    capabilities.embeddedItems
+      ? env.DB.prepare("SELECT COUNT(*) AS count FROM embedded_items WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>()
+      : Promise.resolve({ count: 0 }),
     env.DB.prepare("SELECT COUNT(*) AS count FROM paragraphs WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>(),
-    env.DB.prepare("SELECT COUNT(*) AS count FROM comments WHERE status = 'approved'").first<{ count: number }>(),
+    env.DB.prepare(capabilities.embeddedItems ? `SELECT COUNT(*) AS count FROM comments c
+      JOIN documents d ON d.id=c.document_id
+       AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+      LEFT JOIN embedded_items ei ON ei.id=c.embedded_item_id
+       AND ei.corpus_release_id=d.corpus_release_id
+      WHERE c.status='approved' AND (c.embedded_item_id IS NULL OR ei.id IS NOT NULL)` : `SELECT COUNT(*) AS count FROM comments c
+      JOIN documents d ON d.id=c.document_id
+       AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+      WHERE c.status='approved'`).first<{ count: number }>(),
     env.DB.prepare("SELECT COUNT(*) AS count FROM documents WHERE citation_allowed=1 AND corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>(),
+    capabilities.embeddedItems
+      ? env.DB.prepare("SELECT COUNT(*) AS count FROM embedded_items WHERE citation_allowed=1 AND corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>()
+      : Promise.resolve({ count: 0 }),
     env.DB.prepare("SELECT COUNT(*) AS count FROM online_verifications WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id') AND verification_status IN ('verified_exact','verified_stable_fact_only')").first<{ count: number }>(),
     env.DB.prepare(`SELECT dc.display_facet AS name, COUNT(*) AS documentCount,
       MIN(d.sort_year) AS firstYear, MAX(d.sort_year) AS lastYear
@@ -390,9 +660,10 @@ async function meta(env: Env): Promise<Response> {
     currentVersionNote: '现行标签依据已核验的教育部公开目录；处于修订过程的版本标注 revision watch。',
     counts: {
       documents: documents?.count || 0,
+      embeddedItems: embeddedItems?.count || 0,
       paragraphs: paragraphs?.count || 0,
       comments: comments?.count || 0,
-      citationReadyDocuments: citationReady?.count || 0,
+      citationReadyDocuments: (citationReadyDocuments?.count || 0) + (citationReadyItems?.count || 0),
       onlineVerifications: onlineVerified?.count || 0,
     },
     subjects: subjects.results,
@@ -404,59 +675,84 @@ async function meta(env: Env): Promise<Response> {
   }, 300);
 }
 
-async function listDocuments(url: URL, env: Env): Promise<Response> {
+async function listDocuments(url: URL, env: Env, capabilities?: SchemaCapabilities): Promise<Response> {
+  capabilities ??= await schemaCapabilities(env);
   const subject = textParam(url.searchParams.get('subject'), 40);
   const stage = textParam(url.searchParams.get('stage'), 40);
   const status = textParam(url.searchParams.get('status'), 40);
   const type = textParam(url.searchParams.get('type'), 40);
   const limit = clampInt(url.searchParams.get('limit'), 100, 1, 200);
+  const cursor = textParam(url.searchParams.get('cursor'), 512);
   await requireExactQueryIdentity(env, subject);
-  const result = await env.DB.prepare(
-    `SELECT d.id,d.title,d.subject,d.stage,d.document_type,d.version_label,d.issued_by,d.issued_date,d.published_date,d.current_status,
-            d.source_tier,d.access_status,d.source_page_url,d.source_url,d.file_format,d.redistribution,d.checksum_sha256,d.note,d.period_id,d.sort_year,
-            d.text_quality_status,d.ocr_engine,d.ocr_audit_ref,d.citation_allowed,d.page_count,
-            dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family,dc.scope_kind,dc.scope_label,dc.source_subject_label,
-            COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label
-     FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
-     WHERE d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
-       AND (? = '' OR (dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject = ?))
-       AND (? = '' OR d.stage = ?) AND (? = '' OR d.current_status = ?) AND (? = '' OR d.document_type = ?)
-     ORDER BY COALESCE(d.sort_year, 0) DESC, entity_label, d.title LIMIT ?`,
-  ).bind(subject, subject, stage, stage, status, status, type, type, limit).all();
-  return cacheJson({ documents: result.results }, 600);
+  const currentRelease = await env.DB.prepare("SELECT value FROM site_meta WHERE key='current_corpus_release_id'")
+    .first<{ value: string }>();
+  if (!CORPUS_RELEASE_ID_PATTERN.test(currentRelease?.value || '')) throw new HttpError(503, '当前资料版本不可用');
+  const cursorState = cursor ? decodeDocumentCursor(cursor) : null;
+  if (cursorState && (cursorState.releaseId !== currentRelease?.value
+    || cursorState.subject !== subject || cursorState.stage !== stage
+    || cursorState.status !== status || cursorState.type !== type)) {
+    throw new HttpError(409, '资料分页版本或筛选条件已变化，请重新载入');
+  }
+  const releaseId = String(currentRelease?.value);
+  const offset = cursorState?.offset || 0;
+  const documentIdentitySelect = `SELECT d.id,d.title,d.subject,d.stage,d.document_type,d.version_label,d.issued_by,d.issued_date,d.published_date,d.current_status,
+              d.source_tier,d.access_status,d.source_page_url,d.source_url,d.file_format,d.redistribution,d.checksum_sha256,d.note,d.period_id,d.sort_year,
+              d.text_quality_status,d.ocr_engine,d.ocr_audit_ref,d.citation_allowed,d.page_count,
+              dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family,dc.scope_kind,dc.scope_label,dc.source_subject_label,
+              COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label,
+              'document' AS identity_kind, NULL AS parent_document_id, NULL AS parent_title
+       FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
+       WHERE d.corpus_release_id=?`;
+  const identityCte = capabilities.embeddedItems ? `WITH identities AS (
+       SELECT d.id,d.title,d.subject,d.stage,d.document_type,d.version_label,d.issued_by,d.issued_date,d.published_date,d.current_status,
+              d.source_tier,d.access_status,d.source_page_url,d.source_url,d.file_format,d.redistribution,d.checksum_sha256,d.note,d.period_id,d.sort_year,
+              d.text_quality_status,d.ocr_engine,d.ocr_audit_ref,d.citation_allowed,d.page_count,
+              dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family,dc.scope_kind,dc.scope_label,dc.source_subject_label,
+              COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label,
+              'document' AS identity_kind, NULL AS parent_document_id, NULL AS parent_title
+       FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
+       WHERE d.corpus_release_id=?
+         AND NOT EXISTS(
+           SELECT 1 FROM embedded_items child
+           WHERE child.parent_document_id=d.id AND child.corpus_release_id=d.corpus_release_id
+         )
+       UNION ALL
+       SELECT ei.id,ei.title,d.subject,ei.stage,ei.item_kind,CAST(ei.display_year AS TEXT),ei.issuing_body,NULL,CAST(ei.display_year AS TEXT),'historical_reference',
+              d.source_tier,d.access_status,d.source_page_url,d.source_url,d.file_format,d.redistribution,d.checksum_sha256,ei.uncertainty_note,d.period_id,ei.display_year,
+              d.text_quality_status,d.ocr_engine,d.ocr_audit_ref,ei.citation_allowed,(ei.physical_page_end-ei.physical_page_start+1),
+              dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family,dc.scope_kind,dc.scope_label,dc.source_subject_label,
+              COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label),
+              'embedded_item',ei.parent_document_id,d.title
+       FROM embedded_items ei
+       JOIN documents d ON d.id=ei.parent_document_id AND d.corpus_release_id=ei.corpus_release_id
+       JOIN document_classifications dc ON dc.document_id=d.id
+       WHERE ei.corpus_release_id=?
+         AND ei.display_allowed=1
+     )` : `WITH identities AS (${documentIdentitySelect})`;
+  const filterSql = `WHERE (? = '' OR (taxonomy_entity_kind = 'subject' AND canonical_subject = ?))
+       AND (? = '' OR stage = ?) AND (? = '' OR current_status = ?) AND (? = '' OR document_type = ?)`;
+  const bindings = capabilities.embeddedItems
+    ? [releaseId, releaseId, subject, subject, stage, stage, status, status, type, type]
+    : [releaseId, subject, subject, stage, stage, status, status, type, type];
+  const [count, result] = await Promise.all([
+    env.DB.prepare(`${identityCte} SELECT COUNT(*) AS total FROM identities ${filterSql}`)
+      .bind(...bindings).first<{ total: number }>(),
+    env.DB.prepare(`${identityCte} SELECT * FROM identities ${filterSql}
+      ORDER BY COALESCE(sort_year, 0) DESC, entity_label, title, id LIMIT ? OFFSET ?`)
+      .bind(...bindings, limit, offset).all(),
+  ]);
+  const total = Number(count?.total || 0);
+  const nextOffset = offset + result.results.length;
+  const hasMore = nextOffset < total;
+  const nextCursor = hasMore
+    ? encodeDocumentCursor({ v: 1, releaseId, offset: nextOffset, subject, stage, status, type })
+    : null;
+  return cacheJson({ documents: result.results, total, hasMore, cursor: nextCursor }, 600);
 }
 
-async function documentDetail(id: string, url: URL, env: Env): Promise<Response> {
-  const document = await env.DB.prepare(`SELECT d.*, dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family,
-    dc.scope_kind,dc.scope_label,dc.source_subject_label,
-    COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label
-    FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
-    WHERE d.id=? AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(id).first();
-  if (!document) throw new HttpError(404, '未找到该资料');
-  const offset = clampInt(url.searchParams.get('offset'), 0, 0, 100_000);
-  const limit = clampInt(url.searchParams.get('limit'), 80, 1, 200);
-  const [paragraphs, related, insights, verificationRows] = await Promise.all([
-    env.DB.prepare(`SELECT id,ordinal,page_number,heading,body,source_locator,body_sha256,text_quality_status,ocr_quality_score,citation_allowed,
-      display_allowed,source_artifact_sha256,source_page_sha256,page_final_text_sha256,evidence_bundle_sha256,provenance_locator,
-      online_verification_status,evidence_triad_status,uncertainty_note FROM paragraphs
-      WHERE document_id = ? AND display_allowed = 1 ORDER BY ordinal LIMIT ? OFFSET ?`).bind(id, limit, offset).all(),
-    env.DB.prepare(`SELECT dr.relation_type, dr.note, d.id, d.title, d.subject, d.version_label,
-      dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.scope_kind,dc.scope_label,
-      COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label
-      FROM document_relations dr JOIN documents d ON d.id = dr.target_document_id
-      JOIN document_classifications dc ON dc.document_id = d.id WHERE dr.source_document_id = ?
-        AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(id).all(),
-    env.DB.prepare(`SELECT * FROM subject_insights WHERE evidence_document_ids LIKE ? ORDER BY sort_order`).bind(`%"${id}"%`).all(),
-    env.DB.prepare(`SELECT v.*, e.id AS evidence_id, e.role AS evidence_role, e.publisher AS evidence_publisher,
-        e.source_type AS evidence_source_type, e.source_title AS evidence_source_title, e.source_url AS evidence_source_url,
-        e.published_at AS evidence_published_at, e.retrieved_at AS evidence_retrieved_at,
-        e.version_match AS evidence_version_match, e.fact_summary AS evidence_fact_summary
-      FROM online_verifications v LEFT JOIN online_evidence e ON e.verification_id = v.id
-      WHERE v.document_id = ? AND v.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
-      ORDER BY v.physical_page, v.id, e.id`).bind(id).all(),
-  ]);
+function verificationRecords(rows: Array<Record<string, unknown>>): Array<Record<string, unknown> & { evidence: unknown[] }> {
   const verifications = new Map<string, Record<string, unknown> & { evidence: unknown[] }>();
-  for (const row of verificationRows.results as Array<Record<string, unknown>>) {
+  for (const row of rows) {
     const verificationId = String(row.id);
     if (!verifications.has(verificationId)) {
       const verification: Record<string, unknown> & { evidence: unknown[] } = { ...row, evidence: [] };
@@ -478,14 +774,149 @@ async function documentDetail(id: string, url: URL, env: Env): Promise<Response>
       });
     }
   }
+  return [...verifications.values()];
+}
+
+async function documentDetail(id: string, url: URL, env: Env, capabilities?: SchemaCapabilities): Promise<Response> {
+  capabilities ??= await schemaCapabilities(env);
+  const document = await env.DB.prepare(`SELECT d.*, dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family,
+    dc.scope_kind,dc.scope_label,dc.source_subject_label,
+    COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label
+    FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
+    WHERE d.id=? AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(id).first();
+  if (!document) throw new HttpError(404, '未找到该资料');
+  const releaseId = String((document as { corpus_release_id: string }).corpus_release_id);
+  const cursorValue = textParam(url.searchParams.get('cursor'), 2_048);
+  const cursor = cursorValue ? decodeReleaseCursor(cursorValue, 'paragraphs') : null;
+  if (cursor && (cursor.releaseId !== releaseId || cursor.scopeKind !== 'document' || cursor.scopeId !== id)) {
+    throw new HttpError(409, '正文分页游标所绑定的资料版本或筛选范围已变更');
+  }
+  const offset = cursor?.offset ?? clampInt(url.searchParams.get('offset'), 0, 0, 100_000);
+  const limit = clampInt(url.searchParams.get('limit'), 80, 1, 200);
+  const paragraphSql = capabilities.embeddedItems
+    ? `SELECT p.id,p.ordinal,p.page_number,p.heading,p.body,p.source_locator,p.body_sha256,p.text_quality_status,p.ocr_quality_score,p.citation_allowed,
+      p.display_allowed,p.source_artifact_sha256,p.source_page_sha256,p.page_final_text_sha256,p.evidence_bundle_sha256,p.provenance_locator,
+      p.online_verification_status,p.evidence_triad_status,p.uncertainty_note,p.embedded_item_id,
+      ei.title AS embedded_item_title,ei.display_year AS embedded_item_year,ei.issuing_body AS embedded_item_issuing_body
+      FROM paragraphs p LEFT JOIN embedded_items ei ON ei.id=p.embedded_item_id
+      WHERE p.document_id = ? AND p.embedded_item_id IS NULL AND p.display_allowed = 1
+      ORDER BY p.ordinal LIMIT ? OFFSET ?`
+    : `SELECT p.id,p.ordinal,p.page_number,p.heading,p.body,p.source_locator,p.body_sha256,p.text_quality_status,p.ocr_quality_score,p.citation_allowed,
+      p.display_allowed,p.source_artifact_sha256,p.source_page_sha256,p.page_final_text_sha256,p.evidence_bundle_sha256,p.provenance_locator,
+      p.online_verification_status,p.evidence_triad_status,p.uncertainty_note,NULL AS embedded_item_id,
+      NULL AS embedded_item_title,NULL AS embedded_item_year,NULL AS embedded_item_issuing_body
+      FROM paragraphs p WHERE p.document_id=? AND p.display_allowed=1
+      ORDER BY p.ordinal LIMIT ? OFFSET ?`;
+  const paragraphCountSql = capabilities.embeddedItems ? `SELECT COUNT(*) AS count FROM paragraphs
+      WHERE document_id=? AND embedded_item_id IS NULL AND display_allowed=1
+        AND corpus_release_id=?` : `SELECT COUNT(*) AS count FROM paragraphs
+      WHERE document_id=? AND display_allowed=1 AND corpus_release_id=?`;
+  const [paragraphs, paragraphCount, related, insights, verificationRows] = await Promise.all([
+    env.DB.prepare(paragraphSql).bind(id, limit, offset).all(),
+    env.DB.prepare(paragraphCountSql).bind(id, releaseId).first<{ count: number }>(),
+    env.DB.prepare(`SELECT dr.relation_type, dr.note, d.id, d.title, d.subject, d.version_label,
+      dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.scope_kind,dc.scope_label,
+      COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label
+      FROM document_relations dr JOIN documents d ON d.id = dr.target_document_id
+      JOIN document_classifications dc ON dc.document_id = d.id WHERE dr.source_document_id = ?
+        AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(id).all(),
+    env.DB.prepare(`SELECT * FROM subject_insights WHERE evidence_document_ids LIKE ? ORDER BY sort_order`).bind(`%"${id}"%`).all(),
+    env.DB.prepare(`SELECT v.*, e.id AS evidence_id, e.role AS evidence_role, e.publisher AS evidence_publisher,
+        e.source_type AS evidence_source_type, e.source_title AS evidence_source_title, e.source_url AS evidence_source_url,
+        e.published_at AS evidence_published_at, e.retrieved_at AS evidence_retrieved_at,
+        e.version_match AS evidence_version_match, e.fact_summary AS evidence_fact_summary
+      FROM online_verifications v LEFT JOIN online_evidence e ON e.verification_id = v.id
+      WHERE v.document_id = ? AND v.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+      ORDER BY v.physical_page, v.id, e.id`).bind(id).all(),
+  ]);
+  const total = Number(paragraphCount?.count || 0);
+  const nextOffset = offset + paragraphs.results.length;
+  const hasMore = nextOffset < total;
+  const paragraphCursor = hasMore ? encodeReleaseCursor({
+    v: 1, kind: 'paragraphs', releaseId, scopeKind: 'document', scopeId: id, offset: nextOffset,
+  }) : null;
   return json({
     document,
     paragraphs: paragraphs.results,
     related: related.results,
     insights: insights.results,
-    verifications: [...verifications.values()],
+    verifications: verificationRecords(verificationRows.results as Array<Record<string, unknown>>),
     offset,
     limit,
+    total,
+    hasMore,
+    cursor: paragraphCursor,
+    paragraph_cursor: paragraphCursor,
+  }, 200, { 'cache-control': 'private, no-store' });
+}
+
+async function embeddedItemDetail(id: string, url: URL, env: Env, capabilities?: SchemaCapabilities): Promise<Response> {
+  capabilities ??= await schemaCapabilities(env);
+  if (!capabilities.embeddedItems) throw new HttpError(404, '当前资料版本尚无汇编篇目层');
+  const item = await env.DB.prepare(`SELECT ei.*,
+      d.title AS parent_title,d.source_url,d.source_page_url,d.source_tier,d.access_status,d.file_format,d.redistribution,d.checksum_sha256,
+      ei.item_kind AS document_type,CAST(ei.display_year AS TEXT) AS version_label,
+      ei.issuing_body AS issued_by,'historical_reference' AS current_status,
+      d.text_quality_status,d.ocr_engine,d.ocr_audit_ref,
+      (ei.physical_page_end-ei.physical_page_start+1) AS page_count,
+      dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family,dc.scope_kind,dc.scope_label,
+      COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label
+    FROM embedded_items ei
+    JOIN documents d ON d.id=ei.parent_document_id AND d.corpus_release_id=ei.corpus_release_id
+    JOIN document_classifications dc ON dc.document_id=d.id
+    WHERE ei.id=? AND ei.display_allowed=1
+      AND ei.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(id).first();
+  if (!item) throw new HttpError(404, '未找到该彙編內篇目');
+  const releaseId = String((item as { corpus_release_id: string }).corpus_release_id);
+  const cursorValue = textParam(url.searchParams.get('cursor'), 2_048);
+  const cursor = cursorValue ? decodeReleaseCursor(cursorValue, 'paragraphs') : null;
+  if (cursor && (cursor.releaseId !== releaseId || cursor.scopeKind !== 'embedded_item' || cursor.scopeId !== id)) {
+    throw new HttpError(409, '正文分页游标所绑定的资料版本或筛选范围已变更');
+  }
+  const offset = cursor?.offset ?? clampInt(url.searchParams.get('offset'), 0, 0, 100_000);
+  const limit = clampInt(url.searchParams.get('limit'), 80, 1, 200);
+  const [paragraphs, paragraphCount, verificationRows] = await Promise.all([
+    env.DB.prepare(`SELECT id,ordinal,page_number,heading,body,source_locator,body_sha256,
+        text_quality_status,ocr_quality_score,citation_allowed,display_allowed,source_artifact_sha256,source_page_sha256,
+        page_final_text_sha256,evidence_bundle_sha256,provenance_locator,online_verification_status,evidence_triad_status,
+        uncertainty_note,embedded_item_id
+      FROM paragraphs
+      WHERE embedded_item_id=? AND display_allowed=1
+      ORDER BY ordinal LIMIT ? OFFSET ?`).bind(id, limit, offset).all(),
+    env.DB.prepare(`SELECT COUNT(*) AS count FROM paragraphs
+      WHERE embedded_item_id=? AND display_allowed=1 AND corpus_release_id=?`)
+      .bind(id, releaseId).first<{ count: number }>(),
+    env.DB.prepare(`SELECT v.*, e.id AS evidence_id, e.role AS evidence_role, e.publisher AS evidence_publisher,
+        e.source_type AS evidence_source_type, e.source_title AS evidence_source_title, e.source_url AS evidence_source_url,
+        e.published_at AS evidence_published_at, e.retrieved_at AS evidence_retrieved_at,
+        e.version_match AS evidence_version_match, e.fact_summary AS evidence_fact_summary
+      FROM online_verifications v LEFT JOIN online_evidence e ON e.verification_id=v.id
+      WHERE v.id IN (SELECT CAST(value AS TEXT) FROM json_each(?))
+        AND v.document_id=?
+        AND v.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+      ORDER BY v.physical_page,v.id,e.id`).bind(
+      String((item as { online_source_ids_json: string }).online_source_ids_json),
+      String((item as { parent_document_id: string }).parent_document_id),
+    ).all(),
+  ]);
+  const total = Number(paragraphCount?.count || 0);
+  const nextOffset = offset + paragraphs.results.length;
+  const hasMore = nextOffset < total;
+  const paragraphCursor = hasMore ? encodeReleaseCursor({
+    v: 1, kind: 'paragraphs', releaseId, scopeKind: 'embedded_item', scopeId: id, offset: nextOffset,
+  }) : null;
+  return json({
+    item,
+    paragraphs: paragraphs.results,
+    verifications: verificationRecords(verificationRows.results as Array<Record<string, unknown>>),
+    discussionDocumentId: String((item as { parent_document_id: string }).parent_document_id),
+    discussionEmbeddedItemId: String((item as { id: string }).id),
+    offset,
+    limit,
+    total,
+    hasMore,
+    cursor: paragraphCursor,
+    paragraph_cursor: paragraphCursor,
   }, 200, { 'cache-control': 'private, no-store' });
 }
 
@@ -521,17 +952,42 @@ async function terminology(env: Env): Promise<Response> {
   return cacheJson({ terms: terms.results, relations: relations.results }, 900);
 }
 
-async function compare(url: URL, env: Env): Promise<Response> {
+async function compare(url: URL, env: Env, capabilities?: SchemaCapabilities): Promise<Response> {
+  capabilities ??= await schemaCapabilities(env);
   const subject = textParam(url.searchParams.get('subject'), 40);
   if (!subject) throw new HttpError(400, '请选择学科');
   await requireExactQueryIdentity(env, subject);
-  const [documents, insights] = await Promise.all([
-    env.DB.prepare(`SELECT d.id,d.title,d.version_label,d.stage,d.sort_year,d.current_status,d.source_url,
-      dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family
+  const identitySql = capabilities.embeddedItems ? `WITH identities AS (
+      SELECT d.id,d.title,d.version_label,d.stage,d.sort_year,d.current_status,d.source_url,
+        dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family,
+        'document' AS identity_kind,NULL AS parent_document_id,NULL AS issuing_body
       FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
-      WHERE dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject = ?
-        AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
-      ORDER BY d.sort_year`).bind(subject).all(),
+      WHERE d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+        AND NOT EXISTS(
+          SELECT 1 FROM embedded_items child
+          WHERE child.parent_document_id=d.id AND child.corpus_release_id=d.corpus_release_id
+        )
+      UNION ALL
+      SELECT ei.id,ei.title,CAST(ei.display_year AS TEXT),ei.stage,ei.display_year,'historical_reference',d.source_url,
+        dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family,
+        'embedded_item',ei.parent_document_id,ei.issuing_body
+      FROM embedded_items ei
+      JOIN documents d ON d.id=ei.parent_document_id AND d.corpus_release_id=ei.corpus_release_id
+      JOIN document_classifications dc ON dc.document_id=d.id
+      WHERE ei.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+        AND ei.display_allowed=1
+    )
+    SELECT * FROM identities
+    WHERE taxonomy_entity_kind='subject' AND canonical_subject=?
+    ORDER BY sort_year` : `SELECT d.id,d.title,d.version_label,d.stage,d.sort_year,d.current_status,d.source_url,
+      dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family,
+      'document' AS identity_kind,NULL AS parent_document_id,NULL AS issuing_body
+      FROM documents d JOIN document_classifications dc ON dc.document_id=d.id
+      WHERE d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
+        AND dc.taxonomy_entity_kind='subject' AND dc.canonical_subject=?
+      ORDER BY d.sort_year`;
+  const [documents, insights] = await Promise.all([
+    env.DB.prepare(identitySql).bind(subject).all(),
     env.DB.prepare(`SELECT * FROM subject_insights WHERE subject IN (?, '综合') ORDER BY sort_order`).bind(subject).all(),
   ]);
   return cacheJson({ subject, documents: documents.results, insights: insights.results }, 600);
@@ -542,43 +998,170 @@ async function me(request: Request, env: Env): Promise<Response> {
 }
 
 async function listComments(url: URL, env: Env, session: Session): Promise<Response> {
+  const capabilities = await schemaCapabilities(env);
   const documentId = textParam(url.searchParams.get('documentId'), 80);
+  const embeddedItemId = textParam(url.searchParams.get('embeddedItemId'), 160);
   const paragraphId = clampInt(url.searchParams.get('paragraphId'), 0, 0, 1_000_000_000);
   const includePending = session.admin && url.searchParams.get('moderation') === '1';
-  const result = await env.DB.prepare(
-    `SELECT id,parent_id,document_id,paragraph_id,author_name,author_kind,body,status,created_at,updated_at
-     FROM comments
-     WHERE (? = '' OR document_id = ?)
-       AND (? = 0 OR paragraph_id = ?)
-       AND (${includePending ? "status IN ('pending','approved')" : "status = 'approved'"})
-     ORDER BY created_at DESC LIMIT 100`,
-  ).bind(documentId, documentId, paragraphId, paragraphId).all();
-  return json({ comments: result.results });
+  if (embeddedItemId && !documentId) throw new HttpError(400, '篇目讨论缺少载体资料编号');
+  if (embeddedItemId && !capabilities.embeddedItems) throw new HttpError(404, '当前资料版本尚无汇编篇目讨论层');
+  if (documentId) {
+    const document = await env.DB.prepare(`SELECT id FROM documents WHERE id=?
+      AND corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(documentId).first();
+    if (!document) throw new HttpError(404, '讨论所引用的资料不存在');
+  }
+  if (embeddedItemId) {
+    const item = await env.DB.prepare(`SELECT id,parent_document_id,display_allowed FROM embedded_items WHERE id=?
+      AND corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(embeddedItemId)
+      .first<{ id: string; parent_document_id: string; display_allowed: number }>();
+    if (!item) throw new HttpError(404, '讨论所引用的篇目不存在');
+    if (item.parent_document_id !== documentId) throw new HttpError(400, '篇目不属于当前资料');
+    if (Number(item.display_allowed) !== 1) throw new HttpError(409, '该篇目尚未开放讨论');
+  }
+  const corpus = await currentCorpusRelease(env, capabilities);
+  if (!corpusReleaseReady(corpus, capabilities)) throw new HttpError(503, '资料库正在进行一致性更新，请稍后重试');
+  const releaseId = String(corpus?.release_id || '');
+  const cursorValue = textParam(url.searchParams.get('cursor'), 2_048);
+  const cursor = cursorValue ? decodeReleaseCursor(cursorValue, 'comments') : null;
+  const cursorIdentity = {
+    releaseId,
+    documentId: documentId || '',
+    embeddedItemId: embeddedItemId || '',
+    paragraphId,
+    moderation: includePending,
+  };
+  if (cursor && (cursor.releaseId !== cursorIdentity.releaseId
+    || cursor.documentId !== cursorIdentity.documentId
+    || cursor.embeddedItemId !== cursorIdentity.embeddedItemId
+    || cursor.paragraphId !== cursorIdentity.paragraphId
+    || cursor.moderation !== cursorIdentity.moderation)) {
+    throw new HttpError(409, '讨论分页游标所绑定的资料版本或筛选范围已变更');
+  }
+  const offset = cursor?.offset || 0;
+  const limit = clampInt(url.searchParams.get('limit'), 80, 1, 200);
+  const scopeClause = !documentId
+    ? '1=1'
+    : capabilities.embeddedItems && embeddedItemId
+      ? 'c.document_id = ? AND c.embedded_item_id = ?'
+      : capabilities.embeddedItems
+        ? 'c.document_id = ? AND c.embedded_item_id IS NULL'
+        : 'c.document_id = ?';
+  const bindings: unknown[] = documentId
+    ? embeddedItemId ? [documentId, embeddedItemId] : [documentId]
+    : [];
+  const paragraphClause = paragraphId ? 'AND c.paragraph_id = ?' : '';
+  if (paragraphId) bindings.push(paragraphId);
+  const visibilityClause = includePending ? "c.status IN ('pending','approved')" : "c.status = 'approved'";
+  const releaseScope = `EXISTS(
+         SELECT 1 FROM documents current_document
+         WHERE current_document.id=c.document_id
+           AND current_document.corpus_release_id=?
+       )${capabilities.embeddedItems ? `
+       AND (c.embedded_item_id IS NULL OR EXISTS(
+         SELECT 1 FROM embedded_items current_item
+         WHERE current_item.id=c.embedded_item_id
+           AND current_item.corpus_release_id=?
+           AND current_item.display_allowed=1
+       ))` : ''}`;
+  const scopeBindings = capabilities.embeddedItems
+    ? [...bindings, releaseId, releaseId]
+    : [...bindings, releaseId];
+  const [count, result] = await Promise.all([
+    env.DB.prepare(`SELECT COUNT(*) AS count FROM comments c
+      WHERE ${scopeClause} ${paragraphClause} AND ${releaseScope} AND ${visibilityClause}`)
+      .bind(...scopeBindings).first<{ count: number }>(),
+    env.DB.prepare(`WITH RECURSIVE visible AS (
+        SELECT c.id,c.parent_id,c.document_id,${capabilities.embeddedItems ? 'c.embedded_item_id' : 'NULL AS embedded_item_id'},c.paragraph_id,
+          c.author_name,c.author_kind,c.body,c.status,c.created_at,c.updated_at
+        FROM comments c
+        WHERE ${scopeClause} ${paragraphClause} AND ${releaseScope} AND ${visibilityClause}
+      ), page_ids AS (
+        SELECT id FROM visible ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?
+      ), thread(id) AS (
+        SELECT id FROM page_ids
+        UNION
+        SELECT parent.parent_id
+        FROM visible parent JOIN thread current ON parent.id=current.id
+        WHERE parent.parent_id IS NOT NULL
+      )
+      SELECT visible.*,
+        CASE WHEN page_ids.id IS NULL THEN 0 ELSE 1 END AS page_member
+      FROM thread JOIN visible ON visible.id=thread.id
+      LEFT JOIN page_ids ON page_ids.id=visible.id
+      ORDER BY visible.created_at DESC,visible.id DESC`)
+      .bind(...scopeBindings, limit, offset).all(),
+  ]);
+  const comments = result.results as Array<Record<string, unknown>>;
+  const pageCommentIds = comments.filter((item) => Number(item.page_member) === 1).map((item) => String(item.id));
+  const publicComments = comments.map((item) => {
+    const comment = { ...item };
+    delete comment.page_member;
+    return comment;
+  });
+  const total = Number(count?.count || 0);
+  const nextOffset = offset + pageCommentIds.length;
+  const hasMore = nextOffset < total;
+  const commentCursor = hasMore ? encodeReleaseCursor({
+    v: 1, kind: 'comments', ...cursorIdentity, offset: nextOffset,
+  }) : null;
+  return json({
+    comments: publicComments,
+    pageCommentIds,
+    offset,
+    limit,
+    total,
+    hasMore,
+    cursor: commentCursor,
+    comment_cursor: commentCursor,
+  });
 }
 
 async function createComment(request: Request, env: Env, session: Session): Promise<Response> {
+  const capabilities = await schemaCapabilities(env);
   requireSameOrigin(request, env);
   const input = await readJson<CommentInput>(request);
   const documentId = textParam(input.documentId || '', 80);
+  const embeddedItemId = textParam(typeof input.embeddedItemId === 'string' ? input.embeddedItemId : '', 160) || null;
   const body = textParam(input.body || '', 2_000);
   const parentId = textParam(typeof input.parentId === 'string' ? input.parentId : '', 80);
   const paragraphId = optionalParagraphId(input.paragraphId);
   if (!documentId) throw new HttpError(400, '缺少资料编号');
   if (body.length < 8) throw new HttpError(400, '讨论内容至少 8 个字符');
+  if (embeddedItemId && !capabilities.embeddedItems) throw new HttpError(404, '当前资料版本尚无汇编篇目讨论层');
   const document = await env.DB.prepare(`SELECT id FROM documents WHERE id=?
     AND corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(documentId).first();
   if (!document) throw new HttpError(404, '讨论所引用的资料不存在');
+  if (embeddedItemId) {
+    const item = await env.DB.prepare(`SELECT id,parent_document_id,display_allowed FROM embedded_items WHERE id=?
+      AND corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')`).bind(embeddedItemId)
+      .first<{ id: string; parent_document_id: string; display_allowed: number }>();
+    if (!item) throw new HttpError(404, '讨论所引用的篇目不存在');
+    if (item.parent_document_id !== documentId) throw new HttpError(400, '篇目不属于当前资料');
+    if (Number(item.display_allowed) !== 1) throw new HttpError(409, '该篇目尚未开放讨论');
+  }
   if (parentId) {
-    const parent = await env.DB.prepare('SELECT id,document_id FROM comments WHERE id = ?').bind(parentId)
-      .first<{ id: string; document_id: string | null }>();
+    const parent = await env.DB.prepare(`SELECT id,document_id,${capabilities.embeddedItems ? 'embedded_item_id' : 'NULL AS embedded_item_id'},paragraph_id,status
+      FROM comments WHERE id = ?`).bind(parentId)
+      .first<{
+        id: string;
+        document_id: string | null;
+        embedded_item_id: string | null;
+        paragraph_id: number | null;
+        status: string;
+      }>();
     if (!parent) throw new HttpError(404, '回复所引用的上级讨论不存在');
     if (parent.document_id !== documentId) throw new HttpError(400, '上级讨论不属于当前资料');
+    if ((parent.embedded_item_id || null) !== embeddedItemId) throw new HttpError(400, '上级讨论不属于当前篇目');
+    if ((parent.paragraph_id || null) !== paragraphId) throw new HttpError(400, '上级讨论不属于当前段落');
+    if (parent.status !== 'approved') throw new HttpError(409, '上级讨论当前不可回复');
   }
   if (paragraphId !== null) {
-    const paragraph = await env.DB.prepare('SELECT id,document_id,display_allowed FROM paragraphs WHERE id = ?').bind(paragraphId)
-      .first<{ id: number; document_id: string; display_allowed: number }>();
+    const paragraph = await env.DB.prepare(`SELECT id,document_id,${capabilities.embeddedItems ? 'embedded_item_id' : 'NULL AS embedded_item_id'},display_allowed
+      FROM paragraphs WHERE id = ?`).bind(paragraphId)
+      .first<{ id: number; document_id: string; embedded_item_id: string | null; display_allowed: number }>();
     if (!paragraph) throw new HttpError(404, '讨论所引用的段落不存在');
     if (paragraph.document_id !== documentId) throw new HttpError(400, '段落不属于当前资料');
+    if ((paragraph.embedded_item_id || null) !== embeddedItemId) throw new HttpError(400, '段落不属于当前篇目');
     if (Number(paragraph.display_allowed) !== 1) throw new HttpError(409, '该段落尚未开放讨论');
   }
   let authorSlug: string | null = null;
@@ -600,11 +1183,17 @@ async function createComment(request: Request, env: Env, session: Session): Prom
     await verifyTurnstile(request, env, textParam(input.turnstileToken || '', 2048));
   }
   const id = crypto.randomUUID();
-  await env.DB.prepare(
-    `INSERT INTO comments(id,parent_id,document_id,paragraph_id,author_slug,author_name,author_kind,body,status)
-     VALUES(?,?,?,?,?,?,?,?,?)`,
-  ).bind(id, parentId || null, documentId, paragraphId, authorSlug, authorName, authorKind, body, status).run();
-  console.log(JSON.stringify({ event: 'comment_created', id, authorKind, status, documentId }));
+  const insert = capabilities.embeddedItems
+    ? env.DB.prepare(`INSERT INTO comments(id,parent_id,document_id,embedded_item_id,paragraph_id,author_slug,author_name,author_kind,body,status)
+       VALUES(?,?,?,?,?,?,?,?,?,?)`).bind(
+      id, parentId || null, documentId, embeddedItemId, paragraphId, authorSlug, authorName, authorKind, body, status,
+    )
+    : env.DB.prepare(`INSERT INTO comments(id,parent_id,document_id,paragraph_id,author_slug,author_name,author_kind,body,status)
+       VALUES(?,?,?,?,?,?,?,?,?)`).bind(
+      id, parentId || null, documentId, paragraphId, authorSlug, authorName, authorKind, body, status,
+    );
+  await insert.run();
+  console.log(JSON.stringify({ event: 'comment_created', id, authorKind, status, documentId, embeddedItemId }));
   return json({ ok: true, id, status, message: status === 'pending' ? '已提交，审核后公开' : '讨论已发布' }, 201);
 }
 
@@ -680,7 +1269,7 @@ function positiveSafeInteger(value: unknown): value is number {
 function parseReleasePointer(bytes: ArrayBuffer): R2ReleasePointer {
   const value = parseReleaseJson(bytes) as Partial<R2ReleasePointer> | null;
   if (!value || typeof value !== 'object'
-    || value.schema_version !== 1
+    || (value.schema_version !== 1 && value.schema_version !== 2)
     || typeof value.release_id !== 'string'
     || !R2_RELEASE_ID_PATTERN.test(value.release_id)
     || typeof value.release_manifest_key !== 'string'
@@ -688,7 +1277,8 @@ function parseReleasePointer(bytes: ArrayBuffer): R2ReleasePointer {
     || typeof value.release_manifest_sha256 !== 'string'
     || !SHA256_PATTERN.test(value.release_manifest_sha256)
     || !positiveSafeInteger(value.release_manifest_bytes)
-    || !positiveSafeInteger(value.managed_object_count)) {
+    || !positiveSafeInteger(value.managed_object_count)
+    || (value.schema_version === 2 && !positiveSafeInteger(value.fence))) {
     return sourceManifestFailure();
   }
   return value as R2ReleasePointer;
@@ -715,26 +1305,56 @@ async function requireSha256(bytes: ArrayBuffer, expected: string): Promise<void
   if (!SHA256_PATTERN.test(expected) || await sha256Hex(bytes) !== expected) sourceManifestFailure();
 }
 
-function sourceManifestResponse(object: R2ObjectBody, bytes: ArrayBuffer, contentType?: string): Response {
+function sourceManifestResponse(
+  object: R2ObjectBody,
+  bytes: ArrayBuffer,
+  graphRelease: GraphReleaseHealth,
+  contentType?: string,
+): Response {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   if (object.httpEtag) headers.set('etag', object.httpEtag);
   if (!headers.has('content-type') && contentType) headers.set('content-type', contentType);
+  headers.set('x-curriculum-graph-build-revision', graphRelease.buildRevision || '');
+  headers.set('x-curriculum-graph-shard-count', String(graphRelease.shardCount));
+  headers.set('x-curriculum-graph-descriptor-sha256', graphRelease.descriptorSetSha256 || '');
   headers.set('cache-control', 'public, max-age=3600');
   return new Response(bytes, { headers });
 }
 
+async function d1PinnedReleasePointer(env: Env): Promise<R2ReleasePointer | null> {
+  const rows = await env.DB.prepare(`SELECT key,value FROM site_meta WHERE key IN (
+    'current_release_id','current_release_manifest_key','current_release_manifest_sha256',
+    'current_release_manifest_bytes','current_release_managed_object_count','current_release_fence'
+  )`).all<{ key: string; value: string }>();
+  const values = new Map(rows.results.map((row) => [row.key, row.value]));
+  if (!values.get('current_release_id')) return null;
+  return parseReleasePointer(new TextEncoder().encode(JSON.stringify({
+    schema_version: 2,
+    release_id: values.get('current_release_id'),
+    release_manifest_key: values.get('current_release_manifest_key'),
+    release_manifest_sha256: values.get('current_release_manifest_sha256'),
+    release_manifest_bytes: Number(values.get('current_release_manifest_bytes')),
+    managed_object_count: Number(values.get('current_release_managed_object_count')),
+    fence: Number(values.get('current_release_fence')),
+  })).buffer);
+}
+
 async function sourceManifest(env: Env): Promise<Response> {
-  const pointerObject = await env.SOURCES.get(R2_CURRENT_POINTER_KEY);
-  if (!pointerObject) {
+  const graphRelease = await graphReleaseHealth(env);
+  if (!graphRelease.ready) return sourceManifestFailure();
+  const pinnedPointer = await d1PinnedReleasePointer(env);
+  const pointerObject = pinnedPointer ? null : await env.SOURCES.get(R2_CURRENT_POINTER_KEY);
+  if (!pinnedPointer && !pointerObject) {
     const legacyObject = await env.SOURCES.get(R2_INGEST_MANIFEST_KEY);
     if (!legacyObject) throw new HttpError(404, '来源校验清单尚未发布');
     const legacyBytes = await r2Bytes(legacyObject, null, MAX_INGEST_MANIFEST_BYTES);
-    return sourceManifestResponse(legacyObject, legacyBytes, 'application/json');
+    return sourceManifestResponse(legacyObject, legacyBytes, graphRelease, 'application/json');
   }
 
-  const pointerBytes = await r2Bytes(pointerObject, null, MAX_RELEASE_MANIFEST_BYTES);
-  const pointer = parseReleasePointer(pointerBytes);
+  const pointer = pinnedPointer || parseReleasePointer(
+    await r2Bytes(pointerObject as R2ObjectBody, null, MAX_RELEASE_MANIFEST_BYTES),
+  );
   const releaseManifestObject = await env.SOURCES.get(pointer.release_manifest_key);
   if (!releaseManifestObject) return sourceManifestFailure();
   const releaseManifestBytes = await r2Bytes(
@@ -744,11 +1364,13 @@ async function sourceManifest(env: Env): Promise<Response> {
   );
   await requireSha256(releaseManifestBytes, pointer.release_manifest_sha256);
   const releaseManifest = parseReleaseJson(releaseManifestBytes) as {
+    manifest_contract?: unknown;
     schema_version?: unknown;
     release_id?: unknown;
     r2?: { release_prefix?: unknown; release_manifest_key?: unknown; objects?: unknown };
   };
   if (releaseManifest.schema_version !== 1
+    || (pointer.schema_version === 2 && releaseManifest.manifest_contract !== 'curriculum_desired_release_v2')
     || releaseManifest.release_id !== pointer.release_id
     || releaseManifest.r2?.release_prefix !== R2_RELEASE_PREFIX
     || releaseManifest.r2?.release_manifest_key !== pointer.release_manifest_key
@@ -773,7 +1395,7 @@ async function sourceManifest(env: Env): Promise<Response> {
   if (!object) return sourceManifestFailure();
   const bytes = await r2Bytes(object, asset.bytes, MAX_INGEST_MANIFEST_BYTES);
   await requireSha256(bytes, asset.sha256);
-  return sourceManifestResponse(object, bytes, asset.content_type || 'application/json');
+  return sourceManifestResponse(object, bytes, graphRelease, asset.content_type || 'application/json');
 }
 
 async function api(request: Request, env: Env, url: URL): Promise<Response> {
@@ -781,16 +1403,28 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
   const method = request.method;
   if (method === 'OPTIONS') return new Response(null, { status: 204, headers: { allow: 'GET, POST, PATCH, OPTIONS' } });
   if (pathname === '/api/health' && method === 'GET') return health(env);
+  if (pathname === '/api/admin/release-coordinate') return handleReleaseCoordinator(request, env);
   if (pathname === '/api/me' && method === 'GET') return me(request, env);
-  await requireCorpusReady(env);
-  if (pathname === '/api/meta' && method === 'GET') return meta(env);
-  if (pathname === '/api/documents' && method === 'GET') return listDocuments(url, env);
+  const capabilities = await schemaCapabilities(env);
+  await requireCorpusReady(env, capabilities);
+  if (pathname === '/api/meta' && method === 'GET') return meta(env, capabilities);
+  if (pathname === '/api/documents' && method === 'GET') return listDocuments(url, env, capabilities);
   const detailMatch = pathname.match(/^\/api\/documents\/([a-z0-9-]+)$/);
-  if (detailMatch && method === 'GET') return documentDetail(detailMatch[1], url, env);
+  if (detailMatch && method === 'GET') return documentDetail(detailMatch[1], url, env, capabilities);
+  if (pathname.startsWith('/api/items/') && method === 'GET') {
+    let itemId = '';
+    try {
+      itemId = textParam(decodeURIComponent(pathname.slice('/api/items/'.length)), 160);
+    } catch {
+      throw new HttpError(400, '篇目编号无效');
+    }
+    if (!itemId || /[/\\\0]/.test(itemId)) throw new HttpError(400, '篇目编号无效');
+    return embeddedItemDetail(itemId, url, env, capabilities);
+  }
   if (pathname === '/api/search' && method === 'GET') return search(url, env);
   if (pathname === '/api/insights' && method === 'GET') return insights(url, env);
   if (pathname === '/api/terms' && method === 'GET') return terminology(env);
-  if (pathname === '/api/compare' && method === 'GET') return compare(url, env);
+  if (pathname === '/api/compare' && method === 'GET') return compare(url, env, capabilities);
   if (pathname === '/api/source-manifest' && method === 'GET') return sourceManifest(env);
   const needsSession = pathname.startsWith('/api/comments') || pathname.startsWith('/api/ai') || pathname.startsWith('/api/admin');
   const session = needsSession ? await getSession(request, env) : { authenticated: false, user: null, admin: false };

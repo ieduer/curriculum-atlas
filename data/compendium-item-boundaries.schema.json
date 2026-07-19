@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/compendium-item-boundaries.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "policy", "documents"],
+  "properties": {
+    "$schema": { "const": "./compendium-item-boundaries.schema.json" },
+    "schema_version": { "const": 2 },
+    "policy": { "const": "fail_closed_compendium_item_boundaries_v2" },
+    "documents": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/document" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "nullableSha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_id", "source_artifact_sha256", "physical_page_count", "printed_to_physical_page_offset", "toc_evidence", "items"],
+      "properties": {
+        "document_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]+$" },
+        "source_artifact_sha256": { "$ref": "#/$defs/sha256" },
+        "physical_page_count": { "type": "integer", "minimum": 1 },
+        "printed_to_physical_page_offset": { "type": "integer" },
+        "toc_evidence": { "$ref": "#/$defs/tocEvidence" },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/item" } }
+      }
+    },
+    "tocEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["physical_pages", "review_status", "reviewer_id", "reviewed_at", "review_note"],
+      "properties": {
+        "physical_pages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["page_number", "primary_text_sha256", "source_image_sha256", "vision_witness_sha256", "evidence_bundle_sha256"],
+            "properties": {
+              "page_number": { "type": "integer", "minimum": 1 },
+              "primary_text_sha256": { "$ref": "#/$defs/sha256" },
+              "source_image_sha256": { "$ref": "#/$defs/sha256" },
+              "vision_witness_sha256": { "$ref": "#/$defs/sha256" },
+              "evidence_bundle_sha256": { "$ref": "#/$defs/sha256" }
+            }
+          }
+        },
+        "review_status": { "const": "human_image_review_pass_navigation_only" },
+        "reviewer_id": { "type": "string", "minLength": 1 },
+        "reviewed_at": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$" },
+        "review_note": { "type": "string", "minLength": 1 }
+      }
+    },
+    "bodyHeading": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verification_status", "physical_page", "exact_text", "exact_text_sha256", "source_image_sha256", "primary_ocr_sha256", "witness_sha256", "reviewer_id", "reviewed_at"],
+      "properties": {
+        "verification_status": { "enum": ["not_verified", "image_primary_witness_verified"] },
+        "physical_page": { "type": ["integer", "null"], "minimum": 1 },
+        "exact_text": { "type": ["string", "null"] },
+        "exact_text_sha256": { "$ref": "#/$defs/nullableSha256" },
+        "source_image_sha256": { "$ref": "#/$defs/nullableSha256" },
+        "primary_ocr_sha256": { "$ref": "#/$defs/nullableSha256" },
+        "witness_sha256": { "$ref": "#/$defs/nullableSha256" },
+        "reviewer_id": { "type": ["string", "null"] },
+        "reviewed_at": { "type": ["string", "null"] }
+      }
+    },
+    "onlineVerification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verification_status", "version_relation", "source_ids", "comparison_scope", "primary_item_text_sha256", "online_text_sha256", "reviewer_id", "reviewed_at", "verification_note", "uncertainty_note"],
+      "properties": {
+        "verification_status": { "enum": ["not_started", "same_edition_exact_text_verified", "different_edition_stable_facts_only", "not_found"] },
+        "version_relation": { "type": ["string", "null"] },
+        "source_ids": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "comparison_scope": { "enum": ["full_item_text", "stable_facts_only", null] },
+        "primary_item_text_sha256": { "$ref": "#/$defs/nullableSha256" },
+        "online_text_sha256": { "$ref": "#/$defs/nullableSha256" },
+        "reviewer_id": { "type": ["string", "null"] },
+        "reviewed_at": { "type": ["string", "null"] },
+        "verification_note": { "type": ["string", "null"] },
+        "uncertainty_note": { "type": ["string", "null"] }
+      }
+    },
+    "pageEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verification_status", "page_publication_release_id", "physical_page_start", "physical_page_end", "accepted_page_count", "page_set_sha256", "item_citation_entitlement_sha256"],
+      "properties": {
+        "verification_status": { "enum": ["not_verified", "all_pages_display_verified", "all_pages_citation_verified"] },
+        "page_publication_release_id": { "type": ["string", "null"] },
+        "physical_page_start": { "type": ["integer", "null"], "minimum": 1 },
+        "physical_page_end": { "type": ["integer", "null"], "minimum": 1 },
+        "accepted_page_count": { "type": ["integer", "null"], "minimum": 1 },
+        "page_set_sha256": { "$ref": "#/$defs/nullableSha256" },
+        "item_citation_entitlement_sha256": { "$ref": "#/$defs/nullableSha256" }
+      }
+    },
+    "tocEntryEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_line", "source_line_sha256", "toc_page_evidence_bundle_sha256", "entry_receipt_sha256"],
+      "properties": {
+        "source_line": { "type": "string", "minLength": 1 },
+        "source_line_sha256": { "$ref": "#/$defs/sha256" },
+        "toc_page_evidence_bundle_sha256": { "$ref": "#/$defs/sha256" },
+        "entry_receipt_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "semanticReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_status", "reviewer_id", "reviewed_at", "review_note"],
+      "properties": {
+        "review_status": { "enum": ["not_started", "editor_reviewed"] },
+        "reviewer_id": { "type": ["string", "null"] },
+        "reviewed_at": { "type": ["string", "null"] },
+        "review_note": { "type": ["string", "null"] }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_id", "sequence", "section", "item_kind", "parent_item_id", "raw_title", "title", "display_year", "year_basis", "toc_physical_page", "printed_page_start", "issuing_body", "candidate_physical_page_start", "candidate_physical_page_end", "toc_entry_sha256", "toc_entry_evidence", "body_heading", "online_verification", "page_evidence", "semantic_review", "identity_status", "display_allowed", "citation_allowed", "semantic_claim_allowed", "uncertainty_note"],
+      "properties": {
+        "item_id": { "type": "string", "pattern": "^embedded:[a-z0-9-]+:[a-f0-9]{24}$" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "section": { "enum": ["小学", "中学", "综合"] },
+        "item_kind": { "enum": ["curriculum_document", "attachment"] },
+        "parent_item_id": { "type": ["string", "null"] },
+        "raw_title": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "display_year": { "type": "integer", "minimum": 1800, "maximum": 2030 },
+        "year_basis": { "enum": ["toc_explicit_year", "parent_notice_year"] },
+        "toc_physical_page": { "type": "integer", "minimum": 1 },
+        "printed_page_start": { "type": "integer", "minimum": 1 },
+        "issuing_body": { "type": ["string", "null"] },
+        "candidate_physical_page_start": { "type": "integer", "minimum": 1 },
+        "candidate_physical_page_end": { "type": "integer", "minimum": 1 },
+        "toc_entry_sha256": { "$ref": "#/$defs/sha256" },
+        "toc_entry_evidence": { "$ref": "#/$defs/tocEntryEvidence" },
+        "body_heading": { "$ref": "#/$defs/bodyHeading" },
+        "online_verification": { "$ref": "#/$defs/onlineVerification" },
+        "page_evidence": { "$ref": "#/$defs/pageEvidence" },
+        "semantic_review": { "$ref": "#/$defs/semanticReview" },
+        "identity_status": { "enum": ["toc_navigation_candidate", "body_boundary_verified", "verified_full_item"] },
+        "display_allowed": { "type": "boolean" },
+        "citation_allowed": { "type": "boolean" },
+        "semantic_claim_allowed": { "type": "boolean" },
+        "uncertainty_note": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

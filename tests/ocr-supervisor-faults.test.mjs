@@ -735,17 +735,47 @@ test('concept candidate gate requires current fingerprints and matching academic
     lexicon_sha256: '4'.repeat(64),
     ontology_sha256: '7'.repeat(64),
     builder_sha256: '5'.repeat(64),
+    graph_sharder_sha256: '8'.repeat(64),
+    concept_publication_gate_sha256: '9'.repeat(64),
+    page_publication_gate_sha256: 'a'.repeat(64),
+    semantic_publication_policy_sha256: 'b'.repeat(64),
+    semantic_publication_gate_sha256: 'c'.repeat(64),
+    compendium_item_boundaries_sha256: 'd'.repeat(64),
+    compendium_item_boundary_gate_sha256: 'e'.repeat(64),
+    compendium_item_publication_gate_sha256: 'f'.repeat(64),
+    online_verification_samples_sha256: '0'.repeat(64),
+    corpus_manifest_gate_sha256: 'a'.repeat(64),
+    corpus_manifest_sha256: 'b'.repeat(64),
+    corpus_release_fingerprint_sha256: 'c'.repeat(64),
     validator_sha256: '6'.repeat(64),
   };
+  const shardAssets = [{
+    id: 'episode_detail:fixture:1',
+    kind: 'episode_detail',
+    path: '/data/graph-shards/details/fixture.json',
+    bytes: 123,
+    sha256: 'f'.repeat(64),
+    counts: { episodes: 1, evidence: 1 },
+    build_revision: revision,
+    filters: { facet: '语文', era: '2022-present', chunk_index: 1 },
+  }];
+  const shardDescriptorsSha256 = createHash('sha256').update(JSON.stringify(shardAssets)).digest('hex');
   const graph = {
     schema_version: 1,
     academic_schema_version: 2,
-    artifact_profile: 'curriculum-concept-evolution-core-v1',
+    artifact_profile: 'curriculum-concept-evolution-core-index-v1',
+    transport_profile: 'immutable-content-addressed-graph-shards-v1',
     academic_schema: 'curriculum-concept-evolution-academic-v2',
     model_kind: 'curriculum_concept_academic_model_v2',
     build_revision: revision,
     input_fingerprints: inputFingerprints,
     academic_model_ref: { path: '/data/concept-evolution-academic.json', build_revision: revision, sha256: academicSha },
+    shard_manifest: {
+      transport_profile: 'immutable-content-addressed-graph-shards-v1',
+      build_revision: revision,
+      max_shard_bytes: 512 * 1024,
+      assets: shardAssets,
+    },
   };
   const quality = {
     schema_version: 1,
@@ -757,9 +787,14 @@ test('concept candidate gate requires current fingerprints and matching academic
     build_revision: revision,
     input_fingerprints: inputFingerprints,
     academic_sha256: academicSha,
+    graph_transport: {
+      profile: 'immutable-content-addressed-graph-shards-v1',
+      max_shard_bytes: 512 * 1024,
+      shard_count: shardAssets.length,
+    },
   };
   const manifest = {
-    schema_version: 2,
+    schema_version: 3,
     academic_schema_version: 2,
     artifact_profile: graph.artifact_profile,
     academic_schema: graph.academic_schema,
@@ -767,6 +802,10 @@ test('concept candidate gate requires current fingerprints and matching academic
     build_revision: revision,
     input_fingerprints: inputFingerprints,
     academic_model_ref: graph.academic_model_ref,
+    transport_profile: graph.transport_profile,
+    graph_shard_max_bytes: 512 * 1024,
+    graph_shard_count: shardAssets.length,
+    graph_shard_descriptors_sha256: shardDescriptorsSha256,
   };
   const compatible = (overrides = {}) => conceptCandidateCompatible({
     graph: overrides.graph || graph,
@@ -778,10 +817,12 @@ test('concept candidate gate requires current fingerprints and matching academic
   assert.equal(compatible(), true);
   assert.equal(compatible({ quality: { ...quality, passed: false } }), false);
   assert.equal(compatible({ quality: { ...quality, artifact_profile: undefined } }), false);
-  assert.equal(compatible({ manifest: { ...manifest, schema_version: 1 } }), false);
+  assert.equal(compatible({ manifest: { ...manifest, schema_version: 2 } }), false);
   assert.equal(compatible({ manifest: { ...manifest, build_revision: 'c'.repeat(64) } }), false);
   assert.equal(compatible({ graph: { ...graph, academic_model_ref: null } }), false);
   assert.equal(compatible({ graph: { ...graph, academic_schema: 'legacy' } }), false);
+  assert.equal(compatible({ graph: { ...graph, shard_manifest: { ...graph.shard_manifest, max_shard_bytes: 1 } } }), false);
+  assert.equal(compatible({ manifest: { ...manifest, graph_shard_descriptors_sha256: '0'.repeat(64) } }), false);
   assert.equal(compatible({ currentFingerprints: { ...inputFingerprints, queue_sha256: 'd'.repeat(64) } }), false);
   assert.equal(compatible({ quality: { ...quality, input_fingerprints: { ...inputFingerprints, validator_sha256: 'e'.repeat(64) } } }), false);
 });

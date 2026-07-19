@@ -1,0 +1,6 @@
+{
+  "$schema": "./online-source-identities.schema.json",
+  "schema_version": 1,
+  "policy": "externally_pinned_online_source_identities_v1",
+  "sources": []
+}

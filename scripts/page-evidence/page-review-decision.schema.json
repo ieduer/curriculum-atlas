@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/signed-page-review-decision-v1.json",
+  "title": "Signed page review decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy",
+    "reviewer_id",
+    "decided_at",
+    "disposition",
+    "display_allowed",
+    "citation_allowed",
+    "online_same_version_status",
+    "critical_fields_complete",
+    "critical_field_decisions",
+    "semantic_control_ids",
+    "semantic_control_bindings",
+    "uncertainty_note",
+    "signature_algorithm",
+    "signed_payload_sha256",
+    "signature_base64"
+  ],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schema_version": { "const": 1 },
+    "policy": { "const": "signed_page_review_decision_v1" },
+    "reviewer_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+    "decided_at": { "type": "string", "format": "date-time" },
+    "disposition": {
+      "enum": ["unresolved_fail_closed", "accepted_display_non_citation", "accepted_citation"]
+    },
+    "display_allowed": { "type": "boolean" },
+    "citation_allowed": { "type": "boolean" },
+    "online_same_version_status": {
+      "enum": ["verified_independent", "single_source_only", "not_found", "conflict"]
+    },
+    "critical_fields_complete": { "type": "boolean" },
+    "critical_field_decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field_id", "status", "accepted_text", "basis", "deviating_engines", "note"],
+        "properties": {
+          "field_id": { "type": "string", "minLength": 1 },
+          "status": {
+            "enum": ["verified_exact", "image_online_adjudicated", "human_judgment_with_warning"]
+          },
+          "accepted_text": { "type": "string", "minLength": 1 },
+          "basis": { "type": "string", "minLength": 1 },
+          "deviating_engines": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "enum": ["primary_ocr", "vision_ocr"] }
+          },
+          "note": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "semantic_control_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "semantic_control_bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "control_id",
+          "control_sha256",
+          "quality_profile",
+          "quality_profile_sha256",
+          "policy_revision_sha256"
+        ],
+        "properties": {
+          "control_id": { "type": "string", "minLength": 1 },
+          "control_sha256": { "$ref": "#/$defs/sha256" },
+          "quality_profile": { "type": "string", "minLength": 1 },
+          "quality_profile_sha256": { "$ref": "#/$defs/sha256" },
+          "policy_revision_sha256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "uncertainty_note": { "type": ["string", "null"] },
+    "signature_algorithm": { "const": "Ed25519" },
+    "signed_payload_sha256": { "$ref": "#/$defs/sha256" },
+    "signature_base64": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9+/]{86}==$"
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

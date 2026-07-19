@@ -6,6 +6,12 @@ export interface Env {
   USER_CENTER: Fetcher;
   ENVIRONMENT: string;
   RELEASE_GIT_COMMIT?: string;
+  RELEASE_ID?: string;
+  RELEASE_MANIFEST_SHA256?: string;
+  RELEASE_SOURCE_TREE_SHA256?: string;
+  CORPUS_RELEASE_ID?: string;
+  CORPUS_MANIFEST_SHA256?: string;
+  RELEASE_COORDINATOR_TOKEN?: string;
   SITE_ORIGIN: string;
   AI_ORIGIN: string;
   USER_CENTER_ORIGIN: string;
@@ -34,6 +40,8 @@ export interface Session {
 export interface Passage {
   id: number;
   document_id: string;
+  parent_document_id: string;
+  embedded_item_id: string | null;
   title: string;
   entity_kind: string;
   taxonomy_entity_kind: string;
@@ -54,6 +62,8 @@ export interface Passage {
 export interface AiCitation {
   paragraphId: number;
   documentId: string;
+  parentDocumentId: string;
+  embeddedItemId: string | null;
   title: string;
   subject: string | null;
   entityLabel: string;

@@ -1,0 +1,49 @@
+{
+  "$schema": "./page-evidence-release.schema.json",
+  "schema_version": 1,
+  "policy": "immutable_page_evidence_release_v1",
+  "status": "unresolved_fail_closed",
+  "authority_registry": {
+    "locator": "scripts/page-evidence/reviewer-authorities.json",
+    "sha256": "4602217e96d83cbc9caf472742cdf0912ae0bdf33863bd2244417d31975d9325",
+    "bytes": 144
+  },
+  "source_identity_registry": {
+    "locator": "scripts/page-evidence/online-source-identities.json",
+    "sha256": "d8d51035d46f82b8f92d31eca384aba13db4d4d31d9a241ad4845cbce3686144",
+    "bytes": 159
+  },
+  "bindings": {
+    "catalog": {
+      "locator": "data/catalog.json",
+      "sha256": "75c64afb87aff147014ca2613b1d425ee956473d917586ac006a929f1a9743ce",
+      "bytes": 262175
+    },
+    "page_publication_manifest": {
+      "locator": "data/page-publication-manifest.json",
+      "sha256": "1552b8c8f490451c9c158cc573ae814dadb5fe6b9cd346495e4b1c41cbc2fdcb",
+      "bytes": 148
+    },
+    "semantic_publication_policy": {
+      "locator": "data/semantic-publication-policy.json",
+      "sha256": "6bf7017b3804d8aa905b4449826d71a9b087df6f6ae0377a9b4108e7948d859a",
+      "bytes": 29287
+    },
+    "online_verification_standard": {
+      "locator": "data/online-verification-standard.json",
+      "sha256": "53a1db63cbee3dedde685b9ecad2c446da9899dc0f13dda5795343279afe5ec4",
+      "bytes": 3276
+    }
+  },
+  "bundles": [],
+  "expected_publication": {
+    "documents": 0,
+    "pages": 0,
+    "display_pages": 0,
+    "citation_pages": 0,
+    "resolved_semantic_controls": 0
+  },
+  "unresolved_reasons": [
+    "no_signed_page_evidence_bundles"
+  ]
+}

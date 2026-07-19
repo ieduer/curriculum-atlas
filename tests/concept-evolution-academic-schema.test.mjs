@@ -3,13 +3,22 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { materializeAcademicGraph, verifyGraphIndexShards } from '../scripts/graph-shards.mjs';
 
 const root = new URL('../', import.meta.url);
 const artifactPath = (environmentName, fallback) => process.env[environmentName]
   ? path.resolve(fileURLToPath(root), process.env[environmentName])
   : new URL(fallback, root);
 const core = JSON.parse(await readFile(artifactPath('CONCEPT_GRAPH_OUTPUT_PATH', 'public/data/concept-evolution.json'), 'utf8'));
-const graph = JSON.parse(await readFile(artifactPath('CONCEPT_ACADEMIC_OUTPUT_PATH', 'public/data/concept-evolution-academic.json'), 'utf8'));
+const academicArtifactPath = artifactPath('CONCEPT_ACADEMIC_OUTPUT_PATH', 'public/data/concept-evolution-academic.json');
+const academicIndex = JSON.parse(await readFile(academicArtifactPath, 'utf8'));
+const academicPathname = academicArtifactPath instanceof URL ? fileURLToPath(academicArtifactPath) : academicArtifactPath;
+const publicRoot = path.dirname(path.dirname(academicPathname));
+await verifyGraphIndexShards(academicIndex, publicRoot);
+const graph = await materializeAcademicGraph(academicIndex, publicRoot);
+const compendiumBoundaries = JSON.parse(
+  await readFile(new URL('../data/compendium-item-boundaries.json', import.meta.url), 'utf8'),
+);
 const byId = (name) => new Map(graph[name].map((item) => [item.id, item]));
 const concepts = byId('concepts');
 const senses = byId('concept_senses');
@@ -205,21 +214,30 @@ test('coverage and claim policy cannot assert first appearance or disappearance'
   }
 });
 
-test('OCR page fragments remain incomplete and non-quotable', () => {
+test('compendium observations require verified full-item boundaries and stay within their page range', () => {
   const ocrEvidence = graph.evidence.filter((item) => item.embedded_item_id !== null);
-  if (graph.coverage.ocr_display_accepted_pages === 0) {
-    assert.deepEqual(graph.embedded_items, []);
-    assert.deepEqual(ocrEvidence, []);
-    return;
-  }
-  assert.ok(graph.embedded_items.length > 0);
-  assert.ok(ocrEvidence.length > 0);
-  assert.ok(ocrEvidence.every((item) => item.citation_allowed === false
-    && item.citation_gate.document_allowed === false
-    && item.citation_gate.paragraph_allowed === false));
+  const publishedBoundaries = compendiumBoundaries.documents.flatMap((document) => document.items
+    .filter((item) => item.display_allowed)
+    .map((item) => [item.item_id, { document, item }]));
+  const boundaryById = new Map(publishedBoundaries);
+  assert.equal(graph.coverage.compendium_item_candidates, 61);
+  assert.equal(graph.coverage.compendium_display_verified_items, boundaryById.size);
+  assert.equal(graph.embedded_items.length, boundaryById.size);
   for (const item of graph.embedded_items) {
-    assert.equal(item.physical_page_start, item.physical_page_end);
-    assert.match(item.identity_status, /page_fragment/);
+    const boundary = boundaryById.get(item.id);
+    assert.ok(boundary);
+    assert.equal(item.identity_status, 'verified_full_item');
+    assert.equal(item.physical_page_start, boundary.item.candidate_physical_page_start);
+    assert.equal(item.physical_page_end, boundary.item.candidate_physical_page_end);
+    assert.ok(item.physical_page_end >= item.physical_page_start);
+  }
+  for (const item of ocrEvidence) {
+    const boundary = boundaryById.get(item.embedded_item_id);
+    assert.ok(boundary);
+    assert.ok(item.physical_pdf_page >= boundary.item.candidate_physical_page_start);
+    assert.ok(item.physical_pdf_page <= boundary.item.candidate_physical_page_end);
+    assert.equal(item.semantic_claim_allowed, false);
+    if (item.citation_allowed) assert.equal(boundary.item.citation_allowed, true);
   }
 });
 

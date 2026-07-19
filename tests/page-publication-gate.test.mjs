@@ -32,6 +32,7 @@ const EMPTY_CORE_TABLE_COUNTS_JSON = JSON.stringify({
   version_diffs: 0,
   online_verifications: 0,
   online_evidence: 0,
+  embedded_items: 0,
 });
 
 function manifestFor(rawPages, pageOverrides = []) {
@@ -235,19 +236,20 @@ test('migration preserves native visibility and coerces legacy or omitted OCR ci
   }
 });
 
-test('document detail API filters closed paragraphs and returns provenance only for open rows', async () => {
+test('document detail API exhausts release-bound pages while filtering closed paragraphs', async () => {
   const worker = await loadWorker();
-  const openParagraph = {
-    id: 1,
-    body: '公开段落',
+  const releaseId = `corpus-${'a'.repeat(24)}`;
+  const openParagraphs = Array.from({ length: 205 }, (_, index) => ({
+    id: index + 1,
+    body: `公开段落 ${index + 1}`,
     display_allowed: 1,
     source_artifact_sha256: SOURCE_SHA,
     source_page_sha256: PAGE_SHA_1,
     page_final_text_sha256: sha256Text('第一页最终文本\n'),
     evidence_bundle_sha256: EVIDENCE_SHA_1,
-    provenance_locator: 'ocr-document:page:1:block:1:body:hash',
-  };
-  const closedParagraph = { id: 2, body: '关闭段落', display_allowed: 0 };
+    provenance_locator: `ocr-document:page:1:block:${index + 1}:body:hash`,
+  }));
+  const closedParagraph = { id: 999, body: '关闭段落', display_allowed: 0 };
   let paragraphSql = '';
   const env = {
     DB: {
@@ -260,7 +262,7 @@ test('document detail API filters closed paragraphs and returns provenance only 
           },
           async first() {
             if (sql.includes('FROM corpus_import_releases r')) return {
-              release_id: 'corpus-test-ready',
+              release_id: releaseId,
               manifest_sha256: 'a'.repeat(64),
               state: 'ready',
               expected_documents: 1,
@@ -289,17 +291,23 @@ test('document detail API filters closed paragraphs and returns provenance only 
             };
             if (sql.includes('FROM documents d JOIN document_classifications')) {
               assert.equal(values[0], 'ocr-document');
-              return { id: 'ocr-document', title: '测试资料' };
+              return { id: 'ocr-document', title: '测试资料', corpus_release_id: releaseId };
             }
+            if (sql.includes('SELECT COUNT(*) AS count FROM paragraphs')) return { count: openParagraphs.length };
             return null;
           },
           async all() {
+            if (sql.includes('FROM sqlite_master')) {
+              return { results: [{ name: 'release_publication_ownership' }, { name: 'embedded_items' }] };
+            }
             if (sql.includes('FROM paragraphs')) {
               paragraphSql = sql;
+              const limit = Number(values[1]);
+              const offset = Number(values[2]);
               return {
                 results: sql.includes('display_allowed = 1')
-                  ? [openParagraph]
-                  : [openParagraph, closedParagraph],
+                  ? openParagraphs.slice(offset, offset + limit)
+                  : [...openParagraphs, closedParagraph],
               };
             }
             return { results: [] };
@@ -314,11 +322,26 @@ test('document detail API filters closed paragraphs and returns provenance only 
     ENVIRONMENT: 'test',
   };
 
-  const response = await worker.fetch(new Request('https://curriculum.example/api/documents/ocr-document'), env);
+  const response = await worker.fetch(new Request('https://curriculum.example/api/documents/ocr-document?limit=200'), env);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('cache-control'), 'private, no-store');
   const body = await response.json();
-  assert.deepEqual(body.paragraphs.map((paragraph) => paragraph.id), [1]);
-  assert.match(paragraphSql, /WHERE document_id = \? AND display_allowed = 1/);
-  assert.match(paragraphSql, /source_artifact_sha256,source_page_sha256,page_final_text_sha256,evidence_bundle_sha256,provenance_locator/);
+  assert.equal(body.paragraphs.length, 200);
+  assert.equal(body.total, 205);
+  assert.equal(body.hasMore, true);
+  assert.equal(typeof body.cursor, 'string');
+  assert.equal(body.paragraphs.some((paragraph) => paragraph.id === closedParagraph.id), false);
+  assert.match(paragraphSql, /WHERE p\.document_id = \? AND p\.embedded_item_id IS NULL AND p\.display_allowed = 1/);
+  assert.match(paragraphSql, /p\.source_artifact_sha256,p\.source_page_sha256,p\.page_final_text_sha256,p\.evidence_bundle_sha256,p\.provenance_locator/);
+
+  const finalResponse = await worker.fetch(new Request(
+    `https://curriculum.example/api/documents/ocr-document?limit=200&cursor=${encodeURIComponent(body.cursor)}`,
+  ), env);
+  assert.equal(finalResponse.status, 200);
+  const finalPage = await finalResponse.json();
+  assert.equal(finalPage.paragraphs.length, 5);
+  assert.equal(finalPage.total, 205);
+  assert.equal(finalPage.hasMore, false);
+  assert.equal(finalPage.cursor, null);
+  assert.equal(new Set([...body.paragraphs, ...finalPage.paragraphs].map((paragraph) => paragraph.id)).size, 205);
 });

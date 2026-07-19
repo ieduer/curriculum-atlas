@@ -8,7 +8,13 @@ import { spawnSync } from 'node:child_process';
 import { auditProjectAssets } from './audit-project-assets.mjs';
 import { validateDownloadsAuditReceipt } from './build-downloads-asset-audit-receipt.mjs';
 import { validateEnvironmentEvidenceReceipt } from './collect-release-environment-evidence.mjs';
-import { validateCorpusManifest } from './import-corpus.mjs';
+import {
+  validateCorpusManifest,
+  validateCorpusManifestSourceBindings,
+} from './import-corpus.mjs';
+import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
+import { desiredReleaseManifestArtifact } from './lib/desired-release-manifest.mjs';
+import { validateDualSchemaBootstrapReceipt } from './verify-dual-schema-bootstrap.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const DEFAULT_POLICY = 'data/release-assets-policy.json';
@@ -394,11 +400,60 @@ async function validateR2PolicyCoverage(root, policy) {
   }));
 }
 
-async function inspectCorpusRelease(root) {
+function validatePublicationCoordination(policy) {
+  const coordination = policy.r2?.publication_coordination;
+  if (!coordination || coordination.policy !== 'd1_activation_claimed_r2_binding_v3') {
+    throw new Error('r2 publication coordination must use d1_activation_claimed_r2_binding_v3');
+  }
+  const leaseKey = String(coordination.lease_key || '');
+  if (!/^[a-z0-9][a-z0-9_:-]{2,127}$/.test(leaseKey)) {
+    throw new Error('r2 publication coordination lease_key is invalid');
+  }
+  const ttl = coordination.lease_ttl_seconds;
+  if (!Number.isSafeInteger(ttl) || ttl < 60 || ttl > 7200) {
+    throw new Error('r2 publication coordination lease_ttl_seconds must be between 60 and 7200');
+  }
+  const bucketEnvironments = Object.keys(policy.r2?.buckets || {}).sort();
+  const databaseEnvironments = Object.keys(coordination.databases || {}).sort();
+  const coordinatorEnvironments = Object.keys(coordination.coordinator_urls || {}).sort();
+  assertExactSet(bucketEnvironments, databaseEnvironments, 'r2 publication coordination environment coverage');
+  assertExactSet(bucketEnvironments, coordinatorEnvironments, 'r2 coordinator environment coverage');
+  const databases = {};
+  const coordinatorUrls = {};
+  for (const environment of bucketEnvironments) {
+    const database = String(coordination.databases[environment] || '');
+    if (!/^[a-z0-9][a-z0-9-]{2,127}$/.test(database)) {
+      throw new Error(`r2 publication coordination database is invalid for ${environment}`);
+    }
+    databases[environment] = database;
+    const coordinatorUrl = String(coordination.coordinator_urls[environment] || '');
+    let parsed;
+    try {
+      parsed = new URL(coordinatorUrl);
+    } catch {
+      throw new Error(`r2 publication coordinator URL is invalid for ${environment}`);
+    }
+    if (parsed.protocol !== 'https:' || parsed.pathname !== '/api/admin/release-coordinate'
+        || parsed.search || parsed.hash) {
+      throw new Error(`r2 publication coordinator URL is not canonical for ${environment}`);
+    }
+    coordinatorUrls[environment] = parsed.href;
+  }
+  return {
+    policy: coordination.policy,
+    lease_key: leaseKey,
+    lease_ttl_seconds: ttl,
+    databases,
+    coordinator_urls: coordinatorUrls,
+  };
+}
+
+async function inspectCorpusRelease(root, sourceBindingValidator = validateCorpusManifestSourceBindings) {
   const manifestAsset = await inspectFile(root, 'data/corpus-chunks/manifest.json');
   const manifestJson = parseJsonAsset(manifestAsset);
   const sqlFiles = Array.isArray(manifestJson.sql_files) ? manifestJson.sql_files : [];
   const manifest = validateCorpusManifest(manifestJson, sqlFiles.length);
+  await sourceBindingValidator(manifest, { root });
   const actualSqlPaths = (await walkFiles(root, 'data/corpus-chunks'))
     .filter((file) => file.endsWith('.sql'));
   const expectedSqlPaths = sqlFiles.map((file) =>
@@ -418,6 +473,16 @@ async function inspectCorpusRelease(root) {
     release_id: manifest.release_id,
     release_fingerprint_sha256: manifest.release_fingerprint_sha256,
     manifest_sha256: manifest.manifest_sha256,
+    generated_at: manifest.generated_at,
+    audit: {
+      closed_ocr_paragraphs: manifest.closed_ocr_paragraphs,
+      skipped_ocr_documents: manifest.skipped_ocr_documents,
+      excluded_exact_duplicate_alias_documents: manifest.excluded_exact_duplicate_alias_documents,
+      semantic_excluded_pages: manifest.semantic_excluded_pages,
+      page_publication_schema_version: manifest.page_publication_schema_version,
+      semantic_publication_schema_version: manifest.semantic_publication_schema_version,
+      semantic_publication_revision_sha256: manifest.semantic_publication_revision_sha256,
+    },
     counts: {
       documents: manifest.documents,
       paragraphs: manifest.paragraphs,
@@ -509,6 +574,9 @@ async function inspectEnvironmentEvidence(root, policy, generatedAt) {
   );
   const asset = await inspectFile(root, source);
   const receipt = validateEnvironmentEvidenceReceipt(parseJsonAsset(asset));
+  if (receipt.dual_schema_bootstrap_receipt) {
+    validateDualSchemaBootstrapReceipt(receipt.dual_schema_bootstrap_receipt, { root });
+  }
   const maximumAgeHours = Number(policy.release_governance?.environment_evidence_max_age_hours);
   if (!Number.isFinite(maximumAgeHours) || maximumAgeHours <= 0) {
     throw new Error('environment_evidence_max_age_hours must be positive');
@@ -524,35 +592,42 @@ function sameCorpusRelease(observed, expected) {
   return stableStringify(observed.counts) === stableStringify(expected.counts);
 }
 
-function downloadsReceiptIdentity(receipt) {
-  const { age_hours: _ageHours, fresh: _fresh, ...stable } = receipt;
+function pageEvidenceIdentity(pageEvidence) {
+  const { renderer_identity: _rendererIdentity, ...sourceBound } = pageEvidence || {};
+  return sourceBound;
+}
+
+export function corpusReleaseIdentity(corpusRelease) {
+  const { generated_at: _generatedAt, ...stable } = corpusRelease;
   return stable;
 }
 
-function environmentSnapshotIdentity(snapshot) {
-  return {
-    ...snapshot,
-    environments: Object.fromEntries(Object.entries(snapshot.environments).map(([name, environment]) => {
-      const {
-        evidence_age_hours: _evidenceAgeHours,
-        evidence_fresh: _evidenceFresh,
-        release_blockers: blockers = [],
-        ...stableEnvironment
-      } = environment;
-      return [name, {
-        ...stableEnvironment,
-        release_blockers: blockers.filter((blocker) => blocker.code !== 'environment_evidence_stale'),
-      }];
-    })),
-  };
+export function releaseIdFromIdentity(releaseIdentity) {
+  return `release-${sha256(Buffer.from(stableStringify(releaseIdentity))).slice(0, 32)}`;
 }
 
-function buildEnvironmentState(root, policy, git, availableMigrations, corpusRelease, evidenceAsset, runCommand) {
+function buildEnvironmentState(
+  root,
+  policy,
+  git,
+  availableMigrations,
+  corpusRelease,
+  evidenceAsset,
+  graphRelease,
+  runCommand,
+) {
   const snapshot = policy.environment_snapshot || {};
-  const requiredMigration = String(snapshot.required_migration || '');
+  const requiredMigrations = Array.isArray(snapshot.required_migrations)
+    ? snapshot.required_migrations.map(String)
+    : [String(snapshot.required_migration || '')].filter(Boolean);
+  const requiredMigration = requiredMigrations[0] || '';
   const requiredReleaseReader = String(snapshot.required_r2_release_reader || '');
-  if (!requiredMigration || !availableMigrations.includes(requiredMigration)) {
-    throw new Error(`required migration is absent from source: ${requiredMigration || '<unset>'}`);
+  if (!requiredMigrations.length || requiredMigrations.some((migration) => !availableMigrations.includes(migration))) {
+    throw new Error(`required migration sequence is absent from source: ${requiredMigrations.join(',') || '<unset>'}`);
+  }
+  const requiredIndexes = requiredMigrations.map((migration) => availableMigrations.indexOf(migration));
+  if (requiredIndexes.some((index, position) => position > 0 && index !== requiredIndexes[position - 1] + 1)) {
+    throw new Error('required migration sequence is not contiguous and ordered');
   }
   if (!requiredReleaseReader) throw new Error('required_r2_release_reader is absent from environment snapshot');
 
@@ -575,6 +650,12 @@ function buildEnvironmentState(root, policy, git, availableMigrations, corpusRel
     }));
     if (!configured) {
       blockers.push({ code: 'environment_evidence_required', message: `${name} has no collected environment evidence` });
+    }
+    if (!evidenceAsset.receipt.dual_schema_bootstrap_receipt) {
+      blockers.push({
+        code: 'dual_schema_bootstrap_receipt_required',
+        message: `${name} has no executable bridge and ordered migration receipt`,
+      });
     }
     const observedAt = local ? null : configured?.observed_at;
     const ageHours = local ? null : (generatedTimestamp - Date.parse(observedAt)) / 3_600_000;
@@ -605,9 +686,20 @@ function buildEnvironmentState(root, policy, git, availableMigrations, corpusRel
       `${name}.asset_git_commit`,
       runCommand,
     );
-    const assetParityValid = local || configured?.asset_parity?.valid === true;
+    const observedAssetPaths = (configured?.asset_parity?.assets || []).map((asset) => asset.path).sort();
+    const assetParityValid = local || (configured?.asset_parity?.valid === true
+      && configured.asset_parity.transport_profile === graphRelease.transport_profile
+      && configured.asset_parity.build_revision === graphRelease.build_revision
+      && configured.asset_parity.graph_shard_count === graphRelease.graph_shard_count
+      && configured.asset_parity.asset_paths_sha256 === graphRelease.asset_paths_sha256
+      && stableStringify(observedAssetPaths) === stableStringify(graphRelease.asset_paths));
     if (!assetParityValid) {
-      blockers.push({ code: 'worker_asset_git_parity_required', message: `${name} Worker assets lack byte-exact Git parity evidence` });
+      blockers.push({
+        code: 'worker_graph_shard_git_parity_required',
+        expected_build_revision: graphRelease.build_revision,
+        observed_build_revision: configured?.asset_parity?.build_revision || null,
+        message: `${name} Worker assets do not prove byte-exact parity for every immutable graph shard`,
+      });
     }
     const healthReady = local || (configured?.health?.http_status === 200
       && configured?.health?.ok === true
@@ -652,6 +744,7 @@ function buildEnvironmentState(root, policy, git, availableMigrations, corpusRel
       asset_parity: configured?.asset_parity || null,
       health: configured?.health || null,
       r2_current_pointer: configured?.r2_current_pointer || null,
+      dual_schema_bootstrap_receipt: evidenceAsset.receipt.dual_schema_bootstrap_receipt || null,
       release_blockers: blockers,
       readiness_status: blockers.length ? 'blocked' : applied === null ? 'not_assessed' : 'ready',
       release_ready: blockers.length ? false : applied === null ? null : true,
@@ -668,12 +761,15 @@ function buildEnvironmentState(root, policy, git, availableMigrations, corpusRel
       maximum_age_hours: evidenceAsset.maximumAgeHours,
     },
     required_migration: requiredMigration,
+    required_migrations: requiredMigrations,
+    dual_schema_bootstrap_receipt: evidenceAsset.receipt.dual_schema_bootstrap_receipt || null,
     required_r2_release_reader: requiredReleaseReader,
+    graph_release: graphRelease,
     environments,
   };
 }
 
-function verifyCrossAssetIntegrity(dataByRole, graphByRole) {
+function verifyCrossAssetIntegrity(dataByRole, graphByRole, corpusRelease) {
   const catalogAsset = dataByRole.get('catalog');
   const ingestAsset = dataByRole.get('ingest_manifest');
   const queueAsset = dataByRole.get('ocr_queue');
@@ -706,12 +802,25 @@ function verifyCrossAssetIntegrity(dataByRole, graphByRole) {
   }
   if (core.build_revision !== academic.build_revision) throw new Error('core and academic graph build revisions differ');
   if (core.academic_model_ref?.sha256 !== academicAsset.sha256) throw new Error('core graph academic_model_ref hash is stale');
+  if (core.transport_profile !== 'immutable-content-addressed-graph-shards-v1'
+    || academic.transport_profile !== core.transport_profile) {
+    throw new Error('graph indexes do not share the immutable shard transport profile');
+  }
   for (const [label, graph] of [['core', core], ['academic', academic]]) {
     if (graph.input_fingerprints?.catalog_sha256 !== catalogAsset.sha256) throw new Error(`${label} graph catalog fingerprint is stale`);
     if (graph.input_fingerprints?.queue_sha256 !== queueAsset.sha256) throw new Error(`${label} graph OCR queue fingerprint is stale`);
+    if (graph.input_fingerprints?.corpus_manifest_sha256 !== corpusRelease.manifest_sha256) {
+      throw new Error(`${label} graph corpus manifest fingerprint is stale`);
+    }
+    if (graph.input_fingerprints?.corpus_release_fingerprint_sha256 !== corpusRelease.release_fingerprint_sha256) {
+      throw new Error(`${label} graph corpus release fingerprint is stale`);
+    }
   }
   for (const [key, expected] of Object.entries(core.academic_model_ref?.counts || {})) {
-    if (Array.isArray(academic[key]) && academic[key].length !== expected) {
+    const declared = (academic.shard_manifest?.assets || [])
+      .filter((asset) => asset.kind === 'academic_collection' && asset.filters?.collection === key)
+      .reduce((total, asset) => total + Number(asset.counts?.items || 0), 0);
+    if (declared !== expected) {
       throw new Error(`core graph academic_model_ref count is stale for ${key}`);
     }
   }
@@ -719,12 +828,32 @@ function verifyCrossAssetIntegrity(dataByRole, graphByRole) {
 
 export async function buildReleaseManifest({
   root = DEFAULT_ROOT,
+  repositoryRoot = root,
   policyPath = DEFAULT_POLICY,
   generatedAt = new Date().toISOString(),
   runCommand = spawnSync,
+  pageEvidencePromotion = false,
+  rendererPath = null,
+  projectAssetAuditor = auditProjectAssets,
+  corpusSourceBindingValidator = validateCorpusManifestSourceBindings,
+  gitOverride = null,
+  sourceTreeOverride = null,
+  pageEvidenceOverride = null,
 } = {}) {
   const projectRoot = resolve(root);
-  const initialGit = inspectGitSnapshot(projectRoot, runCommand);
+  const gitRepositoryRoot = resolve(repositoryRoot);
+  if (Boolean(gitOverride) !== Boolean(sourceTreeOverride)) {
+    throw new Error('gitOverride and sourceTreeOverride must be supplied together');
+  }
+  if (sourceTreeOverride && sourceTreeOverride.materialized_from_git_blobs !== true) {
+    throw new Error('sourceTreeOverride must be an exact materialized Git blob tree');
+  }
+  const initialGit = gitOverride || inspectGitSnapshot(gitRepositoryRoot, runCommand);
+  const pageEvidence = pageEvidenceOverride || validatePageEvidenceForRelease({
+    root: projectRoot,
+    pageEvidencePromotion,
+    rendererPath,
+  });
   const normalizedPolicyPath = normalizeRelativePath(policyPath, 'policy path');
   const policyAsset = await inspectFile(projectRoot, normalizedPolicyPath);
   const policy = parseJsonAsset(policyAsset);
@@ -732,17 +861,17 @@ export async function buildReleaseManifest({
     throw new Error(`unsupported release assets policy: ${policy.policy || '<unset>'} schema ${policy.schema_version ?? '<unset>'}`);
   }
 
-  const projectAssetAudit = await auditProjectAssets({ projectRoot });
+  const projectAssetAudit = await projectAssetAuditor({ projectRoot });
   if (!projectAssetAudit.ok) {
     const issues = projectAssetAudit.errors.map((issue) => `${issue.area}:${issue.code}`).join(', ');
     throw new Error(`project asset audit failed closed: ${issues || 'unknown error'}`);
   }
 
   const r2Objects = await validateR2PolicyCoverage(projectRoot, policy);
+  const publicationCoordination = validatePublicationCoordination(policy);
   const dataInventory = await validateDataInventory(projectRoot, policy, r2Objects);
-
-  const sourceTree = await buildSourceTree(projectRoot, policy, runCommand);
-  const corpusRelease = await inspectCorpusRelease(projectRoot);
+  const sourceTree = sourceTreeOverride || await buildSourceTree(projectRoot, policy, runCommand);
+  const corpusRelease = await inspectCorpusRelease(projectRoot, corpusSourceBindingValidator);
   const dataAssets = [];
   const dataByRole = new Map();
   for (const object of r2Objects) {
@@ -805,6 +934,16 @@ export async function buildReleaseManifest({
   const graphByRole = new Map();
   const staticSourceRoot = normalizeRelativePath(policy.static_assets?.source_root, 'static source root');
   const staticDeployRoot = normalizeRelativePath(policy.static_assets?.deploy_root, 'static deploy root');
+  const graphShardSourcePrefix = normalizeRelativePath(policy.graph_shards?.source_prefix, 'graph shard source prefix');
+  const graphShardTransport = String(policy.graph_shards?.transport_profile || '');
+  const graphShardMaximumBytes = Number(policy.graph_shards?.maximum_asset_bytes);
+  const graphShardDescriptorFields = policy.graph_shards?.required_descriptor_fields;
+  if (graphShardSourcePrefix !== `${staticSourceRoot}/data/graph-shards`
+    || graphShardTransport !== 'immutable-content-addressed-graph-shards-v1'
+    || !Number.isInteger(graphShardMaximumBytes) || graphShardMaximumBytes !== 512 * 1024
+    || !Array.isArray(graphShardDescriptorFields) || graphShardDescriptorFields.length === 0) {
+    throw new Error('release policy graph_shards contract is invalid');
+  }
   for (const configured of policy.graph_assets || []) {
     const inspected = await inspectFile(projectRoot, configured.source);
     if (!inspected.source.startsWith(`${staticSourceRoot}/`)) {
@@ -830,9 +969,53 @@ export async function buildReleaseManifest({
   }
   if (graphAssets.length !== 2) throw new Error(`release policy must define exactly two graph assets; found ${graphAssets.length}`);
 
-  verifyCrossAssetIntegrity(dataByRole, graphByRole);
+  verifyCrossAssetIntegrity(dataByRole, graphByRole, corpusRelease);
 
-  const graphSources = new Set(graphAssets.map((item) => item.source));
+  const graphShards = [];
+  const descriptorIds = new Set();
+  const descriptorSources = new Set();
+  for (const graphAsset of graphAssets) {
+    const manifest = graphAsset.json.shard_manifest;
+    if (manifest?.build_revision !== graphAsset.build_revision || !Array.isArray(manifest.assets)) {
+      throw new Error(`${graphAsset.role} shard manifest is missing or stale`);
+    }
+    for (const descriptor of manifest.assets) {
+      assertExactSet(graphShardDescriptorFields, Object.keys(descriptor), `graph shard descriptor ${descriptor.id || 'unknown'}`);
+      if (descriptorIds.has(descriptor.id)) throw new Error(`duplicate graph shard descriptor: ${descriptor.id}`);
+      descriptorIds.add(descriptor.id);
+      const source = normalizeRelativePath(`public${descriptor.path}`, 'graph shard source');
+      if (!source.startsWith(`${graphShardSourcePrefix}/`) || descriptorSources.has(source)) {
+        throw new Error(`invalid or duplicate graph shard source: ${source}`);
+      }
+      descriptorSources.add(source);
+      const inspected = await inspectFile(projectRoot, source);
+      if (inspected.sha256 !== descriptor.sha256 || inspected.bytes !== descriptor.bytes
+        || descriptor.build_revision !== graphAsset.build_revision || descriptor.bytes > graphShardMaximumBytes) {
+        throw new Error(`graph shard descriptor parity failed: ${descriptor.id}`);
+      }
+      const deployPath = `${staticDeployRoot}/${source.slice(staticSourceRoot.length + 1)}`;
+      const deployed = await inspectFile(projectRoot, deployPath);
+      assertBufferParity(inspected, deployed.buffer, `deploy graph shard ${deployPath}`);
+      graphShards.push({
+        id: descriptor.id,
+        kind: descriptor.kind,
+        source,
+        deploy_path: deployPath,
+        sha256: inspected.sha256,
+        bytes: inspected.bytes,
+        build_revision: descriptor.build_revision,
+        counts: descriptor.counts,
+        filters: descriptor.filters,
+      });
+    }
+  }
+  const discoveredShardSources = (await walkFiles(projectRoot, graphShardSourcePrefix));
+  assertExactSet([...descriptorSources], discoveredShardSources, 'graph shard source coverage');
+
+  const graphSources = new Set([
+    ...graphAssets.map((item) => item.source),
+    ...graphShards.map((item) => item.source),
+  ]);
   const publicFiles = await walkFiles(projectRoot, staticSourceRoot);
   const deployFiles = await walkFiles(projectRoot, staticDeployRoot);
   const expectedDeployFiles = publicFiles.map((source) =>
@@ -858,23 +1041,47 @@ export async function buildReleaseManifest({
     .filter((file) => /^migrations\/\d{4}_.+\.sql$/.test(file))
     .map((file) => file.slice('migrations/'.length))
     .sort();
+  const graphReleaseAssetPaths = [
+    'app.js', 'atlas.js', 'styles.css',
+    ...graphAssets.map((asset) => asset.source.slice(`${staticSourceRoot}/`.length)),
+    ...graphShards.map((asset) => asset.source.slice(`${staticSourceRoot}/`.length)),
+  ].sort();
+  const graphRelease = {
+    transport_profile: graphAssets[0].json.transport_profile,
+    build_revision: graphAssets[0].build_revision,
+    graph_shard_count: graphShards.length,
+    asset_count: graphReleaseAssetPaths.length,
+    asset_paths_sha256: sha256(Buffer.from(graphReleaseAssetPaths.join('\0'))),
+    asset_paths: graphReleaseAssetPaths,
+  };
   const environmentState = buildEnvironmentState(
-    projectRoot,
+    gitRepositoryRoot,
     policy,
     initialGit,
     migrationFiles,
     corpusRelease,
     environmentEvidence,
+    graphRelease,
     runCommand,
   );
 
-  const publicAssetPaths = [...staticAssets.map((item) => item.path), ...graphAssets.map((item) => item.source)];
+  const publicAssetPaths = [
+    ...staticAssets.map((item) => item.path),
+    ...graphAssets.map((item) => item.source),
+    ...graphShards.map((item) => item.source),
+  ];
   assertExactSet(publicFiles, publicAssetPaths, 'public static asset coverage');
-  const manifestDeployPaths = [...staticAssets.map((item) => item.deploy_path), ...graphAssets.map((item) => item.deploy_path)];
+  const manifestDeployPaths = [
+    ...staticAssets.map((item) => item.deploy_path),
+    ...graphAssets.map((item) => item.deploy_path),
+    ...graphShards.map((item) => item.deploy_path),
+  ];
   assertExactSet(deployFiles, manifestDeployPaths, 'deploy static asset coverage');
 
-  const finalGit = inspectGitSnapshot(projectRoot, runCommand);
-  assertGitSnapshotUnchanged(initialGit, finalGit);
+  if (!gitOverride) {
+    const finalGit = inspectGitSnapshot(gitRepositoryRoot, runCommand);
+    assertGitSnapshotUnchanged(initialGit, finalGit);
+  }
   const git = initialGit;
 
   const cleanDataAssets = dataAssets.map(({ json, ...asset }) => asset);
@@ -892,15 +1099,14 @@ export async function buildReleaseManifest({
     git: { head: git.head },
     source_tree_sha256: sourceTree.sha256,
     data_inventory: dataInventory,
-    corpus_release: corpusRelease,
-    downloads_asset_audit: downloadsReceiptIdentity(downloadsAssetAudit),
+    corpus_release: corpusReleaseIdentity(corpusRelease),
+    page_evidence: pageEvidenceIdentity(pageEvidence),
     data_assets: cleanDataAssets.map(({ role, source, key, sha256: hash, bytes }) => ({ role, source, key, sha256: hash, bytes })),
     graph_assets: cleanGraphAssets.map(({ role, source, deploy_path, sha256: hash, bytes, build_revision }) => ({ role, source, deploy_path, sha256: hash, bytes, build_revision })),
+    graph_shards: graphShards,
     static_assets: staticAssets.map(({ path, deploy_path, sha256: hash, bytes }) => ({ path, deploy_path, sha256: hash, bytes })),
-    environment_snapshot: environmentSnapshotIdentity(environmentState),
-    project_asset_audit: assetAuditSummary,
   };
-  const releaseId = `release-${sha256(Buffer.from(stableStringify(releaseIdentity))).slice(0, 32)}`;
+  const releaseId = releaseIdFromIdentity(releaseIdentity);
   const releasePrefix = normalizeRelativePath(policy.r2.release_prefix, 'r2 release prefix');
   const releasedDataAssets = cleanDataAssets.map((asset) => ({
     ...asset,
@@ -951,22 +1157,26 @@ export async function buildReleaseManifest({
     policy: policy.policy,
     generated_at: generatedAt,
     release_id: releaseId,
+    release_identity: releaseIdentity,
     release_ready: allBlockers.length === 0,
     release_blockers: allBlockers,
     git,
     source_tree: sourceTree,
     data_inventory: dataInventory,
     corpus_release: corpusRelease,
+    page_evidence: pageEvidence,
     downloads_asset_audit: downloadsAssetAudit,
     environment_snapshot: environmentState,
     data_assets: releasedDataAssets,
     graph_assets: cleanGraphAssets,
+    graph_shards: graphShards,
     static_assets: staticSummary,
     r2: {
       current_pointer_key: policy.r2.current_pointer_key,
       release_prefix: releasePrefix,
       release_manifest_key: releaseManifestKey,
       buckets: policy.r2.buckets,
+      publication_coordination: publicationCoordination,
       managed_object_count: releasedDataAssets.length,
       objects: releasedDataAssets.map(({ role, source, key, release_key, content_type, sha256: hash, bytes, counts }) => ({
         role, source, key, release_key, content_type, sha256: hash, bytes, counts,
@@ -1008,6 +1218,10 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (!key.startsWith('--')) throw new Error(`unexpected argument: ${key}`);
+    if (key === '--page-evidence-promotion') {
+      args[key.slice(2)] = true;
+      continue;
+    }
     const value = argv[index + 1];
     if (!value || value.startsWith('--')) throw new Error(`missing value for ${key}`);
     args[key.slice(2)] = value;
@@ -1023,8 +1237,11 @@ async function main() {
     root,
     policyPath: args.policy || DEFAULT_POLICY,
     generatedAt: args['generated-at'] || new Date().toISOString(),
+    pageEvidencePromotion: args['page-evidence-promotion'] === true,
+    rendererPath: args.renderer || null,
   });
-  const serialized = `${JSON.stringify(manifest, null, 2)}\n`;
+  const artifact = desiredReleaseManifestArtifact(manifest);
+  const serialized = artifact.buffer;
   if (args.output) {
     const output = resolve(args.output);
     const relativeOutput = relative(root, output).replaceAll('\\', '/');
@@ -1033,8 +1250,8 @@ async function main() {
       throw new Error(`output path is part of the governed source tree and would make the manifest self-referential: ${relativeOutput}`);
     }
     await mkdir(dirname(output), { recursive: true });
-    await writeFile(output, serialized, 'utf8');
-    process.stdout.write(`${manifest.release_id} assets=${manifest.static_assets.file_count + manifest.graph_assets.length} r2=${manifest.r2.managed_object_count} blockers=${manifest.release_blockers.length}\n`);
+    await writeFile(output, serialized);
+    process.stdout.write(`${manifest.release_id} manifest_sha256=${artifact.sha256} assets=${manifest.static_assets.file_count + manifest.graph_assets.length} r2=${manifest.r2.managed_object_count} blockers=${manifest.release_blockers.length}\n`);
   } else {
     process.stdout.write(serialized);
   }

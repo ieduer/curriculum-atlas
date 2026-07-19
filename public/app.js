@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260718v16';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260718v19';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -6,7 +6,12 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260718v16';
+} from './subject-facets.js?v=20260718v19';
+import { GraphShardStore } from './graph-loader.js?v=20260718v19';
+import { loadAllDocumentIdentities } from './document-pagination.js?v=20260718v19';
+import { buildCommentThread, commentReplyTarget } from './comment-thread.js?v=20260718v19';
+import { evidenceIdentityHref } from './identity-links.js?v=20260718v19';
+import { loadAllCommentPages, loadAllParagraphPages } from './release-pagination.js?v=20260718v19';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -56,6 +61,9 @@ const state = {
   documents: [],
   insights: [],
   conceptGraph: null,
+  graphShards: null,
+  loadedOntologyFacets: new Set(),
+  ontologyLoads: new Map(),
   evidenceById: new Map(),
   ontologyNodeById: new Map(),
   ontologyEvidenceById: new Map(),
@@ -101,16 +109,26 @@ async function api(path, options) {
   return data;
 }
 
+async function loadAllParagraphs(path) {
+  return loadAllParagraphPages(api, path);
+}
+
+async function loadAllComments(path) {
+  return loadAllCommentPages(api, path);
+}
+
 async function loadBase() {
   if (state.meta) return;
-  const conceptGraph = await api('/data/concept-evolution.json?v=20260718v16');
+  const conceptGraph = await api('/data/concept-evolution.json?v=20260718v19');
   const [meta, documents, insights] = await Promise.all([
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
-    api('/api/documents?limit=200').catch(() => ({ documents: [] })),
+    loadAllDocumentIdentities(({ limit, cursor }) => api(
+      `/api/documents?limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+    )),
     api('/api/insights').catch(() => ({ insights: [] })),
   ]);
   state.meta = meta;
-  state.documents = documents.documents || [];
+  state.documents = documents;
   state.insights = insights.insights || [];
   if (conceptGraph.schema_version !== 1
     || !Array.isArray(conceptGraph.episodes)
@@ -118,12 +136,11 @@ async function loadBase() {
     || !Array.isArray(conceptGraph.subject_facets)
     || !Array.isArray(conceptGraph.subject_taxonomy)
     || conceptGraph.ontology_schema_version !== 1
-    || !Array.isArray(conceptGraph.ontology_nodes)
-    || !Array.isArray(conceptGraph.ontology_relations)
-    || !Array.isArray(conceptGraph.ontology_evidence)) {
+    || !Array.isArray(conceptGraph.edges)) {
     throw new Error('概念星图数据未通过结构校验');
   }
   state.conceptGraph = conceptGraph;
+  state.graphShards = new GraphShardStore(conceptGraph);
   state.evidenceById = new Map(conceptGraph.evidence.map((item) => [item.id, item]));
   state.ontologyNodeById = new Map(conceptGraph.ontology_nodes.map((item) => [item.id, item]));
   state.ontologyEvidenceById = new Map(conceptGraph.ontology_evidence.map((item) => [item.id, item]));
@@ -294,6 +311,48 @@ function clearConceptInspector(resetRoute = true) {
   if (resetRoute && location.pathname.replace(/\/+$/, '') === '/terms') history.replaceState({}, '', '/');
 }
 
+async function selectConceptEpisode(stub, updateRoute = true) {
+  const subject = episodeCanonicalSubject(stub);
+  const facet = displayFacetForSubject(subject) || stub.visibility_facets?.[0] || null;
+  inspector.hidden = false;
+  inspector.innerHTML = '<p class="inspector-kicker">正在核验概念证据分片…</p>';
+  try {
+    const detail = await state.graphShards.loadEpisode(stub, facet);
+    for (const evidence of detail.evidence) state.evidenceById.set(evidence.id, evidence);
+    showConceptInspector(detail.episode);
+    if (updateRoute) history.replaceState({}, '', `/terms?term=${encodeURIComponent(detail.episode.concept_id)}`);
+  } catch (error) {
+    clearConceptInspector(false);
+    toast(error.message);
+  }
+}
+
+async function ensureOntologyFacet(facet) {
+  if (!facet || state.loadedOntologyFacets.has(facet)) return true;
+  if (state.ontologyLoads.has(facet)) return state.ontologyLoads.get(facet);
+  const task = state.graphShards.loadOntologyFacet(facet).then((data) => {
+    const replaceById = (collection, additions) => {
+      const byId = new Map(collection.map((item) => [item.id, item]));
+      for (const item of additions || []) byId.set(item.id, item);
+      return [...byId.values()];
+    };
+    state.conceptGraph.ontology_scopes = replaceById(state.conceptGraph.ontology_scopes, data.ontology_scopes);
+    state.conceptGraph.ontology_nodes = replaceById(state.conceptGraph.ontology_nodes, data.ontology_nodes);
+    state.conceptGraph.ontology_relations = replaceById(state.conceptGraph.ontology_relations, data.ontology_relations);
+    state.conceptGraph.ontology_evidence = replaceById(state.conceptGraph.ontology_evidence, data.ontology_evidence);
+    state.ontologyScopeById = new Map(state.conceptGraph.ontology_scopes.map((item) => [item.id, item]));
+    state.ontologyNodeById = new Map(state.conceptGraph.ontology_nodes.map((item) => [item.id, item]));
+    state.ontologyEvidenceById = new Map(state.conceptGraph.ontology_evidence.map((item) => [item.id, item]));
+    state.loadedOntologyFacets.add(facet);
+    return true;
+  }).catch((error) => {
+    state.loadedOntologyFacets.delete(facet);
+    throw error;
+  }).finally(() => state.ontologyLoads.delete(facet));
+  state.ontologyLoads.set(facet, task);
+  return task;
+}
+
 function showConceptInspector(episode) {
   state.selectedEpisode = episode;
   state.cosmos?.setSelected(episode.id);
@@ -304,7 +363,7 @@ function showConceptInspector(episode) {
   const entityLabel = episodeEntityLabel(episode);
   const entityKind = episodeCourseEntity(episode) ? '课程节点' : '学科概念';
   const evidenceHtml = records.map((item) => `<article class="concept-evidence ${item.citation_allowed ? '' : 'candidate'}">
-    ${item.citation_allowed ? `<a href="/document/${encodeURIComponent(item.document_id)}" data-link>${escapeHtml(item.document_title)}</a>` : `<b>${escapeHtml(item.document_title)}</b>`}
+    ${item.citation_allowed ? `<a href="${evidenceIdentityHref(item)}" data-link>${escapeHtml(item.document_title)}</a>` : `<b>${escapeHtml(item.document_title)}</b>`}
     <small>${escapeHtml(item.source_locator)} · ${escapeHtml(item.matched_surface)}${item.citation_allowed ? '' : ' · 不进入引文 AI'}</small>
     <p>${escapeHtml(item.snippet)}</p>
   </article>`).join('');
@@ -327,10 +386,16 @@ function showConceptInspector(episode) {
       ${subjectFacet ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(subjectFacet)}" data-link>比较版本</a>` : ''}
     </div>`;
   inspector.querySelector('.inspector-close').addEventListener('click', () => clearConceptInspector());
-  inspector.querySelector('[data-open-ontology]')?.addEventListener('click', (event) => {
+  inspector.querySelector('[data-open-ontology]')?.addEventListener('click', async (event) => {
     state.ontologyFocusId = event.currentTarget.dataset.openOntology;
-    setMapMode('structure');
-    showOntologyInspector(state.ontologyNodeById.get(state.ontologyFocusId));
+    try {
+      await ensureOntologyFacet(subjectFacet);
+      setMapMode('structure');
+      showOntologyInspector(state.ontologyNodeById.get(state.ontologyFocusId));
+    } catch (error) {
+      state.ontologyFocusId = null;
+      toast(error.message);
+    }
   });
   inspector.hidden = false;
 }
@@ -385,7 +450,7 @@ function showOntologyInspector(node) {
       return peer ? `<button type="button" data-ontology-node="${escapeHtml(peer.id)}"><span>${escapeHtml(ONTOLOGY_RELATION_LABELS[relation.type] || relation.type)}</span>${escapeHtml(peer.label)}</button>` : '';
     }).filter(Boolean).join('');
   const evidenceHtml = records.map((item) => `<article class="concept-evidence">
-    <a href="/document/${encodeURIComponent(item.document_id)}" data-link>${escapeHtml(item.document_title)}</a>
+    <a href="${evidenceIdentityHref(item)}" data-link>${escapeHtml(item.document_title)}</a>
     <small>${escapeHtml(item.source_locator)} · ${escapeHtml((item.section_path || []).join(' › '))}</small>
     <p>段落锚点：${escapeHtml((item.required_terms || []).join(' · '))}</p>
   </article>`).join('');
@@ -465,6 +530,16 @@ function renderConceptLayers() {
   const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
   const visibleSubjects = state.hideAllSubjects ? [] : subjects.filter((subject) => !state.hiddenSubjects.has(subject));
   const searchableSubjects = new Set(visibleSubjects);
+  const singleSubject = visibleSubjects.length === 1 ? visibleSubjects[0] : null;
+  if ((state.mode === 'structure' || state.query) && singleSubject && !state.loadedOntologyFacets.has(singleSubject)) {
+    conceptLayers.hidden = false;
+    mount.classList.add('structure-muted');
+    conceptLayers.innerHTML = '<div class="ontology-empty"><b>正在核验深层概念分片</b><span>仅载入当前学科；哈希或版本不一致时不会混用数据。</span></div>';
+    ensureOntologyFacet(singleSubject).then(() => renderConceptLayers()).catch((error) => {
+      conceptLayers.innerHTML = `<div class="ontology-empty"><b>当前学科深层模型暂不可用</b><span>${escapeHtml(error.message)}</span></div>`;
+    });
+    return;
+  }
   const queryMatches = state.query ? state.conceptGraph.ontology_nodes
     .filter((node) => searchableSubjects.has(ontologyNodeSubject(node)) && ontologySearchText(node).includes(state.query))
     .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
@@ -747,17 +822,25 @@ async function renderSources(url) {
 
 async function renderDocument(id) {
   try {
-    const data = await api(`/api/documents/${encodeURIComponent(id)}?limit=200`);
-    const doc = data.document;
+    const listedIdentity = state.documents.find((entry) => entry.id === id);
+    const embeddedItem = listedIdentity?.identity_kind === 'embedded_item' || id.startsWith('embedded:');
+    const data = await loadAllParagraphs(`${embeddedItem ? '/api/items/' : '/api/documents/'}${encodeURIComponent(id)}`);
+    const doc = data.document || data.item;
     state.selectedDocument = doc;
     const source = doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener">发布页 / 原件 ↗</a>` : '原件链接待补';
     const paragraphs = data.paragraphs.length ? data.paragraphs.map((paragraph) => `<section class="paragraph ${paragraph.uncertainty_note ? 'uncertain' : ''}" id="p-${paragraph.id}"><span class="paragraph-number">P:${paragraph.id}<br>${escapeHtml(paragraph.source_locator)}</span>${escapeHtml(paragraph.body)}${paragraph.uncertainty_note ? `<small class="uncertainty-note">可能有问题：${escapeHtml(paragraph.uncertainty_note)}</small>` : ''}</section>`).join('') : '<div class="empty-state">该记录目前只有已核元数据，正文尚未达到上线门槛。</div>';
-    const verification = data.verifications.length ? data.verifications.map((item) => `<article class="verification-row"><b>${escapeHtml(item.entity_label)} · ${escapeHtml(verificationLabel(item.verification_status))}</b><p>${escapeHtml(item.resolution)}</p>${item.uncertainty_note ? `<small class="uncertainty-note">可能有问题：${escapeHtml(item.uncertainty_note)}</small>` : ''}${(item.evidence || []).map((evidence) => `<p><a href="${escapeHtml(evidence.sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(evidence.publisher)}</a> · ${escapeHtml(verificationLabel(evidence.versionMatch))} · ${escapeHtml(evidence.factSummary)}</p>`).join('')}</article>`).join('') : '<div class="empty-state">尚无在线同版核查记录。</div>';
-    const documentIdentityKind = documentIdentityKindLabel(doc);
+    const verification = (data.verifications || []).length ? data.verifications.map((item) => `<article class="verification-row"><b>${escapeHtml(item.entity_label)} · ${escapeHtml(verificationLabel(item.verification_status))}</b><p>${escapeHtml(item.resolution)}</p>${item.uncertainty_note ? `<small class="uncertainty-note">可能有问题：${escapeHtml(item.uncertainty_note)}</small>` : ''}${(item.evidence || []).map((evidence) => `<p><a href="${escapeHtml(evidence.sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(evidence.publisher)}</a> · ${escapeHtml(verificationLabel(evidence.versionMatch))} · ${escapeHtml(evidence.factSummary)}</p>`).join('')}</article>`).join('') : '<div class="empty-state">尚无在线同版核查记录。</div>';
+    const documentIdentityKind = embeddedItem ? '汇编篇目' : documentIdentityKindLabel(doc);
     const documentFacet = documentDisplayFacet(doc);
     const relatedFacet = doc.taxonomy_entity_kind === 'assessment_subject' ? documentFacet : null;
     const sourceVariant = documentSourceVariant(doc);
-    workbenchBody.innerHTML = `<div class="reader-grid"><article class="reader-document"><h2>${escapeHtml(doc.title)}</h2><p>${escapeHtml(doc.issued_by)}${doc.issued_date ? ` · ${escapeHtml(doc.issued_date)}` : ''} · ${escapeHtml(qualityLabel(doc))}</p>${paragraphs}<h2>在线三证核查</h2><p>只有同文同版来源可校正文句；同篇异版仅旁证稳定事实。</p>${verification}</article><aside class="reader-facts"><h3>资料身份</h3><p>编号：${escapeHtml(doc.id)}<br>${escapeHtml(documentIdentityKind)}：${escapeHtml(documentEntityLabel(doc))}${relatedFacet ? `<br>关联学科分面：${escapeHtml(relatedFacet)}` : ''}${sourceVariant ? `<br>来源标注：${escapeHtml(sourceVariant)}` : ''}<br>学段：${escapeHtml(doc.stage)}<br>版本：${escapeHtml(doc.version_label)}<br>状态：${escapeHtml(statusLabel(doc.current_status))}<br>文本质量：${escapeHtml(doc.text_quality_status || '待评估')}<br>页数：${doc.page_count || '待核'}</p><p>${source}</p><div class="inspector-actions">${documentFacet ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(documentFacet)}" data-link>版本比较</a>` : ''}<a class="action-button" href="/discussions?documentId=${encodeURIComponent(doc.id)}" data-link>教师讨论</a></div></aside></div>`;
+    const carrierIdentity = embeddedItem ? `<br>汇编载体：${escapeHtml(doc.parent_title)}<br>物理页：${escapeHtml(doc.physical_page_start)}–${escapeHtml(doc.physical_page_end)}` : '';
+    const discussionDocumentId = data.discussionDocumentId || doc.id;
+    const discussionEmbeddedItemId = data.discussionEmbeddedItemId || null;
+    const discussionHref = discussionEmbeddedItemId
+      ? `/discussions?documentId=${encodeURIComponent(discussionDocumentId)}&embeddedItemId=${encodeURIComponent(discussionEmbeddedItemId)}`
+      : `/discussions?documentId=${encodeURIComponent(discussionDocumentId)}`;
+    workbenchBody.innerHTML = `<div class="reader-grid"><article class="reader-document"><h2>${escapeHtml(doc.title)}</h2><p>${doc.issued_by ? escapeHtml(doc.issued_by) : '发布机构待核'}${doc.issued_date ? ` · ${escapeHtml(doc.issued_date)}` : ''} · ${escapeHtml(qualityLabel(doc))}</p>${paragraphs}<h2>在线三证核查</h2><p>只有同文同版来源可校正文句；同篇异版仅旁证稳定事实。</p>${verification}</article><aside class="reader-facts"><h3>资料身份</h3><p>编号：${escapeHtml(doc.id)}<br>${escapeHtml(documentIdentityKind)}：${escapeHtml(documentEntityLabel(doc))}${relatedFacet ? `<br>关联学科分面：${escapeHtml(relatedFacet)}` : ''}${sourceVariant ? `<br>来源标注：${escapeHtml(sourceVariant)}` : ''}${carrierIdentity}<br>学段：${escapeHtml(doc.stage)}<br>版本：${escapeHtml(doc.version_label)}<br>状态：${escapeHtml(statusLabel(doc.current_status))}<br>文本质量：${escapeHtml(doc.text_quality_status || '待评估')}<br>页数：${doc.page_count || '待核'}</p><p>${source}</p><div class="inspector-actions">${documentFacet ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(documentFacet)}" data-link>版本比较</a>` : ''}<a class="action-button" href="${discussionHref}" data-link>教师讨论</a></div></aside></div>`;
     if (location.hash) requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView({ block: 'center' }));
   } catch (error) {
     workbenchBody.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
@@ -852,12 +935,35 @@ function setupTurnstile(container, callback) {
   document.head.append(script);
 }
 
-async function loadComments(documentId) {
+async function loadComments(documentId, embeddedItemId = null) {
   const root = document.querySelector('#comment-list');
   if (!root) return;
   try {
-    const data = await api(`/api/comments?documentId=${encodeURIComponent(documentId)}`);
-    root.innerHTML = data.comments.length ? data.comments.map((item) => `<article class="comment-row"><h3>${escapeHtml(item.author_name)}</h3><header>${new Date(`${item.created_at}Z`).toLocaleString('zh-CN')}</header><p>${escapeHtml(item.body)}</p></article>`).join('') : '<div class="empty-state">尚无公开讨论。第一条判断也应说明所据版本或条文。</div>';
+    const embeddedScope = embeddedItemId ? `&embeddedItemId=${encodeURIComponent(embeddedItemId)}` : '';
+    const data = await loadAllComments(`/api/comments?documentId=${encodeURIComponent(documentId)}${embeddedScope}`);
+    const byId = new Map(data.comments.map((item) => [item.id, item]));
+    const renderNodes = (nodes, depth = 0) => nodes.map((item) => `<article class="comment-row" data-depth="${Math.min(depth, 6)}">
+      <h3>${escapeHtml(item.author_name)}</h3>
+      <header>${new Date(`${item.created_at}Z`).toLocaleString('zh-CN')}</header>
+      <p>${escapeHtml(item.body)}</p>
+      <button class="comment-reply" type="button" data-reply-comment="${escapeHtml(item.id)}">回复</button>
+      ${item.children.length ? `<div class="comment-children">${renderNodes(item.children, depth + 1)}</div>` : ''}
+    </article>`).join('');
+    root.innerHTML = data.comments.length
+      ? renderNodes(buildCommentThread(data.comments))
+      : '<div class="empty-state">尚无公开讨论。第一条判断也应说明所据版本或条文。</div>';
+    root.querySelectorAll('[data-reply-comment]').forEach((button) => button.addEventListener('click', () => {
+      const comment = byId.get(button.dataset.replyComment);
+      const form = document.querySelector('#comment-form');
+      const panel = document.querySelector('#reply-target');
+      if (!comment || !form || !panel) return;
+      const target = commentReplyTarget(comment);
+      form.elements.parentId.value = target.parentId;
+      form.elements.paragraphId.value = target.paragraphId || '';
+      panel.querySelector('span').textContent = `回复：${target.label.slice(0, 48)}`;
+      panel.hidden = false;
+      form.elements.body.focus();
+    }));
   } catch (error) {
     root.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
   }
@@ -865,30 +971,72 @@ async function loadComments(documentId) {
 
 async function renderDiscussions(url) {
   const me = await loadMe();
-  const documentId = url.searchParams.get('documentId') || state.selectedDocument?.id || state.documents[0]?.id || '';
   const docs = state.documents;
-  workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>围绕同一证据讨论</h2><p>统一登录内容直接公开；匿名内容经 Turnstile 后进入审核。不要写入学生个人信息。</p><form class="work-form" id="discussion-picker"><label for="discussion-document">资料</label><select id="discussion-document" name="documentId">${docs.map((doc) => `<option value="${escapeHtml(doc.id)}" ${doc.id === documentId ? 'selected' : ''}>${escapeHtml(doc.sort_year)} · ${escapeHtml(doc.title)}</option>`).join('')}</select><button class="work-button secondary" type="submit">切换讨论</button></form><form class="work-form" id="comment-form"><h2>提交讨论</h2>${me.authenticated ? `<p>以 ${escapeHtml(me.user.display_name || me.user.slug)} 发布。</p>` : '<label for="author-name">署名</label><input id="author-name" name="authorName" maxlength="40" value="匿名教师">'}<label for="comment-body">内容</label><textarea id="comment-body" name="body" rows="6" minlength="8" maxlength="2000" required></textarea><div class="turnstile-slot" id="turnstile-box"></div><button class="work-button" type="submit">${me.authenticated ? '发布讨论' : '提交审核'}</button></form></aside><main class="workspace-main"><h2>教师讨论</h2><div class="comment-list" id="comment-list"><div class="empty-state">正在加载…</div></div></main></div>`;
+  const requestedDocumentId = url.searchParams.get('documentId') || '';
+  const requestedEmbeddedItemId = url.searchParams.get('embeddedItemId') || '';
+  const fallbackIdentityId = state.selectedDocument?.id || docs[0]?.id || '';
+  const requestedIdentity = docs.find((doc) => doc.id === (requestedEmbeddedItemId || requestedDocumentId || fallbackIdentityId));
+  const embeddedItemId = requestedEmbeddedItemId
+    || (requestedIdentity?.identity_kind === 'embedded_item' ? requestedIdentity.id : null);
+  const documentId = requestedIdentity?.parent_document_id || requestedDocumentId || requestedIdentity?.id || '';
+  const itemDiscussionDocs = docs.map((doc) => ({
+    id: doc.id,
+    documentId: doc.parent_document_id || doc.id,
+    embeddedItemId: doc.identity_kind === 'embedded_item' ? doc.id : null,
+    sort_year: doc.sort_year,
+    title: doc.parent_document_id ? `汇编篇目《${doc.title}》` : doc.title,
+  }));
+  const carrierDiscussionDocs = [...new Map(docs
+    .filter((doc) => doc.identity_kind === 'embedded_item' && doc.parent_document_id)
+    .map((doc) => [doc.parent_document_id, {
+      id: `carrier:${doc.parent_document_id}`,
+      documentId: doc.parent_document_id,
+      embeddedItemId: null,
+      sort_year: doc.sort_year,
+      title: `汇编载体《${doc.parent_title || doc.parent_document_id}》（既有父级讨论）`,
+    }])).values()];
+  const discussionDocs = [...itemDiscussionDocs, ...carrierDiscussionDocs]
+    .sort((left, right) => Number(right.sort_year || 0) - Number(left.sort_year || 0));
+  const selectedScopeId = embeddedItemId
+    || (requestedIdentity?.identity_kind !== 'embedded_item' ? requestedIdentity?.id : '')
+    || (documentId ? `carrier:${documentId}` : '');
+  workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>围绕同一证据讨论</h2><p>统一登录内容直接公开；匿名内容经 Turnstile 后进入审核。不要写入学生个人信息。</p><form class="work-form" id="discussion-picker"><label for="discussion-document">资料</label><select id="discussion-document" name="identityId">${discussionDocs.map((doc) => `<option value="${escapeHtml(doc.id)}" ${doc.id === selectedScopeId ? 'selected' : ''}>${escapeHtml(doc.sort_year)} · ${escapeHtml(doc.title)}</option>`).join('')}</select><button class="work-button secondary" type="submit">切换讨论</button></form><form class="work-form" id="comment-form"><h2>提交讨论</h2>${me.authenticated ? `<p>以 ${escapeHtml(me.user.display_name || me.user.slug)} 发布。</p>` : '<label for="author-name">署名</label><input id="author-name" name="authorName" maxlength="40" value="匿名教师">'}<input type="hidden" name="parentId" value=""><input type="hidden" name="paragraphId" value=""><p class="reply-target" id="reply-target" hidden><span></span><button type="button" data-cancel-reply>取消回复</button></p><label for="comment-body">内容</label><textarea id="comment-body" name="body" rows="6" minlength="8" maxlength="2000" required></textarea><div class="turnstile-slot" id="turnstile-box"></div><button class="work-button" type="submit">${me.authenticated ? '发布讨论' : '提交审核'}</button></form></aside><main class="workspace-main"><h2>教师讨论</h2><div class="comment-list" id="comment-list"><div class="empty-state">正在加载…</div></div></main></div>`;
   document.querySelector('#discussion-picker').addEventListener('submit', (event) => {
     event.preventDefault();
-    navigate(`/discussions?documentId=${encodeURIComponent(new FormData(event.currentTarget).get('documentId'))}`);
+    const identity = discussionDocs.find((doc) => doc.id === new FormData(event.currentTarget).get('identityId'));
+    if (!identity) return;
+    const itemScope = identity.embeddedItemId ? `&embeddedItemId=${encodeURIComponent(identity.embeddedItemId)}` : '';
+    navigate(`/discussions?documentId=${encodeURIComponent(identity.documentId)}${itemScope}`);
   });
   let turnstileToken = '';
   if (!me.authenticated) setupTurnstile(document.querySelector('#turnstile-box'), (token) => { turnstileToken = token; });
   else document.querySelector('#turnstile-box').remove();
+  document.querySelector('[data-cancel-reply]').addEventListener('click', () => {
+    const form = document.querySelector('#comment-form');
+    form.elements.parentId.value = '';
+    form.elements.paragraphId.value = '';
+    document.querySelector('#reply-target').hidden = true;
+  });
   document.querySelector('#comment-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
-    const button = form.querySelector('button');
+    const button = form.querySelector('button[type="submit"]');
     button.disabled = true;
     try {
       const body = Object.fromEntries(new FormData(form));
       body.documentId = documentId;
+      if (embeddedItemId) body.embeddedItemId = embeddedItemId;
+      if (body.paragraphId) body.paragraphId = Number(body.paragraphId);
+      else delete body.paragraphId;
       body.turnstileToken = turnstileToken;
       const result = await api('/api/comments', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       toast(result.message);
-      if (result.status === 'approved') await loadComments(documentId);
+      if (result.status === 'approved') await loadComments(documentId, embeddedItemId);
       else window.turnstile?.reset();
       form.querySelector('textarea').value = '';
+      form.elements.parentId.value = '';
+      form.elements.paragraphId.value = '';
+      document.querySelector('#reply-target').hidden = true;
     } catch (error) {
       toast(error.message);
       window.turnstile?.reset();
@@ -896,7 +1044,7 @@ async function renderDiscussions(url) {
       button.disabled = false;
     }
   });
-  loadComments(documentId);
+  loadComments(documentId, embeddedItemId);
 }
 
 async function renderAdmin() {
@@ -906,7 +1054,7 @@ async function renderAdmin() {
     return;
   }
   try {
-    const [summary, comments] = await Promise.all([api('/api/admin/summary'), api('/api/comments?moderation=1')]);
+    const [summary, comments] = await Promise.all([api('/api/admin/summary'), loadAllComments('/api/comments?moderation=1')]);
     workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>审核概况</h2><p>待审核 ${summary.pending.count || 0} · 开放举报 ${summary.reports.count || 0} · 7 日 AI 引文失败 ${summary.aiFailures.count || 0}</p></aside><main class="workspace-main"><h2>待审核讨论</h2><div class="comment-list">${comments.comments.filter((item) => item.status === 'pending').map((item) => `<article class="comment-row"><h3>${escapeHtml(item.author_name)}</h3><p>${escapeHtml(item.body)}</p><div class="inspector-actions"><button class="work-button" data-moderate="approved" data-id="${item.id}">通过</button><button class="work-button secondary" data-moderate="rejected" data-id="${item.id}">拒绝</button></div></article>`).join('') || '<div class="empty-state">当前没有待审核讨论。</div>'}</div></main></div>`;
     document.querySelectorAll('[data-moderate]').forEach((button) => button.addEventListener('click', async () => {
       try {
@@ -932,7 +1080,7 @@ async function route() {
       const conceptId = url.searchParams.get('term');
       const episode = state.conceptGraph.episodes.filter((item) => item.concept_id === conceptId && item.time.year <= state.maxYear)
         .sort((left, right) => right.time.year - left.time.year)[0];
-      if (episode) showConceptInspector(episode);
+      if (episode) await selectConceptEpisode(episode, false);
       return;
     }
     if (path === '/subjects') {
@@ -1004,10 +1152,7 @@ async function route() {
 
 function initializeCosmos() {
   state.cosmos = new CurriculumCosmos(mount, {
-    onSelect: (episode) => {
-      showConceptInspector(episode);
-      history.replaceState({}, '', `/terms?term=${encodeURIComponent(episode.concept_id)}`);
-    },
+    onSelect: (episode) => { selectConceptEpisode(episode); },
     onHover: showTooltip,
   });
   state.cosmos.setData(state.conceptGraph);

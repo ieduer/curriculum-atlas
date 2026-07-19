@@ -211,6 +211,8 @@ export async function answerWithEvidence(
     return {
       paragraphId: passage.id,
       documentId: passage.document_id,
+      parentDocumentId: passage.parent_document_id,
+      embeddedItemId: passage.embedded_item_id,
       title: passage.title,
       subject: passage.subject,
       entityLabel: passage.entity_label,

@@ -85,6 +85,29 @@ test('legacy pages remain merged into the two rail-launched workspaces', () => {
   assert.match(app, /path === '\/discussions'/);
 });
 
+test('embedded compendium identities keep item-scoped reader and discussion boundaries', () => {
+  assert.match(app, /identity_kind === 'embedded_item' \|\| id\.startsWith\('embedded:'\)/);
+  assert.match(app, /embeddedItem \? '\/api\/items\/' : '\/api\/documents\/'/);
+  assert.match(app, /const doc = data\.document \|\| data\.item/);
+  assert.match(app, /const discussionDocumentId = data\.discussionDocumentId \|\| doc\.id/);
+  assert.match(app, /const discussionEmbeddedItemId = data\.discussionEmbeddedItemId \|\| null/);
+  assert.match(app, /embeddedItemId=\$\{encodeURIComponent\(discussionEmbeddedItemId\)\}/);
+  assert.match(app, /body\.embeddedItemId = embeddedItemId/);
+  assert.match(app, /loadComments\(documentId, embeddedItemId\)/);
+  assert.match(app, /id: `carrier:\$\{doc\.parent_document_id\}`/);
+  assert.match(app, /既有父级讨论/);
+  assert.match(app, /embeddedItem \? '汇编篇目'/);
+  assert.match(app, /name="parentId"/);
+  assert.match(app, /data-reply-comment/);
+  assert.match(app, /buildCommentThread\(data\.comments\)/);
+  assert.match(app, /body = Object\.fromEntries\(new FormData\(form\)\)/);
+});
+
+test('concept and ontology evidence links prefer embedded item identities', () => {
+  assert.match(app, /evidenceIdentityHref\(item\)/);
+  assert.equal((app.match(/evidenceIdentityHref\(item\)/g) || []).length, 2);
+});
+
 test('camera motion follows system preference and no redundant header controls remain', () => {
   assert.doesNotMatch(html, /motion-toggle|reset-view|>静<|>◎</);
   assert.doesNotMatch(app, /localStorage|motionToggle|resetView|curriculum:stable/);

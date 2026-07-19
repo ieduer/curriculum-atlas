@@ -275,5 +275,68 @@
       ]
     }
   },
-  "receipt_sha256": "aa290c936e84b4fb911171c11f142087a5ed79a045e50c4bb7ca0ec2cf1143dd"
+  "dual_schema_bootstrap_receipt": {
+    "schema_version": 1,
+    "contract": "curriculum_dual_schema_bootstrap_v1",
+    "generated_by": "scripts/verify-dual-schema-bootstrap.mjs",
+    "verified": true,
+    "executable_order": [
+      "deploy_bridge_worker",
+      "apply_0008_release_ownership_fences",
+      "apply_0009_compendium_embedded_items",
+      "collect_post_migration_environment_evidence"
+    ],
+    "bridge_sources": [
+      {
+        "path": "src/index.ts",
+        "sha256": "5c253e98f94e390752bc5c288613983dbfce6f635c5c637b55c48d98c6bf7b80",
+        "bytes": 82821
+      },
+      {
+        "path": "src/retrieval.ts",
+        "sha256": "8c6f151f4ccd4586313c791e7df632c26a595f4c8e213b617b90fe4de2558886",
+        "bytes": 7295
+      }
+    ],
+    "migrations": [
+      {
+        "name": "0008_release_ownership_fences.sql",
+        "sha256": "80776c8a9d63d31bd690b29505cb171c4e67bcd84becd25c050776d2c399b002",
+        "bytes": 6414
+      },
+      {
+        "name": "0009_compendium_embedded_items.sql",
+        "sha256": "331ac5c444514e3ef7091bc4b6ea73effdc0255f1a96d527e12386e46ac2fbc1",
+        "bytes": 3853
+      }
+    ],
+    "probes": [
+      {
+        "stage": "legacy_0007",
+        "release_ownership_fences": false,
+        "embedded_items": false,
+        "paragraphs_embedded_item_id": false,
+        "comments_embedded_item_id": false,
+        "core_table_key_count": 14
+      },
+      {
+        "stage": "fenced_0008",
+        "release_ownership_fences": true,
+        "embedded_items": false,
+        "paragraphs_embedded_item_id": false,
+        "comments_embedded_item_id": false,
+        "core_table_key_count": 14
+      },
+      {
+        "stage": "compendium_0009",
+        "release_ownership_fences": true,
+        "embedded_items": true,
+        "paragraphs_embedded_item_id": true,
+        "comments_embedded_item_id": true,
+        "core_table_key_count": 14
+      }
+    ],
+    "receipt_sha256": "68bcebec2c923c44f4abee1981451450893a19d660de3f0e10ee6f36213e020b"
+  },
+  "receipt_sha256": "f3eca25a998c6419624073608a081138f582a7b687ac7977bc00605eeeda42e6"
 }

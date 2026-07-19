@@ -23,6 +23,7 @@ import {
   validateCandidateLayer,
   verifyLocalSource,
 } from './validate-ontology-candidate-layer.mjs';
+import { materializeAcademicGraph } from './graph-shards.mjs';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_MANIFEST = 'data/ontology-release-manifest.json';
@@ -280,6 +281,11 @@ function ontologyNodeCount(key, json) {
   return json.ontology_nodes?.length;
 }
 
+function ontologyNodesSha256(key, json) {
+  const nodes = key === 'formal_ontology' ? json.nodes : json.ontology_nodes;
+  return Array.isArray(nodes) ? sha256(Buffer.from(JSON.stringify(nodes))) : null;
+}
+
 export function loadImmutablePublicBaseline(root = PROJECT_ROOT) {
   const additionCommits = runGit(root, [
     'log', '--format=%H', '--diff-filter=A', '--', PUBLIC_BASELINE_ARTIFACT_PATH,
@@ -350,7 +356,10 @@ export function loadImmutablePublicBaseline(root = PROJECT_ROOT) {
       || ontologyNodeCount(key, sourceJson) !== entry.ontology_node_count) {
       throw new Error(`immutable ontology baseline ${key} does not match source commit bytes`);
     }
-    artifacts[key] = Object.freeze({ ...entry });
+    artifacts[key] = Object.freeze({
+      ...entry,
+      ontology_nodes_sha256: ontologyNodesSha256(key, sourceJson),
+    });
   }
   return Object.freeze({
     path: PUBLIC_BASELINE_ARTIFACT_PATH,
@@ -695,6 +704,22 @@ export async function loadOntologyReleaseContext(root = PROJECT_ROOT) {
   const entries = await Promise.all(Object.entries(INPUT_PATHS)
     .map(async ([key, relativePath]) => [key, await readArtifact(root, relativePath)]));
   const artifacts = Object.fromEntries(entries);
+  const publicAcademicIndex = artifacts.public_academic.json;
+  const publicCoreIndex = artifacts.public_core.json;
+  const publicAcademicGraph = await materializeAcademicGraph(
+    publicAcademicIndex,
+    path.join(root, 'public'),
+  );
+  if (publicAcademicGraph !== publicAcademicIndex) {
+    artifacts.public_academic = { ...artifacts.public_academic, json: publicAcademicGraph };
+    artifacts.public_core = {
+      ...artifacts.public_core,
+      json: {
+        ...publicCoreIndex,
+        ontology_nodes: publicAcademicGraph.ontology_nodes,
+      },
+    };
+  }
   const supportArtifacts = {
     candidate_schema: await readArtifact(root, PROMOTION_GOVERNED_PATHS.candidate_schema),
     candidate_validator: await readRawArtifact(root, PROMOTION_GOVERNED_PATHS.candidate_validator),
@@ -712,6 +737,10 @@ export async function loadOntologyReleaseContext(root = PROJECT_ROOT) {
     root,
     schema: JSON.parse(await readFile(path.join(root, 'data/ontology-release.schema.json'), 'utf8')),
     artifacts,
+    transport_indexes: {
+      public_core: publicCoreIndex,
+      public_academic: publicAcademicIndex,
+    },
     support_artifacts: supportArtifacts,
     public_baseline: loadImmutablePublicBaseline(root),
     promotion_baseline: promotionBaseline,
@@ -734,9 +763,20 @@ function validateFingerprints(manifest, context, errors) {
     const baselineEntry = baseline[key];
     issue(errors, Boolean(baselineEntry), 'public_graph_immutable_baseline_missing', `${key} has no frozen Git-object baseline`);
     if (!baselineEntry) continue;
-    issue(errors, context.artifacts[key].sha256 === baselineEntry.sha256,
+    const transportIndex = context.transport_indexes?.[key];
+    const ontologyBytesUnchanged = ontologyNodesSha256(key, context.artifacts[key].json)
+      === baselineEntry.ontology_nodes_sha256;
+    const transportBound = key === 'public_academic'
+      ? transportIndex?.artifact_profile === 'curriculum-concept-evolution-academic-index-v1'
+      : key === 'public_core'
+        ? transportIndex?.artifact_profile === 'curriculum-concept-evolution-core-index-v1'
+          && transportIndex.academic_model_ref?.sha256 === context.artifacts.public_academic.sha256
+        : false;
+    const baselineSatisfied = context.artifacts[key].sha256 === baselineEntry.sha256
+      || (transportBound && ontologyBytesUnchanged);
+    issue(errors, baselineSatisfied,
       'public_graph_baseline_hash_mismatch', `${key} differs from the code-reviewed immutable baseline`);
-    issue(errors, manifest.input_fingerprints[key].sha256 === baselineEntry.sha256,
+    issue(errors, baselineSatisfied && manifest.input_fingerprints[key].sha256 === context.artifacts[key].sha256,
       'public_graph_baseline_declaration_mismatch', `${key} manifest digest differs from the immutable baseline`);
   }
 
