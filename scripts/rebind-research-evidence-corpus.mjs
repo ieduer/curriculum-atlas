@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash, randomUUID } from 'node:crypto';
+import { spawn } from 'node:child_process';
 import { constants as fsConstants } from 'node:fs';
 import {
   link,
@@ -12,7 +13,6 @@ import {
   realpath,
   rename,
   rm,
-  stat,
   unlink,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -45,7 +45,7 @@ const SOURCE_REGISTRY_PATH = 'data/research-evidence/zh-hs-2017-2020-source-regi
 const SCHEMA_PATH = 'data/research-evidence/research-evidence-slice.schema.json';
 const CORPUS_MANIFEST_PATH = 'data/corpus-chunks/manifest.json';
 const TRANSACTION_PATH = 'data/research-evidence/.zh-hs-2017-2020-corpus-rebind-transaction.json';
-const JOURNAL_TEMP_PATTERN = /^\.zh-hs-2017-2020-corpus-rebind-(?:journal|validated)-(\d+)-([a-f0-9-]{36})\.tmp$/u;
+const JOURNAL_TEMP_PATTERN = /^\.zh-hs-2017-2020-corpus-rebind-(journal|staged|validated)-(\d+)-([a-f0-9-]{36})\.tmp$/u;
 const PUBLICATION_KEYS = Object.freeze([
   'builder_input_allowed',
   'public_compare_allowed',
@@ -125,7 +125,7 @@ async function assertNoAbsoluteSymlink(absolutePath, label) {
   }
 }
 
-async function readStableAbsoluteFile(absolutePath, label) {
+async function readStableAbsoluteFile(absolutePath, label, { allowedNlinks = [1n] } = {}) {
   if (typeof absolutePath !== 'string' || !isAbsolute(absolutePath)) {
     fail(`${label} must use an absolute path`);
   }
@@ -141,7 +141,12 @@ async function readStableAbsoluteFile(absolutePath, label) {
     if (typeof process.getuid === 'function' && before.uid !== BigInt(process.getuid())) {
       fail(`${label} must be owned by the current user`);
     }
-    if (before.nlink !== 1n) fail(`${label} must have exactly one hard link`);
+    if (!allowedNlinks.includes(before.nlink)) {
+      if (allowedNlinks.length === 1 && allowedNlinks[0] === 1n) {
+        fail(`${label} must have exactly one hard link`);
+      }
+      fail(`${label} must have ${allowedNlinks.map(String).join(' or ')} hard links`);
+    }
     if ((before.mode & 0o022n) !== 0n) fail(`${label} must not be group/world writable`);
     const buffer = await handle.readFile();
     const after = await handle.stat({ bigint: true });
@@ -175,7 +180,7 @@ async function assertNoProjectSymlink(root, relativePath, label) {
   }
 }
 
-async function readStableProjectFile(root, relativePath, label = relativePath) {
+async function readStableProjectFile(root, relativePath, label = relativePath, options = {}) {
   safeRelativePath(relativePath, label);
   const projectRoot = await realpath(root);
   const absolute = resolve(projectRoot, relativePath);
@@ -183,7 +188,7 @@ async function readStableProjectFile(root, relativePath, label = relativePath) {
   await assertNoProjectSymlink(projectRoot, relativePath, label);
   const resolved = await realpath(absolute);
   contained(projectRoot, resolved, label);
-  const artifact = await readStableAbsoluteFile(resolved, label);
+  const artifact = await readStableAbsoluteFile(resolved, label, options);
   return { ...artifact, path: relativePath };
 }
 
@@ -678,17 +683,28 @@ async function syncDirectory(directory) {
   try { await handle.sync(); } finally { await handle.close(); }
 }
 
-function outputTemporaryPath(path, ownerPid, transactionId) {
-  return join(dirname(path), `.${basename(path)}.corpus-rebind-${ownerPid}-${transactionId}.tmp`)
-    .replaceAll('\\', '/');
+function outputTemporaryPath(path, ownerPid, transactionId, phase) {
+  return join(
+    dirname(path),
+    `.${basename(path)}.corpus-rebind-${phase}-${ownerPid}-${transactionId}.tmp`,
+  ).replaceAll('\\', '/');
 }
 
 function journalTemporaryPath(ownerPid, transactionId, phase) {
   return `data/research-evidence/.zh-hs-2017-2020-corpus-rebind-${phase}-${ownerPid}-${transactionId}.tmp`;
 }
 
+function canonicalUuid(value) {
+  return typeof value === 'string'
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(value);
+}
+
 function bytesIdentity(buffer) {
   return { sha256: sha256(buffer), bytes: buffer.length, base64: buffer.toString('base64') };
+}
+
+function bytesDocument(value) {
+  return { sha256: value.sha256, bytes: value.bytes, base64: value.base64 };
 }
 
 function decodeBytesIdentity(value, label) {
@@ -702,43 +718,201 @@ function decodeBytesIdentity(value, label) {
   return { ...value, buffer };
 }
 
-function transactionOutput(artifact, after, ownerPid, transactionId) {
+const FILESYSTEM_IDENTITY_KEYS = Object.freeze([
+  'dev', 'ino', 'uid', 'nlink', 'size', 'mode', 'mtime_ns', 'ctime_ns',
+]);
+
+function filesystemIdentity(identity) {
+  const receipt = {
+    dev: String(identity.dev),
+    ino: String(identity.ino),
+    uid: String(identity.uid),
+    nlink: String(identity.nlink),
+    size: String(identity.size),
+    mode: String(identity.mode),
+    mtime_ns: String(identity.mtimeNs),
+    ctime_ns: String(identity.ctimeNs),
+  };
+  return { receipt, identity };
+}
+
+function decodeFilesystemIdentity(value, label) {
+  exactKeys(value, FILESYSTEM_IDENTITY_KEYS, label);
+  if (FILESYSTEM_IDENTITY_KEYS.some((key) => !/^(?:0|[1-9]\d*)$/u.test(value[key]))) {
+    fail(`${label} is malformed`);
+  }
   return {
-    path: artifact.path,
-    mode: artifact.mode,
-    temporary_path: outputTemporaryPath(artifact.path, ownerPid, transactionId),
-    before: bytesIdentity(artifact.buffer),
-    after: bytesIdentity(after),
+    receipt: value,
+    identity: {
+      dev: BigInt(value.dev),
+      ino: BigInt(value.ino),
+      uid: BigInt(value.uid),
+      nlink: BigInt(value.nlink),
+      size: BigInt(value.size),
+      mode: BigInt(value.mode),
+      mtimeNs: BigInt(value.mtime_ns),
+      ctimeNs: BigInt(value.ctime_ns),
+    },
   };
 }
 
-function buildTransaction(manifestArtifact, registryArtifact, manifestAfter, registryAfter) {
+function filesystemDocument(value) {
+  return value.receipt;
+}
+
+function sameOwnedInode(left, right) {
+  return left.dev === right.dev
+    && left.ino === right.ino
+    && left.uid === right.uid
+    && left.size === right.size
+    && left.mode === right.mode
+    && left.mtimeNs === right.mtimeNs;
+}
+
+function transactionOutputDocument(output) {
+  return {
+    path: output.path,
+    mode: output.mode,
+    changed: output.changed,
+    after_temporary_path: output.after_temporary_path,
+    rollback_temporary_path: output.rollback_temporary_path,
+    before: bytesDocument(output.before),
+    after: bytesDocument(output.after),
+    progress: {
+      before_target_identity: filesystemDocument(output.progress.before_target_identity),
+      after_staged_identity: output.progress.after_staged_identity
+        ? filesystemDocument(output.progress.after_staged_identity) : null,
+      rollback_staged_identity: output.progress.rollback_staged_identity
+        ? filesystemDocument(output.progress.rollback_staged_identity) : null,
+    },
+  };
+}
+
+function transactionDocument(transaction) {
+  return {
+    schema_version: transaction.schema_version,
+    artifact_kind: transaction.artifact_kind,
+    transaction_id: transaction.transaction_id,
+    owner_pid: transaction.owner_pid,
+    state: transaction.state,
+    outputs: {
+      manifest: transactionOutputDocument(transaction.outputs.manifest),
+      source_registry: transactionOutputDocument(transaction.outputs.source_registry),
+    },
+  };
+}
+
+function transactionBytes(transaction) {
+  return Buffer.from(`${JSON.stringify(transactionDocument(transaction))}\n`, 'utf8');
+}
+
+function transactionOutput(artifact, after, changed, ownerPid, transactionId) {
+  return {
+    path: artifact.path,
+    mode: artifact.mode,
+    changed,
+    after_temporary_path: outputTemporaryPath(
+      artifact.path, ownerPid, transactionId, 'after',
+    ),
+    rollback_temporary_path: outputTemporaryPath(
+      artifact.path, ownerPid, transactionId, 'rollback',
+    ),
+    before: decodeBytesIdentity(bytesIdentity(artifact.buffer), `${artifact.path}.before`),
+    after: decodeBytesIdentity(bytesIdentity(after), `${artifact.path}.after`),
+    progress: {
+      before_target_identity: filesystemIdentity(artifact.identity),
+      after_staged_identity: null,
+      rollback_staged_identity: null,
+    },
+  };
+}
+
+function buildTransaction(
+  manifestArtifact,
+  registryArtifact,
+  manifestAfter,
+  registryAfter,
+  manifestChanged,
+  registryChanged,
+) {
   const transactionId = randomUUID();
   const ownerPid = process.pid;
   return {
-    schema_version: 1,
+    schema_version: 2,
     artifact_kind: 'zh_hs_2017_2020_research_corpus_rebind_transaction',
     transaction_id: transactionId,
     owner_pid: ownerPid,
     state: 'prepared',
     outputs: {
-      manifest: transactionOutput(manifestArtifact, manifestAfter, ownerPid, transactionId),
-      source_registry: transactionOutput(registryArtifact, registryAfter, ownerPid, transactionId),
+      manifest: transactionOutput(
+        manifestArtifact, manifestAfter, manifestChanged, ownerPid, transactionId,
+      ),
+      source_registry: transactionOutput(
+        registryArtifact, registryAfter, registryChanged, ownerPid, transactionId,
+      ),
     },
   };
 }
 
-function validateTransactionOutput(value, expectedPath, ownerPid, transactionId, label) {
-  exactKeys(value, ['path', 'mode', 'temporary_path', 'before', 'after'], label);
+function validateTransactionOutput(value, expectedPath, ownerPid, transactionId, state, label) {
+  exactKeys(value, [
+    'path', 'mode', 'changed', 'after_temporary_path', 'rollback_temporary_path',
+    'before', 'after', 'progress',
+  ], label);
   if (value.path !== expectedPath
-      || value.temporary_path !== outputTemporaryPath(expectedPath, ownerPid, transactionId)
+      || value.after_temporary_path !== outputTemporaryPath(
+        expectedPath, ownerPid, transactionId, 'after',
+      )
+      || value.rollback_temporary_path !== outputTemporaryPath(
+        expectedPath, ownerPid, transactionId, 'rollback',
+      )
+      || typeof value.changed !== 'boolean'
       || !Number.isInteger(value.mode) || value.mode < 0 || value.mode > 0o777) {
     fail(`${label} target identity is invalid`);
   }
+  exactKeys(value.progress, [
+    'before_target_identity', 'after_staged_identity', 'rollback_staged_identity',
+  ], `${label}.progress`);
+  const before = decodeBytesIdentity(value.before, `${label}.before`);
+  const after = decodeBytesIdentity(value.after, `${label}.after`);
+  const beforeTarget = decodeFilesystemIdentity(
+    value.progress.before_target_identity, `${label}.progress.before_target_identity`,
+  );
+  const afterStaged = value.progress.after_staged_identity === null ? null
+    : decodeFilesystemIdentity(
+      value.progress.after_staged_identity, `${label}.progress.after_staged_identity`,
+    );
+  const rollbackStaged = value.progress.rollback_staged_identity === null ? null
+    : decodeFilesystemIdentity(
+      value.progress.rollback_staged_identity, `${label}.progress.rollback_staged_identity`,
+    );
+  const stagedRequired = value.changed && state !== 'prepared';
+  if ((stagedRequired && (!afterStaged || !rollbackStaged))
+      || ((!stagedRequired || !value.changed) && (afterStaged || rollbackStaged))) {
+    fail(`${label} staged identity receipts do not match ${state}`);
+  }
+  for (const [receipt, bytes, identityLabel] of [
+    [beforeTarget, before, 'before target'],
+    ...(afterStaged ? [[afterStaged, after, 'after staged']] : []),
+    ...(rollbackStaged ? [[rollbackStaged, before, 'rollback staged']] : []),
+  ]) {
+    if (receipt.identity.nlink !== 1n
+        || receipt.identity.size !== BigInt(bytes.bytes)
+        || Number(receipt.identity.mode & 0o777n) !== value.mode
+        || (typeof process.getuid === 'function'
+          && receipt.identity.uid !== BigInt(process.getuid()))) {
+      fail(`${label} ${identityLabel} receipt is inconsistent`);
+    }
+  }
   return {
     ...value,
-    before: decodeBytesIdentity(value.before, `${label}.before`),
-    after: decodeBytesIdentity(value.after, `${label}.after`),
+    before,
+    after,
+    progress: {
+      before_target_identity: beforeTarget,
+      after_staged_identity: afterStaged,
+      rollback_staged_identity: rollbackStaged,
+    },
   };
 }
 
@@ -746,11 +920,11 @@ function validateTransaction(value) {
   exactKeys(value, [
     'schema_version', 'artifact_kind', 'transaction_id', 'owner_pid', 'state', 'outputs',
   ], 'transaction journal');
-  if (value.schema_version !== 1
+  if (value.schema_version !== 2
       || value.artifact_kind !== 'zh_hs_2017_2020_research_corpus_rebind_transaction'
-      || !/^[a-f0-9-]{36}$/u.test(value.transaction_id)
+      || !canonicalUuid(value.transaction_id)
       || !Number.isSafeInteger(value.owner_pid) || value.owner_pid < 1
-      || !['prepared', 'validated'].includes(value.state)) {
+      || !['prepared', 'staged', 'validated'].includes(value.state)) {
     fail('transaction journal identity or state is invalid');
   }
   exactKeys(value.outputs, ['manifest', 'source_registry'], 'transaction outputs');
@@ -759,59 +933,94 @@ function validateTransaction(value) {
     outputs: {
       manifest: validateTransactionOutput(
         value.outputs.manifest, MANIFEST_PATH, value.owner_pid, value.transaction_id,
-        'transaction manifest',
+        value.state, 'transaction manifest',
       ),
       source_registry: validateTransactionOutput(
-        value.outputs.source_registry, SOURCE_REGISTRY_PATH, value.owner_pid, value.transaction_id,
-        'transaction source registry',
+        value.outputs.source_registry, SOURCE_REGISTRY_PATH, value.owner_pid,
+        value.transaction_id, value.state, 'transaction source registry',
       ),
     },
   };
 }
 
-function processIsAlive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    if (error?.code === 'ESRCH') return false;
-    if (error?.code === 'EPERM') return true;
-    throw error;
-  }
-}
-
 async function readTransaction(projectRoot) {
   try {
-    const artifact = await readStableProjectFile(projectRoot, TRANSACTION_PATH, 'transaction journal');
+    const artifact = await readStableProjectFile(
+      projectRoot,
+      TRANSACTION_PATH,
+      'transaction journal',
+      { allowedNlinks: [1n, 2n] },
+    );
     if (artifact.mode !== 0o600) fail('transaction journal must be owner-only');
-    return { artifact, transaction: validateTransaction(parseJson(artifact, 'transaction journal')) };
+    const raw = parseJson(artifact, 'transaction journal');
+    const transaction = validateTransaction(raw);
+    if (!sameBytes(artifact.buffer, transactionBytes(transaction))) {
+      fail('transaction journal bytes are not canonical');
+    }
+    let linkedTemporary = null;
+    if (artifact.identity.nlink === 2n) {
+      if (transaction.state !== 'prepared') {
+        fail('only a prepared journal may retain its no-replace hard-link temporary');
+      }
+      const relativePath = journalTemporaryPath(
+        transaction.owner_pid, transaction.transaction_id, 'journal',
+      );
+      const temporary = await readStableProjectFile(
+        projectRoot,
+        relativePath,
+        'linked transaction journal temporary',
+        { allowedNlinks: [2n] },
+      );
+      if (temporary.mode !== 0o600
+          || !sameIdentity(temporary.identity, artifact.identity)
+          || !sameBytes(temporary.buffer, artifact.buffer)) {
+        fail('transaction journal nlink=2 pair is not the exact canonical same-inode pair');
+      }
+      linkedTemporary = { relativePath, artifact: temporary };
+    }
+    return { artifact, transaction, linkedTemporary };
   } catch (error) {
     if (error?.code === 'ENOENT') return null;
     throw error;
   }
 }
 
-async function removeKnownTemporary(projectRoot, relativePath) {
-  safeRelativePath(relativePath, 'transaction temporary');
-  const absolute = resolve(projectRoot, relativePath);
-  contained(projectRoot, absolute, 'transaction temporary');
+async function readOptionalProjectFile(projectRoot, relativePath, label, options = {}) {
   try {
-    const info = await lstat(absolute);
-    if (info.isSymbolicLink() || !info.isFile()) fail(`transaction temporary is unsafe: ${relativePath}`);
-    await unlink(absolute);
-    await syncDirectory(dirname(absolute));
+    return await readStableProjectFile(projectRoot, relativePath, label, options);
   } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
+    if (error?.code === 'ENOENT') return null;
+    throw error;
   }
 }
 
-async function cleanupTransactionTemporaries(projectRoot, transaction) {
-  for (const relativePath of [
-    transaction.outputs.manifest.temporary_path,
-    transaction.outputs.source_registry.temporary_path,
-    journalTemporaryPath(transaction.owner_pid, transaction.transaction_id, 'journal'),
-    journalTemporaryPath(transaction.owner_pid, transaction.transaction_id, 'validated'),
-  ]) await removeKnownTemporary(projectRoot, relativePath);
+async function unlinkExactArtifact(artifact, label) {
+  const current = await readStableAbsoluteFile(
+    artifact.absolute,
+    label,
+    { allowedNlinks: [artifact.identity.nlink] },
+  );
+  if (!sameIdentity(current.identity, artifact.identity)
+      || !sameBytes(current.buffer, artifact.buffer)) {
+    fail(`${label} changed before unlink`);
+  }
+  await unlink(artifact.absolute);
+  await syncDirectory(dirname(artifact.absolute));
+}
+
+async function normalizeTransactionJournalLink(projectRoot, pending) {
+  if (!pending?.linkedTemporary) return pending;
+  await unlinkExactArtifact(
+    pending.linkedTemporary.artifact,
+    'linked transaction journal temporary',
+  );
+  const normalized = await readTransaction(projectRoot);
+  if (!normalized || normalized.linkedTemporary
+      || normalized.transaction.transaction_id !== pending.transaction.transaction_id
+      || normalized.artifact.identity.nlink !== 1n) {
+    fail('transaction journal hard-link pair did not normalize safely');
+  }
+  return normalized;
 }
 
 async function orphanJournalTemporaries(projectRoot) {
@@ -820,21 +1029,161 @@ async function orphanJournalTemporaries(projectRoot) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const match = entry.name.match(JOURNAL_TEMP_PATTERN);
     if (!match) continue;
-    if (entry.isSymbolicLink() || !entry.isFile()) fail(`orphan journal temporary is unsafe: ${entry.name}`);
-    matches.push({ path: join(directory, entry.name), ownerPid: Number(match[1]), name: entry.name });
+    if (entry.isSymbolicLink() || !entry.isFile()) {
+      fail(`orphan journal temporary is unsafe: ${entry.name}`);
+    }
+    matches.push({
+      path: join(directory, entry.name),
+      phase: match[1],
+      ownerPid: Number(match[2]),
+      transactionId: match[3],
+      name: entry.name,
+    });
   }
   return matches;
 }
 
-async function cleanupOrphanJournalTemporaries(projectRoot) {
-  for (const entry of await orphanJournalTemporaries(projectRoot)) {
-    if (!Number.isSafeInteger(entry.ownerPid) || entry.ownerPid < 1 || processIsAlive(entry.ownerPid)) {
-      fail(`transaction initialization is still owned by a live process: ${entry.name}`);
+async function expectedOrphanJournalBytes(projectRoot, entry, transaction) {
+  if (entry.phase === 'journal') {
+    if (transaction) fail(`unexpected journal temporary beside a durable transaction: ${entry.name}`);
+    return {
+      buffer: Buffer.from(
+        `{"schema_version":2,"artifact_kind":"zh_hs_2017_2020_research_corpus_rebind_transaction","transaction_id":"${entry.transactionId}","owner_pid":${entry.ownerPid},`,
+        'utf8',
+      ),
+      headerOnly: true,
+    };
+  }
+  if (!transaction
+      || transaction.owner_pid !== entry.ownerPid
+      || transaction.transaction_id !== entry.transactionId) {
+    fail(`orphan ${entry.phase} journal has no exact durable predecessor: ${entry.name}`);
+  }
+  if (entry.phase === 'validated') {
+    if (transaction.state !== 'staged') {
+      fail(`validated journal temporary has no staged predecessor: ${entry.name}`);
     }
-    const info = await stat(entry.path);
-    if ((info.mode & 0o777) !== 0o600) fail(`orphan journal temporary is not owner-only: ${entry.name}`);
-    await unlink(entry.path);
-    await syncDirectory(dirname(entry.path));
+    return {
+      buffer: transactionBytes({ ...transaction, state: 'validated' }),
+      headerOnly: false,
+    };
+  }
+  if (transaction.state !== 'prepared') {
+    fail(`staged journal temporary has no prepared predecessor: ${entry.name}`);
+  }
+  const staged = {
+    ...transaction,
+    state: 'staged',
+    outputs: Object.fromEntries(await Promise.all(
+      Object.entries(transaction.outputs).map(async ([key, output]) => {
+        if (!output.changed) return [key, output];
+        const after = await readStableProjectFile(
+          projectRoot,
+          output.after_temporary_path,
+          `${output.path} recoverable staged after-image`,
+        );
+        const rollback = await readStableProjectFile(
+          projectRoot,
+          output.rollback_temporary_path,
+          `${output.path} recoverable staged rollback image`,
+        );
+        if (after.mode !== output.mode || rollback.mode !== output.mode
+            || !sameBytes(after.buffer, output.after.buffer)
+            || !sameBytes(rollback.buffer, output.before.buffer)) {
+          fail(`${output.path} staged receipts cannot be reconstructed safely`);
+        }
+        return [key, {
+          ...output,
+          progress: {
+            ...output.progress,
+            after_staged_identity: filesystemIdentity(after.identity),
+            rollback_staged_identity: filesystemIdentity(rollback.identity),
+          },
+        }];
+      }),
+    )),
+  };
+  return { buffer: transactionBytes(staged), headerOnly: false };
+}
+
+async function cleanupOrphanJournalTemporaries(projectRoot, {
+  transaction = null,
+} = {}) {
+  for (const entry of await orphanJournalTemporaries(projectRoot)) {
+    if (!Number.isSafeInteger(entry.ownerPid) || entry.ownerPid < 1
+        || !canonicalUuid(entry.transactionId)) {
+      fail(`transaction temporary filename identity is invalid: ${entry.name}`);
+    }
+    const artifact = await readStableAbsoluteFile(entry.path, `orphan ${entry.phase} journal`);
+    if (artifact.mode !== 0o600) fail(`orphan journal temporary is not owner-only: ${entry.name}`);
+    const expected = await expectedOrphanJournalBytes(projectRoot, entry, transaction);
+    const comparedLength = Math.min(artifact.buffer.length, expected.buffer.length);
+    if ((!expected.headerOnly && artifact.buffer.length > expected.buffer.length)
+        || !sameBytes(
+          artifact.buffer.subarray(0, comparedLength),
+          expected.buffer.subarray(0, comparedLength),
+        )) {
+      fail(`orphan journal temporary is not an attributable ${entry.phase} prefix`);
+    }
+    await unlinkExactArtifact(artifact, `orphan ${entry.phase} journal`);
+  }
+}
+
+async function stageExactFile(absolutePath, buffer, mode, label, afterSync = null) {
+  let handle = null;
+  try {
+    handle = await open(absolutePath, 'wx', mode);
+    await handle.writeFile(buffer);
+    await handle.sync();
+    await handle.close();
+    handle = null;
+    const artifact = await readStableAbsoluteFile(absolutePath, label);
+    if (artifact.mode !== mode || !sameBytes(artifact.buffer, buffer)) {
+      fail(`${label} differs immediately after staging`);
+    }
+    await afterSync?.();
+    return artifact;
+  } catch (error) {
+    await handle?.close().catch(() => {});
+    throw error;
+  }
+}
+
+async function removeOwnedTemporary(projectRoot, relativePath, expectedBytes, expectedIdentity, label) {
+  safeRelativePath(relativePath, label);
+  const artifact = await readOptionalProjectFile(projectRoot, relativePath, label);
+  if (!artifact) return;
+  if (expectedIdentity) {
+    if (!sameIdentity(artifact.identity, expectedIdentity.identity)
+        || !sameBytes(artifact.buffer, expectedBytes.buffer)) {
+      fail(`${label} contains unowned or third-party bytes`);
+    }
+  } else if (artifact.buffer.length > expectedBytes.buffer.length
+      || !sameBytes(
+        artifact.buffer,
+        expectedBytes.buffer.subarray(0, artifact.buffer.length),
+      )) {
+    fail(`${label} is not an attributable staged prefix`);
+  }
+  await unlinkExactArtifact(artifact, label);
+}
+
+async function cleanupTransactionTemporaries(projectRoot, transaction) {
+  for (const output of Object.values(transaction.outputs)) {
+    await removeOwnedTemporary(
+      projectRoot,
+      output.after_temporary_path,
+      output.after,
+      output.progress.after_staged_identity,
+      `${output.path} after-image temporary`,
+    );
+    await removeOwnedTemporary(
+      projectRoot,
+      output.rollback_temporary_path,
+      output.before,
+      output.progress.rollback_staged_identity,
+      `${output.path} rollback temporary`,
+    );
   }
 }
 
@@ -842,121 +1191,390 @@ async function writeAtomic(artifact, buffer, temporary, afterTemporarySync = nul
   if (dirname(temporary) !== dirname(artifact.absolute) || temporary === artifact.absolute) {
     fail(`temporary path is outside the governed output directory: ${artifact.path}`);
   }
-  let handle = null;
+  let staged = null;
   try {
-    handle = await open(temporary, 'wx', artifact.mode);
-    await handle.writeFile(buffer);
-    await handle.sync();
-    await handle.close();
-    handle = null;
-    await afterTemporarySync?.();
-    const current = await readStableAbsoluteFile(artifact.absolute, artifact.path);
-    if (!sameBytes(current.buffer, artifact.buffer) || current.mode !== artifact.mode) {
-      fail(`${artifact.path} changed before its atomic rename`);
+    staged = await stageExactFile(
+      temporary, buffer, artifact.mode, `${artifact.path} atomic temporary`, afterTemporarySync,
+    );
+    const currentTarget = await readStableAbsoluteFile(artifact.absolute, artifact.path);
+    const currentTemporary = await readStableAbsoluteFile(temporary, `${artifact.path} atomic temporary`);
+    if (!sameIdentity(currentTarget.identity, artifact.identity)
+        || !sameBytes(currentTarget.buffer, artifact.buffer)
+        || currentTarget.mode !== artifact.mode
+        || !sameIdentity(currentTemporary.identity, staged.identity)
+        || !sameBytes(currentTemporary.buffer, staged.buffer)) {
+      fail(`${artifact.path} target or temporary identity changed before atomic rename`);
     }
     await rename(temporary, artifact.absolute);
     await syncDirectory(dirname(artifact.absolute));
+    const written = await readStableAbsoluteFile(artifact.absolute, artifact.path);
+    if (!sameOwnedInode(written.identity, staged.identity)
+        || !sameBytes(written.buffer, buffer) || written.mode !== artifact.mode) {
+      fail(`${artifact.path} rename did not preserve the staged inode and bytes`);
+    }
+    return written;
   } catch (error) {
-    await handle?.close().catch(() => {});
-    await unlink(temporary).catch(() => {});
+    if (staged) {
+      const current = await readOptionalProjectFile(
+        dirname(staged.absolute), basename(staged.absolute), `${artifact.path} failed atomic temporary`,
+      ).catch(() => null);
+      if (current && sameIdentity(current.identity, staged.identity)
+          && sameBytes(current.buffer, staged.buffer)) {
+        await unlinkExactArtifact(current, `${artifact.path} failed atomic temporary`).catch(() => {});
+      }
+    }
     throw error;
   }
 }
 
-async function writeJournalNoReplace(projectRoot, transaction, afterTemporarySync = null) {
+async function writeJournalNoReplace(
+  projectRoot,
+  transaction,
+  afterTemporarySync = null,
+  afterLink = null,
+) {
   if (await readTransaction(projectRoot)) fail('another research rebind transaction already exists');
   const absolute = resolve(projectRoot, TRANSACTION_PATH);
-  const temporary = resolve(projectRoot, journalTemporaryPath(
+  const relativeTemporary = journalTemporaryPath(
     transaction.owner_pid, transaction.transaction_id, 'journal',
-  ));
-  let handle = null;
+  );
+  const temporary = resolve(projectRoot, relativeTemporary);
+  let staged = null;
+  let linked = false;
   try {
-    handle = await open(temporary, 'wx', 0o600);
-    await handle.writeFile(Buffer.from(`${JSON.stringify(transaction)}\n`, 'utf8'));
-    await handle.sync();
-    await handle.close();
-    handle = null;
-    await afterTemporarySync?.();
+    staged = await stageExactFile(
+      temporary,
+      transactionBytes(transaction),
+      0o600,
+      'prepared transaction journal temporary',
+      afterTemporarySync,
+    );
     await link(temporary, absolute);
+    linked = true;
+    const linkedTemporary = await readStableAbsoluteFile(
+      temporary, 'linked prepared journal temporary', { allowedNlinks: [2n] },
+    );
+    const linkedJournal = await readStableAbsoluteFile(
+      absolute, 'linked prepared journal', { allowedNlinks: [2n] },
+    );
+    if (!sameIdentity(linkedTemporary.identity, linkedJournal.identity)
+        || !sameOwnedInode(linkedTemporary.identity, staged.identity)
+        || !sameBytes(linkedTemporary.buffer, transactionBytes(transaction))) {
+      fail('prepared journal no-replace link is not the exact same-inode canonical pair');
+    }
+    await afterLink?.();
     await unlink(temporary);
     await syncDirectory(dirname(absolute));
   } catch (error) {
-    await handle?.close().catch(() => {});
-    await unlink(temporary).catch(() => {});
+    if (!linked && staged) {
+      await unlinkExactArtifact(staged, 'failed prepared journal temporary').catch(() => {});
+    }
     throw error;
   }
-  return readStableProjectFile(projectRoot, TRANSACTION_PATH, 'written transaction journal');
+  const written = await readTransaction(projectRoot);
+  if (!written || written.linkedTemporary
+      || written.transaction.transaction_id !== transaction.transaction_id) {
+    fail('prepared transaction journal was not durably normalized');
+  }
+  return written;
 }
 
-async function markTransactionValidated(projectRoot, transaction) {
+async function stageTransactionOutputs(projectRoot, transaction, testHooks) {
+  for (const [key, output] of Object.entries(transaction.outputs)) {
+    if (!output.changed) continue;
+    const after = await stageExactFile(
+      resolve(projectRoot, output.after_temporary_path),
+      output.after.buffer,
+      output.mode,
+      `${output.path} staged after-image`,
+    );
+    const rollback = await stageExactFile(
+      resolve(projectRoot, output.rollback_temporary_path),
+      output.before.buffer,
+      output.mode,
+      `${output.path} staged rollback image`,
+    );
+    output.progress.after_staged_identity = filesystemIdentity(after.identity);
+    output.progress.rollback_staged_identity = filesystemIdentity(rollback.identity);
+    if (key === 'manifest') await testHooks?.afterManifestTemporarySync();
+  }
+  transaction.state = 'staged';
+  return transaction;
+}
+
+async function markTransactionState(
+  projectRoot,
+  transaction,
+  expectedState,
+  nextState,
+  afterTemporarySync = null,
+) {
   const pending = await readTransaction(projectRoot);
-  if (!pending || pending.transaction.transaction_id !== transaction.transaction_id
-      || pending.transaction.state !== 'prepared') fail('prepared transaction changed before validation commit');
-  const validated = { ...transaction, state: 'validated' };
+  if (!pending || pending.linkedTemporary
+      || pending.transaction.transaction_id !== transaction.transaction_id
+      || pending.transaction.state !== expectedState) {
+    fail(`${expectedState} transaction changed before ${nextState} commit`);
+  }
+  const next = { ...transaction, state: nextState };
   await writeAtomic(
     pending.artifact,
-    Buffer.from(`${JSON.stringify(validated)}\n`, 'utf8'),
+    transactionBytes(next),
     resolve(projectRoot, journalTemporaryPath(
-      transaction.owner_pid, transaction.transaction_id, 'validated',
+      transaction.owner_pid, transaction.transaction_id, nextState,
     )),
+    afterTemporarySync,
   );
-  return readStableProjectFile(projectRoot, TRANSACTION_PATH, 'validated transaction journal');
+  transaction.state = nextState;
+  const written = await readTransaction(projectRoot);
+  if (!written || written.transaction.transaction_id !== transaction.transaction_id
+      || written.transaction.state !== nextState) {
+    fail(`transaction journal did not enter ${nextState}`);
+  }
+  return written;
+}
+
+function classifyTarget(artifact, output) {
+  if (sameIdentity(artifact.identity, output.progress.before_target_identity.identity)
+      && sameBytes(artifact.buffer, output.before.buffer)) return 'before';
+  if (output.progress.after_staged_identity
+      && sameOwnedInode(artifact.identity, output.progress.after_staged_identity.identity)
+      && sameBytes(artifact.buffer, output.after.buffer)) return 'after_owned';
+  if (output.progress.rollback_staged_identity
+      && sameOwnedInode(artifact.identity, output.progress.rollback_staged_identity.identity)
+      && sameBytes(artifact.buffer, output.before.buffer)) return 'rollback_owned';
+  return 'third_party';
+}
+
+async function commitStagedOutput(projectRoot, output) {
+  if (!output.changed) return;
+  const target = await readStableProjectFile(projectRoot, output.path, output.path);
+  const staged = await readStableProjectFile(
+    projectRoot, output.after_temporary_path, `${output.path} staged after-image`,
+  );
+  if (classifyTarget(target, output) !== 'before'
+      || !sameIdentity(staged.identity, output.progress.after_staged_identity.identity)
+      || !sameBytes(staged.buffer, output.after.buffer)) {
+    fail(`${output.path} target or staged after-image changed before governed rename`);
+  }
+  await rename(staged.absolute, target.absolute);
+  await syncDirectory(dirname(target.absolute));
+  const written = await readStableProjectFile(projectRoot, output.path, output.path);
+  if (classifyTarget(written, output) !== 'after_owned') {
+    fail(`${output.path} governed rename did not preserve its staged inode`);
+  }
+}
+
+function assertCommittedOutput(artifact, output) {
+  const expected = output.changed ? 'after_owned' : 'before';
+  if (classifyTarget(artifact, output) !== expected) {
+    fail(`${output.path} final inode topology differs from its transaction receipt`);
+  }
 }
 
 async function removeJournal(artifact) {
-  await unlink(artifact.absolute);
-  await syncDirectory(dirname(artifact.absolute));
+  await unlinkExactArtifact(artifact, 'transaction journal');
 }
 
-async function recoverTransaction(projectRoot, { allowCurrentOwner = false, expectedId = null } = {}) {
-  const pending = await readTransaction(projectRoot);
+async function recoverTransaction(projectRoot, {
+  expectedId = null,
+  testHooks = null,
+} = {}) {
+  let pending = await readTransaction(projectRoot);
   if (!pending) return null;
+  if (pending.linkedTemporary) pending = await normalizeTransactionJournalLink(projectRoot, pending);
   const { artifact: journalArtifact, transaction } = pending;
   if (expectedId !== null && transaction.transaction_id !== expectedId) {
     fail('transaction journal belongs to another invocation');
   }
-  if (processIsAlive(transaction.owner_pid)
-      && !(allowCurrentOwner && transaction.owner_pid === process.pid)) {
-    fail(`transaction ${transaction.transaction_id} is still owned by a live process`);
-  }
-  await cleanupTransactionTemporaries(projectRoot, transaction);
-  const manifestArtifact = await readStableProjectFile(projectRoot, MANIFEST_PATH, 'recovery manifest');
-  const registryArtifact = await readStableProjectFile(projectRoot, SOURCE_REGISTRY_PATH, 'recovery source registry');
-  const targets = [
-    [manifestArtifact, transaction.outputs.manifest],
-    [registryArtifact, transaction.outputs.source_registry],
-  ];
-  for (const [artifact, identity] of targets) {
-    if (artifact.mode !== identity.mode
-        || (!sameBytes(artifact.buffer, identity.before.buffer)
-          && !sameBytes(artifact.buffer, identity.after.buffer))) {
-      fail(`${identity.path} contains third-party bytes during transaction recovery`);
+  const targets = [];
+  for (const output of Object.values(transaction.outputs)) {
+    const artifact = await readStableProjectFile(projectRoot, output.path, `recovery ${output.path}`);
+    const classification = classifyTarget(artifact, output);
+    if (classification === 'third_party'
+        || (!output.changed && classification !== 'before')
+        || (transaction.state === 'prepared' && classification !== 'before')
+        || (transaction.state === 'validated' && classification !== 'after_owned')) {
+      fail(`${output.path} has an unowned identity or third-party bytes during recovery`);
     }
+    targets.push({ artifact, output, classification });
   }
   if (transaction.state === 'validated') {
-    if (!targets.every(([artifact, identity]) => sameBytes(artifact.buffer, identity.after.buffer))) {
-      fail('validated transaction does not contain both exact after-images');
-    }
+    await cleanupOrphanJournalTemporaries(projectRoot, {
+      transaction,
+    });
+    await cleanupTransactionTemporaries(projectRoot, transaction);
     await removeJournal(journalArtifact);
     return 'completed_validated_transaction';
   }
-  for (const [artifact, identity] of targets) {
-    if (sameBytes(artifact.buffer, identity.after.buffer)) {
-      await writeAtomic(
-        artifact,
-        identity.before.buffer,
-        resolve(projectRoot, identity.temporary_path),
+  if (transaction.state === 'staged') {
+    for (const target of targets) {
+      if (target.classification !== 'after_owned') continue;
+      const rollback = await readStableProjectFile(
+        projectRoot,
+        target.output.rollback_temporary_path,
+        `${target.output.path} staged rollback image`,
       );
+      if (!sameIdentity(
+        rollback.identity, target.output.progress.rollback_staged_identity.identity,
+      ) || !sameBytes(rollback.buffer, target.output.before.buffer)) {
+        fail(`${target.output.path} rollback image is not the exact staged inode`);
+      }
+    }
+    for (const target of targets) {
+      if (target.classification !== 'after_owned') continue;
+      const rollback = await readStableProjectFile(
+        projectRoot,
+        target.output.rollback_temporary_path,
+        `${target.output.path} staged rollback image`,
+      );
+      await rename(rollback.absolute, target.artifact.absolute);
+      await syncDirectory(dirname(target.artifact.absolute));
+      await testHooks?.afterRecoveryOutputRollback();
+    }
+    for (const output of Object.values(transaction.outputs)) {
+      const restored = await readStableProjectFile(
+        projectRoot, output.path, `restored ${output.path}`,
+      );
+      const classification = classifyTarget(restored, output);
+      if (!['before', 'rollback_owned'].includes(classification)
+          || !sameBytes(restored.buffer, output.before.buffer)) {
+        fail(`${output.path} rollback did not restore transaction-owned before bytes`);
+      }
     }
   }
-  const restoredManifest = await readStableProjectFile(projectRoot, MANIFEST_PATH, 'restored manifest');
-  const restoredRegistry = await readStableProjectFile(projectRoot, SOURCE_REGISTRY_PATH, 'restored registry');
-  if (!sameBytes(restoredManifest.buffer, transaction.outputs.manifest.before.buffer)
-      || !sameBytes(restoredRegistry.buffer, transaction.outputs.source_registry.before.buffer)) {
-    fail('transaction rollback did not restore both exact before-images');
+  await cleanupOrphanJournalTemporaries(projectRoot, {
+    transaction,
+  });
+  await cleanupTransactionTemporaries(projectRoot, transaction);
+  const currentJournal = await readTransaction(projectRoot);
+  if (!currentJournal
+      || currentJournal.transaction.transaction_id !== transaction.transaction_id) {
+    fail('transaction journal changed during recovery');
   }
-  await removeJournal(journalArtifact);
-  return 'rolled_back_prepared_transaction';
+  await removeJournal(currentJournal.artifact);
+  return transaction.state === 'staged'
+    ? 'rolled_back_staged_transaction'
+    : 'rolled_back_prepared_transaction';
+}
+
+async function advisoryLockPath(projectRoot) {
+  const uid = typeof process.getuid === 'function' ? process.getuid() : 0;
+  const base = process.platform === 'darwin' ? '/private/tmp' : '/tmp';
+  const directory = join(base, `curriculum-atlas-research-locks-${uid}`);
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  const info = await lstat(directory, { bigint: true });
+  if (!info.isDirectory() || info.isSymbolicLink()
+      || (typeof process.getuid === 'function' && info.uid !== BigInt(uid))
+      || (info.mode & 0o077n) !== 0n) {
+    fail('advisory lock directory must be an owner-only real directory');
+  }
+  return join(directory, `${sha256(projectRoot)}.lock`);
+}
+
+function advisoryLockCommand(lockPath) {
+  if (process.platform === 'darwin') {
+    return {
+      executable: '/usr/bin/lockf',
+      args: ['-k', '-t', '0', lockPath, '/usr/bin/tee'],
+    };
+  }
+  if (process.platform === 'linux') {
+    return {
+      executable: '/usr/bin/flock',
+      args: ['--exclusive', '--nonblock', lockPath, '/usr/bin/tee'],
+    };
+  }
+  fail(`unsupported advisory lock platform: ${process.platform}`);
+}
+
+async function acquireAdvisoryLock(projectRoot, testHooks) {
+  const lockPath = await advisoryLockPath(projectRoot);
+  const command = advisoryLockCommand(lockPath);
+  const child = spawn(command.executable, command.args, {
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  const acquired = await new Promise((resolvePromise, rejectPromise) => {
+    const timeout = setTimeout(() => {
+      child.kill('SIGKILL');
+      rejectPromise(new Error('advisory lock helper did not become ready'));
+    }, 5_000);
+    const reject = (error) => {
+      clearTimeout(timeout);
+      rejectPromise(error);
+    };
+    child.once('error', reject);
+    child.once('exit', (code, signal) => {
+      reject(new Error(
+        `research rebind advisory lock is held by another process (exit=${code} signal=${signal || 'none'} stderr=${stderr.slice(0, 512)})`,
+      ));
+    });
+    child.stdout.on('data', (chunk) => {
+      stdout = `${stdout}${chunk}`.slice(-64);
+      if (stdout === 'LOCKED\n') {
+        clearTimeout(timeout);
+        child.removeListener('error', reject);
+        child.removeAllListeners('exit');
+        resolvePromise({ child, lockPath, released: false });
+      } else if (!'LOCKED\n'.startsWith(stdout)) {
+        reject(new Error('advisory lock helper emitted an invalid readiness marker'));
+      }
+    });
+    child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-8192); });
+    child.stdin.write('LOCKED\n');
+  });
+  try {
+    await testHooks?.afterAdvisoryLock();
+    return acquired;
+  } catch (error) {
+    try {
+      await releaseAdvisoryLock(acquired);
+    } catch (releaseError) {
+      throw new AggregateError(
+        [error, releaseError],
+        'research rebind advisory lock hook and release both failed',
+      );
+    }
+    throw error;
+  }
+}
+
+async function releaseAdvisoryLock(lock) {
+  if (lock.released) return;
+  lock.released = true;
+  if (lock.child.exitCode !== null || lock.child.signalCode !== null) {
+    fail('research rebind advisory lock helper exited before release');
+  }
+  const exit = new Promise((resolvePromise, rejectPromise) => {
+    const timeout = setTimeout(() => {
+      lock.child.kill('SIGKILL');
+      rejectPromise(new Error('advisory lock helper did not exit after release'));
+    }, 5_000);
+    lock.child.once('error', (error) => {
+      clearTimeout(timeout);
+      rejectPromise(error);
+    });
+    lock.child.once('exit', (code, signal) => {
+      clearTimeout(timeout);
+      if (code === 0 && signal === null) resolvePromise();
+      else rejectPromise(new Error(`advisory lock helper release failed: code=${code} signal=${signal}`));
+    });
+  });
+  lock.child.stdin.end();
+  await exit;
+}
+
+async function assertDryRunRecoveryFree(projectRoot) {
+  const [transaction, journalTemps] = await Promise.all([
+    readTransaction(projectRoot),
+    orphanJournalTemporaries(projectRoot),
+  ]);
+  if (transaction || journalTemps.length > 0) {
+    fail('an interrupted transaction requires --apply recovery; dry-run never mutates recovery state');
+  }
 }
 
 export async function rebindResearchEvidenceCorpus({
@@ -970,8 +1588,11 @@ export async function rebindResearchEvidenceCorpus({
   const projectRoot = await realpath(resolve(root));
   if (testHooks !== null) {
     exactKeys(testHooks, [
-      'afterJournalTemporarySync', 'afterManifestTemporarySync', 'afterManifestWrite',
-      'validateCandidate',
+      'afterAdvisoryLock', 'afterJournalTemporarySync',
+      'afterManifestTemporarySync', 'afterManifestWrite', 'afterOutputsCommitted',
+      'afterRecoveryOutputRollback',
+      'afterStagedJournalTemporarySync', 'afterTransactionStaged',
+      'afterValidatedJournalTemporarySync', 'afterTransactionValidated', 'validateCandidate',
     ], 'testHooks');
     if (Object.values(testHooks).some((callback) => typeof callback !== 'function')) {
       fail('all testHooks values must be functions');
@@ -985,16 +1606,20 @@ export async function rebindResearchEvidenceCorpus({
   if (ACTIVE_ROOTS.has(projectRoot)) fail('another research evidence rebind is active for this root');
   ACTIVE_ROOTS.add(projectRoot);
   let corpus = null;
+  let advisoryLock = null;
+  let bodyError = null;
   try {
-    const pending = await readTransaction(projectRoot);
-    const orphans = await orphanJournalTemporaries(projectRoot);
-    if (!apply && (pending || orphans.length > 0)) {
-      fail('an interrupted transaction requires --apply recovery; dry-run never mutates recovery state');
-    }
+    advisoryLock = await acquireAdvisoryLock(projectRoot, testHooks);
     let recoveredTransaction = null;
     if (apply) {
-      await cleanupOrphanJournalTemporaries(projectRoot);
-      recoveredTransaction = await recoverTransaction(projectRoot);
+      const pending = await readTransaction(projectRoot);
+      if (pending) {
+        recoveredTransaction = await recoverTransaction(projectRoot, { testHooks });
+      } else {
+        await cleanupOrphanJournalTemporaries(projectRoot);
+      }
+    } else {
+      await assertDryRunRecoveryFree(projectRoot);
     }
 
     const manifestArtifact = await readStableProjectFile(projectRoot, MANIFEST_PATH, 'research manifest');
@@ -1085,6 +1710,7 @@ export async function rebindResearchEvidenceCorpus({
 
     const transaction = buildTransaction(
       manifestArtifact, registryArtifact, candidateManifestBuffer, candidateRegistryBuffer,
+      manifestChanged, registryChanged,
     );
     let transactionWritten = false;
     try {
@@ -1098,28 +1724,27 @@ export async function rebindResearchEvidenceCorpus({
         if (journal?.transaction.transaction_id === transaction.transaction_id) transactionWritten = true;
         throw error;
       }
-      if (manifestChanged) {
-        await writeAtomic(
-          manifestArtifact,
-          candidateManifestBuffer,
-          resolve(projectRoot, transaction.outputs.manifest.temporary_path),
-          testHooks?.afterManifestTemporarySync,
-        );
-      }
+      await stageTransactionOutputs(projectRoot, transaction, testHooks);
+      await markTransactionState(
+        projectRoot,
+        transaction,
+        'prepared',
+        'staged',
+        testHooks?.afterStagedJournalTemporarySync,
+      );
+      await testHooks?.afterTransactionStaged();
+      await commitStagedOutput(projectRoot, transaction.outputs.manifest);
       await testHooks?.afterManifestWrite();
-      if (registryChanged) {
-        await writeAtomic(
-          registryArtifact,
-          candidateRegistryBuffer,
-          resolve(projectRoot, transaction.outputs.source_registry.temporary_path),
-        );
-      }
+      await commitStagedOutput(projectRoot, transaction.outputs.source_registry);
+      await testHooks?.afterOutputsCommitted();
       const writtenManifest = await readStableProjectFile(projectRoot, MANIFEST_PATH, 'written research manifest');
       const writtenRegistry = await readStableProjectFile(projectRoot, SOURCE_REGISTRY_PATH, 'written source registry');
       if (!sameBytes(writtenManifest.buffer, candidateManifestBuffer)
           || !sameBytes(writtenRegistry.buffer, candidateRegistryBuffer)) {
         fail('governed outputs do not match both exact candidate after-images');
       }
+      assertCommittedOutput(writtenManifest, transaction.outputs.manifest);
+      assertCommittedOutput(writtenRegistry, transaction.outputs.source_registry);
       await assertInputsUnchanged(projectRoot, corpus, resources, schemaArtifact);
       candidateValidator({
         manifest: JSON.parse(writtenManifest.buffer.toString('utf8')),
@@ -1129,15 +1754,26 @@ export async function rebindResearchEvidenceCorpus({
         resources,
         renderPageImage,
       });
-      const validatedJournal = await markTransactionValidated(projectRoot, transaction);
-      await removeJournal(validatedJournal);
+      const validatedJournal = await markTransactionState(
+        projectRoot,
+        transaction,
+        'staged',
+        'validated',
+        testHooks?.afterValidatedJournalTemporarySync,
+      );
+      await testHooks?.afterTransactionValidated();
+      await cleanupTransactionTemporaries(projectRoot, transaction);
+      await cleanupOrphanJournalTemporaries(projectRoot, {
+        transaction,
+      });
+      await removeJournal(validatedJournal.artifact);
       return result;
     } catch (error) {
       if (transactionWritten) {
         try {
           await recoverTransaction(projectRoot, {
-            allowCurrentOwner: true,
             expectedId: transaction.transaction_id,
+            testHooks,
           });
         } catch (rollbackError) {
           throw new AggregateError(
@@ -1148,9 +1784,34 @@ export async function rebindResearchEvidenceCorpus({
       }
       throw error;
     }
+  } catch (error) {
+    bodyError = error;
+    throw error;
   } finally {
-    await corpus?.cleanup();
+    const cleanupErrors = [];
+    try {
+      await corpus?.cleanup();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    if (advisoryLock) {
+      try {
+        await releaseAdvisoryLock(advisoryLock);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    }
     ACTIVE_ROOTS.delete(projectRoot);
+    if (cleanupErrors.length > 0) {
+      if (bodyError) {
+        throw new AggregateError(
+          [bodyError, ...cleanupErrors],
+          'research evidence corpus rebind failed and advisory lock cleanup also failed',
+        );
+      }
+      if (cleanupErrors.length === 1) throw cleanupErrors[0];
+      throw new AggregateError(cleanupErrors, 'research evidence corpus rebind cleanup failed');
+    }
   }
 }
 

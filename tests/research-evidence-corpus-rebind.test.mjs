@@ -6,11 +6,13 @@ import {
   access,
   chmod,
   link,
+  lstat,
   mkdir,
   mkdtemp,
   readFile,
   readdir,
   realpath,
+  rename,
   rm,
   symlink,
   writeFile,
@@ -81,12 +83,71 @@ function fakeCandidateValidation({ manifest }) {
 
 function noOpHooks(overrides = {}) {
   return {
+    afterAdvisoryLock: async () => {},
     afterJournalTemporarySync: async () => {},
     afterManifestTemporarySync: async () => {},
     afterManifestWrite: async () => {},
+    afterOutputsCommitted: async () => {},
+    afterRecoveryOutputRollback: async () => {},
+    afterStagedJournalTemporarySync: async () => {},
+    afterTransactionStaged: async () => {},
+    afterValidatedJournalTemporarySync: async () => {},
+    afterTransactionValidated: async () => {},
     validateCandidate: fakeCandidateValidation,
     ...overrides,
   };
+}
+
+function spawnPausedApply(fixture, pauseHook, { pauseMs = 60_000 } = {}) {
+  const moduleUrl = pathToFileURL(
+    join(projectRoot, 'scripts/rebind-research-evidence-corpus.mjs'),
+  ).href;
+  const source = [
+    `import { rebindResearchEvidenceCorpus } from ${JSON.stringify(moduleUrl)};`,
+    `const validateCandidate = ${fakeCandidateValidation.toString()};`,
+    'const pause = async () => {',
+    "  process.stdout.write('PAUSED\\n');",
+    '  return new Promise((resolve) => setTimeout(resolve, Number(process.env.REBIND_PAUSE_MS)));',
+    '};',
+    'const hooks = {',
+    '  afterAdvisoryLock: async () => {},',
+    '  afterJournalTemporarySync: async () => {},',
+    '  afterManifestTemporarySync: async () => {},',
+    '  afterManifestWrite: async () => {},',
+    '  afterOutputsCommitted: async () => {},',
+    '  afterRecoveryOutputRollback: async () => {},',
+    '  afterStagedJournalTemporarySync: async () => {},',
+    '  afterTransactionStaged: async () => {},',
+    '  afterValidatedJournalTemporarySync: async () => {},',
+    '  afterTransactionValidated: async () => {},',
+    '  validateCandidate,',
+    '};',
+    ...(pauseHook ? [`hooks[${JSON.stringify(pauseHook)}] = pause;`] : []),
+    'await rebindResearchEvidenceCorpus({',
+    '  root: process.env.REBIND_ROOT,',
+    '  resourceMap: process.env.REBIND_MAP,',
+    '  apply: true,',
+    '  renderPageImage: () => Buffer.alloc(0),',
+    '  testHooks: hooks,',
+    '});',
+  ].join('\n');
+  const child = spawn(process.execPath, ['--input-type=module', '--eval', source], {
+    env: {
+      HOME: process.env.HOME,
+      PATH: process.env.PATH,
+      REBIND_ROOT: fixture.root,
+      REBIND_MAP: fixture.resourceMap,
+      REBIND_PAUSE_MS: String(pauseMs),
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let stderr = '';
+  let stdout = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => { stdout += chunk; });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  return { child, stderr: () => stderr, stdout: () => stdout };
 }
 
 async function writeJson(root, relativePath, value, mode = 0o644) {
@@ -291,6 +352,29 @@ async function governedBytes(fixture) {
   };
 }
 
+async function governedIdentities(fixture) {
+  return Object.fromEntries(await Promise.all([
+    ['manifest', MANIFEST_PATH],
+    ['registry', REGISTRY_PATH],
+  ].map(async ([key, relativePath]) => {
+    const info = await lstat(join(fixture.root, relativePath), { bigint: true });
+    return [key, {
+      dev: info.dev,
+      ino: info.ino,
+      size: info.size,
+      mode: info.mode,
+      mtimeNs: info.mtimeNs,
+      ctimeNs: info.ctimeNs,
+    }];
+  })));
+}
+
+async function recoveryEntries(fixture) {
+  return (await readdir(join(fixture.root, 'data/research-evidence')))
+    .filter((name) => name.startsWith('.zh-hs-2017-2020-corpus-rebind-'))
+    .sort();
+}
+
 test('CLI is dry-run by default and accepts only explicit apply/root/resource-map flags', () => {
   const dryRun = parseArgs(['--resource-map', '/tmp/map.json']);
   assert.equal(dryRun.apply, false);
@@ -306,6 +390,7 @@ test('dry-run is mutation-free; apply changes only corpus identity, paragraph ID
   const fixture = await createFixture();
   try {
     const before = await governedBytes(fixture);
+    const recoveryBefore = await recoveryEntries(fixture);
     const dryRun = await rebindResearchEvidenceCorpus({
       root: fixture.root,
       resourceMap: fixture.resourceMap,
@@ -315,6 +400,7 @@ test('dry-run is mutation-free; apply changes only corpus identity, paragraph ID
     assert.equal(dryRun.mode, 'dry-run');
     assert.equal(dryRun.changed, true);
     assert.deepEqual(await governedBytes(fixture), before);
+    assert.deepEqual(await recoveryEntries(fixture), recoveryBefore);
     assert.deepEqual(dryRun.evidence_mappings.map((entry) => entry.after_paragraph_id), [
       2_000, 2_001, 2_002, 2_003, 2_004, 2_005,
     ]);
@@ -339,6 +425,7 @@ test('dry-run is mutation-free; apply changes only corpus identity, paragraph ID
       && entry.review.decision_resource_id === null
       && entry.release_gate.allowed === false
       && Object.values(entry.publication).every((value) => value === false)), true);
+    const identitiesAfterFirst = await governedIdentities(fixture);
 
     const second = await rebindResearchEvidenceCorpus({
       root: fixture.root,
@@ -349,6 +436,8 @@ test('dry-run is mutation-free; apply changes only corpus identity, paragraph ID
     });
     assert.equal(second.changed, false);
     assert.deepEqual(await governedBytes(fixture), afterFirst);
+    assert.deepEqual(await governedIdentities(fixture), identitiesAfterFirst);
+    assert.deepEqual(await recoveryEntries(fixture), []);
     assert.equal(await exists(join(fixture.root, TRANSACTION_PATH)), false);
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
@@ -501,9 +590,16 @@ test('SIGKILL after the first governed rename is recovered on the next apply', a
       '  apply: true,',
       '  renderPageImage: () => Buffer.alloc(0),',
       '  testHooks: {',
+      '    afterAdvisoryLock: async () => {},',
       '    afterJournalTemporarySync: async () => {},',
       '    afterManifestTemporarySync: async () => {},',
       '    afterManifestWrite: async () => new Promise((resolve) => setTimeout(resolve, 60_000)),',
+      '    afterOutputsCommitted: async () => {},',
+      '    afterRecoveryOutputRollback: async () => {},',
+      '    afterStagedJournalTemporarySync: async () => {},',
+      '    afterTransactionStaged: async () => {},',
+      '    afterValidatedJournalTemporarySync: async () => {},',
+      '    afterTransactionValidated: async () => {},',
       '    validateCandidate,',
       '  },',
       '});',
@@ -534,7 +630,7 @@ test('SIGKILL after the first governed rename is recovered on the next apply', a
       resourceMap: fixture.resourceMap,
       testHooks: noOpHooks(),
       renderPageImage: () => Buffer.alloc(0),
-    }), /dry-run never mutates recovery state/i);
+    }), /advisory lock is held by another process/i);
     assert.deepEqual(await governedBytes(fixture), interrupted);
     await assert.rejects(rebindResearchEvidenceCorpus({
       root: fixture.root,
@@ -542,7 +638,7 @@ test('SIGKILL after the first governed rename is recovered on the next apply', a
       apply: true,
       testHooks: noOpHooks(),
       renderPageImage: () => Buffer.alloc(0),
-    }), /still owned by a live process/i);
+    }), /advisory lock is held by another process/i);
     const exit = once(child, 'exit');
     assert.equal(child.kill('SIGKILL'), true);
     const [code, signal] = await exit;
@@ -557,7 +653,7 @@ test('SIGKILL after the first governed rename is recovered on the next apply', a
       testHooks: noOpHooks(),
       renderPageImage: () => Buffer.alloc(0),
     });
-    assert.equal(recovered.recovered_transaction, 'rolled_back_prepared_transaction');
+    assert.equal(recovered.recovered_transaction, 'rolled_back_staged_transaction');
     assert.equal(recovered.changed, true);
     assert.equal(await exists(join(fixture.root, TRANSACTION_PATH)), false);
   } finally {
@@ -569,7 +665,7 @@ test('SIGKILL after the first governed rename is recovered on the next apply', a
   }
 });
 
-test('SIGKILL before the no-replace journal link leaves one scoped temp; dry-run preserves it and apply removes it', async () => {
+test('a partial pre-link journal temp is preserved by dry-run and removed by apply', async () => {
   const fixture = await createFixture();
   let child = null;
   try {
@@ -586,9 +682,16 @@ test('SIGKILL before the no-replace journal link leaves one scoped temp; dry-run
       '  apply: true,',
       '  renderPageImage: () => Buffer.alloc(0),',
       '  testHooks: {',
+      '    afterAdvisoryLock: async () => {},',
       '    afterJournalTemporarySync: async () => new Promise((resolve) => setTimeout(resolve, 60_000)),',
       '    afterManifestTemporarySync: async () => {},',
       '    afterManifestWrite: async () => {},',
+      '    afterOutputsCommitted: async () => {},',
+      '    afterRecoveryOutputRollback: async () => {},',
+      '    afterStagedJournalTemporarySync: async () => {},',
+      '    afterTransactionStaged: async () => {},',
+      '    afterValidatedJournalTemporarySync: async () => {},',
+      '    afterTransactionValidated: async () => {},',
       '    validateCandidate,',
       '  },',
       '});',
@@ -625,6 +728,12 @@ test('SIGKILL before the no-replace journal link leaves one scoped temp; dry-run
     assert.equal(signal, 'SIGKILL');
     child = null;
     assert.equal(await exists(journalTemporary), true);
+    const completeJournalTemporary = await readFile(journalTemporary);
+    await writeFile(
+      journalTemporary,
+      completeJournalTemporary.subarray(0, Math.max(1, Math.floor(completeJournalTemporary.length / 2))),
+      { mode: 0o600 },
+    );
     assert.deepEqual(await governedBytes(fixture), before);
 
     await assert.rejects(rebindResearchEvidenceCorpus({
@@ -653,6 +762,50 @@ test('SIGKILL before the no-replace journal link leaves one scoped temp; dry-run
   }
 });
 
+test('an orphan journal temp without its canonical filename-bound header is never deleted', async () => {
+  const fixture = await createFixture();
+  try {
+    const name = '.zh-hs-2017-2020-corpus-rebind-journal-2147483647-123e4567-e89b-42d3-a456-426614174000.tmp';
+    const temporary = join(fixture.root, 'data/research-evidence', name);
+    await writeFile(temporary, '{"unattributed"', { mode: 0o600 });
+    await assert.rejects(rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      apply: true,
+      testHooks: noOpHooks(),
+      renderPageImage: () => Buffer.alloc(0),
+    }), /not an attributable journal prefix/i);
+    assert.deepEqual(await readFile(temporary), Buffer.from('{"unattributed"'));
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('an orphan journal temp with a self-consistent noncanonical UUID is never deleted', async () => {
+  const fixture = await createFixture();
+  try {
+    const transactionId = '123e4567-e89b-12d3-a456-426614174000';
+    const ownerPid = 2147483647;
+    const name = `.zh-hs-2017-2020-corpus-rebind-journal-${ownerPid}-${transactionId}.tmp`;
+    const temporary = join(fixture.root, 'data/research-evidence', name);
+    const bytes = Buffer.from(
+      `{"schema_version":2,"artifact_kind":"zh_hs_2017_2020_research_corpus_rebind_transaction","transaction_id":"${transactionId}","owner_pid":${ownerPid},`,
+      'utf8',
+    );
+    await writeFile(temporary, bytes, { mode: 0o600 });
+    await assert.rejects(rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      apply: true,
+      testHooks: noOpHooks(),
+      renderPageImage: () => Buffer.alloc(0),
+    }), /transaction temporary filename identity is invalid/i);
+    assert.deepEqual(await readFile(temporary), bytes);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
 test('third-party bytes during rollback are never overwritten and leave a recovery journal', async () => {
   const fixture = await createFixture();
   try {
@@ -671,6 +824,440 @@ test('third-party bytes during rollback are never overwritten and leave a recove
     }), AggregateError);
     assert.deepEqual(await readFile(join(fixture.root, REGISTRY_PATH)), rogue);
     assert.equal(await exists(join(fixture.root, TRANSACTION_PATH)), true);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('same-byte governed-output inode replacement is rejected and never adopted', async () => {
+  const fixture = await createFixture();
+  try {
+    const before = await governedBytes(fixture);
+    const beforeIdentities = await governedIdentities(fixture);
+    await assert.rejects(rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      apply: true,
+      testHooks: noOpHooks({
+        afterManifestWrite: async () => {
+          const target = join(fixture.root, REGISTRY_PATH);
+          const replacement = `${target}.same-byte-replacement`;
+          await writeFile(replacement, before.registry, { mode: 0o644 });
+          await rename(replacement, target);
+          throw new Error('same-byte inode replacement');
+        },
+      }),
+      renderPageImage: () => Buffer.alloc(0),
+    }), AggregateError);
+    const interrupted = await governedBytes(fixture);
+    const interruptedIdentities = await governedIdentities(fixture);
+    assert.deepEqual(interrupted.registry, before.registry);
+    assert.notEqual(interruptedIdentities.registry.ino, beforeIdentities.registry.ino);
+    assert.notDeepEqual(interrupted.manifest, before.manifest);
+    assert.equal(await exists(join(fixture.root, TRANSACTION_PATH)), true);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('an unchanged output must retain its exact inode through a one-output transaction', async () => {
+  const fixture = await createFixture();
+  try {
+    const originalManifest = await readFile(join(fixture.root, MANIFEST_PATH));
+    await rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      apply: true,
+      testHooks: noOpHooks(),
+      renderPageImage: () => Buffer.alloc(0),
+    });
+    await writeFile(join(fixture.root, MANIFEST_PATH), originalManifest, { mode: 0o644 });
+    const registryBefore = await readFile(join(fixture.root, REGISTRY_PATH));
+    await assert.rejects(rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      apply: true,
+      testHooks: noOpHooks({
+        afterManifestWrite: async () => {
+          const target = join(fixture.root, REGISTRY_PATH);
+          const replacement = `${target}.unchanged-inode-replacement`;
+          await writeFile(replacement, registryBefore, { mode: 0o644 });
+          await rename(replacement, target);
+        },
+      }),
+      renderPageImage: () => Buffer.alloc(0),
+    }), AggregateError);
+    assert.deepEqual(await readFile(join(fixture.root, REGISTRY_PATH)), registryBefore);
+    assert.equal(await exists(join(fixture.root, TRANSACTION_PATH)), true);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('rollback refuses a same-byte replacement of its staged inode receipt', async () => {
+  const fixture = await createFixture();
+  try {
+    await assert.rejects(rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      apply: true,
+      testHooks: noOpHooks({
+        afterManifestWrite: async () => {
+          const journal = JSON.parse(await readFile(join(fixture.root, TRANSACTION_PATH), 'utf8'));
+          const rollbackPath = join(
+            fixture.root,
+            journal.outputs.manifest.rollback_temporary_path,
+          );
+          const replacement = `${rollbackPath}.same-byte-replacement`;
+          await writeFile(replacement, await readFile(rollbackPath), { mode: 0o644 });
+          await rename(replacement, rollbackPath);
+          throw new Error('rollback topology replacement');
+        },
+      }),
+      renderPageImage: () => Buffer.alloc(0),
+    }), AggregateError);
+    assert.equal(await exists(join(fixture.root, TRANSACTION_PATH)), true);
+  } finally {
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('staged rollback recovery is reentrant after SIGKILL between output restorations', async () => {
+  const fixture = await createFixture();
+  let firstChild = null;
+  let recoveryChild = null;
+  try {
+    const before = await governedBytes(fixture);
+    const first = spawnPausedApply(fixture, 'afterOutputsCommitted');
+    firstChild = first.child;
+    await waitFor(async () => {
+      if (firstChild.exitCode !== null || firstChild.signalCode !== null) {
+        throw new Error(`first child exited before staged crash point: ${first.stderr()}`);
+      }
+      if (!(await exists(join(fixture.root, TRANSACTION_PATH)))) return false;
+      const current = await governedBytes(fixture);
+      return !current.manifest.equals(before.manifest) && !current.registry.equals(before.registry);
+    }, 'both staged output commits');
+    let exit = once(firstChild, 'exit');
+    assert.equal(firstChild.kill('SIGKILL'), true);
+    assert.deepEqual(await exit, [null, 'SIGKILL']);
+    firstChild = null;
+
+    const recovery = spawnPausedApply(fixture, 'afterRecoveryOutputRollback');
+    recoveryChild = recovery.child;
+    await waitFor(async () => {
+      if (recoveryChild.exitCode !== null || recoveryChild.signalCode !== null) {
+        throw new Error(`recovery child exited before rollback crash point: ${recovery.stderr()}`);
+      }
+      if (!(await exists(join(fixture.root, TRANSACTION_PATH)))) return false;
+      const current = await governedBytes(fixture);
+      return current.manifest.equals(before.manifest) && !current.registry.equals(before.registry);
+    }, 'first recovery rollback rename');
+    exit = once(recoveryChild, 'exit');
+    assert.equal(recoveryChild.kill('SIGKILL'), true);
+    assert.deepEqual(await exit, [null, 'SIGKILL']);
+    recoveryChild = null;
+
+    const completed = await rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      apply: true,
+      testHooks: noOpHooks(),
+      renderPageImage: () => Buffer.alloc(0),
+    });
+    assert.equal(completed.recovered_transaction, 'rolled_back_staged_transaction');
+    assert.equal(completed.changed, true);
+    assert.equal(await exists(join(fixture.root, TRANSACTION_PATH)), false);
+    assert.deepEqual(await recoveryEntries(fixture), []);
+  } finally {
+    for (const child of [firstChild, recoveryChild]) {
+      if (child && child.exitCode === null && child.signalCode === null) {
+        child.kill('SIGKILL');
+        await once(child, 'exit').catch(() => {});
+      }
+    }
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('a live advisory lock serializes dry-run and apply without project lock files', async () => {
+  const fixture = await createFixture();
+  let child = null;
+  try {
+    const paused = spawnPausedApply(fixture, 'afterAdvisoryLock');
+    child = paused.child;
+    await waitFor(async () => {
+      if (child.exitCode !== null || child.signalCode !== null) {
+        throw new Error(`child exited before advisory-lock point: ${paused.stderr()}`);
+      }
+      return paused.stdout().includes('PAUSED\n');
+    }, 'held advisory lock');
+    assert.deepEqual(await recoveryEntries(fixture), []);
+    await assert.rejects(rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      testHooks: noOpHooks(),
+      renderPageImage: () => Buffer.alloc(0),
+    }), /advisory lock is held by another process/i);
+    assert.deepEqual(await recoveryEntries(fixture), []);
+    await assert.rejects(rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      apply: true,
+      testHooks: noOpHooks(),
+      renderPageImage: () => Buffer.alloc(0),
+    }), /advisory lock is held by another process/i);
+    assert.deepEqual(await recoveryEntries(fixture), []);
+
+    const exit = once(child, 'exit');
+    assert.equal(child.kill('SIGKILL'), true);
+    assert.deepEqual(await exit, [null, 'SIGKILL']);
+    child = null;
+    const recovered = await rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      apply: true,
+      testHooks: noOpHooks(),
+      renderPageImage: () => Buffer.alloc(0),
+    });
+    assert.equal(recovered.changed, true);
+    assert.deepEqual(await recoveryEntries(fixture), []);
+  } finally {
+    if (child && child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL');
+      await once(child, 'exit').catch(() => {});
+    }
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('two simultaneous stale-journal recovery attempts admit exactly one recovery owner', async () => {
+  const fixture = await createFixture();
+  let interruptedChild = null;
+  const racers = [];
+  try {
+    const before = await governedBytes(fixture);
+    const interrupted = spawnPausedApply(fixture, 'afterOutputsCommitted');
+    interruptedChild = interrupted.child;
+    await waitFor(async () => {
+      if (interruptedChild.exitCode !== null || interruptedChild.signalCode !== null) {
+        throw new Error(`interruption child exited early: ${interrupted.stderr()}`);
+      }
+      if (!(await exists(join(fixture.root, TRANSACTION_PATH)))) return false;
+      const current = await governedBytes(fixture);
+      return !current.manifest.equals(before.manifest) && !current.registry.equals(before.registry);
+    }, 'staged stale transaction');
+    let exit = once(interruptedChild, 'exit');
+    assert.equal(interruptedChild.kill('SIGKILL'), true);
+    assert.deepEqual(await exit, [null, 'SIGKILL']);
+    interruptedChild = null;
+
+    racers.push(
+      spawnPausedApply(fixture, 'afterAdvisoryLock', { pauseMs: 300 }),
+      spawnPausedApply(fixture, 'afterAdvisoryLock', { pauseMs: 300 }),
+    );
+    const exits = await Promise.all(racers.map(({ child }) => once(child, 'exit')));
+    assert.deepEqual(exits.map(([code, signal]) => ({ code, signal })).sort((left, right) => (
+      (left.code ?? 99) - (right.code ?? 99)
+    )), [
+      { code: 0, signal: null },
+      { code: 1, signal: null },
+    ]);
+    assert.equal(racers.filter((entry) => (
+      /advisory lock is held by another process/i.test(entry.stderr())
+    )).length, 1);
+    const finalDryRun = await rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      testHooks: noOpHooks(),
+      renderPageImage: () => Buffer.alloc(0),
+    });
+    assert.equal(finalDryRun.changed, false);
+    assert.equal(finalDryRun.recovered_transaction, null);
+    assert.deepEqual(await recoveryEntries(fixture), []);
+  } finally {
+    for (const child of [interruptedChild, ...racers.map((entry) => entry.child)]) {
+      if (child && child.exitCode === null && child.signalCode === null) {
+        child.kill('SIGKILL');
+        await once(child, 'exit').catch(() => {});
+      }
+    }
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('validated commit recovery keeps exact after-images and becomes byte-idempotent', async () => {
+  const fixture = await createFixture();
+  let child = null;
+  try {
+    const paused = spawnPausedApply(fixture, 'afterTransactionValidated');
+    child = paused.child;
+    await waitFor(async () => {
+      if (child.exitCode !== null || child.signalCode !== null) {
+        throw new Error(`child exited before validated crash point: ${paused.stderr()}`);
+      }
+      if (!(await exists(join(fixture.root, TRANSACTION_PATH)))) return false;
+      const journal = JSON.parse(await readFile(join(fixture.root, TRANSACTION_PATH), 'utf8'));
+      return journal.state === 'validated';
+    }, 'validated transaction journal');
+    const committed = await governedBytes(fixture);
+    const committedIdentities = await governedIdentities(fixture);
+    const exit = once(child, 'exit');
+    assert.equal(child.kill('SIGKILL'), true);
+    assert.deepEqual(await exit, [null, 'SIGKILL']);
+    child = null;
+
+    const recovered = await rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      apply: true,
+      testHooks: noOpHooks(),
+      renderPageImage: () => Buffer.alloc(0),
+    });
+    assert.equal(recovered.recovered_transaction, 'completed_validated_transaction');
+    assert.equal(recovered.changed, false);
+    assert.deepEqual(await governedBytes(fixture), committed);
+    assert.deepEqual(await governedIdentities(fixture), committedIdentities);
+    assert.deepEqual(await recoveryEntries(fixture), []);
+  } finally {
+    if (child && child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL');
+      await once(child, 'exit').catch(() => {});
+    }
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('a partial staged-journal temp is reconstructed and rolled back without a recovery loop', async () => {
+  const fixture = await createFixture();
+  let child = null;
+  try {
+    const before = await governedBytes(fixture);
+    const paused = spawnPausedApply(fixture, 'afterStagedJournalTemporarySync');
+    child = paused.child;
+    let stagedTemporary = null;
+    await waitFor(async () => {
+      if (child.exitCode !== null || child.signalCode !== null) {
+        throw new Error(`child exited before staged-journal point: ${paused.stderr()}`);
+      }
+      if (!(await exists(join(fixture.root, TRANSACTION_PATH)))) return false;
+      const journal = JSON.parse(await readFile(join(fixture.root, TRANSACTION_PATH), 'utf8'));
+      if (journal.state !== 'prepared') return false;
+      const entries = await recoveryEntries(fixture);
+      const name = entries.find((entry) => (
+        /^\.zh-hs-2017-2020-corpus-rebind-staged-\d+-[a-f0-9-]{36}\.tmp$/u.test(entry)
+      ));
+      if (!name) return false;
+      stagedTemporary = join(fixture.root, 'data/research-evidence', name);
+      return true;
+    }, 'fsynced staged journal temporary');
+    const completeTemporary = await readFile(stagedTemporary);
+    const exit = once(child, 'exit');
+    assert.equal(child.kill('SIGKILL'), true);
+    assert.deepEqual(await exit, [null, 'SIGKILL']);
+    child = null;
+    await writeFile(
+      stagedTemporary,
+      completeTemporary.subarray(0, Math.max(1, Math.floor(completeTemporary.length / 2))),
+      { mode: 0o600 },
+    );
+    assert.deepEqual(await governedBytes(fixture), before);
+
+    const recovered = await rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      apply: true,
+      testHooks: noOpHooks(),
+      renderPageImage: () => Buffer.alloc(0),
+    });
+    assert.equal(recovered.recovered_transaction, 'rolled_back_prepared_transaction');
+    assert.equal(recovered.changed, true);
+    assert.deepEqual(await recoveryEntries(fixture), []);
+  } finally {
+    if (child && child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL');
+      await once(child, 'exit').catch(() => {});
+    }
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('a partial validated-journal temp rolls the staged transaction back and reapplies once', async () => {
+  const fixture = await createFixture();
+  let child = null;
+  try {
+    const before = await governedBytes(fixture);
+    const paused = spawnPausedApply(fixture, 'afterValidatedJournalTemporarySync');
+    child = paused.child;
+    let validatedTemporary = null;
+    await waitFor(async () => {
+      if (child.exitCode !== null || child.signalCode !== null) {
+        throw new Error(`child exited before validated-journal point: ${paused.stderr()}`);
+      }
+      if (!(await exists(join(fixture.root, TRANSACTION_PATH)))) return false;
+      const journal = JSON.parse(await readFile(join(fixture.root, TRANSACTION_PATH), 'utf8'));
+      if (journal.state !== 'staged') return false;
+      const entries = await recoveryEntries(fixture);
+      const name = entries.find((entry) => (
+        /^\.zh-hs-2017-2020-corpus-rebind-validated-\d+-[a-f0-9-]{36}\.tmp$/u.test(entry)
+      ));
+      if (!name) return false;
+      validatedTemporary = join(fixture.root, 'data/research-evidence', name);
+      const current = await governedBytes(fixture);
+      return !current.manifest.equals(before.manifest) && !current.registry.equals(before.registry);
+    }, 'fsynced validated journal temporary');
+    const completeTemporary = await readFile(validatedTemporary);
+    const exit = once(child, 'exit');
+    assert.equal(child.kill('SIGKILL'), true);
+    assert.deepEqual(await exit, [null, 'SIGKILL']);
+    child = null;
+    await writeFile(
+      validatedTemporary,
+      completeTemporary.subarray(0, Math.max(1, Math.floor(completeTemporary.length / 2))),
+      { mode: 0o600 },
+    );
+
+    const recovered = await rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      apply: true,
+      testHooks: noOpHooks(),
+      renderPageImage: () => Buffer.alloc(0),
+    });
+    assert.equal(recovered.recovered_transaction, 'rolled_back_staged_transaction');
+    assert.equal(recovered.changed, true);
+    assert.deepEqual(await recoveryEntries(fixture), []);
+  } finally {
+    if (child && child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL');
+      await once(child, 'exit').catch(() => {});
+    }
+    await rm(fixture.root, { recursive: true, force: true });
+  }
+});
+
+test('ordinary advisory-lock hook failure releases the kernel lock for retry', async () => {
+  const fixture = await createFixture();
+  try {
+    await assert.rejects(rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      apply: true,
+      testHooks: noOpHooks({
+        afterAdvisoryLock: async () => { throw new Error('fixture advisory hook'); },
+      }),
+      renderPageImage: () => Buffer.alloc(0),
+    }), /fixture advisory hook/i);
+    assert.deepEqual(await recoveryEntries(fixture), []);
+    const retry = await rebindResearchEvidenceCorpus({
+      root: fixture.root,
+      resourceMap: fixture.resourceMap,
+      apply: true,
+      testHooks: noOpHooks(),
+      renderPageImage: () => Buffer.alloc(0),
+    });
+    assert.equal(retry.changed, true);
+    assert.deepEqual(await recoveryEntries(fixture), []);
   } finally {
     await rm(fixture.root, { recursive: true, force: true });
   }
