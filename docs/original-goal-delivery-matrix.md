@@ -28,12 +28,12 @@
 |---|---|---|
 | Production v10 | 196 documents、16,456 paragraphs/FTS、6,031 page gates、91 chunks、12 display facets；API、三尺寸浏览器、D1 negative-write 与 Pulse 已终验 | 这些段落并非 11,000 余页历史扫描 OCR 全部通过审核 |
 | OCR publication | accepted OCR documents/pages、display/citation promotion 均为 0 | OCR staging、Vision witness 或 audit 数量不是公开引文数量 |
-| 本地整合候选 | 195 个规范作品；来源身份恢复提交已独立通过；2011 初中科学双扫描归并为一份作品 | 尚未替换 production v10 的 196 文档快照；其余本体、A2 与后台分支仍须独立审查后合并 |
+| 本地整合候选 | 195 个规范作品；来源身份恢复、页面证据零发布重绑定、后台四写 CAS、普通学科本体 v2 零证据重绑定均已独立审查并合入；当前 corpus 为 16,711 段、6,132 page gates、93 chunks，本体仍严格为 12 facets / 0 scopes / 0 concepts / 0 relations | 尚未替换 production v10 的 196 文档快照；中文研究证据、旧概念图/发布桥、A2 最终接收与真实环境验收仍未收口 |
 | OCR 队列候选 | 名义 86 documents / 11,903 pages；扣除劳动课标完全相同别名后 85 unique artifacts / 11,835 pages；0 blocked documents | 入队不表示完成，更不表示可引用 |
 | 概念图 | production 有 553 concept episodes、214 lineage、261 cross-subject edges；169 个公开本体节点主要属于语文 | 不是全学科、全历史、全层级精细本体；观察数据目前止于 2020 |
 | 汇编篇目 | 61 个目录身份为候选，0 display / 0 citation / 0 semantic | 已识别目录不等于篇目正文、边界和版本身份已发布 |
 | B3 远端 OCR | 6 本历史汇编、3,182 页已 `finished=true`、`settled=true`、6/6 complete：艺术劳动、化学、语文、历史、物理、课程计划 | 尚未通过受审 receiver 整卷导入本机；完成不等于可显示或可引用 |
-| A2 远端 OCR | 同一 attempt 6 已耐久完成 1,568/3,182 页：4/8 卷完成、1 卷中断、3 卷 retry_wait、0 失败页；主机资源正常但服务仍按安全策略冻结，forward continuation 正在本地审查 | 不得另发授权、重置 attempt、覆盖 state，亦不得把耐久页数误报为可引用页数 |
+| A2 远端 OCR | 同一 attempt 6 已耐久完成 1,568/3,182 页：4/8 卷完成、1 卷中断、3 卷 retry_wait、0 失败页；forward continuation 与五项生产锚点已两轮独立审查，密封 Linux 80/80（含三项平台专属门）通过；首次双 live dry-run 在写入前一致地拒绝了把 monitor inode `42336296` 误标为 evidence-base inode 的 profile | 五个服务与冻结输出保持不变；真实 evidence-base inode `41854492` 已由原始协议和当前 stat 交叉证明，修正仍须重新审查、重跑 Linux 门与两次只读演练；不得另发授权、重置 attempt 或覆盖 state |
 
 任何后续状态变化必须更新本表的真值快照、`operations.md`、append-only action log 和 canonical Cloudflare report；不能只改 README 数字。
 
