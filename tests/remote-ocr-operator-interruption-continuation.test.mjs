@@ -17,11 +17,11 @@ import {
   operatorContinuationPaths,
   reconcileOwnedContinuationExecution,
   recoverableTerminalAtomicReplace,
-  validateA2InterruptedPartialSelectionState,
 } from '../scripts/continue-remote-ocr-operator-interruption.mjs';
 import {
   EXACT_A2_FORWARD_CONTINUATION_INCIDENT,
   validateA2ForwardContinuationProfile,
+  validateA2InterruptedPartialSelectionState,
   validateOperatorContinuationEvidence,
   validateOperatorContinuationOutput,
 } from '../scripts/lib/remote-ocr-operator-continuation.mjs';
@@ -755,6 +755,10 @@ async function finishFixtureDocument(fixture) {
     content_markdown_sha256: 'a'.repeat(64),
     citation_eligible: false,
   };
+  completed.selected_pages = Array.from(
+    { length: completed.page_count },
+    (_unused, index) => index + 1,
+  );
   completed.selected_pages_complete = true;
   await mkdir(path.join(fixture.documentRoot, 'pages/0002'), { mode: 0o700 });
   await writeFile(path.join(fixture.documentRoot, 'pages/0002/result.json'), '{}\n', { mode: 0o600 });
@@ -787,7 +791,16 @@ async function writeFixturePage(fixture, pageNumber, { complete = false } = {}) 
     content_markdown_sha256: sha256(contentRaw),
     citation_eligible: false,
   };
-  state.selected_pages_complete = complete;
+  if (complete) {
+    state.selected_pages = Array.from(
+      { length: state.page_count },
+      (_unused, index) => index + 1,
+    );
+    state.selected_pages_complete = true;
+  } else if (Object.hasOwn(state, 'selected_pages')
+    || Object.hasOwn(state, 'selected_pages_complete')) {
+    state.selected_pages_complete = false;
+  }
   await writeFile(fixture.statePath, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
   await writeFile(fixture.logPath, `page ${pageNumber} durable\n`, { flag: 'a' });
 }
@@ -817,7 +830,10 @@ async function writePartialPageThenSigkill(fixture) {
         content_markdown_sha256: sha256(contentRaw),
         citation_eligible: false,
       };
-      state.selected_pages_complete = false;
+      if (Object.prototype.hasOwnProperty.call(state, 'selected_pages')
+        || Object.prototype.hasOwnProperty.call(state, 'selected_pages_complete')) {
+        state.selected_pages_complete = false;
+      }
       await writeFile(statePath, JSON.stringify(state, null, 2) + '\n', { mode: 0o600 });
       await writeFile(logPath, 'page 2 durable\n', { flag: 'a' });
       process.stdout.write('partial-durable\n');
@@ -911,7 +927,7 @@ test('exact operator interruption is a mutation-free dry run', async (t) => {
 });
 
 test('apply consumes one claim and completes the same attempt 6 without truncating prior evidence', async (t) => {
-  const fixture = await makeFixture(t);
+  const fixture = await makeFixture(t, { selectionShape: 'legacy_absent' });
   const originalStartedAt = startedAt;
   const originalLog = await readFile(fixture.logPath);
   const timeoutGrantPath = path.join(fixture.outputRoot, 'timeout-recovery-grant.json');
@@ -936,6 +952,10 @@ test('apply consumes one claim and completes the same attempt 6 without truncati
       content_markdown_sha256: 'a'.repeat(64),
       citation_eligible: false,
     };
+    completed.selected_pages = Array.from(
+      { length: completed.page_count },
+      (_unused, index) => index + 1,
+    );
     completed.selected_pages_complete = true;
     await mkdir(path.join(fixture.documentRoot, 'pages/0002'), { recursive: true, mode: 0o700 });
     await writeFile(path.join(fixture.documentRoot, 'pages/0002/result.json'), '{}\n', { mode: 0o600 });
@@ -999,6 +1019,45 @@ test('apply consumes one claim and completes the same attempt 6 without truncati
   assert.equal(recovered.status, 'complete');
   assert.equal(recovered.recovered, true);
   assert.equal(reinvoked, false);
+});
+
+test('a complete child state survives a host crash before terminal plan without rerunning OCR', async (t) => {
+  const fixture = await makeFixture(t);
+  await assert.rejects(
+    continueOperatorInterruptedAttempt(
+      { ...fixture.options, apply: true },
+      dependencies(fixture, {
+        invokeOcr: async () => finishFixtureDocument(fixture),
+        afterChildExit: async () => {
+          throw new Error('simulated host crash after complete child state');
+        },
+      }),
+    ),
+    /simulated host crash after complete child state/u,
+  );
+  const completedState = JSON.parse(await readFile(fixture.statePath, 'utf8'));
+  assert.deepEqual(completedState.selected_pages, [1, 2]);
+  assert.equal(completedState.selected_pages_complete, true);
+
+  const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+  assert.equal(
+    (await readdir(paths.states)).some((name) => name.endsWith('-terminal_plan.json')),
+    false,
+  );
+  let reinvoked = false;
+  const recovered = await continueOperatorInterruptedAttempt(
+    { ...fixture.options, apply: true },
+    dependencies(fixture, {
+      startedLlamaInvocationId: 'c'.repeat(32),
+      startedLlamaMainPid: '43',
+      invokeOcr: async () => { reinvoked = true; },
+    }),
+  );
+  assert.equal(recovered.status, 'complete');
+  assert.equal(recovered.exitCode, 0);
+  assert.equal(reinvoked, false);
+  const evidence = await validateOperatorContinuationEvidence(paths.root, fixture.profile);
+  assert.equal(evidence.terminal.outcome, 'complete');
 });
 
 test('every expected incident anchor is fail-closed before claim publication', async (t) => {
@@ -1848,7 +1907,7 @@ test('a restarted process seals a running crash tail and appends a verifiable re
 });
 
 test('a valid partial page, state, and log survive SIGKILL through a durable execution checkpoint', async (t) => {
-  const fixture = await makeFixture(t, { pageCount: 3 });
+  const fixture = await makeFixture(t, { pageCount: 3, selectionShape: 'legacy_absent' });
   const interrupted = await continueOperatorInterruptedAttempt(
     { ...fixture.options, apply: true },
     dependencies(fixture, {
@@ -1861,7 +1920,8 @@ test('a valid partial page, state, and log survive SIGKILL through a durable exe
   assert.equal(interrupted.signal, 'SIGKILL');
   const partialState = JSON.parse(await readFile(fixture.statePath, 'utf8'));
   assert.deepEqual(partialState.completed_pages, [1, 2]);
-  assert.equal(partialState.selected_pages_complete, false);
+  assert.equal(Object.hasOwn(partialState, 'selected_pages'), false);
+  assert.equal(Object.hasOwn(partialState, 'selected_pages_complete'), false);
 
   const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
   const interruptedNames = (await readdir(paths.states))

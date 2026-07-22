@@ -1,0 +1,609 @@
+{
+  "schema_version": 1,
+  "manifest_type": "curriculum_remote_ocr_a2_readonly_preflight_gate_manifest",
+  "manifest_version": "2026-07-22.v1",
+  "target": {
+    "document_id": "legacy-compendium-english",
+    "attempt": 6,
+    "state": "interrupted_forward_only",
+    "citation_allowed": false
+  },
+  "anchors": {
+    "collection_spec_sha256": "442cae88f467a33e0a61151e59118ddecf101893f8641096d69c534a9fdfc779",
+    "profile_sha256": "fde3142fafb82b8ef11f3f40f3e9e0a0c7598d9a152344281bbe4f79fe38aefd",
+    "runtime_manifest_sha256": "7b4190fa6c1e579ae1ad704865cf2d1dc2f94f30be014c7478c7a17b70ae96f6",
+    "production_snapshot_sha256": "6b2564cdc7e239a7f22b155a47f568fc5f243807e88a71802c8653a0942c993a"
+  },
+  "frozen_profile": {
+    "run_root": "/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess",
+    "output_root": "/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2",
+    "output_device": "66306",
+    "output_inode": "45748776",
+    "lifecycle_lock_inode": "41590544",
+    "evidence_base_device": "66306",
+    "evidence_base_inode": "41854492",
+    "document_id": "legacy-compendium-english",
+    "attempt": 6,
+    "inherited_attempts": 5,
+    "worker_invocation_id": "cea41604c79f46cfa9483b46d64ad0fd",
+    "document_interrupted_at": "2026-07-22T04:13:35.387Z",
+    "incident_interrupted_at": "2026-07-22T04:13:35.390Z",
+    "frozen_hashes": {
+      "run_status_sha256": "1daf1ab535d8378c25625591494acd1e7922266873e48821e46be9ff04ddbe1b",
+      "document_status_sha256": "28921af43e57ffd2e1443a2b03a2261075557e3dfd9a732cedc5ff4b4848c63a",
+      "document_log_sha256": "470d7b4ef6be1ff3363e44c6e320d0b6d062196069f1205a679eac9b466662d2",
+      "document_state_sha256": "d16de657043c260136552cd8cf881791f42308169e2ecf55fe0cab5f155aa09d"
+    },
+    "lineage": {
+      "seed_id": "d3b9638c866b2e5d447a62ef0bd0fd7877950dcfa9fb971b50c0927fc96e4d00",
+      "timeout_grant_sha256": "d52aafa542d7c9321158c74716ebc08d4e364356b216804856edac1e91cd5338",
+      "timeout_consumption_claim_sha256": "b30c8999016d555208deff3ac8c7826f9a4bb6106b4a1d8c8c14905455af24e6",
+      "timeout_issuance_sha256": "984f511d726873496f6efac6b16ad7691e91a12b11ee9e8fc67667bf854bd9e7",
+      "ledger_identity_sha256": "df77305d01249d59323b76bafeb46cf1a09da30cd90a88602b238c5fa8d62c0c",
+      "ledger_sidecar_sha256": "72d1609fc05f4b3361673eddedfa5b87505b756a9fe257e1debe04ec2e3f22cc"
+    },
+    "trees": {
+      "document_tree_sha256": "0ecee6008bc62def2fbaaa701ea9161b72a06b739dddc7e6fe72ff8963d23265",
+      "predecessor_evidence_tree_sha256": "fe195eff333a1e44ad9011065664cd7c09a82ad8d499b516574b690b2401ed9c",
+      "incident_evidence_tree_sha256": "ecad58b65032556b52e274055bde314aa479f58ab19d54bd9c861b1681e5d2c6",
+      "rearm_evidence_tree_sha256": "a758aa84cff692c952ce2d0eae8db5c136d1c35c440710981319f534508e86d6"
+    },
+    "units": [
+      "curriculum-ocr-reprocess-a-r2.service",
+      "curriculum-ocr-reprocess-a-r2-monitor.service",
+      "curriculum-ocr-reprocess-a-r2-monitor.timer",
+      "curriculum-ocr-monitor-alert@curriculum-ocr-reprocess-a-r2-monitor.service.service",
+      "curriculum-ocr-llama.service"
+    ],
+    "receiver_state": "ready_after_complete_terminal_continuation_receipt",
+    "forward_only": true
+  },
+  "gates": [
+    {
+      "check_id": "apply.active_llama_runtime_attestation",
+      "group": "apply_only",
+      "applicability": "apply_only",
+      "description": "Validate apply active llama runtime attestation"
+    },
+    {
+      "check_id": "apply.lifecycle_flock_acquisition",
+      "group": "apply_only",
+      "applicability": "apply_only",
+      "description": "Validate apply lifecycle flock acquisition"
+    },
+    {
+      "check_id": "apply.ocr_process_ownership_and_stop",
+      "group": "apply_only",
+      "applicability": "apply_only",
+      "description": "Validate apply ocr process ownership and stop"
+    },
+    {
+      "check_id": "continuation.no_existing_evidence_root",
+      "group": "recovery",
+      "applicability": "always",
+      "description": "Validate continuation no existing evidence root"
+    },
+    {
+      "check_id": "file.document_log",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file document log"
+    },
+    {
+      "check_id": "file.document_log.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file document log security"
+    },
+    {
+      "check_id": "file.document_state",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file document state"
+    },
+    {
+      "check_id": "file.document_state.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file document state security"
+    },
+    {
+      "check_id": "file.document_status",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file document status"
+    },
+    {
+      "check_id": "file.document_status_sidecar.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file document status sidecar security"
+    },
+    {
+      "check_id": "file.document_status.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file document status security"
+    },
+    {
+      "check_id": "file.incident.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file incident security"
+    },
+    {
+      "check_id": "file.ledger_identity",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file ledger identity"
+    },
+    {
+      "check_id": "file.ledger_identity_sidecar",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file ledger identity sidecar"
+    },
+    {
+      "check_id": "file.ledger_identity_sidecar.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file ledger identity sidecar security"
+    },
+    {
+      "check_id": "file.ledger_identity.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file ledger identity security"
+    },
+    {
+      "check_id": "file.rearm_receipt",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file rearm receipt"
+    },
+    {
+      "check_id": "file.rearm_receipt_sidecar.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file rearm receipt sidecar security"
+    },
+    {
+      "check_id": "file.rearm_receipt.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file rearm receipt security"
+    },
+    {
+      "check_id": "file.rearm_reservation_claim",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file rearm reservation claim"
+    },
+    {
+      "check_id": "file.rearm_reservation_claim.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file rearm reservation claim security"
+    },
+    {
+      "check_id": "file.run_identity",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file run identity"
+    },
+    {
+      "check_id": "file.run_identity.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file run identity security"
+    },
+    {
+      "check_id": "file.run_status",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file run status"
+    },
+    {
+      "check_id": "file.run_status_sidecar.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file run status sidecar security"
+    },
+    {
+      "check_id": "file.run_status.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file run status security"
+    },
+    {
+      "check_id": "file.seed_commit",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file seed commit"
+    },
+    {
+      "check_id": "file.seed_commit_sidecar.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file seed commit sidecar security"
+    },
+    {
+      "check_id": "file.seed_commit.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file seed commit security"
+    },
+    {
+      "check_id": "file.seed_journal",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file seed journal"
+    },
+    {
+      "check_id": "file.seed_journal_sidecar.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file seed journal sidecar security"
+    },
+    {
+      "check_id": "file.seed_journal.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file seed journal security"
+    },
+    {
+      "check_id": "file.seed_receipt",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file seed receipt"
+    },
+    {
+      "check_id": "file.seed_receipt_sidecar.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file seed receipt sidecar security"
+    },
+    {
+      "check_id": "file.seed_receipt.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file seed receipt security"
+    },
+    {
+      "check_id": "file.timeout_consumption_claim",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file timeout consumption claim"
+    },
+    {
+      "check_id": "file.timeout_consumption_claim_sidecar.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file timeout consumption claim sidecar security"
+    },
+    {
+      "check_id": "file.timeout_consumption_claim.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file timeout consumption claim security"
+    },
+    {
+      "check_id": "file.timeout_grant",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file timeout grant"
+    },
+    {
+      "check_id": "file.timeout_grant_sidecar.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file timeout grant sidecar security"
+    },
+    {
+      "check_id": "file.timeout_grant.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file timeout grant security"
+    },
+    {
+      "check_id": "file.timeout_issuance",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file timeout issuance"
+    },
+    {
+      "check_id": "file.timeout_issuance_sidecar",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file timeout issuance sidecar"
+    },
+    {
+      "check_id": "file.timeout_issuance_sidecar.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file timeout issuance sidecar security"
+    },
+    {
+      "check_id": "file.timeout_issuance.security",
+      "group": "file",
+      "applicability": "always",
+      "description": "Validate file timeout issuance security"
+    },
+    {
+      "check_id": "fixture.production_canonical_digest",
+      "group": "fixture",
+      "applicability": "always",
+      "description": "Validate fixture production canonical digest"
+    },
+    {
+      "check_id": "forward_only.baseline_inventory",
+      "group": "forward_only",
+      "applicability": "always",
+      "description": "Validate forward only baseline inventory"
+    },
+    {
+      "check_id": "manifest.anchor_bindings",
+      "group": "manifest",
+      "applicability": "always",
+      "description": "Validate manifest anchor bindings"
+    },
+    {
+      "check_id": "path.document_root",
+      "group": "path",
+      "applicability": "always",
+      "description": "Validate path document root"
+    },
+    {
+      "check_id": "path.evidence_base_root",
+      "group": "path",
+      "applicability": "always",
+      "description": "Validate path evidence base root"
+    },
+    {
+      "check_id": "path.incident_evidence_root",
+      "group": "path",
+      "applicability": "always",
+      "description": "Validate path incident evidence root"
+    },
+    {
+      "check_id": "path.input_root",
+      "group": "path",
+      "applicability": "always",
+      "description": "Validate path input root"
+    },
+    {
+      "check_id": "path.lifecycle_lock",
+      "group": "path",
+      "applicability": "always",
+      "description": "Validate path lifecycle lock"
+    },
+    {
+      "check_id": "path.output_root",
+      "group": "path",
+      "applicability": "always",
+      "description": "Validate path output root"
+    },
+    {
+      "check_id": "path.rearm_evidence_root",
+      "group": "path",
+      "applicability": "always",
+      "description": "Validate path rearm evidence root"
+    },
+    {
+      "check_id": "profile.exact_schema",
+      "group": "profile",
+      "applicability": "always",
+      "description": "Validate profile exact schema"
+    },
+    {
+      "check_id": "receiver.ready_after_continuation",
+      "group": "receiver",
+      "applicability": "always",
+      "description": "Validate receiver ready after continuation"
+    },
+    {
+      "check_id": "runtime.candidate_closure",
+      "group": "runtime",
+      "applicability": "always",
+      "description": "Validate runtime candidate closure"
+    },
+    {
+      "check_id": "semantics.interrupted_controls",
+      "group": "semantic",
+      "applicability": "always",
+      "description": "Validate semantics interrupted controls"
+    },
+    {
+      "check_id": "semantics.manifest_runtime",
+      "group": "semantic",
+      "applicability": "always",
+      "description": "Validate semantics manifest runtime"
+    },
+    {
+      "check_id": "semantics.production_state",
+      "group": "semantic",
+      "applicability": "always",
+      "description": "Validate semantics production state"
+    },
+    {
+      "check_id": "semantics.rearm_receipt",
+      "group": "semantic",
+      "applicability": "always",
+      "description": "Validate semantics rearm receipt"
+    },
+    {
+      "check_id": "semantics.single_authority_lineage",
+      "group": "semantic",
+      "applicability": "always",
+      "description": "Validate semantics single authority lineage"
+    },
+    {
+      "check_id": "sidecar.document_status",
+      "group": "sidecar",
+      "applicability": "always",
+      "description": "Validate sidecar document status"
+    },
+    {
+      "check_id": "sidecar.ledger_identity",
+      "group": "sidecar",
+      "applicability": "always",
+      "description": "Validate sidecar ledger identity"
+    },
+    {
+      "check_id": "sidecar.rearm_receipt",
+      "group": "sidecar",
+      "applicability": "always",
+      "description": "Validate sidecar rearm receipt"
+    },
+    {
+      "check_id": "sidecar.run_status",
+      "group": "sidecar",
+      "applicability": "always",
+      "description": "Validate sidecar run status"
+    },
+    {
+      "check_id": "sidecar.seed_commit",
+      "group": "sidecar",
+      "applicability": "always",
+      "description": "Validate sidecar seed commit"
+    },
+    {
+      "check_id": "sidecar.seed_journal",
+      "group": "sidecar",
+      "applicability": "always",
+      "description": "Validate sidecar seed journal"
+    },
+    {
+      "check_id": "sidecar.seed_receipt",
+      "group": "sidecar",
+      "applicability": "always",
+      "description": "Validate sidecar seed receipt"
+    },
+    {
+      "check_id": "sidecar.timeout_consumption_claim",
+      "group": "sidecar",
+      "applicability": "always",
+      "description": "Validate sidecar timeout consumption claim"
+    },
+    {
+      "check_id": "sidecar.timeout_grant",
+      "group": "sidecar",
+      "applicability": "always",
+      "description": "Validate sidecar timeout grant"
+    },
+    {
+      "check_id": "sidecar.timeout_issuance",
+      "group": "sidecar",
+      "applicability": "always",
+      "description": "Validate sidecar timeout issuance"
+    },
+    {
+      "check_id": "snapshot.no_mutation",
+      "group": "snapshot",
+      "applicability": "always",
+      "description": "Validate snapshot no mutation"
+    },
+    {
+      "check_id": "snapshot.no_ocr_content",
+      "group": "snapshot",
+      "applicability": "always",
+      "description": "Validate snapshot no ocr content"
+    },
+    {
+      "check_id": "snapshot.schema",
+      "group": "snapshot",
+      "applicability": "always",
+      "description": "Validate snapshot schema"
+    },
+    {
+      "check_id": "snapshot.target",
+      "group": "snapshot",
+      "applicability": "always",
+      "description": "Validate snapshot target"
+    },
+    {
+      "check_id": "tree.document",
+      "group": "inventory",
+      "applicability": "always",
+      "description": "Validate tree document"
+    },
+    {
+      "check_id": "tree.incident",
+      "group": "inventory",
+      "applicability": "always",
+      "description": "Validate tree incident"
+    },
+    {
+      "check_id": "tree.predecessor",
+      "group": "inventory",
+      "applicability": "always",
+      "description": "Validate tree predecessor"
+    },
+    {
+      "check_id": "tree.rearm",
+      "group": "inventory",
+      "applicability": "always",
+      "description": "Validate tree rearm"
+    },
+    {
+      "check_id": "unit.alert",
+      "group": "unit",
+      "applicability": "always",
+      "description": "Validate unit alert"
+    },
+    {
+      "check_id": "unit.alert.generation_schema",
+      "group": "unit",
+      "applicability": "always",
+      "description": "Validate unit alert generation schema"
+    },
+    {
+      "check_id": "unit.llama",
+      "group": "unit",
+      "applicability": "always",
+      "description": "Validate unit llama"
+    },
+    {
+      "check_id": "unit.llama.generation_schema",
+      "group": "unit",
+      "applicability": "always",
+      "description": "Validate unit llama generation schema"
+    },
+    {
+      "check_id": "unit.monitor",
+      "group": "unit",
+      "applicability": "always",
+      "description": "Validate unit monitor"
+    },
+    {
+      "check_id": "unit.monitor_timer",
+      "group": "unit",
+      "applicability": "always",
+      "description": "Validate unit monitor timer"
+    },
+    {
+      "check_id": "unit.monitor_timer.generation_schema",
+      "group": "unit",
+      "applicability": "always",
+      "description": "Validate unit monitor timer generation schema"
+    },
+    {
+      "check_id": "unit.monitor.generation_schema",
+      "group": "unit",
+      "applicability": "always",
+      "description": "Validate unit monitor generation schema"
+    },
+    {
+      "check_id": "unit.worker",
+      "group": "unit",
+      "applicability": "always",
+      "description": "Validate unit worker"
+    },
+    {
+      "check_id": "unit.worker.generation_schema",
+      "group": "unit",
+      "applicability": "always",
+      "description": "Validate unit worker generation schema"
+    }
+  ]
+}

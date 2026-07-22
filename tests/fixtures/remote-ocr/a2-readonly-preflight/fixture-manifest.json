@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "fixture_type": "curriculum_remote_ocr_a2_production_metadata_regression_fixture",
+  "source": {
+    "target": "DMITPro2 inner bdfz workstation",
+    "collection_mode": "read_only_stdin_collector",
+    "remote_mutation_performed": false,
+    "ocr_content_exported": false
+  },
+  "snapshot": {
+    "path": "production-snapshot.json.gz",
+    "compression": "gzip",
+    "uncompressed_bytes": 1859766,
+    "uncompressed_sha256": "e7fbba3ef643a56774ddb75600c37906fe0b69f824f581babb4aad617caf640d",
+    "canonical_sha256": "6b2564cdc7e239a7f22b155a47f568fc5f243807e88a71802c8653a0942c993a",
+    "compressed_bytes": 402331,
+    "compressed_sha256": "556c249545494a68fe8a4defff528be3b3a2dcb797954d44a60fda9d55baa06b"
+  }
+}

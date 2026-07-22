@@ -307,6 +307,28 @@ export function a2ForwardContinuationProfileFingerprint(profile) {
   return sha256(canonicalJson(profile));
 }
 
+export function validateA2InterruptedPartialSelectionState(state, pageCount) {
+  requireObject(state, 'interrupted document state');
+  if (!Number.isSafeInteger(pageCount) || pageCount < 1) {
+    throw new Error('interrupted document page count must be a positive integer');
+  }
+  const hasSelectedPages = Object.hasOwn(state, 'selected_pages');
+  const hasSelectedPagesComplete = Object.hasOwn(state, 'selected_pages_complete');
+  if (!hasSelectedPages && !hasSelectedPagesComplete) return 'legacy_absent';
+  if (!hasSelectedPages
+    || !hasSelectedPagesComplete
+    || state.selected_pages_complete !== false
+    || !Array.isArray(state.selected_pages)
+    || state.selected_pages.length !== pageCount
+    || !sameJson(
+      state.selected_pages,
+      Array.from({ length: pageCount }, (_unused, index) => index + 1),
+    )) {
+    throw new Error('document state selected-page fields are not a valid partial attempt-6 shape');
+  }
+  return 'explicit_full';
+}
+
 function inside(root, pathname) {
   const relative = path.relative(root, pathname);
   return relative === '' || (!relative.startsWith(`..${path.sep}`)
@@ -1062,6 +1084,7 @@ export async function validateOperatorContinuationEvidence(
     'document-inventory.json',
     'archived document inventory',
   );
+  validateA2InterruptedPartialSelectionState(interruptedState, interruptedState.page_count);
   if (interruptedRunStatusRecord.sha256 !== profile.runStatusSha256
     || interruptedStatusRecord.sha256 !== profile.documentStatusSha256
     || interruptedStateRecord.sha256 !== profile.stateSha256
@@ -1072,8 +1095,7 @@ export async function validateOperatorContinuationEvidence(
     || interruptedStatus.status !== 'interrupted'
     || interruptedStatus.attempt !== profile.attempt
     || interruptedStatus.interrupted_at !== profile.documentInterruptedAt
-    || interruptedState.document_id !== profile.documentId
-    || interruptedState.selected_pages_complete !== false) {
+    || interruptedState.document_id !== profile.documentId) {
     throw new Error('archived interrupted controls differ from the frozen A2 snapshot');
   }
   validateDocumentInventory(
@@ -1322,10 +1344,10 @@ export async function validateOperatorContinuationEvidence(
         { raw: stateRaw },
         'operator continuation partial checkpoint state',
       );
+      validateA2InterruptedPartialSelectionState(checkpointState, checkpointState.page_count);
       if (checkpointState.document_id !== profile.documentId
         || checkpointState.source_sha256 !== interruptedState.source_sha256
         || checkpointState.page_count !== interruptedState.page_count
-        || checkpointState.selected_pages_complete !== false
         || !Array.isArray(checkpointState.completed_pages)
         || checkpointState.completed_pages.length >= checkpointState.page_count) {
         throw new Error('operator continuation partial checkpoint state is not an incomplete OCR document');

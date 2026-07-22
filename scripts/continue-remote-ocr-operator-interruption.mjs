@@ -54,6 +54,7 @@ import {
   readStableFileWithSidecar as readStableFileWithSidecarRecord,
   requireStableDirectory,
   validateA2ForwardContinuationProfile,
+  validateA2InterruptedPartialSelectionState,
 } from './lib/remote-ocr-operator-continuation.mjs';
 import { inspectTreeStrict } from './monitor-remote-ocr-single-shard.mjs';
 import {
@@ -108,26 +109,6 @@ function requireSha256(value, label) {
 function requirePositiveInteger(value, label) {
   if (!Number.isSafeInteger(value) || value < 1) throw new Error(`${label} must be a positive integer`);
   return value;
-}
-
-export function validateA2InterruptedPartialSelectionState(state, pageCount) {
-  requireObject(state, 'interrupted document state');
-  requirePositiveInteger(pageCount, 'interrupted document page count');
-  const hasSelectedPages = Object.hasOwn(state, 'selected_pages');
-  const hasSelectedPagesComplete = Object.hasOwn(state, 'selected_pages_complete');
-  if (!hasSelectedPages && !hasSelectedPagesComplete) return 'legacy_absent';
-  if (!hasSelectedPages
-    || !hasSelectedPagesComplete
-    || state.selected_pages_complete !== false
-    || !Array.isArray(state.selected_pages)
-    || state.selected_pages.length !== pageCount
-    || !sameJson(
-      state.selected_pages,
-      Array.from({ length: pageCount }, (_unused, index) => index + 1),
-    )) {
-    throw new Error('document state selected-page fields are not a valid partial attempt-6 shape');
-  }
-  return 'explicit_full';
 }
 
 function requireCanonicalTimestamp(value, label) {
@@ -2797,8 +2778,8 @@ function validatePartialCheckpointJournalState(
     Buffer.from(state.base64, 'base64'),
     `${expectedStage} state`,
   );
+  validateA2InterruptedPartialSelectionState(checkpointState, checkpointState.page_count);
   if (checkpointState.document_id !== expectedDocumentId
-    || checkpointState.selected_pages_complete !== false
     || !Array.isArray(checkpointState.completed_pages)
     || checkpointState.completed_pages.length >= checkpointState.page_count) {
     throw new Error(`${expectedStage} state is not an incomplete OCR document`);
@@ -3222,6 +3203,43 @@ async function validateRecoveredDocumentOutput(inspected, runtime, dependencies 
   const validateOutput = dependencies.validateDocumentOutput || validateOcrDocumentOutput;
   const workerConfiguration = dependencies.recoveredWorkerConfiguration
     || inspected.identity.worker_configuration;
+  const currentStateRecord = await readStableFileRecord(
+    inspected.outputRoot,
+    inspected.statePath,
+    'recovered document state',
+  );
+  const currentState = parseJson(currentStateRecord.raw, 'recovered document state');
+  const legacySelectionShape = !Object.hasOwn(currentState, 'selected_pages')
+    && !Object.hasOwn(currentState, 'selected_pages_complete');
+  if (legacySelectionShape
+    && Array.isArray(currentState.completed_pages)
+    && currentState.completed_pages.length < inspected.document.page_count) {
+    const failedPages = currentState.failed_pages
+      && typeof currentState.failed_pages === 'object'
+      && !Array.isArray(currentState.failed_pages)
+      ? Object.keys(currentState.failed_pages).map(Number).sort((left, right) => left - right)
+      : [];
+    const completed = new Set(currentState.completed_pages);
+    const missingPages = Array.from(
+      { length: inspected.document.page_count },
+      (_unused, index) => index + 1,
+    ).filter((pageNumber) => !completed.has(pageNumber));
+    const artifacts = await validateOutput(
+      inspected.document,
+      inspected.documentRoot,
+      runtime,
+      { requireComplete: false, workerConfiguration },
+    );
+    return {
+      complete: false,
+      artifacts,
+      incomplete: new IncompleteOcrDocumentError(
+        inspected.document.id,
+        missingPages,
+        failedPages,
+      ),
+    };
+  }
   try {
     return {
       complete: true,
