@@ -1031,7 +1031,7 @@ test('a live advisory lock serializes dry-run and apply without project lock fil
   }
 });
 
-test('two simultaneous stale-journal recovery attempts admit exactly one recovery owner', async () => {
+test('a held stale-journal recovery lock admits exactly one recovery owner', async () => {
   const fixture = await createFixture();
   let interruptedChild = null;
   const racers = [];
@@ -1052,11 +1052,19 @@ test('two simultaneous stale-journal recovery attempts admit exactly one recover
     assert.deepEqual(await exit, [null, 'SIGKILL']);
     interruptedChild = null;
 
-    racers.push(
-      spawnPausedApply(fixture, 'afterAdvisoryLock', { pauseMs: 300 }),
-      spawnPausedApply(fixture, 'afterAdvisoryLock', { pauseMs: 300 }),
-    );
-    const exits = await Promise.all(racers.map(({ child }) => once(child, 'exit')));
+    const owner = spawnPausedApply(fixture, 'afterAdvisoryLock', { pauseMs: 10_000 });
+    racers.push(owner);
+    const ownerExit = once(owner.child, 'exit');
+    await waitFor(async () => {
+      if (owner.child.exitCode !== null || owner.child.signalCode !== null) {
+        throw new Error(`recovery owner exited before lock contention: ${owner.stderr()}`);
+      }
+      return owner.stdout().includes('PAUSED\n');
+    }, 'held stale-journal recovery lock');
+    const contender = spawnPausedApply(fixture, 'afterAdvisoryLock', { pauseMs: 10_000 });
+    racers.push(contender);
+    const contenderExit = once(contender.child, 'exit');
+    const exits = await Promise.all([ownerExit, contenderExit]);
     assert.deepEqual(exits.map(([code, signal]) => ({ code, signal })).sort((left, right) => (
       (left.code ?? 99) - (right.code ?? 99)
     )), [
