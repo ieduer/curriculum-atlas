@@ -14,6 +14,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  canonicalJson,
   createCommandSender,
   runOcrMonitorAlert,
   telegramMessage,
@@ -143,6 +144,16 @@ async function arm(fx, timestamp = Date.parse('2026-07-18T08:00:00.000Z')) {
   return secondTimestamp;
 }
 
+async function rewriteArmedBinding(fx, mutate) {
+  const pathname = path.join(fx.stateDir, 'armed-receipt.json');
+  const receipt = JSON.parse(await readFile(pathname, 'utf8'));
+  mutate(receipt.binding);
+  const body = { ...receipt };
+  delete body.receipt_sha256;
+  receipt.receipt_sha256 = sha256(canonicalJson(body));
+  await writeFile(pathname, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
+}
+
 test('exit 10 warms then arms without alert, and exit 0 completes without alert', async () => {
   const fx = await fixture();
   const sent = [];
@@ -201,7 +212,7 @@ test('exit 12 remains local and sends nothing while disarmed', async () => {
   assert.equal(sent.length, 0);
 });
 
-test('alert mode recovers a missing live worker InvocationID only from the exact armed binding', async () => {
+test('completed observe recovers a missing live worker InvocationID from the exact armed receipt and disarms', async () => {
   const fx = await fixture();
   const armedAt = await arm(fx);
   const receipt = JSON.parse(await readFile(path.join(fx.stateDir, 'armed-receipt.json'), 'utf8'));
@@ -209,86 +220,149 @@ test('alert mode recovers a missing live worker InvocationID only from the exact
   assert.equal(receipt.binding.worker_unit, fx.config.workerUnit);
   assert.equal(receipt.binding.worker_invocation_id, workerInvocation);
 
-  const failedAt = armedAt + 60_000;
-  await writeLatest(fx, failedAt, 12, ['MEMORY_BELOW_MINIMUM']);
+  await writeFile(
+    path.join(fx.stateDir, 'arming.json'),
+    `${JSON.stringify({ stale: true })}\n`,
+    { mode: 0o600 },
+  );
+  const completedAt = armedAt + 60_000;
+  await writeLatest(fx, completedAt, 0);
   const evidence = runtime(
-    failedAt,
-    12,
+    completedAt,
+    0,
     '33333333333333333333333333333333',
-    undefined,
+    'success',
     null,
   );
   const sent = [];
   const result = await invokeWithRuntime(
     fx,
-    'alert',
-    failedAt,
+    'observe',
+    completedAt,
     evidence,
     async (payload) => sent.push(payload),
   );
-  assert.equal(result.state, 'sent');
-  assert.equal(sent.length, 1);
-  assert.deepEqual(sent[0].issue_codes, ['MEMORY_BELOW_MINIMUM']);
+  assert.equal(result.state, 'completed_no_alert');
+  assert.equal(sent.length, 0);
+  await assert.rejects(readFile(path.join(fx.stateDir, 'arming.json')), { code: 'ENOENT' });
+  await assert.rejects(readFile(path.join(fx.stateDir, 'armed-receipt.json')), { code: 'ENOENT' });
 });
 
-test('null worker recovery suppresses every static binding mismatch and observe always requires live nonzero', async () => {
+test('completed observe rejects a missing or non-exact recovery receipt', async () => {
+  const cases = [
+    { name: 'missing receipt', armFirst: false },
+    {
+      name: 'cross boot',
+      armFirst: true,
+      bootId: '22222222-2222-4222-8222-222222222222',
+    },
+    {
+      name: 'wrong run',
+      armFirst: true,
+      mutate: (binding) => { binding.run_id = 'run-other'; },
+    },
+    {
+      name: 'wrong worker unit',
+      armFirst: true,
+      mutate: (binding) => { binding.worker_unit = 'curriculum-ocr-other.service'; },
+    },
+    {
+      name: 'wrong monitor hash',
+      armFirst: true,
+      mutate: (binding) => { binding.monitor_sha256 = 'f'.repeat(64); },
+    },
+  ];
+  for (const testCase of cases) {
+    const fx = await fixture();
+    const armedAt = testCase.armFirst
+      ? await arm(fx)
+      : Date.parse('2026-07-18T08:01:00.000Z');
+    if (testCase.mutate) await rewriteArmedBinding(fx, testCase.mutate);
+    const completedAt = armedAt + 60_000;
+    await writeLatest(fx, completedAt, 0);
+    const evidence = runtime(
+      completedAt,
+      0,
+      '33333333333333333333333333333333',
+      'success',
+      null,
+      testCase.bootId || bootId,
+    );
+    await assert.rejects(
+      runOcrMonitorAlert(
+        { ...fx.config, mode: 'observe' },
+        { nowMilliseconds: completedAt, runtime: evidence },
+      ),
+      /worker InvocationID is invalid/u,
+      testCase.name,
+    );
+  }
+});
+
+test('exit 10 never recovers a missing worker InvocationID from an exact armed receipt', async () => {
+  const fx = await fixture();
+  const armedAt = await arm(fx);
+  const healthyAt = armedAt + 60_000;
+  await writeLatest(fx, healthyAt, 10);
+  const evidence = runtime(
+    healthyAt,
+    10,
+    '33333333333333333333333333333333',
+    'success',
+    null,
+  );
+  await assert.rejects(
+    invokeWithRuntime(fx, 'observe', healthyAt, evidence),
+    /worker InvocationID is invalid/u,
+  );
+  await readFile(path.join(fx.stateDir, 'armed-receipt.json'));
+});
+
+test('alert mode never recovers a missing worker InvocationID from an armed receipt', async () => {
   const fx = await fixture();
   const armedAt = await arm(fx);
   const failedAt = armedAt + 60_000;
   await writeLatest(fx, failedAt, 12, ['MEMORY_BELOW_MINIMUM']);
   const sent = [];
-  const nullWorker = runtime(
-    failedAt,
-    12,
-    '33333333333333333333333333333333',
-    undefined,
-    null,
-  );
-  const mismatches = [
-    { expectedRunId: 'run-other' },
-    { workerUnit: 'curriculum-ocr-other.service' },
-    { monitorSha256: 'f'.repeat(64) },
-  ];
-  for (const mismatch of mismatches) {
-    const result = await runOcrMonitorAlert(
-      { ...fx.config, ...mismatch, mode: 'alert' },
-      {
-        nowMilliseconds: failedAt,
-        runtime: structuredClone(nullWorker),
-        sendAlert: async (payload) => sent.push(payload),
-      },
-    );
-    assert.equal(result.state, 'suppressed_disarmed');
-  }
-  const differentBoot = runtime(
-    failedAt,
-    12,
-    '33333333333333333333333333333333',
-    undefined,
-    null,
-    '22222222-2222-4222-8222-222222222222',
-  );
-  const differentBootResult = await invokeWithRuntime(
+  const result = await invokeWithRuntime(
     fx,
     'alert',
     failedAt,
-    differentBoot,
+    runtime(
+      failedAt,
+      12,
+      '33333333333333333333333333333333',
+      undefined,
+      null,
+    ),
     async (payload) => sent.push(payload),
   );
-  assert.equal(differentBootResult.state, 'suppressed_disarmed');
-  await writeLatest(fx, failedAt, 10);
-  const observeWithoutWorker = runtime(
-    failedAt,
-    10,
-    '44444444444444444444444444444444',
-    undefined,
-    null,
-  );
-  await assert.rejects(
-    invokeWithRuntime(fx, 'observe', failedAt, observeWithoutWorker),
-    /worker InvocationID is invalid/u,
-  );
+  assert.equal(result.state, 'suppressed_disarmed');
   assert.equal(sent.length, 0);
+  await readFile(path.join(fx.stateDir, 'armed-receipt.json'));
+});
+
+test('observe always uses a live worker InvocationID instead of a stale armed binding', async () => {
+  const fx = await fixture();
+  const armedAt = await arm(fx);
+  const healthyAt = armedAt + 60_000;
+  await writeLatest(fx, healthyAt, 10);
+  const nextWorkerInvocation = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const result = await invokeWithRuntime(
+    fx,
+    'observe',
+    healthyAt,
+    runtime(
+      healthyAt,
+      10,
+      '33333333333333333333333333333333',
+      'success',
+      nextWorkerInvocation,
+    ),
+  );
+  assert.equal(result.state, 'warming_no_alert');
+  const arming = JSON.parse(await readFile(path.join(fx.stateDir, 'arming.json'), 'utf8'));
+  assert.equal(arming.binding.worker_invocation_id, nextWorkerInvocation);
 });
 
 test('retry-timer alert mode suppresses an absent monitor invocation while observe fails closed', async () => {

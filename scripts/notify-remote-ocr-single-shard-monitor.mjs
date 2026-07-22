@@ -878,36 +878,40 @@ export async function runOcrMonitorAlert(config, dependencies = {}) {
     throw new Error('monitor exit code is invalid');
   }
   if (config.mode === 'observe') {
-    runtime.worker.invocation_id = normalizeInvocationId(
-      runtime.worker?.invocation_id,
-      'worker InvocationID',
-    );
-    const binding = makeBinding(config, runtime);
     await verifyMonitorScript(config);
+    const liveWorkerInvocationId = String(runtime.worker?.invocation_id || '').trim();
+    let binding;
+    if (liveWorkerInvocationId) {
+      runtime.worker.invocation_id = normalizeInvocationId(
+        liveWorkerInvocationId,
+        'worker InvocationID',
+      );
+      binding = makeBinding(config, runtime);
+    } else if (runtime.monitor.exit_code === 0 && runtime.monitor.result === 'success') {
+      binding = await recoverBindingFromArmedReceipt(config, runtime, stateDir);
+      if (!binding) throw new Error('worker InvocationID is invalid');
+    } else {
+      throw new Error('worker InvocationID is invalid');
+    }
     return observeSuccessfulMonitor(config, runtime, binding, nowMilliseconds, stateDir);
   }
   const liveWorkerInvocationId = String(runtime.worker?.invocation_id || '').trim();
-  let binding;
-  if (liveWorkerInvocationId) {
-    runtime.worker.invocation_id = normalizeInvocationId(
-      liveWorkerInvocationId,
-      'worker InvocationID',
+  if (!liveWorkerInvocationId) {
+    const issueCodes = ['MONITOR_EXECUTION_FAILED'];
+    await writeResult(
+      stateDir,
+      nowMilliseconds,
+      { run_id: config.expectedRunId },
+      'suppressed_disarmed',
+      issueCodes,
     );
-    binding = makeBinding(config, runtime);
-  } else {
-    binding = await recoverBindingFromArmedReceipt(config, runtime, stateDir);
-    if (!binding) {
-      const issueCodes = ['MONITOR_EXECUTION_FAILED'];
-      await writeResult(
-        stateDir,
-        nowMilliseconds,
-        { run_id: config.expectedRunId },
-        'suppressed_disarmed',
-        issueCodes,
-      );
-      return finish({ state: 'suppressed_disarmed', sent: false, issue_codes: issueCodes });
-    }
+    return finish({ state: 'suppressed_disarmed', sent: false, issue_codes: issueCodes });
   }
+  runtime.worker.invocation_id = normalizeInvocationId(
+    liveWorkerInvocationId,
+    'worker InvocationID',
+  );
+  const binding = makeBinding(config, runtime);
   return finish(await alertFailedMonitor(
     config,
     runtime,
