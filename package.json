@@ -26,6 +26,7 @@
     "concepts:build": "node scripts/build-concept-evolution.mjs",
     "concepts:validate": "node scripts/validate-concept-evolution.mjs",
     "ontology:release:validate": "node scripts/validate-ontology-release.mjs",
+    "research:evidence:validate": "node scripts/validate-research-evidence-slice.mjs",
     "compendium:boundaries:validate": "node scripts/validate-compendium-item-boundaries.mjs",
     "ocr:status": "node scripts/ocr-supervisor.mjs status",
     "ocr:audit:triangulate": "node scripts/build-ocr-triangulation-audit.mjs",

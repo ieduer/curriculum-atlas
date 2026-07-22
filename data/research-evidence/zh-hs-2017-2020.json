@@ -1,0 +1,590 @@
+{
+  "$schema": "./research-evidence-slice.schema.json",
+  "schema_version": 1,
+  "policy": "resolved_exact_span_fail_closed_research_slice_v1",
+  "slice_id": "slice:zh-hs-2017-2020:v1",
+  "title": "普通高中语文课程标准 2017 版至 2020 修订版精确证据纵切片",
+  "assertion_boundary": "本切片只记录已定位到文件、版本、物理页、段落、UTF-16 区间与在线快照的精确文字观察。它不把并列文字自动解释为因果、取代、影响或完整概念演进；没有签名编辑裁决的主张一律不进入公开 compare、星图、AI 引文或讨论中的已核结论。",
+  "subject_facet": "语文",
+  "school_type": "ordinary_general_education",
+  "stage": "普通高中",
+  "corpus": {
+    "resource_id": "corpus:zh-canary-sqlite",
+    "manifest_resource_id": "corpus:private-release-manifest",
+    "release_id": "corpus-4fe2f31344f52706de761788",
+    "release_fingerprint_sha256": "4fe2f31344f52706de761788a0c741ed03d87b74cb096f8de0590cba0baecf76",
+    "manifest_sha256": "0d34d802e9c1f1f4c0f827fbb180a851568e3cf59b02ada83f288fe042d0b413"
+  },
+  "documents": [
+    {
+      "role": "from",
+      "document_id": "ictr-a71e3780f934",
+      "title": "普通高中语文课程标准（2017年版）",
+      "version_label": "2017年版",
+      "sort_year": 2017,
+      "issued_by": "中华人民共和国教育部",
+      "subject": "语文",
+      "stage": "普通高中",
+      "document_type": "课程标准",
+      "source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
+      "primary_source_id": "source:zh-hs-2017-primary",
+      "version_identity_source_id": "source:moe-2017-release"
+    },
+    {
+      "role": "to",
+      "document_id": "moe-hs-2020-02",
+      "title": "普通高中语文课程标准（2017年版2020年修订）",
+      "version_label": "2017年版2020年修订",
+      "sort_year": 2020,
+      "issued_by": "中华人民共和国教育部",
+      "subject": "语文",
+      "stage": "普通高中",
+      "document_type": "课程标准",
+      "source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+      "primary_source_id": "source:zh-hs-2020-primary",
+      "version_identity_source_id": "source:moe-2020-revision"
+    }
+  ],
+  "online_sources": [
+    {
+      "source_id": "source:zh-hs-2017-primary",
+      "title": "普通高中语文课程标准（2017年版）",
+      "publisher": "教育部课程教材研究所",
+      "url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E8%AF%AD%E6%96%87%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%882017%E5%B9%B4%E7%89%88%EF%BC%89.20220428174646.pdf",
+      "authority_class": "curriculum_research_institute_primary_artifact",
+      "evidence_role": "primary_artifact",
+      "version_relation": "exact_document_exact_edition",
+      "independently_counts_for_text": false,
+      "witness_scope": "artifact_identity_only",
+      "same_artifact_as": null,
+      "resource": {
+        "resource_id": "artifact:zh-hs-2017-pdf",
+        "media_type": "application/pdf",
+        "sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17"
+      },
+      "canonical_text_sha256": null,
+      "spans": [],
+      "limitations": [
+        "原始 PDF 是页码和规范文字裁决制品；其文本层、OCR 或同 SHA 镜像不能另计为独立在线文本。"
+      ]
+    },
+    {
+      "source_id": "source:zh-hs-2020-primary",
+      "title": "普通高中语文课程标准（2017年版2020年修订）",
+      "publisher": "中华人民共和国教育部",
+      "url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/W020200603315372317586.zip",
+      "authority_class": "ministry_primary_release_archive",
+      "evidence_role": "primary_artifact",
+      "version_relation": "exact_document_exact_edition",
+      "independently_counts_for_text": false,
+      "witness_scope": "artifact_identity_only",
+      "same_artifact_as": null,
+      "resource": {
+        "resource_id": "artifact:zh-hs-2020-pdf",
+        "media_type": "application/pdf",
+        "sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977"
+      },
+      "canonical_text_sha256": null,
+      "spans": [],
+      "limitations": [
+        "本地资源是教育部发布压缩包中的语文 PDF；压缩包入口用于版本身份，PDF 自身用于页码和文字裁决。"
+      ]
+    },
+    {
+      "source_id": "source:moe-2017-release",
+      "title": "教育部印发普通高中课程方案和课程标准（2017年版），落实立德树人根本任务",
+      "publisher": "中华人民共和国教育部",
+      "url": "https://www.moe.gov.cn/jyb_xwfb/gzdt_gzdt/s5987/201801/t20180116_324668.html",
+      "authority_class": "ministry_official_web",
+      "evidence_role": "official_version_identity_with_policy_text",
+      "version_relation": "official_release_same_edition",
+      "independently_counts_for_text": true,
+      "witness_scope": "same_version_policy_text",
+      "same_artifact_as": null,
+      "resource": {
+        "resource_id": "snapshot:moe-2017-release-html",
+        "media_type": "text/html",
+        "sha256": "8fbdc583e469d9f519eec4ad2df2fdb272b3bdd50f8271eea77fb7d58749a6be"
+      },
+      "canonical_text_sha256": "78de67e1cad8f863594a65279c0c49bab4e71539015d5cc3663cf1226c46d31e",
+      "spans": [
+        {
+          "span_id": "online-span:moe-2017-version",
+          "purpose": "version_identity",
+          "utf16_start": 346,
+          "utf16_end": 385,
+          "exact_text": "教育部组织260多位专家对普通高中课程方案和语文等14门学科课程标准进行了修订",
+          "exact_text_sha256": "bfcbdbc731864e631d34ca17a099a2fd761b443cc5882e3a6d68a39e2697a044",
+          "occurrence_index": 0
+        },
+        {
+          "span_id": "online-span:moe-2017-core-literacy-policy",
+          "purpose": "exact_text_witness",
+          "utf16_start": 877,
+          "utf16_end": 893,
+          "exact_text": "正确价值观念、必备品格和关键能力",
+          "exact_text_sha256": "5f67605b4334fa637bb3eef6aa7c8a50ba5be5cf4fc78014b408bf36602c4e0e",
+          "occurrence_index": 0
+        }
+      ],
+      "limitations": [
+        "教育部发布页精确证明 2017 年版发布身份，并独立出现核心素养政策表述；它不是语文学科标准逐页转录，不能单独裁决第 14 页的位置性文字。"
+      ]
+    },
+    {
+      "source_id": "source:moe-2020-revision",
+      "title": "教育部关于印发普通高中课程方案和语文等学科课程标准（2017年版2020年修订）的通知",
+      "publisher": "中华人民共和国教育部",
+      "url": "https://hudong.moe.gov.cn/srcsite/A26/s8001/202006/t20200603_462199.html",
+      "authority_class": "ministry_official_web",
+      "evidence_role": "official_version_identity",
+      "version_relation": "official_release_same_edition",
+      "independently_counts_for_text": false,
+      "witness_scope": "version_identity_only",
+      "same_artifact_as": null,
+      "resource": {
+        "resource_id": "snapshot:moe-2020-revision-html",
+        "media_type": "text/html",
+        "sha256": "2a473d19eb2064329e9cbca8321829834d528844354a725e97f30f84023922f8"
+      },
+      "canonical_text_sha256": "6f687eba3ed25f31ab0a1554cbd56d5f58210cfca5ddd348066e1fa0182f890f",
+      "spans": [
+        {
+          "span_id": "online-span:moe-2020-version",
+          "purpose": "version_identity",
+          "utf16_start": 0,
+          "utf16_end": 43,
+          "exact_text": "教育部关于印发普通高中课程方案和语文等学科课程标准（2017年版2020年修订）的通知",
+          "exact_text_sha256": "c50cc61a21708a93222c82c11ed34659d76ebcaa30e6ca5ae7835933206c29a4",
+          "occurrence_index": 0
+        }
+      ],
+      "limitations": [
+        "通知页证明修订版身份并说明语文修订涉及前言与正文，但不承载语文标准全文。"
+      ]
+    },
+    {
+      "source_id": "source:wikisource-zh-hs-2017",
+      "title": "普通高中语文课程标准（2017年版）",
+      "publisher": "维基文库社区",
+      "url": "https://zh.wikisource.org/zh-hans/%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E8%AF%AD%E6%96%87%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%882017%E5%B9%B4%E7%89%88%EF%BC%89",
+      "authority_class": "community_transcription_secondary",
+      "evidence_role": "independent_text_transcription",
+      "version_relation": "exact_document_exact_edition",
+      "independently_counts_for_text": true,
+      "witness_scope": "exact_document_text",
+      "same_artifact_as": null,
+      "resource": {
+        "resource_id": "snapshot:wikisource-2017-html",
+        "media_type": "text/html",
+        "sha256": "5b60f1c409d71c2fff1b506aebc53773fa65afae9e7ae9b106407e195491ae4a"
+      },
+      "canonical_text_sha256": "a215ec28fce4562c0089d6067a7db9f53616d65292a65b11dcd2c6f9101eecbf",
+      "spans": [
+        {
+          "span_id": "online-span:wikisource-2017-course-nature",
+          "purpose": "exact_text_witness",
+          "utf16_start": 4989,
+          "utf16_end": 5002,
+          "exact_text": "全面而有个性的发展奠定基础",
+          "exact_text_sha256": "581fbd6ce8057c5dc57928d6d648ef340b907fcf1e39e9ecc0f0efa6f3940ddf",
+          "occurrence_index": 0
+        },
+        {
+          "span_id": "online-span:wikisource-2017-basic-idea",
+          "purpose": "exact_text_witness",
+          "utf16_start": 5363,
+          "utf16_end": 5381,
+          "exact_text": "在促进人的全面发展方面发挥应有的功能",
+          "exact_text_sha256": "eb9da0132b1485981831dcf4fd9ac5ea3ae0322f76faa85ff815320086565ee9",
+          "occurrence_index": 0
+        },
+        {
+          "span_id": "online-span:wikisource-2017-core-literacy-conflict",
+          "purpose": "transcription_conflict",
+          "utf16_start": 6538,
+          "utf16_end": 6553,
+          "exact_text": "正确价值观、必备品格和关键能力",
+          "exact_text_sha256": "a09932e77440bf11e1501821d3a36d735c66182d686893d948c71bd8f8468e2b",
+          "occurrence_index": 0
+        }
+      ],
+      "limitations": [
+        "社区转录可作独立文本见证但不替代 PDF；核心素养段把 2017 PDF 的“正确价值观念”转录为“正确价值观”，形成必须保留的版本敏感冲突。"
+      ]
+    },
+    {
+      "source_id": "source:nsfz-zh-hs-2020",
+      "title": "普通高中语文标准（2020版）",
+      "publisher": "南京师范大学附属中学江宁分校",
+      "url": "https://www.nsfz.cn/high/articlelists/details/pid/202/article_cate_id/205/article_id/8619.html",
+      "authority_class": "institutional_school_transcription",
+      "evidence_role": "independent_text_transcription",
+      "version_relation": "exact_document_exact_edition",
+      "independently_counts_for_text": true,
+      "witness_scope": "exact_document_text",
+      "same_artifact_as": null,
+      "resource": {
+        "resource_id": "snapshot:nsfz-2020-html",
+        "media_type": "text/html",
+        "sha256": "d0982de8d9d3958bc5cc1ff451d1ab3acd48658ed6e323173f32de7ff0d3a51d"
+      },
+      "canonical_text_sha256": "dcb39e1d5f667ddcca897630cc2de67b65f5beb9a0aa87bdad5f02dca2fd558f",
+      "spans": [
+        {
+          "span_id": "online-span:nsfz-2020-version",
+          "purpose": "version_identity",
+          "utf16_start": 357,
+          "utf16_end": 384,
+          "exact_text": "普通高中 语文课程标准 （2017年版2020年修订）",
+          "exact_text_sha256": "5a33a1d4b35f38df63a8f86fa975ce35094d2303780e983bb723ec1fe0c1fc7c",
+          "occurrence_index": 0
+        },
+        {
+          "span_id": "online-span:nsfz-2020-course-nature",
+          "purpose": "exact_text_witness",
+          "utf16_start": 4745,
+          "utf16_end": 4768,
+          "exact_text": "培养德智体美劳全面发展的社会主义建设者和接班人",
+          "exact_text_sha256": "7710ad89a8fa11e85cdcb91706cd7c6fdf1cbf9a249cb88e78222f2cdec9558b",
+          "occurrence_index": 2
+        },
+        {
+          "span_id": "online-span:nsfz-2020-basic-idea",
+          "purpose": "exact_text_witness",
+          "utf16_start": 5101,
+          "utf16_end": 5124,
+          "exact_text": "在促进学生全面而有个性的发展方面发挥应有的功能",
+          "exact_text_sha256": "fedb2d263fd8a17c087881bcdb36a6f2e16b2b49f4a6780bceeddc0b56b23b5d",
+          "occurrence_index": 0
+        },
+        {
+          "span_id": "online-span:nsfz-2020-core-literacy",
+          "purpose": "exact_text_witness",
+          "utf16_start": 6271,
+          "utf16_end": 6286,
+          "exact_text": "正确价值观、必备品格和关键能力",
+          "exact_text_sha256": "a09932e77440bf11e1501821d3a36d735c66182d686893d948c71bd8f8468e2b",
+          "occurrence_index": 1
+        }
+      ],
+      "limitations": [
+        "学校机构网页是独立 HTML 转录，不是教育部原始发布页；它用于逐字交叉核对，不替代 PDF 的页码和版面。"
+      ]
+    },
+    {
+      "source_id": "source:ictr-zh-hs-2020-mirror",
+      "title": "普通高中语文课程标准（2017年版2020年修订）",
+      "publisher": "教育部课程教材研究所",
+      "url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E8%AF%AD%E6%96%87%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%882017%E5%B9%B4%E7%89%882020%E5%B9%B4%E4%BF%AE%E8%AE%A2%EF%BC%89.20220428173837.pdf",
+      "authority_class": "curriculum_research_institute_mirror",
+      "evidence_role": "integrity_only_same_artifact",
+      "version_relation": "same_artifact_exact_edition",
+      "independently_counts_for_text": false,
+      "witness_scope": "artifact_integrity_only",
+      "same_artifact_as": "source:zh-hs-2020-primary",
+      "resource": {
+        "resource_id": "artifact:ictr-zh-hs-2020-mirror-pdf",
+        "media_type": "application/pdf",
+        "sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977"
+      },
+      "canonical_text_sha256": null,
+      "spans": [],
+      "limitations": [
+        "该 PDF 与主制品 SHA-256 完全相同，只能证明文件完整性和可获得性，独立文字证据增量为零。"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_id": "evidence:zh-hs-2017-course-nature",
+      "document_id": "ictr-a71e3780f934",
+      "paragraph_id": 16307,
+      "paragraph_ordinal": 12,
+      "physical_pdf_page": 11,
+      "paragraph_body_sha256": "4d312e35d29d669f5619b4894e44c1541a6dc900dc94176e139b0c6999a889f2",
+      "utf16_start": 350,
+      "utf16_end": 363,
+      "exact_text": "全面而有个性的发展奠定基础",
+      "exact_text_sha256": "581fbd6ce8057c5dc57928d6d648ef340b907fcf1e39e9ecc0f0efa6f3940ddf",
+      "source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
+      "page_final_text_sha256": "c2d90e69168af22f2db80135dd2bd4dbaa663b4f817dd94bd2a51c2c18d36b69",
+      "page_publication_stable_locator": "ictr-a71e3780f934:page:11",
+      "page_image": {
+        "resource_id": "page-image:zh-2017-p11",
+        "sha256": "2e58bc77a2eb52ed67d81801ba3576f5ce19043941e1b5a6d10acf339fbce426",
+        "rendered_from_source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
+        "renderer": "pdftoppm 240dpi PNG",
+        "dpi": 240
+      },
+      "visual_review": {
+        "status": "machine_assisted_visual_match",
+        "reviewed_by": "codex-independent-evidence-rebind",
+        "reviewed_at": "2026-07-22T05:25:40Z",
+        "note": "固定页图经 Poppler pdftoppm 26.07.0 以 240 DPI 从对应 PDF 独立重渲染，PNG 逐字节相同且该短语清晰可读；本记录不是签名编辑裁决。"
+      },
+      "online_witness_span_ids": ["online-span:wikisource-2017-course-nature"],
+      "online_conflict_span_ids": []
+    },
+    {
+      "evidence_id": "evidence:zh-hs-2020-course-nature",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_id": 48,
+      "paragraph_ordinal": 10,
+      "physical_pdf_page": 9,
+      "paragraph_body_sha256": "ee7d0d302d608731e561efb8450f4a854d9349f5a01143ebed0483e2511521a1",
+      "utf16_start": 392,
+      "utf16_end": 415,
+      "exact_text": "培养德智体美劳全面发展的社会主义建设者和接班人",
+      "exact_text_sha256": "7710ad89a8fa11e85cdcb91706cd7c6fdf1cbf9a249cb88e78222f2cdec9558b",
+      "source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+      "page_final_text_sha256": "82fdad615ef9487c380e03cfa051e7bf5894d767d75e77bb596a03a32340bd93",
+      "page_publication_stable_locator": "moe-hs-2020-02:page:9",
+      "page_image": {
+        "resource_id": "page-image:zh-2020-p9",
+        "sha256": "50a9deffc231ef5faa24786ffa486eb8c28d1abd1acaaaeb0cb651bb590373ab",
+        "rendered_from_source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+        "renderer": "pdftoppm 240dpi PNG",
+        "dpi": 240
+      },
+      "visual_review": {
+        "status": "machine_assisted_visual_match",
+        "reviewed_by": "codex-independent-evidence-rebind",
+        "reviewed_at": "2026-07-22T05:25:40Z",
+        "note": "固定页图经 Poppler pdftoppm 26.07.0 以 240 DPI 从对应 PDF 独立重渲染，PNG 逐字节相同且该短语清晰可读；本记录不是签名编辑裁决。"
+      },
+      "online_witness_span_ids": ["online-span:nsfz-2020-course-nature"],
+      "online_conflict_span_ids": []
+    },
+    {
+      "evidence_id": "evidence:zh-hs-2017-basic-idea",
+      "document_id": "ictr-a71e3780f934",
+      "paragraph_id": 16309,
+      "paragraph_ordinal": 14,
+      "physical_pdf_page": 12,
+      "paragraph_body_sha256": "8480f800c73bd282de8899a475b0385ce20be01d4759b09a5ede23d44a6fa222",
+      "utf16_start": 296,
+      "utf16_end": 314,
+      "exact_text": "在促进人的全面发展方面发挥应有的功能",
+      "exact_text_sha256": "eb9da0132b1485981831dcf4fd9ac5ea3ae0322f76faa85ff815320086565ee9",
+      "source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
+      "page_final_text_sha256": "efe78c540f0233132daf496cef60b9dcc6f063f8a4662d2eec1f9eb852705ed1",
+      "page_publication_stable_locator": "ictr-a71e3780f934:page:12",
+      "page_image": {
+        "resource_id": "page-image:zh-2017-p12",
+        "sha256": "41de2fd04fb410694c1ba94a691787a898b7d41b11a4ced4ea171dec85de3359",
+        "rendered_from_source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
+        "renderer": "pdftoppm 240dpi PNG",
+        "dpi": 240
+      },
+      "visual_review": {
+        "status": "machine_assisted_visual_match",
+        "reviewed_by": "codex-independent-evidence-rebind",
+        "reviewed_at": "2026-07-22T05:25:40Z",
+        "note": "固定页图经 Poppler pdftoppm 26.07.0 以 240 DPI 从对应 PDF 独立重渲染，PNG 逐字节相同且该短语清晰可读；本记录不是签名编辑裁决。"
+      },
+      "online_witness_span_ids": ["online-span:wikisource-2017-basic-idea"],
+      "online_conflict_span_ids": []
+    },
+    {
+      "evidence_id": "evidence:zh-hs-2020-basic-idea",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_id": 50,
+      "paragraph_ordinal": 12,
+      "physical_pdf_page": 10,
+      "paragraph_body_sha256": "839fed00646e800e18909fa43cfdf3ef3e85b8fbcae85dac30b92b4b1fe369cd",
+      "utf16_start": 334,
+      "utf16_end": 357,
+      "exact_text": "在促进学生全面而有个性的发展方面发挥应有的功能",
+      "exact_text_sha256": "fedb2d263fd8a17c087881bcdb36a6f2e16b2b49f4a6780bceeddc0b56b23b5d",
+      "source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+      "page_final_text_sha256": "6d178a1381932b5de74d99ca165f1f782a62ccd806b6c59edc28691ecd9ddb84",
+      "page_publication_stable_locator": "moe-hs-2020-02:page:10",
+      "page_image": {
+        "resource_id": "page-image:zh-2020-p10",
+        "sha256": "258c0ff88d7f3a0c38affd83973a34702caa05e603b6207276ea70929f655258",
+        "rendered_from_source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+        "renderer": "pdftoppm 240dpi PNG",
+        "dpi": 240
+      },
+      "visual_review": {
+        "status": "machine_assisted_visual_match",
+        "reviewed_by": "codex-independent-evidence-rebind",
+        "reviewed_at": "2026-07-22T05:25:40Z",
+        "note": "固定页图经 Poppler pdftoppm 26.07.0 以 240 DPI 从对应 PDF 独立重渲染，PNG 逐字节相同且该短语清晰可读；本记录不是签名编辑裁决。"
+      },
+      "online_witness_span_ids": ["online-span:nsfz-2020-basic-idea"],
+      "online_conflict_span_ids": []
+    },
+    {
+      "evidence_id": "evidence:zh-hs-2017-core-literacy-term",
+      "document_id": "ictr-a71e3780f934",
+      "paragraph_id": 16315,
+      "paragraph_ordinal": 20,
+      "physical_pdf_page": 14,
+      "paragraph_body_sha256": "b06987e9d3ef592db20aef4460d7c1d656fc3a312dcd673df368f26d39d60262",
+      "utf16_start": 35,
+      "utf16_end": 51,
+      "exact_text": "正确价值观念、必备品格和关键能力",
+      "exact_text_sha256": "5f67605b4334fa637bb3eef6aa7c8a50ba5be5cf4fc78014b408bf36602c4e0e",
+      "source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
+      "page_final_text_sha256": "5ddc4b5f57ae597659b1398e7b9fcb2df9e6d7b85a3e4888573603290330b197",
+      "page_publication_stable_locator": "ictr-a71e3780f934:page:14",
+      "page_image": {
+        "resource_id": "page-image:zh-2017-p14",
+        "sha256": "47be772df33f28a5c396f7d0edcb11a6816b135cb8cfedcfcde235c6bb9ef1dc",
+        "rendered_from_source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
+        "renderer": "pdftoppm 240dpi PNG",
+        "dpi": 240
+      },
+      "visual_review": {
+        "status": "machine_assisted_visual_match",
+        "reviewed_by": "codex-independent-evidence-rebind",
+        "reviewed_at": "2026-07-22T05:25:40Z",
+        "note": "固定页图经 Poppler pdftoppm 26.07.0 以 240 DPI 从对应 PDF 独立重渲染，PNG 逐字节相同且清晰可读为“正确价值观念”；社区转录冲突仍未由签名编辑裁决。"
+      },
+      "online_witness_span_ids": ["online-span:moe-2017-core-literacy-policy"],
+      "online_conflict_span_ids": ["online-span:wikisource-2017-core-literacy-conflict"]
+    },
+    {
+      "evidence_id": "evidence:zh-hs-2020-core-literacy-term",
+      "document_id": "moe-hs-2020-02",
+      "paragraph_id": 52,
+      "paragraph_ordinal": 14,
+      "physical_pdf_page": 12,
+      "paragraph_body_sha256": "da6b2da936d2da41c02ebfc2e6625f8d6bf58b92a92669726aac50f27dd536ae",
+      "utf16_start": 45,
+      "utf16_end": 60,
+      "exact_text": "正确价值观、必备品格和关键能力",
+      "exact_text_sha256": "a09932e77440bf11e1501821d3a36d735c66182d686893d948c71bd8f8468e2b",
+      "source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+      "page_final_text_sha256": "6e3597afb362e1a4fe00cf0da336668876b76a679ffbfadd9d3269a144b10ecb",
+      "page_publication_stable_locator": "moe-hs-2020-02:page:12",
+      "page_image": {
+        "resource_id": "page-image:zh-2020-p12",
+        "sha256": "9fd7fa119cdde56e7a7dd299e1ed8595a521a5e142440fd194e8d04b8c6e6fa4",
+        "rendered_from_source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+        "renderer": "pdftoppm 240dpi PNG",
+        "dpi": 240
+      },
+      "visual_review": {
+        "status": "machine_assisted_visual_match",
+        "reviewed_by": "codex-independent-evidence-rebind",
+        "reviewed_at": "2026-07-22T05:25:40Z",
+        "note": "固定页图经 Poppler pdftoppm 26.07.0 以 240 DPI 从对应 PDF 独立重渲染，PNG 逐字节相同且清晰可读为“正确价值观”；本记录不是签名编辑裁决。"
+      },
+      "online_witness_span_ids": ["online-span:nsfz-2020-core-literacy"],
+      "online_conflict_span_ids": []
+    }
+  ],
+  "conflicts": [
+    {
+      "conflict_id": "conflict:zh-hs-2017-core-literacy-wikisource-value-term",
+      "evidence_id": "evidence:zh-hs-2017-core-literacy-term",
+      "source_span_ids": ["online-span:wikisource-2017-core-literacy-conflict"],
+      "status": "unresolved_fail_closed",
+      "note": "2017 PDF 物理第 14 页和教育部发布页均有“正确价值观念”，但维基文库同版核心素养段落写作“正确价值观”；该社区转录不能裁决页内差异，相关版本比较继续关闭。"
+    }
+  ],
+  "assertions": [
+    {
+      "assertion_id": "assertion:zh-hs-2017-2020-course-nature-aim-wording",
+      "assertion_kind": "parallel_exact_text_observation",
+      "dimension": "课程性质与育人目标表述",
+      "claim": "2017版课程性质段落含“全面而有个性的发展奠定基础”，2020修订版对应段落含“培养德智体美劳全面发展的社会主义建设者和接班人”；本条只记录两版可核文字，不据此推断因果或替代关系。",
+      "from_document_id": "ictr-a71e3780f934",
+      "to_document_id": "moe-hs-2020-02",
+      "from_evidence_ids": ["evidence:zh-hs-2017-course-nature"],
+      "to_evidence_ids": ["evidence:zh-hs-2020-course-nature"],
+      "version_identity_source_ids": ["source:moe-2017-release", "source:moe-2020-revision"],
+      "unresolved_conflict_ids": [],
+      "evidence_bundle_sha256": "faaf2ae1e4efe35ff63ea6b5c3dd8a056fb9634c32accb30e44836c14b943356",
+      "semantic_statuses": ["exact-source-supported", "editor-review-pending"],
+      "review": {
+        "status": "pending_signed_editor_review",
+        "reviewer_id": null,
+        "decision_resource_id": null,
+        "uncertainty_note": "六层定位已解析，仍须签名编辑确认“对应段落”的比较边界后才能公开。"
+      },
+      "publication": {
+        "builder_input_allowed": false,
+        "public_compare_allowed": false,
+        "public_star_allowed": false,
+        "ai_citation_allowed": false,
+        "discussion_claim_citation_allowed": false
+      },
+      "release_gate": {
+        "allowed": false,
+        "blocked_by_statuses": ["editor-review-pending"]
+      }
+    },
+    {
+      "assertion_id": "assertion:zh-hs-2017-2020-basic-idea-student-individual",
+      "assertion_kind": "exact_textual_revision_observation",
+      "dimension": "基本理念中的全面发展表述",
+      "claim": "在对应的基本理念语句中，2017版写“在促进人的全面发展方面发挥应有的功能”，2020修订版写“在促进学生全面而有个性的发展方面发挥应有的功能”。",
+      "from_document_id": "ictr-a71e3780f934",
+      "to_document_id": "moe-hs-2020-02",
+      "from_evidence_ids": ["evidence:zh-hs-2017-basic-idea"],
+      "to_evidence_ids": ["evidence:zh-hs-2020-basic-idea"],
+      "version_identity_source_ids": ["source:moe-2017-release", "source:moe-2020-revision"],
+      "unresolved_conflict_ids": [],
+      "evidence_bundle_sha256": "21660c9919d01c7a1c189f04b052bb14db5a0811ccc7f4cd0413ef079d70235e",
+      "semantic_statuses": ["exact-source-supported", "editor-review-pending"],
+      "review": {
+        "status": "pending_signed_editor_review",
+        "reviewer_id": null,
+        "decision_resource_id": null,
+        "uncertainty_note": "PDF、段落与同版在线文本均匹配，尚缺签名编辑裁决。"
+      },
+      "publication": {
+        "builder_input_allowed": false,
+        "public_compare_allowed": false,
+        "public_star_allowed": false,
+        "ai_citation_allowed": false,
+        "discussion_claim_citation_allowed": false
+      },
+      "release_gate": {
+        "allowed": false,
+        "blocked_by_statuses": ["editor-review-pending"]
+      }
+    },
+    {
+      "assertion_id": "assertion:zh-hs-2017-2020-core-literacy-value-term",
+      "assertion_kind": "exact_textual_revision_observation",
+      "dimension": "学科核心素养定义用词",
+      "claim": "2017 PDF 第14页写“正确价值观念、必备品格和关键能力”，2020修订版第12页写“正确价值观、必备品格和关键能力”；2017 独立在线转录在对应段落存在冲突，因此本条不能作为公开版本差异结论。",
+      "from_document_id": "ictr-a71e3780f934",
+      "to_document_id": "moe-hs-2020-02",
+      "from_evidence_ids": ["evidence:zh-hs-2017-core-literacy-term"],
+      "to_evidence_ids": ["evidence:zh-hs-2020-core-literacy-term"],
+      "version_identity_source_ids": ["source:moe-2017-release", "source:moe-2020-revision"],
+      "unresolved_conflict_ids": ["conflict:zh-hs-2017-core-literacy-wikisource-value-term"],
+      "evidence_bundle_sha256": "291b5f53b9b53958085d3f192014256ad87860a7a95cac2878ac10377d278aad",
+      "semantic_statuses": ["exact-source-supported", "online-version-conflict", "editor-review-pending"],
+      "review": {
+        "status": "pending_signed_editor_review",
+        "reviewer_id": null,
+        "decision_resource_id": null,
+        "uncertainty_note": "原始页图清晰，但同版社区转录冲突尚未由签名编辑裁决；必须 fail closed。"
+      },
+      "publication": {
+        "builder_input_allowed": false,
+        "public_compare_allowed": false,
+        "public_star_allowed": false,
+        "ai_citation_allowed": false,
+        "discussion_claim_citation_allowed": false
+      },
+      "release_gate": {
+        "allowed": false,
+        "blocked_by_statuses": ["online-version-conflict", "editor-review-pending"]
+      }
+    }
+  ],
+  "release_boundary": {
+    "signed_editor_review_required": true,
+    "builder_input_allowed": false,
+    "public_data_update_allowed": false,
+    "deployment_allowed": false
+  }
+}
