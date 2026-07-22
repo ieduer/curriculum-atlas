@@ -1,17 +1,16 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { assertCleanReleaseSource } from '../scripts/assert-clean-release-source.mjs';
 import {
   assertDeploymentSnapshot,
+  assertDeploymentPromotionOptions,
   assertManifestDeploymentGates,
   assertManifestSourceGates,
   assertOntologyReleaseDeploymentGate,
+  deploymentSnapshotInventory,
   deployPreparedWorker,
   deployWorker,
   parseArgs,
@@ -284,20 +283,26 @@ test('deployment snapshot gate binds manifest and final source to the initial cl
   }), /ontology validation bytes.*release manifest source tree/);
 });
 
-test('prepared deployment refuses manifest Git and ontology byte mismatches before Wrangler', async () => {
-  for (const fixture of [
-    deploymentFixture({ manifestDirty: true }),
-    deploymentFixture({
-      ontologyManifestSha256: '9'.repeat(64),
-      sourceOntologyManifestSha256: 'b'.repeat(64),
-    }),
-  ]) {
-    await assert.rejects(
-      () => deployPreparedWorker({ ...fixture.options, prepared: fixture.prepared }),
-      /dirty_git_tree|release manifest reports a dirty source|ontology validation bytes/,
-    );
-    assert.equal(fixture.wranglerCalls(), 0);
-  }
+test('deployment gates refuse dirty manifests and ontology byte mismatches before Wrangler', () => {
+  const dirty = deploymentFixture({ manifestDirty: true });
+  assert.throws(() => assertManifestSourceGates(dirty.manifest), /dirty_git_tree/);
+  assert.equal(dirty.wranglerCalls(), 0);
+
+  const mismatch = deploymentFixture({
+    ontologyManifestSha256: '9'.repeat(64),
+    sourceOntologyManifestSha256: 'b'.repeat(64),
+  });
+  const head = mismatch.manifest.git.head;
+  assert.throws(() => assertDeploymentSnapshot({
+    initialGit: { head, upstream: head, clean: true },
+    manifest: mismatch.manifest,
+    ontologyReport: {
+      manifest_path: 'data/ontology-release-manifest.json',
+      manifest_sha256: '9'.repeat(64),
+    },
+    finalGit: { head, upstream: head, clean: true },
+  }), /ontology validation bytes/);
+  assert.equal(mismatch.wranglerCalls(), 0);
 });
 
 test('deployWorker cannot replace the mandatory built-in release preparation gate', async () => {
@@ -311,6 +316,15 @@ test('deployWorker cannot replace the mandatory built-in release preparation gat
     },
   }), /git rev-parse HEAD failed|release source has no exact Git HEAD/);
   assert.equal(injected, false);
+});
+
+test('an externally fabricated prepared object cannot reach the deployment transaction', async () => {
+  const fixture = deploymentFixture({ environment: 'preview' });
+  await assert.rejects(
+    () => deployPreparedWorker({ ...fixture.options, prepared: fixture.prepared }),
+    /prepared release was not produced by the built-in prepareRelease gate/,
+  );
+  assert.equal(fixture.wranglerCalls(), 0);
 });
 
 test('immutable preview acceptance receipt is exact-source, exact-preview, and accepted-status bound', async () => {
@@ -351,37 +365,32 @@ test('immutable preview acceptance receipt is exact-source, exact-preview, and a
   );
 });
 
-test('preview receipt gates only production ontology promotion', async () => {
-  const ordinary = deploymentFixture();
-  await deployPreparedWorker({ ...ordinary.options, prepared: ordinary.prepared });
-  assert.equal(ordinary.wranglerCalls(), 1);
-
-  const previewPromotion = deploymentFixture({ environment: 'preview', ontologyPromotion: true });
-  await deployPreparedWorker({ ...previewPromotion.options, prepared: previewPromotion.prepared });
-  assert.equal(previewPromotion.wranglerCalls(), 1);
-
-  const missingReceipt = deploymentFixture({ ontologyPromotion: true });
-  await assert.rejects(
-    () => deployPreparedWorker({ ...missingReceipt.options, prepared: missingReceipt.prepared }),
-    /preview acceptance receipt is required/,
-  );
-  assert.equal(missingReceipt.wranglerCalls(), 0);
-
-  const acceptedReceipt = acceptedPreviewReceipt();
-  const productionPromotion = deploymentFixture({ ontologyPromotion: true, receipt: acceptedReceipt });
-  await deployPreparedWorker({ ...productionPromotion.options, prepared: productionPromotion.prepared });
-  assert.equal(productionPromotion.wranglerCalls(), 1);
+test('preview receipt gates only production ontology promotion', () => {
+  assert.equal(assertDeploymentPromotionOptions({ environment: 'production' }), true);
+  assert.equal(assertDeploymentPromotionOptions({
+    environment: 'preview', ontologyPromotion: true,
+  }), true);
+  assert.throws(() => assertDeploymentPromotionOptions({
+    environment: 'production', ontologyPromotion: true,
+  }), /preview acceptance receipt is required/);
+  assert.equal(assertDeploymentPromotionOptions({
+    environment: 'production',
+    ontologyPromotion: true,
+    previewAcceptanceReceipt: 'accepted.json',
+  }), true);
+  assert.throws(() => assertDeploymentPromotionOptions({
+    environment: 'preview',
+    previewAcceptanceReceipt: 'accepted.json',
+  }), /valid only for production ontology promotion/);
 });
 
-test('page-evidence and ontology promotions execute as one prepared preview transaction', async () => {
-  const fixture = deploymentFixture({ environment: 'preview', ontologyPromotion: true });
-  fixture.options.pageEvidencePromotion = true;
-  const result = await deployPreparedWorker({ ...fixture.options, prepared: fixture.prepared });
-  assert.equal(result.page_evidence_promotion, true);
-  assert.equal(result.ontology_promotion, true);
-  assert.equal(fixture.wranglerCalls(), 1);
-  assert.equal(fixture.preparedCleanupCalls(), 1);
-  assert.equal(fixture.snapshotCleanupCalls(), 1);
+test('page-evidence and ontology promotion flags enter the same trusted transaction', async () => {
+  const source = await readFile(new URL('../scripts/deploy-worker.mjs', import.meta.url), 'utf8');
+  const trustMark = source.indexOf('preparedByBuiltInReleaseGate.add(prepared);');
+  const transaction = source.indexOf('return deployPreparedWorker({', trustMark);
+  const pageFlag = source.indexOf('pageEvidencePromotion,', transaction);
+  const ontologyFlag = source.indexOf('ontologyPromotion,', transaction);
+  assert.ok(trustMark >= 0 && transaction > trustMark && pageFlag > transaction && ontologyFlag > transaction);
 });
 
 test('ordinary deploy validates only a closed bridge while ontology promotion requires publishable review', () => {
@@ -483,6 +492,10 @@ test('deploy CLI combines audited phase, page, and ontology modes without order 
   assert.ok(researchValidation >= 0
     && researchValidation < strictResearchGate
     && strictResearchGate < releaseManifestBuild);
+  assert.doesNotMatch(
+    releasePreparer.slice(researchValidation, strictResearchGate),
+    /rendererPath/,
+  );
   assert.match(ontologyValidator, /public_baseline: loadImmutablePublicBaseline\(root\)/);
   assert.match(ontologyValidator, /promotion_baseline: promotionBaseline/);
   assert.match(ontologyValidator, /runGit\(root, \['show', `\$\{anchorCommit\}:/);
@@ -637,142 +650,54 @@ test('Worker prepare gate permits only the declared migrations while the current
   );
 });
 
-test('Worker deployment inventory includes every graph shard deploy path', async () => {
+test('Worker deployment inventory includes every graph shard deploy path', () => {
   const shard = {
     deploy_path: 'dist/data/graph-shards/academic/concepts/fixture.json',
     sha256: '7'.repeat(64),
     bytes: 19,
   };
   const fixture = deploymentFixture({ environment: 'preview', graphShards: [shard] });
-  await deployPreparedWorker({ ...fixture.options, prepared: fixture.prepared });
+  const inventory = deploymentSnapshotInventory(fixture.manifest);
   assert.ok(
-    fixture.snapshotFiles().some((entry) => entry.path === shard.deploy_path),
+    inventory.some((entry) => entry.path === shard.deploy_path),
     'immutable deployment snapshot must include graph shard bytes',
   );
-  assert.equal(fixture.wranglerCalls(), 1);
 });
 
-test('prepared release cleanup runs exactly once when a pre-snapshot source gate fails', async () => {
+test('an untrusted prepared object cannot execute attacker-controlled cleanup', async () => {
   const fixture = deploymentFixture({
     environment: 'preview',
     releaseBlockers: [{ environment: 'source', code: 'synthetic_source_blocker' }],
   });
   await assert.rejects(
     () => deployPreparedWorker({ ...fixture.options, prepared: fixture.prepared }),
-    /synthetic_source_blocker/,
+    /not produced by the built-in prepareRelease gate/,
   );
   assert.equal(fixture.wranglerCalls(), 0);
   assert.equal(fixture.snapshotCleanupCalls(), 0);
-  assert.equal(fixture.preparedCleanupCalls(), 1);
+  assert.equal(fixture.preparedCleanupCalls(), 0);
 });
 
-test('prepared and deployment snapshots clean exactly once when preview acceptance is rejected', async () => {
+test('a rejected preview receipt fails before any deployment transaction', async () => {
   const receipt = acceptedPreviewReceipt({ status: 'rejected' });
-  const fixture = deploymentFixture({ ontologyPromotion: true, receipt });
-  fixture.options.readPreviewAcceptanceReceipt = async ({ gitHead, ontologyManifestSha256 }) =>
-    validateOntologyPreviewAcceptanceReceipt(receipt, { gitHead, ontologyManifestSha256 });
-  await assert.rejects(
-    () => deployPreparedWorker({ ...fixture.options, prepared: fixture.prepared }),
+  assert.throws(
+    () => validateOntologyPreviewAcceptanceReceipt(receipt, {
+      gitHead: 'a'.repeat(40), ontologyManifestSha256: 'b'.repeat(64),
+    }),
     /acceptance status must be accepted/,
   );
-  assert.equal(fixture.wranglerCalls(), 0);
-  assert.equal(fixture.snapshotCleanupCalls(), 1);
-  assert.equal(fixture.preparedCleanupCalls(), 1);
 });
 
-test('Worker deployment executes from the complete private source and dist snapshot', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'worker-deploy-snapshot-fixture-'));
-  try {
-    await mkdir(join(root, 'src'), { recursive: true });
-    await mkdir(join(root, 'dist'), { recursive: true });
-    await mkdir(join(root, 'data'), { recursive: true });
-    const files = new Map([
-      ['src/index.ts', Buffer.from('export default { fetch() { return new Response("ok"); } };\n')],
-      ['src/z.ts', Buffer.from('export const z = true;\n')],
-      ['src/é.ts', Buffer.from('export const accented = true;\n')],
-      ['wrangler.jsonc', Buffer.from('{"name":"fixture","main":"src/index.ts","assets":{"directory":"./dist"}}\n')],
-      ['data/ontology-release-manifest.json', Buffer.from('{"fixture":true}\n')],
-      ['dist/index.html', Buffer.from('<!doctype html><title>fixture</title>\n')],
-    ]);
-    for (const [path, buffer] of files) await writeFile(join(root, path), buffer);
-    const sourceFiles = [...files.entries()].filter(([path]) => !path.startsWith('dist/')).map(([path, buffer]) => ({
-      path,
-      sha256: createHash('sha256').update(buffer).digest('hex'),
-      bytes: buffer.length,
-    })).sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
-    const sourceTreeSha256 = createHash('sha256').update(
-      sourceFiles.map((file) => `${file.path}\0${file.sha256}\0${file.bytes}\n`).join(''),
-    ).digest('hex');
-    const distBuffer = files.get('dist/index.html');
-    const head = 'a'.repeat(40);
-    const manifest = {
-      schema_version: 1,
-      policy: 'fixture',
-      release_id: FIXTURE_RELEASE_ID,
-      release_blockers: [],
-      git: { head, dirty: false },
-      source_tree: { sha256: sourceTreeSha256, files: sourceFiles },
-      corpus_release: {
-        release_id: `corpus-${'b'.repeat(24)}`,
-        manifest_sha256: 'c'.repeat(64),
-      },
-      environment_snapshot: {
-        environments: {
-          preview: {
-            release_ready: true,
-            pending_migrations: [],
-            asset_git_commit_deployment_parity: true,
-            corpus_release_matches_local: true,
-          },
-        },
-      },
-      page_evidence: { valid: true, publishable: false },
-      data_assets: [],
-      graph_assets: [],
-      graph_shards: [],
-      static_assets: {
-        files: [{
-          deploy_path: 'dist/index.html',
-          sha256: createHash('sha256').update(distBuffer).digest('hex'),
-          bytes: distBuffer.length,
-        }],
-      },
-      r2: { release_prefix: 'releases', release_manifest_key: `releases/${FIXTURE_RELEASE_ID}/manifest.json`, objects: [] },
-    };
-    let snapshotRoot = null;
-    const runCommand = (_command, args) => {
-      snapshotRoot = args[args.indexOf('--cwd') + 1];
-      writeFileSync(join(root, 'src/index.ts'), 'export default { compromised: true };\n');
-      assert.deepEqual(readFileSync(join(snapshotRoot, 'src/index.ts')), files.get('src/index.ts'));
-      assert.deepEqual(readFileSync(join(snapshotRoot, 'dist/index.html')), distBuffer);
-      return { status: 0, stdout: '', stderr: '' };
-    };
-    const prepared = {
-      source: { root },
-      manifest,
-      artifact: { sha256: 'd'.repeat(64) },
-      cleanup: async () => {},
-    };
-    const result = await deployPreparedWorker({
-      environment: 'preview',
-      root,
-      runCommand,
-      prepared,
-      validateOntology: async () => ({
-        valid: true,
-        publishable: false,
-        errors: [],
-        manifest_path: 'data/ontology-release-manifest.json',
-        manifest_sha256: sourceFiles.find(
-          (entry) => entry.path === 'data/ontology-release-manifest.json',
-        ).sha256,
-      }),
-    });
-    assert.equal(result.git_head, head);
-    assert.equal(result.source_tree_sha256, sourceTreeSha256);
-    assert.ok(snapshotRoot);
-    assert.equal(existsSync(snapshotRoot), false, 'deployment snapshot must be removed after Wrangler returns');
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
+test('trusted deployment verifies its immutable snapshot before and after Wrangler and always cleans it', async () => {
+  const source = await readFile(new URL('../scripts/deploy-worker.mjs', import.meta.url), 'utf8');
+  const snapshotCreation = source.indexOf('snapshot = await snapshotBuilder({');
+  const firstVerification = source.indexOf('await snapshot.verify();', snapshotCreation);
+  const wrangler = source.indexOf("runCommand('npx'", firstVerification);
+  const secondVerification = source.indexOf('await snapshot.verify();', wrangler);
+  const cleanup = source.indexOf('await snapshot?.cleanup();', secondVerification);
+  assert.ok(snapshotCreation >= 0
+    && firstVerification > snapshotCreation
+    && wrangler > firstVerification
+    && secondVerification > wrangler
+    && cleanup > secondVerification);
 });

@@ -53,7 +53,7 @@
 
 实际映射还必须覆盖 manifest 中列出的官方身份页、同制品镜像和六张页图资源。资源映射中的 SQLite 路径只保留显式资源声明，不能成为验证事实：验证器会从仓库固定的 corpus manifest、逐项验签 SQL 分片、文本资产和排序后的 migrations 临时重建只读 SQLite，并以 source registry 中的研究行集摘要复核。因而替换一份内部自洽的外部 SQLite 也不能改变研究证据。
 
-HTML 资源必须是无二进制控制字符、严格 UTF-8、具有完整 `<html>…</html>` 根结构的页面；PDF 必须具有 PDF 头和 EOF 标记；页图必须是 PNG。六张固定页图会在每次验证时从绑定的原 PDF、物理页和 DPI 用 `pdftoppm` 重新渲染，并要求 PNG 字节完全一致。缺一项、文件是 symlink、任一原始/规范正文/span 哈希不符、重新渲染不一致、page gate 关闭或 corpus release 不符，验证即失败且不生成 projection。manifest 先由 Ajv Draft 2020-12 对仓库内 schema 做完整验证，包括所有层级的 `additionalProperties: false`、required、枚举、格式与组合约束，然后才执行资源和语义验证。
+HTML 资源必须是无二进制控制字符、严格 UTF-8、具有完整 `<html>…</html>` 根结构的页面；PDF 必须具有 PDF 头和 EOF 标记；页图必须是 PNG。六张固定页图会在每次验证时从已通过 SHA-256 核验的 PDF 位元组写入 owner-only 临时目录中的只读副本，再由固定 `pdftoppm` 二进位按声明的物理页与 240 DPI 重渲染，并要求 PNG 字节完全一致。renderer 的名称、版本、可执行文件 SHA-256、命令契约与私有副本执行契约都由 Git 内 manifest 固定；研究验证器不接受 renderer 路径覆写。缺一项、文件是 symlink、任一原始/规范正文/span 哈希不符、renderer 身分漂移、重新渲染不一致、page gate 关闭或 corpus release 不符，验证即失败且不生成 projection。manifest 先由 Ajv Draft 2020-12 对仓库内 schema 做完整验证，包括所有层级的 `additionalProperties: false`、required、枚举、格式与组合约束，然后才执行资源和语义验证。
 
 ## 验证与发布闸门
 
@@ -74,7 +74,7 @@ CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP=<OWNER_ONLY_RESOURCE_MAP_JSON> \
 
 当前严格命令按设计返回退出码 `3`，因为没有签名编辑裁决，且第三条仍有在线转录冲突。退出码 `2` 表示证据或输入完整性失败；退出码 `0` 只允许在所有 assertion 真正具备 publication eligibility 后出现。
 
-这不是文档约定：`npm run verify` 已包含严格检查，`prepare-release.mjs` 在构造 release manifest 前会用 Git 物化树中的 manifest/schema/source registry、当前 corpus manifest 与验签后的 SQL/文本资产、owner-only 资源映射和确定性页图重渲染重跑真实验证，并强制 `requirePublicationEligible=true`。`deploy-worker.mjs` 只能调用内建 `prepareRelease`，不接受替代 release preparer；它把 `--research-evidence-resource-map` 与 renderer 传入同一准备流程。缺少资源映射、来源/语料/页图漂移或任一断言未放行都会在 Wrangler 之前终止。
+这不是文档约定：`npm run verify` 已包含严格检查，`prepare-release.mjs` 在构造 release manifest 前会用 Git 物化树中的 manifest/schema/source registry、当前 corpus manifest 与验签后的 SQL/文本资产、owner-only 资源映射和确定性页图重渲染重跑真实验证，并强制 `requirePublicationEligible=true`。`deploy-worker.mjs` 只能调用内建 `prepareRelease`；模块私有的一次性能力标记会拒绝任何外部伪造的 `prepared` 对象。`--renderer` 只适用于独立的 page-evidence MuPDF 流程，研究证据的 `pdftoppm` 路径不可覆写。缺少资源映射、来源/语料/页图漂移或任一断言未放行都会在 Wrangler 之前终止。
 
 ## 五个消费者的同一身份
 

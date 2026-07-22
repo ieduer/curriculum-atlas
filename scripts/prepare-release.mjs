@@ -108,7 +108,6 @@ export async function prepareRelease({
     const researchEvidence = await researchEvidenceValidator({
       root: gitTree.root,
       resourceMap: researchEvidenceResourceMap,
-      rendererPath,
       resourcePathOverrides: {
         [researchEvidenceManifest.corpus.manifest_resource_id]: resolve(
           gitTree.root,

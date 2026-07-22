@@ -6,11 +6,11 @@
   "documents": [
     {
       "document_id": "ictr-a71e3780f934",
-      "work_identity_sha256": "be0f9d82489a135ccb7c5df983f6c1b1403b1241a31e00e94e771d12fed77082"
+      "work_identity_sha256": "ba59c648dbb0bf0a848d764e62a02bae3f9e9579414dfa6cb49b0bf057af6993"
     },
     {
       "document_id": "moe-hs-2020-02",
-      "work_identity_sha256": "697d0be868543558404063b82ffa06b17d9975c34bd55208121efd15300f933e"
+      "work_identity_sha256": "a428a96b0284eef0421236d94be9f90f56ea2d1cab6deba0823dead832e4e11f"
     }
   ],
   "sources": [

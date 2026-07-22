@@ -367,7 +367,13 @@
         "media_type": "image/png",
         "sha256": "2e58bc77a2eb52ed67d81801ba3576f5ce19043941e1b5a6d10acf339fbce426",
         "rendered_from_source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
-        "renderer": "pdftoppm 240dpi PNG",
+        "renderer": {
+          "name": "pdftoppm",
+          "version": "pdftoppm version 26.07.0",
+          "sha256": "6b1e5fc8394ad4ef8279f92221b484755aa99ff7b7980bedd142188420849371",
+          "command_contract": "pdftoppm_png_single_page_v1",
+          "execution_binding": "verified_private_read_only_copy_v1"
+        },
         "dpi": 240
       },
       "visual_review": {
@@ -398,7 +404,13 @@
         "media_type": "image/png",
         "sha256": "50a9deffc231ef5faa24786ffa486eb8c28d1abd1acaaaeb0cb651bb590373ab",
         "rendered_from_source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
-        "renderer": "pdftoppm 240dpi PNG",
+        "renderer": {
+          "name": "pdftoppm",
+          "version": "pdftoppm version 26.07.0",
+          "sha256": "6b1e5fc8394ad4ef8279f92221b484755aa99ff7b7980bedd142188420849371",
+          "command_contract": "pdftoppm_png_single_page_v1",
+          "execution_binding": "verified_private_read_only_copy_v1"
+        },
         "dpi": 240
       },
       "visual_review": {
@@ -429,7 +441,13 @@
         "media_type": "image/png",
         "sha256": "41de2fd04fb410694c1ba94a691787a898b7d41b11a4ced4ea171dec85de3359",
         "rendered_from_source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
-        "renderer": "pdftoppm 240dpi PNG",
+        "renderer": {
+          "name": "pdftoppm",
+          "version": "pdftoppm version 26.07.0",
+          "sha256": "6b1e5fc8394ad4ef8279f92221b484755aa99ff7b7980bedd142188420849371",
+          "command_contract": "pdftoppm_png_single_page_v1",
+          "execution_binding": "verified_private_read_only_copy_v1"
+        },
         "dpi": 240
       },
       "visual_review": {
@@ -460,7 +478,13 @@
         "media_type": "image/png",
         "sha256": "258c0ff88d7f3a0c38affd83973a34702caa05e603b6207276ea70929f655258",
         "rendered_from_source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
-        "renderer": "pdftoppm 240dpi PNG",
+        "renderer": {
+          "name": "pdftoppm",
+          "version": "pdftoppm version 26.07.0",
+          "sha256": "6b1e5fc8394ad4ef8279f92221b484755aa99ff7b7980bedd142188420849371",
+          "command_contract": "pdftoppm_png_single_page_v1",
+          "execution_binding": "verified_private_read_only_copy_v1"
+        },
         "dpi": 240
       },
       "visual_review": {
@@ -491,7 +515,13 @@
         "media_type": "image/png",
         "sha256": "47be772df33f28a5c396f7d0edcb11a6816b135cb8cfedcfcde235c6bb9ef1dc",
         "rendered_from_source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
-        "renderer": "pdftoppm 240dpi PNG",
+        "renderer": {
+          "name": "pdftoppm",
+          "version": "pdftoppm version 26.07.0",
+          "sha256": "6b1e5fc8394ad4ef8279f92221b484755aa99ff7b7980bedd142188420849371",
+          "command_contract": "pdftoppm_png_single_page_v1",
+          "execution_binding": "verified_private_read_only_copy_v1"
+        },
         "dpi": 240
       },
       "visual_review": {
@@ -522,7 +552,13 @@
         "media_type": "image/png",
         "sha256": "9fd7fa119cdde56e7a7dd299e1ed8595a521a5e142440fd194e8d04b8c6e6fa4",
         "rendered_from_source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
-        "renderer": "pdftoppm 240dpi PNG",
+        "renderer": {
+          "name": "pdftoppm",
+          "version": "pdftoppm version 26.07.0",
+          "sha256": "6b1e5fc8394ad4ef8279f92221b484755aa99ff7b7980bedd142188420849371",
+          "command_contract": "pdftoppm_png_single_page_v1",
+          "execution_binding": "verified_private_read_only_copy_v1"
+        },
         "dpi": 240
       },
       "visual_review": {

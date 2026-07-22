@@ -1,7 +1,19 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+  chmodSync,
+  closeSync,
+  existsSync,
+  fstatSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -18,16 +30,20 @@ const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 const DEFAULT_MANIFEST = 'data/research-evidence/zh-hs-2017-2020.json';
 const DEFAULT_SCHEMA = 'data/research-evidence/research-evidence-slice.schema.json';
 const DEFAULT_SOURCE_REGISTRY = 'data/research-evidence/zh-hs-2017-2020-source-registry.json';
-const DEFAULT_RENDERER = existsSync('/opt/homebrew/bin/pdftoppm')
-  ? '/opt/homebrew/bin/pdftoppm'
-  : 'pdftoppm';
+const RESEARCH_RENDER_DPI = 240;
+const RESEARCH_RENDERER_COMMAND_CONTRACT = 'pdftoppm_png_single_page_v1';
+const RESEARCH_RENDERER_EXECUTION_BINDING = 'verified_private_read_only_copy_v1';
+const RESEARCH_RENDERER_CANDIDATES = Object.freeze([
+  '/opt/homebrew/bin/pdftoppm',
+  '/usr/local/bin/pdftoppm',
+  '/usr/bin/pdftoppm',
+]);
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
 function parseArgs(argv) {
   const options = {
     manifest: DEFAULT_MANIFEST,
     schema: DEFAULT_SCHEMA,
-    rendererPath: DEFAULT_RENDERER,
     resourceMap: null,
     output: null,
     requirePublicationEligible: false,
@@ -37,7 +53,6 @@ function parseArgs(argv) {
     if (arg === '--root') options.root = argv[++index];
     else if (arg === '--manifest') options.manifest = argv[++index];
     else if (arg === '--schema') options.schema = argv[++index];
-    else if (arg === '--renderer') options.rendererPath = argv[++index];
     else if (arg === '--resource-map') options.resourceMap = argv[++index];
     else if (arg === '--output') options.output = argv[++index];
     else if (arg === '--require-publication-eligible') options.requirePublicationEligible = true;
@@ -104,24 +119,173 @@ async function materializeImmutableCorpusDatabase({ root, manifestPath }) {
   };
 }
 
-function deterministicPageRenderer(rendererPath) {
-  return ({ pdfPath, page, dpi }) => {
-    const directory = mkdtempSync(path.join(tmpdir(), 'curriculum-research-page-'));
-    const prefix = path.join(directory, 'page');
-    try {
-      const result = spawnSync(rendererPath, [
-        '-f', String(page), '-l', String(page), '-r', String(dpi),
-        '-png', '-singlefile', pdfPath, prefix,
-      ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-      if (result.error) throw new Error(`pdftoppm could not start: ${result.error.message}`);
-      if (result.status !== 0) {
-        throw new Error(`pdftoppm exited ${result.status ?? 'unknown'}: ${String(result.stderr || '').trim().slice(0, 500)}`);
-      }
-      return readFileSync(`${prefix}.png`);
-    } finally {
-      rmSync(directory, { recursive: true, force: true });
+function sameFileIdentity(left, right) {
+  return left.dev === right.dev
+    && left.ino === right.ino
+    && left.size === right.size
+    && left.mtimeMs === right.mtimeMs;
+}
+
+function readStableRegularFile(filePath, label) {
+  const descriptor = openSync(filePath, 'r');
+  try {
+    const before = fstatSync(descriptor);
+    if (!before.isFile()) throw new Error(`${label} must be a regular file`);
+    const buffer = readFileSync(descriptor);
+    const after = fstatSync(descriptor);
+    if (!sameFileIdentity(before, after) || buffer.length !== before.size) {
+      throw new Error(`${label} changed while it was read`);
     }
+    return { buffer, identity: after };
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+function runPdftoppm(rendererPath, arguments_, label, environment = process.env) {
+  const result = spawnSync(rendererPath, arguments_, {
+    encoding: 'utf8',
+    env: environment,
+    maxBuffer: 16 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (result.error) throw new Error(`${label} could not start: ${result.error.message}`);
+  if (result.status !== 0) {
+    const detail = String(result.stderr || result.stdout || '').trim().slice(0, 500);
+    throw new Error(`${label} exited ${result.status ?? 'unknown'}${detail ? `: ${detail}` : ''}`);
+  }
+  return `${result.stdout || ''}${result.stderr || ''}`;
+}
+
+function pdftoppmVersion(rendererPath, environment = process.env) {
+  const output = runPdftoppm(rendererPath, ['-v'], 'pdftoppm version check', environment);
+  const match = output.match(/^pdftoppm version [^\r\n]+$/mu);
+  if (!match) throw new Error('pdftoppm version output is not unambiguous');
+  return match[0];
+}
+
+function inspectResearchEvidencePdftoppmInternal() {
+  const candidate = RESEARCH_RENDERER_CANDIDATES.find((entry) => existsSync(entry));
+  if (!candidate) throw new Error('fixed pdftoppm renderer is unavailable');
+  const rendererPath = realpathSync(candidate);
+  const renderer = readStableRegularFile(rendererPath, 'pdftoppm renderer');
+  if ((renderer.identity.mode & 0o111) === 0) throw new Error('pdftoppm renderer is not executable');
+  return {
+    path: rendererPath,
+    buffer: renderer.buffer,
+    identity: {
+      name: 'pdftoppm',
+      version: pdftoppmVersion(rendererPath),
+      sha256: sha256(renderer.buffer),
+      command_contract: RESEARCH_RENDERER_COMMAND_CONTRACT,
+      execution_binding: RESEARCH_RENDERER_EXECUTION_BINDING,
+    },
   };
+}
+
+export function inspectResearchEvidencePdftoppm() {
+  return inspectResearchEvidencePdftoppmInternal().identity;
+}
+
+function assertExpectedRenderer(actual, expected) {
+  const keys = ['name', 'version', 'sha256', 'command_contract', 'execution_binding'];
+  if (!expected || typeof expected !== 'object' || Array.isArray(expected)
+    || Object.keys(expected).length !== keys.length || !keys.every((key) => Object.hasOwn(expected, key))) {
+    throw new Error('research evidence renderer identity contract is invalid');
+  }
+  for (const key of keys) {
+    if (expected[key] !== actual[key]) {
+      throw new Error(`fixed pdftoppm ${key} differs from the Git-pinned research renderer identity`);
+    }
+  }
+}
+
+export function renderResearchEvidencePdfPage({ pdfBytes, page, dpi, expectedRenderer }) {
+  if (!Buffer.isBuffer(pdfBytes) || pdfBytes.length === 0) {
+    throw new Error('verified PDF bytes are required for research page rendering');
+  }
+  if (!Number.isInteger(page) || page < 1) throw new Error('research PDF page must be a positive integer');
+  if (dpi !== RESEARCH_RENDER_DPI) throw new Error(`research PDF render DPI must equal ${RESEARCH_RENDER_DPI}`);
+  const inspected = inspectResearchEvidencePdftoppmInternal();
+  assertExpectedRenderer(inspected.identity, expectedRenderer);
+  const directory = mkdtempSync(path.join(tmpdir(), 'curriculum-research-page-'));
+  const protectedDirectory = path.join(directory, 'verified-inputs');
+  const privateRendererPath = path.join(protectedDirectory, 'pdftoppm');
+  const privatePdfPath = path.join(protectedDirectory, 'source.pdf');
+  const prefix = path.join(directory, 'page');
+  let rendererDescriptor = null;
+  let pdfDescriptor = null;
+  try {
+    chmodSync(directory, 0o700);
+    mkdirSync(protectedDirectory, { mode: 0o700 });
+    writeFileSync(privateRendererPath, inspected.buffer, { flag: 'wx', mode: 0o700 });
+    writeFileSync(privatePdfPath, pdfBytes, { flag: 'wx', mode: 0o600 });
+    chmodSync(privateRendererPath, 0o500);
+    chmodSync(privatePdfPath, 0o400);
+    rendererDescriptor = openSync(privateRendererPath, 'r');
+    pdfDescriptor = openSync(privatePdfPath, 'r');
+    const rendererIdentity = fstatSync(rendererDescriptor);
+    const pdfIdentity = fstatSync(pdfDescriptor);
+    chmodSync(protectedDirectory, 0o500);
+    const rendererEnvironment = Object.fromEntries(Object.entries(process.env)
+      .filter(([name]) => !name.startsWith('DYLD_') && !name.startsWith('LD_')));
+    const rendererLibraryDirectory = path.resolve(path.dirname(inspected.path), '../lib');
+    if (process.platform === 'darwin') rendererEnvironment.DYLD_LIBRARY_PATH = rendererLibraryDirectory;
+    else rendererEnvironment.LD_LIBRARY_PATH = rendererLibraryDirectory;
+    if (pdftoppmVersion(privateRendererPath, rendererEnvironment) !== inspected.identity.version) {
+      throw new Error('private pdftoppm copy version differs from the verified renderer');
+    }
+    const arguments_ = [
+      '-f', String(page), '-l', String(page), '-r', String(dpi),
+      '-png', '-singlefile', privatePdfPath, prefix,
+    ];
+    runPdftoppm(
+      privateRendererPath,
+      arguments_,
+      'deterministic pdftoppm page render',
+      rendererEnvironment,
+    );
+    if (!sameFileIdentity(rendererIdentity, fstatSync(rendererDescriptor))) {
+      throw new Error('private pdftoppm inode changed during rendering');
+    }
+    if (!sameFileIdentity(pdfIdentity, fstatSync(pdfDescriptor))) {
+      throw new Error('private source PDF inode changed during rendering');
+    }
+    if (sha256(readStableRegularFile(privateRendererPath, 'private pdftoppm renderer').buffer)
+      !== inspected.identity.sha256) {
+      throw new Error('private pdftoppm bytes changed during rendering');
+    }
+    if (sha256(readStableRegularFile(privatePdfPath, 'private source PDF').buffer) !== sha256(pdfBytes)) {
+      throw new Error('private source PDF bytes changed during rendering');
+    }
+    return {
+      buffer: readStableRegularFile(`${prefix}.png`, 'rendered research page').buffer,
+      renderer: inspected.identity,
+      page,
+      dpi,
+      arguments: arguments_.map((value) => (
+        value === privatePdfPath ? '<PRIVATE_VERIFIED_PDF>' : value === prefix ? '<PRIVATE_OUTPUT_PREFIX>' : value
+      )),
+    };
+  } finally {
+    if (rendererDescriptor !== null) closeSync(rendererDescriptor);
+    if (pdfDescriptor !== null) closeSync(pdfDescriptor);
+    try {
+      chmodSync(protectedDirectory, 0o700);
+    } catch {
+      // A failed spawn may have already made the temporary directory unavailable.
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
+function deterministicPageRenderer() {
+  return ({ pdfBytes, page, dpi, evidence }) => renderResearchEvidencePdfPage({
+    pdfBytes,
+    page,
+    dpi,
+    expectedRenderer: evidence?.page_image?.renderer,
+  }).buffer;
 }
 
 async function readRegularJson(filePath, label) {
@@ -167,15 +331,18 @@ async function writeOwnerOnlyJson(destination, value) {
   await chmod(resolved, 0o600);
 }
 
-export async function validateResearchEvidenceSliceFile({
-  root = PROJECT_ROOT,
-  manifest: manifestName = DEFAULT_MANIFEST,
-  schema: schemaName = DEFAULT_SCHEMA,
-  sourceRegistry: sourceRegistryName = DEFAULT_SOURCE_REGISTRY,
-  resourceMap,
-  resourcePathOverrides = {},
-  rendererPath = DEFAULT_RENDERER,
-} = {}) {
+export async function validateResearchEvidenceSliceFile(options = {}) {
+  if (Object.hasOwn(options, 'rendererPath')) {
+    throw new Error('research renderer is fixed and cannot be overridden');
+  }
+  const {
+    root = PROJECT_ROOT,
+    manifest: manifestName = DEFAULT_MANIFEST,
+    schema: schemaName = DEFAULT_SCHEMA,
+    sourceRegistry: sourceRegistryName = DEFAULT_SOURCE_REGISTRY,
+    resourceMap,
+    resourcePathOverrides = {},
+  } = options;
   if (!resourceMap) throw new Error('research evidence resource map is required');
   const projectRoot = path.resolve(root);
   const manifestPath = path.isAbsolute(manifestName)
@@ -210,7 +377,7 @@ export async function validateResearchEvidenceSliceFile({
       schema,
       sourceRegistry,
       resourcePaths,
-      renderPageImage: deterministicPageRenderer(rendererPath || DEFAULT_RENDERER),
+      renderPageImage: deterministicPageRenderer(),
     });
     validation.corpus_sql_text_snapshot_sha256 = corpus.snapshotSha256;
     return {
@@ -247,7 +414,6 @@ async function main() {
     manifest: options.manifest,
     schema: options.schema,
     resourceMap: options.resourceMap,
-    rendererPath: options.rendererPath,
   });
   if (options.output) await writeOwnerOnlyJson(options.output, result);
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

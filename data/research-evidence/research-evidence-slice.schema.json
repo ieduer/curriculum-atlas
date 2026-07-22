@@ -266,8 +266,20 @@
         "media_type": { "const": "image/png" },
         "sha256": { "$ref": "#/$defs/sha256" },
         "rendered_from_source_artifact_sha256": { "$ref": "#/$defs/sha256" },
-        "renderer": { "$ref": "#/$defs/nonEmpty" },
-        "dpi": { "type": "integer", "minimum": 200 }
+        "renderer": { "$ref": "#/$defs/rendererIdentity" },
+        "dpi": { "const": 240 }
+      }
+    },
+    "rendererIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "sha256", "command_contract", "execution_binding"],
+      "properties": {
+        "name": { "const": "pdftoppm" },
+        "version": { "type": "string", "pattern": "^pdftoppm version [0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "command_contract": { "const": "pdftoppm_png_single_page_v1" },
+        "execution_binding": { "const": "verified_private_read_only_copy_v1" }
       }
     },
     "visualReview": {

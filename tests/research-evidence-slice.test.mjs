@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -14,9 +14,44 @@ import {
   researchCorpusRowsetSha256,
   validateResearchEvidenceSlice,
 } from '../scripts/lib/research-evidence-slice.mjs';
-import { assertResearchEvidenceReleaseGate } from '../scripts/validate-research-evidence-slice.mjs';
+import {
+  assertResearchEvidenceReleaseGate,
+  inspectResearchEvidencePdftoppm,
+  renderResearchEvidencePdfPage,
+  validateResearchEvidenceSliceFile,
+} from '../scripts/validate-research-evidence-slice.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+const fixtureRendererIdentity = Object.freeze({
+  name: 'pdftoppm',
+  version: 'pdftoppm version 26.07.0',
+  sha256: '6b1e5fc8394ad4ef8279f92221b484755aa99ff7b7980bedd142188420849371',
+  command_contract: 'pdftoppm_png_single_page_v1',
+  execution_binding: 'verified_private_read_only_copy_v1',
+});
+
+function onePagePdf(label) {
+  const escaped = label.replaceAll('\\', '\\\\').replaceAll('(', '\\(').replaceAll(')', '\\)');
+  const stream = `BT\n/F1 18 Tf\n72 720 Td\n(${escaped}) Tj\nET\n`;
+  const objects = [
+    '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+    '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
+    '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>\nendobj\n',
+    `4 0 obj\n<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}endstream\nendobj\n`,
+    '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
+  ];
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+  for (const object of objects) {
+    offsets.push(Buffer.byteLength(pdf));
+    pdf += object;
+  }
+  const xrefOffset = Buffer.byteLength(pdf);
+  pdf += 'xref\n0 6\n0000000000 65535 f \n';
+  for (const offset of offsets.slice(1)) pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  pdf += `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return Buffer.from(pdf, 'ascii');
+}
 
 async function fixture() {
   const root = await mkdtemp(path.join(tmpdir(), 'curriculum-research-evidence-'));
@@ -294,7 +329,7 @@ async function fixture() {
         media_type: 'image/png',
         sha256: sha256(fromPageImage),
         rendered_from_source_artifact_sha256: sha256(fromPdf),
-        renderer: 'fixture-renderer',
+        renderer: fixtureRendererIdentity,
         dpi: 240,
       },
       visual_review: {
@@ -325,7 +360,7 @@ async function fixture() {
         media_type: 'image/png',
         sha256: sha256(toPageImage),
         rendered_from_source_artifact_sha256: sha256(toPdf),
-        renderer: 'fixture-renderer',
+        renderer: fixtureRendererIdentity,
         dpi: 240,
       },
       visual_review: {
@@ -523,6 +558,100 @@ test('the Git-pinned source registry has an exact non-extensible contract', asyn
   assert.equal(validation.evidence_integrity_valid, false);
 });
 
+test('Git-pinned work identity changes when a document role changes', async () => {
+  const candidate = await fixture();
+  const before = candidate.sourceRegistry.documents.map((entry) => entry.work_identity_sha256);
+  candidate.manifest.documents[0].role = 'to';
+  candidate.manifest.documents[1].role = 'from';
+  refreshSourceRegistry(candidate);
+  const after = candidate.sourceRegistry.documents.map((entry) => entry.work_identity_sha256);
+  assert.notDeepEqual(after, before);
+});
+
+test('assertion direction is bound to from and to document roles', async () => {
+  const candidate = await fixture();
+  candidate.manifest.documents[0].role = 'to';
+  candidate.manifest.documents[1].role = 'from';
+  refreshSourceRegistry(candidate);
+  const validation = validateResearchEvidenceSlice(candidate);
+  const codes = validation.errors.map((item) => item.code);
+  assert.ok(codes.includes('assertion_from_document_role_invalid'));
+  assert.ok(codes.includes('assertion_to_document_role_invalid'));
+});
+
+test('page rendering receives the already-validated PDF bytes and never the mutable source path', async () => {
+  const candidate = await fixture();
+  const expectedFromPdf = await readFile(candidate.resourcePaths['artifact:from']);
+  const originalRenderer = candidate.renderPageImage;
+  let observedFromRender = false;
+  candidate.renderPageImage = ({ pdfBytes, pdfPath, evidence }) => {
+    if (evidence.evidence_id === 'evidence:from') {
+      assert.equal(pdfPath, undefined);
+      assert.deepEqual(pdfBytes, expectedFromPdf);
+      observedFromRender = true;
+    }
+    return originalRenderer({ evidence });
+  };
+  const validation = validateResearchEvidenceSlice(candidate);
+  assert.deepEqual(validation.errors, []);
+  assert.equal(observedFromRender, true);
+});
+
+test('file validation rejects arbitrary research renderer overrides before reading resources', async () => {
+  await assert.rejects(
+    () => validateResearchEvidenceSliceFile({
+      rendererPath: '/private/tmp/attacker-controlled-pdftoppm',
+      resourceMap: '/private/tmp/does-not-exist-research-map.json',
+    }),
+    /research renderer is fixed and cannot be overridden/,
+  );
+});
+
+test('fixed pdftoppm identity renders only the requested page at the fixed DPI from private bytes', () => {
+  const renderer = inspectResearchEvidencePdftoppm();
+  assert.deepEqual(renderer, fixtureRendererIdentity);
+  const rendered = renderResearchEvidencePdfPage({
+    pdfBytes: onePagePdf('research evidence'),
+    page: 1,
+    dpi: 240,
+    expectedRenderer: renderer,
+  });
+  assert.deepEqual(rendered.renderer, renderer);
+  assert.equal(rendered.page, 1);
+  assert.equal(rendered.dpi, 240);
+  assert.deepEqual(rendered.arguments, [
+    '-f', '1', '-l', '1', '-r', '240', '-png', '-singlefile',
+    '<PRIVATE_VERIFIED_PDF>', '<PRIVATE_OUTPUT_PREFIX>',
+  ]);
+  assert.equal(rendered.buffer.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+  assert.throws(
+    () => renderResearchEvidencePdfPage({
+      pdfBytes: onePagePdf('wrong dpi'), page: 1, dpi: 239, expectedRenderer: renderer,
+    }),
+    /DPI must equal 240/,
+  );
+  assert.throws(
+    () => renderResearchEvidencePdfPage({
+      pdfBytes: onePagePdf('identity drift'), page: 1, dpi: 240,
+      expectedRenderer: { ...renderer, sha256: '0'.repeat(64) },
+    }),
+    /sha256 differs/,
+  );
+});
+
+test('invalid PDF-like bytes cannot pass by returning a pre-existing PNG', () => {
+  const renderer = inspectResearchEvidencePdftoppm();
+  assert.throws(
+    () => renderResearchEvidencePdfPage({
+      pdfBytes: Buffer.from('%PDF-1.7\nnot a structurally valid PDF\n%%EOF'),
+      page: 1,
+      dpi: 240,
+      expectedRenderer: renderer,
+    }),
+    /deterministic pdftoppm page render exited/,
+  );
+});
+
 test('the research corpus rowset digest excludes volatile SQLite audit timestamps', async () => {
   const candidate = await fixture();
   const database = new DatabaseSync(candidate.resourcePaths['corpus:sqlite']);
@@ -636,6 +765,27 @@ test('duplicate snapshot bytes and canonical text cannot be relabelled as indepe
   assert.ok(codes.includes('duplicate_independent_snapshot_bytes'));
   assert.ok(codes.includes('duplicate_independent_canonical_text'));
   assert.ok(validation.assertions[0].blockers.includes('independent_exact_document_witness_missing'));
+});
+
+test('RFC 3986 path escapes and equivalent host spellings cannot create a second independent URL', async () => {
+  const candidate = await fixture();
+  const original = candidate.manifest.online_sources.find(
+    (item) => item.source_id === 'source:from-independent',
+  );
+  const alias = structuredClone(original);
+  alias.source_id = 'source:from-independent-url-alias';
+  alias.title = '等价 URL 拼写';
+  alias.url = 'https://INDEPENDENT.EXAMPLE./%66rom';
+  alias.resource.resource_id = 'snapshot:from-url-alias';
+  alias.spans = alias.spans.map((span) => ({
+    ...span,
+    span_id: `${span.span_id}-url-alias`,
+  }));
+  candidate.manifest.online_sources.push(alias);
+  candidate.resourcePaths[alias.resource.resource_id] = candidate.resourcePaths['snapshot:from'];
+  refreshSourceRegistry(candidate);
+  const validation = validateResearchEvidenceSlice(candidate);
+  assert.ok(validation.errors.some((item) => item.code === 'duplicate_independent_source_url'));
 });
 
 test('a declared unresolved transcription conflict blocks research readiness and every public consumer', async () => {

@@ -92,7 +92,11 @@ function normalizedHttpsUrl(value) {
   try {
     const parsed = new URL(value);
     if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.hash) return null;
-    parsed.hostname = parsed.hostname.toLowerCase();
+    parsed.hostname = parsed.hostname.toLowerCase().replace(/\.$/u, '');
+    parsed.pathname = parsed.pathname.replace(/%([0-9a-f]{2})/giu, (encoded, hexadecimal) => {
+      const character = String.fromCharCode(Number.parseInt(hexadecimal, 16));
+      return /^[A-Za-z0-9._~-]$/u.test(character) ? character : `%${hexadecimal.toUpperCase()}`;
+    });
     const sortedSearch = [...parsed.searchParams.entries()]
       .sort(([leftKey, leftValue], [rightKey, rightValue]) => (
         leftKey.localeCompare(rightKey) || leftValue.localeCompare(rightValue)
@@ -107,6 +111,7 @@ function normalizedHttpsUrl(value) {
 
 function workIdentity(document) {
   return {
+    role: document.role,
     document_id: document.document_id,
     title: document.title,
     version_label: document.version_label,
@@ -620,7 +625,11 @@ function validateOnlineSources({ manifest, documentById, resourcePaths, errors }
       expect(errors, source.spans?.some((span) => span.purpose === 'version_identity'), 'version_identity_span_missing', `${location}.spans`, sourceId);
       expect(errors, EXACT_VERSION_RELATIONS.has(source.version_relation), 'version_identity_relation_invalid', `${location}.version_relation`, String(source.version_relation));
     }
-    resolvedSources.set(sourceId, { raw_sha256: raw ? sha256(raw) : null, canonical_body: canonicalBody });
+    resolvedSources.set(sourceId, {
+      raw: resourceBytesVerified ? Buffer.from(raw) : null,
+      raw_sha256: raw ? sha256(raw) : null,
+      canonical_body: canonicalBody,
+    });
   }
 
   for (const [sourceId, source] of sourceById) {
@@ -755,6 +764,7 @@ function validateEvidence({
   spanById,
   sourceBindingValid,
   invalidIndependentSourceIds,
+  resolvedSources,
   resourcePaths,
   renderPageImage,
   errors,
@@ -790,22 +800,30 @@ function validateEvidence({
     expect(errors, evidence.page_image?.media_type === 'image/png', 'evidence_page_image_media_type_invalid', `${location}.page_image.media_type`, String(evidence.page_image?.media_type));
     expect(errors, SHA256.test(evidence.page_image?.sha256 || ''), 'evidence_page_image_sha256_invalid', `${location}.page_image.sha256`, evidenceId);
     expect(errors, evidence.page_image?.rendered_from_source_artifact_sha256 === evidence.source_artifact_sha256, 'evidence_page_image_source_mismatch', `${location}.page_image.rendered_from_source_artifact_sha256`, evidenceId);
-    expect(errors, typeof evidence.page_image?.renderer === 'string' && evidence.page_image.renderer.length > 0, 'evidence_page_image_renderer_missing', `${location}.page_image.renderer`, evidenceId);
-    expect(errors, Number.isInteger(evidence.page_image?.dpi) && evidence.page_image.dpi >= 200, 'evidence_page_image_dpi_too_low', `${location}.page_image.dpi`, String(evidence.page_image?.dpi));
+    const renderer = evidence.page_image?.renderer;
+    expect(errors,
+      exactKeys(renderer, ['name', 'version', 'sha256', 'command_contract', 'execution_binding']),
+      'evidence_page_image_renderer_identity_invalid', `${location}.page_image.renderer`, evidenceId);
+    expect(errors, renderer?.name === 'pdftoppm', 'evidence_page_image_renderer_name_invalid', `${location}.page_image.renderer.name`, String(renderer?.name));
+    expect(errors, /^pdftoppm version [0-9]+\.[0-9]+\.[0-9]+$/u.test(renderer?.version || ''), 'evidence_page_image_renderer_version_invalid', `${location}.page_image.renderer.version`, String(renderer?.version));
+    expect(errors, SHA256.test(renderer?.sha256 || ''), 'evidence_page_image_renderer_sha256_invalid', `${location}.page_image.renderer.sha256`, String(renderer?.sha256));
+    expect(errors, renderer?.command_contract === 'pdftoppm_png_single_page_v1', 'evidence_page_image_renderer_command_invalid', `${location}.page_image.renderer.command_contract`, String(renderer?.command_contract));
+    expect(errors, renderer?.execution_binding === 'verified_private_read_only_copy_v1', 'evidence_page_image_renderer_execution_binding_invalid', `${location}.page_image.renderer.execution_binding`, String(renderer?.execution_binding));
+    expect(errors, evidence.page_image?.dpi === 240, 'evidence_page_image_dpi_invalid', `${location}.page_image.dpi`, String(evidence.page_image?.dpi));
     const pageImage = safeResource(resourcePaths, evidence.page_image?.resource_id, errors, `${location}.page_image.resource_id`);
     if (pageImage && SHA256.test(evidence.page_image?.sha256 || '')) {
       expect(errors, sha256(pageImage) === evidence.page_image.sha256, 'evidence_page_image_sha256_mismatch', `${location}.page_image.sha256`, evidenceId);
       expect(errors, isPngBytes(pageImage), 'evidence_page_image_magic_invalid', `${location}.page_image.media_type`, evidenceId);
       const primarySource = sourceById.get(document?.primary_source_id);
-      const pdfPath = resourcePaths?.[primarySource?.resource?.resource_id];
+      const pdfBytes = resolvedSources.get(primarySource?.source_id)?.raw;
       if (typeof renderPageImage !== 'function') {
         addError(errors, 'evidence_page_renderer_unavailable', `${location}.page_image`, evidenceId);
-      } else if (typeof pdfPath !== 'string') {
+      } else if (!Buffer.isBuffer(pdfBytes)) {
         addError(errors, 'evidence_page_source_pdf_missing', `${location}.page_image`, evidenceId);
       } else {
         try {
           const rendered = renderPageImage({
-            pdfPath,
+            pdfBytes: Buffer.from(pdfBytes),
             page: evidence.physical_pdf_page,
             dpi: evidence.page_image.dpi,
             document,
@@ -1008,6 +1026,8 @@ function validateAssertions({
     const location = `$.assertions[${assertionId}]`;
     expect(errors, documentById.has(assertion.from_document_id), 'assertion_from_document_missing', `${location}.from_document_id`, String(assertion.from_document_id));
     expect(errors, documentById.has(assertion.to_document_id), 'assertion_to_document_missing', `${location}.to_document_id`, String(assertion.to_document_id));
+    expect(errors, documentById.get(assertion.from_document_id)?.role === 'from', 'assertion_from_document_role_invalid', `${location}.from_document_id`, String(assertion.from_document_id));
+    expect(errors, documentById.get(assertion.to_document_id)?.role === 'to', 'assertion_to_document_role_invalid', `${location}.to_document_id`, String(assertion.to_document_id));
     expect(errors, Array.isArray(assertion.from_evidence_ids) && assertion.from_evidence_ids.length > 0, 'assertion_from_evidence_missing', `${location}.from_evidence_ids`, 'required');
     expect(errors, Array.isArray(assertion.to_evidence_ids) && assertion.to_evidence_ids.length > 0, 'assertion_to_evidence_missing', `${location}.to_evidence_ids`, 'required');
     const evidenceIds = [...(assertion.from_evidence_ids || []), ...(assertion.to_evidence_ids || [])];
@@ -1120,6 +1140,7 @@ export function validateResearchEvidenceSlice({
     spanById: online.spanById,
     sourceBindingValid: online.sourceBindingValid,
     invalidIndependentSourceIds: online.invalidIndependentSourceIds,
+    resolvedSources: online.resolvedSources,
     resourcePaths,
     renderPageImage,
     errors,
