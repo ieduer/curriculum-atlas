@@ -290,7 +290,8 @@ test('A2 partial AppleDouble incident resumes through a quiet two-phase state ma
   assert.doesNotMatch(resume, /rm\s+(?:-[^\s]+\s+)*"?\$(?:WORKSPACE|INCIDENT|AUTHORITY|GRANT)/u);
 
   for (const exact of [
-    '/usr/bin/mv -T --no-clobber --no-copy -- "$WORKSPACE" "$QUARANTINED_WORKSPACE"',
+    '/usr/bin/sudo -n /usr/bin/mv -T --no-clobber --no-copy --',
+    '"$WORKSPACE" "$QUARANTINED_WORKSPACE"',
     'incident and workspace are not on the same filesystem',
     'EXPECTED_EVIDENCE_INODE=41854492',
     'EXPECTED_INCIDENT_INODE=43669283',
@@ -318,6 +319,7 @@ test('A2 partial AppleDouble incident resumes through a quiet two-phase state ma
     'BDFZ_A2_ATOMIC_PAYLOAD=$payload',
     '__A2_GENERATOR_COMPLETE_d4360775194aaf8593a9fa5db10cf7465b222534__',
     'GNU mv lacks --no-copy',
+    'non-interactive sudo is unavailable',
     'probe_target_otmpfile 2',
     'probe_target_otmpfile 3',
     'target filesystem lacks safe O_TMPFILE support',
@@ -342,7 +344,7 @@ test('A2 partial AppleDouble incident resumes through a quiet two-phase state ma
   assert.doesNotMatch(resumeScript, /rm\s+(?:-[^\s]+\s+)*"?\$(?:WORKSPACE|INCIDENT|AUTHORITY|GRANT)/u);
   assert.ok(
     resumeScript.indexOf('probe_target_otmpfile 2')
-      < resumeScript.indexOf('/usr/bin/mv -T --no-clobber --no-copy'),
+      < resumeScript.indexOf('/usr/bin/sudo -n /usr/bin/mv -T --no-clobber --no-copy'),
     'target filesystem O_TMPFILE probe must precede the move',
   );
   assert.equal(spawnSync('/bin/bash', ['-n'], { input: resumeScript }).status, 0);
@@ -452,12 +454,18 @@ INCIDENT_FIXTURE="$ROOT/incident"
 QUARANTINED_FIXTURE="$INCIDENT_FIXTURE/workspace-a-r2-contaminated"
 ORIGINAL_FIXTURE="$ROOT/workspace-a-r2"
 mkdir "$INCIDENT_FIXTURE" "$ORIGINAL_FIXTURE"
+MOVE_COMMAND=(/usr/bin/mv)
+if test "$(command -v sudo || true)" = /usr/bin/sudo \
+  && /usr/bin/sudo -n /usr/bin/true >/dev/null 2>&1; then
+  chmod 500 "$ORIGINAL_FIXTURE"
+  MOVE_COMMAND=(/usr/bin/sudo -n /usr/bin/mv)
+fi
 FIXTURE_DEVICE=$(stat -c %d "$ORIGINAL_FIXTURE")
 FIXTURE_INODE=$(stat -c %i "$ORIGINAL_FIXTURE")
 INCIDENT_INODE=$(stat -c %i "$INCIDENT_FIXTURE")
 test "$(classify_state "$ORIGINAL_FIXTURE" "$QUARANTINED_FIXTURE" \
   "$FIXTURE_DEVICE" "$FIXTURE_INODE" "$INCIDENT_FIXTURE")" = PREMOVE_READY
-/usr/bin/mv -T --no-clobber --no-copy -- "$ORIGINAL_FIXTURE" "$QUARANTINED_FIXTURE"
+"\${MOVE_COMMAND[@]}" -T --no-clobber --no-copy -- "$ORIGINAL_FIXTURE" "$QUARANTINED_FIXTURE"
 test "$(classify_state "$ORIGINAL_FIXTURE" "$QUARANTINED_FIXTURE" \
   "$FIXTURE_DEVICE" "$FIXTURE_INODE" "$INCIDENT_FIXTURE")" = MOVED_UNSEALED
 marker_generator() { printf 'sealed marker\n'; }

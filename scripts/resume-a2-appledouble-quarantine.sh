@@ -775,6 +775,7 @@ PY
     test "$(command -v jq)" = /usr/bin/jq || die 'unexpected jq implementation'
     test "$(command -v node)" = /usr/bin/node || die 'unexpected node implementation'
     test "$(command -v python3)" = /usr/bin/python3 || die 'unexpected python3 implementation'
+    test "$(command -v sudo)" = /usr/bin/sudo || die 'unexpected sudo implementation'
     local mv_help
     mv_help=$(/usr/bin/mv --help) || die 'could not inspect GNU mv capabilities'
     grep -Fq -- '--no-copy' <<< "$mv_help" || die 'GNU mv lacks --no-copy'
@@ -950,6 +951,7 @@ PY
       exec 9<"$INCIDENT"
       /usr/bin/flock --exclusive --nonblock 9 || die 'another seal operation holds the incident lock'
       test "$(assert_all_invariants)" = PREMOVE_READY || die 'seal requires PREMOVE_READY'
+      /usr/bin/sudo -n /usr/bin/true >/dev/null 2>&1 || die 'non-interactive sudo is unavailable'
       probe_target_otmpfile 2 || die 'target filesystem lacks safe O_TMPFILE support'
       test "$(stat -c %d "$INCIDENT")" = "$EXPECTED_DEVICE" \
         || die 'incident filesystem changed immediately before move'
@@ -958,7 +960,8 @@ PY
       test ! -e "$QUARANTINED_WORKSPACE" && test ! -L "$QUARANTINED_WORKSPACE" \
         || die 'quarantine destination appeared immediately before move'
       move_status=0
-      /usr/bin/mv -T --no-clobber --no-copy -- "$WORKSPACE" "$QUARANTINED_WORKSPACE" || move_status=$?
+      /usr/bin/sudo -n /usr/bin/mv -T --no-clobber --no-copy -- \
+        "$WORKSPACE" "$QUARANTINED_WORKSPACE" || move_status=$?
       state=$(classify_state "$WORKSPACE" "$QUARANTINED_WORKSPACE" "$EXPECTED_DEVICE" "$EXPECTED_INODE" "$INCIDENT")
       case "$state" in
         MOVED_UNSEALED) seal_moved_workspace ;;

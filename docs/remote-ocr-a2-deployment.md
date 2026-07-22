@@ -773,9 +773,13 @@ printf '%s\n' "$PHASE1_RESULT"
 
 For the known pre-move state, run Phase 2 with `PHASE2_ACTION=seal`. The script
 opens a non-creating lock on the incident directory, repeats Phase 1's race
-gates, then opens, writes, fsyncs, and closes an unnamed `O_TMPFILE` on the
-exact pinned incident filesystem before changing any pathname. It then uses exactly
-`/usr/bin/mv -T --no-clobber --no-copy -- "$WORKSPACE" "$QUARANTINED_WORKSPACE"`, classifies the
+gates, requires the already-provisioned non-interactive sudo boundary, then
+opens, writes, fsyncs, and closes an unnamed `O_TMPFILE` on the exact pinned
+incident filesystem before changing any pathname. The workspace root is
+intentionally mode `0500`; Linux requires privilege to move that directory to
+a different parent without opening a crash-prone `chmod` window. The script
+therefore uses exactly
+`/usr/bin/sudo -n /usr/bin/mv -T --no-clobber --no-copy -- "$WORKSPACE" "$QUARANTINED_WORKSPACE"`, classifies the
 paths instead of trusting the `mv` exit status, then adds only:
 
 - `resume-protocol.env`
