@@ -11,9 +11,9 @@
   "corpus": {
     "resource_id": "corpus:zh-canary-sqlite",
     "manifest_resource_id": "corpus:private-release-manifest",
-    "release_id": "corpus-4fe2f31344f52706de761788",
-    "release_fingerprint_sha256": "4fe2f31344f52706de761788a0c741ed03d87b74cb096f8de0590cba0baecf76",
-    "manifest_sha256": "0d34d802e9c1f1f4c0f827fbb180a851568e3cf59b02ada83f288fe042d0b413"
+    "release_id": "corpus-dcbd84da9174feba5492e366",
+    "release_fingerprint_sha256": "dcbd84da9174feba5492e36655f9bd071d2b302819014a770a98b39fccfb7e75",
+    "manifest_sha256": "e50ecb8ed79bc3831e46bdcc7fa0a70958889fbeadda6306b1c5c0de4e2f39c6"
   },
   "documents": [
     {
@@ -351,7 +351,7 @@
     {
       "evidence_id": "evidence:zh-hs-2017-course-nature",
       "document_id": "ictr-a71e3780f934",
-      "paragraph_id": 16307,
+      "paragraph_id": 16562,
       "paragraph_ordinal": 12,
       "physical_pdf_page": 11,
       "paragraph_body_sha256": "4d312e35d29d669f5619b4894e44c1541a6dc900dc94176e139b0c6999a889f2",
@@ -425,7 +425,7 @@
     {
       "evidence_id": "evidence:zh-hs-2017-basic-idea",
       "document_id": "ictr-a71e3780f934",
-      "paragraph_id": 16309,
+      "paragraph_id": 16564,
       "paragraph_ordinal": 14,
       "physical_pdf_page": 12,
       "paragraph_body_sha256": "8480f800c73bd282de8899a475b0385ce20be01d4759b09a5ede23d44a6fa222",
@@ -499,7 +499,7 @@
     {
       "evidence_id": "evidence:zh-hs-2017-core-literacy-term",
       "document_id": "ictr-a71e3780f934",
-      "paragraph_id": 16315,
+      "paragraph_id": 16570,
       "paragraph_ordinal": 20,
       "physical_pdf_page": 14,
       "paragraph_body_sha256": "b06987e9d3ef592db20aef4460d7c1d656fc3a312dcd673df368f26d39d60262",
