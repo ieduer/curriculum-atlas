@@ -89,6 +89,10 @@ function strictHtml(raw) {
 }
 
 function normalizedHttpsUrl(value) {
+  if (typeof value !== 'string' || value !== value.trim()
+    || /[\u0000-\u0020\u007f\\]/u.test(value) || value.includes('#')) return null;
+  const rawAuthority = value.match(/^https:\/\/([^/?#]*)/iu)?.[1];
+  if (rawAuthority === undefined || rawAuthority.includes('@')) return null;
   try {
     const parsed = new URL(value);
     if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.hash) return null;

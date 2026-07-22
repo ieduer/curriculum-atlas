@@ -61,15 +61,14 @@ HTML 资源必须是无二进制控制字符、严格 UTF-8、具有完整 `<htm
 
 ```bash
 npm run research:evidence:validate -- \
-  --resource-map <OWNER_ONLY_RESOURCE_MAP_JSON> \
-  --renderer <PDFTOPPM_PATH>
+  --resource-map <OWNER_ONLY_RESOURCE_MAP_JSON>
 ```
 
 手动执行严格发布资格检查：
 
 ```bash
 CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP=<OWNER_ONLY_RESOURCE_MAP_JSON> \
-  npm run research:evidence:release:validate -- --renderer <PDFTOPPM_PATH>
+  npm run research:evidence:release:validate
 ```
 
 当前严格命令按设计返回退出码 `3`，因为没有签名编辑裁决，且第三条仍有在线转录冲突。退出码 `2` 表示证据或输入完整性失败；退出码 `0` 只允许在所有 assertion 真正具备 publication eligibility 后出现。

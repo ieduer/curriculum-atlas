@@ -1031,6 +1031,26 @@ test('rejects fragment aliases and source-scope expansion for the same HTTP retr
   assert.ok(codes.includes('source_registry_source_scope_mismatch'));
 });
 
+test('rejects empty fragment and empty-userinfo delimiters before URL normalization', async () => {
+  for (const invalidUrl of [
+    'https://independent.example/from#',
+    'https://:@independent.example/from',
+  ]) {
+    const candidate = await fixture();
+    const source = candidate.manifest.online_sources.find(
+      (item) => item.source_id === 'source:from-independent',
+    );
+    source.url = invalidUrl;
+    refreshSourceRegistry(candidate);
+    const validation = validateResearchEvidenceSlice(candidate);
+    assert.ok(
+      validation.errors.some((item) => item.code === 'source_url_invalid'),
+      `${invalidUrl}: ${JSON.stringify(validation.errors)}`,
+    );
+    assert.equal(validation.evidence_integrity_valid, false);
+  }
+});
+
 test('rejects semantic aliases of one conflict span even when each alias has one conflict id', async () => {
   const candidate = await fixture();
   const source = candidate.manifest.online_sources.find((item) => item.source_id === 'source:from-independent');
