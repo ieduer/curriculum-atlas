@@ -17,6 +17,8 @@
     "release:evidence:preview": "node scripts/collect-release-environment-evidence.mjs --environment preview --output .wrangler/release-environment-evidence.json",
     "release:evidence:production": "node scripts/collect-release-environment-evidence.mjs --environment production --output .wrangler/release-environment-evidence.json",
     "sources:audit:moe-scans": "node scripts/audit-local-moe-scans.mjs",
+    "sources:recovery:online:refresh": "node scripts/source-recovery-online-receipt.mjs --refresh --output data/source-recovery-online-receipt.json",
+    "sources:recovery:validate": "node scripts/validate-source-recovery-proofs.mjs --require-local --deep-archive && node scripts/source-recovery-online-receipt.mjs --fresh --require-local",
     "sources:fetch": "node scripts/fetch-sources.mjs",
     "corpus:build": "node scripts/build-corpus.mjs",
     "corpus:private:build": "node scripts/build-private-corpus-bundle.mjs",

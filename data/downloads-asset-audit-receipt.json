@@ -2,7 +2,7 @@
   "schema_version": 1,
   "contract": "curriculum_downloads_asset_audit_v1",
   "generated_by": "scripts/build-downloads-asset-audit-receipt.mjs",
-  "audited_at": "2026-07-22T04:41:40.890Z",
+  "audited_at": "2026-07-22T07:53:30.291Z",
   "downloads_root_label": "operator_downloads",
   "ok": true,
   "downloads_ingested": true,
@@ -116,11 +116,11 @@
       "ingested": true
     }
   ],
-  "project_source_pdf_files": 245,
-  "project_unique_source_artifacts": 209,
-  "project_unique_queue_pages": 11691,
-  "registry_sha256": "5bcdb5d4632fce56318e96c27a92b94d0e24f6121bc99fb4dc1fe4c5f569f3ab",
+  "project_source_pdf_files": 263,
+  "project_unique_source_artifacts": 227,
+  "project_unique_queue_pages": 11835,
+  "registry_sha256": "1cf14edc77246196787e3ab38d3cc4373f098d169faab3ef85a8574df274827a",
   "errors": 0,
   "warnings": 2,
-  "receipt_sha256": "fa261d1fa3eddb6d33259ec4a2c0aefd869fc6c692f84dcf2ff9850bf99108c0"
+  "receipt_sha256": "16230551c29c1f81e940d85821400f808b754b035f250b6f4c1bb4df7a6f909e"
 }

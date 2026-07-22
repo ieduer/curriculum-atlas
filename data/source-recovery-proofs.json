@@ -1,0 +1,635 @@
+{
+  "$schema": "./source-recovery-proofs.schema.json",
+  "schema_version": 2,
+  "policy": "exact_artifact_version_aware_source_recovery_v2",
+  "reviewed_at": "2026-07-22T05:54:00.000Z",
+  "reviewed_by": "curriculum-source-recovery-20260722",
+  "rules": {
+    "corrupt_payloads_remain_quarantined": true,
+    "same_work_different_scan_is_not_byte_identity": true,
+    "same_title_different_version_is_not_corroboration": true,
+    "unresolved_text_conflicts_block_citation": true,
+    "office_pagination_is_not_a_stable_locator": true,
+    "non_pdf_text_requires_artifact_and_paragraph_anchors": true
+  },
+  "corrupt_payload_recoveries": [
+    {
+      "document_id": "ictr-2a9f8ddd4169",
+      "quarantine_artifact_id": "quarantine-ictr-physics-2017-zero-prefix-corrupt",
+      "corrupt_artifact": {
+        "sha256": "5711024837310d68c30741142fb9b26cf75a040f703452395817e4cdb60c7263",
+        "bytes": 2787438,
+        "path": ".cache/sources/ictr-2a9f8ddd4169.pdf",
+        "zero_prefix_bytes": 8192,
+        "tail_start_offset": 8192,
+        "tail_sha256": "74476d441a12257c87da90931da21dbdb346bb91c291ed6103d0af248f17ca1a"
+      },
+      "recovered_artifact": {
+        "sha256": "50b77ebbbaa0a538a7a26843dac7ce8f9f615dec28689be2a3a7dcbbc0849cd2",
+        "bytes": 2787438,
+        "page_count": 100,
+        "path": ".cache/source-recovery/moe-2017/ZW18-131_普通高中物理课程标准（2017年版）96.pdf",
+        "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/201801/t20180115_324647.html",
+        "source_url": "http://www.moe.gov.cn/srcsite/A26/s8001/201801/W020181025286384018871.rar",
+        "source_archive_sha256": "074988f6b5426eb48dc98187b66e8d010659b4b35930fe276fe6eefac6e05269",
+        "archive_member": "ZW18-131_普通高中物理课程标准（2017年版）96.pdf"
+      },
+      "relationship": "same_length_zero_prefix_corruption_with_byte_identical_tail",
+      "canonical_use": "official_native_text"
+    },
+    {
+      "document_id": "ictr-24bb45bda31b",
+      "quarantine_artifact_id": "quarantine-ictr-english-experimental-zero-prefix-corrupt",
+      "corrupt_artifact": {
+        "sha256": "4047001069c1999c1e9c8917a6f7c381a401924bf012d1e3b395dbbe8578778a",
+        "bytes": 12230617,
+        "path": ".cache/sources/ictr/普通高中课程标准（实验）/普通高中英语课程标准（实验）.pdf",
+        "zero_prefix_bytes": 8192,
+        "tail_start_offset": 8192,
+        "tail_sha256": "c4548c32c635fe9be5deaf8f3d19473bae4a997294ec9fd52097cd221c398a91"
+      },
+      "recovered_artifact": {
+        "sha256": "a38f7b4765bbab7f94e7b3c0b9ec48d6bbef180cd8dcbdb0b79781bb6694f0f0",
+        "bytes": 12230617,
+        "page_count": 144,
+        "path": ".cache/source-recovery/moe-2003-legacy/W020200401347863199102.pdf",
+        "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+        "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020200401347863199102.pdf",
+        "source_archive_sha256": null,
+        "archive_member": null
+      },
+      "relationship": "same_length_zero_prefix_corruption_with_byte_identical_tail",
+      "canonical_use": "identity_witness_only"
+    }
+  ],
+  "official_archives": [
+    {
+      "archive_id": "moe-high-school-2017-original-release",
+      "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/201801/t20180115_324647.html",
+      "source_url": "http://www.moe.gov.cn/srcsite/A26/s8001/201801/W020181025286384018871.rar",
+      "path": ".cache/source-recovery/moe-2017/W020181025286384018871.rar",
+      "media_type": "application/vnd.rar",
+      "sha256": "074988f6b5426eb48dc98187b66e8d010659b4b35930fe276fe6eefac6e05269",
+      "bytes": 41484639,
+      "expected_magic_hex": "526172211a0700",
+      "member_count": 21,
+      "members": [
+        [
+          "ictr-f4258201b960",
+          "普通高中课程方案（2017年版）",
+          "ZW18-61_普通高中课程方案（2017年版）96.pdf",
+          "d28b9733eaf2fcaeb76b8c8378c50a6003b22b6fa4b0450d84031c9a77794dc3",
+          652625,
+          28
+        ],
+        [
+          "ictr-a71e3780f934",
+          "普通高中语文课程标准（2017年版）",
+          "ZW18-310_普通高中语文课程标准（2017年版）96.pdf",
+          "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
+          2533576,
+          68
+        ],
+        [
+          "ictr-c6548a1bafaa",
+          "普通高中数学课程标准（2017年版）",
+          "ZW18-72_普通高中数学课程标准（2017年版）96.pdf",
+          "e44331fd0fe5941d8261b6c0853af2d3e35da3c9cc4a992cd96202023eaf176c",
+          11082875,
+          192
+        ],
+        [
+          "ictr-558a1b45c392",
+          "普通高中英语课程标准（2017年版）",
+          "ZW18-133_普通高中英语课程标准（2017年版）96.pdf",
+          "ca1a6b9d8cdd9d41f5228680a9847ba43f4330ea627ed4f7751668e957d212b1",
+          5156016,
+          224
+        ],
+        [
+          "ictr-964bf92284f7",
+          "普通高中思想政治课程标准（2017年版）",
+          "ZW18-144_普通高中思想政治课程标准（2017年版）96.pdf",
+          "982f92f09b7565fc8c188a13342c798dba36604f0d5497b0a052d14541ef161b",
+          2925706,
+          72
+        ],
+        [
+          "ictr-76b2c3d24d6c",
+          "普通高中历史课程标准（2017年版）",
+          "ZW18-86_普通高中历史课程标准（2017年版）96.pdf",
+          "81cdc7248e235ec8bd0caf23a3f8a77812116cc2f9175b4e1b77082f2722e287",
+          3698051,
+          96
+        ],
+        [
+          "ictr-49a06acc5c30",
+          "普通高中地理课程标准（2017年版）",
+          "ZW18-101_普通高中地理课程标准（2017年版）96.pdf",
+          "51b5cd0275f7c224653d7e04a57aaf02b51fd955c036057ecdc08750b4a84d53",
+          2554233,
+          72
+        ],
+        [
+          "ictr-2a9f8ddd4169",
+          "普通高中物理课程标准（2017年版）",
+          "ZW18-131_普通高中物理课程标准（2017年版）96.pdf",
+          "50b77ebbbaa0a538a7a26843dac7ce8f9f615dec28689be2a3a7dcbbc0849cd2",
+          2787438,
+          100
+        ],
+        [
+          "ictr-19ad589c202c",
+          "普通高中化学课程标准（2017年版）",
+          "ZW18-103_普通高中化学课程标准（2017年版）96.pdf",
+          "6a4758b769bff411baa8f7c68380bb29b78956fc1146e8cf033f60b744e3b35c",
+          3052674,
+          116
+        ],
+        [
+          "ictr-4bafe454e71c",
+          "普通高中生物学课程标准（2017年版）",
+          "ZW18-102_普通高中生物学课程标准（2017年版）96.pdf",
+          "0457c4543d556c3ab84d29fcae1d7235a6b5fcef20e6656407f5d3ac71508965",
+          2759190,
+          100
+        ],
+        [
+          "ictr-cda29e4b3f6e",
+          "普通高中信息技术课程标准（2017年版）",
+          "ZW18-100_普通高中信息技术课程标准（2017年版）96.pdf",
+          "e71cd2e5a099da8b0fa6287e8bd3065aabc6559b64c8fb0e7b2bf87742af86d2",
+          2091452,
+          88
+        ],
+        [
+          "ictr-2be12e10b157",
+          "普通高中通用技术课程标准（2017年版）",
+          "ZW18-126_普通高中通用技术课程标准（2017年版）96.pdf",
+          "49c56bf5c22c225cd4894743db9ff442ce31046f7a8d382baa8880449b904492",
+          2654060,
+          112
+        ],
+        [
+          "ictr-ee910e3b7681",
+          "普通高中艺术课程标准（2017年版）",
+          "ZW18-84_普通高中艺术课程标准（2017年版）96.pdf",
+          "e5e6a25715b3c47fe58afa98e5bda5f800cbee13dca0620cb15d3bf49845f9af",
+          2381462,
+          84
+        ],
+        [
+          "ictr-51f6c6efd6c6",
+          "普通高中音乐课程标准（2017年版）",
+          "ZW18-117_普通高中音乐课程标准（2017年版）96.pdf",
+          "8bb4a9bdbbd908303866d8db6368c478dcf3c47fd975830c4ad03f8bb7203bee",
+          1715091,
+          76
+        ],
+        [
+          "ictr-de1ed67f4d81",
+          "普通高中美术课程标准（2017年版）",
+          "ZW18-82_普通高中美术课程标准（2017年版）96.pdf",
+          "224817d346ef65012dcc73ca99f5dd350c77aec74998981a7cb10477258a90c2",
+          2351141,
+          88
+        ],
+        [
+          "ictr-797ca14fa623",
+          "普通高中体育与健康课程标准（2017年版）",
+          "ZW18-99_普通高中体育与健康课程标准（2017年版）96.pdf",
+          "37289b88e7a9794c12af9ec1c2f9bd2a691b6ae61f3fe48e432f5b23733c20f1",
+          3153885,
+          124
+        ],
+        [
+          "ictr-a2fc108c4cbf",
+          "普通高中日语课程标准（2017年版）",
+          "ZW18-73_普通高中日语课程标准（2017年版）96.pdf",
+          "f7079a3e265d178ec65060e5d6a132084143482b9f4f7673db2e0db2c3555a4a",
+          3218126,
+          116
+        ],
+        [
+          "ictr-d4d7a73cce00",
+          "普通高中俄语课程标准（2017年版）",
+          "ZW18-115_普通高中俄语课程标准（2017年版）96.pdf",
+          "e4a76f98716a1baa4bc2d5ebe123a3eab79c051d23fa6138a1896af18816601e",
+          3232757,
+          128
+        ],
+        [
+          "ictr-c96cc01ca832",
+          "普通高中德语课程标准（2017年版）",
+          "ZW18-290_普通高中德语课程标准（2017年版）96.pdf",
+          "407d57808de52d44f242cc697ee208876c1b9a42cab7150a252fd6e80d66baef",
+          4958336,
+          168
+        ],
+        [
+          "ictr-b38ed137f52d",
+          "普通高中法语课程标准（2017年版）",
+          "ZW18-116_普通高中法语课程标准（2017年版）96.pdf",
+          "7c23d6a08f36b0b62f935311826ef9e0cf7fd431d44b88c78facb90952557ed3",
+          3433534,
+          124
+        ],
+        [
+          "ictr-5a08a40f1810",
+          "普通高中西班牙语课程标准（2017年版）",
+          "ZW18-132_普通高中西班牙语课程标准（2017年版）96.pdf",
+          "5944fd855cd005a3b4e644539f21592f350b3f5f93bcc9ea66860e45e61f4722",
+          3626580,
+          168
+        ]
+      ]
+    }
+  ],
+  "official_same_work_scan_variants": [
+    [
+      "ictr-6aed243f91fa",
+      "普通高中课程方案（实验）",
+      "W020241017509261651415.pdf",
+      "cc2b2d224f69b7521cfc67514f5aca60e2c16d98494b629d6fd6d2677b2087ce",
+      906899,
+      9
+    ],
+    [
+      "ictr-0bcfe4b915df",
+      "普通高中语文课程标准（实验）",
+      "W020241017509261718950.pdf",
+      "dd07a23025097c58de40ef7e752db2a0c928a106949f4450c36a93d433970576",
+      4060354,
+      39
+    ],
+    [
+      "ictr-24bb45bda31b",
+      "普通高中英语课程标准（实验）",
+      "W020241017509261927766.pdf",
+      "f8421c73c76ff4117a2a5b096c9768d19dd51b0398a1391b8c641c0cd748ccac",
+      12373305,
+      144
+    ],
+    [
+      "ictr-bb00e7fd186f",
+      "普通高中日语课程标准（实验）",
+      "W020241017509262535279.pdf",
+      "684b5f3fe48b1e76a089672ccf1c90eded85368199b2df07f172da17ae712cdc",
+      6541428,
+      109
+    ],
+    [
+      "ictr-3db457c6f361",
+      "普通高中俄语课程标准（实验）",
+      "W020241017509262875191.pdf",
+      "3bc4a42ae09bf9f36ea93979d330cd2e37c3fe69659d227afe127cba6b199b1b",
+      5890963,
+      96
+    ],
+    [
+      "ictr-8b649cdfb27d",
+      "普通高中数学课程标准（实验）",
+      "W020241017509263167989.pdf",
+      "8477987841c2bd750ed62faf490cdab5fd8c877ed79af30dd17b4a31c6217687",
+      11810312,
+      127
+    ],
+    [
+      "ictr-1adc57fe27b4",
+      "普通高中物理课程标准（实验）",
+      "W020241017509263736958.pdf",
+      "5c2f30bd8ba14820949462429a595fda4e9d805c807038bcd5164a42e40baa86",
+      10438045,
+      75
+    ],
+    [
+      "ictr-06ce7a4eb5fa",
+      "普通高中化学课程标准（实验）",
+      "W020241017509264242187.pdf",
+      "0b4e0477b79b0771a4e730624399c1a30dfed0c1320f9e0d336408cc9feffc86",
+      3893500,
+      45
+    ],
+    [
+      "ictr-c198f8ed538f",
+      "普通高中生物课程标准（实验）",
+      "W020241017509264436955.pdf",
+      "e16e1d3630dc92c0af91fdd2955ecae0fe27c4d986d3acac929d38b01cbe1e4c",
+      5043630,
+      62
+    ],
+    [
+      "ictr-2ef191eaec15",
+      "普通高中历史课程标准（实验）",
+      "W020241017509264681723.pdf",
+      "9010f065fbeb9d878ee3280fdb8b3f97e938118737bdc6cdf7a7aea3f33e676f",
+      3284432,
+      37
+    ],
+    [
+      "ictr-043d90816a8b",
+      "普通高中地理课程标准（实验）",
+      "W020241017509264845510.pdf",
+      "1d3601f7894ab0c1860395c45a0b3e599f692de6765c4d853efd33cb75a36cf8",
+      5833287,
+      39
+    ],
+    [
+      "ictr-e1fab1e6823b",
+      "普通高中技术课程标准（实验）",
+      "W020241017509265140859.pdf",
+      "38b4a9d794caf4ed9a5ef3610823e4cb99c9716883f3121516fb2b3959e4a056",
+      14344118,
+      158
+    ],
+    [
+      "ictr-7c995a071399",
+      "普通高中艺术课程标准（实验）",
+      "W020241017509265849150.pdf",
+      "c36c882beb4988155e2bbbbfeed3d524488915966a98dc0381f705cf40addc12",
+      4204783,
+      46
+    ],
+    [
+      "ictr-8c4134098f38",
+      "普通高中音乐课程标准（实验）",
+      "W020241017509266056028.pdf",
+      "5f4ebe57c1fad2dbbdff7d80bf290503ec3c94c0990c7c7e344f9ce724ca8e47",
+      2073259,
+      25
+    ],
+    [
+      "ictr-e096e4d65c97",
+      "普通高中美术课程标准（实验）",
+      "W020241017509266150039.pdf",
+      "9182c089da695fd835087bf7a42791943f8a0369fd53337d764572ac3bec91c0",
+      1900075,
+      22
+    ],
+    [
+      "ictr-8176ab3ce84b",
+      "普通高中体育与健康课程标准（实验）",
+      "W020241017509266253473.pdf",
+      "8880a8c89868db742000770bd3edf4925bdb91987ecf08a4c4e066ee7d528ca0",
+      8049805,
+      65
+    ]
+  ],
+  "same_work_scan_variant_context": {
+    "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+    "path_prefix": ".cache/source-recovery/moe-2003/",
+    "source_url_prefix": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/",
+    "publication_eligible": false,
+    "purpose": "independent_same_work_version_witness",
+    "canonical_document_ids": [
+      "ictr-24bb45bda31b"
+    ]
+  },
+  "native_attachments": [
+    {
+      "document_id": "ictr-a027c4d6e30e",
+      "canonical": {
+        "provider": "中华人民共和国教育部",
+        "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200403/t20040302_167352.html",
+        "source_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200403/W020250807557231804509.doc",
+        "path": ".cache/source-recovery/native/moe-hs-political-2004-standard.doc",
+        "media_type": "application/msword",
+        "sha256": "8198140c9240870e53fec334dd990516f90aaee71c76c71713b7d0eb0f936848",
+        "bytes": 210432,
+        "text_path": ".cache/source-recovery/text/ictr-a027c4d6e30e-moe-current.txt",
+        "text_sha256": "b14cc6c3f51fb562ff9fa1d0892b2b5bdca4f14f6b177ee1c18589c94ba914ff",
+        "text_bytes": 66259
+      },
+      "variants": [
+        {
+          "provider": "教育部课程教材研究所",
+          "source_page_url": "https://www.ictr.edu.cn/download_center/pt.html",
+          "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E6%80%9D%E6%83%B3%E6%94%BF%E6%B2%BB%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%88%E5%AE%9E%E9%AA%8C%EF%BC%89.20220428173334.doc",
+          "path": ".cache/source-recovery/native/ictr-hs-political-experimental.doc",
+          "media_type": "application/msword",
+          "sha256": "6a37dac2ddab958bafc138fa3cf2f26351ff60e3cb702a3b7cecd141a4544fac",
+          "bytes": 238080,
+          "text_path": ".cache/source-recovery/text/ictr-a027c4d6e30e-ictr.txt",
+          "text_sha256": "8f86a2c38a817e5b0e09c476c24f6b04d90956418051ddf74f25210a8eef8436",
+          "text_bytes": 66259
+        }
+      ],
+      "conflicts": [
+        {
+          "conflict_id": "political-2004-judicial-mediation-one-character",
+          "locator": "附件原文第481行·课程模块5.11",
+          "canonical_text": "理解司法调解、行政复议在解决权益纠纷中的作用",
+          "variant_text": "理解司法调节、行政复议在解决权益纠纷中的作用",
+          "status": "unresolved_attachment_revision",
+          "publication_effect": "exact_artifact_binding_required"
+        }
+      ],
+      "text_status": "native_text_version_conflict",
+      "citation_allowed": false,
+      "pagination_status": "unstable_office_layout"
+    },
+    {
+      "document_id": "ictr-cfb2a39a2016",
+      "canonical": {
+        "provider": "教育部课程教材研究所",
+        "source_page_url": "https://www.ictr.edu.cn/download_center/fangan.html",
+        "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E8%81%8B%E6%A0%A1%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88%EF%BC%882007%E5%B9%B4%EF%BC%89.20220428175657.doc",
+        "path": ".cache/source-recovery/native/ictr-cfb2a39a2016.doc",
+        "media_type": "application/msword",
+        "sha256": "cc0a8cd468fce4dfaf5640d7fda2fb1fba83a9e041c046846959d26d3c5c7b5c",
+        "bytes": 74240,
+        "text_path": ".cache/source-recovery/text/ictr-cfb2a39a2016.txt",
+        "text_sha256": "1b39fe29a0db37d2660cbddc117c453d626653eb648ce518170f83e9d9b45039",
+        "text_bytes": 7269
+      },
+      "variants": [],
+      "conflicts": [],
+      "text_status": "native_text_structure_review",
+      "citation_allowed": false,
+      "pagination_status": "unstable_office_layout"
+    },
+    {
+      "document_id": "ictr-8f02447b66ca",
+      "canonical": {
+        "provider": "教育部课程教材研究所",
+        "source_page_url": "https://www.ictr.edu.cn/download_center/fangan.html",
+        "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E7%9B%B2%E6%A0%A1%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88%EF%BC%882007%E5%B9%B4%EF%BC%89.20220428175639.doc",
+        "path": ".cache/source-recovery/native/ictr-8f02447b66ca.doc",
+        "media_type": "application/msword",
+        "sha256": "2ae0ca0a23a50d82de3958fa41d5855aec3d4a384c27e25af8215fbe1bc64e7b",
+        "bytes": 77824,
+        "text_path": ".cache/source-recovery/text/ictr-8f02447b66ca.txt",
+        "text_sha256": "04d6002073375cc5b61037c977a3ac44716d4b36353370f1f054d51ca9a82586",
+        "text_bytes": 11472
+      },
+      "variants": [],
+      "conflicts": [],
+      "text_status": "native_text_structure_review",
+      "citation_allowed": false,
+      "pagination_status": "unstable_office_layout"
+    },
+    {
+      "document_id": "ictr-f74769862cc6",
+      "canonical": {
+        "provider": "中华人民共和国教育部",
+        "source_page_url": "https://www.moe.gov.cn/srcsite/A06/s3331/200702/t20070202_128271.html",
+        "source_url": "https://www.moe.gov.cn/publicfiles/business/htmlfiles/moe/cmsmedia/image//UserFiles/File/2008/04/28/2008042821/2008042821_323032.doc",
+        "path": ".cache/source-recovery/native/ictr-f74769862cc6.doc",
+        "media_type": "application/msword",
+        "sha256": "f193ab844fbb23287f5599a39e90f2bd3a916e0f609ab851eced790f01dcb6c0",
+        "bytes": 46080,
+        "text_path": ".cache/source-recovery/text/ictr-f74769862cc6.txt",
+        "text_sha256": "6a7b21c13b9b64e52ee92ace5e54347e2026c7bbcc718de9eae3efc2a4869701",
+        "text_bytes": 11332
+      },
+      "variants": [],
+      "conflicts": [],
+      "text_status": "native_text_structure_review",
+      "citation_allowed": false,
+      "pagination_status": "unstable_office_layout"
+    },
+    {
+      "document_id": "ictr-07a04c6c51fd",
+      "canonical": {
+        "provider": "教育部课程教材研究所",
+        "source_page_url": "https://www.ictr.edu.cn/download_center/fangan.html",
+        "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88.20220428175514.docx",
+        "path": ".cache/source-recovery/native/ictr-07a04c6c51fd.docx",
+        "media_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "sha256": "295e2f48a24ce372381f3f358fbbe7c3001c466506016e3b4b81e4918fb5cec4",
+        "bytes": 25919,
+        "text_path": ".cache/source-recovery/text/ictr-07a04c6c51fd.txt",
+        "text_sha256": "77954292f88a1937c98f6f6554ab93e540a4406351db6b0f2f7434c3d41ab35d",
+        "text_bytes": 8533
+      },
+      "variants": [],
+      "conflicts": [],
+      "text_status": "native_text_structure_review",
+      "citation_allowed": false,
+      "pagination_status": "unstable_office_layout",
+      "online_text_witness": {
+        "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s7054/200111/t20011119_88602.html",
+        "relationship": "official_same_work_html_witness_pending_paragraph_alignment"
+      }
+    }
+  ],
+  "work_identity_fields": [
+    "id",
+    "country",
+    "language",
+    "title",
+    "subject",
+    "stage",
+    "document_type",
+    "version_label",
+    "issued_by",
+    "issued_date",
+    "published_date",
+    "current_status"
+  ],
+  "canonical_artifact_identity_fields": [
+    "id",
+    "source_tier",
+    "access_status",
+    "source_page_url",
+    "source_url",
+    "file_format",
+    "redistribution",
+    "checksum_sha256",
+    "page_count",
+    "local_cache_path",
+    "text_quality_status",
+    "citation_allowed",
+    "original_filename",
+    "native_text_cache_path",
+    "native_text_sha256"
+  ],
+  "catalog_identity_sha256_by_document": {
+    "ictr-043d90816a8b": "f8b5174fcadaca678b19eccaab578505049023e142443ad5f2d00b976c97ae0b",
+    "ictr-06ce7a4eb5fa": "3b3261bae4a75535693aab8629cbf8d7baa24ca747238254deb2b6afc1d83483",
+    "ictr-07a04c6c51fd": "d531d29c65eaca64e96ab6090b47295bafe20ab7ce3296fe3e33dad030bb77f1",
+    "ictr-0bcfe4b915df": "e97b4c168cffe1b0d7771426cecd40dbff40cd88f2d0df081395baf8acf0d156",
+    "ictr-19ad589c202c": "331b49c14eec41cccf28959008eccf17f9431fd23b9c1b5f377ba4cd6e894393",
+    "ictr-1adc57fe27b4": "c59601ad19b2a8f26b2c2db58e3ef3d2a5d44ab8f8ae99cc53f24001e8d6b1ba",
+    "ictr-24bb45bda31b": "c38034ae496b6cab8e105f11daf3f13ce07a86bf30d23abdbbcd0f6df92a5cfa",
+    "ictr-2a9f8ddd4169": "bae714f38962ab3ca11530815d1e13afe9b15beef85df7f913f3f825ff3aade4",
+    "ictr-2be12e10b157": "73659c6efc142a4a1211539542c02e6cc47f3a42608837405e0ab82f4c3911f1",
+    "ictr-2ef191eaec15": "88c1f9051e4dfb386fbe1c76177656000039ffa2ae20273af818cf176d3f10be",
+    "ictr-3db457c6f361": "deaf8fec3115acdffe9752b94b1e1233aa8cb593888bbef7f36d2b5845cdc4f0",
+    "ictr-49a06acc5c30": "f4cf928d5543fb2ed3cfd8238c544b137c45454f688838e144dbd18f208c6a0d",
+    "ictr-4bafe454e71c": "854723533beaf6061f27655d6ab175f2a1205d450dafe2815316d99530e51880",
+    "ictr-51f6c6efd6c6": "b97318f97b70a7e63f8193bafc742634e231fa27de1238481b1dd924dc1059ea",
+    "ictr-558a1b45c392": "faf894ee146588dd67549f246a15c53e42e57ef0322461f6506bdf91d56bbfef",
+    "ictr-5a08a40f1810": "1614bac6a563f592462a8100b55d94e779191ca1a2ff59f683245188eb18bfe9",
+    "ictr-6aed243f91fa": "10d3022977b642b957e0c244d583219d6aca1d1607f410efe9c2c6d863b6ee3c",
+    "ictr-76b2c3d24d6c": "5ac0979de6ac3461a3e40d70ff254bc81d8894b17085cf14b48bfc58e2386a81",
+    "ictr-797ca14fa623": "3a0314059653f4b6c50f4848f3b448541158ab520c3d738f95994b169446b456",
+    "ictr-7c995a071399": "dc4cf75392b726948e4244a86e9f755d65ed0f5d0d644abf30d78ef2bcba3a34",
+    "ictr-8176ab3ce84b": "f6a4323e643578a7aa4c939e50b8f3c7773a7dab2b4b5f42b971514f0b5b6749",
+    "ictr-8b649cdfb27d": "8a2d1b30995c53d440ad50ee83d709c302c66d194936cd858e401e8c3b67c1ec",
+    "ictr-8c4134098f38": "a9a4cc752f8499f3a0d606bb8f88b78a79627c1e4d091872cb0099e5577f0af1",
+    "ictr-8f02447b66ca": "3e94e5ea8850fa070c3aa52c0c73a08382a7c6beb4786074df4cfa45a85bf314",
+    "ictr-964bf92284f7": "d5aa0d8788ecb2f9ebc93950d31f2834fe855830d9b7c68661b634efd0f10207",
+    "ictr-a027c4d6e30e": "a9890b8b61ef51bc220dedc401d594ba177e85527731d47d31e80b0d4d641ee1",
+    "ictr-a2fc108c4cbf": "fd1fedcc8dd8a42f6eb5a05920ee05f7374a042e5dadeb62060b86cc8d94514c",
+    "ictr-a71e3780f934": "2b87bf267ba844a0872a124abb43ff6827f26b15d0dca898cb6d334b7610afe7",
+    "ictr-b38ed137f52d": "69eb22caceaf7dd35269e0109a27617b4568b7052286a00e170b31c460d3b7b0",
+    "ictr-bb00e7fd186f": "b4fa5edf725302038017cb9c4076b1eefa22b726a7039c41fe675de09be7a3d2",
+    "ictr-c198f8ed538f": "5213fc9229e332c37c8ae3c668ab19c4da2c97f95f7c10978c82ae3501352ea1",
+    "ictr-c6548a1bafaa": "e15e360df5847c429860ec3c0f8ad77019310253d128170583573fb5bbe029d1",
+    "ictr-c96cc01ca832": "f5e66c56d687553d07305fc3162f0e62a72dcd7221e37d455ebbc534de7238b8",
+    "ictr-cda29e4b3f6e": "daa9c21b225161a53e4d33ed90eae5457ccf8c0a829a4020cfde6e0af6fb74c9",
+    "ictr-cfb2a39a2016": "72b4d9d3529f8466e0550bedbf8b96f1cb85fe03ebb8ed58d44d7599bf4d9b9a",
+    "ictr-d4d7a73cce00": "4f18de45190e7b5b3158324346eae34b8f3dd96125417d6db075e42ba38d0f3f",
+    "ictr-de1ed67f4d81": "1c4e6609042500706243b04e7126b3e6c8eca80476275cbe27fcdd7b99dd3906",
+    "ictr-e096e4d65c97": "f26928d9cdddb4236605210102036e311b807d4956f3c5acf7df1e06ea52bcfa",
+    "ictr-e1fab1e6823b": "4acb4774ad9ca808a9d784c9c1f83f43d783fa8b72d31a5fc0ed6cb1e6c699b2",
+    "ictr-ee910e3b7681": "e6aa55296a183d115e3ff14e22655fdeecc48b5b9360569533da86ac2d22f461",
+    "ictr-f4258201b960": "eb7b87e6d0e02a1fe9fcb4d64c734fe522ddb84c48b3e580157c7b67dd31a216",
+    "ictr-f74769862cc6": "76adf529147a4ea9533ea5e92c5b69843dc04452f499dfccdc9d4e6a49a40c68"
+  },
+  "catalog_canonical_artifact_sha256_by_document": {
+    "ictr-043d90816a8b": "f2e055754e38b05f3529127c127785a279d093a1d97579ea632807dda6c77141",
+    "ictr-06ce7a4eb5fa": "3d622582049c2d7f59b08d034acc01376a5a62d04962017a26a33c294c57358e",
+    "ictr-07a04c6c51fd": "853208c664c3bb3c78b75fce1938ab3c099c885424ad04113cff9c8966625a73",
+    "ictr-0bcfe4b915df": "854f4cf60ade7484866f6cfcdc1ded414861bf825abfbf1d1e5c66e22cd84154",
+    "ictr-19ad589c202c": "6a1653e345291336cef53220dd515e738d2610ed1ef3670169f385cf0b497905",
+    "ictr-1adc57fe27b4": "6903c14be345fc2749a74be137055184264125bef94c1e19ddcd514c30fbe732",
+    "ictr-24bb45bda31b": "a87bb1ff36e274e14e2b08453098289cf04f5a84c7c8e98573ceedd8aa199c1a",
+    "ictr-2a9f8ddd4169": "6ba3b591c349a7c4912b3a2fb64a2eeff981bd9ccfaffc90f26a22569218731b",
+    "ictr-2be12e10b157": "a9401c8f183a96f9ce07ba5bf7ff2b26bbedde5707170d371761d745da5d6970",
+    "ictr-2ef191eaec15": "77eef079d472ffda4c3c78c109a913afeb72df1848a445ffce13752d202d3293",
+    "ictr-3db457c6f361": "50436c0245e86fb5cfcbe3b22abab1b173f932b494e7d3be68b45cba08729130",
+    "ictr-49a06acc5c30": "fa60748c6ab63fc45f2bade949308cb98b15576ed32c87cd94b061c015f844b8",
+    "ictr-4bafe454e71c": "ecc96a4e4a94d6cc66143d704dd9f9a67cee5a85e400c8a3eff04aa033fbaf70",
+    "ictr-51f6c6efd6c6": "a0527dde8fbc42feda3b9f571357ba3df5ee458755817fc4e3648d3ec0cbbef4",
+    "ictr-558a1b45c392": "d1f7564136346547f4d8679815f2ab9fc913491cc514bb511a2f62da5ccaef78",
+    "ictr-5a08a40f1810": "04e440806e4619de4f296e76b7c27911c9faec6ca3a0f7b43b5ab5bf26d05607",
+    "ictr-6aed243f91fa": "e0350921a6e472db21810ef7dc98a8994941affff58f7a4339958c0d3385c2e4",
+    "ictr-76b2c3d24d6c": "f9bf7d9b29585d7cf0b29c90d37512d3779a1b57daa02667ba91ff40edcb8577",
+    "ictr-797ca14fa623": "6d7fbe25fff93ea5a6bfdb9224992c0781b3c48b9a8eefcf01abb7186faf6f91",
+    "ictr-7c995a071399": "7e7843a106255ba61883442a0ac5f4fbbd4d07418cc12be9343fbcdfbc480831",
+    "ictr-8176ab3ce84b": "29d45d6aa46b72b3f14da0faa5134b335508ff3d551ae1e05e1a2d8d19e228c9",
+    "ictr-8b649cdfb27d": "b422bf5c9afd9dff56c39d3239275c1f3e83600d8b854ac2be7664becf4a888f",
+    "ictr-8c4134098f38": "4b8f6759afb7a66aee357fb86c288300470a2a3f029c9b154b12343e5917b6ba",
+    "ictr-8f02447b66ca": "31df3ea5db6c4d23f3d9dd41eb012fc7fff750c6a6be5b3476dd901e27d9c07a",
+    "ictr-964bf92284f7": "c6cae91fa3c09b9113e3cdc3758510110511250d88cb389e9a9e21befe70fb4a",
+    "ictr-a027c4d6e30e": "a9b3b1640a139fcfab2bce3e81eaa25fac5226cd2a66b6a1129dff8a394dbb21",
+    "ictr-a2fc108c4cbf": "8e8ea8a84b6447e6e669bf4d02445fb1e45f12d32c4913cc9af8459b7a0d06e5",
+    "ictr-a71e3780f934": "dcf566f779faff01905d4b846d3869f9b8575c736689cd4ad55bab4e430c4926",
+    "ictr-b38ed137f52d": "bbf112773557fe658281f917f12ddea65664d28734925d6970b8cac1f6b12f46",
+    "ictr-bb00e7fd186f": "2010890a2fef0d5d14f45dd87902cb08ac7427ed53670ebc52f3b7afd650d00b",
+    "ictr-c198f8ed538f": "0459f737046e76cb60756158a8ab280bd9e71610216d783dee7587aad8b8ea0a",
+    "ictr-c6548a1bafaa": "6e298eb48d59e8b4c2de59a141d33f77bc74d46bbbc11a2649f6d056c8c5cd7e",
+    "ictr-c96cc01ca832": "3e808cca39c79c51569a31f6c339d4d33e07a4f7a829c14bc6d9db321c06ecce",
+    "ictr-cda29e4b3f6e": "3218c9fd344caec01a96007c6799a5e025ac9bcba2d2b9ab9b4cea37c293e2ba",
+    "ictr-cfb2a39a2016": "aafd2e7f16796949eb8c4fb14ec65930fa7202e1a0935b325b2ed8b2709fd3d1",
+    "ictr-d4d7a73cce00": "658fdfaaadcb966eb3934f58394b71d88fd66c1786933a463c6d87871f780e6e",
+    "ictr-de1ed67f4d81": "1e1228dfae0da8d16c77db96e082b5f8a53c1b7c8706d0660fb2315725cfd1c7",
+    "ictr-e096e4d65c97": "17f0353954f21fd50a2f75c7b9fe0b778d033acaac11430761ded735cdebde97",
+    "ictr-e1fab1e6823b": "c2ef060cd1b4ddce4eae1c3810911f20cadc3d1de17a180a935b1ea7f853675a",
+    "ictr-ee910e3b7681": "cbb6c1791c9ac25e1448197f068252c6beb4ced919349f2f9384c92e8d65398f",
+    "ictr-f4258201b960": "c292dc8da00a2cd99dcc8ef3e3c4c55718db4020251724a199de46d2a6f5f168",
+    "ictr-f74769862cc6": "b98de79e435549696ac817702c5a69fbebf7bf9784a749ab0234012461dc420b"
+  }
+}

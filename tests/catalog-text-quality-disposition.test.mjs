@@ -11,7 +11,16 @@ test('every catalog record has an explicit fail-closed text-quality disposition'
   }
 
   const citationReady = sourceManifest.filter((record) => record.citation_allowed === true);
-  assert.equal(citationReady.length, 101);
+  assert.equal(citationReady.length, 102);
+
+  const recoveredPhysics = sourceManifest.find((record) => record.id === 'ictr-2a9f8ddd4169');
+  assert.ok(recoveredPhysics, 'the recovered 2017 physics standard must remain registered');
+  assert.equal(recoveredPhysics.text_quality_status, 'official_native_text');
+  assert.equal(recoveredPhysics.citation_allowed, true);
+  assert.equal(
+    recoveredPhysics.checksum_sha256,
+    '50b77ebbbaa0a538a7a26843dac7ce8f9f615dec28689be2a3a7dcbbc0849cd2',
+  );
 });
 
 test('catalog-only records never impersonate citable body text', () => {

@@ -641,12 +641,18 @@ test('Worker deployment executes from the complete private source and dist snaps
     await mkdir(join(root, 'src'), { recursive: true });
     await mkdir(join(root, 'dist'), { recursive: true });
     await mkdir(join(root, 'data'), { recursive: true });
+    const [sourceRecoveryProof, sourceRecoveryReceipt] = await Promise.all([
+      readFile(new URL('data/source-recovery-proofs.json', projectRoot)),
+      readFile(new URL('data/source-recovery-online-receipt.json', projectRoot)),
+    ]);
     const files = new Map([
       ['src/index.ts', Buffer.from('export default { fetch() { return new Response("ok"); } };\n')],
       ['src/z.ts', Buffer.from('export const z = true;\n')],
       ['src/é.ts', Buffer.from('export const accented = true;\n')],
       ['wrangler.jsonc', Buffer.from('{"name":"fixture","main":"src/index.ts","assets":{"directory":"./dist"}}\n')],
       ['data/ontology-release-manifest.json', Buffer.from('{"fixture":true}\n')],
+      ['data/source-recovery-proofs.json', sourceRecoveryProof],
+      ['data/source-recovery-online-receipt.json', sourceRecoveryReceipt],
       ['dist/index.html', Buffer.from('<!doctype html><title>fixture</title>\n')],
     ]);
     for (const [path, buffer] of files) await writeFile(join(root, path), buffer);

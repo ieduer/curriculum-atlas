@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-22T04:35:15.601Z",
+  "generated_at": "2026-07-22T07:51:36.338Z",
   "source_policy": "Primary official sources first; missing originals stay explicitly missing.",
   "counts": {
     "documents": 195,
-    "verified_online": 175,
+    "verified_online": 182,
     "local_verified_scan": 12,
-    "metadata_only": 6,
-    "citation_ready": 101,
-    "ocr_review_pending": 87
+    "metadata_only": 1,
+    "citation_ready": 102,
+    "ocr_review_pending": 86
   },
   "documents": [
     {
@@ -3995,19 +3995,20 @@
       "issued_date": null,
       "published_date": null,
       "current_status": "superseded_by_2020_revision",
-      "source_tier": "primary_official_institute",
-      "access_status": "listed_official_invalid_download",
-      "source_page_url": "https://www.ictr.edu.cn/download_center/putong.html",
-      "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E7%89%A9%E7%90%86%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%882017%E5%B9%B4%E7%89%88%EF%BC%89.20220428174925.pdf",
-      "file_format": "pdf",
+      "source_tier": "primary_official",
+      "access_status": "verified_online",
+      "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/201801/t20180115_324647.html",
+      "source_url": "http://www.moe.gov.cn/srcsite/A26/s8001/201801/W020181025286384018871.rar",
+      "file_format": "pdf_local",
       "redistribution": "metadata_and_search_index_only",
-      "checksum_sha256": null,
-      "page_count": null,
-      "local_cache_path": null,
-      "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "note": "课程教材研究所目录已核验，但下载端点在本次检查中返回无效载荷；不生成正文或引文。",
-      "original_filename": "普通高中物理课程标准（2017年版）.pdf"
+      "checksum_sha256": "50b77ebbbaa0a538a7a26843dac7ce8f9f615dec28689be2a3a7dcbbc0849cd2",
+      "page_count": 100,
+      "local_cache_path": ".cache/source-recovery/moe-2017/ZW18-131_普通高中物理课程标准（2017年版）96.pdf",
+      "text_quality_status": "official_native_text",
+      "citation_allowed": true,
+      "note": "教育部 2017 原始发布 RAR 成员恢复；课程教材研究所损坏下载保留在 quarantine。官方 PDF 为原生文本，只有精确页段仍可引用。",
+      "original_filename": "普通高中物理课程标准（2017年版）.pdf",
+      "recovery_proof_id": "exact_artifact_version_aware_source_recovery_v2:ictr-2a9f8ddd4169"
     },
     {
       "id": "ictr-5a08a40f1810",
@@ -4196,7 +4197,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中地理课程标准（实验）.pdf"
+      "original_filename": "普通高中地理课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-043d90816a8b",
+          "title": "普通高中地理课程标准（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264845510.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509264845510.pdf",
+          "checksum_sha256": "1d3601f7894ab0c1860395c45a0b3e599f692de6765c4d853efd33cb75a36cf8",
+          "size_bytes": 5833287,
+          "page_count": 39,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-3db457c6f361",
@@ -4223,7 +4241,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中俄语课程标准（实验）.pdf"
+      "original_filename": "普通高中俄语课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-3db457c6f361",
+          "title": "普通高中俄语课程标准（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262875191.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509262875191.pdf",
+          "checksum_sha256": "3bc4a42ae09bf9f36ea93979d330cd2e37c3fe69659d227afe127cba6b199b1b",
+          "size_bytes": 5890963,
+          "page_count": 96,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-06ce7a4eb5fa",
@@ -4250,7 +4285,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中化学课程标准（实验）.pdf"
+      "original_filename": "普通高中化学课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-06ce7a4eb5fa",
+          "title": "普通高中化学课程标准（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264242187.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509264242187.pdf",
+          "checksum_sha256": "0b4e0477b79b0771a4e730624399c1a30dfed0c1320f9e0d336408cc9feffc86",
+          "size_bytes": 3893500,
+          "page_count": 45,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-e1fab1e6823b",
@@ -4277,7 +4329,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中技术课程标准（实验）.pdf"
+      "original_filename": "普通高中技术课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-e1fab1e6823b",
+          "title": "普通高中技术课程标准（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265140859.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509265140859.pdf",
+          "checksum_sha256": "38b4a9d794caf4ed9a5ef3610823e4cb99c9716883f3121516fb2b3959e4a056",
+          "size_bytes": 14344118,
+          "page_count": 158,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-2ef191eaec15",
@@ -4304,7 +4373,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中历史课程标准（实验）.pdf"
+      "original_filename": "普通高中历史课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-2ef191eaec15",
+          "title": "普通高中历史课程标准（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264681723.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509264681723.pdf",
+          "checksum_sha256": "9010f065fbeb9d878ee3280fdb8b3f97e938118737bdc6cdf7a7aea3f33e676f",
+          "size_bytes": 3284432,
+          "page_count": 37,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-e096e4d65c97",
@@ -4331,7 +4417,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中美术课程标准（实验）.pdf"
+      "original_filename": "普通高中美术课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-e096e4d65c97",
+          "title": "普通高中美术课程标准（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266150039.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509266150039.pdf",
+          "checksum_sha256": "9182c089da695fd835087bf7a42791943f8a0369fd53337d764572ac3bec91c0",
+          "size_bytes": 1900075,
+          "page_count": 22,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-bb00e7fd186f",
@@ -4358,7 +4461,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中日语课程标准（实验）.pdf"
+      "original_filename": "普通高中日语课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-bb00e7fd186f",
+          "title": "普通高中日语课程标准（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262535279.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509262535279.pdf",
+          "checksum_sha256": "684b5f3fe48b1e76a089672ccf1c90eded85368199b2df07f172da17ae712cdc",
+          "size_bytes": 6541428,
+          "page_count": 109,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-c198f8ed538f",
@@ -4385,7 +4505,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中生物课程标准（实验）.pdf"
+      "original_filename": "普通高中生物课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-c198f8ed538f",
+          "title": "普通高中生物课程标准（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264436955.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509264436955.pdf",
+          "checksum_sha256": "e16e1d3630dc92c0af91fdd2955ecae0fe27c4d986d3acac929d38b01cbe1e4c",
+          "size_bytes": 5043630,
+          "page_count": 62,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-8b649cdfb27d",
@@ -4412,7 +4549,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中数学课程标准（实验）.pdf"
+      "original_filename": "普通高中数学课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-8b649cdfb27d",
+          "title": "普通高中数学课程标准（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263167989.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509263167989.pdf",
+          "checksum_sha256": "8477987841c2bd750ed62faf490cdab5fd8c877ed79af30dd17b4a31c6217687",
+          "size_bytes": 11810312,
+          "page_count": 127,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-a027c4d6e30e",
@@ -4427,19 +4581,46 @@
       "issued_date": null,
       "published_date": null,
       "current_status": "historical",
-      "source_tier": "primary_official_institute",
-      "access_status": "metadata_only",
-      "source_page_url": "https://www.ictr.edu.cn/download_center/pt.html",
-      "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E6%80%9D%E6%83%B3%E6%94%BF%E6%B2%BB%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%88%E5%AE%9E%E9%AA%8C%EF%BC%89.20220428173334.doc",
-      "file_format": "doc",
+      "source_tier": "primary_official",
+      "access_status": "verified_online",
+      "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200403/t20040302_167352.html",
+      "source_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200403/W020250807557231804509.doc",
+      "file_format": "doc_local",
       "redistribution": "metadata_and_search_index_only",
-      "checksum_sha256": null,
+      "checksum_sha256": "8198140c9240870e53fec334dd990516f90aaee71c76c71713b7d0eb0f936848",
       "page_count": null,
-      "local_cache_path": null,
-      "text_quality_status": "unavailable",
+      "local_cache_path": ".cache/source-recovery/native/moe-hs-political-2004-standard.doc",
+      "text_quality_status": "native_text_version_conflict",
       "citation_allowed": false,
-      "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中思想政治课程标准（实验）.doc"
+      "note": "原始 DOC 已恢复；教育部当前附件与课程教材研究所附件有一字修订冲突。Office 页码不稳定，精确版本/段落锚点完成前不开放正文引文。",
+      "original_filename": "普通高中思想政治课程标准（实验）.doc",
+      "native_text_cache_path": ".cache/source-recovery/text/ictr-a027c4d6e30e-moe-current.txt",
+      "native_text_sha256": "b14cc6c3f51fb562ff9fa1d0892b2b5bdca4f14f6b177ee1c18589c94ba914ff",
+      "attachment_variants": [
+        {
+          "provider": "教育部课程教材研究所",
+          "source_page_url": "https://www.ictr.edu.cn/download_center/pt.html",
+          "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E6%80%9D%E6%83%B3%E6%94%BF%E6%B2%BB%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%88%E5%AE%9E%E9%AA%8C%EF%BC%89.20220428173334.doc",
+          "path": ".cache/source-recovery/native/ictr-hs-political-experimental.doc",
+          "media_type": "application/msword",
+          "sha256": "6a37dac2ddab958bafc138fa3cf2f26351ff60e3cb702a3b7cecd141a4544fac",
+          "bytes": 238080,
+          "text_path": ".cache/source-recovery/text/ictr-a027c4d6e30e-ictr.txt",
+          "text_sha256": "8f86a2c38a817e5b0e09c476c24f6b04d90956418051ddf74f25210a8eef8436",
+          "text_bytes": 66259
+        }
+      ],
+      "unresolved_source_conflicts": [
+        {
+          "conflict_id": "political-2004-judicial-mediation-one-character",
+          "locator": "附件原文第481行·课程模块5.11",
+          "canonical_text": "理解司法调解、行政复议在解决权益纠纷中的作用",
+          "variant_text": "理解司法调节、行政复议在解决权益纠纷中的作用",
+          "status": "unresolved_attachment_revision",
+          "publication_effect": "exact_artifact_binding_required"
+        }
+      ],
+      "recovery_proof_id": "exact_artifact_version_aware_source_recovery_v2:ictr-a027c4d6e30e"
     },
     {
       "id": "ictr-8176ab3ce84b",
@@ -4466,7 +4647,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中体育与健康课程标准（实验）.pdf"
+      "original_filename": "普通高中体育与健康课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-8176ab3ce84b",
+          "title": "普通高中体育与健康课程标准（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266253473.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509266253473.pdf",
+          "checksum_sha256": "8880a8c89868db742000770bd3edf4925bdb91987ecf08a4c4e066ee7d528ca0",
+          "size_bytes": 8049805,
+          "page_count": 65,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-1adc57fe27b4",
@@ -4493,7 +4691,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中物理课程标准（实验）.pdf"
+      "original_filename": "普通高中物理课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-1adc57fe27b4",
+          "title": "普通高中物理课程标准（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263736958.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509263736958.pdf",
+          "checksum_sha256": "5c2f30bd8ba14820949462429a595fda4e9d805c807038bcd5164a42e40baa86",
+          "size_bytes": 10438045,
+          "page_count": 75,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-7c995a071399",
@@ -4520,7 +4735,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中艺术课程标准（实验）.pdf"
+      "original_filename": "普通高中艺术课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-7c995a071399",
+          "title": "普通高中艺术课程标准（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265849150.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509265849150.pdf",
+          "checksum_sha256": "c36c882beb4988155e2bbbbfeed3d524488915966a98dc0381f705cf40addc12",
+          "size_bytes": 4204783,
+          "page_count": 46,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-8c4134098f38",
@@ -4547,7 +4779,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中音乐课程标准（实验）.pdf"
+      "original_filename": "普通高中音乐课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-8c4134098f38",
+          "title": "普通高中音乐课程标准（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266056028.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509266056028.pdf",
+          "checksum_sha256": "5f4ebe57c1fad2dbbdff7d80bf290503ec3c94c0990c7c7e344f9ce724ca8e47",
+          "size_bytes": 2073259,
+          "page_count": 25,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-24bb45bda31b",
@@ -4562,19 +4811,35 @@
       "issued_date": null,
       "published_date": null,
       "current_status": "historical",
-      "source_tier": "primary_official_institute",
-      "access_status": "listed_official_invalid_download",
-      "source_page_url": "https://www.ictr.edu.cn/download_center/pt.html",
-      "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E8%8B%B1%E8%AF%AD%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%88%E5%AE%9E%E9%AA%8C%EF%BC%89.20220428173046.pdf",
-      "file_format": "pdf",
+      "source_tier": "primary_official",
+      "access_status": "verified_online",
+      "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261927766.pdf",
+      "file_format": "pdf_local",
       "redistribution": "metadata_and_search_index_only",
-      "checksum_sha256": null,
-      "page_count": null,
-      "local_cache_path": null,
+      "checksum_sha256": "f8421c73c76ff4117a2a5b096c9768d19dd51b0398a1391b8c641c0cd748ccac",
+      "page_count": 144,
+      "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509261927766.pdf",
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
-      "note": "课程教材研究所目录已核验，但下载端点在本次检查中返回无效载荷；不生成正文或引文。",
-      "original_filename": "普通高中英语课程标准（实验）.pdf"
+      "note": "教育部当前同作品扫描质量优于旧附件，作为 OCR 主输入；损坏 ICTR 载荷和旧官方附件均保留以证明来源身份。",
+      "original_filename": "普通高中英语课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020200401347863199102.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003-legacy/W020200401347863199102.pdf",
+          "checksum_sha256": "a38f7b4765bbab7f94e7b3c0b9ec48d6bbef180cd8dcbdb0b79781bb6694f0f0",
+          "size_bytes": 12230617,
+          "page_count": 144,
+          "relationship": "same_work_older_official_attachment",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "旧教育部附件与损坏 ICTR 端点的 8192 字节后尾部完全一致；保留作端点身份见证，不作为质量优先 OCR 输入。"
+        }
+      ],
+      "recovery_proof_id": "exact_artifact_version_aware_source_recovery_v2:ictr-24bb45bda31b"
     },
     {
       "id": "ictr-0bcfe4b915df",
@@ -4601,7 +4866,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中语文课程标准（实验）.pdf"
+      "original_filename": "普通高中语文课程标准（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-0bcfe4b915df",
+          "title": "普通高中语文课程标准（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261718950.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509261718950.pdf",
+          "checksum_sha256": "dd07a23025097c58de40ef7e752db2a0c928a106949f4450c36a93d433970576",
+          "size_bytes": 4060354,
+          "page_count": 39,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-cfb2a39a2016",
@@ -4610,25 +4892,30 @@
       "title": "聋校义务教育课程设置实验方案（2007年）",
       "subject": "综合",
       "stage": "义务教育",
-      "document_type": "课程标准",
-      "version_label": "课程方案",
+      "document_type": "课程方案",
+      "version_label": "2007年实验方案",
       "issued_by": "中华人民共和国教育部",
       "issued_date": null,
       "published_date": null,
       "current_status": "historical",
       "source_tier": "primary_official_institute",
-      "access_status": "metadata_only",
+      "access_status": "verified_online",
       "source_page_url": "https://www.ictr.edu.cn/download_center/fangan.html",
       "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E8%81%8B%E6%A0%A1%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88%EF%BC%882007%E5%B9%B4%EF%BC%89.20220428175657.doc",
-      "file_format": "doc",
+      "file_format": "doc_local",
       "redistribution": "metadata_and_search_index_only",
-      "checksum_sha256": null,
+      "checksum_sha256": "cc0a8cd468fce4dfaf5640d7fda2fb1fba83a9e041c046846959d26d3c5c7b5c",
       "page_count": null,
-      "local_cache_path": null,
-      "text_quality_status": "unavailable",
+      "local_cache_path": ".cache/source-recovery/native/ictr-cfb2a39a2016.doc",
+      "text_quality_status": "native_text_structure_review",
       "citation_allowed": false,
-      "note": "课程教材研究所下载中心“课程方案”栏目收录。",
-      "original_filename": "聋校义务教育课程设置实验方案（2007年）.doc"
+      "note": "原始 Office 附件及文本已恢复；表格结构和稳定段落锚点仍在审校，当前可检索元数据但不开放正文引文。",
+      "original_filename": "聋校义务教育课程设置实验方案（2007年）.doc",
+      "native_text_cache_path": ".cache/source-recovery/text/ictr-cfb2a39a2016.txt",
+      "native_text_sha256": "1b39fe29a0db37d2660cbddc117c453d626653eb648ce518170f83e9d9b45039",
+      "attachment_variants": [],
+      "unresolved_source_conflicts": [],
+      "recovery_proof_id": "exact_artifact_version_aware_source_recovery_v2:ictr-cfb2a39a2016"
     },
     {
       "id": "ictr-8f02447b66ca",
@@ -4637,25 +4924,30 @@
       "title": "盲校义务教育课程设置实验方案（2007年）",
       "subject": "综合",
       "stage": "义务教育",
-      "document_type": "课程标准",
-      "version_label": "课程方案",
+      "document_type": "课程方案",
+      "version_label": "2007年实验方案",
       "issued_by": "中华人民共和国教育部",
       "issued_date": null,
       "published_date": null,
       "current_status": "historical",
       "source_tier": "primary_official_institute",
-      "access_status": "metadata_only",
+      "access_status": "verified_online",
       "source_page_url": "https://www.ictr.edu.cn/download_center/fangan.html",
       "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E7%9B%B2%E6%A0%A1%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88%EF%BC%882007%E5%B9%B4%EF%BC%89.20220428175639.doc",
-      "file_format": "doc",
+      "file_format": "doc_local",
       "redistribution": "metadata_and_search_index_only",
-      "checksum_sha256": null,
+      "checksum_sha256": "2ae0ca0a23a50d82de3958fa41d5855aec3d4a384c27e25af8215fbe1bc64e7b",
       "page_count": null,
-      "local_cache_path": null,
-      "text_quality_status": "unavailable",
+      "local_cache_path": ".cache/source-recovery/native/ictr-8f02447b66ca.doc",
+      "text_quality_status": "native_text_structure_review",
       "citation_allowed": false,
-      "note": "课程教材研究所下载中心“课程方案”栏目收录。",
-      "original_filename": "盲校义务教育课程设置实验方案（2007年）.doc"
+      "note": "原始 Office 附件及文本已恢复；表格结构和稳定段落锚点仍在审校，当前可检索元数据但不开放正文引文。",
+      "original_filename": "盲校义务教育课程设置实验方案（2007年）.doc",
+      "native_text_cache_path": ".cache/source-recovery/text/ictr-8f02447b66ca.txt",
+      "native_text_sha256": "04d6002073375cc5b61037c977a3ac44716d4b36353370f1f054d51ca9a82586",
+      "attachment_variants": [],
+      "unresolved_source_conflicts": [],
+      "recovery_proof_id": "exact_artifact_version_aware_source_recovery_v2:ictr-8f02447b66ca"
     },
     {
       "id": "ictr-f74769862cc6",
@@ -4664,25 +4956,30 @@
       "title": "培智学校义务教育课程设置实验方案（2007年）",
       "subject": "综合",
       "stage": "义务教育",
-      "document_type": "课程标准",
-      "version_label": "课程方案",
+      "document_type": "课程方案",
+      "version_label": "2007年实验方案",
       "issued_by": "中华人民共和国教育部",
       "issued_date": null,
       "published_date": null,
       "current_status": "historical",
-      "source_tier": "primary_official_institute",
-      "access_status": "metadata_only",
-      "source_page_url": "https://www.ictr.edu.cn/download_center/fangan.html",
-      "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E5%9F%B9%E6%99%BA%E5%AD%A6%E6%A0%A1%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88%EF%BC%882007%E5%B9%B4%EF%BC%89.20220428175619.doc",
-      "file_format": "doc",
+      "source_tier": "primary_official",
+      "access_status": "verified_online",
+      "source_page_url": "https://www.moe.gov.cn/srcsite/A06/s3331/200702/t20070202_128271.html",
+      "source_url": "https://www.moe.gov.cn/publicfiles/business/htmlfiles/moe/cmsmedia/image//UserFiles/File/2008/04/28/2008042821/2008042821_323032.doc",
+      "file_format": "doc_local",
       "redistribution": "metadata_and_search_index_only",
-      "checksum_sha256": null,
+      "checksum_sha256": "f193ab844fbb23287f5599a39e90f2bd3a916e0f609ab851eced790f01dcb6c0",
       "page_count": null,
-      "local_cache_path": null,
-      "text_quality_status": "unavailable",
+      "local_cache_path": ".cache/source-recovery/native/ictr-f74769862cc6.doc",
+      "text_quality_status": "native_text_structure_review",
       "citation_allowed": false,
-      "note": "课程教材研究所下载中心“课程方案”栏目收录。",
-      "original_filename": "培智学校义务教育课程设置实验方案（2007年）.doc"
+      "note": "原始 Office 附件及文本已恢复；表格结构和稳定段落锚点仍在审校，当前可检索元数据但不开放正文引文。",
+      "original_filename": "培智学校义务教育课程设置实验方案（2007年）.doc",
+      "native_text_cache_path": ".cache/source-recovery/text/ictr-f74769862cc6.txt",
+      "native_text_sha256": "6a7b21c13b9b64e52ee92ace5e54347e2026c7bbcc718de9eae3efc2a4869701",
+      "attachment_variants": [],
+      "unresolved_source_conflicts": [],
+      "recovery_proof_id": "exact_artifact_version_aware_source_recovery_v2:ictr-f74769862cc6"
     },
     {
       "id": "ictr-f4258201b960",
@@ -4736,7 +5033,24 @@
       "text_quality_status": "ocr_required",
       "citation_allowed": false,
       "note": "课程教材研究所下载中心“课程方案”栏目收录。",
-      "original_filename": "普通高中课程方案（实验）.pdf"
+      "original_filename": "普通高中课程方案（实验）.pdf",
+      "scan_variants": [
+        {
+          "document_id": "ictr-6aed243f91fa",
+          "title": "普通高中课程方案（实验）",
+          "source_tier": "primary_official",
+          "source_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "source_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261651415.pdf",
+          "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509261651415.pdf",
+          "checksum_sha256": "cc2b2d224f69b7521cfc67514f5aca60e2c16d98494b629d6fd6d2677b2087ce",
+          "size_bytes": 906899,
+          "page_count": 9,
+          "relationship": "same_work_different_scan",
+          "queue_eligible": false,
+          "publication_eligible": false,
+          "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
+        }
+      ]
     },
     {
       "id": "ictr-07a04c6c51fd",
@@ -4745,25 +5059,30 @@
       "title": "义务教育课程设置实验方案",
       "subject": "综合",
       "stage": "义务教育",
-      "document_type": "课程标准",
-      "version_label": "课程方案",
+      "document_type": "课程方案",
+      "version_label": "2001年实验方案",
       "issued_by": "中华人民共和国教育部",
       "issued_date": null,
       "published_date": null,
       "current_status": "historical",
       "source_tier": "primary_official_institute",
-      "access_status": "metadata_only",
+      "access_status": "verified_online",
       "source_page_url": "https://www.ictr.edu.cn/download_center/fangan.html",
       "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88.20220428175514.docx",
-      "file_format": "docx",
+      "file_format": "docx_local",
       "redistribution": "metadata_and_search_index_only",
-      "checksum_sha256": null,
+      "checksum_sha256": "295e2f48a24ce372381f3f358fbbe7c3001c466506016e3b4b81e4918fb5cec4",
       "page_count": null,
-      "local_cache_path": null,
-      "text_quality_status": "unavailable",
+      "local_cache_path": ".cache/source-recovery/native/ictr-07a04c6c51fd.docx",
+      "text_quality_status": "native_text_structure_review",
       "citation_allowed": false,
-      "note": "课程教材研究所下载中心“课程方案”栏目收录。",
-      "original_filename": "义务教育课程设置实验方案.docx"
+      "note": "原始 Office 附件及文本已恢复；表格结构和稳定段落锚点仍在审校，当前可检索元数据但不开放正文引文。",
+      "original_filename": "义务教育课程设置实验方案.docx",
+      "native_text_cache_path": ".cache/source-recovery/text/ictr-07a04c6c51fd.txt",
+      "native_text_sha256": "77954292f88a1937c98f6f6554ab93e540a4406351db6b0f2f7434c3d41ab35d",
+      "attachment_variants": [],
+      "unresolved_source_conflicts": [],
+      "recovery_proof_id": "exact_artifact_version_aware_source_recovery_v2:ictr-07a04c6c51fd"
     },
     {
       "id": "legacy-compendium-plans",

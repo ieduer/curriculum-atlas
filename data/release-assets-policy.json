@@ -95,6 +95,10 @@
       { "path": "data/release-environment-evidence.json", "disposition": "release_governance_receipt", "consumers": ["release_readiness", "environment_evidence_collector"] },
       { "path": "data/semantic-publication-policy.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "semantic_gate"] },
       { "path": "data/semantic-publication-policy.schema.json", "disposition": "r2_public_metadata", "consumers": ["semantic_gate"] },
+      { "path": "data/source-recovery-online-receipt.json", "disposition": "r2_public_metadata", "consumers": ["asset_audit", "release_preparer", "deploy_gate"] },
+      { "path": "data/source-recovery-online-receipt.schema.json", "disposition": "r2_public_metadata", "consumers": ["asset_audit", "release_manifest"] },
+      { "path": "data/source-recovery-proofs.json", "disposition": "r2_public_metadata", "consumers": ["asset_audit", "catalog_builder", "release_manifest"] },
+      { "path": "data/source-recovery-proofs.schema.json", "disposition": "r2_public_metadata", "consumers": ["asset_audit", "release_manifest"] },
       { "path": "data/subject-insights.json", "disposition": "d1_build_input", "consumers": ["corpus_builder", "concept_builder"] },
       { "path": "data/supplemental-sources.json", "disposition": "d1_build_input", "consumers": ["catalog_builder"] }
     ]
@@ -146,7 +150,11 @@
       "data/compendium-item-boundaries.schema.json",
       "data/ingest-manifest.json",
       "data/ocr-queue.json",
-      "data/release-assets-policy.json"
+      "data/release-assets-policy.json",
+      "data/source-recovery-online-receipt.json",
+      "data/source-recovery-online-receipt.schema.json",
+      "data/source-recovery-proofs.json",
+      "data/source-recovery-proofs.schema.json"
     ],
     "governed_source_prefixes": [
       "data/online-verification",
@@ -254,6 +262,30 @@
         "role": "online_verification_zh_compulsory_2022_schema",
         "source": "data/online-verification/zh-compulsory-2022-claims.schema.json",
         "key": "quality/online-verification/zh-compulsory-2022-claims.schema.json",
+        "content_type": "application/schema+json"
+      },
+      {
+        "role": "source_recovery_online_receipt",
+        "source": "data/source-recovery-online-receipt.json",
+        "key": "quality/source-recovery-online-receipt.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "source_recovery_online_receipt_schema",
+        "source": "data/source-recovery-online-receipt.schema.json",
+        "key": "quality/source-recovery-online-receipt.schema.json",
+        "content_type": "application/schema+json"
+      },
+      {
+        "role": "source_recovery_proofs",
+        "source": "data/source-recovery-proofs.json",
+        "key": "quality/source-recovery-proofs.json",
+        "content_type": "application/json"
+      },
+      {
+        "role": "source_recovery_proofs_schema",
+        "source": "data/source-recovery-proofs.schema.json",
+        "key": "quality/source-recovery-proofs.schema.json",
         "content_type": "application/schema+json"
       },
       {

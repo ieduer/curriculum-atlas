@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/source-recovery-online-receipt.schema.json",
+  "title": "Source recovery online verification receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "policy",
+    "checked_at",
+    "max_age_seconds",
+    "checker",
+    "source_proof",
+    "publication_pages",
+    "artifacts",
+    "receipt_sha256"
+  ],
+  "properties": {
+    "$schema": { "const": "./source-recovery-online-receipt.schema.json" },
+    "schema_version": { "const": 1 },
+    "policy": { "const": "official_publication_link_artifact_receipt_v1" },
+    "checked_at": { "type": "string", "format": "date-time" },
+    "max_age_seconds": { "const": 259200 },
+    "checker": { "const": "scripts/source-recovery-online-receipt.mjs" },
+    "source_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": { "const": "data/source-recovery-proofs.json" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "$ref": "#/$defs/positiveInteger" }
+      }
+    },
+    "publication_pages": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/publicationPage" }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "receipt_sha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "positiveInteger": { "type": "integer", "minimum": 1 },
+    "url": { "type": "string", "format": "uri", "pattern": "^https?://" },
+    "redirect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "status", "location"],
+      "properties": {
+        "url": { "$ref": "#/$defs/url" },
+        "status": { "type": "integer", "minimum": 300, "maximum": 399 },
+        "location": { "$ref": "#/$defs/url" }
+      }
+    },
+    "publicationPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "page_url",
+        "redirect_chain",
+        "final_url",
+        "status",
+        "content_type",
+        "bytes",
+        "sha256",
+        "page_status",
+        "verified_artifact_urls"
+      ],
+      "properties": {
+        "page_url": { "$ref": "#/$defs/url" },
+        "redirect_chain": { "type": "array", "items": { "$ref": "#/$defs/redirect" } },
+        "final_url": { "$ref": "#/$defs/url" },
+        "status": { "type": "integer", "minimum": 200, "maximum": 599, "not": { "const": 404 } },
+        "content_type": { "const": "text/html" },
+        "bytes": { "$ref": "#/$defs/positiveInteger" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "page_status": { "enum": ["html_href_verified", "official_waf_interstitial"] },
+        "verified_artifact_urls": { "type": "array", "items": { "$ref": "#/$defs/url" }, "uniqueItems": true }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "document_id",
+        "role",
+        "publication_page_url",
+        "expected_href_url",
+        "observed_href_url",
+        "href_status",
+        "request_url",
+        "redirect_chain",
+        "final_url",
+        "status",
+        "content_type",
+        "bytes",
+        "sha256"
+      ],
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "document_id": { "anyOf": [{ "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" }, { "type": "null" }] },
+        "role": { "enum": ["official_archive", "canonical_ocr_input", "same_work_scan_witness", "canonical_native_attachment", "native_attachment_variant"] },
+        "publication_page_url": { "$ref": "#/$defs/url" },
+        "expected_href_url": { "$ref": "#/$defs/url" },
+        "observed_href_url": { "anyOf": [{ "$ref": "#/$defs/url" }, { "type": "null" }] },
+        "href_status": { "enum": ["verified_in_publication_html", "official_waf_interstitial_exact_artifact"] },
+        "request_url": { "$ref": "#/$defs/url" },
+        "redirect_chain": { "type": "array", "items": { "$ref": "#/$defs/redirect" } },
+        "final_url": { "$ref": "#/$defs/url" },
+        "status": { "const": 200 },
+        "content_type": { "type": "string", "minLength": 1, "not": { "const": "text/html" } },
+        "bytes": { "$ref": "#/$defs/positiveInteger" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}
