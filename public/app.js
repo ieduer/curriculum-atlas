@@ -786,9 +786,9 @@ async function renderCompare(url) {
   try {
     const data = await compareSubjectFacet(subject);
     const entries = data.documents.map((doc) => `<article class="version-entry"><time>${escapeHtml(doc.sort_year || '年代待核')}</time><h3>${escapeHtml(doc.title)}</h3><p>${escapeHtml(doc.canonical_subject)} · ${escapeHtml(doc.stage)} · ${escapeHtml(statusLabel(doc.current_status))}</p><a href="/document/${encodeURIComponent(doc.id)}" data-link>查看证据 →</a></article>`).join('');
-    const findings = data.insights.length ? data.insights.map((item) => `<article class="insight-line"><time>${escapeHtml(item.canonical_subject)} · ${escapeHtml(item.era)} · ${escapeHtml(item.dimension)}</time><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.summary)}</p></article>`).join('') : '<div class="empty-state">尚无经编辑核验的变化摘要；版本文献仍可逐份查看。</div>';
+    const findings = data.insights.length ? data.insights.map((item) => `<article class="insight-line"><time>${escapeHtml(item.canonical_subject)} · ${escapeHtml(item.era)} · ${escapeHtml(item.dimension)}</time><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.summary)}</p></article>`).join('') : '<div class="empty-state">暂无研究线索；版本文献仍可逐份查看。</div>';
     const members = data.plan.map((item) => item.canonicalSubject).join('、');
-    document.querySelector('#compare-results').innerHTML = `<h2>${escapeHtml(subject)}版本河流</h2><p>按 ${escapeHtml(members)} 的学科身份分别查询；版本标签不合并。</p><div class="version-river">${entries}</div><h2>经核验的变化判断</h2>${findings}`;
+    document.querySelector('#compare-results').innerHTML = `<h2>${escapeHtml(subject)}版本河流</h2><p>按 ${escapeHtml(members)} 的学科身份分别查询；版本标签不合并。</p><div class="version-river">${entries}</div><h2>研究线索（尚未形成版本差异结论）</h2><p>以下资料级摘要仅用于提出核对问题；只有同时绑定前后版本、精确原文范围和审核记录的差异，才可标为经核结论。</p>${findings}`;
   } catch (error) {
     document.querySelector('#compare-results').innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
   }

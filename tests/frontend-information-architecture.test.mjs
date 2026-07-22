@@ -85,6 +85,13 @@ test('legacy pages remain merged into the two rail-launched workspaces', () => {
   assert.match(app, /path === '\/discussions'/);
 });
 
+test('unanchored subject insights are labelled as research leads rather than verified change claims', () => {
+  assert.match(app, /研究线索（尚未形成版本差异结论）/);
+  assert.match(app, /仅用于提出核对问题/);
+  assert.doesNotMatch(app, /经核验的变化判断/);
+  assert.doesNotMatch(app, /尚无经编辑核验的变化摘要/);
+});
+
 test('embedded compendium identities keep item-scoped reader and discussion boundaries', () => {
   assert.match(app, /identity_kind === 'embedded_item' \|\| id\.startsWith\('embedded:'\)/);
   assert.match(app, /embeddedItem \? '\/api\/items\/' : '\/api\/documents\/'/);
