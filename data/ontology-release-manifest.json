@@ -21,7 +21,7 @@
     },
     "catalog": {
       "path": "data/catalog.json",
-      "sha256": "7e0aa7d8c08de3ed2a7265ae2cd6e67263320c3a7c76c39f31a14173ba0c20b4"
+      "sha256": "d67830c39f35d56e704fe79e2379cbd1baf6647c63de59519c4a63031e66afa3"
     },
     "semantic_publication": {
       "path": "data/semantic-publication-policy.json",
@@ -34,12 +34,12 @@
     },
     "public_core": {
       "path": "public/data/concept-evolution.json",
-      "sha256": "8bfc57f02edda1aff30f200311193d894d2f6a247f0f399565c81f78f6270385",
+      "sha256": "7d156eed0a57b9d8a335bbea4fb09e0c173b7b6c518f506757473abf01129742",
       "ontology_node_count": 169
     },
     "public_academic": {
       "path": "public/data/concept-evolution-academic.json",
-      "sha256": "c3ed2c401fcda4453743e040ec9ef357ad7bca7741bf9760a0e6e83ff54ed2e5",
+      "sha256": "0134041d209e95290a804e5aff826cd51058ed911dae3030314c3bd3a32f4dfc",
       "ontology_node_count": 169
     },
     "source_artifact_sha256": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a"

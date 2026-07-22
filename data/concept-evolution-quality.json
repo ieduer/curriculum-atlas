@@ -4,9 +4,9 @@
   "artifact_profile": "curriculum-concept-evolution-quality-v1",
   "academic_schema": "curriculum-concept-evolution-academic-v2",
   "model_kind": "curriculum-concept-observation-model",
-  "build_revision": "362a5e0818655232aaa4ebc248a212b5ee959e3b402c2e994bf3afb3b3c52bc0",
+  "build_revision": "e24a702d5757bd7309561e27847b93bb236b659d5868382710da0c4011958894",
   "input_fingerprints": {
-    "catalog_sha256": "7e0aa7d8c08de3ed2a7265ae2cd6e67263320c3a7c76c39f31a14173ba0c20b4",
+    "catalog_sha256": "d67830c39f35d56e704fe79e2379cbd1baf6647c63de59519c4a63031e66afa3",
     "queue_sha256": "f5fa140fca18a1b56432bc1e4ff470fdb934ae5fd0ebb98bf70a804871198c11",
     "concept_model_sha256": "98d8b3b8c9f4ad1e7f02410c2470fa8b34820996e380d39230a763fd49b3356e",
     "lexicon_sha256": "d8b792139ff4d28afff5cd685ce8b73174435353dd9343430ade26e8e763608b",
@@ -25,8 +25,8 @@
     "validator_sha256": "38bbe87eb8264cf4895f61fabf23f6f42d2c3e3f20ae9989ee40a8956c3c171c",
     "ocr_concept_publication_sha256": "fc64a03b220cb67400aa157edd03cd79ad44bc53cf2222d316d378d1a9c2a67c",
     "semantic_publication_revision_sha256": "b2a5dc0d3bb6e4fcc555613319375610455d3c3ce874fdd0149e4878e43698b4",
-    "corpus_manifest_sha256": "9c48e72cc527ee13f3ada4b8ca081b027185ef6de4321192b36f83646a1cbfa4",
-    "corpus_release_fingerprint_sha256": "17cbe05f4dacfe2cf057969025f60ab0e2743bb2b813601fc6465fc5837ee7a0"
+    "corpus_manifest_sha256": "8c25d80764ab0d8e82b66d76062e20a7f0933274d8e72077558b9a764110b6aa",
+    "corpus_release_fingerprint_sha256": "dcbd84da9174feba5492e36655f9bd071d2b302819014a770a98b39fccfb7e75"
   },
   "passed": true,
   "checks": [
@@ -113,7 +113,7 @@
   ],
   "core_bytes": 503196,
   "academic_bytes": 34787,
-  "academic_sha256": "c3ed2c401fcda4453743e040ec9ef357ad7bca7741bf9760a0e6e83ff54ed2e5",
+  "academic_sha256": "0134041d209e95290a804e5aff826cd51058ed911dae3030314c3bd3a32f4dfc",
   "release_boundary": "基于当前可用语料的词面概念观察图；不是完整课程史，不宣称概念义项连续、绝对首次、消失、取代、影响或因果演进。",
   "unresolved": [
     "11903 OCR pages remain outside the concept publication display gate",
