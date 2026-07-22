@@ -2008,7 +2008,8 @@ async function a2ReceiverContinuationFixture(t) {
   const rearmEvidenceRoot = path.join(evidenceBaseRoot, rearmRepairId);
   const lifecycleLock = path.join(runRoot, '.a2-lifecycle.lock');
   const documentId = 'legacy-compendium-english';
-  const interruptedAt = '2026-07-22T04:13:35.390Z';
+  const documentInterruptedAt = '2026-07-22T04:13:35.387Z';
+  const incidentInterruptedAt = '2026-07-22T04:13:35.390Z';
   const authorizedAt = '2026-07-22T04:20:00.000Z';
   const continuedAt = '2026-07-22T04:21:00.000Z';
   const workerInvocationId = 'c'.repeat(32);
@@ -2030,8 +2031,17 @@ async function a2ReceiverContinuationFixture(t) {
   await writeFile(sourcePath, source, { mode: 0o600 });
   await writeFile(lifecycleLock, '', { mode: 0o600 });
   await writeFile(
-    path.join(incidentEvidenceRoot, 'operator-incident.json'),
-    `${JSON.stringify({ worker_invocation_id: workerInvocationId, interrupted_at: interruptedAt })}\n`,
+    path.join(incidentEvidenceRoot, 'incident.json'),
+    `${JSON.stringify({
+      schema_version: 1,
+      type: 'curriculum_a2_operator_verification_freeze_incident',
+      cause: 'fixture operator freeze after observer error',
+      worker_invocation_id: workerInvocationId,
+      interrupted_at: incidentInterruptedAt,
+      citation_allowed: false,
+      forward_only: true,
+      old_four_file_rollback_forbidden: true,
+    })}\n`,
     { mode: 0o600 },
   );
 
@@ -2096,7 +2106,7 @@ async function a2ReceiverContinuationFixture(t) {
     page_count: 2,
     runtime_fingerprint_sha256: p1RuntimeFingerprintSha256,
     citation_allowed: false,
-    interrupted_at: interruptedAt,
+    interrupted_at: documentInterruptedAt,
     seed_lineage: finalStatus.seed_lineage,
   };
   const interruptedStatusWritten = await writeJson(statusPath, interruptedStatus);
@@ -2110,11 +2120,11 @@ async function a2ReceiverContinuationFixture(t) {
     status: 'interrupted',
     attempts: 6,
     started_at: '2026-07-22T04:12:00.000Z',
-    interrupted_at: interruptedAt,
+    interrupted_at: documentInterruptedAt,
     signal: 'SIGTERM',
     status_json_sha256: interruptedStatusWritten.sha256,
   });
-  interruptedRunStatus.updated_at = interruptedAt;
+  interruptedRunStatus.updated_at = documentInterruptedAt;
   interruptedRunStatus.counts = {
     total: 1,
     complete: 0,
@@ -2275,7 +2285,8 @@ async function a2ReceiverContinuationFixture(t) {
     incidentEvidenceGid: String(incidentInfo.gid),
     incidentEvidenceTreeSha256: incidentTree.tree_sha256,
     workerInvocationId,
-    interruptedAt,
+    documentInterruptedAt,
+    incidentInterruptedAt,
     runStatusSha256: interruptedRunStatusWritten.sha256,
     documentStatusSha256: interruptedStatusWritten.sha256,
     logSha256: sha256(logRaw),

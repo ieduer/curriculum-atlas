@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "scripts/continue-remote-ocr-operator-interruption.mjs",
-      "sha256": "7ba6b0bd33a9bfe23d2761705bfdcb48a01bfb679ef3615dcb6b9d70f0d80532",
-      "bytes": 161442
+      "sha256": "7d07a0c9a0d28dbc882eeea083d72560d9da656d80d19d311f6d7201189f66b3",
+      "bytes": 162594
     },
     {
       "path": "scripts/lib/remote-ocr-continuation-runtime-manifest.mjs",
@@ -20,8 +20,8 @@
     },
     {
       "path": "scripts/lib/remote-ocr-operator-continuation.mjs",
-      "sha256": "c8e2149de4fdb4d3793d339706a3398d89ad25013d3b4a738481b46b614a70e9",
-      "bytes": 72101
+      "sha256": "6aeaa707d72fe0c823cc8f74fe5c36557766ac6fc0a99c10d777ac36f98562d0",
+      "bytes": 73226
     },
     {
       "path": "scripts/monitor-remote-ocr-reprocess.mjs",
@@ -44,5 +44,5 @@
       "bytes": 290847
     }
   ],
-  "runtime_tree_sha256": "9f734a5ceea2ee2b7a11d29176f6ef5f0fe34b0b73fbd1e32ed5e3e4de0b773a"
+  "runtime_tree_sha256": "a745b76101aec16f74a056660de349c6b584fb22947f02304bd18d2f9d7e08c8"
 }

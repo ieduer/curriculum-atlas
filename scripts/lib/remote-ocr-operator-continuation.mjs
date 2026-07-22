@@ -37,7 +37,7 @@ export const OPERATOR_CONTINUATION_MODE = 'same_granted_attempt_forward_continua
 // inspection of the frozen A2 incident. They are not CLI inputs: a caller may
 // not turn its own assertions into authority.
 export const EXACT_A2_FORWARD_CONTINUATION_INCIDENT = Object.freeze({
-  schemaVersion: 1,
+  schemaVersion: 2,
   runRoot: '/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess',
   outputRoot: '/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/output/production-p1-mb16-shard-a-r2',
   outputDevice: '66306',
@@ -58,7 +58,8 @@ export const EXACT_A2_FORWARD_CONTINUATION_INCIDENT = Object.freeze({
   attempt: 6,
   inheritedAttempts: 5,
   workerInvocationId: 'cea41604c79f46cfa9483b46d64ad0fd',
-  interruptedAt: '2026-07-22T04:13:35.390Z',
+  documentInterruptedAt: '2026-07-22T04:13:35.387Z',
+  incidentInterruptedAt: '2026-07-22T04:13:35.390Z',
   runStatusSha256: '1daf1ab535d8378c25625591494acd1e7922266873e48821e46be9ff04ddbe1b',
   documentStatusSha256: '28921af43e57ffd2e1443a2b03a2261075557e3dfd9a732cedc5ff4b4848c63a',
   logSha256: '470d7b4ef6be1ff3363e44c6e320d0b6d062196069f1205a679eac9b466662d2',
@@ -182,6 +183,25 @@ const requiredAbsolutePathKeys = Object.freeze([
   'rearmEvidenceRoot',
 ]);
 
+const requiredExactProfileKeys = Object.freeze([
+  ...requiredShaKeys,
+  ...requiredPositiveIntegerKeys,
+  ...requiredDecimalKeys,
+  ...requiredAbsolutePathKeys,
+  'schemaVersion',
+  'documentId',
+  'workerInvocationId',
+  'documentInterruptedAt',
+  'incidentInterruptedAt',
+  'incidentEvidenceMode',
+  'timeoutIssuanceRelativePath',
+  'workerUnit',
+  'monitorUnit',
+  'monitorTimerUnit',
+  'alertUnit',
+  'llamaUnit',
+].sort());
+
 export function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
@@ -223,6 +243,9 @@ function requireCanonicalTimestamp(value, label) {
 
 export function validateA2ForwardContinuationProfile(raw) {
   const profile = requireObject(raw, 'A2 forward-continuation incident profile');
+  if (canonicalJson(Object.keys(profile).sort()) !== canonicalJson(requiredExactProfileKeys)) {
+    throw new Error('frozen A2 forward-continuation profile keys differ from the exact schema');
+  }
   const missing = [];
   for (const key of requiredShaKeys) {
     if (!sha256Pattern.test(String(profile[key] || ''))) missing.push(key);
@@ -239,7 +262,7 @@ export function validateA2ForwardContinuationProfile(raw) {
   if (missing.length > 0) {
     throw new Error(`frozen A2 forward-continuation profile is incomplete or invalid: ${[...new Set(missing)].sort().join(', ')}`);
   }
-  if (profile.schemaVersion !== 1
+  if (profile.schemaVersion !== 2
     || profile.documentId !== 'legacy-compendium-english'
     || !documentIdPattern.test(profile.documentId)
     || profile.attempt !== 6
@@ -248,7 +271,11 @@ export function validateA2ForwardContinuationProfile(raw) {
     || profile.incidentEvidenceMode !== '0700') {
     throw new Error('frozen A2 forward-continuation identity is invalid');
   }
-  requireCanonicalTimestamp(profile.interruptedAt, 'frozen interrupted_at');
+  requireCanonicalTimestamp(profile.documentInterruptedAt, 'frozen document interrupted_at');
+  requireCanonicalTimestamp(profile.incidentInterruptedAt, 'frozen operator incident interrupted_at');
+  if (Date.parse(profile.documentInterruptedAt) > Date.parse(profile.incidentInterruptedAt)) {
+    throw new Error('frozen document interruption is after the operator incident');
+  }
   if (profile.rearmEvidenceRoot !== path.join(profile.evidenceBaseRoot, profile.rearmRepairId)) {
     throw new Error('frozen A2 rearm evidence path is not bound to its repair_id');
   }
@@ -953,7 +980,7 @@ export async function validateOperatorContinuationEvidence(
     || receiptDocument.document_id !== profile.documentId
     || receiptDocument.attempt !== profile.attempt
     || receiptDocument.max_attempts !== profile.attempt
-    || receiptDocument.interrupted_at !== profile.interruptedAt
+    || receiptDocument.interrupted_at !== profile.documentInterruptedAt
     || receiptDocument.signal !== 'SIGTERM'
     || receiptDocument.document_tree_sha256 !== profile.documentTreeSha256
     || receiptDocument.document_tree_files !== profile.documentTreeFiles
@@ -963,7 +990,7 @@ export async function validateOperatorContinuationEvidence(
     || receiptDocument.log_bytes !== profile.logBytes
     || authorization.classification !== 'operator_controlled_sigterm_after_observer_error'
     || authorization.worker_invocation_id !== profile.workerInvocationId
-    || authorization.interrupted_at !== profile.interruptedAt
+    || authorization.interrupted_at !== profile.incidentInterruptedAt
     || authorization.incident_evidence_root !== profile.incidentEvidenceRoot
     || authorization.incident_evidence_tree_sha256 !== profile.incidentEvidenceTreeSha256
     || typeof authorization.base_runner_path !== 'string'
@@ -991,8 +1018,9 @@ export async function validateOperatorContinuationEvidence(
   }
   requireCanonicalTimestamp(receiptDocument.original_started_at, 'original attempt-6 start');
   requireCanonicalTimestamp(authorization.authorized_at, 'operator continuation authorization time');
-  if (Date.parse(receiptDocument.original_started_at) > Date.parse(profile.interruptedAt)
-    || Date.parse(profile.interruptedAt) > Date.parse(authorization.authorized_at)) {
+  if (Date.parse(receiptDocument.original_started_at) > Date.parse(profile.documentInterruptedAt)
+    || Date.parse(profile.documentInterruptedAt) > Date.parse(profile.incidentInterruptedAt)
+    || Date.parse(profile.incidentInterruptedAt) > Date.parse(authorization.authorized_at)) {
     throw new Error('operator continuation authorization chronology is invalid');
   }
   validateArchiveDescriptor(
@@ -1034,7 +1062,7 @@ export async function validateOperatorContinuationEvidence(
     || !sameJson(snapshot.document_progress, interruptedRunStatus.documents?.[profile.documentId])
     || interruptedStatus.status !== 'interrupted'
     || interruptedStatus.attempt !== profile.attempt
-    || interruptedStatus.interrupted_at !== profile.interruptedAt
+    || interruptedStatus.interrupted_at !== profile.documentInterruptedAt
     || interruptedState.document_id !== profile.documentId
     || interruptedState.selected_pages_complete !== false) {
     throw new Error('archived interrupted controls differ from the frozen A2 snapshot');

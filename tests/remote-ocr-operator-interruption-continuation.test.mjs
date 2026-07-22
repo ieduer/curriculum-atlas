@@ -38,7 +38,8 @@ const grantSha256 = '3'.repeat(64);
 const claimSha256 = '4'.repeat(64);
 const workerInvocationId = 'cea41604c79f46cfa9483b46d64ad0fd';
 const startedAt = '2026-07-22T04:12:00.000Z';
-const interruptedAt = '2026-07-22T04:13:35.390Z';
+const documentInterruptedAt = '2026-07-22T04:13:35.387Z';
+const incidentInterruptedAt = '2026-07-22T04:13:35.390Z';
 const authorizedAt = '2026-07-22T04:20:00.000Z';
 const continuedAt = '2026-07-22T04:21:00.000Z';
 
@@ -246,8 +247,17 @@ async function makeFixture(t, { pageCount = 2 } = {}) {
   const logRaw = Buffer.from('attempt 6 started\nSignalInfo: *** SIGTERM\n');
   await writeFile(logPath, logRaw, { mode: 0o600 });
   await writeFile(
-    path.join(incidentEvidenceRoot, 'operator-incident.json'),
-    `${JSON.stringify({ worker_invocation_id: workerInvocationId, interrupted_at: interruptedAt })}\n`,
+    path.join(incidentEvidenceRoot, 'incident.json'),
+    `${JSON.stringify({
+      schema_version: 1,
+      type: 'curriculum_a2_operator_verification_freeze_incident',
+      cause: 'fixture operator freeze after observer error',
+      worker_invocation_id: workerInvocationId,
+      interrupted_at: incidentInterruptedAt,
+      citation_allowed: false,
+      forward_only: true,
+      old_four_file_rollback_forbidden: true,
+    })}\n`,
     { mode: 0o600 },
   );
 
@@ -452,7 +462,7 @@ async function makeFixture(t, { pageCount = 2 } = {}) {
     page_count: pageCount,
     runtime_fingerprint_sha256: runtimeFingerprintSha256,
     citation_allowed: false,
-    interrupted_at: interruptedAt,
+    interrupted_at: documentInterruptedAt,
     seed_lineage: {
       schema_version: 1,
       seed_id: seedId,
@@ -470,7 +480,7 @@ async function makeFixture(t, { pageCount = 2 } = {}) {
     attempts: 6,
     page_count: pageCount,
     started_at: startedAt,
-    interrupted_at: interruptedAt,
+    interrupted_at: documentInterruptedAt,
     signal: 'SIGTERM',
     status_json_sha256: statusEvidence.sha256,
     predecessor_status: 'quarantined',
@@ -488,7 +498,7 @@ async function makeFixture(t, { pageCount = 2 } = {}) {
     document_recovery: identity.document_recovery,
     citation_allowed: false,
     started_at: '2026-07-22T03:00:00.000Z',
-    updated_at: interruptedAt,
+    updated_at: documentInterruptedAt,
     documents: { [documentId]: progress },
     counts: { total: 1, complete: 0, failed: 0, interrupted: 1, pending: 0, running: 0, retry_wait: 0, quarantined: 0 },
     finished: false,
@@ -947,6 +957,15 @@ test('apply consumes one claim and completes the same attempt 6 without truncati
   }
   const receipt = JSON.parse(await readFile(paths.receipt, 'utf8'));
   const claim = JSON.parse(await readFile(paths.claim, 'utf8'));
+  const incident = JSON.parse(await readFile(
+    path.join(fixture.profile.incidentEvidenceRoot, 'incident.json'),
+    'utf8',
+  ));
+  assert.equal(receipt.document.interrupted_at, documentInterruptedAt);
+  assert.equal(receipt.interrupted_snapshot.document_progress.interrupted_at, documentInterruptedAt);
+  assert.equal(receipt.interrupted_snapshot.document_status.interrupted_at, documentInterruptedAt);
+  assert.equal(receipt.authorization.interrupted_at, incidentInterruptedAt);
+  assert.equal(incident.interrupted_at, incidentInterruptedAt);
   assert.equal(receipt.interrupted_snapshot.document_progress.attempts, 6);
   assert.equal(receipt.interrupted_snapshot.document_status.status, 'interrupted');
   assert.equal(receipt.authorization.runtime_manifest.path, 'runtime-manifest.json');
@@ -1129,6 +1148,25 @@ test('production incident profile pins the independently recovered read-only anc
   assert.equal(profile.evidenceBaseDevice, '66306');
   assert.equal(profile.evidenceBaseInode, '41854492');
   assert.notEqual(profile.evidenceBaseInode, monitorDirectoryInode);
+  assert.equal(profile.schemaVersion, 2);
+  assert.equal(profile.documentInterruptedAt, '2026-07-22T04:13:35.387Z');
+  assert.equal(profile.incidentInterruptedAt, '2026-07-22T04:13:35.390Z');
+  assert.equal(
+    Date.parse(profile.incidentInterruptedAt) - Date.parse(profile.documentInterruptedAt),
+    3,
+  );
+  assert.equal(Object.hasOwn(profile, 'interruptedAt'), false);
+  assert.throws(
+    () => validateA2ForwardContinuationProfile({
+      ...profile,
+      documentInterruptedAt: '2026-07-22T04:13:35.391Z',
+    }),
+    /document interruption is after the operator incident/u,
+  );
+  assert.throws(
+    () => validateA2ForwardContinuationProfile({ ...profile, interruptedAt: profile.incidentInterruptedAt }),
+    /profile keys differ from the exact schema/u,
+  );
   assert.equal(ledgerIdentitySidecarFilename, 'timeout-recovery-ledger-identity.json.sha256');
   assert.equal(
     profile.ledgerIdentitySha256,

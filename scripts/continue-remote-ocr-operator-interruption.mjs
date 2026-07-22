@@ -604,7 +604,7 @@ function validateOptions(options, profile) {
   }
   requireCanonicalTimestamp(options.authorizedAt, 'authorization timestamp');
   requireCanonicalTimestamp(options.continuedAt, 'continuation claim timestamp');
-  if (!(Date.parse(profile.interruptedAt) <= Date.parse(options.authorizedAt)
+  if (!(Date.parse(profile.incidentInterruptedAt) <= Date.parse(options.authorizedAt)
     && Date.parse(options.authorizedAt) <= Date.parse(options.continuedAt))) {
     throw new Error('operator interruption, authorization, and continuation timestamps are out of order');
   }
@@ -837,8 +837,9 @@ async function loadExistingIncidentArchive(profile, runtimeManifest) {
     || receipt.output?.inode !== profile.outputInode
     || receipt.document?.document_id !== profile.documentId
     || receipt.document?.attempt !== profile.attempt
+    || receipt.document?.interrupted_at !== profile.documentInterruptedAt
     || receipt.authorization?.worker_invocation_id !== profile.workerInvocationId
-    || receipt.authorization?.interrupted_at !== profile.interruptedAt
+    || receipt.authorization?.interrupted_at !== profile.incidentInterruptedAt
     || receipt.authorization?.runtime_manifest?.path !== 'runtime-manifest.json'
     || receipt.authorization?.runtime_manifest?.sha256 !== runtimeManifest.sha256
     || receipt.authorization?.runtime_manifest?.bytes !== runtimeManifest.bytes
@@ -983,9 +984,14 @@ async function inspectInterruptedState(options, profile, runtimeManifest) {
   if (consumptionEvidence.digest !== profile.timeoutConsumptionClaimSha256) {
     throw new Error('timeout recovery consumption claim SHA-256 drifted');
   }
-  const [liveDocumentTree, incidentTree, stateRawAfter] = await Promise.all([
+  const [liveDocumentTree, incidentTree, incidentRecord, stateRawAfter] = await Promise.all([
     archivedIncident ? Promise.resolve(null) : inspectTreeStrict(documentRoot),
     inspectTreeStrict(incidentEvidenceRoot),
+    readStableFileRecord(
+      incidentEvidenceRoot,
+      path.join(incidentEvidenceRoot, 'incident.json'),
+      'operator incident record',
+    ),
     archivedIncident ? Promise.resolve(stateRawBefore) : readStrictFile(statePath, 'document state recheck'),
   ]);
   const documentTree = archivedIncident ? {
@@ -1002,6 +1008,28 @@ async function inspectInterruptedState(options, profile, runtimeManifest) {
   }
   if (incidentTree.tree_sha256 !== profile.incidentEvidenceTreeSha256) {
     throw new Error('operator incident evidence tree SHA-256 drifted');
+  }
+  const incident = parseJson(incidentRecord.raw, 'operator incident record');
+  if (!exactKeys(incident, [
+    'schema_version',
+    'type',
+    'cause',
+    'worker_invocation_id',
+    'interrupted_at',
+    'citation_allowed',
+    'forward_only',
+    'old_four_file_rollback_forbidden',
+  ])
+    || incident.schema_version !== 1
+    || incident.type !== 'curriculum_a2_operator_verification_freeze_incident'
+    || typeof incident.cause !== 'string'
+    || incident.cause.length === 0
+    || incident.worker_invocation_id !== profile.workerInvocationId
+    || incident.interrupted_at !== profile.incidentInterruptedAt
+    || incident.citation_allowed !== false
+    || incident.forward_only !== true
+    || incident.old_four_file_rollback_forbidden !== true) {
+    throw new Error('operator incident record is not bound to the frozen operator interruption');
   }
   const authorityArtifacts = await verifyExactAuthorityArtifacts({
     outputRoot,
@@ -1038,7 +1066,7 @@ async function inspectInterruptedState(options, profile, runtimeManifest) {
     || status.max_attempts !== attemptCeiling
     || status.page_count !== document.page_count
     || status.citation_allowed !== false
-    || status.interrupted_at !== profile.interruptedAt) {
+    || status.interrupted_at !== profile.documentInterruptedAt) {
     throw new Error('document status is not the exact authorized interrupted attempt 6');
   }
   if (progress.status !== 'interrupted'
@@ -1046,7 +1074,7 @@ async function inspectInterruptedState(options, profile, runtimeManifest) {
     || progress.attempt_ceiling !== attemptCeiling
     || progress.inherited_attempts !== 5
     || progress.signal !== interruptionSignal
-    || progress.interrupted_at !== profile.interruptedAt
+    || progress.interrupted_at !== profile.documentInterruptedAt
     || progress.status_json_sha256 !== statusEvidence.digest
     || progress.page_count !== document.page_count) {
     throw new Error('run status is not the exact authorized interrupted attempt 6');
@@ -1187,7 +1215,7 @@ async function inspectInterruptedState(options, profile, runtimeManifest) {
       attempt: attemptCeiling,
       max_attempts: attemptCeiling,
       original_started_at: progress.started_at,
-      interrupted_at: profile.interruptedAt,
+      interrupted_at: profile.documentInterruptedAt,
       signal: interruptionSignal,
       document_tree_sha256: documentTree.tree_sha256,
       document_tree_files: documentTree.files,
@@ -1199,7 +1227,7 @@ async function inspectInterruptedState(options, profile, runtimeManifest) {
     authorization: {
       classification: operatorClassification,
       worker_invocation_id: profile.workerInvocationId,
-      interrupted_at: profile.interruptedAt,
+      interrupted_at: profile.incidentInterruptedAt,
       authorized_at: options.authorizedAt,
       incident_evidence_root: incidentEvidenceRoot,
       incident_evidence_tree_sha256: incidentTree.tree_sha256,

@@ -38,7 +38,8 @@ a bounded same-attempt canary before the frozen worker may resume.
 | operator-freeze evidence inode | `42336297` |
 | document / attempt | `legacy-compendium-english / 6` |
 | worker InvocationID | `cea41604c79f46cfa9483b46d64ad0fd` |
-| interrupted at | `2026-07-22T04:13:35.390Z` |
+| document status/progress interrupted at | `2026-07-22T04:13:35.387Z` |
+| operator-freeze incident interrupted at | `2026-07-22T04:13:35.390Z` |
 | run-status SHA-256 | `1daf1ab535d8378c25625591494acd1e7922266873e48821e46be9ff04ddbe1b` |
 | document-status SHA-256 | `28921af43e57ffd2e1443a2b03a2261075557e3dfd9a732cedc5ff4b4848c63a` |
 | log SHA-256 / bytes | `470d7b4ef6be1ff3363e44c6e320d0b6d062196069f1205a679eac9b466662d2 / 11585` |
@@ -68,6 +69,16 @@ The ledger body remains 302 bytes with SHA-256
 `df77305d01249d59323b76bafeb46cf1a09da30cd90a88602b238c5fa8d62c0c`.
 This correction still requires independent review and fresh sealed Linux and live dry-run gates; it
 does not authorize SSH execution or `--apply`.
+
+The next two identical no-apply dry runs passed the complete authority comparison and stopped at
+the document-status gate. Read-only inspection proved that the hash-bound document status and
+run-status progress both record `2026-07-22T04:13:35.387Z`, while the incident JSON inside the pinned
+operator-freeze tree records `2026-07-22T04:13:35.390Z`. Profile schema 2 therefore keeps both
+events: status, progress, interrupted snapshots, and the receipt document use the document time;
+incident authorization and its chronology use the operator-incident time. The enforced chronology
+is `original_started_at <= document_interrupted_at <= incident_interrupted_at <= authorized_at`.
+The 3 ms difference is evidence, not rounding tolerance, and the two timestamps are not
+interchangeable.
 
 ## Lock and unit boundary
 
