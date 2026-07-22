@@ -1456,7 +1456,9 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
   if (pathname === '/api/admin/summary' && method === 'GET') return adminSummary(env, session);
   if (pathname === '/api/admin/overview' && method === 'GET') return adminOverview(env, session);
   if (pathname === '/api/admin/inventory' && method === 'GET') return adminInventory(url, env, session);
-  if (pathname === '/api/admin/comments' && method === 'GET') return adminComments(url, env, session);
+  if (pathname === '/api/admin/comments' && method === 'GET') {
+    return adminComments(url, env, session, capabilities.embeddedItems);
+  }
   if (pathname === '/api/admin/reports' && method === 'GET') return adminReports(url, env, session);
   if (pathname === '/api/admin/ai-logs' && method === 'GET') return adminAiLogs(url, env, session);
   if (pathname === '/api/admin/audit' && method === 'GET') return adminAudit(url, env, session);

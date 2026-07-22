@@ -159,7 +159,12 @@ export async function adminInventory(url: URL, env: Env, session: Session): Prom
   });
 }
 
-export async function adminComments(url: URL, env: Env, session: Session): Promise<Response> {
+export async function adminComments(
+  url: URL,
+  env: Env,
+  session: Session,
+  embeddedItems: boolean,
+): Promise<Response> {
   requireAdmin(session);
   const status = textParam(url.searchParams.get('status'), 16) || 'pending';
   if (!['all', 'pending', 'approved', 'rejected', 'deleted'].includes(status)) {
@@ -170,7 +175,9 @@ export async function adminComments(url: URL, env: Env, session: Session): Promi
   const [count, rows] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) AS count FROM comments WHERE (?='all' OR status=?)")
       .bind(status, status).first<{ count: number }>(),
-    env.DB.prepare(`SELECT c.id,c.parent_id,c.document_id,c.embedded_item_id,c.paragraph_id,c.author_name,
+    env.DB.prepare(`SELECT c.id,c.parent_id,c.document_id,${embeddedItems
+      ? 'c.embedded_item_id'
+      : 'NULL AS embedded_item_id'},c.paragraph_id,c.author_name,
       c.author_kind,c.body,c.status,c.moderation_note,c.created_at,c.updated_at,d.title AS document_title
       FROM comments c LEFT JOIN documents d ON d.id=c.document_id
       WHERE (?='all' OR c.status=?) ORDER BY c.created_at DESC,c.id DESC LIMIT ? OFFSET ?`)
@@ -274,10 +281,15 @@ export async function resolveAdminReport(
   const after = { report_status: status, comment_status: nextCommentStatus, note };
   const claim = `resolving:${crypto.randomUUID()}`;
   const results = await env.DB.batch([
-    env.DB.prepare("UPDATE comment_reports SET status=? WHERE id=? AND status='open'").bind(claim, id),
+    env.DB.prepare(`UPDATE comment_reports SET status=?
+      WHERE id=? AND status='open' AND comment_id=?
+      AND EXISTS(SELECT 1 FROM comments WHERE id=? AND status=?)`)
+      .bind(claim, id, before.comment_id, before.comment_id, before.comment_status),
     env.DB.prepare(`UPDATE comments SET status=?,moderation_note=?,updated_at=CURRENT_TIMESTAMP
-      WHERE id=? AND EXISTS(SELECT 1 FROM comment_reports WHERE id=? AND status=?)`)
-      .bind(nextCommentStatus, note, before.comment_id, id, claim),
+      WHERE id=? AND status=?
+      AND EXISTS(SELECT 1 FROM comment_reports WHERE id=? AND comment_id=? AND status=?)`)
+      .bind(nextCommentStatus, note, before.comment_id, before.comment_status,
+        id, before.comment_id, claim),
     env.DB.prepare(`INSERT INTO content_audit_log(id,actor_slug,action,entity_type,entity_id,before_json,after_json)
       SELECT ?,?,?,?,?,?,? FROM comment_reports WHERE id=? AND status=?`).bind(
       crypto.randomUUID(), actor.slug, 'resolve_report', 'comment_report', id,
