@@ -1163,6 +1163,30 @@ test('production incident profile pins the independently recovered read-only anc
     }),
     /document interruption is after the operator incident/u,
   );
+  for (const [label, timestamps] of [
+    ['equal timestamps', {
+      documentInterruptedAt: '2026-07-22T04:13:35.390Z',
+      incidentInterruptedAt: '2026-07-22T04:13:35.390Z',
+    }],
+    ['document timestamp shifted independently', {
+      documentInterruptedAt: '2026-07-22T04:13:35.386Z',
+      incidentInterruptedAt: '2026-07-22T04:13:35.390Z',
+    }],
+    ['incident timestamp shifted independently', {
+      documentInterruptedAt: '2026-07-22T04:13:35.387Z',
+      incidentInterruptedAt: '2026-07-22T04:13:35.391Z',
+    }],
+    ['both timestamps shifted while preserving 3 ms order', {
+      documentInterruptedAt: '2026-07-22T04:13:35.388Z',
+      incidentInterruptedAt: '2026-07-22T04:13:35.391Z',
+    }],
+  ]) {
+    assert.throws(
+      () => validateA2ForwardContinuationProfile({ ...profile, ...timestamps }),
+      /timestamps are not the exact independently recovered 3 ms pair/u,
+      label,
+    );
+  }
   assert.throws(
     () => validateA2ForwardContinuationProfile({ ...profile, interruptedAt: profile.incidentInterruptedAt }),
     /profile keys differ from the exact schema/u,

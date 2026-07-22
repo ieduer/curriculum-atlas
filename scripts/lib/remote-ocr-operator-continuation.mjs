@@ -32,6 +32,9 @@ export const OPERATOR_CONTINUATION_RECEIPT_TYPE =
 export const OPERATOR_CONTINUATION_CLAIM_TYPE =
   'curriculum_remote_ocr_operator_interruption_continuation_claim';
 export const OPERATOR_CONTINUATION_MODE = 'same_granted_attempt_forward_continuation';
+const exactDocumentInterruptedAt = '2026-07-22T04:13:35.387Z';
+const exactIncidentInterruptedAt = '2026-07-22T04:13:35.390Z';
+const exactInterruptionDeltaMilliseconds = 3;
 
 // These values were recovered by an independently verified, read-only
 // inspection of the frozen A2 incident. They are not CLI inputs: a caller may
@@ -58,8 +61,8 @@ export const EXACT_A2_FORWARD_CONTINUATION_INCIDENT = Object.freeze({
   attempt: 6,
   inheritedAttempts: 5,
   workerInvocationId: 'cea41604c79f46cfa9483b46d64ad0fd',
-  documentInterruptedAt: '2026-07-22T04:13:35.387Z',
-  incidentInterruptedAt: '2026-07-22T04:13:35.390Z',
+  documentInterruptedAt: exactDocumentInterruptedAt,
+  incidentInterruptedAt: exactIncidentInterruptedAt,
   runStatusSha256: '1daf1ab535d8378c25625591494acd1e7922266873e48821e46be9ff04ddbe1b',
   documentStatusSha256: '28921af43e57ffd2e1443a2b03a2261075557e3dfd9a732cedc5ff4b4848c63a',
   logSha256: '470d7b4ef6be1ff3363e44c6e320d0b6d062196069f1205a679eac9b466662d2',
@@ -275,6 +278,12 @@ export function validateA2ForwardContinuationProfile(raw) {
   requireCanonicalTimestamp(profile.incidentInterruptedAt, 'frozen operator incident interrupted_at');
   if (Date.parse(profile.documentInterruptedAt) > Date.parse(profile.incidentInterruptedAt)) {
     throw new Error('frozen document interruption is after the operator incident');
+  }
+  if (profile.documentInterruptedAt !== exactDocumentInterruptedAt
+    || profile.incidentInterruptedAt !== exactIncidentInterruptedAt
+    || Date.parse(profile.incidentInterruptedAt) - Date.parse(profile.documentInterruptedAt)
+      !== exactInterruptionDeltaMilliseconds) {
+    throw new Error('frozen interruption timestamps are not the exact independently recovered 3 ms pair');
   }
   if (profile.rearmEvidenceRoot !== path.join(profile.evidenceBaseRoot, profile.rearmRepairId)) {
     throw new Error('frozen A2 rearm evidence path is not bound to its repair_id');
