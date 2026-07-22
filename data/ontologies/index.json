@@ -11,22 +11,22 @@
     },
     "catalog": {
       "path": "data/catalog.json",
-      "sha256": "32668d6ff45db54ac575e56735c5f058c6e1873d5adf777945ea799da3253293"
+      "sha256": "d67830c39f35d56e704fe79e2379cbd1baf6647c63de59519c4a63031e66afa3"
     },
     "provenance": {
       "path": "data/document-sources.json",
-      "sha256": "8405ae337a58ee9bcdd727091238711090fabf54a2c0262875bedd512b4e9853"
+      "sha256": "d84e0b1137151b194f21507dce2df151c9d8edaf4369644ff927155e48283a25"
     },
     "corpus_manifest": {
       "path": "data/corpus-chunks/manifest.json",
-      "sha256": "0d34d802e9c1f1f4c0f827fbb180a851568e3cf59b02ada83f288fe042d0b413",
-      "release_id": "corpus-4fe2f31344f52706de761788",
-      "release_fingerprint_sha256": "4fe2f31344f52706de761788a0c741ed03d87b74cb096f8de0590cba0baecf76",
-      "manifest_sha256": "7d2fae37e29b931d8eee59831934de3df10dc47a826df9af8e5f876a2221a5bf"
+      "sha256": "e50ecb8ed79bc3831e46bdcc7fa0a70958889fbeadda6306b1c5c0de4e2f39c6",
+      "release_id": "corpus-dcbd84da9174feba5492e366",
+      "release_fingerprint_sha256": "dcbd84da9174feba5492e36655f9bd071d2b302819014a770a98b39fccfb7e75",
+      "manifest_sha256": "8c25d80764ab0d8e82b66d76062e20a7f0933274d8e72077558b9a764110b6aa"
     },
     "page_evidence_manifest": {
       "path": "scripts/page-evidence/fail-closed-manifest.json",
-      "sha256": "d4be339d7f54d405fbe089801bfdccc127039c6f70596271f941c2173a2655bd"
+      "sha256": "269efa1f70d90541ad585dead3ee4a899221d123cb72057eb360315b952e622c"
     },
     "reviewer_registry": {
       "path": "scripts/page-evidence/reviewer-authorities.json",
