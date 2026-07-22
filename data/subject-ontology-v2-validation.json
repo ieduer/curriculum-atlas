@@ -7,7 +7,7 @@
   "publishable": false,
   "index": {
     "path": "data/ontologies/index.json",
-    "sha256": "00995314ef44cc2c90475714c432e00dbd833ff5260a119117de166f8d856313",
+    "sha256": "0af5af35def08bcc45affd6be1ed440b33dba50a29a73122e831993225eb48f1",
     "bytes": 6876
   },
   "schema": {
@@ -18,17 +18,17 @@
   "scope_artifacts": [],
   "dependencies": {
     "taxonomy_sha256": "98d8b3b8c9f4ad1e7f02410c2470fa8b34820996e380d39230a763fd49b3356e",
-    "catalog_sha256": "32668d6ff45db54ac575e56735c5f058c6e1873d5adf777945ea799da3253293",
-    "provenance_sha256": "8405ae337a58ee9bcdd727091238711090fabf54a2c0262875bedd512b4e9853",
-    "corpus_manifest_sha256": "0d34d802e9c1f1f4c0f827fbb180a851568e3cf59b02ada83f288fe042d0b413",
-    "corpus_release_id": "corpus-4fe2f31344f52706de761788",
-    "corpus_release_fingerprint_sha256": "4fe2f31344f52706de761788a0c741ed03d87b74cb096f8de0590cba0baecf76",
-    "page_evidence_manifest_sha256": "d4be339d7f54d405fbe089801bfdccc127039c6f70596271f941c2173a2655bd",
+    "catalog_sha256": "d67830c39f35d56e704fe79e2379cbd1baf6647c63de59519c4a63031e66afa3",
+    "provenance_sha256": "d84e0b1137151b194f21507dce2df151c9d8edaf4369644ff927155e48283a25",
+    "corpus_manifest_sha256": "e50ecb8ed79bc3831e46bdcc7fa0a70958889fbeadda6306b1c5c0de4e2f39c6",
+    "corpus_release_id": "corpus-dcbd84da9174feba5492e366",
+    "corpus_release_fingerprint_sha256": "dcbd84da9174feba5492e36655f9bd071d2b302819014a770a98b39fccfb7e75",
+    "page_evidence_manifest_sha256": "269efa1f70d90541ad585dead3ee4a899221d123cb72057eb360315b952e622c",
     "page_evidence_status": "unresolved_fail_closed",
     "signed_reviewer_registry_sha256": "4602217e96d83cbc9caf472742cdf0912ae0bdf33863bd2244417d31975d9325",
     "external_online_source_registry_sha256": "d8d51035d46f82b8f92d31eca384aba13db4d4d31d9a241ad4845cbce3686144",
     "online_verification_standard_sha256": "53a1db63cbee3dedde685b9ecad2c446da9899dc0f13dda5795343279afe5ec4",
-    "independent_coverage_catalog_sha256": "b69450a754fff84fabb77c05f9a50500287397a5ab63cf457ceab1ff3b6e476f",
+    "independent_coverage_catalog_sha256": "8587234eb9f6a97cdbcf77d07fd3477a01c38ea1eac16c82a6a3066e9579aef0",
     "independent_coverage_catalog_records": 195,
     "coverage_authority_sha256": "1a0346eeff95156344781b5f8f36eb21f73b1fc64feab918fc5c502a53efd5a5",
     "coverage_as_of_date": "2026-07-22"
