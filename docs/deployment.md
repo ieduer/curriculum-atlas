@@ -48,7 +48,7 @@
 
 规范状态机如下：
 
-1. **prepare/bootstrap**：source gate 通过；环境 evidence 新鲜；当前旧 Worker/旧 corpus health 为 200/ready；pending migrations 必须按序精确等于 `0008_release_ownership_fences.sql`、`0009_compendium_embedded_items.sql`；collector 执行 `scripts/verify-dual-schema-bootstrap.mjs`，把绑定 bridge source 与两份 migration 原字节的 `dual_schema_bootstrap_receipt` 传入 manifest，prepare gate 再按当前文件逐项验签。Graph parity、目标 corpus mismatch 和这两项声明 migration 在此阶段是预期后置条件，其他 blocker 不豁免。
+1. **prepare/bootstrap**：source gate 通过；环境 evidence 新鲜；当前旧 Worker/旧 corpus health 为 200/ready；pending migrations 必须按序精确等于 `0008_release_ownership_fences.sql`、`0009_compendium_embedded_items.sql`；collector 执行 `scripts/verify-dual-schema-bootstrap.mjs`，把绑定 `src/index.ts`、`src/retrieval.ts`、`src/admin.ts`、完整 Worker runtime bundle 与两份 migration 原字节的 `dual_schema_bootstrap_receipt` 传入 manifest，并在真实 `0007`、`0008`、`0009` schema 上执行管理讨论投影，prepare gate 再按当前文件和 bundle 逐项验签。Graph parity、目标 corpus mismatch 和这两项声明 migration 在此阶段是预期后置条件，其他 blocker 不豁免。
 2. **bridge / migration**：先以同一 desired-release artifact 部署同时兼容 legacy `0001`–`0007`、fenced `0008` 和 compendium `0009` 的 bridge Worker；保存 D1 Time Travel 与用户表摘要后，严格按 `0008` → `0009` 应用 migration，并回读 applied/pending 与 schema meta。没有可执行 receipt 不得部署 bridge；没有 bridge health 与回滚锚点不得迁移。
 3. **stage corpus**：导入 successor、逐 chunk 回执并 finalize ready，但 staging 不写 current corpus pointer；旧 release 继续服务。
 4. **stage graph/R2**：上传 content-addressed graph shards/manifest，逐对象 GET 校验 hash/bytes；仍不改 `release/current.json`。

@@ -289,15 +289,27 @@
     "bridge_sources": [
       {
         "path": "src/index.ts",
-        "sha256": "c2610fc5eddab66a9c8a7b0258859d7b9afc78632a4167a3253bf74b07aa994d",
-        "bytes": 82821
+        "sha256": "e1f7429a183625166c2f56430502e910dd07b192552bad768c8513e4fe8a0296",
+        "bytes": 84022
       },
       {
         "path": "src/retrieval.ts",
         "sha256": "8c6f151f4ccd4586313c791e7df632c26a595f4c8e213b617b90fe4de2558886",
         "bytes": 7295
+      },
+      {
+        "path": "src/admin.ts",
+        "sha256": "ae32cde079de4e960968649a2e94838b79e45e5354273a6f0ecf9669d072f4c4",
+        "bytes": 15589
       }
     ],
+    "bridge_runtime": {
+      "entrypoint": "src/index.ts",
+      "format": "esm",
+      "target": "es2022",
+      "sha256": "4dc2cd4d9ca1784f291fc6c2277a2526b94d406e1625a26e6627780c252c18b9",
+      "bytes": 159910
+    },
     "migrations": [
       {
         "name": "0008_release_ownership_fences.sql",
@@ -317,7 +329,9 @@
         "embedded_items": false,
         "paragraphs_embedded_item_id": false,
         "comments_embedded_item_id": false,
-        "core_table_key_count": 14
+        "core_table_key_count": 14,
+        "admin_comments_projection": "null",
+        "admin_comments_query": true
       },
       {
         "stage": "fenced_0008",
@@ -325,7 +339,9 @@
         "embedded_items": false,
         "paragraphs_embedded_item_id": false,
         "comments_embedded_item_id": false,
-        "core_table_key_count": 14
+        "core_table_key_count": 14,
+        "admin_comments_projection": "null",
+        "admin_comments_query": true
       },
       {
         "stage": "compendium_0009",
@@ -333,10 +349,12 @@
         "embedded_items": true,
         "paragraphs_embedded_item_id": true,
         "comments_embedded_item_id": true,
-        "core_table_key_count": 14
+        "core_table_key_count": 14,
+        "admin_comments_projection": "column",
+        "admin_comments_query": true
       }
     ],
-    "receipt_sha256": "cf708bca032bb54339231f48fbd6bbbbacf9d6803c517d65bc775ef9692292d6"
+    "receipt_sha256": "756c1d6b130ded1babe325289cd5713b2f1a399782de914b61335fa0cfbbe8ff"
   },
-  "receipt_sha256": "dabaa32e96574bce89bee040ab585eb96fdf7622a295bd1844caef02ad91788a"
+  "receipt_sha256": "b2de01acffb0028957a6f491c4b9ebaf54b4e354e01220ec57cfbd130a05184a"
 }

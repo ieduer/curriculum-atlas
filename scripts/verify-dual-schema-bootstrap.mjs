@@ -5,10 +5,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
+import { buildSync } from 'esbuild';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
-const BRIDGE_SOURCES = ['src/index.ts', 'src/retrieval.ts'];
+const BRIDGE_SOURCES = ['src/index.ts', 'src/retrieval.ts', 'src/admin.ts'];
 const MIGRATION_ORDER = [
   '0008_release_ownership_fences.sql',
   '0009_compendium_embedded_items.sql',
@@ -29,6 +30,30 @@ function stableStringify(value) {
 function exactFile(root, path) {
   const bytes = readFileSync(resolve(root, path));
   return { path, sha256: sha256(bytes), bytes: bytes.length };
+}
+
+function bridgeRuntime(root) {
+  const result = buildSync({
+    absWorkingDir: root,
+    entryPoints: ['src/index.ts'],
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    target: 'es2022',
+    legalComments: 'none',
+    logLevel: 'silent',
+    sourcemap: false,
+    write: false,
+  });
+  if (result.outputFiles.length !== 1) throw new Error('bridge Worker runtime bundle is incomplete');
+  const bytes = Buffer.from(result.outputFiles[0].contents);
+  return {
+    entrypoint: 'src/index.ts',
+    format: 'esm',
+    target: 'es2022',
+    sha256: sha256(bytes),
+    bytes: bytes.length,
+  };
 }
 
 function tableNames(db) {
@@ -65,6 +90,14 @@ function probe(db, stage) {
   if (Object.keys(coreCounts).length !== 14 || coreCounts.embedded_items !== 0) {
     throw new Error(`${stage} bridge core-count projection is incomplete`);
   }
+  const adminCommentsProjection = embeddedItems ? 'column' : 'null';
+  db.prepare(`SELECT c.id,c.parent_id,c.document_id,${embeddedItems
+    ? 'c.embedded_item_id'
+    : 'NULL AS embedded_item_id'},c.paragraph_id,c.author_name,
+    c.author_kind,c.body,c.status,c.moderation_note,c.created_at,c.updated_at,d.title AS document_title
+    FROM comments c LEFT JOIN documents d ON d.id=c.document_id
+    WHERE (?='all' OR c.status=?) ORDER BY c.created_at DESC,c.id DESC LIMIT ? OFFSET ?`)
+    .all('all', 'all', 1, 0);
   return {
     stage,
     release_ownership_fences: releaseOwnershipFences,
@@ -72,18 +105,22 @@ function probe(db, stage) {
     paragraphs_embedded_item_id: paragraphColumns.has('embedded_item_id'),
     comments_embedded_item_id: commentColumns.has('embedded_item_id'),
     core_table_key_count: Object.keys(coreCounts).length,
+    admin_comments_projection: adminCommentsProjection,
+    admin_comments_query: true,
   };
 }
 
 function assertBridgeSource(root) {
   const index = readFileSync(resolve(root, 'src/index.ts'), 'utf8');
   const retrieval = readFileSync(resolve(root, 'src/retrieval.ts'), 'utf8');
+  const admin = readFileSync(resolve(root, 'src/admin.ts'), 'utf8');
   for (const [label, source, patterns] of [
     ['Worker', index, [
       /schemaCapabilities\(env/, /legacy_bridge/, /capabilities\.embeddedItems/,
       /releaseOwnershipFences/, /sqlite_master/,
     ]],
     ['retrieval', retrieval, [/sqlite_master/, /embeddedItems \?/, /NULL AS embedded_item_id/]],
+    ['admin', admin, [/embeddedItems/, /c\.embedded_item_id/, /NULL AS embedded_item_id/]],
   ]) {
     for (const pattern of patterns) {
       if (!pattern.test(source)) throw new Error(`${label} bridge source lacks ${pattern}`);
@@ -106,15 +143,23 @@ export function validateDualSchemaBootstrapReceipt(value, { root = DEFAULT_ROOT,
       || value.migrations.map((entry) => entry.name).join(',') !== MIGRATION_ORDER.join(',')) {
     throw new Error('dual-schema bootstrap source or migration order is invalid');
   }
+  if (value.bridge_runtime?.entrypoint !== 'src/index.ts'
+      || value.bridge_runtime?.format !== 'esm'
+      || value.bridge_runtime?.target !== 'es2022'
+      || !SHA256_PATTERN.test(String(value.bridge_runtime?.sha256 || ''))
+      || !Number.isSafeInteger(value.bridge_runtime?.bytes)
+      || value.bridge_runtime.bytes <= 0) {
+    throw new Error('dual-schema bootstrap Worker runtime identity is invalid');
+  }
   for (const entry of [...value.bridge_sources, ...value.migrations]) {
     if (!SHA256_PATTERN.test(String(entry.sha256 || '')) || !Number.isSafeInteger(entry.bytes) || entry.bytes <= 0) {
       throw new Error('dual-schema bootstrap file identity is invalid');
     }
   }
   const expectedProbes = [
-    { stage: 'legacy_0007', release_ownership_fences: false, embedded_items: false, paragraphs_embedded_item_id: false, comments_embedded_item_id: false, core_table_key_count: 14 },
-    { stage: 'fenced_0008', release_ownership_fences: true, embedded_items: false, paragraphs_embedded_item_id: false, comments_embedded_item_id: false, core_table_key_count: 14 },
-    { stage: 'compendium_0009', release_ownership_fences: true, embedded_items: true, paragraphs_embedded_item_id: true, comments_embedded_item_id: true, core_table_key_count: 14 },
+    { stage: 'legacy_0007', release_ownership_fences: false, embedded_items: false, paragraphs_embedded_item_id: false, comments_embedded_item_id: false, core_table_key_count: 14, admin_comments_projection: 'null', admin_comments_query: true },
+    { stage: 'fenced_0008', release_ownership_fences: true, embedded_items: false, paragraphs_embedded_item_id: false, comments_embedded_item_id: false, core_table_key_count: 14, admin_comments_projection: 'null', admin_comments_query: true },
+    { stage: 'compendium_0009', release_ownership_fences: true, embedded_items: true, paragraphs_embedded_item_id: true, comments_embedded_item_id: true, core_table_key_count: 14, admin_comments_projection: 'column', admin_comments_query: true },
   ];
   if (stableStringify(value.probes) !== stableStringify(expectedProbes)) {
     throw new Error('dual-schema bootstrap executable probes are invalid');
@@ -125,11 +170,13 @@ export function validateDualSchemaBootstrapReceipt(value, { root = DEFAULT_ROOT,
   }
   if (verifyFiles) {
     const expectedSources = BRIDGE_SOURCES.map((path) => exactFile(root, path));
+    const expectedRuntime = bridgeRuntime(root);
     const expectedMigrations = MIGRATION_ORDER.map((name) => {
       const file = exactFile(root, `migrations/${name}`);
       return { name, sha256: file.sha256, bytes: file.bytes };
     });
     if (stableStringify(value.bridge_sources) !== stableStringify(expectedSources)
+        || stableStringify(value.bridge_runtime) !== stableStringify(expectedRuntime)
         || stableStringify(value.migrations) !== stableStringify(expectedMigrations)) {
       throw new Error('dual-schema bootstrap receipt does not bind the candidate source bytes');
     }
@@ -172,6 +219,7 @@ export function verifyDualSchemaBootstrap({ root = DEFAULT_ROOT } = {}) {
         'collect_post_migration_environment_evidence',
       ],
       bridge_sources: BRIDGE_SOURCES.map((path) => exactFile(root, path)),
+      bridge_runtime: bridgeRuntime(root),
       migrations: MIGRATION_ORDER.map((name) => {
         const file = exactFile(root, `migrations/${name}`);
         return { name, sha256: file.sha256, bytes: file.bytes };

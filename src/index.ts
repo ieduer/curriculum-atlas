@@ -1,4 +1,13 @@
 import { answerWithEvidence } from './ai';
+import {
+  adminAiLogs,
+  adminAudit,
+  adminComments,
+  adminInventory,
+  adminOverview,
+  adminReports,
+  resolveAdminReport,
+} from './admin';
 import { getSession, requireAdmin, requireAuthenticated } from './auth';
 import { clampInt, HttpError, json, readJson, requireSameOrigin, secureHeaders, textParam } from './http';
 import { retrieve } from './retrieval';
@@ -1405,6 +1414,11 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
   if (pathname === '/api/health' && method === 'GET') return health(env);
   if (pathname === '/api/admin/release-coordinate') return handleReleaseCoordinator(request, env);
   if (pathname === '/api/me' && method === 'GET') return me(request, env);
+  let adminSession: Session | null = null;
+  if (pathname.startsWith('/api/admin/')) {
+    adminSession = await getSession(request, env);
+    requireAdmin(adminSession);
+  }
   const capabilities = await schemaCapabilities(env);
   await requireCorpusReady(env, capabilities);
   if (pathname === '/api/meta' && method === 'GET') return meta(env, capabilities);
@@ -1427,14 +1441,27 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
   if (pathname === '/api/compare' && method === 'GET') return compare(url, env, capabilities);
   if (pathname === '/api/source-manifest' && method === 'GET') return sourceManifest(env);
   const needsSession = pathname.startsWith('/api/comments') || pathname.startsWith('/api/ai') || pathname.startsWith('/api/admin');
-  const session = needsSession ? await getSession(request, env) : { authenticated: false, user: null, admin: false };
+  const session = adminSession
+    || (needsSession ? await getSession(request, env) : { authenticated: false, user: null, admin: false });
   if (pathname === '/api/comments' && method === 'GET') return listComments(url, env, session);
   if (pathname === '/api/comments' && method === 'POST') return createComment(request, env, session);
   const reportMatch = pathname.match(/^\/api\/comments\/([a-f0-9-]+)\/report$/);
   if (reportMatch && method === 'POST') return reportComment(request, env, session, reportMatch[1]);
   const moderateMatch = pathname.match(/^\/api\/admin\/comments\/([a-f0-9-]+)$/);
   if (moderateMatch && method === 'PATCH') return moderateComment(request, env, session, moderateMatch[1]);
+  const resolveReportMatch = pathname.match(/^\/api\/admin\/reports\/([a-f0-9-]+)$/);
+  if (resolveReportMatch && method === 'PATCH') {
+    return resolveAdminReport(request, env, session, resolveReportMatch[1]);
+  }
   if (pathname === '/api/admin/summary' && method === 'GET') return adminSummary(env, session);
+  if (pathname === '/api/admin/overview' && method === 'GET') return adminOverview(env, session);
+  if (pathname === '/api/admin/inventory' && method === 'GET') return adminInventory(url, env, session);
+  if (pathname === '/api/admin/comments' && method === 'GET') {
+    return adminComments(url, env, session, capabilities.embeddedItems);
+  }
+  if (pathname === '/api/admin/reports' && method === 'GET') return adminReports(url, env, session);
+  if (pathname === '/api/admin/ai-logs' && method === 'GET') return adminAiLogs(url, env, session);
+  if (pathname === '/api/admin/audit' && method === 'GET') return adminAudit(url, env, session);
   if (pathname === '/api/ai/chat' && method === 'POST') return aiChat(request, env, session);
   throw new HttpError(404, 'API 路径不存在');
 }
