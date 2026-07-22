@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 import {
   defaultChildMonitoringPolicy,
   fingerprintPaddlexLayoutModelCache,
+  IncompleteOcrDocumentError,
   invokeOcrChild,
   preflightDocument,
   probePythonOcrRuntime,
@@ -2099,6 +2100,167 @@ function forwardOnlyEntryMap(entries) {
   }));
 }
 
+function requireCheckpointIdentity(identity, label, { includeBase64 = false } = {}) {
+  const keys = ['sha256', 'bytes', 'device', 'inode', ...(includeBase64 ? ['base64'] : [])];
+  if (!exactKeys(identity, keys)
+    || !sha256Pattern.test(String(identity.sha256 || ''))
+    || !Number.isSafeInteger(identity.bytes)
+    || identity.bytes < 1
+    || !/^(?:0|[1-9]\d*)$/u.test(String(identity.device || ''))
+    || !/^(?:0|[1-9]\d*)$/u.test(String(identity.inode || ''))) {
+    throw new Error(`${label} identity is invalid`);
+  }
+  if (includeBase64) {
+    if (typeof identity.base64 !== 'string') throw new Error(`${label} payload is invalid`);
+    const raw = Buffer.from(identity.base64, 'base64');
+    if (raw.byteLength !== identity.bytes
+      || raw.toString('base64') !== identity.base64
+      || sha256(raw) !== identity.sha256) {
+      throw new Error(`${label} payload differs from its identity`);
+    }
+  }
+  return identity;
+}
+
+function requireCheckpointTree(tree, label) {
+  if (!exactKeys(tree, ['tree_sha256', 'files', 'bytes', 'entries'])
+    || !sha256Pattern.test(String(tree.tree_sha256 || ''))
+    || !Number.isSafeInteger(tree.files)
+    || tree.files < 1
+    || !Number.isSafeInteger(tree.bytes)
+    || tree.bytes < 1
+    || !Array.isArray(tree.entries)
+    || tree.entries.some((entry) => typeof entry !== 'string' || !entry.endsWith('\n'))
+    || sha256(tree.entries.join('')) !== tree.tree_sha256) {
+    throw new Error(`${label} strict tree is invalid`);
+  }
+  let files = 0;
+  let bytes = 0;
+  const paths = new Set();
+  for (const entry of tree.entries) {
+    const parts = entry.slice(0, -1).split('\0');
+    if (!['D', 'F'].includes(parts[0])
+      || (parts[0] === 'D' && parts.length !== 2)
+      || (parts[0] === 'F' && parts.length !== 4)
+      || typeof parts[1] !== 'string'
+      || !parts[1]
+      || path.isAbsolute(parts[1])
+      || parts[1].split('/').some((part) => !part || part === '.' || part === '..')
+      || paths.has(parts[1])) {
+      throw new Error(`${label} strict tree entry is invalid`);
+    }
+    paths.add(parts[1]);
+    if (parts[0] === 'F') {
+      if (!/^(?:0|[1-9]\d*)$/u.test(parts[2]) || !sha256Pattern.test(parts[3])) {
+        throw new Error(`${label} strict tree file identity is invalid`);
+      }
+      files += 1;
+      bytes += Number(parts[2]);
+    }
+  }
+  if (files !== tree.files || bytes !== tree.bytes || !Number.isSafeInteger(bytes)) {
+    throw new Error(`${label} strict tree totals are invalid`);
+  }
+  return tree;
+}
+
+function requireCheckpointDirectories(directories, tree, label) {
+  if (!Array.isArray(directories)) throw new Error(`${label} directories are invalid`);
+  const expected = ['.', ...tree.entries
+    .filter((entry) => entry.startsWith('D\0'))
+    .map((entry) => entry.slice(0, -1).split('\0')[1])];
+  if (directories.length !== expected.length) throw new Error(`${label} directory inventory is incomplete`);
+  const seen = new Set();
+  for (let index = 0; index < directories.length; index += 1) {
+    const identity = directories[index];
+    if (!exactKeys(identity, ['path', 'device', 'inode', 'mode', 'uid', 'gid'])
+      || identity.path !== expected[index]
+      || seen.has(identity.path)
+      || !/^0[0-7]{3}$/u.test(String(identity.mode || ''))
+      || ['device', 'inode', 'uid', 'gid'].some(
+        (key) => !/^(?:0|[1-9]\d*)$/u.test(String(identity[key] || '')),
+      )) {
+      throw new Error(`${label} directory identity is invalid`);
+    }
+    seen.add(identity.path);
+  }
+  return directories;
+}
+
+function checkpointBaseline(inspected) {
+  return {
+    document_tree_sha256: inspected.documentTree.tree_sha256,
+    document_tree_files: inspected.documentTree.files,
+    document_tree_bytes: inspected.documentTree.bytes,
+    state_sha256: inspected.stateRecord.sha256,
+    state_bytes: inspected.stateRecord.bytes,
+    log_sha256: inspected.logRecord.sha256,
+    log_bytes: inspected.logRecord.bytes,
+    log_device: inspected.logRecord.dev,
+    log_inode: inspected.logRecord.ino,
+  };
+}
+
+function requireCheckpointBaseline(value, inspected) {
+  if (!exactKeys(value, [
+    'document_tree_sha256',
+    'document_tree_files',
+    'document_tree_bytes',
+    'state_sha256',
+    'state_bytes',
+    'log_sha256',
+    'log_bytes',
+    'log_device',
+    'log_inode',
+  ]) || !sameJson(value, checkpointBaseline(inspected))) {
+    throw new Error('partial checkpoint baseline differs from the frozen incident');
+  }
+  return value;
+}
+
+function checkpointStateRecord(checkpoint) {
+  const state = requireCheckpointIdentity(
+    checkpoint.value.state,
+    'partial checkpoint state',
+    { includeBase64: true },
+  );
+  return { ...state, raw: Buffer.from(state.base64, 'base64') };
+}
+
+function validateStateForwardOnly(previousRaw, currentRaw, documentId) {
+  const previous = parseJson(previousRaw, 'previous partial checkpoint state');
+  const current = parseJson(currentRaw, 'current partial checkpoint state');
+  if (previous.document_id !== documentId || current.document_id !== documentId) {
+    throw new Error('partial checkpoint state document identity changed');
+  }
+  const previousCompleted = Array.isArray(previous.completed_pages) ? previous.completed_pages : [];
+  const currentCompleted = new Set(Array.isArray(current.completed_pages) ? current.completed_pages : []);
+  for (const page of previousCompleted) {
+    if (!currentCompleted.has(page)
+      || !sameJson(previous.pages?.[String(page)], current.pages?.[String(page)])) {
+      throw new Error(`partial checkpoint lost immutable completed page ${page}`);
+    }
+  }
+}
+
+function checkpointLogReference(inspected, checkpoint) {
+  if (!checkpoint) {
+    return {
+      sha256: inspected.logRecord.sha256,
+      bytes: inspected.logRecord.bytes,
+      device: inspected.logRecord.dev,
+      inode: inspected.logRecord.ino,
+    };
+  }
+  const identity = checkpoint.value.append_only_log;
+  return {
+    sha256: identity.sha256,
+    bytes: identity.bytes,
+    device: identity.device,
+    inode: identity.inode,
+  };
+}
+
 async function captureDirectoryIdentities(documentRoot, inventory) {
   const relatives = ['', ...inventory.entries
     .filter((entry) => entry.startsWith('D\0'))
@@ -2143,9 +2305,23 @@ async function verifyDirectoryIdentities(documentRoot, identities) {
   }
 }
 
-async function verifyForwardOnlyDocument(inspected) {
-  const { documentTree: beforeInventory, documentRoot } = inspected;
-  await verifyDirectoryIdentities(documentRoot, inspected.directoryIdentities);
+async function verifyForwardOnlyDocument(inspected, previousCheckpoint = null) {
+  const beforeInventory = previousCheckpoint
+    ? requireCheckpointTree(previousCheckpoint.value.document_tree, 'previous partial checkpoint')
+    : inspected.documentTree;
+  const directoryIdentities = previousCheckpoint
+    ? requireCheckpointDirectories(
+        previousCheckpoint.value.directories,
+        beforeInventory,
+        'previous partial checkpoint',
+      )
+    : inspected.directoryIdentities;
+  const previousState = previousCheckpoint
+    ? checkpointStateRecord(previousCheckpoint)
+    : { raw: inspected.stateRaw };
+  const logReference = checkpointLogReference(inspected, previousCheckpoint);
+  const { documentRoot } = inspected;
+  await verifyDirectoryIdentities(documentRoot, directoryIdentities);
   const after = await inspectTreeStrict(documentRoot);
   const beforeEntries = forwardOnlyEntryMap(beforeInventory.entries);
   const afterEntries = forwardOnlyEntryMap(after.entries);
@@ -2190,16 +2366,117 @@ async function verifyForwardOnlyDocument(inspected) {
     }
   }
   const log = await readStableFileRecord(inspected.outputRoot, inspected.logPath, 'continued document log');
-  if (log.dev !== inspected.logRecord.dev
-    || log.ino !== inspected.logRecord.ino
-    || log.bytes < inspected.logRecord.bytes
-    || !log.raw.subarray(0, inspected.logRecord.bytes).equals(inspected.logRaw)) {
+  if (log.dev !== logReference.device
+    || log.ino !== logReference.inode
+    || log.bytes < logReference.bytes
+    || sha256(log.raw.subarray(0, logReference.bytes)) !== logReference.sha256) {
     throw new Error('document log was replaced, truncated, or lost its immutable prefix');
   }
-  return { after, log };
+  const state = await readStableFileRecord(
+    inspected.outputRoot,
+    inspected.statePath,
+    'continued document state',
+  );
+  validateStateForwardOnly(previousState.raw, state.raw, inspected.document.id);
+  return { after, log, state };
 }
 
-async function verifyFrozenPreSpawnSnapshot(inspected, profile) {
+async function verifyExactPartialCheckpointSnapshot(inspected, checkpoint) {
+  requireCheckpointBaseline(checkpoint.value.baseline, inspected);
+  const expectedTree = requireCheckpointTree(
+    checkpoint.value.document_tree,
+    'partial checkpoint',
+  );
+  const expectedState = checkpointStateRecord(checkpoint);
+  const expectedLog = requireCheckpointIdentity(
+    {
+      sha256: checkpoint.value.append_only_log?.sha256,
+      bytes: checkpoint.value.append_only_log?.bytes,
+      device: checkpoint.value.append_only_log?.device,
+      inode: checkpoint.value.append_only_log?.inode,
+    },
+    'partial checkpoint log',
+  );
+  const directories = requireCheckpointDirectories(
+    checkpoint.value.directories,
+    expectedTree,
+    'partial checkpoint',
+  );
+  await verifyDirectoryIdentities(inspected.documentRoot, directories);
+  const [actualTree, actualState, actualLog] = await Promise.all([
+    inspectTreeStrict(inspected.documentRoot),
+    readStableFileRecord(inspected.outputRoot, inspected.statePath, 'partial checkpoint state'),
+    readStableFileRecord(inspected.outputRoot, inspected.logPath, 'partial checkpoint log'),
+  ]);
+  await verifyDirectoryIdentities(inspected.documentRoot, directories);
+  if (!sameJson(actualTree, expectedTree)) {
+    throw new Error('live document differs from the durable partial checkpoint document tree');
+  }
+  if (actualState.sha256 !== expectedState.sha256
+    || actualState.bytes !== expectedState.bytes
+    || actualState.dev !== expectedState.device
+    || actualState.ino !== expectedState.inode
+    || !actualState.raw.equals(expectedState.raw)) {
+    throw new Error('live state differs from the durable partial checkpoint state identity');
+  }
+  if (actualLog.sha256 !== expectedLog.sha256
+    || actualLog.bytes !== expectedLog.bytes
+    || actualLog.dev !== expectedLog.device
+    || actualLog.ino !== expectedLog.inode) {
+    throw new Error('live log differs from the durable partial checkpoint log identity');
+  }
+  return { tree: actualTree, state: actualState, log: actualLog };
+}
+
+async function buildPartialCheckpointPayload(
+  inspected,
+  progression,
+  forward,
+  checkpointedAt,
+) {
+  const execution = progression.executionStates.at(-1);
+  if (!execution) throw new Error('partial checkpoint has no execution state');
+  const previousCheckpoint = progression.partialCheckpoints.at(-1) || null;
+  const previousLog = checkpointLogReference(inspected, previousCheckpoint);
+  const stateEntry = forwardOnlyEntryMap(forward.after.entries).get('state.json');
+  const stateParts = typeof stateEntry === 'string'
+    ? stateEntry.slice(0, -1).split('\0')
+    : [];
+  if (stateParts.length !== 4
+    || stateParts[0] !== 'F'
+    || stateParts[2] !== String(forward.state.bytes)
+    || stateParts[3] !== forward.state.sha256) {
+    throw new Error('partial checkpoint state differs from its strict document tree');
+  }
+  const directories = await captureDirectoryIdentities(inspected.documentRoot, forward.after);
+  await verifyDirectoryIdentities(inspected.documentRoot, directories);
+  const payload = {
+    checkpointed_at: checkpointedAt,
+    execution_state_sha256: execution.sha256,
+    previous_checkpoint_state_sha256: previousCheckpoint?.sha256 || null,
+    baseline: checkpointBaseline(inspected),
+    document_tree: structuredClone(forward.after),
+    state: {
+      sha256: forward.state.sha256,
+      bytes: forward.state.bytes,
+      device: forward.state.dev,
+      inode: forward.state.ino,
+      base64: forward.state.raw.toString('base64'),
+    },
+    append_only_log: {
+      sha256: forward.log.sha256,
+      bytes: forward.log.bytes,
+      device: forward.log.dev,
+      inode: forward.log.ino,
+      prefix_sha256: previousLog.sha256,
+      prefix_bytes: previousLog.bytes,
+    },
+    directories,
+  };
+  return payload;
+}
+
+async function verifyFrozenPreSpawnSnapshot(inspected, profile, partialCheckpoint = null) {
   const [output, evidence, incident, lifecycle, runStatus, status, state, log, grant, claim] = await Promise.all([
     requireStableDirectory(inspected.outputRoot, 'successor output root', {
       dev: profile.outputDevice,
@@ -2236,16 +2513,22 @@ async function verifyFrozenPreSpawnSnapshot(inspected, profile) {
   }
   if (runStatus.digest !== profile.runStatusSha256
     || status.digest !== profile.documentStatusSha256
-    || state.sha256 !== profile.stateSha256
-    || log.sha256 !== profile.logSha256
-    || log.bytes !== profile.logBytes
-    || log.dev !== inspected.logRecord.dev
-    || log.ino !== inspected.logRecord.ino
     || grant.digest !== profile.timeoutGrantSha256
     || claim.digest !== profile.timeoutConsumptionClaimSha256) {
     throw new Error('frozen output or authority provenance changed immediately before OCR spawn');
   }
-  await verifyDirectoryIdentities(inspected.documentRoot, inspected.directoryIdentities);
+  if (partialCheckpoint) {
+    await verifyExactPartialCheckpointSnapshot(inspected, partialCheckpoint);
+  } else {
+    if (state.sha256 !== profile.stateSha256
+      || log.sha256 !== profile.logSha256
+      || log.bytes !== profile.logBytes
+      || log.dev !== inspected.logRecord.dev
+      || log.ino !== inspected.logRecord.ino) {
+      throw new Error('frozen state or log provenance changed immediately before OCR spawn');
+    }
+    await verifyDirectoryIdentities(inspected.documentRoot, inspected.directoryIdentities);
+  }
 }
 
 function cleanProgress(progress) {
@@ -2427,9 +2710,85 @@ function requireExactStateKeys(value, extraKeys, label) {
   }
 }
 
+function validatePartialCheckpointJournalState(
+  checkpoint,
+  ordinal,
+  execution,
+  previousCheckpoint,
+  expectedDocumentId,
+) {
+  const expectedStage = `partial_checkpoint_${String(ordinal).padStart(4, '0')}`;
+  requireExactStateKeys(checkpoint.value, [
+    'checkpointed_at',
+    'execution_state_sha256',
+    'previous_checkpoint_state_sha256',
+    'baseline',
+    'document_tree',
+    'state',
+    'append_only_log',
+    'directories',
+  ], `operator continuation ${expectedStage} state`);
+  requireCanonicalTimestamp(checkpoint.value.checkpointed_at, `${expectedStage} time`);
+  const executionTimestamp = execution.value.resumed_at || execution.value.started_at;
+  if (checkpoint.value.stage !== expectedStage
+    || checkpoint.value.execution_state_sha256 !== execution.sha256
+    || checkpoint.value.previous_checkpoint_state_sha256 !== (previousCheckpoint?.sha256 || null)
+    || Date.parse(checkpoint.value.checkpointed_at) < Date.parse(executionTimestamp)) {
+    throw new Error('operator continuation partial checkpoint chain is invalid');
+  }
+  const tree = requireCheckpointTree(checkpoint.value.document_tree, expectedStage);
+  const state = requireCheckpointIdentity(
+    checkpoint.value.state,
+    `${expectedStage} state`,
+    { includeBase64: true },
+  );
+  const checkpointState = parseJson(
+    Buffer.from(state.base64, 'base64'),
+    `${expectedStage} state`,
+  );
+  if (checkpointState.document_id !== expectedDocumentId
+    || checkpointState.selected_pages_complete !== false
+    || !Array.isArray(checkpointState.completed_pages)
+    || checkpointState.completed_pages.length >= checkpointState.page_count) {
+    throw new Error(`${expectedStage} state is not an incomplete OCR document`);
+  }
+  const appendOnlyLog = checkpoint.value.append_only_log;
+  if (!exactKeys(appendOnlyLog, [
+    'sha256', 'bytes', 'device', 'inode', 'prefix_sha256', 'prefix_bytes',
+  ])) throw new Error(`${expectedStage} append-only log identity is invalid`);
+  requireCheckpointIdentity({
+    sha256: appendOnlyLog.sha256,
+    bytes: appendOnlyLog.bytes,
+    device: appendOnlyLog.device,
+    inode: appendOnlyLog.inode,
+  }, `${expectedStage} append-only log`);
+  if (!sha256Pattern.test(String(appendOnlyLog.prefix_sha256 || ''))
+    || !Number.isSafeInteger(appendOnlyLog.prefix_bytes)
+    || appendOnlyLog.prefix_bytes < 1
+    || appendOnlyLog.bytes < appendOnlyLog.prefix_bytes) {
+    throw new Error(`${expectedStage} append-only log prefix is invalid`);
+  }
+  const stateEntry = forwardOnlyEntryMap(tree.entries).get('state.json');
+  const stateParts = typeof stateEntry === 'string' ? stateEntry.slice(0, -1).split('\0') : [];
+  if (stateParts.length !== 4
+    || stateParts[0] !== 'F'
+    || stateParts[2] !== String(state.bytes)
+    || stateParts[3] !== state.sha256) {
+    throw new Error(`${expectedStage} state differs from its strict tree`);
+  }
+  requireCheckpointDirectories(checkpoint.value.directories, tree, expectedStage);
+  return checkpoint;
+}
+
 function validateJournalProgression(states, claim, expectedUnitFence) {
   if (states.length === 0) {
-    return { claimed: null, executionStates: [], terminalPlan: null, terminal: null };
+    return {
+      claimed: null,
+      executionStates: [],
+      partialCheckpoints: [],
+      terminalPlan: null,
+      terminal: null,
+    };
   }
   const claimed = states[0];
   requireExactStateKeys(
@@ -2445,6 +2804,7 @@ function validateJournalProgression(states, claim, expectedUnitFence) {
     throw new Error('operator continuation claimed state or unit fence is invalid');
   }
   const executionStates = [];
+  const partialCheckpoints = [];
   let index = 1;
   if (states[index]) {
     const running = states[index];
@@ -2475,9 +2835,27 @@ function validateJournalProgression(states, claim, expectedUnitFence) {
   const invocationIds = new Set(executionStates.map(({ value }) => value.llama_invocation_id));
   const spawnNonces = new Set(executionStates.map(({ value }) => value.spawn_nonce));
   let resumeOrdinal = 1;
-  while (states[index] && /^resume_running_\d{4}$/u.test(states[index].value.stage)) {
-    const resumed = states[index];
+  while (executionStates.length > 0) {
+    const predecessor = executionStates.at(-1);
+    const expectedCheckpointStage = `partial_checkpoint_${String(executionStates.length).padStart(4, '0')}`;
+    let checkpoint = null;
+    if (states[index]?.value.stage === expectedCheckpointStage) {
+      checkpoint = validatePartialCheckpointJournalState(
+        states[index],
+        executionStates.length,
+        predecessor,
+        partialCheckpoints.at(-1) || null,
+        claim.claim.document_id,
+      );
+      partialCheckpoints.push(checkpoint);
+      index += 1;
+    }
     const expectedStage = `resume_running_${String(resumeOrdinal).padStart(4, '0')}`;
+    if (states[index]?.value.stage !== expectedStage) break;
+    if (!checkpoint) {
+      throw new Error('operator continuation resume_running has no durable partial checkpoint');
+    }
+    const resumed = states[index];
     requireExactStateKeys(
       resumed.value,
       [
@@ -2488,14 +2866,15 @@ function validateJournalProgression(states, claim, expectedUnitFence) {
         'spawn_nonce',
         'ocr_command_sha256',
         'resumed_from_state_sha256',
+        'partial_checkpoint_state_sha256',
       ],
       `operator continuation ${expectedStage} state`,
     );
-    const predecessor = executionStates.at(-1);
     const predecessorTimestamp = predecessor?.value.resumed_at || predecessor?.value.started_at;
     if (resumed.value.stage !== expectedStage
       || !predecessor
       || resumed.value.resumed_from_state_sha256 !== predecessor.sha256
+      || resumed.value.partial_checkpoint_state_sha256 !== checkpoint.sha256
       || !invocationIdPattern.test(String(resumed.value.llama_invocation_id || ''))
       || invocationIds.has(resumed.value.llama_invocation_id)
       || spawnNonces.has(resumed.value.spawn_nonce)
@@ -2551,7 +2930,7 @@ function validateJournalProgression(states, claim, expectedUnitFence) {
     index += 1;
   }
   if (index !== states.length) throw new Error('operator continuation state journal stages are invalid');
-  return { claimed, executionStates, terminalPlan, terminal };
+  return { claimed, executionStates, partialCheckpoints, terminalPlan, terminal };
 }
 
 async function recoverTrailingJournalPair(paths, claim, expectedUnitFence) {
@@ -2788,6 +3167,32 @@ async function finalizeOutcome(inspected, published, claim, options, outcome, ti
   };
 }
 
+async function validateRecoveredDocumentOutput(inspected, runtime, dependencies = {}) {
+  const validateOutput = dependencies.validateDocumentOutput || validateOcrDocumentOutput;
+  const workerConfiguration = dependencies.recoveredWorkerConfiguration
+    || inspected.identity.worker_configuration;
+  try {
+    return {
+      complete: true,
+      artifacts: await validateOutput(
+        inspected.document,
+        inspected.documentRoot,
+        runtime,
+        { requireComplete: true, workerConfiguration },
+      ),
+    };
+  } catch (error) {
+    if (!(error instanceof IncompleteOcrDocumentError)) throw error;
+    const artifacts = await validateOutput(
+      inspected.document,
+      inspected.documentRoot,
+      runtime,
+      { requireComplete: false, workerConfiguration },
+    );
+    return { complete: false, artifacts, incomplete: error };
+  }
+}
+
 export async function continueOperatorInterruptedAttempt(options, dependencies = {}) {
   const profile = validateA2ForwardContinuationProfile(
     dependencies.incidentProfile || EXACT_A2_FORWARD_CONTINUATION_INCIDENT,
@@ -2971,26 +3376,40 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
 
     if (inspected.archivedIncident) await verifyBase(options);
 
-    const progression = validateJournalProgression(journal.states, claim, frozenUnitFence);
+    let progression = validateJournalProgression(journal.states, claim, frozenUnitFence);
     if (progression.executionStates.length > 0) {
       // A crash may occur after the child exits but before its terminal plan is
       // journaled. A fully valid forward result is finalized without invoking
       // OCR again; an incomplete but forward-only result resumes the same
       // already claimed attempt 6.
-      const forward = await verifyForwardOnlyDocument(inspected);
-      let recoveredArtifacts;
-      try {
-        const validateOutput = dependencies.validateDocumentOutput || validateOcrDocumentOutput;
-        recoveredArtifacts = await validateOutput(
-          inspected.document,
-          inspected.documentRoot,
+      const previousCheckpoint = progression.partialCheckpoints.at(-1) || null;
+      const lastExecution = progression.executionStates.at(-1);
+      const checkpointForLastExecution = previousCheckpoint?.value.execution_state_sha256
+        === lastExecution.sha256
+        ? previousCheckpoint
+        : null;
+      let forward;
+      let recovered;
+      if (checkpointForLastExecution) {
+        await verifyExactPartialCheckpointSnapshot(inspected, checkpointForLastExecution);
+        forward = await verifyForwardOnlyDocument(inspected, checkpointForLastExecution);
+        recovered = await validateRecoveredDocumentOutput(
+          inspected,
           inspected.identity.runtime,
-          { workerConfiguration: inspected.identity.worker_configuration },
+          dependencies,
         );
-      } catch (error) {
-        if (/changed|removed|replaced|truncated|unsafe|out-of-range|unrecognized/u.test(error.message)) throw error;
+        if (recovered.complete) {
+          throw new Error('partial checkpoint unexpectedly describes a complete document');
+        }
+      } else {
+        forward = await verifyForwardOnlyDocument(inspected, previousCheckpoint);
+        recovered = await validateRecoveredDocumentOutput(
+          inspected,
+          inspected.identity.runtime,
+          dependencies,
+        );
       }
-      if (recoveredArtifacts) {
+      if (recovered.complete) {
         const recoveryTimestamp = requireCanonicalTimestamp(
           dependencies.now?.() || new Date().toISOString(),
           'continuation recovery timestamp',
@@ -3007,7 +3426,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
               sourceSha256: inspected.document.source_sha256,
               pageCount: inspected.document.page_count,
             },
-            artifacts: { ...recoveredArtifacts, forward_document_tree: forward.after, append_only_log: {
+            artifacts: { ...recovered.artifacts, forward_document_tree: forward.after, append_only_log: {
               sha256: forward.log.sha256,
               bytes: forward.log.bytes,
               device: forward.log.dev,
@@ -3016,6 +3435,28 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
           },
           guardedDependencies,
         );
+      }
+      if (!checkpointForLastExecution) {
+        const checkpointedAt = requireCanonicalTimestamp(
+          dependencies.now?.() || new Date().toISOString(),
+          'partial checkpoint timestamp',
+        );
+        const checkpointStage = `partial_checkpoint_${String(progression.executionStates.length).padStart(4, '0')}`;
+        const payload = await buildPartialCheckpointPayload(
+          inspected,
+          progression,
+          forward,
+          checkpointedAt,
+        );
+        await appendJournalState(
+          published.paths,
+          claim,
+          checkpointStage,
+          payload,
+          guardedDependencies,
+        );
+        journal = await recoverTrailingJournalPair(published.paths, claim, frozenUnitFence);
+        progression = validateJournalProgression(journal.states, claim, frozenUnitFence);
       }
     }
 
@@ -3094,6 +3535,11 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
     const spawnNonce = sha256(randomUUID());
     const ocrCommandSha256 = sha256(canonicalJson([options.python, ...commandArguments]));
     const previousExecutionState = progression.executionStates.at(-1);
+    const resumeCheckpoint = progression.partialCheckpoints.at(-1) || null;
+    if (previousExecutionState
+      && resumeCheckpoint?.value.execution_state_sha256 !== previousExecutionState.sha256) {
+      throw new Error('resumed execution has no exact durable partial checkpoint');
+    }
     const executionStage = previousExecutionState
       ? `resume_running_${String(progression.executionStates.length).padStart(4, '0')}`
       : 'running';
@@ -3117,6 +3563,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       spawn_nonce: spawnNonce,
       ocr_command_sha256: ocrCommandSha256,
       resumed_from_state_sha256: previousExecutionState.sha256,
+      partial_checkpoint_state_sha256: resumeCheckpoint.sha256,
     } : {
       started_at: executionTimestamp,
       llama_invocation_id: activeLlama.InvocationID,
@@ -3128,7 +3575,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
     await transactionGuard('after_execution_state');
     const preSpawnUnits = await inspectPreSpawnUnits(profile, activeLlama, dependencies);
     requireSameContinuationUnitFence(preSpawnUnits, frozenUnitFence);
-    await verifyFrozenPreSpawnSnapshot(inspected, profile);
+    await verifyFrozenPreSpawnSnapshot(inspected, profile, resumeCheckpoint);
 
     const invoke = dependencies.invokeOcr || invokeOcrChild;
     let childResult;
@@ -3157,6 +3604,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       activeChild = null;
     }
     await transactionGuard('after_child_exit');
+    await dependencies.afterChildExit?.({ childResult, invocationError });
     const timestamp = requireCanonicalTimestamp(
       dependencies.now?.() || new Date().toISOString(),
       'continuation outcome timestamp',
@@ -3230,7 +3678,10 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
         guardedDependencies,
       );
     }
-    const forward = await verifyForwardOnlyDocument(inspected).catch(async (error) => ({ validationError: error }));
+    const forward = await verifyForwardOnlyDocument(
+      inspected,
+      resumeCheckpoint,
+    ).catch(async (error) => ({ validationError: error }));
     let artifacts;
     let validationError = forward.validationError;
     if (!validationError) {

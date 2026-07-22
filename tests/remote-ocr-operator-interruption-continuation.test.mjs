@@ -8,6 +8,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
+  IncompleteOcrDocumentError,
+  validateOcrDocumentOutput,
+} from '../scripts/run-remote-ocr-offload.mjs';
+import {
   continueOperatorInterruptedAttempt,
   inspectA2ContinuationUnits,
   operatorContinuationPaths,
@@ -97,7 +101,7 @@ async function readFirstJsonLine(stream) {
   return JSON.parse(buffered.slice(0, buffered.indexOf('\n')));
 }
 
-async function makeFixture(t) {
+async function makeFixture(t, { pageCount = 2 } = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'ocr-operator-continuation-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const inputRoot = path.join(root, 'input');
@@ -168,14 +172,14 @@ async function makeFixture(t) {
         ],
       },
     },
-    counts: { selected_documents: 1, selected_pages: 2, selected_source_bytes: source.byteLength },
+    counts: { selected_documents: 1, selected_pages: pageCount, selected_source_bytes: source.byteLength },
     documents: [{
       id: documentId,
       source_path: 'pdfs/english.pdf',
       source_sha256: sha256(source),
       source_bytes: source.byteLength,
-      page_count: 2,
-      required_page_range: { first: 1, last: 2, count: 2 },
+      page_count: pageCount,
+      required_page_range: { first: 1, last: pageCount, count: pageCount },
       planning_snapshot: {
         state_file_present: false,
         local_completed_pages: 0,
@@ -200,7 +204,25 @@ async function makeFixture(t) {
     schema_version: 1,
     document_id: documentId,
     source_sha256: sha256(source),
-    page_count: 2,
+    page_count: pageCount,
+    configuration: {
+      pipeline: 'PaddleOCR-VL',
+      pipeline_version: 'v1.6',
+      layout_model: 'PP-DocLayoutV3',
+      recognizer: 'PaddleOCR-VL-1.6-0.9B official GGUF',
+      recognizer_backend: 'llama-cpp-server',
+      recognizer_server_url: 'http://127.0.0.1:8112/v1',
+      dpi: 240,
+      device: 'fixture-gpu',
+      python: '3.11.0',
+      paddlepaddle: '3.0.0',
+      paddleocr: '3.0.0',
+      paddlex: '3.0.0',
+      vl_rec_max_concurrency: 1,
+      server_parallel: 1,
+      micro_batch: 16,
+      use_queues: true,
+    },
     completed_pages: [1],
     failed_pages: {},
     pages: {
@@ -213,7 +235,7 @@ async function makeFixture(t) {
         citation_eligible: false,
       },
     },
-    selected_pages: [1, 2],
+    selected_pages: Array.from({ length: pageCount }, (_unused, index) => index + 1),
     selected_pages_complete: false,
   };
   const statePath = path.join(documentRoot, 'state.json');
@@ -378,6 +400,17 @@ async function makeFixture(t) {
       use_queues: true,
       runtime_device: 'fixture-gpu',
       paddlex_cache_home: path.join(outputRoot, 'paddlex-cache'),
+      python_runtime: {
+        schema_version: 1,
+        implementation: 'CPython',
+        python_version: '3.11.0',
+        packages: {
+          paddlepaddle: '3.0.0',
+          paddleocr: '3.0.0',
+          paddlex: '3.0.0',
+          pypdfium2: '4.0.0',
+        },
+      },
     },
     document_recovery: {
       max_attempts: 5,
@@ -416,7 +449,7 @@ async function makeFixture(t) {
     status: 'interrupted',
     attempt: 6,
     max_attempts: 6,
-    page_count: 2,
+    page_count: pageCount,
     runtime_fingerprint_sha256: runtimeFingerprintSha256,
     citation_allowed: false,
     interrupted_at: interruptedAt,
@@ -435,7 +468,7 @@ async function makeFixture(t) {
   const progress = {
     status: 'interrupted',
     attempts: 6,
-    page_count: 2,
+    page_count: pageCount,
     started_at: startedAt,
     interrupted_at: interruptedAt,
     signal: 'SIGTERM',
@@ -681,7 +714,7 @@ function dependencies(fixture, extra = {}) {
     },
     verifyCommittedSeed: async () => ({ verified: true }),
     verifyActiveRuntime: async () => ({ verified: true }),
-    pageCounter: () => 2,
+    pageCounter: () => fixture.state.page_count,
     validateDocumentOutput: async () => ({
       state_sha256: sha256(await readFile(fixture.statePath)),
       page_artifacts: [],
@@ -712,6 +745,115 @@ async function finishFixtureDocument(fixture) {
   await writeFile(path.join(fixture.documentRoot, 'pages/0002/content.md'), 'page 2\n', { mode: 0o600 });
   await writeFile(fixture.statePath, `${JSON.stringify(completed, null, 2)}\n`, { mode: 0o600 });
   return { code: 0, signal: null, monitorIncident: null };
+}
+
+async function writeFixturePage(fixture, pageNumber, { complete = false } = {}) {
+  const resultRaw = Buffer.from(`${JSON.stringify({ page: pageNumber })}\n`);
+  const contentRaw = Buffer.from(`page ${pageNumber}\n`);
+  const pageRoot = path.join(
+    fixture.documentRoot,
+    'pages',
+    String(pageNumber).padStart(4, '0'),
+  );
+  await mkdir(pageRoot, { mode: 0o700 });
+  await Promise.all([
+    writeFile(path.join(pageRoot, 'result.json'), resultRaw, { mode: 0o600 }),
+    writeFile(path.join(pageRoot, 'content.md'), contentRaw, { mode: 0o600 }),
+  ]);
+  const state = JSON.parse(await readFile(fixture.statePath, 'utf8'));
+  state.completed_pages = [...new Set([...state.completed_pages, pageNumber])]
+    .sort((left, right) => left - right);
+  state.pages[String(pageNumber)] = {
+    status: 'ocr_complete_pending_audit',
+    physical_pdf_page: pageNumber,
+    rendered_image_sha256: String(pageNumber).repeat(64).slice(0, 64),
+    result_json_sha256: sha256(resultRaw),
+    content_markdown_sha256: sha256(contentRaw),
+    citation_eligible: false,
+  };
+  state.selected_pages_complete = complete;
+  await writeFile(fixture.statePath, `${JSON.stringify(state, null, 2)}\n`, { mode: 0o600 });
+  await writeFile(fixture.logPath, `page ${pageNumber} durable\n`, { flag: 'a' });
+}
+
+async function writePartialPageThenSigkill(fixture) {
+  const writer = spawn(process.execPath, ['-e', String.raw`
+    const { createHash } = require('node:crypto');
+    const { mkdir, readFile, writeFile } = require('node:fs/promises');
+    const path = require('node:path');
+    const sha256 = (value) => createHash('sha256').update(value).digest('hex');
+    (async () => {
+      const [documentRoot, statePath, logPath] = process.argv.slice(1);
+      const page = 2;
+      const resultRaw = Buffer.from(JSON.stringify({ page }) + '\n');
+      const contentRaw = Buffer.from('page 2\n');
+      const pageRoot = path.join(documentRoot, 'pages', '0002');
+      await mkdir(pageRoot, { mode: 0o700 });
+      await writeFile(path.join(pageRoot, 'result.json'), resultRaw, { mode: 0o600 });
+      await writeFile(path.join(pageRoot, 'content.md'), contentRaw, { mode: 0o600 });
+      const state = JSON.parse(await readFile(statePath, 'utf8'));
+      state.completed_pages = [1, 2];
+      state.pages['2'] = {
+        status: 'ocr_complete_pending_audit',
+        physical_pdf_page: 2,
+        rendered_image_sha256: '2'.repeat(64),
+        result_json_sha256: sha256(resultRaw),
+        content_markdown_sha256: sha256(contentRaw),
+        citation_eligible: false,
+      };
+      state.selected_pages_complete = false;
+      await writeFile(statePath, JSON.stringify(state, null, 2) + '\n', { mode: 0o600 });
+      await writeFile(logPath, 'page 2 durable\n', { flag: 'a' });
+      process.stdout.write('partial-durable\n');
+      setInterval(() => {}, 1000);
+    })().catch((error) => { console.error(error); process.exit(2); });
+  `, fixture.documentRoot, fixture.statePath, fixture.logPath], {
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+  const [marker] = await once(writer.stdout, 'data');
+  assert.equal(marker.toString('utf8'), 'partial-durable\n');
+  writer.kill('SIGKILL');
+  const [code, signal] = await once(writer, 'exit');
+  assert.equal(code, null);
+  assert.equal(signal, 'SIGKILL');
+  return { code: null, signal: 'SIGKILL', monitorIncident: null };
+}
+
+async function establishPartialCheckpoint(t, fixture) {
+  await assert.rejects(
+    continueOperatorInterruptedAttempt(
+      { ...fixture.options, apply: true },
+      dependencies(fixture, {
+        validateDocumentOutput: validateOcrDocumentOutput,
+        invokeOcr: async () => {
+          await writeFixturePage(fixture, 2, { complete: false });
+          return { code: 0, signal: null, monitorIncident: null };
+        },
+        afterChildExit: async () => { throw new Error('simulated host SIGKILL after partial write'); },
+      }),
+    ),
+    /simulated host SIGKILL after partial write/u,
+  );
+  await assert.rejects(
+    continueOperatorInterruptedAttempt(
+      { ...fixture.options, apply: true },
+      dependencies(fixture, {
+        validateDocumentOutput: validateOcrDocumentOutput,
+        startedLlamaInvocationId: 'c'.repeat(32),
+        startedLlamaMainPid: '43',
+        afterLlamaStartBeforeExecutionState: async () => {
+          throw new Error('stop after durable partial checkpoint');
+        },
+      }),
+    ),
+    /stop after durable partial checkpoint/u,
+  );
+  const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+  const checkpointName = (await readdir(paths.states))
+    .find((name) => /^\d{6}-partial_checkpoint_0001\.json$/u.test(name));
+  assert.ok(checkpointName, 'restart must persist a hash-bound partial checkpoint');
+  await assertHashBoundPair(path.join(paths.states, checkpointName));
+  return { paths, checkpointName };
 }
 
 test('the immutable seeded runner remains byte-identical', async () => {
@@ -1482,14 +1624,21 @@ test('a restarted process seals a running crash tail and appends a verifiable re
           dependencies(fixture, {
             llamaInvocationId: 'b'.repeat(32),
             llamaMainPid: '43',
-            validateDocumentOutput: async () => { throw new Error('partial output is incomplete'); },
+            validateDocumentOutput: async (_document, _root, _runtime, validationOptions = {}) => {
+              if (validationOptions.requireComplete !== false) {
+                throw new IncompleteOcrDocumentError(documentId, [2], []);
+              }
+              return { state_sha256: '6'.repeat(64), page_artifacts: [], page_artifacts_sha256: '7'.repeat(64) };
+            },
           }),
         ),
         /resumed llama invocation must differ/u,
       );
-      const validateDocumentOutput = async () => {
+      const validateDocumentOutput = async (_document, _root, _runtime, validationOptions = {}) => {
         const state = JSON.parse(await readFile(fixture.statePath, 'utf8'));
-        if (!state.selected_pages_complete) throw new Error('partial output is incomplete');
+        if (!state.selected_pages_complete && validationOptions.requireComplete !== false) {
+          throw new IncompleteOcrDocumentError(documentId, [2], []);
+        }
         return {
           state_sha256: sha256(await readFile(fixture.statePath)),
           page_artifacts: [],
@@ -1534,13 +1683,14 @@ test('a restarted process seals a running crash tail and appends a verifiable re
       assert.deepEqual(stateNames.map((name) => name.replace(/^\d{6}-|\.json$/gu, '')), [
         'claimed',
         'running',
+        'partial_checkpoint_0001',
         'resume_running_0001',
         'terminal_plan',
         'terminal',
       ]);
       const running = JSON.parse(await readFile(runningPath, 'utf8'));
       const resumed = JSON.parse(await readFile(
-        path.join(paths.states, '000003-resume_running_0001.json'),
+        path.join(paths.states, '000004-resume_running_0001.json'),
         'utf8',
       ));
       assert.equal(resumed.resumed_from_state_sha256, sha256(await readFile(runningPath)));
@@ -1551,7 +1701,173 @@ test('a restarted process seals a running crash tail and appends a verifiable re
       assert.notEqual(resumed.spawn_nonce, running.spawn_nonce);
       assert.equal(resumed.ocr_command_sha256, running.ocr_command_sha256);
       const evidence = await validateOperatorContinuationEvidence(paths.root, fixture.profile);
-      assert.equal(evidence.states.length, 5);
+      assert.equal(evidence.states.length, 6);
+    });
+  }
+});
+
+test('a valid partial page, state, and log survive SIGKILL through a durable execution checkpoint', async (t) => {
+  const fixture = await makeFixture(t, { pageCount: 3 });
+  await assert.rejects(
+    continueOperatorInterruptedAttempt(
+      { ...fixture.options, apply: true },
+      dependencies(fixture, {
+        validateDocumentOutput: validateOcrDocumentOutput,
+        invokeOcr: async () => writePartialPageThenSigkill(fixture),
+        afterChildExit: async () => { throw new Error('simulated continuation host SIGKILL'); },
+      }),
+    ),
+    /simulated continuation host SIGKILL/u,
+  );
+  const partialState = JSON.parse(await readFile(fixture.statePath, 'utf8'));
+  assert.deepEqual(partialState.completed_pages, [1, 2]);
+  assert.equal(partialState.selected_pages_complete, false);
+
+  const result = await continueOperatorInterruptedAttempt(
+    { ...fixture.options, apply: true },
+    dependencies(fixture, {
+      validateDocumentOutput: validateOcrDocumentOutput,
+      startedLlamaInvocationId: 'c'.repeat(32),
+      startedLlamaMainPid: '43',
+      invokeOcr: async () => {
+        await writeFixturePage(fixture, 3, { complete: true });
+        return { code: 0, signal: null, monitorIncident: null };
+      },
+    }),
+  );
+  assert.equal(result.status, 'complete');
+  const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+  const names = (await readdir(paths.states))
+    .filter((name) => name.endsWith('.json'))
+    .sort();
+  assert.deepEqual(names.map((name) => name.replace(/^\d{6}-|\.json$/gu, '')), [
+    'claimed',
+    'running',
+    'partial_checkpoint_0001',
+    'resume_running_0001',
+    'terminal_plan',
+    'terminal',
+  ]);
+  const checkpoint = JSON.parse(await readFile(path.join(paths.states, names[2]), 'utf8'));
+  assert.equal(checkpoint.execution_state_sha256, sha256(await readFile(path.join(paths.states, names[1]))));
+  assert.equal(checkpoint.baseline.document_tree_sha256, fixture.profile.documentTreeSha256);
+  assert.equal(checkpoint.state.sha256, sha256(Buffer.from(checkpoint.state.base64, 'base64')));
+  assert.equal(checkpoint.append_only_log.prefix_sha256, fixture.profile.logSha256);
+  assert.equal(checkpoint.append_only_log.prefix_bytes, fixture.profile.logBytes);
+  assert.ok(checkpoint.document_tree.entries.some((entry) => entry.includes('\0pages/0002/result.json\0')));
+  assert.ok(checkpoint.directories.some((identity) => identity.path === 'pages/0002'));
+  const evidence = await validateOperatorContinuationEvidence(paths.root, fixture.profile);
+  const output = await validateOperatorContinuationOutput(fixture.outputRoot, evidence, fixture.profile);
+  assert.equal(evidence.partialCheckpoints.length, 1);
+  assert.equal(output.status.status, 'complete');
+});
+
+test('restart resumes only a typed incomplete document with a successful strict partial validation', async (t) => {
+  for (const [label, validateDocumentOutput, pattern] of [
+    [
+      'generic incomplete-looking error',
+      async () => { throw new Error('partial output is incomplete'); },
+      /partial output is incomplete/u,
+    ],
+    [
+      'typed incomplete followed by corrupt partial state',
+      async (_document, _root, _runtime, validationOptions = {}) => {
+        if (validationOptions.requireComplete !== false) {
+          throw new IncompleteOcrDocumentError(documentId, [2], []);
+        }
+        throw new Error('partial state artifact hash mismatch');
+      },
+      /partial state artifact hash mismatch/u,
+    ],
+  ]) {
+    await t.test(label, async (subtest) => {
+      const fixture = await makeFixture(subtest);
+      await assert.rejects(
+        continueOperatorInterruptedAttempt(
+          { ...fixture.options, apply: true },
+          dependencies(fixture, {
+            afterChildExit: async () => { throw new Error('simulated host SIGKILL'); },
+            invokeOcr: async () => ({ code: 0, signal: null, monitorIncident: null }),
+          }),
+        ),
+        /simulated host SIGKILL/u,
+      );
+      const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+      await assert.rejects(
+        continueOperatorInterruptedAttempt(
+          { ...fixture.options, apply: true },
+          dependencies(fixture, {
+            validateDocumentOutput,
+            startedLlamaInvocationId: 'c'.repeat(32),
+            startedLlamaMainPid: '43',
+            invokeOcr: async () => assert.fail('untyped or corrupt partial output must block respawn'),
+          }),
+        ),
+        pattern,
+      );
+      assert.equal(
+        (await readdir(paths.states)).some((name) => name.includes('partial_checkpoint')),
+        false,
+      );
+    });
+  }
+});
+
+test('partial checkpoint rejects artifact, state, log, prefix, and directory identity tamper before respawn', async (t) => {
+  const cases = [
+    ['page artifact replacement', async (fixture) => {
+      await writeFile(path.join(fixture.documentRoot, 'pages/0002/content.md'), 'tampered page 2\n', { mode: 0o600 });
+    }, /checkpoint.*document|changed.*checkpoint|page artifact/u],
+    ['state truncation', async (fixture) => {
+      await writeFile(fixture.statePath, '{\n', { mode: 0o600 });
+    }, /checkpoint.*(?:state|document)|state.*checkpoint/u],
+    ['state inode replacement', async (fixture) => {
+      const replacement = `${fixture.statePath}.replacement`;
+      await writeFile(replacement, await readFile(fixture.statePath), { mode: 0o600 });
+      await rename(replacement, fixture.statePath);
+    }, /checkpoint.*state|state.*identity/u],
+    ['log truncation', async (fixture) => {
+      await writeFile(fixture.logPath, 'short\n', { mode: 0o600 });
+    }, /checkpoint.*log|log.*(?:truncated|prefix|identity)/u],
+    ['log inode replacement', async (fixture) => {
+      const replacement = `${fixture.logPath}.replacement`;
+      await writeFile(replacement, await readFile(fixture.logPath), { mode: 0o600 });
+      await rename(replacement, fixture.logPath);
+    }, /checkpoint.*log|log.*identity/u],
+    ['log prefix tamper', async (fixture) => {
+      const raw = await readFile(fixture.logPath);
+      raw[0] = raw[0] === 0x61 ? 0x62 : 0x61;
+      await writeFile(fixture.logPath, raw, { mode: 0o600 });
+    }, /checkpoint.*log|log.*prefix/u],
+    ['directory inode replacement', async (fixture) => {
+      const pageRoot = path.join(fixture.documentRoot, 'pages/0002');
+      const moved = path.join(fixture.documentRoot, 'pages/0002-old');
+      const resultRaw = await readFile(path.join(pageRoot, 'result.json'));
+      const contentRaw = await readFile(path.join(pageRoot, 'content.md'));
+      await rename(pageRoot, moved);
+      await mkdir(pageRoot, { mode: 0o700 });
+      await writeFile(path.join(pageRoot, 'result.json'), resultRaw, { mode: 0o600 });
+      await writeFile(path.join(pageRoot, 'content.md'), contentRaw, { mode: 0o600 });
+      await rm(moved, { recursive: true, force: true });
+    }, /directory identity|checkpoint.*director/u],
+  ];
+  for (const [label, mutate, pattern] of cases) {
+    await t.test(label, async (subtest) => {
+      const fixture = await makeFixture(subtest, { pageCount: 3 });
+      await establishPartialCheckpoint(subtest, fixture);
+      await mutate(fixture);
+      await assert.rejects(
+        continueOperatorInterruptedAttempt(
+          { ...fixture.options, apply: true },
+          dependencies(fixture, {
+            validateDocumentOutput: validateOcrDocumentOutput,
+            startedLlamaInvocationId: 'd'.repeat(32),
+            startedLlamaMainPid: '44',
+            invokeOcr: async () => assert.fail('checkpoint tamper must block OCR respawn'),
+          }),
+        ),
+        pattern,
+      );
     });
   }
 });

@@ -111,7 +111,8 @@ Continuation evidence is outside the monitored output root, under:
     states/
       000001-claimed.json{,.sha256}
       000002-running.json{,.sha256}
-      [000003-resume_running_0001.json{,.sha256} ...]
+      [000003-partial_checkpoint_0001.json{,.sha256}
+       000004-resume_running_0001.json{,.sha256} ...]
       N-terminal_plan.json{,.sha256}
       N+1-terminal.json{,.sha256}
 ```
@@ -133,6 +134,16 @@ owned descendants from unrelated processes. Every restarted child receives the n
 `resume_running_NNNN` state, with a new verified llama InvocationID/PID, a fresh spawn nonce, and the
 SHA-256 of the preceding execution state. Neither an InvocationID nor a spawn nonce may be reused in
 the chain.
+
+Before any `resume_running_NNNN` state may be appended, restart validates the previous execution's
+output with the typed strict partial-document validator and appends a matching
+`partial_checkpoint_NNNN` state. That hash-chained checkpoint binds the original frozen tree/state/
+log baseline, the exact execution-state SHA-256, the full current strict tree entry inventory, the
+current state bytes plus device/inode, every current directory identity, and the append-only log's
+device/inode/hash/byte count and prior prefix hash/length. The resume state binds both the preceding
+execution and checkpoint hashes. A generic validation error never qualifies as an incomplete
+document; only `IncompleteOcrDocumentError` followed by a successful `requireComplete:false` strict
+validation permits a checkpoint and resume.
 
 Each terminal record uses a deterministic temp pathname derived from the immutable terminal-plan
 state SHA-256, output path, and exact after hash/byte count. Before writing target bytes, an adjacent
@@ -157,6 +168,8 @@ source bytes.
 ## Forward-only output rules
 
 - Every pre-existing document-tree path except `state.json` stays byte-identical.
+- After a partial checkpoint, every page artifact captured by that checkpoint also becomes
+  immutable; completed-page metadata in later states must be a monotonic exact superset.
 - Every pre-existing directory keeps device, inode, mode, UID, and GID.
 - New paths may exist only below a previously absent canonical `pages/NNNN` within the document page
   range.
@@ -184,6 +197,15 @@ finished but before terminal planning validates the forward result and completes
 OCR again. An incomplete forward result may resume the same already-claimed attempt 6; it never
 increments or resets the attempt. A timeout predecessor's `failed_at` remains in the completed
 attempt-6 lifecycle record, as required by receiver validation.
+
+Local regression coverage includes an OCR writer that persists a valid new page, state and log
+entry and is then actually killed with `SIGKILL`; restart checkpoints those bytes and completes the
+remaining page. Separate tests reject page replacement, state truncation or inode replacement, log
+truncation or inode replacement, log-prefix mutation, and directory-inode replacement before OCR
+respawn. Two process/lock checks remain intentionally Linux-only and must run on the sealed target
+before an A2 canary: exact `/proc` ownership discovery/termination and inherited-fd lifecycle-flock
+exclusion/pathname-replacement detection. They are skipped on macOS; this change does not claim a
+remote Linux run.
 
 ## Command, after profile release
 

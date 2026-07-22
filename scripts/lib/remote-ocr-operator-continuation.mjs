@@ -686,6 +686,116 @@ function validateTerminalPlanState(value, beforeRecords) {
   return transaction;
 }
 
+function validateCheckpointTree(raw, label) {
+  const tree = exactObject(raw, ['tree_sha256', 'files', 'bytes', 'entries'], `${label} tree`);
+  if (!sha256Pattern.test(String(tree.tree_sha256 || ''))
+    || !Number.isSafeInteger(tree.files)
+    || tree.files < 1
+    || !Number.isSafeInteger(tree.bytes)
+    || tree.bytes < 1
+    || !Array.isArray(tree.entries)
+    || tree.entries.some((entry) => typeof entry !== 'string' || !entry.endsWith('\n'))
+    || sha256(tree.entries.join('')) !== tree.tree_sha256) {
+    throw new Error(`${label} tree identity is invalid`);
+  }
+  let files = 0;
+  let bytes = 0;
+  const paths = new Set();
+  for (const entry of tree.entries) {
+    const parts = entry.slice(0, -1).split('\0');
+    if (!['D', 'F'].includes(parts[0])
+      || (parts[0] === 'D' && parts.length !== 2)
+      || (parts[0] === 'F' && parts.length !== 4)) {
+      throw new Error(`${label} tree entry is invalid`);
+    }
+    requireSafePathname(parts[1], `${label} tree path`);
+    if (paths.has(parts[1])) throw new Error(`${label} tree contains a duplicate path`);
+    paths.add(parts[1]);
+    if (parts[0] === 'F') {
+      requireDecimalString(parts[2], `${label} tree file bytes`);
+      if (!sha256Pattern.test(parts[3])) throw new Error(`${label} tree file SHA-256 is invalid`);
+      files += 1;
+      bytes += Number(parts[2]);
+    }
+  }
+  if (!Number.isSafeInteger(bytes) || files !== tree.files || bytes !== tree.bytes) {
+    throw new Error(`${label} tree totals are invalid`);
+  }
+  return tree;
+}
+
+function validateCheckpointFileIdentity(raw, label, { includeBase64 = false } = {}) {
+  const identity = exactObject(
+    raw,
+    ['sha256', 'bytes', 'device', 'inode', ...(includeBase64 ? ['base64'] : [])],
+    label,
+  );
+  if (!sha256Pattern.test(String(identity.sha256 || ''))
+    || !Number.isSafeInteger(identity.bytes)
+    || identity.bytes < 1) {
+    throw new Error(`${label} is invalid`);
+  }
+  for (const key of ['device', 'inode']) requireDecimalString(identity[key], `${label} ${key}`);
+  if (includeBase64) {
+    if (typeof identity.base64 !== 'string') throw new Error(`${label} payload is invalid`);
+    const rawPayload = Buffer.from(identity.base64, 'base64');
+    if (rawPayload.byteLength !== identity.bytes
+      || rawPayload.toString('base64') !== identity.base64
+      || sha256(rawPayload) !== identity.sha256) {
+      throw new Error(`${label} payload differs from its identity`);
+    }
+  }
+  return identity;
+}
+
+function validateCheckpointDirectories(raw, tree, label) {
+  if (!Array.isArray(raw)) throw new Error(`${label} directories are invalid`);
+  const expected = ['.', ...tree.entries
+    .filter((entry) => entry.startsWith('D\0'))
+    .map((entry) => entry.slice(0, -1).split('\0')[1])];
+  if (raw.length !== expected.length) throw new Error(`${label} directory inventory is incomplete`);
+  const seen = new Set();
+  for (let index = 0; index < raw.length; index += 1) {
+    const identity = exactObject(
+      raw[index],
+      ['path', 'device', 'inode', 'mode', 'uid', 'gid'],
+      `${label} directory identity`,
+    );
+    if (identity.path !== expected[index]
+      || seen.has(identity.path)
+      || !/^0[0-7]{3}$/u.test(String(identity.mode || ''))) {
+      throw new Error(`${label} directory identity is invalid`);
+    }
+    for (const key of ['device', 'inode', 'uid', 'gid']) {
+      requireDecimalString(identity[key], `${label} directory ${key}`);
+    }
+    seen.add(identity.path);
+  }
+  return raw;
+}
+
+function checkpointStateRaw(checkpoint, label) {
+  const state = validateCheckpointFileIdentity(checkpoint.state, `${label} state`, {
+    includeBase64: true,
+  });
+  return Buffer.from(state.base64, 'base64');
+}
+
+function validateCheckpointStateForwardOnly(previousRaw, currentRaw, documentId, label) {
+  const previous = parseJson({ raw: previousRaw }, `${label} previous state`);
+  const current = parseJson({ raw: currentRaw }, `${label} current state`);
+  if (previous.document_id !== documentId || current.document_id !== documentId) {
+    throw new Error(`${label} document identity changed`);
+  }
+  const previousCompleted = Array.isArray(previous.completed_pages) ? previous.completed_pages : [];
+  const currentCompleted = new Set(Array.isArray(current.completed_pages) ? current.completed_pages : []);
+  for (const page of previousCompleted) {
+    if (!currentCompleted.has(page) || !sameJson(previous.pages?.[String(page)], current.pages?.[String(page)])) {
+      throw new Error(`${label} lost immutable completed page ${page}`);
+    }
+  }
+}
+
 async function verifyFrozenDirectoryIdentities(documentRoot, identities) {
   for (const identity of identities) {
     const pathname = identity.path === '.' ? documentRoot : path.join(documentRoot, identity.path);
@@ -1005,6 +1115,7 @@ export async function validateOperatorContinuationEvidence(
   let claimedState = null;
   const states = [];
   const executionStates = [];
+  const partialCheckpoints = [];
   const invocationIds = new Set();
   const spawnNonces = new Set();
   const commonStateKeys = [
@@ -1046,7 +1157,19 @@ export async function validateOperatorContinuationEvidence(
     const record = await readStableFileWithSidecar(statesRoot.pathname, path.join(statesRoot.pathname, name), 'operator continuation state');
     const value = parseJson(record, 'operator continuation state');
     const resumeMatch = /^resume_running_(\d{4})$/u.exec(String(value.stage || ''));
-    const extraKeys = resumeMatch
+    const checkpointMatch = /^partial_checkpoint_(\d{4})$/u.exec(String(value.stage || ''));
+    const extraKeys = checkpointMatch
+      ? [
+          'checkpointed_at',
+          'execution_state_sha256',
+          'previous_checkpoint_state_sha256',
+          'baseline',
+          'document_tree',
+          'state',
+          'append_only_log',
+          'directories',
+        ]
+      : resumeMatch
       ? [
           'resumed_at',
           'llama_invocation_id',
@@ -1055,6 +1178,7 @@ export async function validateOperatorContinuationEvidence(
           'spawn_nonce',
           'ocr_command_sha256',
           'resumed_from_state_sha256',
+          'partial_checkpoint_state_sha256',
         ]
       : expectedStateKeys.get(value.stage);
     if (!extraKeys) throw new Error('operator continuation state stage is invalid');
@@ -1096,11 +1220,14 @@ export async function validateOperatorContinuationEvidence(
     if (resumeMatch) {
       const predecessor = executionStates.at(-1);
       const expectedOrdinal = executionStates.length;
+      const checkpoint = partialCheckpoints.at(-1);
       const predecessorTimestamp = predecessor?.value.resumed_at || predecessor?.value.started_at;
       requireCanonicalTimestamp(value.resumed_at, 'operator continuation resume time');
       if (!predecessor
         || Number(resumeMatch[1]) !== expectedOrdinal
         || value.resumed_from_state_sha256 !== predecessor.sha256
+        || checkpoint?.value.execution_state_sha256 !== predecessor.sha256
+        || value.partial_checkpoint_state_sha256 !== checkpoint?.sha256
         || !invocationIdPattern.test(String(value.llama_invocation_id || ''))
         || invocationIds.has(value.llama_invocation_id)
         || spawnNonces.has(value.spawn_nonce)
@@ -1119,6 +1246,133 @@ export async function validateOperatorContinuationEvidence(
       spawnNonces.add(value.spawn_nonce);
       executionStates.push({ value, sha256: record.sha256 });
     }
+    if (checkpointMatch) {
+      const execution = executionStates.at(-1);
+      const previousCheckpoint = partialCheckpoints.at(-1) || null;
+      const ordinal = executionStates.length;
+      requireCanonicalTimestamp(value.checkpointed_at, 'operator continuation partial checkpoint time');
+      const executionTimestamp = execution?.value.resumed_at || execution?.value.started_at;
+      const baseline = exactObject(value.baseline, [
+        'document_tree_sha256',
+        'document_tree_files',
+        'document_tree_bytes',
+        'state_sha256',
+        'state_bytes',
+        'log_sha256',
+        'log_bytes',
+        'log_device',
+        'log_inode',
+      ], 'operator continuation partial checkpoint baseline');
+      if (!execution
+        || Number(checkpointMatch[1]) !== ordinal
+        || value.execution_state_sha256 !== execution.sha256
+        || previousCheckpoint?.value.execution_state_sha256 === execution.sha256
+        || value.previous_checkpoint_state_sha256 !== (previousCheckpoint?.sha256 || null)
+        || Date.parse(value.checkpointed_at) < Date.parse(executionTimestamp)
+        || baseline.document_tree_sha256 !== profile.documentTreeSha256
+        || baseline.document_tree_files !== profile.documentTreeFiles
+        || baseline.document_tree_bytes !== profile.documentTreeBytes
+        || baseline.state_sha256 !== profile.stateSha256
+        || baseline.state_bytes !== interruptedStateRecord.bytes
+        || baseline.log_sha256 !== profile.logSha256
+        || baseline.log_bytes !== profile.logBytes
+        || baseline.log_device !== inventory.log.device
+        || baseline.log_inode !== inventory.log.inode) {
+        throw new Error('operator continuation partial checkpoint baseline or chain is invalid');
+      }
+      const tree = validateCheckpointTree(value.document_tree, 'operator continuation partial checkpoint');
+      const stateRaw = checkpointStateRaw(value, 'operator continuation partial checkpoint');
+      const checkpointState = parseJson(
+        { raw: stateRaw },
+        'operator continuation partial checkpoint state',
+      );
+      if (checkpointState.document_id !== profile.documentId
+        || checkpointState.source_sha256 !== interruptedState.source_sha256
+        || checkpointState.page_count !== interruptedState.page_count
+        || checkpointState.selected_pages_complete !== false
+        || !Array.isArray(checkpointState.completed_pages)
+        || checkpointState.completed_pages.length >= checkpointState.page_count) {
+        throw new Error('operator continuation partial checkpoint state is not an incomplete OCR document');
+      }
+      const appendOnlyLog = exactObject(value.append_only_log, [
+        'sha256', 'bytes', 'device', 'inode', 'prefix_sha256', 'prefix_bytes',
+      ], 'operator continuation partial checkpoint append-only log');
+      validateCheckpointFileIdentity({
+        sha256: appendOnlyLog.sha256,
+        bytes: appendOnlyLog.bytes,
+        device: appendOnlyLog.device,
+        inode: appendOnlyLog.inode,
+      }, 'operator continuation partial checkpoint append-only log');
+      const previousTree = previousCheckpoint?.value.document_tree || inventory;
+      const previousStateRaw = previousCheckpoint
+        ? checkpointStateRaw(previousCheckpoint.value, 'previous operator continuation partial checkpoint')
+        : interruptedStateRecord.raw;
+      const previousLog = previousCheckpoint?.value.append_only_log || {
+        sha256: profile.logSha256,
+        bytes: profile.logBytes,
+        device: inventory.log.device,
+        inode: inventory.log.inode,
+      };
+      if (appendOnlyLog.device !== previousLog.device
+        || appendOnlyLog.inode !== previousLog.inode
+        || appendOnlyLog.bytes < previousLog.bytes
+        || appendOnlyLog.prefix_sha256 !== previousLog.sha256
+        || appendOnlyLog.prefix_bytes !== previousLog.bytes) {
+        throw new Error('operator continuation partial checkpoint log chain is invalid');
+      }
+      const previousEntries = treeEntryMap(previousTree.entries);
+      const currentEntries = treeEntryMap(tree.entries);
+      for (const [pathname, entry] of previousEntries) {
+        if (pathname !== 'state.json' && currentEntries.get(pathname) !== entry) {
+          throw new Error(`operator continuation partial checkpoint changed prior evidence: ${pathname}`);
+        }
+      }
+      const preexistingPageDirectories = new Set(
+        previousTree.entries
+          .filter((entry) => entry.startsWith('D\0pages/'))
+          .map((entry) => entry.slice(0, -1).split('\0')[1])
+          .filter((pathname) => /^pages\/\d{4}$/u.test(pathname)),
+      );
+      for (const [pathname] of currentEntries) {
+        if (previousEntries.has(pathname)) continue;
+        const parts = pathname.split('/');
+        const match = /^pages\/(\d{4})(?:\/(.*))?$/u.exec(pathname);
+        if (!match
+          || parts.some((part) => !part || part === '..' || part.startsWith('.'))
+          || Number(match[1]) < 1
+          || Number(match[1]) > interruptedState.page_count
+          || preexistingPageDirectories.has(`pages/${match[1]}`)) {
+          throw new Error(`operator continuation partial checkpoint contains an invalid forward path: ${pathname}`);
+        }
+        if (match[2]) {
+          const first = match[2].split('/')[0];
+          if (!['result.json', 'content.md', 'markdown', 'visual'].includes(first)
+            || (['result.json', 'content.md'].includes(first) && match[2] !== first)) {
+            throw new Error(`operator continuation partial checkpoint contains an unrecognized page artifact: ${pathname}`);
+          }
+        }
+      }
+      const stateEntry = currentEntries.get('state.json');
+      const stateParts = typeof stateEntry === 'string' ? stateEntry.slice(0, -1).split('\0') : [];
+      if (stateParts.length !== 4
+        || stateParts[0] !== 'F'
+        || stateParts[2] !== String(value.state.bytes)
+        || stateParts[3] !== value.state.sha256) {
+        throw new Error('operator continuation partial checkpoint state differs from its tree');
+      }
+      validateCheckpointStateForwardOnly(
+        previousStateRaw,
+        stateRaw,
+        profile.documentId,
+        'operator continuation partial checkpoint',
+      );
+      validateCheckpointDirectories(
+        value.directories,
+        tree,
+        'operator continuation partial checkpoint',
+      );
+      partialCheckpoints.push({ value, sha256: record.sha256 });
+    }
     if (value.stage === 'terminal_plan') {
       const predecessorTimestamp = executionStates.at(-1)?.value.resumed_at
         || executionStates.at(-1)?.value.started_at;
@@ -1135,11 +1389,16 @@ export async function validateOperatorContinuationEvidence(
     if (value.stage === 'terminal') terminal = value;
   }
   const stages = states.map(({ value }) => value.stage);
-  const resumeStages = executionStates.slice(1).map(
-    (_state, index) => `resume_running_${String(index + 1).padStart(4, '0')}`,
-  );
-  if (canonicalJson(stages)
-    !== canonicalJson(['claimed', 'running', ...resumeStages, 'terminal_plan', 'terminal'])) {
+  const expectedStages = ['claimed', 'running'];
+  for (let ordinal = 1; ordinal < executionStates.length; ordinal += 1) {
+    expectedStages.push(
+      `partial_checkpoint_${String(ordinal).padStart(4, '0')}`,
+      `resume_running_${String(ordinal).padStart(4, '0')}`,
+    );
+  }
+  expectedStages.push('terminal_plan', 'terminal');
+  if (partialCheckpoints.length !== Math.max(0, executionStates.length - 1)
+    || canonicalJson(stages) !== canonicalJson(expectedStages)) {
     throw new Error('operator continuation state journal stages are not exact');
   }
   if (!terminalPlan
@@ -1179,6 +1438,7 @@ export async function validateOperatorContinuationEvidence(
     terminalPlanTransaction,
     terminal,
     states,
+    partialCheckpoints,
     evidenceTree,
     evidence_fingerprint_sha256: sha256(canonicalJson({
       profile_sha256: receipt.profile_sha256,
@@ -1224,15 +1484,24 @@ export async function validateOperatorContinuationOutput(
   const runStatusPath = path.join(root.pathname, 'run-status.json');
   const logPath = path.join(root.pathname, 'logs', `${profile.documentId}.log`);
   const documentRoot = path.join(root.pathname, 'documents', profile.documentId);
+  const statePath = path.join(documentRoot, 'state.json');
+  const latestCheckpoint = evidence.partialCheckpoints?.at(-1) || null;
   await verifyFrozenDirectoryIdentities(documentRoot, evidence.inventory.directories);
-  const [statusRecord, runStatusRecord, logRecord, preLogRecord, tree] = await Promise.all([
+  if (latestCheckpoint) {
+    await verifyFrozenDirectoryIdentities(documentRoot, latestCheckpoint.value.directories);
+  }
+  const [statusRecord, runStatusRecord, logRecord, preLogRecord, stateRecord, tree] = await Promise.all([
     readStableFileWithSidecar(root.pathname, statusPath, 'continued A2 document status'),
     readStableFileWithSidecar(root.pathname, runStatusPath, 'continued A2 run status'),
     readStableFile(root.pathname, logPath, 'continued A2 document log'),
     readStableFile(paths.root, paths.preContinuationLog, 'archived pre-continuation log'),
+    readStableFile(root.pathname, statePath, 'continued A2 document state'),
     inspectTreeStrict(documentRoot),
   ]);
   await verifyFrozenDirectoryIdentities(documentRoot, evidence.inventory.directories);
+  if (latestCheckpoint) {
+    await verifyFrozenDirectoryIdentities(documentRoot, latestCheckpoint.value.directories);
+  }
   const status = parseJson(statusRecord, 'continued A2 document status');
   const runStatus = parseJson(runStatusRecord, 'continued A2 run status');
   const progress = requireObject(runStatus.documents?.[profile.documentId], 'continued A2 run progress');
@@ -1270,19 +1539,35 @@ export async function validateOperatorContinuationOutput(
     || runStatus.citation_allowed !== false) {
     throw new Error('continued A2 live controls are not exact complete attempt 6');
   }
-  if (logRecord.dev !== evidence.inventory.log.device
-    || logRecord.ino !== evidence.inventory.log.inode
-    || logRecord.bytes < preLogRecord.bytes
+  const logPrefix = latestCheckpoint?.value.append_only_log || {
+    sha256: preLogRecord.sha256,
+    bytes: preLogRecord.bytes,
+    device: evidence.inventory.log.device,
+    inode: evidence.inventory.log.inode,
+  };
+  if (logRecord.dev !== logPrefix.device
+    || logRecord.ino !== logPrefix.inode
+    || logRecord.bytes < logPrefix.bytes
     || preLogRecord.sha256 !== profile.logSha256
     || preLogRecord.bytes !== profile.logBytes
-    || !logRecord.raw.subarray(0, preLogRecord.bytes).equals(preLogRecord.raw)
+    || sha256(logRecord.raw.subarray(0, logPrefix.bytes)) !== logPrefix.sha256
     || status.artifacts?.append_only_log?.sha256 !== logRecord.sha256
     || status.artifacts?.append_only_log?.bytes !== logRecord.bytes
     || status.artifacts?.append_only_log?.device !== logRecord.dev
     || status.artifacts?.append_only_log?.inode !== logRecord.ino) {
     throw new Error('continued A2 live log is not the same append-only inode and prefix');
   }
-  const beforeEntries = treeEntryMap(evidence.inventory.entries);
+  for (const checkpoint of evidence.partialCheckpoints || []) {
+    const checkpointLog = checkpoint.value.append_only_log;
+    if (logRecord.dev !== checkpointLog.device
+      || logRecord.ino !== checkpointLog.inode
+      || logRecord.bytes < checkpointLog.bytes
+      || sha256(logRecord.raw.subarray(0, checkpointLog.bytes)) !== checkpointLog.sha256) {
+      throw new Error('continued A2 live log does not retain every partial checkpoint prefix');
+    }
+  }
+  const beforeTree = latestCheckpoint?.value.document_tree || evidence.inventory;
+  const beforeEntries = treeEntryMap(beforeTree.entries);
   const afterEntries = treeEntryMap(tree.entries);
   const finalStateEntry = afterEntries.get('state.json');
   const finalStateParts = typeof finalStateEntry === 'string'
@@ -1294,7 +1579,7 @@ export async function validateOperatorContinuationOutput(
     throw new Error('continued A2 final state is missing or differs from terminal artifacts');
   }
   const preexistingPages = new Set(
-    evidence.inventory.entries
+    beforeTree.entries
       .filter((entry) => entry.startsWith('D\0pages/'))
       .map((entry) => entry.replace(/\n$/u, '').split('\0')[1])
       .filter((pathname) => /^pages\/\d{4}$/u.test(pathname)),
@@ -1304,6 +1589,14 @@ export async function validateOperatorContinuationOutput(
     if (afterEntries.get(pathname) !== entry) {
       throw new Error(`continued A2 changed or removed frozen document evidence: ${pathname}`);
     }
+  }
+  if (latestCheckpoint) {
+    validateCheckpointStateForwardOnly(
+      checkpointStateRaw(latestCheckpoint.value, 'latest operator continuation partial checkpoint'),
+      stateRecord.raw,
+      profile.documentId,
+      'continued A2 final state',
+    );
   }
   for (const [pathname] of afterEntries) {
     if (beforeEntries.has(pathname)) continue;
