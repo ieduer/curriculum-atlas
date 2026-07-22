@@ -2,7 +2,7 @@
   "schema_version": 1,
   "policy": "git_pinned_research_source_registry_v1",
   "slice_id": "slice:zh-hs-2017-2020:v1",
-  "research_corpus_rowset_sha256": "505e384f61ed2231d42b410caada121ae5c88655338e00369bdd66a6c618c261",
+  "research_corpus_rowset_sha256": "b4bb745c27da00fedf677b0b8383eb351ea6459a88c499fce3c25172ad3cddad",
   "documents": [
     {
       "document_id": "ictr-a71e3780f934",

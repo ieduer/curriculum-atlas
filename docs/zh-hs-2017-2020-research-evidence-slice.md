@@ -34,7 +34,7 @@
 
 ## 本地资源映射
 
-公开仓库不保存原 PDF、整页 PNG、在线网页快照、私有 corpus SQL 或 SQLite。验证时必须提供一个不提交的 owner-only resource map：
+公开仓库不保存原 PDF、整页 PNG、在线网页快照、私有 corpus SQL 或 SQLite。验证时必须提供一个不提交的私有 resource map。重绑定器要求它和所指资源均为当前用户拥有、单一硬链接、普通非 symlink 文件且不可被 group/world 写；`0600` 与只读共享位的 `0644` 均可，`0664`／`0622` 不可：
 
 ```json
 {
@@ -57,23 +57,51 @@ HTML 资源必须是无二进制控制字符、严格 UTF-8、具有完整 `<htm
 
 ## 验证与发布闸门
 
+### Corpus 重建后的失败关闭重绑定
+
+`npm run corpus:build` 会重排全库段落主键；不能手改 `paragraph_id`，也不能把旧段落号硬编码成一次性映射。使用专用重绑定器从每条 evidence 已固定的 `document_id`、ordinal、物理页、段落正文 SHA-256、原始制品 SHA-256、页终稿 SHA-256、页稳定 locator 与 UTF-16 精确引文，在当前 corpus 中要求唯一命中：
+
+```bash
+npm run research:evidence:corpus:rebind -- \
+  --resource-map <PRIVATE_RESOURCE_MAP_JSON>
+```
+
+这是默认 dry-run，只读取并逐项验签当前 corpus manifest、全部 SQL 分片、全部 text asset、研究 schema、两份受管输出和 resource map 中的真实 PDF／HTML／页图；不会恢复或清除中断事务，也不会写研究文件。输出必须显示 `evidence_integrity_valid=true`、`strict_publication_exit=3`，并列出每条 evidence 的前后段落主键与不变的 body／quote／artifact／page hash 和 locator。
+
+核对 dry-run 后才可显式应用：
+
+```bash
+npm run research:evidence:corpus:rebind -- \
+  --resource-map <PRIVATE_RESOURCE_MAP_JSON> \
+  --apply
+```
+
+应用只允许改变：
+
+1. `data/research-evidence/zh-hs-2017-2020.json` 中三项 corpus release 身份和发生漂移的 `paragraph_id`；
+2. `data/research-evidence/zh-hs-2017-2020-source-registry.json` 中由当前研究行集重新计算的 `research_corpus_rowset_sha256`。
+
+其余 document/source/evidence/assertion/conflict、精确引文、页图、在线 span、review 和 publication 字节必须保持。工具先在临时 SQLite 中按当前清单逐项验签并完整重跑研究证据校验，再以 owner-only prepared/validated journal 提交两份 after-image；进程在两次 rename 之间被杀死时，下次 `--apply` 会把 prepared 事务恢复到两份精确 before-image 后重新计算。目标或输入出现符号链接、TOCTOU 身份漂移、未知第三方字节、重复 locator 或不受清单约束的内容时一律停止且不覆盖第三方字节。dry-run 发现中断 journal 时只报告必须显式 `--apply` 恢复，绝不借“检查”发生写入。
+
+当前 2017 三条 evidence 从 `16307`／`16309`／`16315` 重绑定到 `16562`／`16564`／`16570`；2020 三条保持 `48`／`50`／`52`。这些数值是当前 corpus 唯一定位的结果，不是工具内的白名单。重绑定不产生签名编辑身份，不裁决“正确价值观念”与“正确价值观”的在线冲突，也不改变任何 publication flag。
+
 验证研究证据完整性：
 
 ```bash
 npm run research:evidence:validate -- \
-  --resource-map <OWNER_ONLY_RESOURCE_MAP_JSON>
+  --resource-map <PRIVATE_RESOURCE_MAP_JSON>
 ```
 
 手动执行严格发布资格检查：
 
 ```bash
-CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP=<OWNER_ONLY_RESOURCE_MAP_JSON> \
+CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP=<PRIVATE_RESOURCE_MAP_JSON> \
   npm run research:evidence:release:validate
 ```
 
 当前严格命令按设计返回退出码 `3`，因为没有签名编辑裁决，且第三条仍有在线转录冲突。退出码 `2` 表示证据或输入完整性失败；退出码 `0` 只允许在所有 assertion 真正具备 publication eligibility 后出现。
 
-这不是文档约定：`npm run verify` 已包含严格检查，`prepare-release.mjs` 在构造 release manifest 前会用 Git 物化树中的 manifest/schema/source registry、当前 corpus manifest 与验签后的 SQL/文本资产、owner-only 资源映射和确定性页图重渲染重跑真实验证，并强制 `requirePublicationEligible=true`。`deploy-worker.mjs` 只能调用内建 `prepareRelease`；模块私有的一次性能力标记会拒绝任何外部伪造的 `prepared` 对象。`--renderer` 只适用于独立的 page-evidence MuPDF 流程，研究证据的 `pdftoppm` 路径不可覆写。缺少资源映射、来源/语料/页图漂移或任一断言未放行都会在 Wrangler 之前终止。
+这不是文档约定：`npm run verify` 已包含严格检查，`prepare-release.mjs` 在构造 release manifest 前会用 Git 物化树中的 manifest/schema/source registry、当前 corpus manifest 与验签后的 SQL/文本资产、受权限保护的私有资源映射和确定性页图重渲染重跑真实验证，并强制 `requirePublicationEligible=true`。`deploy-worker.mjs` 只能调用内建 `prepareRelease`；模块私有的一次性能力标记会拒绝任何外部伪造的 `prepared` 对象。`--renderer` 只适用于独立的 page-evidence MuPDF 流程，研究证据的 `pdftoppm` 路径不可覆写。缺少资源映射、来源/语料/页图漂移或任一断言未放行都会在 Wrangler 之前终止。
 
 ## 五个消费者的同一身份
 

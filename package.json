@@ -29,6 +29,7 @@
     "concepts:build": "node scripts/build-concept-evolution.mjs",
     "concepts:validate": "node scripts/validate-concept-evolution.mjs",
     "ontology:release:validate": "node scripts/validate-ontology-release.mjs",
+    "research:evidence:corpus:rebind": "node scripts/rebind-research-evidence-corpus.mjs",
     "research:evidence:validate": "node scripts/validate-research-evidence-slice.mjs",
     "research:evidence:release:validate": "node scripts/validate-research-evidence-slice.mjs --require-publication-eligible",
     "ontology:v2:validate": "node scripts/validate-subject-ontology-v2.mjs",
