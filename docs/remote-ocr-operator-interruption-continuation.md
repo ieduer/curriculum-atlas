@@ -58,6 +58,17 @@ The read-only production stat and the original reviewed A2 resume protocol both 
 base to inode `41854492`. Inode `42336296` belongs to `monitor-a-r2`; it must never be substituted for
 the evidence-base identity.
 
+After that inode correction, two identical no-apply live dry runs completed the full authority
+artifact comparison and reported only the ledger-identity sidecar SHA-256 and byte count as
+different. Every other authority artifact matched. Read-only recomputation binds
+`timeout-recovery-ledger-identity.json.sha256` to the canonical 104-byte line
+`df77305d01249d59323b76bafeb46cf1a09da30cd90a88602b238c5fa8d62c0c  timeout-recovery-ledger-identity.json\n`,
+whose SHA-256 is `72d1609fc05f4b3361673eddedfa5b87505b756a9fe257e1debe04ec2e3f22cc`.
+The ledger body remains 302 bytes with SHA-256
+`df77305d01249d59323b76bafeb46cf1a09da30cd90a88602b238c5fa8d62c0c`.
+This correction still requires independent review and fresh sealed Linux and live dry-run gates; it
+does not authorize SSH execution or `--apply`.
+
 ## Lock and unit boundary
 
 The continuation uses the existing `.a2-lifecycle.lock`, opened with `O_NOFOLLOW` and held through

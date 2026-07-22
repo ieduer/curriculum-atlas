@@ -1117,6 +1117,11 @@ test('caller proofs are rejected and claim pairs recover crash states', async (t
 test('production incident profile pins the independently recovered read-only anchors without confusing evidence and monitor identities', () => {
   const profile = validateA2ForwardContinuationProfile(EXACT_A2_FORWARD_CONTINUATION_INCIDENT);
   const monitorDirectoryInode = '42336296';
+  const ledgerIdentityFilename = 'timeout-recovery-ledger-identity.json';
+  const ledgerIdentitySidecarFilename = `${ledgerIdentityFilename}.sha256`;
+  const ledgerIdentitySidecar = Buffer.from(
+    `${profile.ledgerIdentitySha256}  ${ledgerIdentityFilename}\n`,
+  );
   assert.equal(
     profile.evidenceBaseRoot,
     '/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/a2-deploy-evidence/20260719T003812Z',
@@ -1124,6 +1129,19 @@ test('production incident profile pins the independently recovered read-only anc
   assert.equal(profile.evidenceBaseDevice, '66306');
   assert.equal(profile.evidenceBaseInode, '41854492');
   assert.notEqual(profile.evidenceBaseInode, monitorDirectoryInode);
+  assert.equal(ledgerIdentitySidecarFilename, 'timeout-recovery-ledger-identity.json.sha256');
+  assert.equal(
+    profile.ledgerIdentitySha256,
+    'df77305d01249d59323b76bafeb46cf1a09da30cd90a88602b238c5fa8d62c0c',
+  );
+  assert.equal(profile.ledgerIdentityBytes, 302);
+  assert.equal(ledgerIdentitySidecar.byteLength, 104);
+  assert.equal(profile.ledgerSidecarBytes, ledgerIdentitySidecar.byteLength);
+  assert.equal(
+    profile.ledgerSidecarSha256,
+    '72d1609fc05f4b3361673eddedfa5b87505b756a9fe257e1debe04ec2e3f22cc',
+  );
+  assert.equal(sha256(ledgerIdentitySidecar), profile.ledgerSidecarSha256);
   assert.equal(
     profile.incidentEvidenceTreeSha256,
     'ecad58b65032556b52e274055bde314aa479f58ab19d54bd9c861b1681e5d2c6',
