@@ -1,11 +1,12 @@
 {
   "schema_version": 1,
   "policy": "fail_closed_project_asset_registry_v1",
-  "reviewed_by": "curriculum-atlas-asset-data-integrity-20260716",
-  "reviewed_at": "2026-07-17T00:32:23Z",
+  "reviewed_by": "curriculum-source-recovery-20260722",
+  "reviewed_at": "2026-07-22T05:54:00Z",
   "source_roots": [
     ".cache/sources",
-    ".cache/high-school-2020"
+    ".cache/high-school-2020",
+    ".cache/source-recovery"
   ],
   "ocr_queue_statuses": [
     "ocr_required",
@@ -22,17 +23,17 @@
     "catalog_documents": 195,
     "document_source_records": 163,
     "ingest_entries": 195,
-    "source_pdf_files": 245,
-    "unique_source_pdf_artifacts": 209,
+    "source_pdf_files": 263,
+    "unique_source_pdf_artifacts": 227,
     "invalid_pdf_files": 4,
     "explicit_artifacts": 9,
     "quarantine_artifacts": 3,
-    "source_archive_containers": 1,
-    "nominal_queue_documents": 85,
-    "nominal_queue_pages": 11759,
-    "unique_queue_artifacts": 84,
-    "unique_queue_pages": 11691,
-    "blocked_documents": 2
+    "source_archive_containers": 2,
+    "nominal_queue_documents": 86,
+    "nominal_queue_pages": 11903,
+    "unique_queue_artifacts": 85,
+    "unique_queue_pages": 11835,
+    "blocked_documents": 0
   },
   "document_aliases": [
     {
@@ -159,7 +160,7 @@
       "note": "OCR 文本层衍生件；缺少可重放工具参数和逐页质量证明，不得作为识别源或上线文本。"
     },
     {
-      "artifact_id": "quarantine-ictr-physics-2017-zero-payload",
+      "artifact_id": "quarantine-ictr-physics-2017-zero-prefix-corrupt",
       "disposition": "quarantine",
       "media_type": "application/octet-stream",
       "sha256": "5711024837310d68c30741142fb9b26cf75a040f703452395817e4cdb60c7263",
@@ -174,10 +175,10 @@
       "expected_pdf_magic": false,
       "queue_eligible": false,
       "publication_eligible": false,
-      "note": "文件为全零载荷而非 PDF；仅保留故障证据，目录记录继续 metadata-only fail closed。"
+      "note": "文件前 8192 字节被置零、其后尾部与教育部 2017 原始 RAR 成员逐字节一致；损坏载荷永久隔离，恢复件以独立 SHA-256 和 archive-member 证明进入目录。"
     },
     {
-      "artifact_id": "quarantine-ictr-english-experimental-zero-payload",
+      "artifact_id": "quarantine-ictr-english-experimental-zero-prefix-corrupt",
       "disposition": "quarantine",
       "media_type": "application/octet-stream",
       "sha256": "4047001069c1999c1e9c8917a6f7c381a401924bf012d1e3b395dbbe8578778a",
@@ -191,7 +192,7 @@
       "expected_pdf_magic": false,
       "queue_eligible": false,
       "publication_eligible": false,
-      "note": "文件为全零载荷而非 PDF；仅保留故障证据，目录记录继续 metadata-only fail closed。"
+      "note": "文件前 8192 字节被置零、其后尾部与教育部旧附件逐字节一致；损坏载荷永久隔离，当前教育部高清同作品扫描另作 OCR 主输入。"
     },
     {
       "artifact_id": "quarantine-ictr-course-plan-2022-zero-payload",
@@ -226,6 +227,20 @@
       "queue_eligible": false,
       "publication_eligible": false,
       "note": "普通高中 2020 修订版来源压缩包；其 21 个解包 PDF 仍须由物理 PDF 审计逐件覆盖。"
+    },
+    {
+      "artifact_id": "moe-high-school-2017-original-source-archive",
+      "media_type": "application/vnd.rar",
+      "sha256": "074988f6b5426eb48dc98187b66e8d010659b4b35930fe276fe6eefac6e05269",
+      "size_bytes": 41484639,
+      "paths": [
+        ".cache/source-recovery/moe-2017/W020181025286384018871.rar"
+      ],
+      "expected_magic_hex": "526172211a0700",
+      "relation": "source_archive_container",
+      "queue_eligible": false,
+      "publication_eligible": false,
+      "note": "教育部 2017 原始发布 RAR；21 个成员由 source-recovery gate 逐件解包并核对 SHA-256、字节数、标题、作品和目录绑定。"
     }
   ]
 }

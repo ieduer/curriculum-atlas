@@ -1,0 +1,601 @@
+{
+  "$schema": "./source-recovery-online-receipt.schema.json",
+  "schema_version": 1,
+  "policy": "official_publication_link_artifact_receipt_v1",
+  "checked_at": "2026-07-22T07:45:35.886Z",
+  "max_age_seconds": 259200,
+  "checker": "scripts/source-recovery-online-receipt.mjs",
+  "source_proof": {
+    "path": "data/source-recovery-proofs.json",
+    "sha256": "25cc755534095731b2f69974fbc8c3e86f1eb6da4cbf396315f9fa1100d17882",
+    "bytes": 29526
+  },
+  "publication_pages": [
+    {
+      "page_url": "https://www.ictr.edu.cn/download_center/fangan.html",
+      "redirect_chain": [],
+      "final_url": "https://www.ictr.edu.cn/download_center/fangan.html",
+      "status": 412,
+      "content_type": "text/html",
+      "bytes": 3120,
+      "sha256": "856660fd07a8365371ac0cb45701a5bf92e425280bcda87d7713dad646158242",
+      "page_status": "official_waf_interstitial",
+      "verified_artifact_urls": []
+    },
+    {
+      "page_url": "https://www.ictr.edu.cn/download_center/pt.html",
+      "redirect_chain": [],
+      "final_url": "https://www.ictr.edu.cn/download_center/pt.html",
+      "status": 412,
+      "content_type": "text/html",
+      "bytes": 3040,
+      "sha256": "e9029fb1c8681e177d8f276b555dd82879c6578d5683ff89547f3b01b255cc04",
+      "page_status": "official_waf_interstitial",
+      "verified_artifact_urls": []
+    },
+    {
+      "page_url": "https://www.moe.gov.cn/srcsite/A06/s3331/200702/t20070202_128271.html",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A06/s3331/200702/t20070202_128271.html",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A06/s3331/200702/t20070202_128271.html"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A06/s3331/200702/t20070202_128271.html",
+      "status": 200,
+      "content_type": "text/html",
+      "bytes": 16077,
+      "sha256": "2b55f41ca096221eb1855ba67e30585f2fd655da6046c2305168451193aa9cf1",
+      "page_status": "html_href_verified",
+      "verified_artifact_urls": [
+        "https://www.moe.gov.cn/publicfiles/business/htmlfiles/moe/cmsmedia/image//UserFiles/File/2008/04/28/2008042821/2008042821_323032.doc"
+      ]
+    },
+    {
+      "page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "status": 200,
+      "content_type": "text/html",
+      "bytes": 18331,
+      "sha256": "5288904782a2caa6bc4c19c181e87a86ebdfc17f4d6aa4c476705ac91740a64d",
+      "page_status": "html_href_verified",
+      "verified_artifact_urls": [
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261651415.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261718950.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261927766.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262535279.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262875191.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263167989.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263736958.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264242187.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264436955.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264681723.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264845510.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265140859.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265849150.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266056028.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266150039.pdf",
+        "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266253473.pdf"
+      ]
+    },
+    {
+      "page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200403/t20040302_167352.html",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200403/t20040302_167352.html",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200403/t20040302_167352.html"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200403/t20040302_167352.html",
+      "status": 200,
+      "content_type": "text/html",
+      "bytes": 15447,
+      "sha256": "0e942979654a66093b37f7779657ab083d46dd4e6824a2e4eadd57290567891d",
+      "page_status": "html_href_verified",
+      "verified_artifact_urls": [
+        "http://www.moe.gov.cn/srcsite/A26/s8001/200403/W020250807557231804509.doc"
+      ]
+    },
+    {
+      "page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/201801/t20180115_324647.html",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/201801/t20180115_324647.html",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/201801/t20180115_324647.html"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/201801/t20180115_324647.html",
+      "status": 200,
+      "content_type": "text/html",
+      "bytes": 16355,
+      "sha256": "b79c56e125574e3102e5827d451779fb44da62cdc227b3e6aca1b4f64eb9f570",
+      "page_status": "html_href_verified",
+      "verified_artifact_urls": [
+        "http://www.moe.gov.cn/srcsite/A26/s8001/201801/W020181025286384018871.rar"
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "archive:moe-high-school-2017-original-release",
+      "document_id": null,
+      "role": "official_archive",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/201801/t20180115_324647.html",
+      "expected_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/201801/W020181025286384018871.rar",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/201801/W020181025286384018871.rar",
+      "href_status": "verified_in_publication_html",
+      "request_url": "http://www.moe.gov.cn/srcsite/A26/s8001/201801/W020181025286384018871.rar",
+      "redirect_chain": [],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/201801/W020181025286384018871.rar",
+      "status": 200,
+      "content_type": "application/x-rar-compressed",
+      "bytes": 41484639,
+      "sha256": "074988f6b5426eb48dc98187b66e8d010659b4b35930fe276fe6eefac6e05269"
+    },
+    {
+      "artifact_id": "attachment:ictr-07a04c6c51fd:canonical",
+      "document_id": "ictr-07a04c6c51fd",
+      "role": "canonical_native_attachment",
+      "publication_page_url": "https://www.ictr.edu.cn/download_center/fangan.html",
+      "expected_href_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88.20220428175514.docx",
+      "observed_href_url": null,
+      "href_status": "official_waf_interstitial_exact_artifact",
+      "request_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88.20220428175514.docx",
+      "redirect_chain": [],
+      "final_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88.20220428175514.docx",
+      "status": 200,
+      "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "bytes": 25919,
+      "sha256": "295e2f48a24ce372381f3f358fbbe7c3001c466506016e3b4b81e4918fb5cec4"
+    },
+    {
+      "artifact_id": "attachment:ictr-8f02447b66ca:canonical",
+      "document_id": "ictr-8f02447b66ca",
+      "role": "canonical_native_attachment",
+      "publication_page_url": "https://www.ictr.edu.cn/download_center/fangan.html",
+      "expected_href_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E7%9B%B2%E6%A0%A1%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88%EF%BC%882007%E5%B9%B4%EF%BC%89.20220428175639.doc",
+      "observed_href_url": null,
+      "href_status": "official_waf_interstitial_exact_artifact",
+      "request_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E7%9B%B2%E6%A0%A1%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88%EF%BC%882007%E5%B9%B4%EF%BC%89.20220428175639.doc",
+      "redirect_chain": [],
+      "final_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E7%9B%B2%E6%A0%A1%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88%EF%BC%882007%E5%B9%B4%EF%BC%89.20220428175639.doc",
+      "status": 200,
+      "content_type": "application/msword",
+      "bytes": 77824,
+      "sha256": "2ae0ca0a23a50d82de3958fa41d5855aec3d4a384c27e25af8215fbe1bc64e7b"
+    },
+    {
+      "artifact_id": "attachment:ictr-a027c4d6e30e:canonical",
+      "document_id": "ictr-a027c4d6e30e",
+      "role": "canonical_native_attachment",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200403/t20040302_167352.html",
+      "expected_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200403/W020250807557231804509.doc",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200403/W020250807557231804509.doc",
+      "href_status": "verified_in_publication_html",
+      "request_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200403/W020250807557231804509.doc",
+      "redirect_chain": [],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200403/W020250807557231804509.doc",
+      "status": 200,
+      "content_type": "application/msword",
+      "bytes": 210432,
+      "sha256": "8198140c9240870e53fec334dd990516f90aaee71c76c71713b7d0eb0f936848"
+    },
+    {
+      "artifact_id": "attachment:ictr-a027c4d6e30e:variant:6a37dac2ddab",
+      "document_id": "ictr-a027c4d6e30e",
+      "role": "native_attachment_variant",
+      "publication_page_url": "https://www.ictr.edu.cn/download_center/pt.html",
+      "expected_href_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E6%80%9D%E6%83%B3%E6%94%BF%E6%B2%BB%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%88%E5%AE%9E%E9%AA%8C%EF%BC%89.20220428173334.doc",
+      "observed_href_url": null,
+      "href_status": "official_waf_interstitial_exact_artifact",
+      "request_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E6%80%9D%E6%83%B3%E6%94%BF%E6%B2%BB%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%88%E5%AE%9E%E9%AA%8C%EF%BC%89.20220428173334.doc",
+      "redirect_chain": [],
+      "final_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E6%80%9D%E6%83%B3%E6%94%BF%E6%B2%BB%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%88%E5%AE%9E%E9%AA%8C%EF%BC%89.20220428173334.doc",
+      "status": 200,
+      "content_type": "application/msword",
+      "bytes": 238080,
+      "sha256": "6a37dac2ddab958bafc138fa3cf2f26351ff60e3cb702a3b7cecd141a4544fac"
+    },
+    {
+      "artifact_id": "attachment:ictr-cfb2a39a2016:canonical",
+      "document_id": "ictr-cfb2a39a2016",
+      "role": "canonical_native_attachment",
+      "publication_page_url": "https://www.ictr.edu.cn/download_center/fangan.html",
+      "expected_href_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E8%81%8B%E6%A0%A1%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88%EF%BC%882007%E5%B9%B4%EF%BC%89.20220428175657.doc",
+      "observed_href_url": null,
+      "href_status": "official_waf_interstitial_exact_artifact",
+      "request_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E8%81%8B%E6%A0%A1%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88%EF%BC%882007%E5%B9%B4%EF%BC%89.20220428175657.doc",
+      "redirect_chain": [],
+      "final_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E8%81%8B%E6%A0%A1%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88%EF%BC%882007%E5%B9%B4%EF%BC%89.20220428175657.doc",
+      "status": 200,
+      "content_type": "application/msword",
+      "bytes": 74240,
+      "sha256": "cc0a8cd468fce4dfaf5640d7fda2fb1fba83a9e041c046846959d26d3c5c7b5c"
+    },
+    {
+      "artifact_id": "attachment:ictr-f74769862cc6:canonical",
+      "document_id": "ictr-f74769862cc6",
+      "role": "canonical_native_attachment",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A06/s3331/200702/t20070202_128271.html",
+      "expected_href_url": "https://www.moe.gov.cn/publicfiles/business/htmlfiles/moe/cmsmedia/image//UserFiles/File/2008/04/28/2008042821/2008042821_323032.doc",
+      "observed_href_url": "http://www.moe.gov.cn/publicfiles/business/htmlfiles/moe/cmsmedia/image//UserFiles/File/2008/04/28/2008042821/2008042821_323032.doc",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/publicfiles/business/htmlfiles/moe/cmsmedia/image//UserFiles/File/2008/04/28/2008042821/2008042821_323032.doc",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/publicfiles/business/htmlfiles/moe/cmsmedia/image//UserFiles/File/2008/04/28/2008042821/2008042821_323032.doc",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/publicfiles/business/htmlfiles/moe/cmsmedia/image//UserFiles/File/2008/04/28/2008042821/2008042821_323032.doc"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/publicfiles/business/htmlfiles/moe/cmsmedia/image//UserFiles/File/2008/04/28/2008042821/2008042821_323032.doc",
+      "status": 200,
+      "content_type": "application/msword",
+      "bytes": 46080,
+      "sha256": "f193ab844fbb23287f5599a39e90f2bd3a916e0f609ab851eced790f01dcb6c0"
+    },
+    {
+      "artifact_id": "scan:ictr-043d90816a8b",
+      "document_id": "ictr-043d90816a8b",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264845510.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264845510.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264845510.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264845510.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264845510.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264845510.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 5833287,
+      "sha256": "1d3601f7894ab0c1860395c45a0b3e599f692de6765c4d853efd33cb75a36cf8"
+    },
+    {
+      "artifact_id": "scan:ictr-06ce7a4eb5fa",
+      "document_id": "ictr-06ce7a4eb5fa",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264242187.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264242187.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264242187.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264242187.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264242187.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264242187.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 3893500,
+      "sha256": "0b4e0477b79b0771a4e730624399c1a30dfed0c1320f9e0d336408cc9feffc86"
+    },
+    {
+      "artifact_id": "scan:ictr-0bcfe4b915df",
+      "document_id": "ictr-0bcfe4b915df",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261718950.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261718950.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261718950.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261718950.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261718950.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261718950.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 4060354,
+      "sha256": "dd07a23025097c58de40ef7e752db2a0c928a106949f4450c36a93d433970576"
+    },
+    {
+      "artifact_id": "scan:ictr-1adc57fe27b4",
+      "document_id": "ictr-1adc57fe27b4",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263736958.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263736958.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263736958.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263736958.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263736958.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263736958.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 10438045,
+      "sha256": "5c2f30bd8ba14820949462429a595fda4e9d805c807038bcd5164a42e40baa86"
+    },
+    {
+      "artifact_id": "scan:ictr-24bb45bda31b",
+      "document_id": "ictr-24bb45bda31b",
+      "role": "canonical_ocr_input",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261927766.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261927766.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261927766.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261927766.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261927766.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261927766.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 12373305,
+      "sha256": "f8421c73c76ff4117a2a5b096c9768d19dd51b0398a1391b8c641c0cd748ccac"
+    },
+    {
+      "artifact_id": "scan:ictr-2ef191eaec15",
+      "document_id": "ictr-2ef191eaec15",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264681723.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264681723.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264681723.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264681723.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264681723.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264681723.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 3284432,
+      "sha256": "9010f065fbeb9d878ee3280fdb8b3f97e938118737bdc6cdf7a7aea3f33e676f"
+    },
+    {
+      "artifact_id": "scan:ictr-3db457c6f361",
+      "document_id": "ictr-3db457c6f361",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262875191.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262875191.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262875191.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262875191.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262875191.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262875191.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 5890963,
+      "sha256": "3bc4a42ae09bf9f36ea93979d330cd2e37c3fe69659d227afe127cba6b199b1b"
+    },
+    {
+      "artifact_id": "scan:ictr-6aed243f91fa",
+      "document_id": "ictr-6aed243f91fa",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261651415.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261651415.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261651415.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261651415.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261651415.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509261651415.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 906899,
+      "sha256": "cc2b2d224f69b7521cfc67514f5aca60e2c16d98494b629d6fd6d2677b2087ce"
+    },
+    {
+      "artifact_id": "scan:ictr-7c995a071399",
+      "document_id": "ictr-7c995a071399",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265849150.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265849150.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265849150.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265849150.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265849150.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265849150.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 4204783,
+      "sha256": "c36c882beb4988155e2bbbbfeed3d524488915966a98dc0381f705cf40addc12"
+    },
+    {
+      "artifact_id": "scan:ictr-8176ab3ce84b",
+      "document_id": "ictr-8176ab3ce84b",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266253473.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266253473.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266253473.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266253473.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266253473.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266253473.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 8049805,
+      "sha256": "8880a8c89868db742000770bd3edf4925bdb91987ecf08a4c4e066ee7d528ca0"
+    },
+    {
+      "artifact_id": "scan:ictr-8b649cdfb27d",
+      "document_id": "ictr-8b649cdfb27d",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263167989.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263167989.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263167989.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263167989.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263167989.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509263167989.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 11810312,
+      "sha256": "8477987841c2bd750ed62faf490cdab5fd8c877ed79af30dd17b4a31c6217687"
+    },
+    {
+      "artifact_id": "scan:ictr-8c4134098f38",
+      "document_id": "ictr-8c4134098f38",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266056028.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266056028.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266056028.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266056028.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266056028.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266056028.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 2073259,
+      "sha256": "5f4ebe57c1fad2dbbdff7d80bf290503ec3c94c0990c7c7e344f9ce724ca8e47"
+    },
+    {
+      "artifact_id": "scan:ictr-bb00e7fd186f",
+      "document_id": "ictr-bb00e7fd186f",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262535279.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262535279.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262535279.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262535279.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262535279.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509262535279.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 6541428,
+      "sha256": "684b5f3fe48b1e76a089672ccf1c90eded85368199b2df07f172da17ae712cdc"
+    },
+    {
+      "artifact_id": "scan:ictr-c198f8ed538f",
+      "document_id": "ictr-c198f8ed538f",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264436955.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264436955.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264436955.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264436955.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264436955.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509264436955.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 5043630,
+      "sha256": "e16e1d3630dc92c0af91fdd2955ecae0fe27c4d986d3acac929d38b01cbe1e4c"
+    },
+    {
+      "artifact_id": "scan:ictr-e096e4d65c97",
+      "document_id": "ictr-e096e4d65c97",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266150039.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266150039.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266150039.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266150039.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266150039.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509266150039.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 1900075,
+      "sha256": "9182c089da695fd835087bf7a42791943f8a0369fd53337d764572ac3bec91c0"
+    },
+    {
+      "artifact_id": "scan:ictr-e1fab1e6823b",
+      "document_id": "ictr-e1fab1e6823b",
+      "role": "same_work_scan_witness",
+      "publication_page_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+      "expected_href_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265140859.pdf",
+      "observed_href_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265140859.pdf",
+      "href_status": "verified_in_publication_html",
+      "request_url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265140859.pdf",
+      "redirect_chain": [
+        {
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265140859.pdf",
+          "status": 302,
+          "location": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265140859.pdf"
+        }
+      ],
+      "final_url": "http://www.moe.gov.cn/srcsite/A26/s8001/200303/W020241017509265140859.pdf",
+      "status": 200,
+      "content_type": "application/pdf",
+      "bytes": 14344118,
+      "sha256": "38b4a9d794caf4ed9a5ef3610823e4cb99c9716883f3121516fb2b3959e4a056"
+    }
+  ],
+  "receipt_sha256": "b18678bf6e014eb3ea10348032201b533b5e75d4840ddd99c4f40b0aac2499e7"
+}

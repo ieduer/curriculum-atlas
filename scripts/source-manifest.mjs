@@ -1,4 +1,8 @@
 import { readFile } from 'node:fs/promises';
+import {
+  applySourceRecoveryOverlay,
+  normalizeSourceRecoveryIdentityShape,
+} from './source-recovery-overlay.mjs';
 
 const moe2022Base = 'https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/';
 const moe2011Base = 'https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/';
@@ -231,7 +235,9 @@ const policyRecords = [
   ...record,
 }));
 
-const supplementalDocuments = JSON.parse(await readFile(new URL('../data/supplemental-sources.json', import.meta.url), 'utf8')).documents;
+const supplementalDocuments = applySourceRecoveryOverlay(
+  JSON.parse(await readFile(new URL('../data/supplemental-sources.json', import.meta.url), 'utf8')).documents,
+);
 const localCompendia = JSON.parse(await readFile(new URL('../data/local-compendia.json', import.meta.url), 'utf8')).documents;
 
 export const sourceManifest = [
@@ -242,4 +248,4 @@ export const sourceManifest = [
   ...policyRecords,
   ...supplementalDocuments,
   ...localCompendia,
-];
+].map(normalizeSourceRecoveryIdentityShape);

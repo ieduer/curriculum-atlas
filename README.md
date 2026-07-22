@@ -10,9 +10,9 @@
 ## 当前资料状态
 
 - 195 条规范作品记录，其中 158 份普通学科资料、1 份考试学科资料、16 份课程资料、20 份范围/框架资料，未分类为 0。
-- 101 份文档通过文档级引文闸门；其中 100 份同时达到当前概念抽取的年份与有效字符门槛。两条纯目录记录只用于缺口/修订跟踪，不计入正文引文。
-- 16,456 个可检索段落。
-- 85 份名义扫描记录进入 11,759 页的高质量 OCR 队列；扣除 68 页完全相同的劳动课标别名后为 84 个唯一 OCR 实体、11,691 页。队列覆盖数字以 `data/ocr-queue.json` 为准。
+- 102 份文档通过文档级引文闸门；其中 101 份同时达到当前概念抽取的年份与有效字符门槛。两条纯目录记录只用于缺口/修订跟踪，不计入正文引文。
+- 16,711 个可检索段落。
+- 86 份名义扫描记录进入 11,903 页的高质量 OCR 队列；扣除 68 页完全相同的劳动课标别名后为 85 个唯一 OCR 实体、11,835 页。队列覆盖数字以 `data/ocr-queue.json` 为准。
 - 历史扫描件默认 fail-closed，不因完成 OCR 自动开放引文。
 - 在线核对采用“扫描图像—多引擎 OCR—版本感知在线来源”三证规则；同篇异版只能旁证稳定事实。
 - Apple Vision 页图由 SHA-256 固定的 MuPDF 1.28.0 以 240 DPI 渲染；有效见证可按源 PDF/页码/图像哈希复用，单页隔离不阻断其他合格页面。
@@ -39,6 +39,6 @@ npm run verify
 
 本地开发运行 `npm run dev`。Cloudflare 账户变量与 Worker secrets 的名称见 `.env.example`；真实值只应进入本机批准的秘密存储或使用 `wrangler secret put` 安装，不能提交到仓库。
 
-最初十九节需求的当前完成度、退出硬门与后续关键路径见 [docs/original-goal-delivery-matrix.md](docs/original-goal-delivery-matrix.md)。完整的数据方法与 OCR 闸门见 [docs/data-methodology.md](docs/data-methodology.md) 和 [docs/ocr-quality.md](docs/ocr-quality.md)。资产主账与数据层审计分别见 [docs/project-asset-ledger.md](docs/project-asset-ledger.md) 和 [docs/project-data-integrity-audit-2026-07-16.md](docs/project-data-integrity-audit-2026-07-16.md)。宇宙星图的信息架构、交互与视觉验收门槛见 [docs/frontend-reproduction-verification.md](docs/frontend-reproduction-verification.md)。部署、回滚与日常运维见 [docs/deployment.md](docs/deployment.md) 和 [docs/operations.md](docs/operations.md)；从立项到当前、可重新生成的完整运维事件总账见 [docs/project-operations-ledger.md](docs/project-operations-ledger.md)。
+最初十九节需求的当前完成度、退出硬门与后续关键路径见 [docs/original-goal-delivery-matrix.md](docs/original-goal-delivery-matrix.md)。完整的数据方法与 OCR 闸门见 [docs/data-methodology.md](docs/data-methodology.md) 和 [docs/ocr-quality.md](docs/ocr-quality.md)。资产主账、逐哈希来源恢复、72 小时在线收据与数据层审计分别见 [docs/project-asset-ledger.md](docs/project-asset-ledger.md)、`data/source-recovery-proofs.json`、`data/source-recovery-online-receipt.json` 和 [docs/project-data-integrity-audit-2026-07-16.md](docs/project-data-integrity-audit-2026-07-16.md)。宇宙星图的信息架构、交互与视觉验收门槛见 [docs/frontend-reproduction-verification.md](docs/frontend-reproduction-verification.md)。部署、回滚与日常运维见 [docs/deployment.md](docs/deployment.md) 和 [docs/operations.md](docs/operations.md)；从立项到当前、可重新生成的完整运维事件总账见 [docs/project-operations-ledger.md](docs/project-operations-ledger.md)。
 
 架构、数据模型与接手顺序分别见 [docs/architecture.md](docs/architecture.md)、[docs/data-model.md](docs/data-model.md) 和 [docs/ai-handoff.md](docs/ai-handoff.md)。公开资料的来源与再分发边界见 [docs/content-sources-and-rights.md](docs/content-sources-and-rights.md)。提交改进前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [SECURITY.md](SECURITY.md)。

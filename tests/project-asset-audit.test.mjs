@@ -255,6 +255,22 @@ test('document source records may identify a same-edition scan as a variant arti
   assert.equal(result.ok, true, JSON.stringify(result.errors, null, 2));
 });
 
+test('an alternate source URL cannot declare itself primary over the catalog artifact', async (t) => {
+  const { root } = await makeFixture(t);
+  const catalog = await readJson(root, 'data/catalog.json');
+  catalog.documents.find((record) => record.id === 'doc-a').source_url = 'https://official.example/doc-a.pdf';
+  await writeJson(root, 'data/catalog.json', catalog);
+
+  const sources = await readJson(root, 'data/document-sources.json');
+  sources.sources[0].source_url = 'https://mirror.example/doc-a.pdf';
+  sources.sources[0].is_primary = 1;
+  await writeJson(root, 'data/document-sources.json', sources);
+
+  const result = await auditProjectAssets({ projectRoot: root });
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((entry) => entry.code === 'source_primary_mismatch'));
+});
+
 test('fails closed when a physical source PDF has no disposition', async (t) => {
   const { root } = await makeFixture(t);
   await writeFile(path.join(root, '.cache/sources/forgotten.pdf'), Buffer.from('%PDF-1.4\nforgotten'));

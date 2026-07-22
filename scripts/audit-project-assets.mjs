@@ -5,6 +5,8 @@ import { createReadStream } from 'node:fs';
 import { access, readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateSourceRecoveryOnlineReceipt } from './source-recovery-online-receipt.mjs';
+import { validateSourceRecoveryProofs } from './validate-source-recovery-proofs.mjs';
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const PDF_MAGIC = Buffer.from('%PDF-');
@@ -210,15 +212,29 @@ export async function auditProjectAssets(options = {}) {
   }
 
   for (const source of sourceRecords) {
-    if (!catalogById.has(source.document_id)) {
+    const catalogDocument = catalogById.get(source.document_id);
+    if (!catalogDocument) {
       errors.push(issue('data', 'source_record_unknown_document', `document-sources references unknown document ${source.document_id}`));
+      continue;
+    }
+    if (typeof source.source_url === 'string' && source.source_url
+      && typeof catalogDocument.source_url === 'string' && catalogDocument.source_url) {
+      const expectedPrimary = source.source_url === catalogDocument.source_url ? 1 : 0;
+      if (Number(source.is_primary) !== expectedPrimary) {
+        errors.push(issue('data', 'source_primary_mismatch', `${source.document_id} source primary flag disagrees with the catalog canonical URL`, {
+          source_url: source.source_url,
+          catalog_source_url: catalogDocument.source_url,
+          expected_is_primary: expectedPrimary,
+          observed_is_primary: source.is_primary,
+        }));
+      }
     }
   }
 
   const referencesByHash = new Map();
   const declaredPaths = new Map();
   for (const document of catalogDocuments) {
-    if (document.local_cache_path) {
+    if (document.local_cache_path && String(document.file_format || '').startsWith('pdf')) {
       if (!SHA256_PATTERN.test(String(document.checksum_sha256 || '').toLowerCase())) {
         errors.push(issue('data', 'catalog_local_path_without_checksum', `${document.id} has local_cache_path without a valid checksum`));
       } else {
@@ -697,6 +713,38 @@ export async function auditProjectAssets(options = {}) {
     }
   }
 
+  let sourceRecovery = null;
+  const sourceRecoveryProofPath = path.join(projectRoot, 'data/source-recovery-proofs.json');
+  if (await exists(sourceRecoveryProofPath)) {
+    sourceRecovery = await validateSourceRecoveryProofs({
+      root: projectRoot,
+      catalog,
+      artifactRegistry: registry,
+      ocrQueue: queue,
+      requireLocal: true,
+      deepArchive: true,
+    });
+    for (const recoveryError of sourceRecovery.errors) {
+      errors.push(issue(
+        'source_recovery',
+        recoveryError.code,
+        recoveryError.detail,
+      ));
+    }
+  }
+  let sourceRecoveryOnline = null;
+  const sourceRecoveryOnlinePath = path.join(projectRoot, 'data/source-recovery-online-receipt.json');
+  if (await exists(sourceRecoveryOnlinePath)) {
+    sourceRecoveryOnline = await validateSourceRecoveryOnlineReceipt({
+      root: projectRoot,
+      requireFresh: false,
+      requireLocal: true,
+    });
+    for (const receiptError of sourceRecoveryOnline.errors) {
+      errors.push(issue('source_recovery_online', receiptError.code, receiptError.detail));
+    }
+  }
+
   const dispositionCounts = { canonical: 0, variant: 0, derived: 0, quarantine: 0 };
   for (const disposition of dispositionByHash.values()) {
     if (Object.hasOwn(dispositionCounts, disposition)) dispositionCounts[disposition] += 1;
@@ -739,6 +787,8 @@ export async function auditProjectAssets(options = {}) {
       downloads_ingested: downloads.enabled
         ? !errors.some((entry) => entry.area === 'downloads')
         : null,
+      source_recovery_exact: sourceRecovery ? sourceRecovery.ok : null,
+      source_recovery_online_receipt_exact: sourceRecoveryOnline ? sourceRecoveryOnline.ok : null,
     },
     data_layer: {
       catalog_documents: catalogDocuments.length,
@@ -778,6 +828,8 @@ export async function auditProjectAssets(options = {}) {
       duplicate_artifacts: queueDuplicates,
     },
     downloads,
+    source_recovery: sourceRecovery,
+    source_recovery_online: sourceRecoveryOnline,
     warnings,
     errors,
   };

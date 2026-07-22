@@ -15,6 +15,7 @@ import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs
 import { createImmutableTreeSnapshot } from './lib/immutable-release-snapshot.mjs';
 import { immutableVersionedManifestArtifact } from './publish-metadata.mjs';
 import { prepareRelease } from './prepare-release.mjs';
+import { assertSourceRecoveryOnlineReceiptFresh } from './source-recovery-online-receipt.mjs';
 import { validateDualSchemaBootstrapReceipt } from './verify-dual-schema-bootstrap.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
@@ -274,6 +275,7 @@ export async function deployWorker({
   readPreviewAcceptanceReceipt = readOntologyPreviewAcceptanceReceipt,
   snapshotBuilder = createImmutableTreeSnapshot,
 } = {}) {
+  await assertSourceRecoveryOnlineReceiptFresh({ root });
   if (previewAcceptanceReceipt && (!ontologyPromotion || environment !== 'production')) {
     throw new Error('preview acceptance receipt is valid only for production ontology promotion');
   }

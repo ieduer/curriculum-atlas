@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-22T04:35:25.262Z",
+  "generated_at": "2026-07-22T06:23:49.038Z",
   "counts": {
-    "documents": 85,
-    "pages": 11759,
+    "documents": 86,
+    "pages": 11903,
     "priority_0_documents": 2,
     "priority_1_documents": 12,
-    "blocked_documents": 2
+    "blocked_documents": 0
   },
   "documents": [
     {
@@ -257,6 +257,18 @@
       "source_sha256": "b5ed42deb8d7ea9cd8ed565f662eb43f15a006158fd18e7b4af22caf1c0648e9",
       "page_count": 75,
       "local_cache_path": ".cache/sources/ictr/普通高中课程标准（实验）/普通高中物理课程标准（实验）.pdf",
+      "input_quality_status": "ocr_required",
+      "priority": 2,
+      "policy": "PaddleOCR-VL structured primary; Apple Vision independent audit; PP-StructureV3 adjudication; fail closed before citation."
+    },
+    {
+      "id": "ictr-24bb45bda31b",
+      "title": "普通高中英语课程标准（实验）",
+      "subject": "英语",
+      "source_tier": "primary_official",
+      "source_sha256": "f8421c73c76ff4117a2a5b096c9768d19dd51b0398a1391b8c641c0cd748ccac",
+      "page_count": 144,
+      "local_cache_path": ".cache/source-recovery/moe-2003/W020241017509261927766.pdf",
       "input_quality_status": "ocr_required",
       "priority": 2,
       "policy": "PaddleOCR-VL structured primary; Apple Vision independent audit; PP-StructureV3 adjudication; fail closed before citation."
@@ -1030,20 +1042,5 @@
       "policy": "PaddleOCR-VL structured primary; Apple Vision independent audit; PP-StructureV3 adjudication; fail closed before citation."
     }
   ],
-  "blocked": [
-    {
-      "id": "ictr-2a9f8ddd4169",
-      "title": "普通高中物理课程标准（2017年版）",
-      "reason": "no_verified_local_pdf",
-      "access_status": "listed_official_invalid_download",
-      "policy": "metadata_only_fail_closed"
-    },
-    {
-      "id": "ictr-24bb45bda31b",
-      "title": "普通高中英语课程标准（实验）",
-      "reason": "no_verified_local_pdf",
-      "access_status": "listed_official_invalid_download",
-      "policy": "metadata_only_fail_closed"
-    }
-  ]
+  "blocked": []
 }

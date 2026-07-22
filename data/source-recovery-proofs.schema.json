@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/source-recovery-proofs.schema.json",
+  "title": "Curriculum source recovery proofs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "policy",
+    "reviewed_at",
+    "reviewed_by",
+    "rules",
+    "corrupt_payload_recoveries",
+    "official_archives",
+    "official_same_work_scan_variants",
+    "same_work_scan_variant_context",
+    "native_attachments",
+    "work_identity_fields",
+    "canonical_artifact_identity_fields",
+    "catalog_identity_sha256_by_document",
+    "catalog_canonical_artifact_sha256_by_document"
+  ],
+  "properties": {
+    "$schema": { "const": "./source-recovery-proofs.schema.json" },
+    "schema_version": { "const": 2 },
+    "policy": { "const": "exact_artifact_version_aware_source_recovery_v2" },
+    "reviewed_at": { "type": "string", "format": "date-time" },
+    "reviewed_by": { "type": "string", "minLength": 1 },
+    "rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "corrupt_payloads_remain_quarantined",
+        "same_work_different_scan_is_not_byte_identity",
+        "same_title_different_version_is_not_corroboration",
+        "unresolved_text_conflicts_block_citation",
+        "office_pagination_is_not_a_stable_locator",
+        "non_pdf_text_requires_artifact_and_paragraph_anchors"
+      ],
+      "properties": {
+        "corrupt_payloads_remain_quarantined": { "const": true },
+        "same_work_different_scan_is_not_byte_identity": { "const": true },
+        "same_title_different_version_is_not_corroboration": { "const": true },
+        "unresolved_text_conflicts_block_citation": { "const": true },
+        "office_pagination_is_not_a_stable_locator": { "const": true },
+        "non_pdf_text_requires_artifact_and_paragraph_anchors": { "const": true }
+      }
+    },
+    "corrupt_payload_recoveries": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/corruptRecovery" }
+    },
+    "official_archives": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/officialArchive" }
+    },
+    "official_same_work_scan_variants": {
+      "type": "array",
+      "minItems": 16,
+      "items": { "$ref": "#/$defs/pdfTuple" }
+    },
+    "same_work_scan_variant_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_page_url", "path_prefix", "source_url_prefix", "publication_eligible", "purpose", "canonical_document_ids"],
+      "properties": {
+        "source_page_url": { "type": "string", "format": "uri" },
+        "path_prefix": { "type": "string", "minLength": 1 },
+        "source_url_prefix": { "type": "string", "format": "uri" },
+        "publication_eligible": { "const": false },
+        "purpose": { "const": "independent_same_work_version_witness" },
+        "canonical_document_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "native_attachments": {
+      "type": "array",
+      "minItems": 5,
+      "items": { "$ref": "#/$defs/nativeAttachment" }
+    },
+    "work_identity_fields": {
+      "const": [
+        "id", "country", "language", "title", "subject", "stage", "document_type",
+        "version_label", "issued_by", "issued_date", "published_date", "current_status"
+      ]
+    },
+    "canonical_artifact_identity_fields": {
+      "const": [
+        "id", "source_tier", "access_status", "source_page_url", "source_url", "file_format",
+        "redistribution", "checksum_sha256", "page_count", "local_cache_path",
+        "text_quality_status", "citation_allowed", "original_filename",
+        "native_text_cache_path", "native_text_sha256"
+      ]
+    },
+    "catalog_identity_sha256_by_document": {
+      "type": "object",
+      "minProperties": 42,
+      "maxProperties": 42,
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]*$" },
+      "additionalProperties": { "$ref": "#/$defs/sha256" }
+    },
+    "catalog_canonical_artifact_sha256_by_document": {
+      "type": "object",
+      "minProperties": 42,
+      "maxProperties": 42,
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9-]*$" },
+      "additionalProperties": { "$ref": "#/$defs/sha256" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "positiveInteger": { "type": "integer", "minimum": 1 },
+    "pdfTuple": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        { "type": "string", "minLength": 1 },
+        { "type": "string", "pattern": "\\.pdf$" },
+        { "$ref": "#/$defs/sha256" },
+        { "$ref": "#/$defs/positiveInteger" },
+        { "$ref": "#/$defs/positiveInteger" }
+      ],
+      "items": false,
+      "minItems": 6,
+      "maxItems": 6
+    },
+    "corruptArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "bytes", "path", "zero_prefix_bytes", "tail_start_offset", "tail_sha256"],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "$ref": "#/$defs/positiveInteger" },
+        "path": { "type": "string", "minLength": 1 },
+        "zero_prefix_bytes": { "$ref": "#/$defs/positiveInteger" },
+        "tail_start_offset": { "$ref": "#/$defs/positiveInteger" },
+        "tail_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "recoveredArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "bytes", "page_count", "path", "source_page_url", "source_url", "source_archive_sha256", "archive_member"],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "$ref": "#/$defs/positiveInteger" },
+        "page_count": { "$ref": "#/$defs/positiveInteger" },
+        "path": { "type": "string", "pattern": "\\.pdf$" },
+        "source_page_url": { "type": "string", "format": "uri" },
+        "source_url": { "type": "string", "format": "uri" },
+        "source_archive_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "archive_member": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }
+      }
+    },
+    "corruptRecovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_id", "quarantine_artifact_id", "corrupt_artifact", "recovered_artifact", "relationship", "canonical_use"],
+      "properties": {
+        "document_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "quarantine_artifact_id": { "type": "string", "pattern": "^quarantine-[a-z0-9][a-z0-9-]*$" },
+        "corrupt_artifact": { "$ref": "#/$defs/corruptArtifact" },
+        "recovered_artifact": { "$ref": "#/$defs/recoveredArtifact" },
+        "relationship": { "const": "same_length_zero_prefix_corruption_with_byte_identical_tail" },
+        "canonical_use": { "enum": ["official_native_text", "identity_witness_only"] }
+      }
+    },
+    "officialArchive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archive_id", "source_page_url", "source_url", "path", "media_type", "sha256", "bytes", "expected_magic_hex", "member_count", "members"],
+      "properties": {
+        "archive_id": { "type": "string", "minLength": 1 },
+        "source_page_url": { "type": "string", "format": "uri" },
+        "source_url": { "type": "string", "format": "uri" },
+        "path": { "type": "string", "minLength": 1 },
+        "media_type": { "const": "application/vnd.rar" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "$ref": "#/$defs/positiveInteger" },
+        "expected_magic_hex": { "type": "string", "pattern": "^[0-9a-f]+$" },
+        "member_count": { "$ref": "#/$defs/positiveInteger" },
+        "members": { "type": "array", "items": { "$ref": "#/$defs/pdfTuple" } }
+      }
+    },
+    "attachmentArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "source_page_url", "source_url", "path", "media_type", "sha256", "bytes", "text_path", "text_sha256", "text_bytes"],
+      "properties": {
+        "provider": { "type": "string", "minLength": 1 },
+        "source_page_url": { "type": "string", "format": "uri" },
+        "source_url": { "type": "string", "format": "uri" },
+        "path": { "type": "string", "pattern": "\\.docx?$" },
+        "media_type": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "$ref": "#/$defs/positiveInteger" },
+        "text_path": { "type": "string", "pattern": "\\.txt$" },
+        "text_sha256": { "$ref": "#/$defs/sha256" },
+        "text_bytes": { "$ref": "#/$defs/positiveInteger" }
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["conflict_id", "locator", "canonical_text", "variant_text", "status", "publication_effect"],
+      "properties": {
+        "conflict_id": { "type": "string", "minLength": 1 },
+        "locator": { "type": "string", "minLength": 1 },
+        "canonical_text": { "type": "string", "minLength": 1 },
+        "variant_text": { "type": "string", "minLength": 1 },
+        "status": { "const": "unresolved_attachment_revision" },
+        "publication_effect": { "const": "exact_artifact_binding_required" }
+      }
+    },
+    "nativeAttachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_id", "canonical", "variants", "conflicts", "text_status", "citation_allowed", "pagination_status"],
+      "properties": {
+        "document_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "canonical": { "$ref": "#/$defs/attachmentArtifact" },
+        "variants": { "type": "array", "items": { "$ref": "#/$defs/attachmentArtifact" } },
+        "conflicts": { "type": "array", "items": { "$ref": "#/$defs/conflict" } },
+        "text_status": { "enum": ["native_text_version_conflict", "native_text_structure_review"] },
+        "citation_allowed": { "const": false },
+        "pagination_status": { "const": "unstable_office_layout" },
+        "online_text_witness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_page_url", "relationship"],
+          "properties": {
+            "source_page_url": { "type": "string", "format": "uri" },
+            "relationship": { "const": "official_same_work_html_witness_pending_paragraph_alignment" }
+          }
+        }
+      }
+    }
+  }
+}

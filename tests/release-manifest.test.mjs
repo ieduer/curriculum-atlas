@@ -126,6 +126,8 @@ test('release manifest binds the complete data, graph, static, Git, and environm
     'online_verification_r6_foreign_language_schema',
     'online_verification_zh_compulsory_2022_claims',
     'online_verification_zh_compulsory_2022_schema',
+    'source_recovery_proofs',
+    'source_recovery_proofs_schema',
     'release_assets_policy',
   ]) assert.ok(byRole.has(role), `missing ${role}`);
 
@@ -154,7 +156,7 @@ test('release manifest binds the complete data, graph, static, Git, and environm
     document_relations: 0,
     chapters: 0,
     document_classifications: 195,
-    document_sources: 252,
+    document_sources: 256,
     primary_document_sources: 195,
     subject_insights: 6,
     terms: 5,

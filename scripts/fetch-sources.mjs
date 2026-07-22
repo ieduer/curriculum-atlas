@@ -15,6 +15,7 @@ const textDir = new URL('text/', root);
 const highSchoolDir = new URL('high-school-2020/', root);
 await Promise.all([mkdir(sourceDir, { recursive: true }), mkdir(textDir, { recursive: true }), mkdir(highSchoolDir, { recursive: true })]);
 const binaryPathById = new Map();
+const textPathById = new Map();
 
 async function exists(path) {
   try { await access(path); return true; } catch { return false; }
@@ -76,14 +77,31 @@ async function worker() {
 }
 await Promise.all(Array.from({ length: 3 }, () => worker()));
 
-for (const record of sourceManifest.filter((item) => ['pdf_local', 'pdf_local_research'].includes(item.file_format))) {
+for (const record of sourceManifest.filter((item) => [
+  'pdf_local',
+  'pdf_local_research',
+  'doc_local',
+  'docx_local',
+].includes(item.file_format))) {
   if (!record.local_cache_path) continue;
-  const pdfPath = fileURLToPath(new URL(record.local_cache_path, projectRoot));
-  if (!(await exists(pdfPath))) throw new Error(`Local source missing for ${record.id}: ${record.local_cache_path}`);
-  binaryPathById.set(record.id, pdfPath);
+  const sourcePath = fileURLToPath(new URL(record.local_cache_path, projectRoot));
+  if (!(await exists(sourcePath))) throw new Error(`Local source missing for ${record.id}: ${record.local_cache_path}`);
+  binaryPathById.set(record.id, sourcePath);
   const textPath = join(textDir.pathname, `${record.id}.txt`);
-  if (record.citation_allowed && record.text_quality_status === 'official_native_text' && !(await exists(textPath))) {
-    await run('/opt/homebrew/bin/pdftotext', ['-enc', 'UTF-8', '-layout', pdfPath, textPath]);
+  if (record.file_format.startsWith('pdf_')
+    && record.citation_allowed && record.text_quality_status === 'official_native_text'
+    && !(await exists(textPath))) {
+    await run('/opt/homebrew/bin/pdftotext', ['-enc', 'UTF-8', '-layout', sourcePath, textPath]);
+  }
+  if (record.native_text_cache_path) {
+    const recoveredTextPath = fileURLToPath(new URL(record.native_text_cache_path, projectRoot));
+    if (!(await exists(recoveredTextPath))) {
+      throw new Error(`Recovered native text missing for ${record.id}: ${record.native_text_cache_path}`);
+    }
+    if (record.native_text_sha256 && await sha256(recoveredTextPath) !== record.native_text_sha256) {
+      throw new Error(`Recovered native text checksum mismatch for ${record.id}`);
+    }
+    textPathById.set(record.id, recoveredTextPath);
   }
 }
 
@@ -120,7 +138,7 @@ for (const record of sourceManifest.filter((item) => item.file_format === 'html'
 const entries = [];
 for (const record of sourceManifest) {
   const binaryPath = binaryPathById.get(record.id) || null;
-  const textPath = join(textDir.pathname, `${record.id}.txt`);
+  const textPath = textPathById.get(record.id) || join(textDir.pathname, `${record.id}.txt`);
   entries.push({
     id: record.id,
     fetched: binaryPath ? await exists(binaryPath) : await exists(textPath),

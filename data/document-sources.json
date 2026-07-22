@@ -1127,10 +1127,11 @@
       "provider": "教育部课程教材研究所",
       "source_page_url": "https://www.ictr.edu.cn/download_center/putong.html",
       "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E7%89%A9%E7%90%86%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%882017%E5%B9%B4%E7%89%88%EF%BC%89.20220428174925.pdf",
-      "checksum_sha256": null,
+      "checksum_sha256": "5711024837310d68c30741142fb9b26cf75a040f703452395817e4cdb60c7263",
+      "artifact_disposition": "quarantine",
       "access_status": "listed_official_invalid_download",
-      "is_primary": 1,
-      "note": "The official endpoint returned a non-PDF zero-filled payload during verification; retained as metadata only."
+      "is_primary": 0,
+      "note": "课程教材研究所端点返回前 8192 字节为零、其后字节与教育部 2017 原始发布成员一致的损坏载荷；已隔离，不能作为正文或引文。"
     },
     {
       "document_id": "ictr-5a08a40f1810",
@@ -1287,10 +1288,10 @@
       "provider": "教育部课程教材研究所",
       "source_page_url": "https://www.ictr.edu.cn/download_center/pt.html",
       "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E6%80%9D%E6%83%B3%E6%94%BF%E6%B2%BB%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%88%E5%AE%9E%E9%AA%8C%EF%BC%89.20220428173334.doc",
-      "checksum_sha256": null,
-      "access_status": "metadata_only",
-      "is_primary": 1,
-      "note": null
+      "checksum_sha256": "6a37dac2ddab958bafc138fa3cf2f26351ff60e3cb702a3b7cecd141a4544fac",
+      "access_status": "verified_online",
+      "is_primary": 0,
+      "note": "课程教材研究所附件与教育部当前附件存在“司法调节/司法调解”一字差异；作为版本冲突见证保留，不得替代目录中的教育部主制品。"
     },
     {
       "document_id": "ictr-8176ab3ce84b",
@@ -1337,10 +1338,11 @@
       "provider": "教育部课程教材研究所",
       "source_page_url": "https://www.ictr.edu.cn/download_center/pt.html",
       "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E6%99%AE%E9%80%9A%E9%AB%98%E4%B8%AD%E8%8B%B1%E8%AF%AD%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%88%E5%AE%9E%E9%AA%8C%EF%BC%89.20220428173046.pdf",
-      "checksum_sha256": null,
+      "checksum_sha256": "4047001069c1999c1e9c8917a6f7c381a401924bf012d1e3b395dbbe8578778a",
+      "artifact_disposition": "quarantine",
       "access_status": "listed_official_invalid_download",
-      "is_primary": 1,
-      "note": "The official endpoint returned a non-PDF zero-filled payload during verification; retained as metadata only."
+      "is_primary": 0,
+      "note": "课程教材研究所端点返回前 8192 字节为零、其后字节与教育部旧附件一致的损坏载荷；已隔离，仅作制品身份见证，不能作为正文或引文。"
     },
     {
       "document_id": "ictr-0bcfe4b915df",
@@ -1599,8 +1601,8 @@
       "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E5%9F%B9%E6%99%BA%E5%AD%A6%E6%A0%A1%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E8%AF%BE%E7%A8%8B%E8%AE%BE%E7%BD%AE%E5%AE%9E%E9%AA%8C%E6%96%B9%E6%A1%88%EF%BC%882007%E5%B9%B4%EF%BC%89.20220428175619.doc",
       "checksum_sha256": null,
       "access_status": "metadata_only",
-      "is_primary": 1,
-      "note": null
+      "is_primary": 0,
+      "note": "保留为课程教材研究所镜像来源；目录中的教育部附件为当前主制品，Office 页码不作稳定引用定位。"
     },
     {
       "document_id": "ictr-f4258201b960",

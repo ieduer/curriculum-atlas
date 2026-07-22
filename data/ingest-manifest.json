@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-22T04:35:21.716Z",
+  "generated_at": "2026-07-22T06:23:24.547Z",
   "entries": [
     {
       "id": "moe-2022-01",
@@ -1235,11 +1235,11 @@
     },
     {
       "id": "ictr-2a9f8ddd4169",
-      "fetched": false,
-      "source_sha256": null,
-      "text_sha256": null,
-      "source_bytes": null,
-      "text_bytes": null
+      "fetched": true,
+      "source_sha256": "50b77ebbbaa0a538a7a26843dac7ce8f9f615dec28689be2a3a7dcbbc0849cd2",
+      "text_sha256": "895cd1c0f4573244b2667432064f5f711df6d64fa9da78fd29837c59b530cad2",
+      "source_bytes": 2787438,
+      "text_bytes": 172238
     },
     {
       "id": "ictr-5a08a40f1810",
@@ -1363,11 +1363,11 @@
     },
     {
       "id": "ictr-a027c4d6e30e",
-      "fetched": false,
-      "source_sha256": null,
-      "text_sha256": null,
-      "source_bytes": null,
-      "text_bytes": null
+      "fetched": true,
+      "source_sha256": "8198140c9240870e53fec334dd990516f90aaee71c76c71713b7d0eb0f936848",
+      "text_sha256": "b14cc6c3f51fb562ff9fa1d0892b2b5bdca4f14f6b177ee1c18589c94ba914ff",
+      "source_bytes": 210432,
+      "text_bytes": 66259
     },
     {
       "id": "ictr-8176ab3ce84b",
@@ -1403,10 +1403,10 @@
     },
     {
       "id": "ictr-24bb45bda31b",
-      "fetched": false,
-      "source_sha256": null,
+      "fetched": true,
+      "source_sha256": "f8421c73c76ff4117a2a5b096c9768d19dd51b0398a1391b8c641c0cd748ccac",
       "text_sha256": null,
-      "source_bytes": null,
+      "source_bytes": 12373305,
       "text_bytes": null
     },
     {
@@ -1419,27 +1419,27 @@
     },
     {
       "id": "ictr-cfb2a39a2016",
-      "fetched": false,
-      "source_sha256": null,
-      "text_sha256": null,
-      "source_bytes": null,
-      "text_bytes": null
+      "fetched": true,
+      "source_sha256": "cc0a8cd468fce4dfaf5640d7fda2fb1fba83a9e041c046846959d26d3c5c7b5c",
+      "text_sha256": "1b39fe29a0db37d2660cbddc117c453d626653eb648ce518170f83e9d9b45039",
+      "source_bytes": 74240,
+      "text_bytes": 7269
     },
     {
       "id": "ictr-8f02447b66ca",
-      "fetched": false,
-      "source_sha256": null,
-      "text_sha256": null,
-      "source_bytes": null,
-      "text_bytes": null
+      "fetched": true,
+      "source_sha256": "2ae0ca0a23a50d82de3958fa41d5855aec3d4a384c27e25af8215fbe1bc64e7b",
+      "text_sha256": "04d6002073375cc5b61037c977a3ac44716d4b36353370f1f054d51ca9a82586",
+      "source_bytes": 77824,
+      "text_bytes": 11472
     },
     {
       "id": "ictr-f74769862cc6",
-      "fetched": false,
-      "source_sha256": null,
-      "text_sha256": null,
-      "source_bytes": null,
-      "text_bytes": null
+      "fetched": true,
+      "source_sha256": "f193ab844fbb23287f5599a39e90f2bd3a916e0f609ab851eced790f01dcb6c0",
+      "text_sha256": "6a7b21c13b9b64e52ee92ace5e54347e2026c7bbcc718de9eae3efc2a4869701",
+      "source_bytes": 46080,
+      "text_bytes": 11332
     },
     {
       "id": "ictr-f4258201b960",
@@ -1459,11 +1459,11 @@
     },
     {
       "id": "ictr-07a04c6c51fd",
-      "fetched": false,
-      "source_sha256": null,
-      "text_sha256": null,
-      "source_bytes": null,
-      "text_bytes": null
+      "fetched": true,
+      "source_sha256": "295e2f48a24ce372381f3f358fbbe7c3001c466506016e3b4b81e4918fb5cec4",
+      "text_sha256": "77954292f88a1937c98f6f6554ab93e540a4406351db6b0f2f7434c3d41ab35d",
+      "source_bytes": 25919,
+      "text_bytes": 8533
     },
     {
       "id": "legacy-compendium-plans",

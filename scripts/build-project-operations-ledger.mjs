@@ -338,7 +338,7 @@ lines.push('');
 lines.push('### 本轮完成、保留边界与剩余阻断');
 lines.push('');
 lines.push('1. **已登记**：三个替代扫描 `biology-b.pdf`、`math-b.pdf`、`politics-b.pdf` 已归为 `variant`；两个无可重放谱系的 OCR PDF 已归为 `derived`。五者都明确禁止入队和发布，不再作为“孤儿文件”静默存在。');
-lines.push('2. **已隔离**：三个唯一的全零/无效下载载荷已归为 `quarantine`；文件魔数、大小和 SHA-256 发生变化时审计会要求重新裁决。');
+lines.push('2. **已隔离**：三个唯一的损坏/无效下载载荷已归为 `quarantine`；文件魔数、大小和 SHA-256 发生变化时审计会要求重新裁决。');
 lines.push('3. **已去重建模**：`moe-2022-17` 与 `ictr-6c6df9d121ac` 是同一 68 页实体，目录身份仍保留两条，物理 OCR/进度口径按 SHA-256 只计一次。');
 lines.push(`4. **已上线**：两端 D1 均通过 \`0007_document_taxonomy_contract.sql\`，Worker 均为 \`${productionEvidence.health.version}\`，corpus \`${productionEvidence.corpus.release_id}\` ready；corpus importer 的 91 个远端回执名称、hash 与 bytes 已闭环。`);
 lines.push(`5. **已上线**：taxonomy 为 ${taxonomy.subject || 0} 学科资料、${taxonomy.assessment_subject || 0} 考试学科、${taxonomy.curriculum_course || 0} 课程、${taxonomy.scopes} 范围，公开契约为 ${taxonomy.facets} 个展示分面与 ${taxonomy.queryIdentities} 个精确普通学科查询身份。`);

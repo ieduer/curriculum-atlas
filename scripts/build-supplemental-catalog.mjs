@@ -115,7 +115,7 @@ for (const category of categories) {
       is_primary: existing || reviewedIdentity ? 0 : 1,
       ...(reviewedIdentity ? { artifact_disposition: reviewedIdentity.artifact_disposition } : {}),
       note: local?.valid_pdf === false
-        ? 'The official endpoint returned a non-PDF zero-filled payload during verification; retained as metadata only.'
+        ? 'The official endpoint returned a non-PDF payload during verification; retained as a quarantined source record.'
         : reviewedIdentity?.note ?? null,
     });
     if (existing || reviewedIdentity) continue;

@@ -8,9 +8,9 @@ const [catalog, supplemental, compendia] = await Promise.all([
 ]);
 
 const localById = new Map([
-  ...catalog.documents,
   ...supplemental.documents,
   ...compendia.documents,
+  ...catalog.documents,
 ].map((document) => [document.id, document]));
 
 const candidates = catalog.documents

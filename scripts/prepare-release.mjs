@@ -12,6 +12,7 @@ import { validateCorpusManifest } from './import-corpus.mjs';
 import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 import { createCorpusSourceSnapshot } from './lib/corpus-source-snapshot.mjs';
 import { desiredReleaseManifestArtifact } from './lib/desired-release-manifest.mjs';
+import { assertSourceRecoveryOnlineReceiptFresh } from './source-recovery-online-receipt.mjs';
 import {
   materializeGitHeadReleaseTree,
   materializeVerifiedBuffer,
@@ -59,6 +60,7 @@ export async function prepareRelease({
   manifestBuilder = buildReleaseManifest,
 } = {}) {
   const repositoryRoot = resolve(root);
+  await assertSourceRecoveryOnlineReceiptFresh({ root: repositoryRoot });
   const git = cleanSourceValidator({ root: repositoryRoot, requireUpstream: true, runCommand });
   const projectAssetAudit = await projectAssetAuditor({ projectRoot: repositoryRoot });
   if (!projectAssetAudit.ok) throw new Error('project asset audit failed before Git release materialization');
