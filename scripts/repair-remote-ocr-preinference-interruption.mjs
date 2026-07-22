@@ -670,9 +670,32 @@ export async function acquireLifecycleLock(lockPath) {
     throw new Error('lifecycle lock must not traverse a symbolic link');
   }
   const lockHandle = await open(resolved, fsConstants.O_RDWR | fsConstants.O_NOFOLLOW);
+  let lockIdentity;
   try {
-    const lockInfo = await lockHandle.stat();
-    if (!lockInfo.isFile()) throw new Error('lifecycle lock must be a real regular file');
+    const [lockInfo, pathnameInfo] = await Promise.all([
+      lockHandle.stat({ bigint: true }),
+      lstat(resolved, { bigint: true }),
+    ]);
+    const currentUid = typeof process.getuid === 'function' ? BigInt(process.getuid()) : lockInfo.uid;
+    const currentGid = typeof process.getgid === 'function' ? BigInt(process.getgid()) : lockInfo.gid;
+    if (!lockInfo.isFile()
+      || pathnameInfo.isSymbolicLink()
+      || lockInfo.dev !== pathnameInfo.dev
+      || lockInfo.ino !== pathnameInfo.ino
+      || lockInfo.nlink !== 1n
+      || lockInfo.uid !== currentUid
+      || lockInfo.gid !== currentGid
+      || (Number(lockInfo.mode) & 0o7777) !== 0o600) {
+      throw new Error('lifecycle lock must be a current-owner mode-0600 single-link regular file');
+    }
+    lockIdentity = Object.freeze({
+      path: resolved,
+      device: String(lockInfo.dev),
+      inode: String(lockInfo.ino),
+      uid: String(lockInfo.uid),
+      gid: String(lockInfo.gid),
+      mode: '0600',
+    });
     const child = spawn('/usr/bin/flock', [
       '--exclusive',
       '--nonblock',
@@ -719,6 +742,31 @@ export async function acquireLifecycleLock(lockPath) {
   release.assertHeld = () => {
     if (released) throw new Error('lifecycle flock was lost before transaction completion');
   };
+  release.verifyIdentity = async ({ inode } = {}) => {
+    release.assertHeld();
+    const [handleInfo, pathnameInfo] = await Promise.all([
+      lockHandle.stat({ bigint: true }),
+      lstat(resolved, { bigint: true }).catch((error) => {
+        if (error?.code === 'ENOENT') throw new Error('lifecycle lock pathname disappeared while held');
+        throw error;
+      }),
+    ]);
+    if (!handleInfo.isFile()
+      || pathnameInfo.isSymbolicLink()
+      || handleInfo.dev !== pathnameInfo.dev
+      || handleInfo.ino !== pathnameInfo.ino
+      || String(handleInfo.dev) !== lockIdentity.device
+      || String(handleInfo.ino) !== lockIdentity.inode
+      || handleInfo.nlink !== 1n
+      || String(handleInfo.uid) !== lockIdentity.uid
+      || String(handleInfo.gid) !== lockIdentity.gid
+      || (Number(handleInfo.mode) & 0o7777) !== 0o600
+      || (inode !== undefined && String(handleInfo.ino) !== String(inode))) {
+      throw new Error('lifecycle lock descriptor and pathname identity diverged while held');
+    }
+    return lockIdentity;
+  };
+  release.identity = lockIdentity;
   return release;
 }
 

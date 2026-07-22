@@ -52,8 +52,12 @@ owners, paths, file counts, and byte counts.
 
 The continuation uses the existing `.a2-lifecycle.lock`, opened with `O_NOFOLLOW` and held through
 an inherited file descriptor using `/usr/bin/flock`. It is acquired before the first incident or
-unit inspection and is held through terminal durability plus the final five-unit check. A failed
-stop or final gate is fatal, but closeout still releases the flock rather than orphaning it.
+unit inspection and is held through terminal durability plus the final five-unit check. The held
+descriptor and the pathname must continue to identify the same frozen device/inode, mode-0600,
+single-link current-owner file. That identity is rechecked at every journal/control transition,
+after child exit, before terminal durability, and during closeout; unlink-and-recreate is fatal even
+though the old descriptor still owns a flock. A failed stop or final gate is fatal, but closeout
+still releases the flock rather than orphaning it.
 
 The first gate requires these five units to be loaded, quiescent, and process-free:
 
@@ -63,12 +67,16 @@ The first gate requires these five units to be loaded, quiescent, and process-fr
 4. `curriculum-ocr-monitor-alert@curriculum-ocr-reprocess-a-r2-monitor.service.service`;
 5. `curriculum-ocr-llama.service`.
 
-The worker must retain InvocationID `cea416...` and `ExecMainStatus=75`. Apply starts only the exact
+The worker must retain InvocationID `cea416...` and `ExecMainStatus=75`. The worker, monitor,
+monitor timer, and alert unit are frozen as one lifecycle fence containing their exact unit name,
+InvocationID/PID/exit status, active/sub states, and systemd monotonic generation timestamps
+(`LastTriggerUSecMonotonic` for the timer). Thus a monitor or timer that transiently starts and
+returns inactive still changes the fence and aborts the continuation. Apply starts only the exact
 llama unit under the held lifecycle lock, captures its real InvocationID/MainPID, validates the
-pinned runtime, and immediately before child spawn rechecks the other four quiescent units, the
-same active llama InvocationID, every frozen control hash, output/evidence/lifecycle identities,
-pre-existing directory identities, and the log inode. Closeout stops llama and proves all five
-units quiescent, reporting any stop/gate/release failures together.
+pinned runtime, and immediately before child spawn rechecks the frozen fence, the same active llama
+InvocationID, every frozen control hash, output/evidence/lifecycle identities, pre-existing
+directory identities, and the log inode. Closeout stops llama and proves all five units quiescent
+and the four-unit fence unchanged, reporting any stop/gate/release failures together.
 
 ## Disjoint, crash-resumable evidence
 
@@ -87,8 +95,9 @@ Continuation evidence is outside the monitored output root, under:
     states/
       000001-claimed.json{,.sha256}
       000002-running.json{,.sha256}
-      000003-terminal_plan.json{,.sha256}
-      000004-terminal.json{,.sha256}
+      [000003-resume_running_0001.json{,.sha256} ...]
+      N-terminal_plan.json{,.sha256}
+      N+1-terminal.json{,.sha256}
 ```
 
 This preserves the monitor's exact B2 output-root allowlist. The receipt directory is atomically
@@ -99,8 +108,12 @@ different bytes fail closed.
 The live `run-status.json`, document status, and their sidecars remain at the original interrupted
 bytes while OCR runs. Before any terminal replacement, an immutable `terminal_plan` state stores the
 four exact before/after records. Each live file must be exactly before or exactly after, so restart
-can finish a partially applied four-file transaction without rerunning OCR. The terminal journal is
-append-only and hash chained.
+can finish a partially applied four-file transaction without rerunning OCR. Recovery reads and
+applies an existing `terminal_plan` before calling the ordinary seed verifier; this ordering covers
+crashes after zero through four replacements. The terminal journal is append-only and hash chained.
+Every restarted child receives the next contiguous `resume_running_NNNN` state, with a new verified
+llama InvocationID/PID and the SHA-256 of the preceding execution state; an InvocationID may never
+be reused in the chain.
 
 ## Forward-only output rules
 
@@ -130,7 +143,8 @@ A restart with a deterministic partial claim or state pair repairs the missing h
 `terminal_plan` completes only remaining exact-before replacements. A restart after the child
 finished but before terminal planning validates the forward result and completes without invoking
 OCR again. An incomplete forward result may resume the same already-claimed attempt 6; it never
-increments or resets the attempt.
+increments or resets the attempt. A timeout predecessor's `failed_at` remains in the completed
+attempt-6 lifecycle record, as required by receiver validation.
 
 ## Command, after profile release
 
@@ -160,6 +174,8 @@ exact A2 root, omission is fatal. Evidence on any non-A2 shard is also fatal. Th
 - validates receipt, claim, all sidecars, state hash chain, terminal complete/exit 0, and evidence
   directory inode binding;
 - independently rechecks live complete attempt 6, strict forward-only tree, and append-only log;
+- accepts the extra `forward_document_tree` and `append_only_log` terminal artifacts only when they
+  exactly equal the already-validated continuation output for that document;
 - fingerprints the continuation evidence and live output in source-shard identity;
 - archives the entire continuation tree under receiver `source-evidence`, verifies tree equality,
   then reads back receipt, claim, inventory, and sidecars;

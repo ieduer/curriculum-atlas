@@ -67,6 +67,13 @@ const continuationMode = OPERATOR_CONTINUATION_MODE;
 const operatorClassification = 'operator_controlled_sigterm_after_observer_error';
 const attemptCeiling = 6;
 const interruptionSignal = 'SIGTERM';
+const systemdGenerationProperties = Object.freeze([
+  'StateChangeTimestampMonotonic',
+  'ActiveEnterTimestampMonotonic',
+  'ActiveExitTimestampMonotonic',
+  'InactiveEnterTimestampMonotonic',
+]);
+const continuationFenceRoles = Object.freeze(['worker', 'monitor', 'monitor_timer', 'alert']);
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -1205,12 +1212,62 @@ async function inspectSystemdUnit(unit, role) {
     '--property=MainPID',
     '--property=InvocationID',
     '--property=ExecMainStatus',
+    ...systemdGenerationProperties.map((property) => `--property=${property}`),
+    ...(role.endsWith('_timer') ? ['--property=LastTriggerUSecMonotonic'] : []),
     '--no-pager',
   ], { encoding: 'utf8', maxBuffer: 64 * 1024 });
-  return parseSystemdShow(stdout, unit, role);
+  const values = {};
+  for (const line of String(stdout).trim().split('\n')) {
+    const delimiter = line.indexOf('=');
+    if (delimiter < 1) throw new Error(`${unit}: systemd show output is invalid`);
+    const key = line.slice(0, delimiter);
+    if (Object.hasOwn(values, key)) throw new Error(`${unit}: duplicate systemd property ${key}`);
+    values[key] = line.slice(delimiter + 1);
+  }
+  const baselineProperties = role.endsWith('_timer')
+    ? ['LoadState', 'ActiveState', 'SubState', 'InvocationID']
+    : ['LoadState', 'ActiveState', 'SubState', 'MainPID', 'InvocationID', 'ExecMainStatus'];
+  const generationProperties = [
+    ...systemdGenerationProperties,
+    ...(role.endsWith('_timer') ? ['LastTriggerUSecMonotonic'] : []),
+  ];
+  const expectedProperties = [...baselineProperties, ...generationProperties].sort();
+  if (!sameJson(Object.keys(values).sort(), expectedProperties)) {
+    throw new Error(`${unit}: systemd show property set is invalid`);
+  }
+  const baseline = parseSystemdShow(
+    `${baselineProperties.map((property) => `${property}=${values[property]}`).join('\n')}\n`,
+    unit,
+    role,
+  );
+  const generation = Object.fromEntries(generationProperties.map((property) => {
+    if (!/^(?:0|[1-9]\d*)$/u.test(values[property])) {
+      throw new Error(`${unit}: systemd generation property ${property} is invalid`);
+    }
+    return [property, values[property]];
+  }));
+  return { ...baseline, Generation: generation };
+}
+
+function requireUnitGeneration(state, unit, role) {
+  const generation = requireObject(state.Generation, `${unit} systemd generation`);
+  const expectedProperties = [
+    ...systemdGenerationProperties,
+    ...(role.endsWith('_timer') ? ['LastTriggerUSecMonotonic'] : []),
+  ];
+  if (!sameJson(Object.keys(generation).sort(), [...expectedProperties].sort())) {
+    throw new Error(`${unit} systemd generation property set is invalid`);
+  }
+  for (const property of expectedProperties) {
+    if (!/^(?:0|[1-9]\d*)$/u.test(String(generation[property] || ''))) {
+      throw new Error(`${unit} systemd generation property ${property} is invalid`);
+    }
+  }
+  return generation;
 }
 
 function requireQuiescentUnit(state, unit, role) {
+  requireUnitGeneration(state, unit, role);
   const expectedSubState = state.ActiveState === 'inactive' ? 'dead' : 'failed';
   if (state.LoadState !== 'loaded'
     || !['inactive', 'failed'].includes(state.ActiveState)
@@ -1218,6 +1275,34 @@ function requireQuiescentUnit(state, unit, role) {
     || (role.endsWith('_timer') ? state.InvocationID !== '' : state.MainPID !== '0')) {
     throw new Error(`${unit} is not quiescent`);
   }
+}
+
+function continuationUnitFence(snapshot) {
+  return Object.fromEntries(continuationFenceRoles.map((role) => {
+    const state = snapshot[role];
+    if (!state) throw new Error(`A2 ${role} unit is missing from the quiescent fence`);
+    const service = !role.endsWith('_timer');
+    return [role, {
+      unit: state.unit,
+      load_state: state.LoadState,
+      active_state: state.ActiveState,
+      sub_state: state.SubState,
+      invocation_id: state.InvocationID,
+      ...(service ? {
+        main_pid: state.MainPID,
+        exec_main_status: state.ExecMainStatus,
+      } : {}),
+      generation: structuredClone(requireUnitGeneration(state, state.unit, role)),
+    }];
+  }));
+}
+
+function requireSameContinuationUnitFence(snapshot, frozen) {
+  const current = continuationUnitFence(snapshot);
+  if (!sameJson(current, frozen)) {
+    throw new Error('A2 worker/monitor/timer/alert InvocationID or generation fence changed');
+  }
+  return current;
 }
 
 export async function inspectA2ContinuationUnits(profile, dependencies = {}) {
@@ -1274,7 +1359,7 @@ async function inspectActiveLlama(profile, expectedInvocationId, dependencies = 
   return { unit: profile.llamaUnit, ...state };
 }
 
-async function inspectPreSpawnUnits(profile, activeLlama, dependencies = {}) {
+async function inspectContinuationFenceUnits(profile, dependencies = {}) {
   const inspectUnit = dependencies.inspectUnit || inspectSystemdUnit;
   const result = {};
   for (const [role, unit] of [
@@ -1289,8 +1374,13 @@ async function inspectPreSpawnUnits(profile, activeLlama, dependencies = {}) {
   }
   if (result.worker.InvocationID !== profile.workerInvocationId
     || result.worker.ExecMainStatus !== '75') {
-    throw new Error('worker provenance changed before OCR spawn');
+    throw new Error('worker provenance changed during forward continuation');
   }
+  return result;
+}
+
+async function inspectPreSpawnUnits(profile, activeLlama, dependencies = {}) {
+  const result = await inspectContinuationFenceUnits(profile, dependencies);
   result.llama = await inspectActiveLlama(profile, activeLlama.InvocationID, dependencies);
   return result;
 }
@@ -1475,7 +1565,6 @@ function cleanProgress(progress) {
     'next_retry_at',
     'quarantine_reason',
     'quarantined_at',
-    'failed_at',
     'completed_at',
   ]) delete progress[key];
 }
@@ -1621,6 +1710,7 @@ async function scanJournal(paths, claim) {
       || value.continuation_id !== claim.claim.continuation_id
       || value.claim_id !== claim.claim.claim_id
       || value.previous_state_sha256 !== previousSha256
+      || stem !== `${String(index + 1).padStart(6, '0')}-${value.stage}.json`
       || value.citation_allowed !== false) {
       throw new Error('operator continuation state journal hash chain is invalid');
     }
@@ -1630,9 +1720,153 @@ async function scanJournal(paths, claim) {
   return { states, incomplete, previousSha256 };
 }
 
+function requireExactStateKeys(value, extraKeys, label) {
+  const common = [
+    'schema_version',
+    'sequence',
+    'continuation_id',
+    'claim_id',
+    'stage',
+    'previous_state_sha256',
+    'citation_allowed',
+  ];
+  if (!sameJson(Object.keys(value).sort(), [...common, ...extraKeys].sort())) {
+    throw new Error(`${label} contains missing or unexpected keys`);
+  }
+}
+
+function validateJournalProgression(states, claim, expectedUnitFence) {
+  if (states.length === 0) return { executionStates: [], terminalPlan: null, terminal: null };
+  const claimed = states[0];
+  requireExactStateKeys(
+    claimed.value,
+    ['claimed_at', 'worker_invocation_id', 'quiescent_unit_fence'],
+    'operator continuation claimed state',
+  );
+  if (claimed.value.stage !== 'claimed'
+    || claimed.value.claimed_at !== claim.claim.claimed_at
+    || !invocationIdPattern.test(String(claimed.value.worker_invocation_id || ''))
+    || !sameJson(claimed.value.quiescent_unit_fence, expectedUnitFence)) {
+    throw new Error('operator continuation claimed state or unit fence is invalid');
+  }
+  const executionStates = [];
+  let index = 1;
+  if (states[index]) {
+    const running = states[index];
+    requireExactStateKeys(
+      running.value,
+      ['started_at', 'llama_invocation_id', 'llama_main_pid'],
+      'operator continuation running state',
+    );
+    if (running.value.stage !== 'running'
+      || running.value.started_at !== claim.claim.claimed_at
+      || !invocationIdPattern.test(String(running.value.llama_invocation_id || ''))
+      || !/^[1-9]\d*$/u.test(String(running.value.llama_main_pid || ''))) {
+      throw new Error('operator continuation running state is invalid');
+    }
+    executionStates.push(running);
+    index += 1;
+  }
+  const invocationIds = new Set(executionStates.map(({ value }) => value.llama_invocation_id));
+  let resumeOrdinal = 1;
+  while (states[index] && /^resume_running_\d{4}$/u.test(states[index].value.stage)) {
+    const resumed = states[index];
+    const expectedStage = `resume_running_${String(resumeOrdinal).padStart(4, '0')}`;
+    requireExactStateKeys(
+      resumed.value,
+      ['resumed_at', 'llama_invocation_id', 'llama_main_pid', 'resumed_from_state_sha256'],
+      `operator continuation ${expectedStage} state`,
+    );
+    const predecessor = executionStates.at(-1);
+    const predecessorTimestamp = predecessor?.value.resumed_at || predecessor?.value.started_at;
+    if (resumed.value.stage !== expectedStage
+      || !predecessor
+      || resumed.value.resumed_from_state_sha256 !== predecessor.sha256
+      || !invocationIdPattern.test(String(resumed.value.llama_invocation_id || ''))
+      || invocationIds.has(resumed.value.llama_invocation_id)
+      || !/^[1-9]\d*$/u.test(String(resumed.value.llama_main_pid || ''))) {
+      throw new Error('operator continuation resume_running chain is invalid');
+    }
+    requireCanonicalTimestamp(resumed.value.resumed_at, 'operator continuation resume time');
+    if (Date.parse(resumed.value.resumed_at) < Date.parse(predecessorTimestamp)) {
+      throw new Error('operator continuation resume_running chronology is invalid');
+    }
+    invocationIds.add(resumed.value.llama_invocation_id);
+    executionStates.push(resumed);
+    resumeOrdinal += 1;
+    index += 1;
+  }
+  let terminalPlan = null;
+  if (states[index]) {
+    terminalPlan = states[index];
+    requireExactStateKeys(
+      terminalPlan.value,
+      ['outcome', 'exit_code', 'terminal_at', 'transaction'],
+      'operator continuation terminal_plan state',
+    );
+    if (terminalPlan.value.stage !== 'terminal_plan' || executionStates.length === 0) {
+      throw new Error('operator continuation terminal_plan ordering is invalid');
+    }
+    requireCanonicalTimestamp(terminalPlan.value.terminal_at, 'operator continuation terminal plan time');
+    const lastExecutionTimestamp = executionStates.at(-1).value.resumed_at
+      || executionStates.at(-1).value.started_at;
+    if (Date.parse(terminalPlan.value.terminal_at) < Date.parse(lastExecutionTimestamp)) {
+      throw new Error('operator continuation terminal plan predates its execution state');
+    }
+    index += 1;
+  }
+  let terminal = null;
+  if (states[index]) {
+    terminal = states[index];
+    requireExactStateKeys(
+      terminal.value,
+      ['outcome', 'exit_code', 'terminal_at', 'terminal_plan_state_sha256'],
+      'operator continuation terminal state',
+    );
+    if (terminal.value.stage !== 'terminal' || !terminalPlan) {
+      throw new Error('operator continuation terminal ordering is invalid');
+    }
+    index += 1;
+  }
+  if (index !== states.length) throw new Error('operator continuation state journal stages are invalid');
+  return { executionStates, terminalPlan, terminal };
+}
+
+async function recoverTrailingJournalPair(paths, claim, expectedUnitFence) {
+  let scanned = await scanJournal(paths, claim);
+  if (!scanned.incomplete) {
+    validateJournalProgression(scanned.states, claim, expectedUnitFence);
+    return scanned;
+  }
+  if (!scanned.incomplete.bodyPresent) {
+    throw new Error('operator continuation trailing sidecar has no recoverable journal body');
+  }
+  const pathname = path.join(paths.states, scanned.incomplete.stem);
+  const body = await readStableFileRecord(paths.states, pathname, 'partial operator continuation state');
+  const value = parseJson(body.raw, 'partial operator continuation state');
+  const candidate = {
+    stem: scanned.incomplete.stem,
+    value,
+    sha256: body.sha256,
+  };
+  validateJournalProgression([...scanned.states, candidate], claim, expectedUnitFence);
+  await recoverHashBoundPair(
+    paths.states,
+    pathname,
+    body.raw,
+    'partial operator continuation state',
+  );
+  scanned = await scanJournal(paths, claim);
+  validateJournalProgression(scanned.states, claim, expectedUnitFence);
+  return scanned;
+}
+
 async function appendJournalState(paths, claim, stage, payload, dependencies = {}) {
   if (!/^[a-z][a-z0-9_-]*$/u.test(stage)) throw new Error('continuation journal stage is invalid');
   const scanned = await scanJournal(paths, claim);
+  if (dependencies.expectedUnitFence) {
+    validateJournalProgression(scanned.states, claim, dependencies.expectedUnitFence);
+  }
   const existing = scanned.states.find(({ value }) => value.stage === stage);
   if (existing) {
     const expectedPayload = { ...existing.value };
@@ -1667,6 +1901,10 @@ async function appendJournalState(paths, claim, stage, payload, dependencies = {
     `operator continuation ${stage} state`,
     { afterBody: dependencies.afterJournalBody },
   );
+  if (dependencies.expectedUnitFence) {
+    const verified = await scanJournal(paths, claim);
+    validateJournalProgression(verified.states, claim, dependencies.expectedUnitFence);
+  }
   return { stem, value, sha256: record.sha256 };
 }
 
@@ -1709,9 +1947,13 @@ function terminalPlanFromState(inspected, value) {
 async function applyTerminalTransaction(inspected, terminalPlanState, dependencies = {}) {
   const plan = terminalPlanFromState(inspected, terminalPlanState.value);
   for (let index = 0; index < plan.transaction.length; index += 1) {
+    await dependencies.transactionGuard?.(`before_terminal_replacement_${index + 1}`);
     const record = plan.transaction[index];
     const current = await readStableFileRecord(inspected.outputRoot, record.pathname, `terminal control ${record.output_path}`);
-    if (current.sha256 === record.after_sha256 && current.bytes === record.after_bytes) continue;
+    if (current.sha256 === record.after_sha256 && current.bytes === record.after_bytes) {
+      await dependencies.transactionGuard?.(`after_terminal_replacement_${index + 1}`);
+      continue;
+    }
     if (current.sha256 !== record.before_sha256 || current.bytes !== record.before_bytes) {
       throw new Error(
         `terminal control is neither exact before nor exact after: ${record.output_path} `
@@ -1721,11 +1963,13 @@ async function applyTerminalTransaction(inspected, terminalPlanState, dependenci
     }
     await durableAtomicReplace(record.pathname, record.after);
     await dependencies.afterTerminalReplacement?.(index + 1, record.output_path);
+    await dependencies.transactionGuard?.(`after_terminal_replacement_${index + 1}`);
   }
   return plan;
 }
 
 async function finalizeOutcome(inspected, published, claim, options, outcome, timestamp, details, dependencies = {}) {
+  await dependencies.transactionGuard?.('before_terminal_plan');
   const plan = terminalControlPlan(inspected, options, outcome, timestamp, details);
   const planState = await appendJournalState(published.paths, claim, 'terminal_plan', {
     outcome,
@@ -1733,13 +1977,19 @@ async function finalizeOutcome(inspected, published, claim, options, outcome, ti
     terminal_at: timestamp,
     transaction: plan.transaction,
   }, dependencies);
+  await dependencies.afterTerminalPlan?.(planState);
+  await dependencies.transactionGuard?.('after_terminal_plan');
   const applied = await applyTerminalTransaction(inspected, planState, dependencies);
+  const verifyBase = dependencies.verifyCommittedSeed || verifyCommittedSeed;
+  await verifyBase(options);
+  await dependencies.transactionGuard?.('before_terminal_state');
   await appendJournalState(published.paths, claim, 'terminal', {
     outcome,
     exit_code: applied.exitCode,
     terminal_at: timestamp,
     terminal_plan_state_sha256: planState.sha256,
   }, dependencies);
+  await dependencies.transactionGuard?.('after_terminal_state');
   return {
     status: outcome,
     exitCode: applied.exitCode,
@@ -1759,12 +2009,35 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
   validateOptions(options, profile);
   const lock = dependencies.acquireLifecycleLock || acquireLifecycleLock;
   const releaseLock = await lock(profile.lifecycleLock);
-  const assertLockHeld = () => releaseLock.assertHeld?.();
+  const assertLockHeld = async () => {
+    releaseLock.assertHeld?.();
+    if (releaseLock.verifyIdentity) {
+      await releaseLock.verifyIdentity({ inode: profile.lifecycleLockInode });
+      return;
+    }
+    const lifecycle = await lstat(profile.lifecycleLock, { bigint: true }).catch((error) => {
+      if (error?.code === 'ENOENT') throw new Error('shared A2 lifecycle lock pathname disappeared');
+      throw error;
+    });
+    const currentUid = typeof process.getuid === 'function' ? BigInt(process.getuid()) : lifecycle.uid;
+    const currentGid = typeof process.getgid === 'function' ? BigInt(process.getgid()) : lifecycle.gid;
+    if (!lifecycle.isFile()
+      || lifecycle.isSymbolicLink()
+      || lifecycle.nlink !== 1n
+      || lifecycle.uid !== currentUid
+      || lifecycle.gid !== currentGid
+      || (Number(lifecycle.mode) & 0o7777) !== 0o600
+      || String(lifecycle.ino) !== profile.lifecycleLockInode) {
+      throw new Error('shared A2 lifecycle lock pathname/inode differs from the held frozen lock');
+    }
+  };
   let activeChild = null;
   let externalTermination = null;
   let stopRequested = false;
   let llamaStarted = false;
   let primaryError = null;
+  let frozenUnitFence = null;
+  let guardedDependencies = dependencies;
   const requestStop = () => {
     stopRequested = true;
     externalTermination?.cancel();
@@ -1779,14 +2052,20 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
     process.once('SIGINT', requestStop);
   }
   try {
-    assertLockHeld();
-    const lifecycle = await lstat(profile.lifecycleLock, { bigint: true });
-    if (!lifecycle.isFile()
-      || lifecycle.isSymbolicLink()
-      || String(lifecycle.ino) !== profile.lifecycleLockInode) {
-      throw new Error('shared A2 lifecycle lock inode differs from the frozen incident');
-    }
-    await inspectA2ContinuationUnits(profile, dependencies);
+    await assertLockHeld();
+    const initialUnits = await inspectA2ContinuationUnits(profile, dependencies);
+    frozenUnitFence = continuationUnitFence(initialUnits);
+    const transactionGuard = async () => {
+      await assertLockHeld();
+      const current = await inspectContinuationFenceUnits(profile, dependencies);
+      requireSameContinuationUnitFence(current, frozenUnitFence);
+      await assertLockHeld();
+    };
+    guardedDependencies = {
+      ...dependencies,
+      expectedUnitFence: frozenUnitFence,
+      transactionGuard,
+    };
     const inspected = await inspectInterruptedState(options, profile);
     const paths = operatorContinuationPaths(profile.evidenceBaseRoot, options.documentId, options.attempt);
     if (options.apply !== true) {
@@ -1802,26 +2081,35 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       };
     }
     const verifyBase = dependencies.verifyCommittedSeed || verifyCommittedSeed;
-    await verifyBase(options);
-    assertLockHeld();
+    if (!inspected.archivedIncident) await verifyBase(options);
+    await transactionGuard('before_receipt_publication');
     const published = await publishReceipt(inspected, options, profile);
-    const claim = await publishClaim(inspected, published, options, profile, dependencies);
+    await transactionGuard('after_receipt_publication');
+    const claim = await publishClaim(inspected, published, options, profile, guardedDependencies);
+    await transactionGuard('after_claim_publication');
     await appendJournalState(published.paths, claim, 'claimed', {
       claimed_at: options.continuedAt,
       worker_invocation_id: profile.workerInvocationId,
-    }, dependencies);
+      quiescent_unit_fence: frozenUnitFence,
+    }, guardedDependencies);
 
-    let journal = await scanJournal(published.paths, claim);
+    let journal = await recoverTrailingJournalPair(
+      published.paths,
+      claim,
+      frozenUnitFence,
+    );
     const existingPlanState = journal.states.find(({ value }) => value.stage === 'terminal_plan');
     if (existingPlanState) {
-      const applied = await applyTerminalTransaction(inspected, existingPlanState, dependencies);
+      const applied = await applyTerminalTransaction(inspected, existingPlanState, guardedDependencies);
+      await verifyBase(options);
       const terminalAt = existingPlanState.value.terminal_at;
       await appendJournalState(published.paths, claim, 'terminal', {
         outcome: applied.outcome,
         exit_code: applied.exitCode,
         terminal_at: terminalAt,
         terminal_plan_state_sha256: existingPlanState.sha256,
-      }, dependencies);
+      }, guardedDependencies);
+      await transactionGuard('after_recovered_terminal_state');
       return {
         status: applied.outcome,
         exitCode: applied.exitCode,
@@ -1835,7 +2123,10 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       };
     }
 
-    if (journal.states.some(({ value }) => value.stage === 'running')) {
+    if (inspected.archivedIncident) await verifyBase(options);
+
+    const progression = validateJournalProgression(journal.states, claim, frozenUnitFence);
+    if (progression.executionStates.length > 0) {
       // A crash may occur after the child exits but before its terminal plan is
       // journaled. A fully valid forward result is finalized without invoking
       // OCR again; an incomplete but forward-only result resumes the same
@@ -1877,12 +2168,13 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
               inode: forward.log.ino,
             } },
           },
-          dependencies,
+          guardedDependencies,
         );
       }
     }
 
     llamaStarted = true;
+    await transactionGuard('before_llama_start');
     await startExactLlama(profile, dependencies);
     const activeLlama = await inspectActiveLlama(profile, null, dependencies);
     const verifyRuntime = dependencies.verifyActiveRuntime || verifyActiveRuntime;
@@ -1891,13 +2183,35 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       sourceSha256: inspected.document.source_sha256,
       pageCount: inspected.document.page_count,
     };
-    await appendJournalState(published.paths, claim, 'running', {
-      started_at: options.continuedAt,
+    const previousExecutionState = progression.executionStates.at(-1);
+    const executionStage = previousExecutionState
+      ? `resume_running_${String(progression.executionStates.length).padStart(4, '0')}`
+      : 'running';
+    const executionTimestamp = previousExecutionState
+      ? requireCanonicalTimestamp(
+          dependencies.now?.() || new Date().toISOString(),
+          'continuation resume timestamp',
+        )
+      : options.continuedAt;
+    if (previousExecutionState
+      && progression.executionStates.some(
+        ({ value }) => value.llama_invocation_id === activeLlama.InvocationID,
+      )) {
+      throw new Error('resumed llama invocation must differ from every prior running state');
+    }
+    await appendJournalState(published.paths, claim, executionStage, previousExecutionState ? {
+      resumed_at: executionTimestamp,
       llama_invocation_id: activeLlama.InvocationID,
       llama_main_pid: activeLlama.MainPID,
-    }, dependencies);
-    assertLockHeld();
-    await inspectPreSpawnUnits(profile, activeLlama, dependencies);
+      resumed_from_state_sha256: previousExecutionState.sha256,
+    } : {
+      started_at: executionTimestamp,
+      llama_invocation_id: activeLlama.InvocationID,
+      llama_main_pid: activeLlama.MainPID,
+    }, guardedDependencies);
+    await transactionGuard('after_execution_state');
+    const preSpawnUnits = await inspectPreSpawnUnits(profile, activeLlama, dependencies);
+    requireSameContinuationUnitFence(preSpawnUnits, frozenUnitFence);
     await verifyFrozenPreSpawnSnapshot(inspected, profile);
 
     const commandArguments = [
@@ -1942,6 +2256,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       externalTermination = null;
       activeChild = null;
     }
+    await transactionGuard('after_child_exit');
     const timestamp = requireCanonicalTimestamp(
       dependencies.now?.() || new Date().toISOString(),
       'continuation outcome timestamp',
@@ -1955,7 +2270,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
         'interrupted',
         timestamp,
         { signal: childResult?.signal || interruptionSignal },
-        dependencies,
+        guardedDependencies,
       );
     }
     const monitorIncident = childResult?.monitorIncident || invocationError?.monitorIncident;
@@ -1976,7 +2291,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
           'failed',
           timestamp,
           { error: 'OCR child exited 2: shared runtime or configuration failure' },
-          dependencies,
+          guardedDependencies,
         );
       }
       const revalidate = dependencies.revalidateActiveRuntime || verifyRuntime;
@@ -1992,7 +2307,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
           'failed',
           timestamp,
           { error: shared.message },
-          dependencies,
+          guardedDependencies,
         );
       }
       const failure = new Error(
@@ -2012,7 +2327,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
         'quarantined',
         timestamp,
         { error: failure.message },
-        dependencies,
+        guardedDependencies,
       );
     }
     const forward = await verifyForwardOnlyDocument(inspected).catch(async (error) => ({ validationError: error }));
@@ -2048,7 +2363,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
             inode: forward.log.ino,
           } },
         },
-        dependencies,
+        guardedDependencies,
       );
     }
     return await finalizeOutcome(
@@ -2059,7 +2374,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       'quarantined',
       timestamp,
       { error: `continuation output validation failed: ${validationError.message}` },
-      dependencies,
+      guardedDependencies,
     );
   } catch (error) {
     primaryError = error;
@@ -2072,12 +2387,23 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
     }
     const finalizationErrors = [];
     try {
+      await assertLockHeld();
+    } catch (error) {
+      finalizationErrors.push(error);
+    }
+    try {
       if (llamaStarted) await stopExactLlama(profile, dependencies);
     } catch (error) {
       finalizationErrors.push(error);
     }
     try {
-      await inspectA2ContinuationUnits(profile, dependencies);
+      const finalUnits = await inspectA2ContinuationUnits(profile, dependencies);
+      if (frozenUnitFence) requireSameContinuationUnitFence(finalUnits, frozenUnitFence);
+    } catch (error) {
+      finalizationErrors.push(error);
+    }
+    try {
+      await assertLockHeld();
     } catch (error) {
       finalizationErrors.push(error);
     }
@@ -2090,7 +2416,12 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       ? null
       : finalizationErrors.length === 1
         ? finalizationErrors[0]
-        : new AggregateError(finalizationErrors, 'continuation closeout encountered multiple failures');
+        : new AggregateError(
+            finalizationErrors,
+            `continuation closeout encountered multiple failures: ${finalizationErrors
+              .map((error) => error.message)
+              .join('; ')}`,
+          );
     if (finalizationError && primaryError) {
       throw new AggregateError(
         [primaryError, finalizationError],

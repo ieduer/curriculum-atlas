@@ -16,6 +16,12 @@ const sha256Pattern = /^[a-f0-9]{64}$/u;
 const invocationIdPattern = /^[a-f0-9]{32}$/u;
 const documentIdPattern = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const canonicalTimestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
+const systemdGenerationProperties = Object.freeze([
+  'StateChangeTimestampMonotonic',
+  'ActiveEnterTimestampMonotonic',
+  'ActiveExitTimestampMonotonic',
+  'InactiveEnterTimestampMonotonic',
+]);
 
 export const OPERATOR_CONTINUATION_RECEIPT_TYPE =
   'curriculum_remote_ocr_operator_interruption_continuation_receipt';
@@ -407,6 +413,65 @@ function requireSafePathname(value, label) {
     || value.split('/').some((part) => part.length === 0 || part === '.' || part === '..')) {
     throw new Error(`${label} is not a safe canonical relative path`);
   }
+}
+
+function validateQuiescentUnitFence(value, profile) {
+  const fence = exactObject(
+    value,
+    ['worker', 'monitor', 'monitor_timer', 'alert'],
+    'operator continuation quiescent unit fence',
+  );
+  const unitKeys = {
+    worker: 'workerUnit',
+    monitor: 'monitorUnit',
+    monitor_timer: 'monitorTimerUnit',
+    alert: 'alertUnit',
+  };
+  for (const role of ['worker', 'monitor', 'monitor_timer', 'alert']) {
+    const timer = role.endsWith('_timer');
+    const state = exactObject(
+      fence[role],
+      [
+        'unit',
+        'load_state',
+        'active_state',
+        'sub_state',
+        'invocation_id',
+        ...(timer ? [] : ['main_pid', 'exec_main_status']),
+        'generation',
+      ],
+      `operator continuation ${role} unit fence`,
+    );
+    const expectedSubState = state.active_state === 'inactive' ? 'dead' : 'failed';
+    if (state.unit !== profile[unitKeys[role]]
+      || state.load_state !== 'loaded'
+      || !['inactive', 'failed'].includes(state.active_state)
+      || state.sub_state !== expectedSubState
+      || (timer
+        ? state.invocation_id !== ''
+        : (state.main_pid !== '0'
+          || !/^(?:0|[1-9]\d*)$/u.test(String(state.exec_main_status || ''))
+          || (state.invocation_id !== '' && !invocationIdPattern.test(state.invocation_id))))) {
+      throw new Error(`operator continuation ${role} unit fence is not exact quiescent state`);
+    }
+    if (role === 'worker'
+      && (state.invocation_id !== profile.workerInvocationId || state.exec_main_status !== '75')) {
+      throw new Error('operator continuation worker unit fence is not the frozen interruption');
+    }
+    const generationProperties = [
+      ...systemdGenerationProperties,
+      ...(timer ? ['LastTriggerUSecMonotonic'] : []),
+    ];
+    const generation = exactObject(
+      state.generation,
+      generationProperties,
+      `operator continuation ${role} unit generation`,
+    );
+    for (const property of generationProperties) {
+      requireDecimalString(generation[property], `operator continuation ${role} ${property}`);
+    }
+  }
+  return fence;
 }
 
 function validateArchiveDescriptor(record, raw, expectedPath, label) {
@@ -888,7 +953,7 @@ export async function validateOperatorContinuationEvidence(
   }
   const statesRoot = await requireStableDirectory(expectedPaths.states, 'operator continuation states', { mode: 0o700 });
   const stateNames = (await readdir(statesRoot.pathname)).sort();
-  if (stateNames.length !== 8 || stateNames.length % 2 !== 0) {
+  if (stateNames.length < 8 || stateNames.length % 2 !== 0) {
     throw new Error('operator continuation state journal is incomplete');
   }
   const jsonNames = stateNames.filter((name) => name.endsWith('.json'));
@@ -898,6 +963,8 @@ export async function validateOperatorContinuationEvidence(
   let terminalPlan = null;
   let terminalPlanTransaction = null;
   const states = [];
+  const executionStates = [];
+  const invocationIds = new Set();
   const commonStateKeys = [
     'schema_version',
     'sequence',
@@ -908,7 +975,7 @@ export async function validateOperatorContinuationEvidence(
     'citation_allowed',
   ];
   const expectedStateKeys = new Map([
-    ['claimed', ['claimed_at', 'worker_invocation_id']],
+    ['claimed', ['claimed_at', 'worker_invocation_id', 'quiescent_unit_fence']],
     ['running', ['started_at', 'llama_invocation_id', 'llama_main_pid']],
     ['terminal_plan', ['outcome', 'exit_code', 'terminal_at', 'transaction']],
     ['terminal', ['outcome', 'exit_code', 'terminal_at', 'terminal_plan_state_sha256']],
@@ -924,11 +991,15 @@ export async function validateOperatorContinuationEvidence(
     }
     const record = await readStableFileWithSidecar(statesRoot.pathname, path.join(statesRoot.pathname, name), 'operator continuation state');
     const value = parseJson(record, 'operator continuation state');
-    const extraKeys = expectedStateKeys.get(value.stage);
+    const resumeMatch = /^resume_running_(\d{4})$/u.exec(String(value.stage || ''));
+    const extraKeys = resumeMatch
+      ? ['resumed_at', 'llama_invocation_id', 'llama_main_pid', 'resumed_from_state_sha256']
+      : expectedStateKeys.get(value.stage);
     if (!extraKeys) throw new Error('operator continuation state stage is invalid');
     exactObject(value, [...commonStateKeys, ...extraKeys], `operator continuation ${value.stage} state`);
     if (value.schema_version !== 1
       || value.sequence !== index + 1
+      || name !== `${String(index + 1).padStart(6, '0')}-${value.stage}.json`
       || value.continuation_id !== receipt.continuation_id
       || value.claim_id !== claim.claim_id
       || value.previous_state_sha256 !== previousSha256
@@ -940,6 +1011,7 @@ export async function validateOperatorContinuationEvidence(
         || value.worker_invocation_id !== profile.workerInvocationId)) {
       throw new Error('operator continuation claimed state is invalid');
     }
+    if (value.stage === 'claimed') validateQuiescentUnitFence(value.quiescent_unit_fence, profile);
     if (value.stage === 'running') {
       requireCanonicalTimestamp(value.started_at, 'operator continuation running time');
       if (value.started_at !== claim.claimed_at
@@ -947,8 +1019,34 @@ export async function validateOperatorContinuationEvidence(
         || !/^[1-9]\d*$/u.test(String(value.llama_main_pid || ''))) {
         throw new Error('operator continuation running state is invalid');
       }
+      invocationIds.add(value.llama_invocation_id);
+      executionStates.push({ value, sha256: record.sha256 });
+    }
+    if (resumeMatch) {
+      const predecessor = executionStates.at(-1);
+      const expectedOrdinal = executionStates.length;
+      const predecessorTimestamp = predecessor?.value.resumed_at || predecessor?.value.started_at;
+      requireCanonicalTimestamp(value.resumed_at, 'operator continuation resume time');
+      if (!predecessor
+        || Number(resumeMatch[1]) !== expectedOrdinal
+        || value.resumed_from_state_sha256 !== predecessor.sha256
+        || !invocationIdPattern.test(String(value.llama_invocation_id || ''))
+        || invocationIds.has(value.llama_invocation_id)
+        || !/^[1-9]\d*$/u.test(String(value.llama_main_pid || ''))
+        || Date.parse(value.resumed_at) < Date.parse(predecessorTimestamp)) {
+        throw new Error('operator continuation resume_running state is invalid');
+      }
+      invocationIds.add(value.llama_invocation_id);
+      executionStates.push({ value, sha256: record.sha256 });
     }
     if (value.stage === 'terminal_plan') {
+      const predecessorTimestamp = executionStates.at(-1)?.value.resumed_at
+        || executionStates.at(-1)?.value.started_at;
+      if (!predecessorTimestamp) throw new Error('operator continuation terminal plan has no execution state');
+      requireCanonicalTimestamp(value.terminal_at, 'operator continuation terminal plan time');
+      if (Date.parse(value.terminal_at) < Date.parse(predecessorTimestamp)) {
+        throw new Error('operator continuation terminal plan predates its execution state');
+      }
       terminalPlan = { value, sha256: record.sha256 };
       terminalPlanTransaction = validateTerminalPlanState(value, beforeControls);
     }
@@ -956,8 +1054,12 @@ export async function validateOperatorContinuationEvidence(
     states.push({ name, value, sha256: record.sha256 });
     if (value.stage === 'terminal') terminal = value;
   }
-  if (canonicalJson(states.map(({ value }) => value.stage))
-    !== canonicalJson(['claimed', 'running', 'terminal_plan', 'terminal'])) {
+  const stages = states.map(({ value }) => value.stage);
+  const resumeStages = executionStates.slice(1).map(
+    (_state, index) => `resume_running_${String(index + 1).padStart(4, '0')}`,
+  );
+  if (canonicalJson(stages)
+    !== canonicalJson(['claimed', 'running', ...resumeStages, 'terminal_plan', 'terminal'])) {
     throw new Error('operator continuation state journal stages are not exact');
   }
   if (!terminalPlan

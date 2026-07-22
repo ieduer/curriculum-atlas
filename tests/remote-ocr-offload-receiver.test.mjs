@@ -10,6 +10,7 @@ import {
   realpath,
   rename,
   rm,
+  stat,
   symlink,
   writeFile,
 } from 'node:fs/promises';
@@ -22,6 +23,14 @@ import {
   receiveRemoteOcrOffload,
   validateP4ToP1SeedDelta,
 } from '../scripts/receive-remote-ocr-offload.mjs';
+import {
+  continueOperatorInterruptedAttempt,
+  operatorContinuationPaths,
+} from '../scripts/continue-remote-ocr-operator-interruption.mjs';
+import {
+  EXACT_A2_FORWARD_CONTINUATION_INCIDENT,
+  validateA2ForwardContinuationProfile,
+} from '../scripts/lib/remote-ocr-operator-continuation.mjs';
 import {
   fingerprintPaddlexLayoutModelCache,
 } from '../scripts/run-remote-ocr-offload.mjs';
@@ -36,6 +45,7 @@ const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const legacyB1OcrScriptSha256 = 'b4ea873026fb4d2da2efb921ddac3974a48db703143ff53aff3ebeae48d9b048';
 const seedAwareOcrScriptSha256 = '3176d267c681b2764d4ff81f7e7b6748c174ee62854a11a2529ccfb355a364f3';
 const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a57040e4fd949609d319f49c2b4ca';
+const a2BaseRunnerSha256 = '0fbf3d284f324f5faa710ca09342cdef88d24e6349b6e5d590ccca215065354d';
 const seedAwareTransition = 'p4_to_p1_seed_aware_ocr_v2';
 const runtime = Object.freeze({
   pipeline: 'PaddleOCR-VL',
@@ -710,6 +720,7 @@ async function convertShardToHashBoundSeed(shard, {
   successorPaddlexCacheHome = null,
 } = {}) {
   const canonicalShardRoot = await realpath(shard.shardRoot);
+  const shardRootInfo = await stat(canonicalShardRoot, { bigint: true });
   await materializeLayoutCache(canonicalShardRoot);
   const identityPath = path.join(shard.shardRoot, 'run-identity.json');
   const runStatusPath = path.join(shard.shardRoot, 'run-status.json');
@@ -770,6 +781,40 @@ async function convertShardToHashBoundSeed(shard, {
     const statusRaw = await readFile(statusPath);
     const statusSidecarRaw = await readFile(`${statusPath}.sha256`);
     const status = JSON.parse(statusRaw);
+    const timeoutIncident = timeoutRecoveryDocument
+      ? (() => {
+          const recordedAt = status.quarantined_at;
+          const elapsedSeconds = 300;
+          const value = {
+            schema_version: 1,
+            incident_type: 'curriculum_remote_ocr_child_timeout_incident',
+            evidence_origin: 'runner_emitted_v1',
+            document_id: document.id,
+            attempt: 5,
+            timeout_type: 'idle_timeout',
+            child_started_at: new Date(Date.parse(recordedAt) - elapsedSeconds * 1_000).toISOString(),
+            detected_at: recordedAt,
+            recorded_at: recordedAt,
+            elapsed_seconds: elapsedSeconds,
+            idle_seconds: elapsedSeconds,
+            termination_signals: ['SIGTERM'],
+            monitoring_policy: {
+              ...recovery.child_monitoring,
+              wall_timeout_seconds: Math.max(
+                recovery.child_monitoring.wall_floor_seconds,
+                recovery.child_monitoring.wall_seconds_per_page * document.page_count,
+              ),
+            },
+            runtime_fingerprint_sha256: runtimeFingerprintSha256,
+            log: timeoutRecoveryDocument.timeoutLog,
+            citation_allowed: false,
+          };
+          const raw = Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+          const relativePath = `timeout-incidents/${document.id}/attempt-0005.json`;
+          const sidecarRaw = Buffer.from(`${sha256(raw)}  attempt-0005.json\n`);
+          return { value, raw, sidecarRaw, relativePath };
+        })()
+      : null;
     const predecessorTrees = timeoutRecoveryDocument
       ? await virtualPredecessorTrees(documentRoot, state.completed_pages, stateRaw)
       : null;
@@ -822,6 +867,7 @@ async function convertShardToHashBoundSeed(shard, {
       statusSidecarRaw,
       predecessorConfigurationSha256,
       timeoutRecoveryDocument,
+      timeoutIncident,
     });
   }
 
@@ -861,6 +907,10 @@ async function convertShardToHashBoundSeed(shard, {
         context.timeoutRecoveryDocument.timeoutLog.path,
         context.timeoutRecoveryDocument.timeoutLogRaw,
       ]);
+      evidenceRawFiles.push(
+        [context.timeoutIncident.relativePath, context.timeoutIncident.raw],
+        [`${context.timeoutIncident.relativePath}.sha256`, context.timeoutIncident.sidecarRaw],
+      );
     }
   }
   evidenceRawFiles.sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
@@ -894,6 +944,19 @@ async function convertShardToHashBoundSeed(shard, {
         context.timeoutRecoveryDocument.timeoutLog.path,
         context.timeoutRecoveryDocument.timeoutLogRaw,
       ),
+      timeout_incident: {
+        document_id: context.document.id,
+        attempt: 5,
+        timeout_type: 'idle_timeout',
+        evidence_origin: context.timeoutIncident.value.evidence_origin,
+        raw: evidenceRecord(context.timeoutIncident.relativePath, context.timeoutIncident.raw),
+        sidecar: evidenceRecord(
+          `${context.timeoutIncident.relativePath}.sha256`,
+          context.timeoutIncident.sidecarRaw,
+        ),
+        log_sha256: context.timeoutRecoveryDocument.timeoutLog.sha256,
+        citation_allowed: false,
+      },
     } : {}),
   }));
   const evidenceInventoryWritten = await writeJson(
@@ -1012,8 +1075,15 @@ async function convertShardToHashBoundSeed(shard, {
       citation_allowed: false,
     };
     const grant = {
-      ...grantBasis,
+      schema_version: grantBasis.schema_version,
+      grant_type: grantBasis.grant_type,
+      mode: grantBasis.mode,
       grant_id: sha256(canonicalJson(grantBasis)),
+      predecessor: grantBasis.predecessor,
+      policy: grantBasis.policy,
+      consumption: grantBasis.consumption,
+      documents: grantBasis.documents,
+      citation_allowed: false,
     };
     const grantPath = path.join(shard.shardRoot, 'timeout-recovery-grant.json');
     const grantWritten = await writeJson(grantPath, grant);
@@ -1030,6 +1100,10 @@ async function convertShardToHashBoundSeed(shard, {
       const predecessorDocument = predecessorDocuments.find(
         (document) => document.document_id === grantDocument.document_id,
       );
+      const context = documentContexts.find(
+        (document) => document.document.id === grantDocument.document_id,
+      );
+      const incidentRelativePath = `seed-predecessor-evidence/${context.timeoutIncident.relativePath}`;
       predecessorDocument.timeout_recovery = {
         grant_id: grant.grant_id,
         grant_raw_sha256: grantWritten.sha256,
@@ -1039,8 +1113,66 @@ async function convertShardToHashBoundSeed(shard, {
           ...grantDocument.timeout_log,
           path: `seed-predecessor-evidence/${grantDocument.timeout_log.path}`,
         },
+        predecessor_incident: {
+          document_id: grantDocument.document_id,
+          attempt: 5,
+          timeout_type: 'idle_timeout',
+          evidence_origin: context.timeoutIncident.value.evidence_origin,
+          path: incidentRelativePath,
+          sidecar_path: `${incidentRelativePath}.sha256`,
+          raw_sha256: sha256(context.timeoutIncident.raw),
+          sidecar_sha256: sha256(context.timeoutIncident.sidecarRaw),
+          log_sha256: grantDocument.timeout_log.sha256,
+          citation_allowed: false,
+        },
       };
     }
+    const issuanceClaimKey = sha256(canonicalJson({
+      schema_version: 1,
+      claim_key_type: 'curriculum_remote_ocr_timeout_recovery_predecessor_claim_key',
+      predecessor: grant.predecessor,
+      policy: grant.policy,
+      documents: grant.documents,
+      citation_allowed: false,
+    }));
+    const issuance = {
+      schema_version: 1,
+      claim_type: 'curriculum_remote_ocr_timeout_recovery_issuance_claim',
+      claim_key: issuanceClaimKey,
+      ledger_id: ledger.ledger_id,
+      predecessor: structuredClone(grant.predecessor),
+      grant_id: grant.grant_id,
+      grant_raw_sha256: grantWritten.sha256,
+      incident_evidence: grantDocuments.map((grantDocument) => {
+        const context = documentContexts.find(
+          (document) => document.document.id === grantDocument.document_id,
+        );
+        return {
+          document_id: grantDocument.document_id,
+          attempt: 5,
+          timeout_type: 'idle_timeout',
+          raw_sha256: sha256(context.timeoutIncident.raw),
+          sidecar_sha256: sha256(context.timeoutIncident.sidecarRaw),
+          log_sha256: grantDocument.timeout_log.sha256,
+        };
+      }),
+      citation_allowed: false,
+    };
+    const issuanceRelativePath = `timeout-recovery-issuance/${issuanceClaimKey}.issuance.json`;
+    const issuancePath = path.join(shard.shardRoot, issuanceRelativePath);
+    const issuanceWritten = await writeJson(issuancePath, issuance);
+    await writeSidecar(issuancePath, issuanceWritten.sha256);
+    const issuanceSidecarRaw = await readFile(`${issuancePath}.sha256`);
+    const issuanceSummary = {
+      schema_version: 1,
+      claim_key: issuanceClaimKey,
+      ledger_id: ledger.ledger_id,
+      path: issuanceRelativePath,
+      sidecar_path: `${issuanceRelativePath}.sha256`,
+      raw_sha256: issuanceWritten.sha256,
+      sidecar_sha256: sha256(issuanceSidecarRaw),
+      citation_allowed: false,
+    };
     timeoutRecoveryEvidence = {
       grant,
       grantPath,
@@ -1048,6 +1180,11 @@ async function convertShardToHashBoundSeed(shard, {
       grantSidecarSha256: sha256(grantSidecarRaw),
       summary,
       ledger,
+      issuance,
+      issuancePath,
+      issuanceRawSha256: issuanceWritten.sha256,
+      issuanceSidecarSha256: sha256(issuanceSidecarRaw),
+      issuanceSummary,
     };
   }
   const seedBasisPredecessorDocuments = predecessorDocuments.map((document) => {
@@ -1148,6 +1285,9 @@ async function convertShardToHashBoundSeed(shard, {
     successor_contract: successorContract,
     allowed_configuration_delta: allowedConfigurationDelta,
     ...(timeoutRecoveryEvidence ? { timeout_recovery_grant: timeoutRecoveryEvidence.summary } : {}),
+    ...(timeoutRecoveryEvidence ? {
+      timeout_recovery_issuance: timeoutRecoveryEvidence.issuanceSummary,
+    } : {}),
     documents: seedBasisPredecessorDocuments,
     citation_allowed: false,
   };
@@ -1176,9 +1316,9 @@ async function convertShardToHashBoundSeed(shard, {
       })),
       successor: {
         seed_id: seedId,
-        output_root: shard.shardRoot,
-        output_device: '1',
-        output_inode: '1',
+        output_root: canonicalShardRoot,
+        output_device: String(shardRootInfo.dev),
+        output_inode: String(shardRootInfo.ino),
       },
       citation_allowed: false,
     };
@@ -1324,6 +1464,8 @@ async function convertShardToHashBoundSeed(shard, {
       timeout_recovery_grant_sha256: timeoutRecoveryEvidence.grantRawSha256,
       timeout_recovery_ledger_id: timeoutRecoveryConsumptionEvidence.summary.ledger_id,
       timeout_recovery_claim_sha256: timeoutRecoveryConsumptionEvidence.summary.claim_sha256,
+      timeout_recovery_issuance_claim_key: timeoutRecoveryEvidence.issuance.claim_key,
+      timeout_recovery_issuance_sha256: timeoutRecoveryEvidence.issuanceRawSha256,
       timeout_recovery_documents: timeoutRecoveryEvidence.grant.documents.map(
         (document) => document.document_id,
       ),
@@ -1372,6 +1514,9 @@ async function convertShardToHashBoundSeed(shard, {
     },
     allowed_configuration_delta: allowedConfigurationDelta,
     ...(timeoutRecoveryEvidence ? { timeout_recovery_grant: timeoutRecoveryEvidence.summary } : {}),
+    ...(timeoutRecoveryEvidence ? {
+      timeout_recovery_issuance: timeoutRecoveryEvidence.issuanceSummary,
+    } : {}),
     ...(timeoutRecoveryConsumptionEvidence ? {
       timeout_recovery_consumption: timeoutRecoveryConsumptionEvidence.summary,
     } : {}),
@@ -1420,6 +1565,8 @@ async function convertShardToHashBoundSeed(shard, {
         timeout_recovery_grant_sha256: timeoutRecoveryEvidence.grantRawSha256,
         timeout_recovery_ledger_id: timeoutRecoveryConsumptionEvidence.summary.ledger_id,
         timeout_recovery_claim_sha256: timeoutRecoveryConsumptionEvidence.summary.claim_sha256,
+        timeout_recovery_issuance_claim_key: timeoutRecoveryEvidence.issuance.claim_key,
+        timeout_recovery_issuance_sha256: timeoutRecoveryEvidence.issuanceRawSha256,
         timeout_recovery_documents: timeoutRecoveryEvidence.grant.documents.map(
           (document) => document.document_id,
         ),
@@ -1436,6 +1583,7 @@ async function convertShardToHashBoundSeed(shard, {
     ...(timeoutRecoveryEvidence ? [
       { name: 'timeout-recovery-grant.json', type: 'file' },
       { name: 'timeout-recovery-grant.json.sha256', type: 'file' },
+      { name: 'timeout-recovery-issuance', type: 'directory' },
       { name: 'timeout-recovery-ledger-identity.json', type: 'file' },
       { name: 'timeout-recovery-ledger-identity.json.sha256', type: 'file' },
       { name: 'timeout-recovery-consumption-claim.json', type: 'file' },
@@ -1482,6 +1630,8 @@ async function convertShardToHashBoundSeed(shard, {
 async function convertShardToTimeoutRecoverySeed(shard, {
   firstMissingPageById,
   tamper = null,
+  transition = null,
+  successorRunnerScriptSha256 = 'e'.repeat(64),
 } = {}) {
   const runStatusPath = path.join(shard.shardRoot, 'run-status.json');
   const runStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
@@ -1525,11 +1675,12 @@ async function convertShardToTimeoutRecoverySeed(shard, {
       attempts: 5,
       page_count: document.page_count,
       status_json_sha256: statusWritten.sha256,
+      failed_at: '2026-07-16T00:55:00.000Z',
       quarantined_at: quarantinedAt,
       quarantine_reason: 'attempt_budget_exhausted',
       error,
     };
-    const timeoutLogRaw = Buffer.from('');
+    const timeoutLogRaw = Buffer.from(`SignalInfo: *** SIGTERM attempt 5 for ${document.id}\n`);
     const timeoutLogPath = `logs/${document.id}.log`;
     await mkdir(path.join(shard.shardRoot, 'logs'), { recursive: true });
     await writeFile(path.join(shard.shardRoot, timeoutLogPath), timeoutLogRaw);
@@ -1562,7 +1713,13 @@ async function convertShardToTimeoutRecoverySeed(shard, {
   const seed = await convertShardToHashBoundSeed(shard, {
     tamper,
     timeoutRecovery: { documents: timeoutDocuments },
+    transition,
+    successorRunnerScriptSha256,
   });
+  const successorRuntimeFingerprintSha256 = transition === 'p4_to_p1_v1'
+    || transition === seedAwareTransition
+    ? p1RuntimeFingerprintSha256
+    : runtimeFingerprintSha256;
 
   const finalRunStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
   for (const document of manifest.documents) {
@@ -1600,7 +1757,7 @@ async function convertShardToTimeoutRecoverySeed(shard, {
       max_attempts: 6,
       source_sha256: document.source_sha256,
       page_count: document.page_count,
-      runtime_fingerprint_sha256: runtimeFingerprintSha256,
+      runtime_fingerprint_sha256: successorRuntimeFingerprintSha256,
       citation_allowed: false,
       whole_document_atomic: true,
       artifacts: {
@@ -1642,6 +1799,8 @@ async function convertShardToTimeoutRecoverySeed(shard, {
     'timeout-recovery-ledger-identity.json.sha256',
     'timeout-recovery-consumption-claim.json',
     'timeout-recovery-consumption-claim.json.sha256',
+    `timeout-recovery-issuance/${seed.timeoutRecoveryEvidence.issuance.claim_key}.issuance.json`,
+    `timeout-recovery-issuance/${seed.timeoutRecoveryEvidence.issuance.claim_key}.issuance.json.sha256`,
   ].map((name) => chmod(path.join(shard.shardRoot, name), 0o600)));
   return seed;
 }
@@ -1817,6 +1976,492 @@ async function fixture(t, {
   };
 }
 
+function continuationUnitGeneration(role, revision = 0) {
+  const base = 500 + revision * 10;
+  return {
+    StateChangeTimestampMonotonic: String(base + 1),
+    ActiveEnterTimestampMonotonic: String(base + 2),
+    ActiveExitTimestampMonotonic: String(base + 3),
+    InactiveEnterTimestampMonotonic: String(base + 4),
+    ...(role === 'monitor_timer' ? { LastTriggerUSecMonotonic: String(base + 5) } : {}),
+  };
+}
+
+async function hardenFixtureEvidenceTree(root) {
+  await chmod(root, 0o700);
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    const pathname = path.join(root, entry.name);
+    if (entry.isDirectory()) await hardenFixtureEvidenceTree(pathname);
+    else await chmod(pathname, 0o600);
+  }
+}
+
+async function a2ReceiverContinuationFixture(t) {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'remote-ocr-a2-receiver-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const projectRoot = path.join(root, 'project');
+  const runRoot = path.join(root, 'run');
+  const outputRoot = path.join(runRoot, 'output');
+  const evidenceBaseRoot = path.join(runRoot, 'a2-evidence');
+  const incidentEvidenceRoot = path.join(evidenceBaseRoot, 'operator-incident');
+  const rearmRepairId = 'a'.repeat(64);
+  const rearmEvidenceRoot = path.join(evidenceBaseRoot, rearmRepairId);
+  const lifecycleLock = path.join(runRoot, '.a2-lifecycle.lock');
+  const documentId = 'legacy-compendium-english';
+  const interruptedAt = '2026-07-22T04:13:35.390Z';
+  const authorizedAt = '2026-07-22T04:20:00.000Z';
+  const continuedAt = '2026-07-22T04:21:00.000Z';
+  const workerInvocationId = 'c'.repeat(32);
+  const source = 'A2 receiver continuation source';
+  const sourcePath = path.join(projectRoot, 'pdfs', 'english.pdf');
+  await Promise.all([
+    mkdir(path.dirname(sourcePath), { recursive: true, mode: 0o700 }),
+    mkdir(runRoot, { recursive: true, mode: 0o700 }),
+    mkdir(incidentEvidenceRoot, { recursive: true, mode: 0o700 }),
+    mkdir(rearmEvidenceRoot, { recursive: true, mode: 0o700 }),
+  ]);
+  await Promise.all([
+    chmod(projectRoot, 0o700),
+    chmod(runRoot, 0o700),
+    chmod(evidenceBaseRoot, 0o700),
+    chmod(incidentEvidenceRoot, 0o700),
+    chmod(rearmEvidenceRoot, 0o700),
+  ]);
+  await writeFile(sourcePath, source, { mode: 0o600 });
+  await writeFile(lifecycleLock, '', { mode: 0o600 });
+  await writeFile(
+    path.join(incidentEvidenceRoot, 'operator-incident.json'),
+    `${JSON.stringify({ worker_invocation_id: workerInvocationId, interrupted_at: interruptedAt })}\n`,
+    { mode: 0o600 },
+  );
+
+  const document = documentFor(documentId, 'pdfs/english.pdf', source, 2);
+  const parentManifestPath = path.join(projectRoot, 'parent-manifest.json');
+  const shardManifestPath = path.join(runRoot, 'shard-manifest.json');
+  await writeJson(parentManifestPath, manifestFor([document]));
+  const shard = await createShard({
+    manifestPath: shardManifestPath,
+    shardRoot: outputRoot,
+    documents: [document],
+    pageTexts: new Map([[documentId, ['page one\n', 'page two\n']]]),
+  });
+  await Promise.all([
+    chmod(outputRoot, 0o700),
+    chmod(parentManifestPath, 0o600),
+    chmod(shardManifestPath, 0o600),
+  ]);
+  const canonicalProjectRoot = await realpath(projectRoot);
+  const canonicalRunRoot = await realpath(runRoot);
+  const canonicalOutputRoot = await realpath(outputRoot);
+  const canonicalEvidenceBaseRoot = await realpath(evidenceBaseRoot);
+  const canonicalIncidentEvidenceRoot = await realpath(incidentEvidenceRoot);
+  const canonicalRearmEvidenceRoot = await realpath(rearmEvidenceRoot);
+  const canonicalLifecycleLock = await realpath(lifecycleLock);
+  const identityPath = path.join(outputRoot, 'run-identity.json');
+  const predecessorIdentity = JSON.parse(await readFile(identityPath, 'utf8'));
+  predecessorIdentity.input_root = canonicalProjectRoot;
+  predecessorIdentity.python_invocation_path = process.execPath;
+  predecessorIdentity.python_resolved_target = await realpath(process.execPath);
+  await writeJson(identityPath, predecessorIdentity);
+
+  const seed = await convertShardToTimeoutRecoverySeed(shard, {
+    firstMissingPageById: new Map([[documentId, 2]]),
+    transition: 'p4_to_p1_v1',
+    successorRunnerScriptSha256: a2BaseRunnerSha256,
+  });
+  await hardenFixtureEvidenceTree(path.join(outputRoot, 'seed-predecessor-evidence'));
+  const documentRoot = path.join(outputRoot, 'documents', documentId);
+  const statePath = path.join(documentRoot, 'state.json');
+  const statusPath = path.join(outputRoot, 'status', `${documentId}.json`);
+  const runStatusPath = path.join(outputRoot, 'run-status.json');
+  const logPath = path.join(outputRoot, 'logs', `${documentId}.log`);
+  const savedPageTwo = path.join(runRoot, 'saved-page-0002');
+  const fullState = JSON.parse(await readFile(statePath, 'utf8'));
+  await rename(path.join(documentRoot, 'pages', '0002'), savedPageTwo);
+  const partialState = structuredClone(fullState);
+  partialState.completed_pages = [1];
+  partialState.pages = { 1: partialState.pages['1'] };
+  partialState.selected_pages = [1, 2];
+  partialState.selected_pages_complete = false;
+  const partialStateWritten = await writeJson(statePath, partialState);
+  const logRaw = Buffer.from('attempt 6 started\nSignalInfo: *** SIGTERM\n');
+  await writeFile(logPath, logRaw, { mode: 0o600 });
+  const finalStatus = JSON.parse(await readFile(statusPath, 'utf8'));
+  const interruptedStatus = {
+    schema_version: 1,
+    document_id: documentId,
+    status: 'interrupted',
+    attempt: 6,
+    max_attempts: 6,
+    page_count: 2,
+    runtime_fingerprint_sha256: p1RuntimeFingerprintSha256,
+    citation_allowed: false,
+    interrupted_at: interruptedAt,
+    seed_lineage: finalStatus.seed_lineage,
+  };
+  const interruptedStatusWritten = await writeJson(statusPath, interruptedStatus);
+  await writeSidecar(statusPath, interruptedStatusWritten.sha256);
+  const interruptedRunStatus = JSON.parse(await readFile(runStatusPath, 'utf8'));
+  const progress = interruptedRunStatus.documents[documentId];
+  for (const key of ['verified_at', 'completed_at', 'quarantined_at', 'error', 'next_retry_at']) {
+    delete progress[key];
+  }
+  Object.assign(progress, {
+    status: 'interrupted',
+    attempts: 6,
+    started_at: '2026-07-22T04:12:00.000Z',
+    interrupted_at: interruptedAt,
+    signal: 'SIGTERM',
+    status_json_sha256: interruptedStatusWritten.sha256,
+  });
+  interruptedRunStatus.updated_at = interruptedAt;
+  interruptedRunStatus.counts = {
+    total: 1,
+    complete: 0,
+    failed: 0,
+    interrupted: 1,
+    pending: 0,
+    running: 0,
+    retry_wait: 0,
+    quarantined: 0,
+  };
+  interruptedRunStatus.finished = false;
+  interruptedRunStatus.settled = false;
+  const interruptedRunStatusWritten = await writeJson(runStatusPath, interruptedRunStatus);
+  await writeSidecar(runStatusPath, interruptedRunStatusWritten.sha256);
+
+  const seedJournalPath = path.join(outputRoot, '.seed-journal.json');
+  const seedJournalWritten = await writeJson(seedJournalPath, {
+    schema_version: 1,
+    journal_type: 'curriculum_remote_ocr_hash_bound_seed_install',
+    seed_id: seed.seedId,
+    citation_allowed: false,
+  });
+  await writeSidecar(seedJournalPath, seedJournalWritten.sha256);
+
+  const rearmReservation = Buffer.from(`${JSON.stringify({
+    schema_version: 1,
+    claim_type: 'curriculum_remote_ocr_preinference_rearm_evidence_reservation',
+    repair_id: rearmRepairId,
+    evidence_path: canonicalRearmEvidenceRoot,
+    citation_allowed: false,
+  }, null, 2)}\n`);
+  const rearmAfterStatus = Buffer.from('{"status":"interrupted"}\n');
+  const rearmAfterStatusSidecar = Buffer.from(`${sha256(rearmAfterStatus)}  ${documentId}.json\n`);
+  const rearmAfterRunStatus = Buffer.from('{"finished":false}\n');
+  const rearmAfterRunStatusSidecar = Buffer.from(`${sha256(rearmAfterRunStatus)}  run-status.json\n`);
+  const rearmTransaction = [
+    [`status/${documentId}.json`, rearmAfterStatus],
+    [`status/${documentId}.json.sha256`, rearmAfterStatusSidecar],
+    ['run-status.json', rearmAfterRunStatus],
+    ['run-status.json.sha256', rearmAfterRunStatusSidecar],
+  ];
+  const rearmReceiptPath = path.join(rearmEvidenceRoot, 'repair-receipt.json');
+  const rearmReceiptWritten = await writeJson(rearmReceiptPath, {
+    schema_version: 1,
+    receipt_type: 'curriculum_remote_ocr_preinference_interruption_rearm',
+    status: 'prepared_atomic_apply_required',
+    repair_id: rearmRepairId,
+    transaction: rearmTransaction.map(([outputPath, raw]) => ({
+      output_path: outputPath,
+      after: { sha256: sha256(raw), bytes: raw.byteLength },
+    })),
+    after_run_status_sha256: sha256(rearmAfterRunStatus),
+    after_document_status_sha256: sha256(rearmAfterStatus),
+    publication_claim: { sha256: sha256(rearmReservation), bytes: rearmReservation.byteLength },
+    citation_allowed: false,
+  });
+  await writeSidecar(rearmReceiptPath, rearmReceiptWritten.sha256);
+  await writeFile(
+    path.join(evidenceBaseRoot, `${rearmRepairId}.claim.json`),
+    rearmReservation,
+    { mode: 0o600 },
+  );
+
+  const issuanceRelativePath = `timeout-recovery-issuance/${seed.timeoutRecoveryEvidence.issuance.claim_key}.issuance.json`;
+  const authorityFiles = [
+    identityPath,
+    path.join(outputRoot, 'seed-receipt.json'),
+    path.join(outputRoot, 'seed-receipt.json.sha256'),
+    path.join(outputRoot, 'seed-commit.json'),
+    path.join(outputRoot, 'seed-commit.json.sha256'),
+    seedJournalPath,
+    `${seedJournalPath}.sha256`,
+    path.join(outputRoot, 'timeout-recovery-grant.json'),
+    path.join(outputRoot, 'timeout-recovery-grant.json.sha256'),
+    path.join(outputRoot, 'timeout-recovery-ledger-identity.json'),
+    path.join(outputRoot, 'timeout-recovery-ledger-identity.json.sha256'),
+    path.join(outputRoot, 'timeout-recovery-consumption-claim.json'),
+    path.join(outputRoot, 'timeout-recovery-consumption-claim.json.sha256'),
+    path.join(outputRoot, issuanceRelativePath),
+    path.join(outputRoot, `${issuanceRelativePath}.sha256`),
+    statePath,
+    statusPath,
+    `${statusPath}.sha256`,
+    runStatusPath,
+    `${runStatusPath}.sha256`,
+    logPath,
+    rearmReceiptPath,
+    `${rearmReceiptPath}.sha256`,
+  ];
+  await Promise.all(authorityFiles.map((pathname) => chmod(pathname, 0o600)));
+
+  const pair = async (pathname) => {
+    const [raw, sidecarRaw] = await Promise.all([readFile(pathname), readFile(`${pathname}.sha256`)]);
+    return {
+      raw,
+      sha256: sha256(raw),
+      bytes: raw.byteLength,
+      sidecarRaw,
+      sidecarSha256: sha256(sidecarRaw),
+      sidecarBytes: sidecarRaw.byteLength,
+    };
+  };
+  const [
+    seedReceipt,
+    seedCommit,
+    seedJournal,
+    ledger,
+    grant,
+    consumptionClaim,
+    issuance,
+  ] = await Promise.all([
+    pair(path.join(outputRoot, 'seed-receipt.json')),
+    pair(path.join(outputRoot, 'seed-commit.json')),
+    pair(seedJournalPath),
+    pair(path.join(outputRoot, 'timeout-recovery-ledger-identity.json')),
+    pair(path.join(outputRoot, 'timeout-recovery-grant.json')),
+    pair(path.join(outputRoot, 'timeout-recovery-consumption-claim.json')),
+    pair(path.join(outputRoot, issuanceRelativePath)),
+  ]);
+  const [
+    outputInfo,
+    lifecycleInfo,
+    evidenceBaseInfo,
+    incidentInfo,
+    incidentTree,
+    documentTree,
+    predecessorTree,
+    rearmTree,
+    rearmReceipt,
+  ] = await Promise.all([
+    stat(outputRoot, { bigint: true }),
+    stat(lifecycleLock, { bigint: true }),
+    stat(evidenceBaseRoot, { bigint: true }),
+    stat(incidentEvidenceRoot, { bigint: true }),
+    inspectTree(incidentEvidenceRoot),
+    inspectTree(documentRoot),
+    inspectTree(path.join(outputRoot, 'seed-predecessor-evidence')),
+    inspectTree(rearmEvidenceRoot),
+    pair(rearmReceiptPath),
+  ]);
+  const identityRaw = await readFile(identityPath);
+  const profile = {
+    ...EXACT_A2_FORWARD_CONTINUATION_INCIDENT,
+    runRoot: canonicalRunRoot,
+    outputRoot: canonicalOutputRoot,
+    outputDevice: String(outputInfo.dev),
+    outputInode: String(outputInfo.ino),
+    lifecycleLock: canonicalLifecycleLock,
+    lifecycleLockInode: String(lifecycleInfo.ino),
+    evidenceBaseRoot: canonicalEvidenceBaseRoot,
+    evidenceBaseDevice: String(evidenceBaseInfo.dev),
+    evidenceBaseInode: String(evidenceBaseInfo.ino),
+    incidentEvidenceRoot: canonicalIncidentEvidenceRoot,
+    incidentEvidenceDevice: String(incidentInfo.dev),
+    incidentEvidenceInode: String(incidentInfo.ino),
+    incidentEvidenceMode: '0700',
+    incidentEvidenceUid: String(incidentInfo.uid),
+    incidentEvidenceGid: String(incidentInfo.gid),
+    incidentEvidenceTreeSha256: incidentTree.tree_sha256,
+    workerInvocationId,
+    interruptedAt,
+    runStatusSha256: interruptedRunStatusWritten.sha256,
+    documentStatusSha256: interruptedStatusWritten.sha256,
+    logSha256: sha256(logRaw),
+    logBytes: logRaw.byteLength,
+    stateSha256: partialStateWritten.sha256,
+    documentTreeSha256: documentTree.tree_sha256,
+    documentTreeFiles: documentTree.files,
+    documentTreeBytes: documentTree.bytes,
+    baseRunnerSha256: a2BaseRunnerSha256,
+    seedId: seed.seedId,
+    seedReceiptSha256: seedReceipt.sha256,
+    seedReceiptBytes: seedReceipt.bytes,
+    seedCommitSha256: seedCommit.sha256,
+    seedCommitBytes: seedCommit.bytes,
+    seedJournalSha256: seedJournal.sha256,
+    seedJournalBytes: seedJournal.bytes,
+    runIdentitySha256: sha256(identityRaw),
+    runIdentityBytes: identityRaw.byteLength,
+    ledgerIdentitySha256: ledger.sha256,
+    ledgerIdentityBytes: ledger.bytes,
+    timeoutGrantSha256: grant.sha256,
+    timeoutGrantBytes: grant.bytes,
+    timeoutConsumptionClaimSha256: consumptionClaim.sha256,
+    timeoutConsumptionClaimBytes: consumptionClaim.bytes,
+    timeoutIssuanceRelativePath: issuanceRelativePath,
+    timeoutIssuanceSha256: issuance.sha256,
+    timeoutIssuanceBytes: issuance.bytes,
+    timeoutIssuanceSidecarSha256: issuance.sidecarSha256,
+    timeoutIssuanceSidecarBytes: issuance.sidecarBytes,
+    ledgerSidecarSha256: ledger.sidecarSha256,
+    ledgerSidecarBytes: ledger.sidecarBytes,
+    predecessorEvidenceTreeSha256: predecessorTree.tree_sha256,
+    predecessorEvidenceTreeFiles: predecessorTree.files,
+    predecessorEvidenceTreeBytes: predecessorTree.bytes,
+    rearmRepairId,
+    rearmEvidenceRoot: canonicalRearmEvidenceRoot,
+    rearmReceiptSha256: rearmReceipt.sha256,
+    rearmReceiptBytes: rearmReceipt.bytes,
+    rearmReservationClaimSha256: sha256(rearmReservation),
+    rearmEvidenceTreeSha256: rearmTree.tree_sha256,
+    rearmAfterStatusSha256: sha256(rearmAfterStatus),
+    rearmAfterStatusSidecarSha256: sha256(rearmAfterStatusSidecar),
+    rearmAfterRunStatusSha256: sha256(rearmAfterRunStatus),
+    rearmAfterRunStatusSidecarSha256: sha256(rearmAfterRunStatusSidecar),
+    workerUnit: 'fixture-a2-worker.service',
+    monitorUnit: 'fixture-a2-monitor.service',
+    monitorTimerUnit: 'fixture-a2-monitor.timer',
+    alertUnit: 'fixture-a2-alert.service',
+    llamaUnit: 'fixture-a2-llama.service',
+  };
+  validateA2ForwardContinuationProfile(profile);
+  const ocrScript = path.join(runRoot, 'ocr.py');
+  await writeFile(ocrScript, '# fixture\n', { mode: 0o700 });
+  const continuationOptions = {
+    manifest: shardManifestPath,
+    inputRoot: canonicalProjectRoot,
+    outputRoot: canonicalOutputRoot,
+    python: process.execPath,
+    ocrScript,
+    model: '/unused/model',
+    mmproj: '/unused/mmproj',
+    llamaRepo: '/unused/llama',
+    llamaServerBin: '/unused/llama-server',
+    llamaSystemdUnit: profile.llamaUnit,
+    llamaUrl: 'http://127.0.0.1:8112/v1',
+    runtimeDevice,
+    paddlexCacheHome: path.join(outputRoot, 'paddlex-cache'),
+    vlRecMaxConcurrency: 1,
+    serverParallel: 1,
+    microBatch: 16,
+    useQueues: true,
+    childStartupTimeoutSeconds: 180,
+    childIdleTimeoutSeconds: 1200,
+    childWallFloorSeconds: 1200,
+    childWallSecondsPerPage: 25,
+    childTerminateGraceSeconds: 15,
+    childPollIntervalSeconds: 5,
+    documentId,
+    attempt: 6,
+    authorizedAt,
+    continuedAt,
+    apply: true,
+  };
+  const continuationPaths = operatorContinuationPaths(canonicalEvidenceBaseRoot, documentId, 6);
+  const receiverOptions = {
+    manifest: parentManifestPath,
+    shards: [{
+      manifestPath: shardManifestPath,
+      root: canonicalOutputRoot,
+      continuationEvidenceRoot: continuationPaths.root,
+    }],
+    projectRoot,
+    productionRoot: path.join(projectRoot, 'local-production'),
+    textRoot: path.join(projectRoot, 'local-text'),
+    supervisorRoot: path.join(projectRoot, 'local-supervisor'),
+    receiptRoot: path.join(projectRoot, 'receipts'),
+    python: process.execPath,
+  };
+  return {
+    root,
+    projectRoot,
+    outputRoot: canonicalOutputRoot,
+    document,
+    documentRoot,
+    statePath,
+    logPath,
+    savedPageTwo,
+    fullState,
+    profile,
+    continuationOptions,
+    continuationPaths,
+    receiverOptions,
+  };
+}
+
+function a2ContinuationDependencies(value) {
+  let llamaActive = false;
+  const inactive = (role, invocationId = '0'.repeat(32), exitStatus = '0') => ({
+    LoadState: 'loaded',
+    ActiveState: 'inactive',
+    SubState: 'dead',
+    MainPID: '0',
+    InvocationID: invocationId,
+    ExecMainStatus: exitStatus,
+    Generation: continuationUnitGeneration(role),
+  });
+  return {
+    incidentProfile: value.profile,
+    acquireLifecycleLock: async () => {
+      let released = false;
+      const release = async () => { released = true; };
+      release.assertHeld = () => assert.equal(released, false);
+      return release;
+    },
+    inspectUnit: async (_unit, role) => {
+      if (role === 'worker') return inactive(role, value.profile.workerInvocationId, '75');
+      if (role === 'monitor_timer') {
+        return {
+          LoadState: 'loaded',
+          ActiveState: 'inactive',
+          SubState: 'dead',
+          InvocationID: '',
+          Generation: continuationUnitGeneration(role),
+        };
+      }
+      if (role === 'llama' && llamaActive) {
+        return {
+          LoadState: 'loaded',
+          ActiveState: 'active',
+          SubState: 'running',
+          MainPID: '42',
+          InvocationID: 'b'.repeat(32),
+          ExecMainStatus: '0',
+          Generation: continuationUnitGeneration(role, 1),
+        };
+      }
+      return inactive(role);
+    },
+    startLlama: async () => { llamaActive = true; },
+    stopLlama: async () => { llamaActive = false; },
+    verifyCommittedSeed: async () => ({ verified: true }),
+    verifyActiveRuntime: async () => {
+      const identity = JSON.parse(await readFile(path.join(value.outputRoot, 'run-identity.json'), 'utf8'));
+      return {
+        source: {
+          sourceSha256: value.document.source_sha256,
+          pageCount: value.document.page_count,
+          sourcePath: path.join(value.projectRoot, value.document.source_path),
+        },
+        runtime: identity.runtime,
+        workerConfiguration: identity.worker_configuration,
+        ocrScriptPath: value.continuationOptions.ocrScript,
+      };
+    },
+    pageCounter: () => 2,
+    invokeOcr: async () => {
+      await rename(value.savedPageTwo, path.join(value.documentRoot, 'pages', '0002'));
+      await writeFile(value.statePath, `${JSON.stringify(value.fullState, null, 2)}\n`, { mode: 0o600 });
+      await writeFile(value.logPath, 'continued attempt 6\n', { flag: 'a' });
+      return { code: 0, signal: null, monitorIncident: null };
+    },
+    now: () => '2026-07-22T04:30:00.000Z',
+    handleSignals: false,
+  };
+}
+
 test('argument parser keeps dry-run as the default and pairs shard inputs', () => {
   const parsed = parseReceiverArguments([
     '--manifest', 'parent.json',
@@ -1932,6 +2577,49 @@ test('operator continuation document evidence is scoped only to its exact target
     operatorContinuationReceiptDocument({ shard, document: { id: 'unrelated-document' } }),
     null,
   );
+});
+
+test('non-null A2 profile continues, receiver-applies, archives the complete evidence tree, and re-enters idempotently', async (t) => {
+  const value = await a2ReceiverContinuationFixture(t);
+  const continued = await continueOperatorInterruptedAttempt(
+    value.continuationOptions,
+    a2ContinuationDependencies(value),
+  );
+  assert.equal(continued.status, 'complete');
+  const sourceEvidenceTree = await inspectTree(value.continuationPaths.root);
+  assert.ok(sourceEvidenceTree.files >= 15, 'continuation archive must include all authority pairs and journal states');
+
+  const receiverDependencies = {
+    incidentProfile: value.profile,
+    pageCounter: () => value.document.page_count,
+  };
+  const applied = await receiveRemoteOcrOffload(
+    { ...value.receiverOptions, apply: true },
+    receiverDependencies,
+  );
+  assert.equal(applied.status, 'applied');
+  const receiptRaw = await readFile(applied.receipt_path);
+  const receipt = JSON.parse(receiptRaw);
+  const archived = receipt.source_evidence.shards[0].operator_continuation;
+  assert.ok(archived, 'receiver receipt must retain operator continuation provenance');
+  assert.deepEqual(await inspectTree(archived.path), sourceEvidenceTree);
+  assert.equal(
+    receipt.documents[0].operator_continuation.continuation_id,
+    continued.continuation_id,
+  );
+  assert.equal(
+    receipt.documents[0].operator_continuation.terminal_state_sha256,
+    archived.terminal_state_sha256,
+  );
+
+  const repeated = await receiveRemoteOcrOffload(
+    { ...value.receiverOptions, apply: true },
+    receiverDependencies,
+  );
+  assert.equal(repeated.status, 'verified_idempotent');
+  assert.equal(repeated.receipt_path, applied.receipt_path);
+  assert.deepEqual(await readFile(applied.receipt_path), receiptRaw);
+  assert.deepEqual(await inspectTree(archived.path), sourceEvidenceTree);
 });
 
 test('dry-run validates the exact shard union without writing destination or receipt files', async (t) => {

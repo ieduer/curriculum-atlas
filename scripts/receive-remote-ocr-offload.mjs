@@ -3520,6 +3520,9 @@ function validateShardUnion(parentManifest, shards) {
 
 function validateSeededCompleteLifecycle(shard, document, validation, status, statusSha256) {
   if (!shard.seed || status.status !== 'complete') return false;
+  const operatorContinuation = shard.operatorContinuation?.evidence?.profile?.documentId === document.id
+    ? shard.operatorContinuation
+    : null;
   const progress = shard.runStatus.documents[document.id];
   const receiptDocument = shard.seed.receipt.documents.find(
     (item) => item.document_id === document.id,
@@ -3634,6 +3637,7 @@ function validateSeededCompleteLifecycle(shard, document, validation, status, st
     'page_artifacts',
     'page_artifacts_sha256',
     'state_sha256',
+    ...(operatorContinuation ? ['append_only_log', 'forward_document_tree'] : []),
   ], `${document.id} receiver full complete status artifacts`);
   const attemptCeiling = timeoutDocument ? maxDocumentAttempts + 1 : maxDocumentAttempts;
   if (status.schema_version !== 1
@@ -3649,7 +3653,10 @@ function validateSeededCompleteLifecycle(shard, document, validation, status, st
     || status[timestampField] !== progress[timestampField]
     || artifacts.state_sha256 !== validation.state_sha256
     || artifacts.page_artifacts_sha256 !== validation.page_artifacts_sha256
-    || !sameJson(artifacts.page_artifacts, validation.page_artifacts)) {
+    || !sameJson(artifacts.page_artifacts, validation.page_artifacts)
+    || (operatorContinuation
+      && (!sameJson(artifacts.forward_document_tree, operatorContinuation.output.documentTree)
+        || !sameJson(artifacts.append_only_log, operatorContinuation.output.log)))) {
     throw new Error(`${document.id}: receiver full complete status identity or artifacts differ`);
   }
   if (receiptDocument.predecessor_status === 'complete'

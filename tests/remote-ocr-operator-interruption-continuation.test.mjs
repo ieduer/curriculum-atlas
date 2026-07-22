@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { chmod, mkdtemp, mkdir, readFile, realpath, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, readFile, readdir, realpath, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -42,6 +42,14 @@ async function writeJsonSidecar(pathname, value) {
     { mode: 0o600 },
   );
   return { raw, sha256: sha256(raw) };
+}
+
+async function assertHashBoundPair(pathname) {
+  const raw = await readFile(pathname);
+  assert.equal(
+    await readFile(`${pathname}.sha256`, 'utf8'),
+    `${sha256(raw)}  ${path.basename(pathname)}\n`,
+  );
 }
 
 async function makeFixture(t) {
@@ -536,15 +544,30 @@ async function makeFixture(t) {
   };
 }
 
+function unitGeneration(role, revision = 0) {
+  const base = 100 + (revision * 10);
+  return {
+    StateChangeTimestampMonotonic: String(base + 1),
+    ActiveEnterTimestampMonotonic: String(base + 2),
+    ActiveExitTimestampMonotonic: String(base + 3),
+    InactiveEnterTimestampMonotonic: String(base + 4),
+    ...(role.endsWith('_timer') ? { LastTriggerUSecMonotonic: String(base + 5) } : {}),
+  };
+}
+
 function dependencies(fixture, extra = {}) {
   let llamaActive = false;
-  const inactiveService = (invocationId = '0'.repeat(32), exitStatus = '0') => ({
+  const generationRevision = extra.unitGenerationRevision || (() => 0);
+  const llamaInvocationId = extra.llamaInvocationId || 'b'.repeat(32);
+  const llamaMainPid = extra.llamaMainPid || '42';
+  const inactiveService = (role, invocationId = '0'.repeat(32), exitStatus = '0') => ({
     LoadState: 'loaded',
     ActiveState: 'inactive',
     SubState: 'dead',
     MainPID: '0',
     InvocationID: invocationId,
     ExecMainStatus: exitStatus,
+    Generation: unitGeneration(role, generationRevision(role)),
   });
   return {
     incidentProfile: fixture.profile,
@@ -557,21 +580,28 @@ function dependencies(fixture, extra = {}) {
     },
     inspectUnit: async (unit, role) => {
       if (role === 'monitor_timer') {
-        return { LoadState: 'loaded', ActiveState: 'inactive', SubState: 'dead', InvocationID: '' };
+        return {
+          LoadState: 'loaded',
+          ActiveState: 'inactive',
+          SubState: 'dead',
+          InvocationID: '',
+          Generation: unitGeneration(role, generationRevision(role)),
+        };
       }
-      if (role === 'worker') return inactiveService(workerInvocationId, '75');
+      if (role === 'worker') return inactiveService(role, workerInvocationId, '75');
       if (role === 'llama' && llamaActive) {
         return {
           LoadState: 'loaded',
           ActiveState: 'active',
           SubState: 'running',
-          MainPID: '42',
-          InvocationID: 'b'.repeat(32),
+          MainPID: llamaMainPid,
+          InvocationID: llamaInvocationId,
           ExecMainStatus: '0',
+          Generation: unitGeneration(role, generationRevision(role) + 1),
         };
       }
       assert.ok([fixture.profile.monitorUnit, fixture.profile.alertUnit, fixture.profile.llamaUnit].includes(unit));
-      return inactiveService();
+      return inactiveService(role);
     },
     startLlama: async () => { llamaActive = true; },
     stopLlama: async () => { llamaActive = false; },
@@ -883,13 +913,14 @@ test('a partially successful llama start is stopped and the five-unit gate still
   let llamaActive = false;
   let stopCalls = 0;
   let inactiveLlamaObservations = 0;
-  const inactive = (invocationId = '0'.repeat(32), exitStatus = '0') => ({
+  const inactive = (role, invocationId = '0'.repeat(32), exitStatus = '0') => ({
     LoadState: 'loaded',
     ActiveState: 'inactive',
     SubState: 'dead',
     MainPID: '0',
     InvocationID: invocationId,
     ExecMainStatus: exitStatus,
+    Generation: unitGeneration(role),
   });
   await assert.rejects(
     continueOperatorInterruptedAttempt(
@@ -906,9 +937,15 @@ test('a partially successful llama start is stopped and the five-unit gate still
         },
         inspectUnit: async (_unit, role) => {
           if (role === 'monitor_timer') {
-            return { LoadState: 'loaded', ActiveState: 'inactive', SubState: 'dead', InvocationID: '' };
+            return {
+              LoadState: 'loaded',
+              ActiveState: 'inactive',
+              SubState: 'dead',
+              InvocationID: '',
+              Generation: unitGeneration(role),
+            };
           }
-          if (role === 'worker') return inactive(workerInvocationId, '75');
+          if (role === 'worker') return inactive(role, workerInvocationId, '75');
           if (role === 'llama' && llamaActive) {
             return {
               LoadState: 'loaded',
@@ -917,10 +954,11 @@ test('a partially successful llama start is stopped and the five-unit gate still
               MainPID: '42',
               InvocationID: 'b'.repeat(32),
               ExecMainStatus: '0',
+              Generation: unitGeneration(role, 1),
             };
           }
           if (role === 'llama') inactiveLlamaObservations += 1;
-          return inactive();
+          return inactive(role);
         },
       },
     ),
@@ -930,29 +968,59 @@ test('a partially successful llama start is stopped and the five-unit gate still
   assert.equal(inactiveLlamaObservations, 2);
 });
 
-test('terminal transaction resumes after a crash between the four replacements', async (t) => {
-  const fixture = await makeFixture(t);
-  await assert.rejects(
-    continueOperatorInterruptedAttempt(
-      { ...fixture.options, apply: true },
-      dependencies(fixture, {
-        invokeOcr: async () => finishFixtureDocument(fixture),
-        afterTerminalReplacement: async (count) => {
-          if (count === 1) throw new Error('simulated terminal persistence crash');
-        },
-      }),
-    ),
-    /simulated terminal persistence crash/u,
-  );
-  let invoked = false;
-  const recovered = await continueOperatorInterruptedAttempt(
-    { ...fixture.options, apply: true },
-    dependencies(fixture, { invokeOcr: async () => { invoked = true; } }),
-  );
-  assert.equal(recovered.status, 'complete');
-  assert.equal(recovered.exitCode, 0);
-  assert.equal(recovered.recovered, true);
-  assert.equal(invoked, false);
+test('terminal plan recovery precedes ordinary seed verification at all 0-4 replacement crash points', async (t) => {
+  for (let crashAfter = 0; crashAfter <= 4; crashAfter += 1) {
+    await t.test(`crash after ${crashAfter} replacements`, async (subtest) => {
+      const fixture = await makeFixture(subtest);
+      const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+      const verifyCommittedSeed = async () => {
+        const terminalPlanName = (await readdir(paths.states).catch(() => []))
+          .find((name) => /^\d{6}-terminal_plan\.json$/u.test(name));
+        if (!terminalPlanName) return;
+        const terminalPlan = JSON.parse(await readFile(path.join(paths.states, terminalPlanName), 'utf8'));
+        for (const record of terminalPlan.transaction) {
+          const raw = await readFile(path.join(fixture.outputRoot, record.output_path));
+          assert.equal(sha256(raw), record.after_sha256, 'seed verification ran before terminal recovery');
+          assert.equal(raw.byteLength, record.after_bytes, 'seed verification saw a partial terminal control');
+        }
+        await Promise.all([
+          assertHashBoundPair(fixture.statusPath),
+          assertHashBoundPair(fixture.runStatusPath),
+        ]);
+      };
+      await assert.rejects(
+        continueOperatorInterruptedAttempt(
+          { ...fixture.options, apply: true },
+          dependencies(fixture, {
+            verifyCommittedSeed,
+            invokeOcr: async () => finishFixtureDocument(fixture),
+            ...(crashAfter === 0 ? {
+              afterTerminalPlan: async () => { throw new Error('simulated terminal persistence crash'); },
+            } : {
+              afterTerminalReplacement: async (count) => {
+                if (count === crashAfter) throw new Error('simulated terminal persistence crash');
+              },
+            }),
+          }),
+        ),
+        /simulated terminal persistence crash/u,
+      );
+      let invoked = false;
+      const recovered = await continueOperatorInterruptedAttempt(
+        { ...fixture.options, apply: true },
+        dependencies(fixture, {
+          verifyCommittedSeed,
+          invokeOcr: async () => { invoked = true; },
+        }),
+      );
+      assert.equal(recovered.status, 'complete');
+      assert.equal(recovered.exitCode, 0);
+      assert.equal(recovered.recovered, true);
+      assert.equal(invoked, false);
+      const evidence = await validateOperatorContinuationEvidence(paths.root, fixture.profile);
+      assert.equal(evidence.terminal.outcome, 'complete');
+    });
+  }
 });
 
 test('state journal body-only and sidecar-only crash states resume', async (t) => {
@@ -984,6 +1052,140 @@ test('state journal body-only and sidecar-only crash states resume', async (t) =
       assert.equal((await stat(`${statePath}.sha256`)).isFile(), true);
     });
   }
+});
+
+test('a restarted process seals a running crash tail and appends a verifiable resume_running invocation', async (t) => {
+  for (const completeRunningPair of [false, true]) {
+    await t.test(completeRunningPair ? 'complete running pair' : 'body-only running pair', async (subtest) => {
+      const fixture = await makeFixture(subtest);
+      const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+      await assert.rejects(
+        continueOperatorInterruptedAttempt(
+          { ...fixture.options, apply: true },
+          dependencies(fixture, {
+            llamaInvocationId: 'b'.repeat(32),
+            llamaMainPid: '42',
+            afterJournalBody: async (pathname) => {
+              if (pathname.endsWith('-running.json')) throw new Error('simulated running journal crash');
+            },
+            invokeOcr: async () => assert.fail('running journal crash must precede OCR'),
+          }),
+        ),
+        /simulated running journal crash/u,
+      );
+      const runningPath = path.join(paths.states, '000002-running.json');
+      if (completeRunningPair) {
+        const raw = await readFile(runningPath);
+        await writeFile(
+          `${runningPath}.sha256`,
+          `${sha256(raw)}  ${path.basename(runningPath)}\n`,
+          { mode: 0o600 },
+        );
+      }
+      await assert.rejects(
+        continueOperatorInterruptedAttempt(
+          { ...fixture.options, apply: true },
+          dependencies(fixture, {
+            llamaInvocationId: 'b'.repeat(32),
+            llamaMainPid: '43',
+            validateDocumentOutput: async () => { throw new Error('partial output is incomplete'); },
+          }),
+        ),
+        /resumed llama invocation must differ/u,
+      );
+      const validateDocumentOutput = async () => {
+        const state = JSON.parse(await readFile(fixture.statePath, 'utf8'));
+        if (!state.selected_pages_complete) throw new Error('partial output is incomplete');
+        return {
+          state_sha256: sha256(await readFile(fixture.statePath)),
+          page_artifacts: [],
+          page_artifacts_sha256: '7'.repeat(64),
+        };
+      };
+      const result = await continueOperatorInterruptedAttempt(
+        { ...fixture.options, apply: true },
+        dependencies(fixture, {
+          llamaInvocationId: 'c'.repeat(32),
+          llamaMainPid: '44',
+          validateDocumentOutput,
+          invokeOcr: async () => finishFixtureDocument(fixture),
+        }),
+      );
+      assert.equal(result.status, 'complete');
+      await assertHashBoundPair(runningPath);
+      const stateNames = (await readdir(paths.states))
+        .filter((name) => name.endsWith('.json'))
+        .sort();
+      assert.deepEqual(stateNames.map((name) => name.replace(/^\d{6}-|\.json$/gu, '')), [
+        'claimed',
+        'running',
+        'resume_running_0001',
+        'terminal_plan',
+        'terminal',
+      ]);
+      const running = JSON.parse(await readFile(runningPath, 'utf8'));
+      const resumed = JSON.parse(await readFile(
+        path.join(paths.states, '000003-resume_running_0001.json'),
+        'utf8',
+      ));
+      assert.equal(resumed.resumed_from_state_sha256, sha256(await readFile(runningPath)));
+      assert.equal(running.llama_invocation_id, 'b'.repeat(32));
+      assert.equal(resumed.llama_invocation_id, 'c'.repeat(32));
+      const evidence = await validateOperatorContinuationEvidence(paths.root, fixture.profile);
+      assert.equal(evidence.states.length, 5);
+    });
+  }
+});
+
+test('lifecycle pathname replacement during OCR aborts before any terminal control transition', async (t) => {
+  const fixture = await makeFixture(t);
+  const originalInode = (await stat(fixture.lifecycleLock, { bigint: true })).ino;
+  await assert.rejects(
+    continueOperatorInterruptedAttempt(
+      { ...fixture.options, apply: true },
+      dependencies(fixture, {
+        invokeOcr: async () => {
+          await unlink(fixture.lifecycleLock);
+          await writeFile(fixture.lifecycleLock, '', { mode: 0o600 });
+          assert.notEqual((await stat(fixture.lifecycleLock, { bigint: true })).ino, originalInode);
+          return finishFixtureDocument(fixture);
+        },
+      }),
+    ),
+    /lifecycle lock pathname\/inode differs/u,
+  );
+  const status = JSON.parse(await readFile(fixture.statusPath, 'utf8'));
+  assert.equal(status.status, 'interrupted');
+  const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+  assert.equal(
+    (await readdir(paths.states)).some((name) => name.includes('terminal_plan')),
+    false,
+  );
+});
+
+test('a transient monitor generation change is detected even after the unit returns inactive', async (t) => {
+  const fixture = await makeFixture(t);
+  let monitorRevision = 0;
+  await assert.rejects(
+    continueOperatorInterruptedAttempt(
+      { ...fixture.options, apply: true },
+      dependencies(fixture, {
+        unitGenerationRevision: (role) => (role === 'monitor' ? monitorRevision : 0),
+        invokeOcr: async () => {
+          monitorRevision = 1;
+          return finishFixtureDocument(fixture);
+        },
+      }),
+    ),
+    /InvocationID or generation fence changed/u,
+  );
+  const status = JSON.parse(await readFile(fixture.statusPath, 'utf8'));
+  assert.equal(status.status, 'interrupted');
+  const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+  assert.equal(
+    (await readdir(paths.states)).some((name) => name.includes('terminal_plan')),
+    false,
+  );
 });
 
 test('forward-only validator quarantines invalid new paths and log inode replacement', async (t) => {
@@ -1119,4 +1321,25 @@ test('real inherited-fd lifecycle flock excludes a second holder on Linux', {
   await first();
   const second = await acquireLifecycleLock(lockPath);
   await second();
+});
+
+test('real inherited-fd lifecycle lock detects pathname replacement on Linux', {
+  skip: process.platform !== 'linux',
+}, async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'a2-continuation-lock-identity-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const lockPath = path.join(root, '.a2-lifecycle.lock');
+  await writeFile(lockPath, '', { mode: 0o600 });
+  const originalInode = String((await stat(lockPath, { bigint: true })).ino);
+  const held = await acquireLifecycleLock(lockPath);
+  await held.verifyIdentity({ inode: originalInode });
+  await unlink(lockPath);
+  await writeFile(lockPath, '', { mode: 0o600 });
+  await assert.rejects(
+    held.verifyIdentity({ inode: originalInode }),
+    /descriptor and pathname identity diverged/u,
+  );
+  await held();
+  const replacement = await acquireLifecycleLock(lockPath);
+  await replacement();
 });
