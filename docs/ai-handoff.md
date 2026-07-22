@@ -3,16 +3,17 @@
 ## 必读顺序
 
 1. `README.md`
-2. `docs/architecture.md`
-3. `docs/data-methodology.md`
-4. `docs/ocr-quality.md`
-5. `docs/data-model.md`
-6. `docs/deployment.md`
-7. `docs/operations.md`
-8. `docs/project-asset-ledger.md`
-9. `docs/project-data-integrity-audit-2026-07-16.md`
-10. `docs/project-operations-ledger.md`
-11. `/Users/ylsuen/CF/runbooks/bdfz_project_matrix_and_interdependencies.md`（仅 BDFZ 内部运维环境）
+2. `docs/original-goal-delivery-matrix.md`
+3. `docs/architecture.md`
+4. `docs/data-methodology.md`
+5. `docs/ocr-quality.md`
+6. `docs/data-model.md`
+7. `docs/deployment.md`
+8. `docs/operations.md`
+9. `docs/project-asset-ledger.md`
+10. `docs/project-data-integrity-audit-2026-07-16.md`
+11. `docs/project-operations-ledger.md`
+12. `/Users/ylsuen/CF/runbooks/bdfz_project_matrix_and_interdependencies.md`（仅 BDFZ 内部运维环境）
 
 ## 不可突破的边界
 
@@ -50,9 +51,9 @@
 
 ## 当前已知未决
 
-- OCR 名义队列为 86 份／11,847 页，物理去重为 85 份／11,779 页。最新本机状态为 primary/audit 6,947、Vision 7,012、accepted display/citation 0；不得继续引用旧 50／8,690 口径，也不得把 v10 corpus 上线解释为 OCR 上线。
-- 一页 `legacy-compendium-chemistry:84:paddle` 隔离，6,091 页仍 unresolved、783 页待图像复核、73 页待空白确认。逐页识别完成不是发布完成。
-- DMITPro2 B-r1 因低内存门受控冻结在 1,259/3,182，0 failed、0 quarantine。新配置 B-r2 只有在 hash-bound seed lineage 实现、测试、predecessor receipt 与每页 hash/attempt 验签全部通过后才能创建；不得复制后再补证据。
+- 本地候选 OCR 名义队列为 85 份／11,759 页，扣除 68 页完全相同的劳动课标别名后为 84 个唯一实体／11,691 页。线上 v10 与历史 OCR 运行回执仍引用其生成时的 86／11,847 分母；两者必须标明时间和版本，不能混写。最新可比本机旧快照为 primary/audit 6,947、Vision 7,012、accepted display/citation 0；不得把 v10 corpus 上线解释为 OCR 上线。
+- 2026-07-17 legacy Mac 快照有一页 `legacy-compendium-chemistry:84:paddle` 隔离、6,091 页 unresolved、783 页待图像复核、73 页待空白确认；这些是带时间的旧分母，不是当前候选的实时完成数。逐页识别完成仍不等于发布完成。
+- DMITPro2 的 B-r1 1,259/3,182 是不可变 predecessor。A2 已在一次受审 rearm 后启动，又因 operator monitor assertion 主动冻结；当前 output inode `45748776` 保留原 attempt 6 与原 authority/grant，worker/monitor/llama 均不得擅自重启。后续只能使用经独立审查的 same-attempt forward continuation，不得另发 grant、重置 attempt 或覆盖既有页/state。
 - 当前深层 ontology 的 169 个节点主要属于语文；其它学科不能伪装为同等深度完成。
 - 概念 observation 数据当前止于 2020；2022 corpus 文档和年代轨可见不等于已有 2022 概念观察。必须等 accepted OCR 和版本核对进入发布链后重建，不能由 UI 年代或文件年份推断。
 - 两个 derived OCR PDF 的工具/参数谱系不完整，保持不可入队、不可发布。
