@@ -17,6 +17,7 @@ import {
   operatorContinuationPaths,
   reconcileOwnedContinuationExecution,
   recoverableTerminalAtomicReplace,
+  validateA2InterruptedPartialSelectionState,
 } from '../scripts/continue-remote-ocr-operator-interruption.mjs';
 import {
   EXACT_A2_FORWARD_CONTINUATION_INCIDENT,
@@ -102,7 +103,10 @@ async function readFirstJsonLine(stream) {
   return JSON.parse(buffered.slice(0, buffered.indexOf('\n')));
 }
 
-async function makeFixture(t, { pageCount = 2 } = {}) {
+async function makeFixture(t, { pageCount = 2, selectionShape = 'explicit_full' } = {}) {
+  if (!['explicit_full', 'legacy_absent'].includes(selectionShape)) {
+    throw new Error(`unsupported fixture selection shape: ${selectionShape}`);
+  }
   const root = await mkdtemp(path.join(os.tmpdir(), 'ocr-operator-continuation-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   const inputRoot = path.join(root, 'input');
@@ -236,8 +240,10 @@ async function makeFixture(t, { pageCount = 2 } = {}) {
         citation_eligible: false,
       },
     },
-    selected_pages: Array.from({ length: pageCount }, (_unused, index) => index + 1),
-    selected_pages_complete: false,
+    ...(selectionShape === 'explicit_full' ? {
+      selected_pages: Array.from({ length: pageCount }, (_unused, index) => index + 1),
+      selected_pages_complete: false,
+    } : {}),
   };
   const statePath = path.join(documentRoot, 'state.json');
   const stateRaw = Buffer.from(`${JSON.stringify(state, null, 2)}\n`);
@@ -884,7 +890,9 @@ test('independent runtime manifest binds the actual continuation module closure 
 });
 
 test('exact operator interruption is a mutation-free dry run', async (t) => {
-  const fixture = await makeFixture(t);
+  const fixture = await makeFixture(t, { selectionShape: 'legacy_absent' });
+  assert.equal(Object.hasOwn(fixture.state, 'selected_pages'), false);
+  assert.equal(Object.hasOwn(fixture.state, 'selected_pages_complete'), false);
   const before = await inspectTree(fixture.outputRoot);
   const result = await continueOperatorInterruptedAttempt(fixture.options, dependencies(fixture, {
     verifyCommittedSeed: async () => assert.fail('dry run must remain persistence-free'),
@@ -1148,6 +1156,44 @@ test('production incident profile pins the independently recovered read-only anc
   assert.equal(profile.evidenceBaseDevice, '66306');
   assert.equal(profile.evidenceBaseInode, '41854492');
   assert.notEqual(profile.evidenceBaseInode, monitorDirectoryInode);
+  assert.equal(
+    profile.stateSha256,
+    'd16de657043c260136552cd8cf881791f42308169e2ecf55fe0cab5f155aa09d',
+  );
+  const productionLegacySelectionShape = {};
+  assert.equal(Object.hasOwn(productionLegacySelectionShape, 'selected_pages'), false);
+  assert.equal(Object.hasOwn(productionLegacySelectionShape, 'selected_pages_complete'), false);
+  assert.equal(
+    validateA2InterruptedPartialSelectionState(productionLegacySelectionShape, 649),
+    'legacy_absent',
+  );
+  assert.equal(
+    validateA2InterruptedPartialSelectionState({
+      selected_pages: [1, 2, 3],
+      selected_pages_complete: false,
+    }, 3),
+    'explicit_full',
+  );
+  for (const [label, selectionState] of [
+    ['false completion without selected pages', { selected_pages_complete: false }],
+    ['null completion without selected pages', { selected_pages_complete: null }],
+    ['selected pages without completion', { selected_pages: [1, 2, 3] }],
+    ['true completion', { selected_pages: [1, 2, 3], selected_pages_complete: true }],
+    ['null completion', { selected_pages: [1, 2, 3], selected_pages_complete: null }],
+    ['null selected pages', { selected_pages: null, selected_pages_complete: false }],
+    ['false selected pages', { selected_pages: false, selected_pages_complete: false }],
+    ['non-full selected pages', { selected_pages: [1, 2], selected_pages_complete: false }],
+    ['duplicate selected pages', { selected_pages: [1, 2, 2], selected_pages_complete: false }],
+    ['unsorted selected pages', { selected_pages: [1, 3, 2], selected_pages_complete: false }],
+    ['out-of-range selected pages', { selected_pages: [1, 2, 4], selected_pages_complete: false }],
+    ['extra selected pages', { selected_pages: [1, 2, 3, 4], selected_pages_complete: false }],
+  ]) {
+    assert.throws(
+      () => validateA2InterruptedPartialSelectionState(selectionState, 3),
+      /selected-page fields are not a valid partial attempt-6 shape/u,
+      label,
+    );
+  }
   assert.equal(profile.schemaVersion, 2);
   assert.equal(profile.documentInterruptedAt, '2026-07-22T04:13:35.387Z');
   assert.equal(profile.incidentInterruptedAt, '2026-07-22T04:13:35.390Z');

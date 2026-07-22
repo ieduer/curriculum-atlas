@@ -110,6 +110,26 @@ function requirePositiveInteger(value, label) {
   return value;
 }
 
+export function validateA2InterruptedPartialSelectionState(state, pageCount) {
+  requireObject(state, 'interrupted document state');
+  requirePositiveInteger(pageCount, 'interrupted document page count');
+  const hasSelectedPages = Object.hasOwn(state, 'selected_pages');
+  const hasSelectedPagesComplete = Object.hasOwn(state, 'selected_pages_complete');
+  if (!hasSelectedPages && !hasSelectedPagesComplete) return 'legacy_absent';
+  if (!hasSelectedPages
+    || !hasSelectedPagesComplete
+    || state.selected_pages_complete !== false
+    || !Array.isArray(state.selected_pages)
+    || state.selected_pages.length !== pageCount
+    || !sameJson(
+      state.selected_pages,
+      Array.from({ length: pageCount }, (_unused, index) => index + 1),
+    )) {
+    throw new Error('document state selected-page fields are not a valid partial attempt-6 shape');
+  }
+  return 'explicit_full';
+}
+
 function requireCanonicalTimestamp(value, label) {
   if (typeof value !== 'string'
     || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value)
@@ -1146,12 +1166,12 @@ async function inspectInterruptedState(options, profile, runtimeManifest) {
     || state.document_id !== options.documentId
     || state.source_sha256 !== document.source_sha256
     || state.page_count !== document.page_count
-    || state.selected_pages_complete !== false
     || !Array.isArray(state.completed_pages)
     || state.completed_pages.length >= document.page_count
     || !requireObject(state.failed_pages, 'document failed_pages')) {
     throw new Error('document state is not a valid partial attempt-6 state');
   }
+  validateA2InterruptedPartialSelectionState(state, document.page_count);
   const directoryIdentities = archivedIncident
     ? archivedIncident.inventory.directories
     : await captureDirectoryIdentities(documentRoot, documentTree);
