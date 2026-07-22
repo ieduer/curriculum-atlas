@@ -725,6 +725,14 @@ function validateCorpus({ manifest, resourcePaths, sourceRegistry, errors }) {
 function validateDocuments({ manifest, documentById, database, sourceById, errors }) {
   const roles = manifest.documents?.map((item) => item.role).sort() || [];
   expect(errors, JSON.stringify(roles) === JSON.stringify(['from', 'to']), 'document_roles_invalid', '$.documents', roles.join(','));
+  const fromDocument = manifest.documents?.find((item) => item.role === 'from');
+  const toDocument = manifest.documents?.find((item) => item.role === 'to');
+  expect(errors,
+    Number.isSafeInteger(fromDocument?.sort_year)
+      && Number.isSafeInteger(toDocument?.sort_year)
+      && fromDocument.sort_year < toDocument.sort_year,
+    'document_chronology_invalid', '$.documents',
+    `${String(fromDocument?.sort_year)} !< ${String(toDocument?.sort_year)}`);
   if (!database) return documentById;
   const statement = database.prepare(`
     SELECT d.id,d.title,d.subject,d.stage,d.document_type,d.version_label,d.issued_by,d.sort_year,

@@ -579,6 +579,18 @@ test('assertion direction is bound to from and to document roles', async () => {
   assert.ok(codes.includes('assertion_to_document_role_invalid'));
 });
 
+test('a from-to research slice must preserve strict chronological direction', async () => {
+  const candidate = await fixture();
+  candidate.manifest.documents[0].sort_year = 2021;
+  const database = new DatabaseSync(candidate.resourcePaths['corpus:sqlite']);
+  database.prepare('UPDATE documents SET sort_year=? WHERE id=?').run(2021, 'doc-from');
+  database.close();
+  refreshSourceRegistry(candidate);
+  const validation = validateResearchEvidenceSlice(candidate);
+  assert.ok(validation.errors.some((item) => item.code === 'document_chronology_invalid'));
+  assert.equal(validation.evidence_integrity_valid, false);
+});
+
 test('page rendering receives the already-validated PDF bytes and never the mutable source path', async () => {
   const candidate = await fixture();
   const expectedFromPdf = await readFile(candidate.resourcePaths['artifact:from']);
