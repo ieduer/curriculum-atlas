@@ -21,6 +21,7 @@ import {
   validateSubjectOntologyV2,
   validateSubjectOntologyV2PromotionForRelease,
 } from '../scripts/validate-subject-ontology-v2.mjs';
+import { validateDraft202012 } from '../scripts/lib/draft-2020-schema-validator.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const H = (value) => createHash('sha256').update(value).digest('hex');
@@ -557,7 +558,38 @@ function fixture() {
     value: governedKeys.privateKey,
     enumerable: false,
   });
+  Object.defineProperty(result, '__relation_private_key', {
+    value: privateKey,
+    enumerable: false,
+  });
   return result;
+}
+
+function resolvedEvidenceMap(value) {
+  return new Map(value.scopes.flatMap((scope) => scope.evidence.map((evidence) => [
+    evidence.evidence_id,
+    resolveSubjectOntologyEvidenceForTest(scope, evidence, value.context),
+  ])));
+}
+
+function resignRelation(value, relation) {
+  const resolved = resolvedEvidenceMap(value);
+  const prepared = prepareRelationAdjudicationSigningPayload(relation, resolved);
+  relation.adjudication.signed_payload_sha256 = prepared.payload_sha256;
+  relation.adjudication.signature_base64 = signMessage(
+    null,
+    Buffer.from(prepared.payload_text, 'utf8'),
+    value.__relation_private_key,
+  ).toString('base64');
+  relation.relation_diff_sha256 = computeRelationDiffSha256(relation, resolved);
+}
+
+function resignScope(value, scope) {
+  scope.review = signedGovernedReview(
+    'scope',
+    withoutReview(scope),
+    value.__governed_private_key,
+  );
 }
 
 function crossWorkFixture() {
@@ -668,7 +700,7 @@ test('unsigned or unregistered promotion-authorizing reviews are rejected', () =
     delete selectReview(unsigned).signature_base64;
     assert.throws(
       () => validatePromotion(unsigned),
-      /field set mismatch|signed governed review|review signature/i,
+      /field set mismatch|signed governed review|review signature|JSON Schema.*signature/i,
     );
 
     const unregistered = make();
@@ -713,6 +745,13 @@ test('schema, index, loader, and desired manifest share one canonical ontology p
   );
   assert.throws(() => paths.assertCanonicalSubjectOntologyScopePath('./chinese-language/example.json'));
   assert.throws(() => paths.assertCanonicalSubjectOntologyScopePath('data/ontologies/facets/chinese-language/example.json'));
+
+  const unsupported = structuredClone(schema);
+  unsupported.allOf = [];
+  assert.throws(
+    () => validateDraft202012(unsupported, index, { label: 'subject ontology index' }),
+    /unsupported JSON Schema keyword allOf/,
+  );
 });
 
 test('promotion cannot receive in-memory objects outside the canonical release builder', () => {
@@ -749,7 +788,7 @@ test('adversary cannot add a same-commit online snapshot self-attestation', () =
   value.scopes[0].evidence[0].online_snapshot = {
     source_id: 'caller-authored', body_sha256: H('forged'), accepted: true,
   };
-  assert.throws(() => validatePromotion(value), /field set mismatch.*online_snapshot/);
+  assert.throws(() => validatePromotion(value), /field set mismatch.*online_snapshot|JSON Schema.*online_snapshot/i);
 });
 
 test('adversary cannot reuse an origin, publisher, or independence group as two witnesses', () => {
@@ -847,7 +886,7 @@ test('first-edition and revision assertions require dedicated exact-edition role
 
   const emptyEvidence = fixture();
   emptyEvidence.scopes[0].lineage_assertion.evidence_roles[0].evidence_ids = [];
-  assert.throws(() => validatePromotion(emptyEvidence), /lacks exact-edition evidence/);
+  assert.throws(() => validatePromotion(emptyEvidence), /lacks exact-edition evidence|JSON Schema.*evidence_ids/i);
 
   const wrongUniverse = fixture();
   wrongUniverse.scopes[0].lineage_assertion.coverage_universe_id = 'universe:current';
@@ -874,7 +913,63 @@ test('rename cannot collapse both endpoints into one exact-edition scope', () =>
   const value = fixture();
   const relation = value.scopes[1].relations[0];
   relation.source_endpoints = structuredClone(relation.target_endpoints);
-  assert.throws(() => validatePromotion(value), /distinct exact-edition scopes/);
+  assert.throws(() => validatePromotion(value), /distinct exact-edition scopes|cross-side endpoint identity is duplicated/);
+});
+
+test('relation identifiers and semantic edges are globally unique', () => {
+  const duplicateId = fixture();
+  const duplicateIdOwner = duplicateId.scopes[0];
+  duplicateIdOwner.relations.push(structuredClone(duplicateId.scopes[1].relations[0]));
+  duplicateId.index.canonical_facets[0].coverage.semantic_relation_count = 2;
+  resignScope(duplicateId, duplicateIdOwner);
+  assert.throws(() => validatePromotion(duplicateId), /relation_id.*duplicated/i);
+
+  const duplicateSemanticEdge = fixture();
+  const semanticOwner = duplicateSemanticEdge.scopes[0];
+  const semanticClone = structuredClone(duplicateSemanticEdge.scopes[1].relations[0]);
+  semanticClone.relation_id = 'relation:duplicate-semantic-edge';
+  resignRelation(duplicateSemanticEdge, semanticClone);
+  semanticOwner.relations.push(semanticClone);
+  duplicateSemanticEdge.index.canonical_facets[0].coverage.semantic_relation_count = 2;
+  resignScope(duplicateSemanticEdge, semanticOwner);
+  assert.throws(() => validatePromotion(duplicateSemanticEdge), /semantic relation identity.*duplicated/i);
+});
+
+test('split and merge cardinality counts distinct endpoint identities', () => {
+  for (const { type, side, semanticBasis } of [
+    { type: 'split', side: 'target_endpoints', semanticBasis: 'one_to_many_semantic_differentiation' },
+    { type: 'merge', side: 'source_endpoints', semanticBasis: 'many_to_one_semantic_consolidation' },
+  ]) {
+    const value = fixture();
+    const owner = value.scopes[1];
+    const relation = owner.relations[0];
+    relation.relation_type = type;
+    relation.adjudication.semantic_basis_code = semanticBasis;
+    relation[side].push(structuredClone(relation[side][0]));
+    resignRelation(value, relation);
+    resignScope(value, owner);
+    assert.throws(() => validatePromotion(value), /endpoint identity.*duplicated/i);
+  }
+});
+
+test('promotion applies the pinned Draft 2020-12 schema before semantic validation', () => {
+  const invalidIndex = fixture();
+  invalidIndex.index.schema_version = '2';
+  assert.throws(
+    () => validatePromotion(invalidIndex),
+    /subject ontology index.*JSON Schema.*schema_version/i,
+  );
+
+  const value = fixture();
+  const owner = value.scopes[1];
+  const relation = owner.relations[0];
+  relation.relation_id = 'NOT-A-SCHEMA-VALID-RELATION-ID';
+  resignRelation(value, relation);
+  resignScope(value, owner);
+  assert.throws(
+    () => validatePromotion(value),
+    /JSON Schema.*relation_id/i,
+  );
 });
 
 test('changing rename to broaden with identical spans and a recomputed diff still fails signed semantic adjudication', () => {

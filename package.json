@@ -28,6 +28,7 @@
     "concepts:validate": "node scripts/validate-concept-evolution.mjs",
     "ontology:release:validate": "node scripts/validate-ontology-release.mjs",
     "ontology:v2:validate": "node scripts/validate-subject-ontology-v2.mjs",
+    "ontology:v2:promotion:report": "node scripts/prepare-release.mjs --page-evidence-promotion --subject-ontology-v2-promotion --subject-ontology-v2-report-output data/subject-ontology-v2-validation.json",
     "compendium:boundaries:validate": "node scripts/validate-compendium-item-boundaries.mjs",
     "ocr:status": "node scripts/ocr-supervisor.mjs status",
     "ocr:audit:triangulate": "node scripts/build-ocr-triangulation-audit.mjs",
@@ -53,8 +54,8 @@
     "db:local": "wrangler d1 migrations apply bdfz-curriculum-atlas --local",
     "deploy:preview": "node scripts/deploy-worker.mjs --environment preview",
     "deploy:production": "node scripts/deploy-worker.mjs --environment production",
-    "deploy:preview:ontology-promotion": "node scripts/deploy-worker.mjs --environment preview --ontology-promotion",
-    "deploy:production:ontology-promotion": "node scripts/deploy-worker.mjs --environment production --ontology-promotion",
+    "deploy:preview:ontology-promotion": "node scripts/deploy-worker.mjs --environment preview --page-evidence-promotion --ontology-promotion",
+    "deploy:production:ontology-promotion": "node scripts/deploy-worker.mjs --environment production --page-evidence-promotion --ontology-promotion",
     "deploy:page-evidence:preview": "node scripts/deploy-worker.mjs --environment preview --page-evidence-promotion",
     "deploy:page-evidence:production": "node scripts/deploy-worker.mjs --environment production --page-evidence-promotion"
   },

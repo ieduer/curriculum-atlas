@@ -291,6 +291,7 @@ export async function deployWorker({
       root,
       output: DEFAULT_MANIFEST,
       pageEvidencePromotion,
+      subjectOntologyV2Promotion: ontologyPromotion,
       rendererPath,
       runCommand,
       pageEvidenceValidator,

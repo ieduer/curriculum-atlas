@@ -17,6 +17,7 @@ import {
   assertCanonicalSubjectOntologyScopePath,
   canonicalSubjectOntologyFacetDirectory,
 } from './lib/subject-ontology-paths.mjs';
+import { validateDraft202012 } from './lib/draft-2020-schema-validator.mjs';
 
 export const CANONICAL_FACETS = Object.freeze([
   ['facet:chinese-language', '语文', 'chinese-language'],
@@ -68,6 +69,11 @@ const RELATION_SEMANTIC_BASIS = Object.freeze({
 const SHA256 = /^[a-f0-9]{64}$/;
 const GIT_SHA = /^[a-f0-9]{40}$/;
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+const SUBJECT_ONTOLOGY_SCHEMA_ID = 'https://curriculum.bdfz.net/schemas/subject-ontology-v2.json';
+const DEFAULT_SUBJECT_ONTOLOGY_SCHEMA = JSON.parse(readFileSync(
+  new URL('../data/schemas/subject-ontology-v2.schema.json', import.meta.url),
+  'utf8',
+));
 const facetById = new Map(CANONICAL_FACETS.map((facet) => [facet.facet_id, facet]));
 const facetIdByLabel = new Map(CANONICAL_FACETS.map((facet) => [facet.label, facet.facet_id]));
 
@@ -143,6 +149,18 @@ function exactSet(actual, expected, label) {
   const right = [...new Set(expected)].sort();
   if (stableJson(left) !== stableJson(right)) {
     fail(`${label} differs expected=${JSON.stringify(right)} actual=${JSON.stringify(left)}`);
+  }
+}
+
+function validateSchemaDocuments(schema, index, scopes) {
+  if (schema?.$id !== SUBJECT_ONTOLOGY_SCHEMA_ID) {
+    fail(`subject ontology JSON Schema must pin ${SUBJECT_ONTOLOGY_SCHEMA_ID}`);
+  }
+  validateDraft202012(schema, index, { label: 'subject ontology index' });
+  for (const scope of scopes) {
+    validateDraft202012(schema, scope, {
+      label: `subject ontology scope ${scope?.__registry_path || scope?.scope_id || '<unknown>'}`,
+    });
   }
 }
 
@@ -1161,6 +1179,24 @@ function validateEndpoint(endpoint, label, scopes, evidenceByScope) {
   return scope;
 }
 
+function endpointIdentity(endpoint) {
+  return `${endpoint.scope_id}\u0000${endpoint.edition_id}\u0000${endpoint.sense_id}`;
+}
+
+function relationSemanticIdentity(relation) {
+  const source = relation.source_endpoints.map(endpointIdentity).sort().join('\u001f');
+  const target = relation.target_endpoints.map(endpointIdentity).sort().join('\u001f');
+  if (relation.relation_type === 'coexist') {
+    return `${relation.relation_type}\u0000${[source, target].sort().join('\u0000')}`;
+  }
+  return `${relation.relation_type}\u0000${source}\u0000${target}`;
+}
+
+function assertDistinctEndpointIdentities(endpoints, label) {
+  const identities = endpoints.map(endpointIdentity);
+  if (new Set(identities).size !== identities.length) fail(`${label} is duplicated`);
+}
+
 function validateRelation(owner, relation, scopes, evidenceByScope, resolvedEvidenceById, context) {
   exactKeys(relation, [
     'relation_id', 'relation_type', 'assertion_text', 'source_endpoints', 'target_endpoints',
@@ -1171,6 +1207,9 @@ function validateRelation(owner, relation, scopes, evidenceByScope, resolvedEvid
   const sources = asArray(relation.source_endpoints, `${relation.relation_id}.source_endpoints`);
   const targets = asArray(relation.target_endpoints, `${relation.relation_id}.target_endpoints`);
   if (sources.length === 0 || targets.length === 0) fail(`${relation.relation_id} endpoints are empty`);
+  assertDistinctEndpointIdentities(sources, `${relation.relation_id} source endpoint identity`);
+  assertDistinctEndpointIdentities(targets, `${relation.relation_id} target endpoint identity`);
+  assertDistinctEndpointIdentities([...sources, ...targets], `${relation.relation_id} cross-side endpoint identity`);
   if (relation.relation_type === 'split' && (sources.length !== 1 || targets.length < 2)) fail('split requires 1:N endpoints');
   if (relation.relation_type === 'merge' && (sources.length < 2 || targets.length !== 1)) fail('merge requires N:1 endpoints');
   if (!['split', 'merge'].includes(relation.relation_type) && (sources.length !== 1 || targets.length !== 1)) {
@@ -1608,6 +1647,19 @@ function validateSubjectOntologyState({
     normalizedContext.coverage_catalog,
     normalizedContext,
   );
+  const relationIds = new Set();
+  const semanticRelationIdentities = new Set();
+  for (const scope of scopes) {
+    for (const relation of scope.relations) {
+      if (relationIds.has(relation.relation_id)) fail(`relation_id ${relation.relation_id} is duplicated`);
+      relationIds.add(relation.relation_id);
+      const semanticIdentity = relationSemanticIdentity(relation);
+      if (semanticRelationIdentities.has(semanticIdentity)) {
+        fail(`semantic relation identity for ${relation.relation_id} is duplicated`);
+      }
+      semanticRelationIdentities.add(semanticIdentity);
+    }
+  }
   for (const scope of scopes) {
     for (const relation of scope.relations) validateRelation(scope, relation, scopeMap, evidenceByScope, resolvedEvidenceById, normalizedContext);
     openGate(scope.release_gate, `${scope.scope_id}.release_gate`, { negative: scope.coverage.negative_claim_eligible });
@@ -1673,14 +1725,16 @@ export function computeSubjectOntologyV2Report({ rootDir = process.cwd(), pageEv
   const indexArtifact = safeRead(rootDir, SUBJECT_ONTOLOGY_INDEX_PATH, 'subject ontology index');
   const schemaArtifact = safeRead(rootDir, 'data/schemas/subject-ontology-v2.schema.json', 'subject ontology schema');
   const index = JSON.parse(indexArtifact.buffer.toString('utf8'));
+  const schema = JSON.parse(schemaArtifact.buffer.toString('utf8'));
+  validateSchemaDocuments(schema, index, []);
+  const scopes = loadRegisteredScopes(rootDir, index.canonical_facets);
+  validateSchemaDocuments(schema, index, scopes);
   const artifacts = validateBindings(rootDir, index);
   const pageEvidence = pageEvidenceValidator({ root: rootDir, pageEvidencePromotion: false });
   if (pageEvidence.valid !== true || pageEvidence.publishable !== false
       || pageEvidence.manifest.sha256 !== artifacts.page_evidence_manifest.sha256) {
     fail('ordinary ontology contract is not bound to the canonical nonpublishable page-evidence result');
   }
-  const facets = validateFacetIdentity(index);
-  const scopes = loadRegisteredScopes(rootDir, facets);
   const summary = validateSubjectOntologyState({ index, scopes, mode: 'ordinary' });
   const coverageCatalog = buildIndependentCoverageCatalog({
     catalog: artifacts.catalog.json,
@@ -1732,6 +1786,7 @@ export function computeSubjectOntologyV2Report({ rootDir = process.cwd(), pageEv
 }
 
 export function validateSubjectOntologyFixtureForTest({ index, scopes, context } = {}) {
+  validateSchemaDocuments(DEFAULT_SUBJECT_ONTOLOGY_SCHEMA, index, scopes);
   return validateSubjectOntologyState({ index, scopes, mode: 'promotion', context, allowTestFixture: true });
 }
 
@@ -1741,6 +1796,7 @@ export function validateSubjectOntologyV2PromotionForRelease({
   sourceTree,
   corpusRelease,
   pageEvidence,
+  reportPolicy = 'require_exact',
 } = {}) {
   if (!rootDir || !git || !sourceTree || !corpusRelease || !pageEvidence) {
     fail('ontology promotion is reachable only from the canonical release builder materialization');
@@ -1751,9 +1807,10 @@ export function validateSubjectOntologyV2PromotionForRelease({
   const reportArtifact = safeRead(rootDir, 'data/subject-ontology-v2-validation.json', 'subject ontology promotion report');
   const index = JSON.parse(indexArtifact.buffer.toString('utf8'));
   const schema = JSON.parse(schemaArtifact.buffer.toString('utf8'));
+  validateSchemaDocuments(schema, index, []);
+  const scopes = loadRegisteredScopes(rootDir, index.canonical_facets);
+  validateSchemaDocuments(schema, index, scopes);
   const artifacts = validateBindings(rootDir, index);
-  const facets = validateFacetIdentity(index);
-  const scopes = loadRegisteredScopes(rootDir, facets);
   const indexIdentity = requireSourceTreeArtifact(sourceTreeFiles, { ...indexArtifact, json: index }, 'ontology promotion index');
   requireSourceTreeArtifact(sourceTreeFiles, { ...schemaArtifact, json: schema }, 'ontology promotion schema');
   requireSourceTreeArtifact(sourceTreeFiles, { ...reportArtifact, json: JSON.parse(reportArtifact.buffer.toString('utf8')) }, 'ontology promotion report');
@@ -1811,6 +1868,8 @@ export function validateSubjectOntologyV2PromotionForRelease({
     },
   };
   const expectedReport = Buffer.from(`${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  if (reportPolicy === 'compute_only') return report;
+  if (reportPolicy !== 'require_exact') fail('promotion reportPolicy must be require_exact or compute_only');
   if (!reportArtifact.buffer.equals(expectedReport)) fail('subject ontology promotion report is not the exact committed release-builder result');
   const promotionEnvelope = {
     policy: 'subject_ontology_v2_external_promotion_envelope_v1',
@@ -1828,6 +1887,10 @@ export function validateSubjectOntologyV2PromotionForRelease({
     report: { path: reportArtifact.path, sha256: reportArtifact.sha256, bytes: reportArtifact.bytes },
     promotion_envelope: promotionEnvelope,
   };
+}
+
+export function computeSubjectOntologyV2PromotionReportForRelease(options = {}) {
+  return validateSubjectOntologyV2PromotionForRelease({ ...options, reportPolicy: 'compute_only' });
 }
 
 export function validateSubjectOntologyV2ForRelease({

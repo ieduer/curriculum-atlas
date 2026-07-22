@@ -1,6 +1,6 @@
 # Subject ontology v2 evidence contract
 
-`data/ontologies/index.json` is a fail-closed registry for the future 12-facet, edition-scoped subject ontology. It is not the public graph and it is not evidence that any subject has been modeled. The checked-in index intentionally contains zero scopes, zero coverage universes, zero concepts, and zero semantic relations. Every release gate is closed.
+`data/ontologies/index.json` is a fail-closed registry for the future 12-facet, edition-scoped subject ontology. It is not the public graph and it is not evidence that any subject has been modeled. The checked-in index intentionally contains zero scopes, zero coverage universes, zero concepts, and zero semantic relations. Every release gate is closed. The canonical validator applies the byte-pinned Draft 2020-12 schema to the index and every registered scope before semantic validation.
 
 The public facets remain exactly: 语文、数学、外语、思想政治与道德法治、历史、历史与社会、地理、科学类、技术、劳动、艺术、体育与健康. A source label enters one facet only after resolving through the byte-pinned `data/concept-model-v2.json`; special-education course labels such as 美工 and 定向行走 are not silently promoted to subjects.
 
@@ -39,7 +39,7 @@ Current-ordinary and historical-negative universes are separate. The current uni
 
 `first_edition` is only `first_edition_in_bounded_catalog_universe`, never an unqualified historical first. It has dedicated assertion text/hash, one exact current-edition evidence role, a signed human review, and an independently validated coverage universe.
 
-`revision` has dedicated assertion text/hash and two exact roles: predecessor edition and current edition. Both scopes must match the governed work, subject, facet, validity, predecessor, and chronology; evidence must belong to the named exact scope. `rename` and every other academic relation likewise require distinct exact-edition endpoints, bilateral reviewed sense evidence, valid cardinality/chronology, and accepted review. Cross-subject/work/facet relations require an exact-dimension exception plus a distinct second review.
+`revision` has dedicated assertion text/hash and two exact roles: predecessor edition and current edition. Both scopes must match the governed work, subject, facet, validity, predecessor, and chronology; evidence must belong to the named exact scope. `rename` and every other academic relation likewise require distinct exact-edition endpoints, bilateral reviewed sense evidence, valid cardinality/chronology, and accepted review. Relation IDs, endpoint identities, and the type-plus-directed-endpoint semantic identity are globally unique; duplicated endpoint rows cannot satisfy split or merge cardinality. Cross-subject/work/facet relations require an exact-dimension exception plus a distinct second review.
 
 Scope, lineage, coverage-universe, and cross-subject-exception reviews use `signed_subject_ontology_governed_review_v1`. Each payload is domain-separated by review kind and binds the exact reviewed subject, reviewer ID, decision time, decision, required `semantic_resolution` role, and pinned reviewer-registry SHA-256. Promotion verifies registry membership, active/revoked status, validity interval, role, payload digest, canonical Ed25519 signature bytes, and signature. Unsigned, expired, wrong-role, revoked, or unregistered reviewers fail closed.
 
@@ -51,8 +51,14 @@ Every relation also carries an Ed25519 `signed_subject_ontology_relation_adjudic
 npm run ontology:v2:validate
 node --test tests/subject-ontology-v2-contract.test.mjs
 
-# Only canonical promotion entrypoint; it still performs no deployment.
+# After the reviewed index/scopes are committed and pushed, generate the
+# deterministic promotion report. Review, commit, and push that report.
+npm run ontology:v2:promotion:report
+
+# Then build the exact promotion desired-release artifact; this still deploys nothing.
 npm run release:manifest:ontology-v2:promotion
 ```
+
+The two-commit promotion sequence is intentional. The generated report binds the index, schema, scope artifacts, corpus, page evidence, coverage, and reviewer inputs, but never its own bytes, the current commit, or the source-tree digest. Committing the generated report therefore closes the release gate without a cryptographic fixed point or same-commit self-authorization.
 
 The deterministic report is `data/subject-ontology-v2-validation.json`. It currently proves only that the contract is valid and nonpublishable. It does not claim OCR acceptance, historical completeness, semantic relations, frontend integration, or production deployment.

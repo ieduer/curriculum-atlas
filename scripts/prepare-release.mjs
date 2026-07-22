@@ -10,6 +10,7 @@ import { auditProjectAssets } from './audit-project-assets.mjs';
 import { buildReleaseManifest } from './build-release-manifest.mjs';
 import { validateCorpusManifest } from './import-corpus.mjs';
 import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
+import { computeSubjectOntologyV2PromotionReportForRelease } from './validate-subject-ontology-v2.mjs';
 import { createCorpusSourceSnapshot } from './lib/corpus-source-snapshot.mjs';
 import { desiredReleaseManifestArtifact } from './lib/desired-release-manifest.mjs';
 import {
@@ -52,34 +53,49 @@ export async function prepareRelease({
   output = null,
   pageEvidencePromotion = false,
   subjectOntologyV2Promotion = false,
+  subjectOntologyV2ReportOutput = null,
   rendererPath = null,
   runCommand = spawnSync,
   cleanSourceValidator = assertCleanReleaseSource,
   projectAssetAuditor = auditProjectAssets,
   pageEvidenceValidator = validatePageEvidenceForRelease,
   manifestBuilder = buildReleaseManifest,
+  releaseTreeMaterializer = materializeGitHeadReleaseTree,
+  gitBlobReader = readGitBlob,
+  corpusSnapshotFactory = createCorpusSourceSnapshot,
+  subjectOntologyV2ReportBuilder = computeSubjectOntologyV2PromotionReportForRelease,
 } = {}) {
   const repositoryRoot = resolve(root);
+  let normalizedReportOutput = null;
+  if (subjectOntologyV2ReportOutput && (!subjectOntologyV2Promotion || !pageEvidencePromotion)) {
+    throw new Error('subject ontology v2 promotion report generation requires both promotion gates');
+  }
+  if (subjectOntologyV2ReportOutput) {
+    normalizedReportOutput = relative(repositoryRoot, resolve(repositoryRoot, subjectOntologyV2ReportOutput))
+      .replaceAll('\\', '/');
+    if (normalizedReportOutput !== 'data/subject-ontology-v2-validation.json') {
+      throw new Error('subject ontology v2 promotion report output must be data/subject-ontology-v2-validation.json');
+    }
+  }
   const git = cleanSourceValidator({ root: repositoryRoot, requireUpstream: true, runCommand });
   const projectAssetAudit = await projectAssetAuditor({ projectRoot: repositoryRoot });
   if (!projectAssetAudit.ok) throw new Error('project asset audit failed before Git release materialization');
 
-  const gitTree = await materializeGitHeadReleaseTree({ repositoryRoot, head: git.head });
+  const gitTree = await releaseTreeMaterializer({ repositoryRoot, head: git.head });
   let corpusSnapshot = null;
   try {
     for (const path of [
       'data/downloads-asset-audit-receipt.json',
       'data/release-environment-evidence.json',
     ]) {
-      const buffer = readGitBlob(repositoryRoot, git.head, path);
+      const buffer = gitBlobReader(repositoryRoot, git.head, path);
       await materializeVerifiedBuffer(gitTree.root, path, buffer, {
         sha256: createHash('sha256').update(buffer).digest('hex'),
         bytes: buffer.length,
       });
     }
-    const corpusManifest = validateCorpusManifest(JSON.parse(
-      await readFile(resolve(gitTree.root, 'data/corpus-chunks/manifest.json'), 'utf8'),
-    ));
+    const corpusManifestBuffer = await readFile(resolve(gitTree.root, 'data/corpus-chunks/manifest.json'));
+    const corpusManifest = validateCorpusManifest(JSON.parse(corpusManifestBuffer.toString('utf8')));
     for (const entry of corpusManifest.sql_files) {
       const relativePath = `data/corpus-chunks/${entry.name}`;
       const buffer = await readFile(resolve(repositoryRoot, relativePath));
@@ -90,13 +106,53 @@ export async function prepareRelease({
       const buffer = await readFile(resolve(repositoryRoot, relativePath));
       await materializeVerifiedBuffer(gitTree.root, relativePath, buffer, entry);
     }
-    corpusSnapshot = await createCorpusSourceSnapshot({ root: gitTree.root, manifest: corpusManifest });
+    corpusSnapshot = await corpusSnapshotFactory({ root: gitTree.root, manifest: corpusManifest });
     await corpusSnapshot.verify();
     const pageEvidence = pageEvidenceValidator({
       root: gitTree.root,
       pageEvidencePromotion,
       rendererPath,
     });
+    if (normalizedReportOutput) {
+      const report = subjectOntologyV2ReportBuilder({
+        rootDir: gitTree.root,
+        git: {
+          head: git.head,
+          upstream_head: git.upstream,
+          dirty: false,
+          status_entries: 0,
+          status_sha256: '0'.repeat(64),
+          materialized_from_git_blobs: true,
+        },
+        sourceTree: gitTree.source_tree,
+        corpusRelease: {
+          source: 'data/corpus-chunks/manifest.json',
+          sha256: createHash('sha256').update(corpusManifestBuffer).digest('hex'),
+          bytes: corpusManifestBuffer.length,
+          release_id: corpusManifest.release_id,
+          release_fingerprint_sha256: corpusManifest.release_fingerprint_sha256,
+          manifest_sha256: corpusManifest.manifest_sha256,
+        },
+        pageEvidence,
+      });
+      await gitTree.verify();
+      await corpusSnapshot.verify();
+      const buffer = Buffer.from(`${JSON.stringify(report, null, 2)}\n`, 'utf8');
+      await writeFile(resolve(repositoryRoot, normalizedReportOutput), buffer, { mode: 0o600 });
+      return {
+        subject_ontology_v2_report: report,
+        report_artifact: {
+          path: normalizedReportOutput,
+          sha256: createHash('sha256').update(buffer).digest('hex'),
+          bytes: buffer.length,
+        },
+        source: gitTree,
+        corpus_snapshot_sha256: corpusSnapshot.sha256,
+        async cleanup() {
+          await Promise.allSettled([corpusSnapshot?.cleanup(), gitTree.cleanup()]);
+        },
+      };
+    }
     await buildDist(gitTree.root, runCommand);
     await gitTree.verify();
     await corpusSnapshot.verify();
@@ -146,7 +202,7 @@ export async function prepareRelease({
   }
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const options = { root: DEFAULT_ROOT, output: DEFAULT_OUTPUT };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -162,6 +218,7 @@ function parseArgs(argv) {
     if (!value || value.startsWith('--')) throw new Error(`missing value for ${key}`);
     if (key === '--root') options.root = value;
     else if (key === '--output') options.output = value;
+    else if (key === '--subject-ontology-v2-report-output') options.subjectOntologyV2ReportOutput = value;
     else if (key === '--renderer') options.rendererPath = value;
     else throw new Error(`unexpected argument: ${key}`);
     index += 1;
@@ -172,7 +229,11 @@ function parseArgs(argv) {
 async function main() {
   const prepared = await prepareRelease(parseArgs(process.argv.slice(2)));
   try {
-    process.stdout.write(`${prepared.manifest.release_id} manifest_sha256=${prepared.artifact.sha256} git=${prepared.manifest.git.head} source_tree=${prepared.manifest.source_tree.sha256} corpus=${prepared.manifest.corpus_release.release_id}\n`);
+    if (prepared.subject_ontology_v2_report) {
+      process.stdout.write(`subject-ontology-v2 promotion_report_sha256=${prepared.report_artifact.sha256} bytes=${prepared.report_artifact.bytes}\n`);
+    } else {
+      process.stdout.write(`${prepared.manifest.release_id} manifest_sha256=${prepared.artifact.sha256} git=${prepared.manifest.git.head} source_tree=${prepared.manifest.source_tree.sha256} corpus=${prepared.manifest.corpus_release.release_id}\n`);
+    }
   } finally {
     await prepared.cleanup();
   }
