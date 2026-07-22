@@ -2,7 +2,7 @@
 
 > 完整历史、Git 时间线、append-only 事件、回滚与未决项见 [`project-operations-ledger.md`](project-operations-ledger.md)。总账由 `npm run ops:ledger` 重建；本文件只给当前运行标准和最近一次已证明状态。
 
-## 当前检查点（2026-07-17）
+## 当前检查点（production 2026-07-17；候选与 OCR 2026-07-22）
 
 - 两端 D1 已应用 `0001`–`0007`；Worker 为 `2026.07.16-v10`，health 合同为 schema 3 / taxonomy 2 / page publication 1。
 - 本地 `0008_release_ownership_fences.sql`、`0009_compendium_embedded_items.sql` 与 Worker v13 候选尚未部署；61 个汇编身份仍为导航候选，0 display / 0 citation / 0 semantic。发布必须先完成 `docs/deployment.md` 的 dual-schema bootstrap → bridge → ordered migrations → D1/R2 no-pointer staging → CAS activation → postflight，不得把本地测试通过写成上线。
@@ -13,8 +13,8 @@
 - Production R2 current 为 `release-9cb02f77c06ee0535e7981a22b312373`；preview 为 `release-841a528f0086ce69f2f7a6f2d07c0999`。
 - 环境证据提交为 `290755749a0257ed720e7b2d26aa6b972c60aebb`；完整本地发布链通过 380/380 tests。
 - Production 只读终验事件 `2026-07-17T06:35:37.437Z`：三尺寸浏览器、API negative-write、D1 前后摘要与 Pulse 均通过；完整图 553/214/261、全隐藏 0/0、语文 143/60、运动能力泄漏 0，Pulse 425 requests / 0 errors。
-- OCR 仍未完成或上线：本机 primary/audit 6,947/11,847、Vision 7,012、accepted display/citation 0；B-r1 冻结在 1,259/3,182。
-- 2026-07-22 本地候选已把误标为“小学科学”的 `moe-2011-12` 订正为“初中科学”，并把 ICTR 88 页同版扫描从第二个文档降为只读 variant；候选为 195 documents、158 ordinary subjects + 1 assessment subject、OCR 名义 85/11,759、唯一实体 84/11,691。该候选尚未部署，因此本节其余 health/version/R2 数字继续描述线上 v10。
+- OCR 仍未完成或上线：当前候选本机 primary/audit 6,859/11,903、Vision 6,924、1 个隔离失败页、4 页已人工裁决、accepted display/citation 0。远端 B3 的 6 本汇编共 3,182 页已经整卷完成并 settled，但尚未通过本机 receiver；A2 同一 attempt 6 已耐久完成 1,568/3,182 页，因控制面安全冻结尚未续跑。
+- 2026-07-22 本地候选已把误标为“小学科学”的 `moe-2011-12` 订正为“初中科学”，并把 ICTR 88 页同版扫描从第二个文档降为只读 variant；随后又以教育部 2003 年 144 页英语扫描补齐既有作品的 OCR 输入。候选为 195 documents、158 ordinary subjects + 1 assessment subject、OCR 名义 86/11,903、唯一实体 85/11,835、0 blocked。该候选尚未部署，因此本节其余 health/version/R2 数字继续描述线上 v10。
 
 ## 1. Source of truth
 
@@ -22,7 +22,7 @@
 
 `data/release-environment-evidence.json` 是当前 legacy 上线锚点的历史治理回执，不是会随 R2 pointer 自动更新的远端数据库。Fenced publication v2 使用同一 `.wrangler/release-manifest.json` 派生的临时 `.wrangler/release-environment-evidence.json`，不修改 Git HEAD；evidence 之后的 R2 激活必须由 coordinator pointer/完整 prefix readback 与 append-only action-log 证明，并明确标记观测时间。
 
-DMITPro2 inner workstation 的 partial14 output 只属于隔离 staging。B-r1 的已有 state、attempt 和 page artifacts 不得在改变并发/idle/runtime identity 后直接复制为 B-r2；必须先实现并测试 hash-bound seed lineage，生成 predecessor receipt，再验签每个复用 page hash 和 attempt ledger。
+DMITPro2 inner workstation 的 partial14 output 只属于隔离 staging。B3 已完成的 6 本汇编与 A2 中同一 attempt 6 的全部 state/page/authority/grant 必须保持原身份；A2 只能通过独立审查后的 forward continuation 恢复，不能重发 grant、重置 attempt 或覆盖状态。B3 与最终 A2 必须作为完整 14 卷 parent-manifest union 经 whole-document receiver 一次性验签导入；任一分片完成都不能单独提升为本机或公开语料。
 
 ## 2. Health probe
 
@@ -122,12 +122,12 @@ Release evidence 观测于 2026-07-17，Git evidence commit `290755749a0257ed720
 
 Production R2 post-evidence readback 已通过，精确 pointer/manifest/object/source-manifest 数字见 §3。Preview 与 production 的 API、desktop/mobile Canvas、taxonomy isolation 和依赖面均完成独立验证；production 权威事件为 `2026-07-17T06:35:37.437Z`。任务命名浏览器已关闭、CLI list 为空，root process 检查无任务 `cliDaemon.js`/profile、仅有 App-owned MCP；orphan dry-run 因平台 usage limit 拒绝提权且未绕过，不能写成 dry-run 已通过。
 
-OCR 最近状态仍为本机 6,947 primary/audit、7,012 Vision、0 accepted；一页 chemistry quarantine 保持 fail-closed。概念 observation 数据止于 2020；2022 corpus documents 与年代轨存在，但只有 accepted OCR、版本核对和概念重建完成后才能加入 2022 概念观察。Remote B-r1 在连续低内存门后受控停止于 1,259/3,182，0 failed、0 quarantine、MainPID 0、NRestarts 0；现有页哈希与 attempts 必须保留。Hash-bound B-r2 seed lineage 尚未通过实现/测试/远端 predecessor receipt 三重门前，不得复制或启动新配置。
+OCR 最近候选状态为本机 6,859 primary/audit、6,924 Vision、4 reviewed、0 accepted；一页 chemistry 隔离仍保持 fail-closed。概念 observation 数据止于 2020；2022 corpus documents 与年代轨存在，但只有 accepted OCR、版本核对和概念重建完成后才能加入 2022 概念观察。Remote B3 已完成并 settled 3,182/3,182 页；A2 已耐久生成 1,568/3,182 页，4/8 卷 complete、1 interrupted、3 retry_wait、0 failed page，但所有任务单元保持冻结。现有页哈希与 attempts 必须保留；只有独立审查、Linux 实机双 dry-run、同 attempt canary 和连续健康观察通过后才可恢复 A2。
 
 ## OCR 日常运维
 
 - `npm run ocr:watchdog:status`：看 watchdog control、owner 与 heartbeat；
-- `npm run ocr:status`：看 11,847 页队列、primary、Vision、audit、review、quarantine 与 accepted；
+- `npm run ocr:status`：看当前 11,903 页名义队列（85 个唯一实体／11,835 页）、primary、Vision、audit、review、quarantine 与 accepted；
 - `npm run ocr:check`：机器可判定健康码；
 - `npm run ocr:recover`：仅用于明确的非 quarantine 单页恢复，不绕过证据门。
 
