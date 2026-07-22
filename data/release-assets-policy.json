@@ -60,6 +60,7 @@
       { "path": "data/concept-lexicon.json", "disposition": "static_build_input", "consumers": ["concept_builder"] },
       { "path": "data/concept-model-v2.json", "disposition": "static_build_input", "consumers": ["concept_builder"] },
       { "path": "data/concept-ontology.json", "disposition": "static_build_input", "consumers": ["concept_builder"] },
+      { "path": "data/corpus-artifact.schema.json", "disposition": "quality_evidence_private", "consumers": ["private_corpus_bundle", "release_manifest"] },
       { "path": "data/document-sources.json", "disposition": "d1_build_input", "consumers": ["catalog_builder", "corpus_builder"] },
       { "path": "data/downloads-asset-audit-receipt.json", "disposition": "release_governance_receipt", "consumers": ["release_manifest", "deploy_gate"] },
       { "path": "data/ingest-manifest.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "source_manifest_api"] },
