@@ -29,46 +29,105 @@ function validBoundArtifact(value, expectedPath) {
     && Number.isSafeInteger(value.bytes) && value.bytes > 0;
 }
 
-function validSubjectOntologyIdentity(ontology) {
+function validSubjectOntologyScopeArtifact(value) {
+  return hasExactKeys(value, ['path', 'sha256', 'bytes', 'object_sha256'])
+    && /^data\/ontologies\/facets\/[^/]+\/[^/]+\.json$/u.test(String(value.path || ''))
+    && SHA256_PATTERN.test(String(value.sha256 || ''))
+    && SHA256_PATTERN.test(String(value.object_sha256 || ''))
+    && Number.isSafeInteger(value.bytes) && value.bytes > 0;
+}
+
+function validSubjectOntologyIdentity(ontology, releaseIdentity, sourceTree) {
   const dependencyKeys = [
     'taxonomy_sha256', 'catalog_sha256', 'provenance_sha256', 'corpus_manifest_sha256',
     'corpus_release_id', 'corpus_release_fingerprint_sha256', 'page_evidence_manifest_sha256',
     'page_evidence_status', 'signed_reviewer_registry_sha256',
     'external_online_source_registry_sha256', 'online_verification_standard_sha256',
     'independent_coverage_catalog_sha256', 'independent_coverage_catalog_records',
+    'coverage_authority_sha256', 'coverage_as_of_date',
   ];
   const hashDependencies = dependencyKeys.filter((key) => key.endsWith('_sha256'));
   const counts = ontology?.counts;
   const boundary = ontology?.release_boundary;
-  return hasExactKeys(ontology, [
-    'contract_id', 'mode', 'valid', 'publishable', 'index', 'schema', 'report',
-    'dependencies', 'counts', 'release_boundary',
+  const scopeArtifacts = ontology?.scope_artifacts;
+  const preparedRelease = ontology?.prepared_release;
+  const sourceTreeFiles = Array.isArray(sourceTree?.files) ? sourceTree.files : [];
+  const sourceTreeByPath = new Map(sourceTreeFiles.map((entry) => [entry?.path, entry]));
+  const boundToSourceTree = (artifact) => {
+    const source = sourceTreeByPath.get(artifact?.path);
+    return source?.sha256 === artifact?.sha256 && source?.bytes === artifact?.bytes;
+  };
+  const commonValid = hasExactKeys(ontology, [
+    'contract_id', 'mode', 'valid', 'publishable', 'index', 'schema', 'scope_artifacts',
+    'report', 'dependencies', 'counts', 'release_boundary', 'prepared_release',
   ])
     && ontology.contract_id === 'subject-ontology-v2'
-    && ontology.mode === 'ordinary_nonpublishable'
-    && ontology.valid === true && ontology.publishable === false
+    && ontology.valid === true
     && validBoundArtifact(ontology.index, 'data/ontologies/index.json')
     && validBoundArtifact(ontology.schema, 'data/schemas/subject-ontology-v2.schema.json')
     && validBoundArtifact(ontology.report, 'data/subject-ontology-v2-validation.json')
+    && [ontology.index, ontology.schema, ontology.report].every(boundToSourceTree)
+    && Array.isArray(scopeArtifacts)
+    && scopeArtifacts.every(validSubjectOntologyScopeArtifact)
+    && scopeArtifacts.every(boundToSourceTree)
+    && new Set(scopeArtifacts.map((artifact) => artifact.path)).size === scopeArtifacts.length
+    && scopeArtifacts.map((artifact) => artifact.path).join('\u0000')
+      === [...scopeArtifacts].map((artifact) => artifact.path).sort().join('\u0000')
     && hasExactKeys(ontology.dependencies, dependencyKeys)
     && hashDependencies.every((key) => SHA256_PATTERN.test(String(ontology.dependencies[key] || '')))
     && CORPUS_ID_PATTERN.test(String(ontology.dependencies.corpus_release_id || ''))
     && typeof ontology.dependencies.page_evidence_status === 'string'
     && ontology.dependencies.page_evidence_status.length > 0
+    && /^\d{4}-\d{2}-\d{2}$/u.test(String(ontology.dependencies.coverage_as_of_date || ''))
     && Number.isSafeInteger(ontology.dependencies.independent_coverage_catalog_records)
     && ontology.dependencies.independent_coverage_catalog_records >= 0
     && hasExactKeys(counts, ['valid', 'publishable', 'facets', 'scopes', 'coverage_universes', 'concepts', 'relations'])
-    && counts.valid === true && counts.publishable === false && counts.facets === 12
-    && counts.scopes === 0 && counts.coverage_universes === 0 && counts.concepts === 0 && counts.relations === 0
+    && counts.valid === true && counts.facets === 12
     && hasExactKeys(boundary, [
       'candidate_fail_closed', 'frontend_consumer_allowed', 'r2_consumer_allowed',
       'explicit_promotion_required', 'same_commit_scope_evidence_self_attestation_allowed',
+      'release_builder_desired_manifest_only',
     ])
-    && boundary.candidate_fail_closed === true
     && boundary.frontend_consumer_allowed === false
     && boundary.r2_consumer_allowed === false
     && boundary.explicit_promotion_required === true
-    && boundary.same_commit_scope_evidence_self_attestation_allowed === false;
+    && boundary.same_commit_scope_evidence_self_attestation_allowed === false
+    && boundary.release_builder_desired_manifest_only === true;
+  if (!commonValid) return false;
+
+  if (ontology.mode === 'ordinary_nonpublishable') {
+    return ontology.publishable === false
+      && releaseIdentity?.page_evidence?.publishable === false
+      && counts.publishable === false
+      && counts.scopes === 0 && counts.coverage_universes === 0
+      && counts.concepts === 0 && counts.relations === 0
+      && scopeArtifacts.length === 0
+      && preparedRelease === null
+      && boundary.candidate_fail_closed === true;
+  }
+
+  return ontology.mode === 'explicit_promotion'
+    && ontology.publishable === true
+    && releaseIdentity?.page_evidence?.valid === true
+    && releaseIdentity?.page_evidence?.publishable === true
+    && counts.publishable === true
+    && counts.scopes > 0 && counts.coverage_universes > 0
+    && counts.concepts > 0 && counts.relations >= 0
+    && scopeArtifacts.length === counts.scopes
+    && hasExactKeys(preparedRelease, [
+      'git_head', 'source_tree_sha256', 'corpus_release_id', 'corpus_manifest_sha256',
+      'corpus_release_fingerprint_sha256',
+    ])
+    && preparedRelease.git_head === releaseIdentity?.git?.head
+    && preparedRelease.source_tree_sha256 === releaseIdentity?.source_tree_sha256
+    && preparedRelease.corpus_release_id === releaseIdentity?.corpus_release?.release_id
+    && preparedRelease.corpus_manifest_sha256 === releaseIdentity?.corpus_release?.manifest_sha256
+    && preparedRelease.corpus_release_fingerprint_sha256 === releaseIdentity?.corpus_release?.release_fingerprint_sha256
+    && ontology.dependencies.corpus_release_id === preparedRelease.corpus_release_id
+    && ontology.dependencies.corpus_manifest_sha256 === preparedRelease.corpus_manifest_sha256
+    && ontology.dependencies.corpus_release_fingerprint_sha256 === preparedRelease.corpus_release_fingerprint_sha256
+    && ontology.dependencies.page_evidence_manifest_sha256 === releaseIdentity?.page_evidence?.manifest_sha256
+    && boundary.candidate_fail_closed === false;
 }
 
 function desiredCorpusRelease(value) {
@@ -138,7 +197,7 @@ export function validateDesiredReleaseManifest(value) {
     throw new Error('desired release manifest cross-plane identity is inconsistent');
   }
   const ontology = value.release_identity?.subject_ontology_v2;
-  if (!validSubjectOntologyIdentity(ontology)) {
+  if (!validSubjectOntologyIdentity(ontology, value.release_identity, value.source_tree)) {
     throw new Error('desired release manifest lacks the exact fail-closed subject ontology v2 validation identity');
   }
   const expectedReleaseId = `release-${sha256(Buffer.from(stableStringify(value.release_identity))).slice(0, 32)}`;

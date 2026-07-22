@@ -51,6 +51,7 @@ export async function prepareRelease({
   root = DEFAULT_ROOT,
   output = null,
   pageEvidencePromotion = false,
+  subjectOntologyV2Promotion = false,
   rendererPath = null,
   runCommand = spawnSync,
   cleanSourceValidator = assertCleanReleaseSource,
@@ -103,6 +104,7 @@ export async function prepareRelease({
       root: gitTree.root,
       repositoryRoot,
       pageEvidencePromotion,
+      subjectOntologyV2Promotion,
       rendererPath,
       pageEvidenceOverride: pageEvidence,
       projectAssetAuditor: async () => projectAssetAudit,
@@ -150,6 +152,10 @@ function parseArgs(argv) {
     const key = argv[index];
     if (key === '--page-evidence-promotion') {
       options.pageEvidencePromotion = true;
+      continue;
+    }
+    if (key === '--subject-ontology-v2-promotion') {
+      options.subjectOntologyV2Promotion = true;
       continue;
     }
     const value = argv[index + 1];

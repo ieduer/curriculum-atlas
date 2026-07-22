@@ -12,9 +12,10 @@
   },
   "schema": {
     "path": "data/schemas/subject-ontology-v2.schema.json",
-    "sha256": "39a78e4dfcc6e67044713ec1242b2669e8fd18f0ebc46aa33c91e49b20022bf3",
-    "bytes": 20655
+    "sha256": "10f8dc4b2507d2d0820d05baac514cccddbed4f34ab63028657cbf3d9dbbd920",
+    "bytes": 22040
   },
+  "scope_artifacts": [],
   "dependencies": {
     "taxonomy_sha256": "98d8b3b8c9f4ad1e7f02410c2470fa8b34820996e380d39230a763fd49b3356e",
     "catalog_sha256": "32668d6ff45db54ac575e56735c5f058c6e1873d5adf777945ea799da3253293",
@@ -27,8 +28,10 @@
     "signed_reviewer_registry_sha256": "4602217e96d83cbc9caf472742cdf0912ae0bdf33863bd2244417d31975d9325",
     "external_online_source_registry_sha256": "d8d51035d46f82b8f92d31eca384aba13db4d4d31d9a241ad4845cbce3686144",
     "online_verification_standard_sha256": "53a1db63cbee3dedde685b9ecad2c446da9899dc0f13dda5795343279afe5ec4",
-    "independent_coverage_catalog_sha256": "56a56d65a19687b3aa8af6eedc97191bbaf0b59efd8af657f0a0822b54e537b4",
-    "independent_coverage_catalog_records": 195
+    "independent_coverage_catalog_sha256": "b69450a754fff84fabb77c05f9a50500287397a5ab63cf457ceab1ff3b6e476f",
+    "independent_coverage_catalog_records": 195,
+    "coverage_authority_sha256": "1a0346eeff95156344781b5f8f36eb21f73b1fc64feab918fc5c502a53efd5a5",
+    "coverage_as_of_date": "2026-07-22"
   },
   "counts": {
     "valid": true,
@@ -44,6 +47,7 @@
     "frontend_consumer_allowed": false,
     "r2_consumer_allowed": false,
     "explicit_promotion_required": true,
-    "same_commit_scope_evidence_self_attestation_allowed": false
+    "same_commit_scope_evidence_self_attestation_allowed": false,
+    "release_builder_desired_manifest_only": true
   }
 }

@@ -314,6 +314,14 @@ test('prepared manifest overrides require one exact materialized Git blob identi
     }),
     /exact materialized Git blob tree/,
   );
+  await assert.rejects(
+    buildReleaseManifest({
+      root,
+      pageEvidencePromotion: true,
+      subjectOntologyV2Promotion: true,
+    }),
+    /canonical page-evidence promotion and exact materialized Git release builder path/,
+  );
 });
 
 test('immutable versioned manifest bytes exclude every volatile audit age for retry-safe keys', async () => {
@@ -368,7 +376,9 @@ test('desired release rejects a stripped or weakened ontology identity even afte
   for (const mutate of [
     (ontology) => { delete ontology.dependencies; },
     (ontology) => { delete ontology.counts.coverage_universes; },
+    (ontology) => { delete ontology.scope_artifacts; },
     (ontology) => { ontology.release_boundary.same_commit_scope_evidence_self_attestation_allowed = true; },
+    (ontology) => { ontology.release_boundary.release_builder_desired_manifest_only = false; },
   ]) {
     const desired = desiredReleaseManifestArtifact(manifest).value;
     mutate(desired.release_identity.subject_ontology_v2);
@@ -379,6 +389,20 @@ test('desired release rejects a stripped or weakened ontology identity even afte
       /exact fail-closed subject ontology v2 validation identity/,
     );
   }
+});
+
+test('desired release rejects ontology bytes that are not in its immutable Git source-tree identity', async () => {
+  const manifest = await buildHermeticReleaseManifest('2026-07-22T05:00:00.000Z');
+  const desired = desiredReleaseManifestArtifact(manifest).value;
+  desired.release_identity.subject_ontology_v2.index.sha256 = createHash('sha256')
+    .update('uncommitted in-memory ontology index')
+    .digest('hex');
+  desired.release_id = releaseIdFromIdentity(desired.release_identity);
+  const artifact = desiredReleaseManifestArtifact(desired);
+  assert.throws(
+    () => parseDesiredReleaseManifestArtifact(artifact.buffer),
+    /exact fail-closed subject ontology v2 validation identity/,
+  );
 });
 
 test('D1 publication lease serializes different owners even for the same release', () => {

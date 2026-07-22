@@ -14,6 +14,7 @@
     "page-evidence:validate": "node scripts/page-evidence-release-hook.mjs --mode ordinary",
     "page-evidence:promotion:validate": "node scripts/page-evidence-release-hook.mjs --mode promotion",
     "release:manifest": "node scripts/prepare-release.mjs --output .wrangler/release-manifest.json",
+    "release:manifest:ontology-v2:promotion": "node scripts/prepare-release.mjs --page-evidence-promotion --subject-ontology-v2-promotion --output .wrangler/release-manifest.json",
     "release:evidence:preview": "node scripts/collect-release-environment-evidence.mjs --environment preview --output .wrangler/release-environment-evidence.json",
     "release:evidence:production": "node scripts/collect-release-environment-evidence.mjs --environment production --output .wrangler/release-environment-evidence.json",
     "sources:audit:moe-scans": "node scripts/audit-local-moe-scans.mjs",

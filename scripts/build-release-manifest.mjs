@@ -14,8 +14,13 @@ import {
 } from './import-corpus.mjs';
 import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 import { desiredReleaseManifestArtifact } from './lib/desired-release-manifest.mjs';
+import {
+  governedGitEntries,
+  listGitTree,
+  readGitBlob,
+} from './lib/git-release-source.mjs';
 import { validateDualSchemaBootstrapReceipt } from './verify-dual-schema-bootstrap.mjs';
-import { validateSubjectOntologyV2 } from './validate-subject-ontology-v2.mjs';
+import { validateSubjectOntologyV2ForRelease } from './validate-subject-ontology-v2.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const DEFAULT_POLICY = 'data/release-assets-policy.json';
@@ -314,6 +319,44 @@ export function assertGitSnapshotUnchanged(initial, final) {
     throw new Error('Git status changed while release content was read');
   }
   return true;
+}
+
+function verifyPromotionMaterializationAgainstRepository(repositoryRoot, git, sourceTree, policy) {
+  const actual = inspectGitSnapshot(repositoryRoot, spawnSync);
+  if (actual.head !== git.head || actual.upstream_head !== git.head
+      || actual.dirty !== false || actual.status_entries !== 0) {
+    throw new Error('subject ontology v2 promotion Git identity is not the exact clean upstream repository state');
+  }
+  if (sourceTree?.materialized_from_git_blobs !== true || sourceTree.tracked_only !== true
+      || !Array.isArray(sourceTree.files)) {
+    throw new Error('subject ontology v2 promotion source tree is not a Git blob materialization');
+  }
+  const gitEntries = listGitTree(repositoryRoot, git.head);
+  const expectedPaths = governedGitEntries(gitEntries, policy).map((entry) => entry.path).sort();
+  const declaredPaths = sourceTree.files.map((entry) => normalizeRelativePath(entry?.path, 'promotion source tree path'));
+  if (declaredPaths.join('\u0000') !== expectedPaths.join('\u0000')
+      || sourceTree.git_index_file_count !== gitEntries.length) {
+    throw new Error('subject ontology v2 promotion source tree is not the complete governed Git HEAD tree');
+  }
+  const paths = new Set();
+  let totalBytes = 0;
+  const material = [];
+  for (const entry of sourceTree.files) {
+    const path = normalizeRelativePath(entry?.path, 'promotion source tree path');
+    if (paths.has(path)) throw new Error(`subject ontology v2 promotion source tree repeats ${path}`);
+    paths.add(path);
+    const blob = readGitBlob(repositoryRoot, git.head, path);
+    const identity = { sha256: sha256(blob), bytes: blob.byteLength };
+    if (entry.sha256 !== identity.sha256 || entry.bytes !== identity.bytes) {
+      throw new Error(`subject ontology v2 promotion source tree differs from Git HEAD at ${path}`);
+    }
+    totalBytes += identity.bytes;
+    material.push(`${path}\0${identity.sha256}\0${identity.bytes}\n`);
+  }
+  if (sourceTree.file_count !== paths.size || sourceTree.total_bytes !== totalBytes
+      || sourceTree.sha256 !== sha256(Buffer.from(material.join('')))) {
+    throw new Error('subject ontology v2 promotion source-tree digest differs from exact Git HEAD blobs');
+  }
 }
 
 export function assertGitCommitExists(root, value, label = 'Git commit', runCommand = spawnSync) {
@@ -834,6 +877,7 @@ export async function buildReleaseManifest({
   generatedAt = new Date().toISOString(),
   runCommand = spawnSync,
   pageEvidencePromotion = false,
+  subjectOntologyV2Promotion = false,
   rendererPath = null,
   projectAssetAuditor = auditProjectAssets,
   corpusSourceBindingValidator = validateCorpusManifestSourceBindings,
@@ -848,6 +892,9 @@ export async function buildReleaseManifest({
   }
   if (sourceTreeOverride && sourceTreeOverride.materialized_from_git_blobs !== true) {
     throw new Error('sourceTreeOverride must be an exact materialized Git blob tree');
+  }
+  if (subjectOntologyV2Promotion && (!pageEvidencePromotion || !gitOverride || !sourceTreeOverride)) {
+    throw new Error('subject ontology v2 promotion requires the canonical page-evidence promotion and exact materialized Git release builder path');
   }
   const initialGit = gitOverride || inspectGitSnapshot(gitRepositoryRoot, runCommand);
   const pageEvidence = pageEvidenceOverride || validatePageEvidenceForRelease({
@@ -871,12 +918,25 @@ export async function buildReleaseManifest({
   const r2Objects = await validateR2PolicyCoverage(projectRoot, policy);
   const publicationCoordination = validatePublicationCoordination(policy);
   const dataInventory = await validateDataInventory(projectRoot, policy, r2Objects);
-  const subjectOntologyV2 = validateSubjectOntologyV2({
+  const sourceTree = sourceTreeOverride || await buildSourceTree(projectRoot, policy, runCommand);
+  if (subjectOntologyV2Promotion) {
+    verifyPromotionMaterializationAgainstRepository(
+      gitRepositoryRoot,
+      initialGit,
+      sourceTree,
+      policy,
+    );
+  }
+  const corpusRelease = await inspectCorpusRelease(projectRoot, corpusSourceBindingValidator);
+  const subjectOntologyV2 = validateSubjectOntologyV2ForRelease({
     rootDir: projectRoot,
+    promotion: subjectOntologyV2Promotion,
+    git: initialGit,
+    sourceTree,
+    corpusRelease,
+    pageEvidence,
     pageEvidenceValidator: () => pageEvidence,
   });
-  const sourceTree = sourceTreeOverride || await buildSourceTree(projectRoot, policy, runCommand);
-  const corpusRelease = await inspectCorpusRelease(projectRoot, corpusSourceBindingValidator);
   const dataAssets = [];
   const dataByRole = new Map();
   for (const object of r2Objects) {
@@ -1111,10 +1171,12 @@ export async function buildReleaseManifest({
       publishable: subjectOntologyV2.publishable,
       index: subjectOntologyV2.index,
       schema: subjectOntologyV2.schema,
+      scope_artifacts: subjectOntologyV2.scope_artifacts,
       report: subjectOntologyV2.report,
       dependencies: subjectOntologyV2.dependencies,
       counts: subjectOntologyV2.counts,
       release_boundary: subjectOntologyV2.release_boundary,
+      prepared_release: subjectOntologyV2.prepared_release || null,
     },
     corpus_release: corpusReleaseIdentity(corpusRelease),
     page_evidence: pageEvidenceIdentity(pageEvidence),
@@ -1241,6 +1303,10 @@ function parseArgs(argv) {
       args[key.slice(2)] = true;
       continue;
     }
+    if (key === '--subject-ontology-v2-promotion') {
+      args[key.slice(2)] = true;
+      continue;
+    }
     const value = argv[index + 1];
     if (!value || value.startsWith('--')) throw new Error(`missing value for ${key}`);
     args[key.slice(2)] = value;
@@ -1257,6 +1323,7 @@ async function main() {
     policyPath: args.policy || DEFAULT_POLICY,
     generatedAt: args['generated-at'] || new Date().toISOString(),
     pageEvidencePromotion: args['page-evidence-promotion'] === true,
+    subjectOntologyV2Promotion: args['subject-ontology-v2-promotion'] === true,
     rendererPath: args.renderer || null,
   });
   const artifact = desiredReleaseManifestArtifact(manifest);

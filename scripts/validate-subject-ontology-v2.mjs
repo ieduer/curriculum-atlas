@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 
-import { createHash } from 'node:crypto';
+import {
+  createHash,
+  createPublicKey,
+  verify as verifySignature,
+} from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 
 import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 import { validateCorpusManifest } from './import-corpus.mjs';
-import { parseDesiredReleaseManifestArtifact } from './lib/desired-release-manifest.mjs';
 
 export const CANONICAL_FACETS = Object.freeze([
   ['facet:chinese-language', '语文', './chinese-language'],
@@ -35,12 +37,22 @@ export const HIERARCHY_FAMILIES = Object.freeze([
 ]);
 
 const RELATION_TYPES = new Set(['rename', 'split', 'merge', 'broaden', 'narrow', 'replace', 'coexist']);
+const ONTOLOGY_DOCUMENT_FUNCTIONS = Object.freeze(['curriculum_standard', 'teaching_syllabus', 'assessment_specification']);
+const CURRENT_CATALOG_STATUSES = new Set(['current_reference', 'current_with_revision_watch']);
+const RELATION_SEMANTIC_BASIS = Object.freeze({
+  rename: 'equivalent_meaning_lexical_change',
+  split: 'one_to_many_semantic_differentiation',
+  merge: 'many_to_one_semantic_consolidation',
+  broaden: 'broader_target_extension',
+  narrow: 'narrower_target_restriction',
+  replace: 'discontinuous_semantic_replacement',
+  coexist: 'parallel_validity_distinct_senses',
+});
 const SHA256 = /^[a-f0-9]{64}$/;
 const GIT_SHA = /^[a-f0-9]{40}$/;
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
 const facetById = new Map(CANONICAL_FACETS.map((facet) => [facet.facet_id, facet]));
 const facetIdByLabel = new Map(CANONICAL_FACETS.map((facet) => [facet.label, facet.facet_id]));
-const trustedPromotionContexts = new WeakMap();
 
 function fail(message) {
   throw new Error(message);
@@ -170,12 +182,6 @@ function readArtifactRef(rootDir, ref, label) {
   return artifact;
 }
 
-function gitOutput(rootDir, args, label) {
-  const result = spawnSync('git', args, { cwd: rootDir, encoding: 'utf8' });
-  if (result.status !== 0) fail(`${label}: ${(result.stderr || '').trim()}`);
-  return result.stdout.trim();
-}
-
 function normalizedProjectPath(value, label) {
   const relative = asString(value, label).replaceAll('\\', '/').replace(/^\.\//u, '');
   if (path.isAbsolute(relative) || relative === '..' || relative.startsWith('../') || relative.includes('/../')) {
@@ -184,46 +190,41 @@ function normalizedProjectPath(value, label) {
   return relative.replace(/\/$/u, '');
 }
 
-function verifyPreparedSourceTree(rootDir, desired) {
-  const actualHead = gitOutput(rootDir, ['rev-parse', 'HEAD'], 'cannot resolve prepared Git HEAD');
-  const upstreamHead = gitOutput(rootDir, ['rev-parse', '@{upstream}'], 'prepared Git branch has no exact upstream');
-  const status = gitOutput(rootDir, ['status', '--porcelain=v1', '--untracked-files=all'], 'cannot inspect prepared Git status');
-  if (desired.git?.head !== actualHead || upstreamHead !== actualHead || status) {
-    fail('prepared ontology promotion requires clean Git HEAD exactly present at its configured upstream');
+function verifyReleaseBuilderSourceTree(rootDir, git, sourceTree) {
+  if (!git || !GIT_SHA.test(String(git.head || '')) || git.upstream_head !== git.head
+      || git.dirty !== false || git.status_entries !== 0
+      || sourceTree?.materialized_from_git_blobs !== true || sourceTree.tracked_only !== true) {
+    fail('ontology promotion requires the release builder exact clean upstream Git materialization');
   }
-  const files = asArray(desired.source_tree?.files, 'desired source_tree.files');
+  const files = asArray(sourceTree.files, 'release-builder source_tree.files');
   const identities = files.map((entry, index) => {
-    exactKeys(entry, ['path', 'sha256', 'bytes'], `desired source_tree.files[${index}]`);
-    const actual = safeRead(rootDir, entry.path, `desired source_tree.files[${index}]`);
+    exactKeys(entry, ['path', 'sha256', 'bytes'], `release-builder source_tree.files[${index}]`);
+    const actual = safeRead(rootDir, entry.path, `release-builder source_tree.files[${index}]`);
     if (actual.sha256 !== entry.sha256 || actual.bytes !== entry.bytes) fail(`${entry.path} differs from the prepared Git tree`);
     return entry;
   });
-  unique(identities.map((entry) => entry.path), 'desired source_tree file paths');
+  unique(identities.map((entry) => entry.path), 'release-builder source_tree file paths');
   const material = identities.map((entry) => `${entry.path}\0${entry.sha256}\0${entry.bytes}\n`).join('');
-  const trackedFiles = gitOutput(rootDir, ['ls-files', '-z'], 'cannot enumerate prepared tracked files')
-    .split('\0').filter(Boolean).map((entry) => normalizedProjectPath(entry, 'prepared tracked file'));
   const policyArtifact = safeRead(rootDir, 'data/release-assets-policy.json', 'prepared release-assets policy');
   const policy = JSON.parse(policyArtifact.buffer.toString('utf8'));
-  const roots = asArray(policy.source_tree?.roots, 'release policy source_tree.roots')
-    .map((entry) => normalizedProjectPath(entry, 'release policy source root'));
   const configuredFiles = asArray(policy.source_tree?.files, 'release policy source_tree.files')
     .map((entry) => normalizedProjectPath(entry, 'release policy source file'));
-  const excluded = new Set(asArray(policy.source_tree?.excluded_paths, 'release policy source_tree.excluded_paths')
-    .map((entry) => normalizedProjectPath(entry, 'release policy excluded path')));
-  const expectedFiles = trackedFiles.filter((entry) => (configuredFiles.includes(entry)
-      || roots.some((root) => entry.startsWith(`${root}/`))) && !excluded.has(entry)).sort();
-  exactSet(identities.map((entry) => entry.path), expectedFiles, 'desired source_tree governed files');
-  if (digest(Buffer.from(material)) !== desired.source_tree.sha256
-      || desired.source_tree.file_count !== identities.length
-      || desired.source_tree.total_bytes !== identities.reduce((total, entry) => total + entry.bytes, 0)
-      || desired.source_tree.git_index_file_count !== trackedFiles.length
-      || desired.source_tree.tracked_only !== true) fail('desired source_tree identity is not reproducible from current bytes');
+  for (const configured of configuredFiles) {
+    if (!identities.some((entry) => entry.path === configured)) fail(`release-builder source tree omits configured file ${configured}`);
+  }
+  if (digest(Buffer.from(material)) !== sourceTree.sha256
+      || sourceTree.file_count !== identities.length
+      || sourceTree.total_bytes !== identities.reduce((total, entry) => total + entry.bytes, 0)
+      || !Number.isSafeInteger(sourceTree.git_index_file_count) || sourceTree.git_index_file_count < identities.length) {
+    fail('release-builder source_tree identity is not reproducible from materialized Git bytes');
+  }
+  return new Map(identities.map((entry) => [entry.path, entry]));
 }
 
-function loadPreparedCorpus(rootDir, desired) {
+function loadPreparedCorpus(rootDir, corpusRelease, sourceTreeFiles) {
   const manifestArtifact = safeRead(rootDir, 'data/corpus-chunks/manifest.json', 'prepared corpus manifest');
   const manifest = validateCorpusManifest(JSON.parse(manifestArtifact.buffer.toString('utf8')));
-  const expected = desired.corpus_release;
+  const expected = corpusRelease;
   if (expected?.source !== 'data/corpus-chunks/manifest.json'
       || expected.sha256 !== manifestArtifact.sha256
       || expected.bytes !== manifestArtifact.bytes
@@ -232,8 +233,7 @@ function loadPreparedCorpus(rootDir, desired) {
       || expected.manifest_sha256 !== manifest.manifest_sha256) fail('prepared desired release corpus identity differs from actual manifest');
   const database = new DatabaseSync(':memory:');
   try {
-    const migrationPaths = gitOutput(rootDir, ['ls-files', 'migrations/*.sql'], 'cannot enumerate prepared migrations')
-      .split('\n').filter(Boolean).sort();
+    const migrationPaths = [...sourceTreeFiles.keys()].filter((entry) => /^migrations\/[^/]+\.sql$/u.test(entry)).sort();
     for (const migrationPath of migrationPaths) database.exec(safeRead(rootDir, migrationPath, `migration ${migrationPath}`).buffer.toString('utf8'));
     for (const entry of manifest.sql_files) {
       const artifact = safeRead(rootDir, `data/corpus-chunks/${entry.name}`, `corpus chunk ${entry.name}`);
@@ -322,59 +322,6 @@ function loadCanonicalPageEvidenceRows(rootDir, pageEvidence) {
   });
 }
 
-export function createImmutablePreparedReleaseContext({
-  rootDir = process.cwd(),
-  desiredReleasePath = '.wrangler/release-manifest.json',
-  pageEvidenceValidator = validatePageEvidenceForRelease,
-} = {}) {
-  const desiredArtifact = safeRead(rootDir, desiredReleasePath, 'prepared desired release');
-  const desired = parseDesiredReleaseManifestArtifact(desiredArtifact.buffer).value;
-  verifyPreparedSourceTree(rootDir, desired);
-  const paragraphs = loadPreparedCorpus(rootDir, desired);
-  const pageEvidence = pageEvidenceValidator({ root: rootDir, pageEvidencePromotion: true });
-  if (pageEvidence.valid !== true || pageEvidence.publishable !== true) fail('ontology promotion requires canonical publishable page evidence');
-  const { renderer_identity: _rendererIdentity, ...sourceBoundPageEvidence } = pageEvidence;
-  if (stableJson(desired.page_evidence) !== stableJson(sourceBoundPageEvidence)) fail('desired release page-evidence identity differs from canonical promotion result');
-  const catalogArtifact = safeRead(rootDir, 'data/catalog.json', 'coverage catalog');
-  const taxonomyArtifact = safeRead(rootDir, 'data/concept-model-v2.json', 'coverage taxonomy');
-  const provenanceArtifact = safeRead(rootDir, 'data/document-sources.json', 'coverage provenance');
-  const reviewerRegistryArtifact = safeRead(rootDir, 'scripts/page-evidence/reviewer-authorities.json', 'reviewer registry');
-  const onlineRegistryArtifact = safeRead(rootDir, 'scripts/page-evidence/online-source-identities.json', 'online source registry');
-  const onlineStandardArtifact = safeRead(rootDir, 'data/online-verification-standard.json', 'online verification standard');
-  const catalog = JSON.parse(catalogArtifact.buffer.toString('utf8'));
-  const taxonomy = JSON.parse(taxonomyArtifact.buffer.toString('utf8'));
-  const provenance = JSON.parse(provenanceArtifact.buffer.toString('utf8'));
-  const context = {
-    context_kind: 'immutable_prepared_release_v1',
-    prepared_release: {
-      git_head: desired.git.head,
-      source_tree_sha256: desired.source_tree.sha256,
-      corpus_release_id: desired.corpus_release.release_id,
-      corpus_manifest_sha256: desired.corpus_release.manifest_sha256,
-      corpus_release_fingerprint_sha256: desired.corpus_release.release_fingerprint_sha256,
-    },
-    source_bindings: {
-      taxonomy_sha256: taxonomyArtifact.sha256,
-      catalog_sha256: catalogArtifact.sha256,
-      provenance_sha256: provenanceArtifact.sha256,
-      corpus_manifest_file_sha256: desired.corpus_release.sha256,
-      reviewer_registry_sha256: reviewerRegistryArtifact.sha256,
-      online_source_registry_sha256: onlineRegistryArtifact.sha256,
-      online_verification_standard_sha256: onlineStandardArtifact.sha256,
-    },
-    page_evidence: {
-      manifest_sha256: pageEvidence.manifest.sha256,
-      policy_revision_sha256: pageEvidence.bindings.semantic_publication_policy.sha256,
-      pages: loadCanonicalPageEvidenceRows(rootDir, pageEvidence),
-    },
-    paragraphs,
-    coverage_catalog: buildIndependentCoverageCatalog({ catalog, taxonomy, provenance }),
-  };
-  const frozen = deepFreeze(context);
-  trustedPromotionContexts.set(frozen, frozen);
-  return frozen;
-}
-
 function subjectIdentity(document, taxonomy) {
   const override = taxonomy.document_entity_overrides?.[document.id];
   const source = override || taxonomy.subject_taxonomy?.[document.subject];
@@ -414,7 +361,64 @@ function documentYear(document) {
   return match ? Number(match[0]) : null;
 }
 
+function governedAsOf(catalog) {
+  const timestamp = asString(catalog.generated_at, 'catalog.generated_at');
+  if (!TIMESTAMP.test(timestamp.replace(/\.\d{3}Z$/u, 'Z')) || Number.isNaN(Date.parse(timestamp))) {
+    fail('catalog.generated_at is not a governed UTC as-of timestamp');
+  }
+  const asOfDate = timestamp.slice(0, 10);
+  return { as_of_date: asOfDate, as_of_year: Number(asOfDate.slice(0, 4)) };
+}
+
+function normalizedWorkTitle(document) {
+  const title = asString(document.title, `${document.id}.title`).normalize('NFKC')
+    .replace(/[（(][^）)]*(?:19|20)\d{2}[^）)]*[）)]/gu, '')
+    .replace(/[（(][^）)]*(?:版|修订|实验稿?)[^）)]*[）)]/gu, '')
+    .replace(/(?:19|20)\d{2}\s*年(?:版|修订)?/gu, '')
+    .replace(/\s+/gu, ' ')
+    .trim();
+  if (!title) fail(`${document.id} has no derivable governed work title`);
+  return title;
+}
+
+function governedSubjectId(source) {
+  return source.stable_subject_id || `subject:${digest(Buffer.from(source.canonical, 'utf8')).slice(0, 16)}`;
+}
+
+export function deriveFacetCoverageAuthority({ catalog, taxonomy, coverageCatalog }) {
+  const asOf = governedAsOf(catalog);
+  const facets = CANONICAL_FACETS.map((facet) => {
+    const labels = asArray(taxonomy.subject_facet_groups?.[facet.label], `${facet.label} subject_facet_groups`);
+    const taxonomySubjectIds = labels.flatMap((label) => {
+      const source = taxonomy.subject_taxonomy?.[label];
+      if (!source || source.facet_eligible !== true || !['subject', 'assessment_subject'].includes(source.entity_kind)) return [];
+      return [governedSubjectId(source)];
+    });
+    const catalogSubjectIds = coverageCatalog.filter((record) =>
+      record.coverage_role === 'subject_edition_candidate' && record.facet_id === facet.facet_id)
+      .map((record) => record.subject_id);
+    const eligibleSubjectIds = [...new Set([...taxonomySubjectIds, ...catalogSubjectIds])].sort();
+    const records = coverageCatalog.filter((record) => record.coverage_role === 'subject_edition_candidate'
+      && record.facet_id === facet.facet_id && eligibleSubjectIds.includes(record.subject_id));
+    const documentedSubjectIds = new Set(records.map((record) => record.subject_id));
+    const undocumentedSubjectIds = eligibleSubjectIds.filter((subjectId) => !documentedSubjectIds.has(subjectId));
+    const years = records.map((record) => record.year).filter(Number.isSafeInteger);
+    return {
+      facet_id: facet.facet_id,
+      as_of_date: asOf.as_of_date,
+      as_of_year: asOf.as_of_year,
+      start_year: years.length ? Math.min(...years) : null,
+      eligible_subject_ids: eligibleSubjectIds,
+      undocumented_subject_ids: undocumentedSubjectIds,
+      allowed_document_functions: [...ONTOLOGY_DOCUMENT_FUNCTIONS],
+      current_status_values: [...CURRENT_CATALOG_STATUSES].sort(),
+    };
+  });
+  return { ...asOf, facets };
+}
+
 export function buildIndependentCoverageCatalog({ catalog, taxonomy, provenance }) {
+  const asOf = governedAsOf(catalog);
   const sources = asArray(provenance.sources, 'provenance.sources');
   const sourcesByDocument = new Map();
   for (const source of sources) {
@@ -422,7 +426,7 @@ export function buildIndependentCoverageCatalog({ catalog, taxonomy, provenance 
     list.push(source);
     sourcesByDocument.set(source.document_id, list);
   }
-  return asArray(catalog.documents, 'catalog.documents').map((document) => {
+  const rows = asArray(catalog.documents, 'catalog.documents').map((document) => {
     const subject = subjectIdentity(document, taxonomy);
     const year = documentYear(document);
     const entity = taxonomy.document_entity_overrides?.[document.id]
@@ -441,6 +445,15 @@ export function buildIndependentCoverageCatalog({ catalog, taxonomy, provenance 
       .sort((left, right) => stableJson(left).localeCompare(stableJson(right), 'en'));
     const scopePlanEvidence = entity?.entity_kind === 'cross_cutting_framework'
       || /课程设置(?:实验)?方案/u.test(document.title || '');
+    const workTitle = subject ? normalizedWorkTitle(document) : null;
+    const workId = subject ? `work:${digest(Buffer.from(stableJson({
+      facet_id: subject.facet_id,
+      subject_id: subject.subject_id,
+      stage: document.stage ?? null,
+      population: documentPopulation(document),
+      document_function: documentFunction(document),
+      work_title: workTitle,
+    }), 'utf8')).slice(0, 24)}` : null;
     return {
       document_id: document.id,
       edition_id: `edition:${document.id}:${digest(Buffer.from(document.version_label || '', 'utf8')).slice(0, 12)}`,
@@ -457,13 +470,48 @@ export function buildIndependentCoverageCatalog({ catalog, taxonomy, provenance 
       subject_label: subject?.canonical_label ?? null,
       stage: document.stage ?? null,
       year,
+      current_status: document.current_status ?? null,
       population: documentPopulation(document),
       document_function: documentFunction(document),
+      work_id: workId,
+      work_title: workTitle,
+      valid_from_year: year,
+      valid_to_year: null,
+      predecessor_document_id: null,
+      lineage_kind: null,
+      as_of_date: asOf.as_of_date,
+      as_of_year: asOf.as_of_year,
       provenance_count: sourceRows.length,
       provenance_sha256: jsonDigest(sourceRows),
       exact_duplicate_alias: document.local_verification_status === 'exact_duplicate_alias',
     };
-  }).sort((left, right) => left.document_id.localeCompare(right.document_id, 'en'));
+  });
+  const byWork = new Map();
+  for (const row of rows.filter((record) => record.coverage_role === 'subject_edition_candidate')) {
+    const members = byWork.get(row.work_id) || [];
+    members.push(row);
+    byWork.set(row.work_id, members);
+  }
+  for (const members of byWork.values()) {
+    members.sort((left, right) => (left.year ?? Number.MAX_SAFE_INTEGER) - (right.year ?? Number.MAX_SAFE_INTEGER)
+      || left.document_id.localeCompare(right.document_id, 'en'));
+    for (let position = 0; position < members.length; position += 1) {
+      const record = members[position];
+      if (!Number.isSafeInteger(record.year)) continue;
+      const earlier = members.filter((candidate) => Number.isSafeInteger(candidate.year) && candidate.year < record.year);
+      const latestEarlierYear = earlier.length ? Math.max(...earlier.map((candidate) => candidate.year)) : null;
+      const predecessorCandidates = earlier.filter((candidate) => candidate.year === latestEarlierYear);
+      record.predecessor_document_id = predecessorCandidates.length === 1 ? predecessorCandidates[0].document_id : null;
+      record.lineage_kind = earlier.length === 0 ? 'first_edition' : predecessorCandidates.length === 1 ? 'revision' : 'ambiguous';
+      const laterYears = members.map((candidate) => candidate.year)
+        .filter((year) => Number.isSafeInteger(year) && year > record.year);
+      const nextYear = laterYears.length ? Math.min(...laterYears) : null;
+      record.valid_to_year = CURRENT_CATALOG_STATUSES.has(record.current_status)
+        ? asOf.as_of_year
+        : nextYear === null ? record.year : nextYear - 1;
+    }
+  }
+  return rows.sort((left, right) => left.document_id.localeCompare(right.document_id, 'en'));
 }
 
 function validateBindings(rootDir, index) {
@@ -503,6 +551,102 @@ function validateBindings(rootDir, index) {
     fail('online source registry is not externally pinned');
   }
   return artifacts;
+}
+
+function normalizeReviewerRegistry(registry) {
+  if (registry.policy !== 'pinned_ed25519_page_reviewers_v1') fail('ontology reviewer registry policy is invalid');
+  const reviewers = asArray(registry.reviewers, 'reviewer registry.reviewers').map((reviewer, index) => {
+    const label = `reviewer registry.reviewers[${index}]`;
+    exactKeys(reviewer, [
+      'reviewer_id', 'display_name', 'status', 'valid_from', 'valid_until', 'scopes', 'public_key_pem',
+    ], label);
+    asString(reviewer.reviewer_id, `${label}.reviewer_id`);
+    if (!TIMESTAMP.test(String(reviewer.valid_from || ''))) fail(`${label}.valid_from is invalid`);
+    if (reviewer.valid_until !== null && !TIMESTAMP.test(String(reviewer.valid_until || ''))) fail(`${label}.valid_until is invalid`);
+    if (!['active', 'revoked'].includes(reviewer.status)) fail(`${label}.status is invalid`);
+    const scopes = unique(asArray(reviewer.scopes, `${label}.scopes`), `${label}.scopes`);
+    for (const scope of scopes) {
+      if (!['page_display', 'page_citation', 'semantic_resolution'].includes(scope)) fail(`${label} has unsupported reviewer scope ${scope}`);
+    }
+    try {
+      const key = createPublicKey(asString(reviewer.public_key_pem, `${label}.public_key_pem`));
+      if (key.asymmetricKeyType !== 'ed25519') fail(`${label}.public_key_pem is not Ed25519`);
+    } catch (error) {
+      if (String(error.message).startsWith('subject-ontology-v2:')) throw error;
+      fail(`${label}.public_key_pem is invalid: ${error.message}`);
+    }
+    return reviewer;
+  });
+  unique(reviewers.map((reviewer) => reviewer.reviewer_id), 'reviewer registry reviewer ids');
+  return reviewers;
+}
+
+function requireSourceTreeArtifact(sourceTreeFiles, artifact, label) {
+  const expected = sourceTreeFiles.get(artifact.path);
+  if (!expected || expected.sha256 !== artifact.sha256 || expected.bytes !== artifact.bytes) {
+    fail(`${label} is not the exact materialized Git/source-tree artifact`);
+  }
+  return {
+    path: artifact.path,
+    sha256: artifact.sha256,
+    bytes: artifact.bytes,
+    object_sha256: jsonDigest(artifact.json),
+  };
+}
+
+function buildReleaseBuilderPromotionContext({
+  rootDir,
+  git,
+  sourceTree,
+  corpusRelease,
+  pageEvidence,
+  artifacts,
+  ontologyArtifacts,
+  sourceTreeFiles: preparedSourceTreeFiles = null,
+}) {
+  const sourceTreeFiles = preparedSourceTreeFiles || verifyReleaseBuilderSourceTree(rootDir, git, sourceTree);
+  if (pageEvidence?.valid !== true || pageEvidence.publishable !== true) {
+    fail('ontology promotion requires the canonical publishable page-evidence release result');
+  }
+  const coverageCatalog = buildIndependentCoverageCatalog({
+    catalog: artifacts.catalog.json,
+    taxonomy: artifacts.taxonomy.json,
+    provenance: artifacts.provenance.json,
+  });
+  const context = {
+    context_kind: 'release_builder_git_materialization_v2',
+    prepared_release: {
+      git_head: git.head,
+      source_tree_sha256: sourceTree.sha256,
+      corpus_release_id: corpusRelease.release_id,
+      corpus_manifest_sha256: corpusRelease.manifest_sha256,
+      corpus_release_fingerprint_sha256: corpusRelease.release_fingerprint_sha256,
+    },
+    source_bindings: {
+      taxonomy_sha256: artifacts.taxonomy.sha256,
+      catalog_sha256: artifacts.catalog.sha256,
+      provenance_sha256: artifacts.provenance.sha256,
+      corpus_manifest_file_sha256: corpusRelease.sha256,
+      reviewer_registry_sha256: artifacts.reviewer_registry.sha256,
+      online_source_registry_sha256: artifacts.online_source_registry.sha256,
+      online_verification_standard_sha256: artifacts.online_verification_standard.sha256,
+    },
+    ontology_artifacts: ontologyArtifacts,
+    page_evidence: {
+      manifest_sha256: pageEvidence.manifest.sha256,
+      policy_revision_sha256: pageEvidence.bindings.semantic_publication_policy.sha256,
+      pages: loadCanonicalPageEvidenceRows(rootDir, pageEvidence),
+    },
+    paragraphs: loadPreparedCorpus(rootDir, corpusRelease, sourceTreeFiles),
+    coverage_catalog: coverageCatalog,
+    coverage_authority: deriveFacetCoverageAuthority({
+      catalog: artifacts.catalog.json,
+      taxonomy: artifacts.taxonomy.json,
+      coverageCatalog,
+    }),
+    reviewer_registry: normalizeReviewerRegistry(artifacts.reviewer_registry.json),
+  };
+  return deepFreeze(context);
 }
 
 function falseGate(gate, label) {
@@ -580,17 +724,14 @@ function validateOrdinaryIndex(index, facets) {
 
 function normalizeContext(context, allowTestFixture) {
   asObject(context, 'promotion context');
-  if (context.context_kind === 'test_fixture_v1') {
-    if (!allowTestFixture) fail('test_fixture_v1 promotion context is forbidden in production validation');
-  } else if (context.context_kind !== 'immutable_prepared_release_v1') {
+  if (context.context_kind === 'test_fixture_v2') {
+    if (!allowTestFixture) fail('test_fixture_v2 promotion context is forbidden in production validation');
+  } else if (context.context_kind !== 'release_builder_git_materialization_v2') {
     fail('promotion context must come from the immutable release builder');
-  } else {
-    const frozen = trustedPromotionContexts.get(context);
-    if (!frozen) fail('serialized or caller-constructed immutable promotion contexts are forbidden');
-    context = frozen;
   }
   exactKeys(context, [
-    'context_kind', 'prepared_release', 'source_bindings', 'page_evidence', 'paragraphs', 'coverage_catalog',
+    'context_kind', 'prepared_release', 'source_bindings', 'ontology_artifacts', 'page_evidence',
+    'paragraphs', 'coverage_catalog', 'coverage_authority', 'reviewer_registry',
   ] , 'promotion context');
   const prepared = context.prepared_release;
   exactKeys(prepared, [
@@ -607,6 +748,18 @@ function normalizeContext(context, allowTestFixture) {
     'reviewer_registry_sha256', 'online_source_registry_sha256', 'online_verification_standard_sha256',
   ], 'promotion context.source_bindings');
   for (const [key, value] of Object.entries(context.source_bindings)) asSha(value, `promotion context.source_bindings.${key}`);
+  exactKeys(context.ontology_artifacts, ['index', 'scope_files'], 'promotion context.ontology_artifacts');
+  const validateOntologyIdentity = (identity, label) => {
+    exactKeys(identity, ['path', 'sha256', 'bytes', 'object_sha256'], label);
+    normalizedProjectPath(identity.path, `${label}.path`);
+    asSha(identity.sha256, `${label}.sha256`);
+    asSha(identity.object_sha256, `${label}.object_sha256`);
+    asInteger(identity.bytes, `${label}.bytes`, 1);
+  };
+  validateOntologyIdentity(context.ontology_artifacts.index, 'promotion context ontology index artifact');
+  const scopeArtifactRows = asArray(context.ontology_artifacts.scope_files, 'promotion context ontology scope artifacts');
+  for (const [index, identity] of scopeArtifactRows.entries()) validateOntologyIdentity(identity, `promotion context ontology scope artifact[${index}]`);
+  unique(scopeArtifactRows.map((identity) => identity.path), 'promotion context ontology scope artifact paths');
   const pageEvidence = context.page_evidence;
   exactKeys(pageEvidence, ['manifest_sha256', 'policy_revision_sha256', 'pages'], 'promotion context.page_evidence');
   asSha(pageEvidence.manifest_sha256, 'promotion context.page_evidence.manifest_sha256');
@@ -619,10 +772,22 @@ function normalizeContext(context, allowTestFixture) {
   unique(pageKeys, 'promotion context page identities');
   const coverageRows = asArray(context.coverage_catalog, 'promotion context.coverage_catalog');
   unique(coverageRows.map((row) => row.document_id), 'promotion context coverage document identities');
+  const authority = context.coverage_authority;
+  exactKeys(authority, ['as_of_date', 'as_of_year', 'facets'], 'promotion context.coverage_authority');
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(authority.as_of_date) || authority.as_of_year !== Number(authority.as_of_date.slice(0, 4))) {
+    fail('promotion context coverage authority as-of boundary is invalid');
+  }
+  const reviewers = normalizeReviewerRegistry({
+    policy: 'pinned_ed25519_page_reviewers_v1',
+    reviewers: context.reviewer_registry,
+  });
   return {
     ...context,
     paragraphs: new Map(paragraphRows.map((row, index) => [paragraphKeys[index], row])),
     pages: new Map(pageRows.map((row, index) => [pageKeys[index], row])),
+    reviewerById: new Map(reviewers.map((reviewer) => [reviewer.reviewer_id, reviewer])),
+    coverageAuthorityByFacet: new Map(asArray(authority.facets, 'coverage authority facets')
+      .map((facet) => [facet.facet_id, facet])),
   };
 }
 
@@ -750,11 +915,11 @@ function validateEvidence(scope, evidence, context) {
 }
 
 export function resolveSubjectOntologyEvidenceForTest(scope, evidence, context) {
-  if (context?.context_kind !== 'test_fixture_v1') fail('test evidence resolver accepts test_fixture_v1 only');
+  if (context?.context_kind !== 'test_fixture_v2') fail('test evidence resolver accepts test_fixture_v2 only');
   return validateEvidence(scope, evidence, normalizeContext(context, true));
 }
 
-export function computeRelationDiffSha256(relation, resolvedEvidenceById) {
+function relationEndpointMaterial(relation, resolvedEvidenceById) {
   const endpointMaterial = (endpoint) => ({
     scope_id: endpoint.scope_id,
     edition_id: endpoint.edition_id,
@@ -765,13 +930,98 @@ export function computeRelationDiffSha256(relation, resolvedEvidenceById) {
       return resolved;
     }),
   });
+  return {
+    source_endpoints: relation.source_endpoints.map(endpointMaterial),
+    target_endpoints: relation.target_endpoints.map(endpointMaterial),
+  };
+}
+
+export function buildRelationAdjudicationSigningPayload(relation, resolvedEvidenceById) {
+  const endpoints = relationEndpointMaterial(relation, resolvedEvidenceById);
+  return {
+    schema_version: 1,
+    policy: 'signed_subject_ontology_relation_adjudication_v1',
+    relation_id: relation.relation_id,
+    relation_type: relation.relation_type,
+    semantic_basis_code: relation.adjudication.semantic_basis_code,
+    assertion_text: relation.assertion_text,
+    source_endpoints: endpoints.source_endpoints,
+    target_endpoints: endpoints.target_endpoints,
+    reviewer_id: relation.adjudication.reviewer_id,
+    decided_at: relation.adjudication.decided_at,
+    reviewer_registry_sha256: relation.review.policy_revision_sha256,
+  };
+}
+
+export function prepareRelationAdjudicationSigningPayload(relation, resolvedEvidenceById) {
+  const payload = buildRelationAdjudicationSigningPayload(relation, resolvedEvidenceById);
+  const payload_text = stableJson(payload);
+  return {
+    payload,
+    payload_text,
+    payload_sha256: digest(Buffer.from(payload_text, 'utf8')),
+  };
+}
+
+export function subjectOntologyObjectSha256ForTest(value) {
+  return jsonDigest(value);
+}
+
+function validateRelationAdjudication(relation, resolvedEvidenceById, context) {
+  const adjudication = relation.adjudication;
+  exactKeys(adjudication, [
+    'policy', 'reviewer_id', 'decided_at', 'semantic_basis_code', 'signature_algorithm',
+    'signed_payload_sha256', 'signature_base64',
+  ], `${relation.relation_id}.adjudication`);
+  if (adjudication.policy !== 'signed_subject_ontology_relation_adjudication_v1'
+      || adjudication.semantic_basis_code !== RELATION_SEMANTIC_BASIS[relation.relation_type]
+      || adjudication.signature_algorithm !== 'Ed25519') {
+    fail(`${relation.relation_id} lacks relation-type-specific signed semantic adjudication`);
+  }
+  if (!TIMESTAMP.test(String(adjudication.decided_at || ''))) fail(`${relation.relation_id} adjudication time is invalid`);
+  asSha(adjudication.signed_payload_sha256, `${relation.relation_id}.adjudication.signed_payload_sha256`);
+  const signature = asString(adjudication.signature_base64, `${relation.relation_id}.adjudication.signature_base64`);
+  if (!/^[A-Za-z0-9+/]{86}==$/u.test(signature)) fail(`${relation.relation_id} adjudication signature is not canonical Ed25519 base64`);
+  const signatureBytes = Buffer.from(signature, 'base64');
+  if (signatureBytes.length !== 64 || signatureBytes.toString('base64') !== signature) fail(`${relation.relation_id} adjudication signature bytes are invalid`);
+  const preparedPayload = prepareRelationAdjudicationSigningPayload(relation, resolvedEvidenceById);
+  const payloadText = preparedPayload.payload_text;
+  const payloadSha = preparedPayload.payload_sha256;
+  if (adjudication.signed_payload_sha256 !== payloadSha) fail(`${relation.relation_id} signed adjudication payload hash differs from exact semantics/evidence`);
+  const reviewer = context.reviewerById.get(adjudication.reviewer_id);
+  if (!reviewer || reviewer.status !== 'active' || !reviewer.scopes.includes('semantic_resolution')) {
+    fail(`${relation.relation_id} adjudicator is not active and semantic_resolution-authorized in the pinned registry`);
+  }
+  const decidedAt = Date.parse(adjudication.decided_at);
+  if (decidedAt < Date.parse(reviewer.valid_from)
+      || (reviewer.valid_until && decidedAt > Date.parse(reviewer.valid_until))) {
+    fail(`${relation.relation_id} adjudicator was outside the pinned validity interval`);
+  }
+  let verified = false;
+  try {
+    verified = verifySignature(null, Buffer.from(payloadText, 'utf8'), createPublicKey(reviewer.public_key_pem), signatureBytes);
+  } catch (error) {
+    fail(`${relation.relation_id} adjudication signature verification failed: ${error.message}`);
+  }
+  if (!verified) fail(`${relation.relation_id} adjudication Ed25519 signature is invalid`);
+  if (relation.review.reviewer_id !== adjudication.reviewer_id
+      || relation.review.reviewed_at !== adjudication.decided_at
+      || relation.review.policy_revision_sha256 !== context.source_bindings.reviewer_registry_sha256) {
+    fail(`${relation.relation_id} review does not bind the signed pinned-registry adjudication`);
+  }
+  return { payload_sha256: payloadSha, reviewer_id: reviewer.reviewer_id, decided_at: adjudication.decided_at };
+}
+
+export function computeRelationDiffSha256(relation, resolvedEvidenceById) {
+  const endpoints = relationEndpointMaterial(relation, resolvedEvidenceById);
   return jsonDigest({
-    contract: 'subject-ontology-v2-relation-diff-v2',
+    contract: 'subject-ontology-v2-relation-diff-v3',
     relation_id: relation.relation_id,
     relation_type: relation.relation_type,
     assertion_text: relation.assertion_text,
-    source_endpoints: relation.source_endpoints.map(endpointMaterial),
-    target_endpoints: relation.target_endpoints.map(endpointMaterial),
+    source_endpoints: endpoints.source_endpoints,
+    target_endpoints: endpoints.target_endpoints,
+    adjudication: relation.adjudication,
     review: relation.review,
     cross_subject_exception: relation.cross_subject_exception || null,
   });
@@ -796,10 +1046,10 @@ function validateEndpoint(endpoint, label, scopes, evidenceByScope) {
   return scope;
 }
 
-function validateRelation(owner, relation, scopes, evidenceByScope, resolvedEvidenceById) {
+function validateRelation(owner, relation, scopes, evidenceByScope, resolvedEvidenceById, context) {
   exactKeys(relation, [
     'relation_id', 'relation_type', 'assertion_text', 'source_endpoints', 'target_endpoints',
-    'relation_diff_sha256', 'review',
+    'relation_diff_sha256', 'adjudication', 'review',
   ], `${owner.scope_id}.${relation.relation_id || 'relation'}`, ['cross_subject_exception']);
   if (!RELATION_TYPES.has(relation.relation_type)) fail(`${relation.relation_id} relation_type is invalid`);
   acceptedReview(relation.review, `${relation.relation_id}.review`);
@@ -857,6 +1107,7 @@ function validateRelation(owner, relation, scopes, evidenceByScope, resolvedEvid
   } else if (relation.cross_subject_exception) {
     fail(`${relation.relation_id} has an unnecessary cross-subject exception`);
   }
+  validateRelationAdjudication(relation, resolvedEvidenceById, context);
   const computed = computeRelationDiffSha256(relation, resolvedEvidenceById);
   if (relation.relation_diff_sha256 !== computed) {
     fail(`${relation.relation_id} diff hash does not bind current endpoints, evidence, online snapshots, reviewer, and policy`);
@@ -910,7 +1161,7 @@ function validateHierarchy(scope) {
   }
 }
 
-function validateLineage(scope, scopes, universes, evidenceByScope) {
+function validateLineage(scope, scopes, universes, evidenceByScope, coverageCatalog) {
   const assertion = scope.lineage_assertion;
   exactKeys(assertion, [
     'kind', 'assertion_type', 'assertion_text', 'assertion_sha256', 'predecessor_scope_id',
@@ -921,6 +1172,10 @@ function validateLineage(scope, scopes, universes, evidenceByScope) {
     fail(`${scope.scope_id} lineage assertion content hash is stale`);
   }
   const roles = asArray(assertion.evidence_roles, `${scope.scope_id}.lineage.evidence_roles`);
+  const governedRecord = coverageCatalog.find((record) => record.document_id === scope.edition.document_id);
+  if (!governedRecord || governedRecord.lineage_kind === 'ambiguous' || governedRecord.lineage_kind !== assertion.kind) {
+    fail(`${scope.scope_id} lineage kind is not derived from the governed catalog work chronology`);
+  }
   const checkRole = (role, expectedScope, expectedEdition) => {
     exactKeys(role, ['role', 'scope_id', 'edition_id', 'evidence_ids'], `${scope.scope_id}.lineage role`);
     if (role.scope_id !== expectedScope || role.edition_id !== expectedEdition) fail(`${scope.scope_id} lineage role edition mismatch`);
@@ -942,6 +1197,7 @@ function validateLineage(scope, scopes, universes, evidenceByScope) {
         || universe.facet_id !== scope.facet_id || !universe.included_scope_ids.includes(scope.scope_id)) {
       fail(`${scope.scope_id} first-edition assertion lacks its independently validated bounded universe`);
     }
+    if (governedRecord.predecessor_document_id !== null) fail(`${scope.scope_id} self-reports first edition despite a governed predecessor`);
     const sameLineage = universe.included_scope_ids.map((scopeId) => scopes.get(scopeId))
       .filter((candidate) => candidate.subject.subject_id === scope.subject.subject_id
         && candidate.work.work_id === scope.work.work_id);
@@ -955,6 +1211,7 @@ function validateLineage(scope, scopes, universes, evidenceByScope) {
     if (assertion.assertion_type !== 'exact_edition_revision' || roles.length !== 2) fail(`${scope.scope_id} revision assertion is incomplete`);
     const predecessor = scopes.get(assertion.predecessor_scope_id);
     if (!predecessor || predecessor.edition.edition_id !== assertion.predecessor_edition_id
+        || predecessor.edition.document_id !== governedRecord.predecessor_document_id
         || predecessor.scope_id === scope.scope_id || predecessor.edition.edition_id === scope.edition.edition_id
         || predecessor.facet_id !== scope.facet_id || predecessor.subject.subject_id !== scope.subject.subject_id
         || predecessor.work.work_id !== scope.work.work_id
@@ -971,33 +1228,37 @@ function validateLineage(scope, scopes, universes, evidenceByScope) {
   }
 }
 
-function validateCoverageUniverse(universe, scopes, coverageCatalog) {
+function validateCoverageUniverse(universe, scopes, coverageCatalog, coverageAuthorityByFacet) {
   exactKeys(universe, [
-    'universe_id', 'facet_id', 'purpose', 'subject_ids', 'start_year', 'end_year',
+    'universe_id', 'facet_id', 'purpose', 'as_of_date', 'subject_ids', 'start_year', 'end_year',
     'population', 'document_functions', 'included_scope_ids', 'catalog_decisions', 'review',
   ], universe.universe_id || 'coverage universe');
   if (!facetById.has(universe.facet_id)) fail(`${universe.universe_id} facet is invalid`);
   if (!['current_ordinary', 'historical_negative_claim'].includes(universe.purpose)) fail(`${universe.universe_id} purpose invalid`);
+  const authority = coverageAuthorityByFacet.get(universe.facet_id);
+  if (!authority || authority.undocumented_subject_ids.length > 0) {
+    fail(`${universe.universe_id} cannot claim complete coverage while governed eligible subjects lack catalog records`);
+  }
   if (universe.population !== 'ordinary_general_education') fail(`${universe.universe_id} population is not ordinary education`);
   asInteger(universe.start_year, `${universe.universe_id}.start_year`, 1900);
   asInteger(universe.end_year, `${universe.universe_id}.end_year`, universe.start_year);
+  if (universe.as_of_date !== authority.as_of_date || universe.start_year !== authority.start_year
+      || universe.end_year !== authority.as_of_year) {
+    fail(`${universe.universe_id} narrows or extends the governed catalog as-of boundary`);
+  }
   acceptedReview(universe.review, `${universe.universe_id}.review`);
   const subjectIds = unique(asArray(universe.subject_ids, `${universe.universe_id}.subject_ids`), `${universe.universe_id}.subject_ids`);
   const functions = unique(asArray(universe.document_functions, `${universe.universe_id}.document_functions`), `${universe.universe_id}.document_functions`);
   if (subjectIds.length === 0 || functions.length === 0) fail(`${universe.universe_id} subject/function boundary is empty`);
   for (const subjectId of subjectIds) asString(subjectId, `${universe.universe_id}.subject_id`);
-  for (const documentFunction of functions) {
-    if (!['curriculum_standard', 'teaching_syllabus', 'assessment_specification'].includes(documentFunction)) {
-      fail(`${universe.universe_id} document function ${documentFunction} is outside the ontology evidence boundary`);
-    }
-  }
+  exactSet(subjectIds, authority.eligible_subject_ids, `${universe.universe_id} complete eligible subject universe`);
+  exactSet(functions, authority.allowed_document_functions, `${universe.universe_id} governed document functions`);
   const undated = coverageCatalog.filter((record) => record.coverage_role === 'subject_edition_candidate'
     && record.facet_id === universe.facet_id && subjectIds.includes(record.subject_id) && record.year === null);
   if (undated.length > 0) fail(`${universe.universe_id} cannot freeze chronology while subject catalog records are undated`);
   const relevant = coverageCatalog.filter((record) => record.facet_id === universe.facet_id
     && record.coverage_role === 'subject_edition_candidate'
-    && subjectIds.includes(record.subject_id)
-    && record.year >= universe.start_year && record.year <= universe.end_year);
+    && subjectIds.includes(record.subject_id));
   const decisions = asArray(universe.catalog_decisions, `${universe.universe_id}.catalog_decisions`);
   unique(decisions.map((decision) => decision.document_id), `${universe.universe_id}.catalog_decisions`);
   exactSet(decisions.map((decision) => decision.document_id), relevant.map((record) => record.document_id), `${universe.universe_id} independent catalog coverage`);
@@ -1006,21 +1267,20 @@ function validateCoverageUniverse(universe, scopes, coverageCatalog) {
   for (const decision of decisions) {
     exactKeys(decision, ['document_id', 'disposition', 'reason_code'], `${universe.universe_id}.${decision.document_id}`);
     const record = recordById.get(decision.document_id);
-    if (decision.disposition === 'included') {
-      if (decision.reason_code !== 'included_exact_scope' || record.population !== universe.population
-          || !functions.includes(record.document_function) || record.provenance_count < 1) {
-        fail(`${universe.universe_id}.${decision.document_id} is not independently eligible for inclusion`);
-      }
-      includedDocumentIds.push(decision.document_id);
-    } else if (decision.disposition === 'excluded') {
-      const justified = (decision.reason_code === 'different_population' && record.population !== universe.population)
-        || (decision.reason_code === 'different_document_function' && !functions.includes(record.document_function))
-        || (decision.reason_code === 'insufficient_provenance' && record.provenance_count < 1)
-        || (decision.reason_code === 'exact_duplicate_alias' && record.exact_duplicate_alias === true);
-      if (!justified) fail(`${universe.universe_id}.${decision.document_id} exclusion reason is not derived from the frozen catalog/provenance`);
-    } else {
-      fail(`${universe.universe_id}.${decision.document_id} disposition is invalid`);
+    let expectedDisposition = 'included';
+    let expectedReason = 'included_exact_scope';
+    if (record.year > authority.as_of_year) [expectedDisposition, expectedReason] = ['excluded', 'after_governed_as_of'];
+    else if (record.population !== universe.population) [expectedDisposition, expectedReason] = ['excluded', 'different_population'];
+    else if (!functions.includes(record.document_function)) [expectedDisposition, expectedReason] = ['excluded', 'different_document_function'];
+    else if (record.provenance_count < 1) [expectedDisposition, expectedReason] = ['excluded', 'insufficient_provenance'];
+    else if (record.exact_duplicate_alias === true) [expectedDisposition, expectedReason] = ['excluded', 'exact_duplicate_alias'];
+    else if (universe.purpose === 'current_ordinary' && !CURRENT_CATALOG_STATUSES.has(record.current_status)) {
+      [expectedDisposition, expectedReason] = ['excluded', 'not_current_as_of_catalog'];
     }
+    if (decision.disposition !== expectedDisposition || decision.reason_code !== expectedReason) {
+      fail(`${universe.universe_id}.${decision.document_id} disposition is not derived from the governed catalog as-of state`);
+    }
+    if (expectedDisposition === 'included') includedDocumentIds.push(decision.document_id);
   }
   const includedScopes = unique(asArray(universe.included_scope_ids, `${universe.universe_id}.included_scope_ids`), `${universe.universe_id}.included_scope_ids`)
     .map((scopeId) => scopes.get(scopeId));
@@ -1029,20 +1289,6 @@ function validateCoverageUniverse(universe, scopes, coverageCatalog) {
     fail(`${universe.universe_id} includes a scope from another facet or subject`);
   }
   exactSet(includedScopes.map((scope) => scope.edition.document_id), includedDocumentIds, `${universe.universe_id} included scope/catalog identity`);
-  for (const subjectId of subjectIds) {
-    const intervals = includedScopes.filter((scope) => scope.subject.subject_id === subjectId)
-      .map((scope) => [scope.edition.valid_from_year, scope.edition.valid_to_year])
-      .sort((left, right) => left[0] - right[0]);
-    if (intervals.length === 0 || intervals[0][0] > universe.start_year) {
-      fail(`${universe.universe_id} has no start coverage for subject ${subjectId}`);
-    }
-    let coveredThrough = universe.start_year - 1;
-    for (const [start, end] of intervals) {
-      if (start > coveredThrough + 1) fail(`${universe.universe_id} has a per-subject gap for ${subjectId}`);
-      coveredThrough = Math.max(coveredThrough, end);
-    }
-    if (coveredThrough < universe.end_year) fail(`${universe.universe_id} has no end coverage for subject ${subjectId}`);
-  }
   return universe;
 }
 
@@ -1092,7 +1338,11 @@ function validateScopeTaxonomy(scope, coverageCatalog) {
       || record.version_label !== scope.edition.version_label
       || record.issued_date !== scope.edition.issued_date
       || record.source_artifact_sha256 !== scope.edition.source_artifact_sha256
-      || record.year !== scope.edition.valid_from_year) fail(`${scope.scope_id} exact edition differs from frozen catalog identity`);
+      || record.valid_from_year !== scope.edition.valid_from_year
+      || record.valid_to_year !== scope.edition.valid_to_year) fail(`${scope.scope_id} exact edition validity differs from frozen catalog identity`);
+  if (record.work_id !== scope.work.work_id || record.work_title !== scope.work.title) {
+    fail(`${scope.scope_id} work identity/title is not derived from the governed catalog record`);
+  }
   if (record.population !== scope.scope_dimensions.population
       || record.document_function !== scope.scope_dimensions.document_function
       || record.stage !== scope.scope_dimensions.stage) fail(`${scope.scope_id} scope dimensions differ from frozen catalog classification`);
@@ -1121,12 +1371,11 @@ function validateCoverageClaim(scope, universes) {
   if (scope.coverage.negative_claim_eligible !== eligible) fail(`${scope.scope_id} negative-claim eligibility is self-reported incorrectly`);
 }
 
-export function validateSubjectOntologyState({
+function validateSubjectOntologyState({
   index,
   scopes = [],
   mode = 'ordinary',
   context = null,
-  artifacts,
   allowTestFixture = false,
 } = {}) {
   exactKeys(index, [
@@ -1143,6 +1392,9 @@ export function validateSubjectOntologyState({
   }
   if (mode !== 'promotion') fail('mode must be ordinary or promotion');
   const normalizedContext = normalizeContext(context, allowTestFixture);
+  if (jsonDigest(index) !== normalizedContext.ontology_artifacts.index.object_sha256) {
+    fail('promotion index object differs from the immutable prepared Git artifact');
+  }
   if (index.status !== 'promotion_candidate') fail('promotion index status must be promotion_candidate');
   if (index.bindings.taxonomy.sha256 !== normalizedContext.source_bindings.taxonomy_sha256
       || index.bindings.catalog.sha256 !== normalizedContext.source_bindings.catalog_sha256
@@ -1162,15 +1414,23 @@ export function validateSubjectOntologyState({
     if (scopeMap.has(scope.scope_id)) fail(`duplicate scope ${scope.scope_id}`);
     scopeMap.set(scope.scope_id, scope);
   }
+  unique(scopes.map((scope) => scope.edition.document_id), 'promotion exact-edition document scopes');
+  unique(scopes.map((scope) => scope.edition.edition_id), 'promotion exact-edition ids');
   const expectedPaths = facets.flatMap((facet) => facet.scope_files);
   unique(expectedPaths, 'global registry scope files');
   if (expectedPaths.length !== scopes.length) fail('loaded scope count differs from index registry');
   unique(scopes.map((scope) => scope.__registry_path), 'loaded registry scope paths');
   const scopeByPath = new Map(scopes.map((scope) => [scope.__registry_path, scope]));
   exactSet([...scopeByPath.keys()], expectedPaths, 'registry scope files');
+  const scopeArtifactByPath = new Map(normalizedContext.ontology_artifacts.scope_files.map((identity) => [identity.path, identity]));
+  exactSet([...scopeArtifactByPath.keys()], expectedPaths.map((entry) => `data/ontologies/${entry.replace(/^\.\//u, '')}`), 'immutable scope artifact registry');
   for (const facet of facets) {
     for (const scopePath of facet.scope_files) {
       const scope = scopeByPath.get(scopePath);
+      const artifactPath = `data/ontologies/${scopePath.replace(/^\.\//u, '')}`;
+      if (jsonDigest(scope) !== scopeArtifactByPath.get(artifactPath).object_sha256) {
+        fail(`${artifactPath} object differs from the immutable prepared Git artifact`);
+      }
       validateScopeShape(scope, facet);
       validateScopeTaxonomy(scope, normalizedContext.coverage_catalog);
     }
@@ -1178,7 +1438,12 @@ export function validateSubjectOntologyState({
   const universes = new Map();
   for (const universe of asArray(index.coverage_universes, 'index.coverage_universes')) {
     if (universes.has(universe.universe_id)) fail(`duplicate coverage universe ${universe.universe_id}`);
-    universes.set(universe.universe_id, validateCoverageUniverse(universe, scopeMap, normalizedContext.coverage_catalog));
+    universes.set(universe.universe_id, validateCoverageUniverse(
+      universe,
+      scopeMap,
+      normalizedContext.coverage_catalog,
+      normalizedContext.coverageAuthorityByFacet,
+    ));
   }
   const resolvedEvidenceById = new Map();
   const evidenceByScope = new Map();
@@ -1205,9 +1470,9 @@ export function validateSubjectOntologyState({
     }
     validateCoverageClaim(scope, universes);
   }
-  for (const scope of scopes) validateLineage(scope, scopeMap, universes, evidenceByScope);
+  for (const scope of scopes) validateLineage(scope, scopeMap, universes, evidenceByScope, normalizedContext.coverage_catalog);
   for (const scope of scopes) {
-    for (const relation of scope.relations) validateRelation(scope, relation, scopeMap, evidenceByScope, resolvedEvidenceById);
+    for (const relation of scope.relations) validateRelation(scope, relation, scopeMap, evidenceByScope, resolvedEvidenceById, normalizedContext);
     openGate(scope.release_gate, `${scope.scope_id}.release_gate`, { negative: scope.coverage.negative_claim_eligible });
   }
   for (const facet of facets) {
@@ -1216,8 +1481,15 @@ export function validateSubjectOntologyState({
     const relations = owned.reduce((total, scope) => total + scope.relations.length, 0);
     if (facet.coverage.scope_count !== owned.length || facet.coverage.concept_count !== concepts
         || facet.coverage.semantic_relation_count !== relations) fail(`${facet.facet_id} declared counts are stale`);
-    const currentComplete = owned.length > 0 && owned.every((scope) => scope.coverage.current_ordinary_status === 'human_reviewed_complete');
-    const historicalComplete = owned.length > 0 && owned.every((scope) => scope.coverage.historical_status === 'human_reviewed_complete');
+    const currentUniverses = [...universes.values()].filter((universe) =>
+      universe.facet_id === facet.facet_id && universe.purpose === 'current_ordinary');
+    const historicalUniverses = [...universes.values()].filter((universe) =>
+      universe.facet_id === facet.facet_id && universe.purpose === 'historical_negative_claim');
+    if (currentUniverses.length > 1 || historicalUniverses.length > 1) {
+      fail(`${facet.facet_id} has duplicate authoritative coverage universes`);
+    }
+    const currentComplete = owned.length > 0 && currentUniverses.length === 1;
+    const historicalComplete = owned.length > 0 && historicalUniverses.length === 1;
     if (facet.coverage.current_ordinary_scope_complete !== currentComplete
         || facet.coverage.historical_coverage_complete !== historicalComplete
         || facet.coverage.unknown_or_unresolved !== !historicalComplete
@@ -1250,6 +1522,7 @@ function loadRegisteredScopes(rootDir, facets) {
       const artifact = safeRead(rootDir, fullPath, `${facet.facet_id} scope`);
       const scope = JSON.parse(artifact.buffer.toString('utf8'));
       Object.defineProperty(scope, '__registry_path', { value: registryPath, enumerable: false });
+      Object.defineProperty(scope, '__artifact', { value: { ...artifact, json: scope }, enumerable: false });
       scopes.push(scope);
     }
   }
@@ -1268,11 +1541,16 @@ export function computeSubjectOntologyV2Report({ rootDir = process.cwd(), pageEv
   }
   const facets = validateFacetIdentity(index);
   const scopes = loadRegisteredScopes(rootDir, facets);
-  const summary = validateSubjectOntologyState({ index, scopes, mode: 'ordinary', artifacts });
+  const summary = validateSubjectOntologyState({ index, scopes, mode: 'ordinary' });
   const coverageCatalog = buildIndependentCoverageCatalog({
     catalog: artifacts.catalog.json,
     taxonomy: artifacts.taxonomy.json,
     provenance: artifacts.provenance.json,
+  });
+  const coverageAuthority = deriveFacetCoverageAuthority({
+    catalog: artifacts.catalog.json,
+    taxonomy: artifacts.taxonomy.json,
+    coverageCatalog,
   });
   return {
     schema_version: 1,
@@ -1283,6 +1561,7 @@ export function computeSubjectOntologyV2Report({ rootDir = process.cwd(), pageEv
     publishable: false,
     index: { path: indexArtifact.path, sha256: indexArtifact.sha256, bytes: indexArtifact.bytes },
     schema: { path: schemaArtifact.path, sha256: schemaArtifact.sha256, bytes: schemaArtifact.bytes },
+    scope_artifacts: [],
     dependencies: {
       taxonomy_sha256: artifacts.taxonomy.sha256,
       catalog_sha256: artifacts.catalog.sha256,
@@ -1297,6 +1576,8 @@ export function computeSubjectOntologyV2Report({ rootDir = process.cwd(), pageEv
       online_verification_standard_sha256: artifacts.online_verification_standard.sha256,
       independent_coverage_catalog_sha256: jsonDigest(coverageCatalog),
       independent_coverage_catalog_records: coverageCatalog.length,
+      coverage_authority_sha256: jsonDigest(coverageAuthority),
+      coverage_as_of_date: coverageAuthority.as_of_date,
     },
     counts: summary,
     release_boundary: {
@@ -1305,8 +1586,110 @@ export function computeSubjectOntologyV2Report({ rootDir = process.cwd(), pageEv
       r2_consumer_allowed: false,
       explicit_promotion_required: true,
       same_commit_scope_evidence_self_attestation_allowed: false,
+      release_builder_desired_manifest_only: true,
     },
   };
+}
+
+export function validateSubjectOntologyFixtureForTest({ index, scopes, context } = {}) {
+  return validateSubjectOntologyState({ index, scopes, mode: 'promotion', context, allowTestFixture: true });
+}
+
+export function validateSubjectOntologyV2PromotionForRelease({
+  rootDir,
+  git,
+  sourceTree,
+  corpusRelease,
+  pageEvidence,
+} = {}) {
+  if (!rootDir || !git || !sourceTree || !corpusRelease || !pageEvidence) {
+    fail('ontology promotion is reachable only from the canonical release builder materialization');
+  }
+  const sourceTreeFiles = verifyReleaseBuilderSourceTree(rootDir, git, sourceTree);
+  const indexArtifact = safeRead(rootDir, 'data/ontologies/index.json', 'subject ontology promotion index');
+  const schemaArtifact = safeRead(rootDir, 'data/schemas/subject-ontology-v2.schema.json', 'subject ontology schema');
+  const reportArtifact = safeRead(rootDir, 'data/subject-ontology-v2-validation.json', 'subject ontology promotion report');
+  const index = JSON.parse(indexArtifact.buffer.toString('utf8'));
+  const schema = JSON.parse(schemaArtifact.buffer.toString('utf8'));
+  const artifacts = validateBindings(rootDir, index);
+  const facets = validateFacetIdentity(index);
+  const scopes = loadRegisteredScopes(rootDir, facets);
+  const indexIdentity = requireSourceTreeArtifact(sourceTreeFiles, { ...indexArtifact, json: index }, 'ontology promotion index');
+  requireSourceTreeArtifact(sourceTreeFiles, { ...schemaArtifact, json: schema }, 'ontology promotion schema');
+  requireSourceTreeArtifact(sourceTreeFiles, { ...reportArtifact, json: JSON.parse(reportArtifact.buffer.toString('utf8')) }, 'ontology promotion report');
+  const scopeArtifacts = scopes.map((scope) => requireSourceTreeArtifact(
+    sourceTreeFiles,
+    scope.__artifact,
+    `ontology promotion scope ${scope.__registry_path}`,
+  )).sort((left, right) => left.path.localeCompare(right.path, 'en'));
+  const context = buildReleaseBuilderPromotionContext({
+    rootDir,
+    git,
+    sourceTree,
+    corpusRelease,
+    pageEvidence,
+    artifacts,
+    sourceTreeFiles,
+    ontologyArtifacts: { index: indexIdentity, scope_files: scopeArtifacts },
+  });
+  const counts = validateSubjectOntologyState({ index, scopes, mode: 'promotion', context });
+  const report = {
+    schema_version: 1,
+    artifact_kind: 'subject_ontology_v2_validation_report',
+    contract_id: 'subject-ontology-v2',
+    mode: 'explicit_promotion',
+    valid: true,
+    publishable: true,
+    index: { path: indexArtifact.path, sha256: indexArtifact.sha256, bytes: indexArtifact.bytes },
+    schema: { path: schemaArtifact.path, sha256: schemaArtifact.sha256, bytes: schemaArtifact.bytes },
+    scope_artifacts: scopeArtifacts,
+    dependencies: {
+      taxonomy_sha256: artifacts.taxonomy.sha256,
+      catalog_sha256: artifacts.catalog.sha256,
+      provenance_sha256: artifacts.provenance.sha256,
+      corpus_manifest_sha256: artifacts.corpus_manifest.sha256,
+      corpus_release_id: corpusRelease.release_id,
+      corpus_release_fingerprint_sha256: corpusRelease.release_fingerprint_sha256,
+      page_evidence_manifest_sha256: pageEvidence.manifest.sha256,
+      page_evidence_status: pageEvidence.status,
+      signed_reviewer_registry_sha256: artifacts.reviewer_registry.sha256,
+      external_online_source_registry_sha256: artifacts.online_source_registry.sha256,
+      online_verification_standard_sha256: artifacts.online_verification_standard.sha256,
+      independent_coverage_catalog_sha256: jsonDigest(context.coverage_catalog),
+      independent_coverage_catalog_records: context.coverage_catalog.length,
+      coverage_authority_sha256: jsonDigest(context.coverage_authority),
+      coverage_as_of_date: context.coverage_authority.as_of_date,
+    },
+    counts,
+    release_boundary: {
+      candidate_fail_closed: false,
+      frontend_consumer_allowed: false,
+      r2_consumer_allowed: false,
+      explicit_promotion_required: true,
+      same_commit_scope_evidence_self_attestation_allowed: false,
+      release_builder_desired_manifest_only: true,
+    },
+  };
+  const expectedReport = Buffer.from(`${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  if (!reportArtifact.buffer.equals(expectedReport)) fail('subject ontology promotion report is not the exact committed release-builder result');
+  return {
+    ...report,
+    report: { path: reportArtifact.path, sha256: reportArtifact.sha256, bytes: reportArtifact.bytes },
+    prepared_release: context.prepared_release,
+  };
+}
+
+export function validateSubjectOntologyV2ForRelease({
+  rootDir = process.cwd(),
+  promotion = false,
+  git = null,
+  sourceTree = null,
+  corpusRelease = null,
+  pageEvidence = null,
+  pageEvidenceValidator = validatePageEvidenceForRelease,
+} = {}) {
+  if (!promotion) return validateSubjectOntologyV2({ rootDir, pageEvidenceValidator });
+  return validateSubjectOntologyV2PromotionForRelease({ rootDir, git, sourceTree, corpusRelease, pageEvidence });
 }
 
 export function validateSubjectOntologyV2({

@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import {
+  createHash,
+  generateKeyPairSync,
+  sign as signMessage,
+} from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -8,23 +12,29 @@ import {
   CANONICAL_FACETS,
   buildIndependentCoverageCatalog,
   computeRelationDiffSha256,
+  deriveFacetCoverageAuthority,
+  prepareRelationAdjudicationSigningPayload,
   resolveSubjectOntologyEvidenceForTest,
-  validateSubjectOntologyState,
+  subjectOntologyObjectSha256ForTest,
+  validateSubjectOntologyFixtureForTest,
   validateSubjectOntologyV2,
+  validateSubjectOntologyV2PromotionForRelease,
 } from '../scripts/validate-subject-ontology-v2.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const H = (value) => createHash('sha256').update(value).digest('hex');
 const POLICY_SHA = H('ontology-review-policy-v2');
+const REVIEWER_REGISTRY_SHA = H('reviewers');
 const CORPUS_MANIFEST_SHA = H('corpus-manifest');
 const CORPUS_FINGERPRINT = H('corpus-fingerprint');
 const PAGE_MANIFEST_SHA = H('page-manifest');
+const AS_OF_DATE = '2002-12-31';
 
-function review(reviewer = 'reviewer-a') {
+function review(reviewer = 'reviewer-a', policy = POLICY_SHA) {
   return {
     reviewer_id: reviewer,
     reviewed_at: '2026-07-22T05:00:00Z',
-    policy_revision_sha256: POLICY_SHA,
+    policy_revision_sha256: policy,
     decision: 'accepted',
   };
 }
@@ -175,54 +185,58 @@ function hierarchyAndConcepts(prefix, evidenceId) {
   };
 }
 
-function scope({ id, documentId, editionId, version, year, endYear, evidence, predecessor = null }) {
-  const hierarchy = hierarchyAndConcepts(documentId, evidence.evidence_id);
+function makeScope({ id, record, evidence, predecessor = null, current = false }) {
+  const hierarchy = hierarchyAndConcepts(record.document_id, evidence.evidence_id);
   const value = {
     schema_version: 2,
     artifact_kind: 'subject_ontology_scope',
     contract_id: 'subject-ontology-v2',
     scope_id: id,
-    facet_id: 'facet:chinese-language',
-    subject: { source_label: '语文', canonical_label: '语文', subject_id: 'subject:chinese' },
-    work: { work_id: 'work:chinese-standard', title: '语文课程标准' },
+    facet_id: record.facet_id,
+    subject: {
+      source_label: record.source_label,
+      canonical_label: record.subject_label,
+      subject_id: record.subject_id,
+    },
+    work: { work_id: record.work_id, title: record.work_title },
     edition: {
-      edition_id: editionId,
-      document_id: documentId,
-      version_label: version,
-      issued_date: `${year}-01-01`,
-      source_artifact_sha256: H(`pdf:${documentId}`),
-      valid_from_year: Number(year),
-      valid_to_year: endYear,
+      edition_id: record.edition_id,
+      document_id: record.document_id,
+      version_label: record.version_label,
+      issued_date: record.issued_date,
+      source_artifact_sha256: record.source_artifact_sha256,
+      valid_from_year: record.valid_from_year,
+      valid_to_year: record.valid_to_year,
     },
     scope_dimensions: {
-      population: 'ordinary_general_education',
-      document_function: 'curriculum_standard',
-      stage: '义务教育',
+      population: record.population,
+      document_function: record.document_function,
+      stage: record.stage,
     },
     status: 'reviewed_release',
     lineage_assertion: predecessor ? {
       kind: 'revision',
       assertion_type: 'exact_edition_revision',
-      assertion_text: `${editionId} revises ${predecessor.editionId}`,
-      assertion_sha256: H(`${editionId} revises ${predecessor.editionId}`),
+      assertion_text: `${record.edition_id} revises ${predecessor.editionId}`,
+      assertion_sha256: H(`${record.edition_id} revises ${predecessor.editionId}`),
       predecessor_scope_id: predecessor.scopeId,
       predecessor_edition_id: predecessor.editionId,
       coverage_universe_id: null,
       evidence_roles: [
         { role: 'predecessor_version', scope_id: predecessor.scopeId, edition_id: predecessor.editionId, evidence_ids: [predecessor.evidenceId] },
-        { role: 'current_version', scope_id: id, edition_id: editionId, evidence_ids: [evidence.evidence_id] },
+        { role: 'current_version', scope_id: id, edition_id: record.edition_id, evidence_ids: [evidence.evidence_id] },
       ],
       review: review(),
     } : {
       kind: 'first_edition',
       assertion_type: 'first_edition_in_bounded_catalog_universe',
-      assertion_text: `${editionId} is first only inside universe:historical`,
-      assertion_sha256: H(`${editionId} is first only inside universe:historical`),
+      assertion_text: `${record.edition_id} is first only inside universe:historical`,
+      assertion_sha256: H(`${record.edition_id} is first only inside universe:historical`),
       predecessor_scope_id: null,
       predecessor_edition_id: null,
       coverage_universe_id: 'universe:historical',
       evidence_roles: [
-        { role: 'first_edition_identity', scope_id: id, edition_id: editionId, evidence_ids: [evidence.evidence_id] },
+        { role: 'first_edition_identity', scope_id: id, edition_id: record.edition_id, evidence_ids: [evidence.evidence_id] },
       ],
       review: review(),
     },
@@ -230,8 +244,8 @@ function scope({ id, documentId, editionId, version, year, endYear, evidence, pr
     evidence: [evidence],
     relations: [],
     coverage: {
-      current_ordinary_status: 'human_reviewed_complete',
-      current_ordinary_universe_id: 'universe:current',
+      current_ordinary_status: current ? 'human_reviewed_complete' : 'incomplete_unknown',
+      current_ordinary_universe_id: current ? 'universe:current' : null,
       historical_status: 'human_reviewed_complete',
       historical_universe_id: 'universe:historical',
       negative_claim_eligible: true,
@@ -240,38 +254,110 @@ function scope({ id, documentId, editionId, version, year, endYear, evidence, pr
     release_gate: gate(true),
     review: review(),
   };
-  Object.defineProperty(value, '__registry_path', { value: `./chinese-language/${documentId}.json`, enumerable: false });
+  Object.defineProperty(value, '__registry_path', {
+    value: `./chinese-language/${record.document_id}.json`,
+    enumerable: false,
+  });
+  return value;
+}
+
+function governedInputs() {
+  const catalog = {
+    generated_at: `${AS_OF_DATE}T00:00:00Z`,
+    documents: [
+      {
+        id: 'doc-old', subject: '语文', title: '语文课程标准（2000年版）', document_type: '课程标准',
+        stage: '义务教育', version_label: '2000年版', issued_date: '2000-01-01',
+        checksum_sha256: H('pdf:doc-old'), current_status: 'superseded',
+      },
+      {
+        id: 'doc-new', subject: '语文', title: '语文课程标准（2001年版）', document_type: '课程标准',
+        stage: '义务教育', version_label: '2001年版', issued_date: '2001-01-01',
+        checksum_sha256: H('pdf:doc-new'), current_status: 'current_with_revision_watch',
+      },
+    ],
+  };
+  const subjectFacetGroups = Object.fromEntries(CANONICAL_FACETS.map((facet) => [facet.label, []]));
+  subjectFacetGroups['语文'] = ['语文'];
+  const taxonomy = {
+    subject_taxonomy: {
+      语文: {
+        canonical: '语文', stable_subject_id: 'subject:chinese', entity_kind: 'subject',
+        classification: 'ordinary_subject', facet_eligible: true,
+      },
+    },
+    subject_facet_groups: subjectFacetGroups,
+    document_entity_overrides: {},
+  };
+  const sources = catalog.documents.flatMap((document) => [1, 2].map((number) => ({
+    document_id: document.id,
+    provider: `provider-${number}`,
+    source_page_url: `https://source${number}.example.test/${document.id}`,
+    source_url: `https://source${number}.example.test/${document.id}.pdf`,
+    checksum_sha256: document.checksum_sha256,
+    access_status: 'available',
+    is_primary: number === 1,
+  })));
+  return { catalog, taxonomy, provenance: { sources } };
+}
+
+function sealOntologyArtifacts(value) {
+  value.context.ontology_artifacts.index.object_sha256 = subjectOntologyObjectSha256ForTest(value.index);
+  for (const scope of value.scopes) {
+    const path = `data/ontologies/${scope.__registry_path.replace(/^\.\//u, '')}`;
+    const identity = value.context.ontology_artifacts.scope_files.find((row) => row.path === path);
+    identity.object_sha256 = subjectOntologyObjectSha256ForTest(scope);
+  }
   return value;
 }
 
 function fixture() {
-  const oldEdition = {
-    title: '语文课程标准（2000年版）',
-    edition_id: 'edition:old', document_id: 'doc-old', version_label: '2000年版', issued_date: '2000-01-01',
-  };
-  const newEdition = {
-    title: '语文课程标准（2001年版）',
-    edition_id: 'edition:new', document_id: 'doc-new', version_label: '2001年版', issued_date: '2001-01-01',
-  };
+  const governed = governedInputs();
+  const coverageCatalog = buildIndependentCoverageCatalog(governed);
+  const coverageAuthority = deriveFacetCoverageAuthority({
+    catalog: governed.catalog,
+    taxonomy: governed.taxonomy,
+    coverageCatalog,
+  });
+  const oldRecord = coverageCatalog.find((record) => record.document_id === 'doc-old');
+  const newRecord = coverageCatalog.find((record) => record.document_id === 'doc-new');
+  const oldEdition = { ...governed.catalog.documents[0], ...oldRecord, title: governed.catalog.documents[0].title };
+  const newEdition = { ...governed.catalog.documents[1], ...newRecord, title: governed.catalog.documents[1].title };
   const oldExact = exactEvidence('scope:old', oldEdition, '课程目标：语言文字运用。', 1, 10);
   const newExact = exactEvidence('scope:new', newEdition, '课程目标：语言文字运用能力。', 1, 11);
-  const oldScope = scope({ id: 'scope:old', documentId: 'doc-old', editionId: oldEdition.edition_id, version: oldEdition.version_label, year: '2000', endYear: 2000, evidence: oldExact.evidence });
-  const newScope = scope({
-    id: 'scope:new', documentId: 'doc-new', editionId: newEdition.edition_id, version: newEdition.version_label,
-    year: '2001', endYear: 2002, evidence: newExact.evidence,
-    predecessor: { scopeId: oldScope.scope_id, editionId: oldScope.edition.edition_id, evidenceId: oldExact.evidence.evidence_id },
+  const oldScope = makeScope({ id: 'scope:old', record: oldRecord, evidence: oldExact.evidence });
+  const newScope = makeScope({
+    id: 'scope:new', record: newRecord, evidence: newExact.evidence, current: true,
+    predecessor: {
+      scopeId: oldScope.scope_id,
+      editionId: oldScope.edition.edition_id,
+      evidenceId: oldExact.evidence.evidence_id,
+    },
   });
+  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
   const context = {
-    context_kind: 'test_fixture_v1',
+    context_kind: 'test_fixture_v2',
     prepared_release: oldExact.evidence.prepared_release,
     source_bindings: {
       taxonomy_sha256: H('taxonomy'),
       catalog_sha256: H('catalog'),
       provenance_sha256: H('provenance'),
       corpus_manifest_file_sha256: H('corpus-file'),
-      reviewer_registry_sha256: H('reviewers'),
+      reviewer_registry_sha256: REVIEWER_REGISTRY_SHA,
       online_source_registry_sha256: H('sources'),
       online_verification_standard_sha256: H('online-standard'),
+    },
+    ontology_artifacts: {
+      index: {
+        path: 'data/ontologies/index.json', sha256: H('index-bytes'), bytes: 1,
+        object_sha256: H('unsealed-index'),
+      },
+      scope_files: [oldScope, newScope].map((scope) => ({
+        path: `data/ontologies/${scope.__registry_path.replace(/^\.\//u, '')}`,
+        sha256: H(`scope-bytes:${scope.scope_id}`),
+        bytes: 1,
+        object_sha256: H(`unsealed:${scope.scope_id}`),
+      })),
     },
     page_evidence: {
       manifest_sha256: PAGE_MANIFEST_SHA,
@@ -279,26 +365,17 @@ function fixture() {
       pages: [oldExact.page, newExact.page],
     },
     paragraphs: [oldExact.paragraph, newExact.paragraph],
-    coverage_catalog: [
-      {
-        document_id: 'doc-old', edition_id: 'edition:old', version_label: '2000年版',
-        issued_date: '2000-01-01',
-        source_artifact_sha256: H('pdf:doc-old'), facet_id: 'facet:chinese-language',
-        coverage_role: 'subject_edition_candidate', entity_kind: 'subject', classification: 'ordinary_subject', facet_eligible: true,
-        source_label: '语文', subject_id: 'subject:chinese', subject_label: '语文', stage: '义务教育', year: 2000,
-        population: 'ordinary_general_education', document_function: 'curriculum_standard',
-        provenance_count: 2, provenance_sha256: H('old-provenance'), exact_duplicate_alias: false,
-      },
-      {
-        document_id: 'doc-new', edition_id: 'edition:new', version_label: '2001年版',
-        issued_date: '2001-01-01',
-        source_artifact_sha256: H('pdf:doc-new'), facet_id: 'facet:chinese-language',
-        coverage_role: 'subject_edition_candidate', entity_kind: 'subject', classification: 'ordinary_subject', facet_eligible: true,
-        source_label: '语文', subject_id: 'subject:chinese', subject_label: '语文', stage: '义务教育', year: 2001,
-        population: 'ordinary_general_education', document_function: 'curriculum_standard',
-        provenance_count: 2, provenance_sha256: H('new-provenance'), exact_duplicate_alias: false,
-      },
-    ],
+    coverage_catalog: coverageCatalog,
+    coverage_authority: coverageAuthority,
+    reviewer_registry: [{
+      reviewer_id: 'relation-reviewer',
+      display_name: 'Relation Reviewer',
+      status: 'active',
+      valid_from: '2026-01-01T00:00:00Z',
+      valid_until: null,
+      scopes: ['semantic_resolution'],
+      public_key_pem: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+    }],
   };
   const resolved = new Map([
     [oldExact.evidence.evidence_id, resolveSubjectOntologyEvidenceForTest(oldScope, oldExact.evidence, context)],
@@ -309,33 +386,59 @@ function fixture() {
     relation_type: 'rename',
     assertion_text: 'The reviewed exact-edition term changes across the two editions.',
     source_endpoints: [{
-      scope_id: oldScope.scope_id, edition_id: oldScope.edition.edition_id,
-      sense_id: oldScope.concepts[0].sense_id, evidence_ids: [oldExact.evidence.evidence_id],
+      scope_id: oldScope.scope_id,
+      edition_id: oldScope.edition.edition_id,
+      sense_id: oldScope.concepts[0].sense_id,
+      evidence_ids: [oldExact.evidence.evidence_id],
     }],
     target_endpoints: [{
-      scope_id: newScope.scope_id, edition_id: newScope.edition.edition_id,
-      sense_id: newScope.concepts[0].sense_id, evidence_ids: [newExact.evidence.evidence_id],
+      scope_id: newScope.scope_id,
+      edition_id: newScope.edition.edition_id,
+      sense_id: newScope.concepts[0].sense_id,
+      evidence_ids: [newExact.evidence.evidence_id],
     }],
     relation_diff_sha256: '',
-    review: review('relation-reviewer'),
+    adjudication: {
+      policy: 'signed_subject_ontology_relation_adjudication_v1',
+      reviewer_id: 'relation-reviewer',
+      decided_at: '2026-07-22T05:00:00Z',
+      semantic_basis_code: 'equivalent_meaning_lexical_change',
+      signature_algorithm: 'Ed25519',
+      signed_payload_sha256: '',
+      signature_base64: '',
+    },
+    review: review('relation-reviewer', REVIEWER_REGISTRY_SHA),
   };
+  const preparedAdjudication = prepareRelationAdjudicationSigningPayload(relation, resolved);
+  relation.adjudication.signed_payload_sha256 = preparedAdjudication.payload_sha256;
+  relation.adjudication.signature_base64 = signMessage(
+    null,
+    Buffer.from(preparedAdjudication.payload_text, 'utf8'),
+    privateKey,
+  ).toString('base64');
   relation.relation_diff_sha256 = computeRelationDiffSha256(relation, resolved);
   newScope.relations.push(relation);
-  const decisions = [
+
+  const currentDecisions = [
+    { document_id: 'doc-old', disposition: 'excluded', reason_code: 'not_current_as_of_catalog' },
+    { document_id: 'doc-new', disposition: 'included', reason_code: 'included_exact_scope' },
+  ];
+  const historicalDecisions = [
     { document_id: 'doc-old', disposition: 'included', reason_code: 'included_exact_scope' },
     { document_id: 'doc-new', disposition: 'included', reason_code: 'included_exact_scope' },
   ];
-  const universe = (id, purpose) => ({
+  const universe = (id, purpose, decisions, includedScopeIds) => ({
     universe_id: id,
     facet_id: 'facet:chinese-language',
     purpose,
+    as_of_date: AS_OF_DATE,
     subject_ids: ['subject:chinese'],
     start_year: 2000,
     end_year: 2002,
     population: 'ordinary_general_education',
-    document_functions: ['curriculum_standard'],
-    included_scope_ids: [oldScope.scope_id, newScope.scope_id],
-    catalog_decisions: structuredClone(decisions),
+    document_functions: ['curriculum_standard', 'teaching_syllabus', 'assessment_specification'],
+    included_scope_ids: includedScopeIds,
+    catalog_decisions: decisions,
     review: review('coverage-reviewer'),
   });
   const facets = CANONICAL_FACETS.map(zeroFacet);
@@ -350,7 +453,7 @@ function fixture() {
       current_ordinary_scope_complete: true,
       historical_coverage_complete: true,
       unknown_or_unresolved: false,
-      reason_codes: ['independently_reviewed'],
+      reason_codes: ['governed_catalog_universe_reviewed'],
     },
   };
   const index = {
@@ -363,37 +466,37 @@ function fixture() {
       catalog: { path: 'data/catalog.json', sha256: H('catalog') },
       provenance: { path: 'data/document-sources.json', sha256: H('provenance') },
       corpus_manifest: {
-        path: 'data/corpus-chunks/manifest.json', sha256: H('corpus-file'),
+        path: 'data/corpus-chunks/manifest.json',
+        sha256: H('corpus-file'),
         release_id: context.prepared_release.corpus_release_id,
         release_fingerprint_sha256: context.prepared_release.corpus_release_fingerprint_sha256,
         manifest_sha256: context.prepared_release.corpus_manifest_sha256,
       },
       page_evidence_manifest: { path: 'scripts/page-evidence/fail-closed-manifest.json', sha256: PAGE_MANIFEST_SHA },
-      reviewer_registry: { path: 'scripts/page-evidence/reviewer-authorities.json', sha256: H('reviewers') },
+      reviewer_registry: { path: 'scripts/page-evidence/reviewer-authorities.json', sha256: REVIEWER_REGISTRY_SHA },
       online_source_registry: { path: 'scripts/page-evidence/online-source-identities.json', sha256: H('sources') },
       online_verification_standard: { path: 'data/online-verification-standard.json', sha256: H('online-standard') },
       validation_report_path: 'data/subject-ontology-v2-validation.json',
     },
     canonical_facets: facets,
-    coverage_universes: [universe('universe:current', 'current_ordinary'), universe('universe:historical', 'historical_negative_claim')],
+    coverage_universes: [
+      universe('universe:current', 'current_ordinary', currentDecisions, [newScope.scope_id]),
+      universe('universe:historical', 'historical_negative_claim', historicalDecisions, [oldScope.scope_id, newScope.scope_id]),
+    ],
     release_gate: gate(true),
   };
-  const artifacts = {
-    taxonomy: { json: {
-      subject_taxonomy: { 语文: { canonical: '语文', stable_subject_id: 'subject:chinese', entity_kind: 'subject', facet_eligible: true } },
-      subject_facet_groups: { 语文: ['语文'] },
-      document_entity_overrides: {},
-    } },
-    catalog: { json: { documents: [
-      { id: 'doc-old', subject: '语文', title: oldEdition.title, document_type: '课程标准', stage: '义务教育', version_label: '2000年版', issued_date: '2000-01-01', checksum_sha256: H('pdf:doc-old') },
-      { id: 'doc-new', subject: '语文', title: newEdition.title, document_type: '课程标准', stage: '义务教育', version_label: '2001年版', issued_date: '2001-01-01', checksum_sha256: H('pdf:doc-new') },
-    ] } },
-  };
-  return { index, scopes: [oldScope, newScope], context, artifacts };
+  return sealOntologyArtifacts({
+    index,
+    scopes: [oldScope, newScope],
+    context,
+    resolved,
+    governed,
+  });
 }
 
-function validatePromotion(value) {
-  return validateSubjectOntologyState({ ...value, mode: 'promotion', allowTestFixture: true });
+function validatePromotion(value, { reseal = true } = {}) {
+  if (reseal) sealOntologyArtifacts(value);
+  return validateSubjectOntologyFixtureForTest(value);
 }
 
 test('checked-in v2 index is exact, zero-data, and ordinary fail-closed', () => {
@@ -404,14 +507,49 @@ test('checked-in v2 index is exact, zero-data, and ordinary fail-closed', () => 
   assert.equal(result.counts.scopes, 0);
   assert.equal(result.release_boundary.frontend_consumer_allowed, false);
   assert.equal(result.release_boundary.r2_consumer_allowed, false);
+  assert.equal(result.release_boundary.release_builder_desired_manifest_only, true);
 });
 
-test('reviewed two-edition promotion fixture passes all independent evidence gates', () => {
+test('reviewed two-edition promotion fixture passes governed evidence, coverage, lineage, and relation gates', () => {
   const result = validatePromotion(fixture());
   assert.deepEqual(result, {
-    valid: true, publishable: true, facets: 12, scopes: 2,
-    coverage_universes: 2, concepts: 10, relations: 1,
+    valid: true,
+    publishable: true,
+    facets: 12,
+    scopes: 2,
+    coverage_universes: 2,
+    concepts: 10,
+    relations: 1,
   });
+});
+
+test('promotion cannot receive in-memory objects outside the canonical release builder', () => {
+  const value = fixture();
+  assert.throws(
+    () => validateSubjectOntologyV2PromotionForRelease({
+      rootDir: root,
+      index: value.index,
+      scopes: value.scopes,
+      context: value.context,
+    }),
+    /reachable only from the canonical release builder materialization/,
+  );
+});
+
+test('immutable prepared ontology artifact identities reject post-materialization index or scope mutation', () => {
+  const scopeMutation = fixture();
+  scopeMutation.scopes[0].concepts[0].label = 'forged after materialization';
+  assert.throws(
+    () => validatePromotion(scopeMutation, { reseal: false }),
+    /object differs from the immutable prepared Git artifact/,
+  );
+
+  const indexMutation = fixture();
+  indexMutation.index.canonical_facets[0].coverage.reason_codes = ['forged'];
+  assert.throws(
+    () => validatePromotion(indexMutation, { reseal: false }),
+    /promotion index object differs from the immutable prepared Git artifact/,
+  );
 });
 
 test('adversary cannot add a same-commit online snapshot self-attestation', () => {
@@ -427,7 +565,10 @@ test('adversary cannot reuse an origin, publisher, or independence group as two 
     const value = fixture();
     const claims = value.context.page_evidence.pages[0].online_claims;
     claims[1][field] = claims[0][field];
-    assert.throws(() => validatePromotion(value), new RegExp(`reuse the same ${field === 'canonical_origin' ? 'origin' : field === 'canonical_publisher' ? 'publisher' : 'independence group'}`));
+    assert.throws(
+      () => validatePromotion(value),
+      new RegExp(`reuse the same ${field === 'canonical_origin' ? 'origin' : field === 'canonical_publisher' ? 'publisher' : 'independence group'}`),
+    );
   }
 });
 
@@ -437,22 +578,169 @@ test('adversary cannot omit any of the five exact version anchors', () => {
   assert.throws(() => validatePromotion(value), /five exact version anchors differs/);
 });
 
-test('coverage cannot use another subject to fill a per-subject historical gap', () => {
+test('coverage universe rejects an omitted eligible subject', () => {
   const value = fixture();
-  for (const universe of value.index.coverage_universes) universe.subject_ids.push('subject:other');
-  value.context.coverage_catalog[1].subject_id = 'subject:other';
-  value.context.coverage_catalog[1].source_label = '其他语文';
-  value.context.coverage_catalog[1].subject_label = '其他语文';
-  value.scopes[1].subject = { source_label: '其他语文', canonical_label: '其他语文', subject_id: 'subject:other' };
-  value.artifacts.catalog.json.documents[1].subject = '其他语文';
-  value.artifacts.taxonomy.json.subject_taxonomy['其他语文'] = {
-    canonical: '其他语文', stable_subject_id: 'subject:other', entity_kind: 'subject', facet_eligible: true,
-  };
-  value.artifacts.taxonomy.json.subject_facet_groups['语文'].push('其他语文');
-  assert.throws(() => validatePromotion(value), /per-subject gap|no start coverage|no end coverage/);
+  const authority = value.context.coverage_authority.facets.find((facet) => facet.facet_id === 'facet:chinese-language');
+  authority.eligible_subject_ids.push('subject:classical-chinese');
+  assert.throws(() => validatePromotion(value), /complete eligible subject universe differs/);
 });
 
-test('scope-plan works and their internal course or section labels cannot become subject facets', async () => {
+test('coverage universe rejects narrowed periods and caller-extended as-of dates', () => {
+  const mutations = [
+    (universe) => { universe.start_year = 2001; },
+    (universe) => { universe.end_year = 2001; },
+    (universe) => { universe.as_of_date = '2003-01-01'; universe.end_year = 2003; },
+  ];
+  for (const mutate of mutations) {
+    const value = fixture();
+    mutate(value.index.coverage_universes[0]);
+    assert.throws(() => validatePromotion(value), /narrows or extends the governed catalog as-of boundary/);
+  }
+});
+
+test('current universe rejects obsolete catalog editions relabeled as current', () => {
+  const value = fixture();
+  const current = value.index.coverage_universes.find((universe) => universe.purpose === 'current_ordinary');
+  current.catalog_decisions[0] = {
+    document_id: 'doc-old', disposition: 'included', reason_code: 'included_exact_scope',
+  };
+  current.included_scope_ids = ['scope:old', 'scope:new'];
+  assert.throws(() => validatePromotion(value), /disposition is not derived from the governed catalog as-of state/);
+});
+
+test('coverage exclusion reasons must be derived from frozen catalog and provenance', () => {
+  const value = fixture();
+  const historical = value.index.coverage_universes.find((universe) => universe.purpose === 'historical_negative_claim');
+  historical.catalog_decisions[1] = {
+    document_id: 'doc-new', disposition: 'excluded', reason_code: 'different_population',
+  };
+  historical.included_scope_ids = ['scope:old'];
+  assert.throws(() => validatePromotion(value), /disposition is not derived from the governed catalog as-of state/);
+});
+
+test('work identity, title, and validity are governed rather than scope-authored', () => {
+  const attacks = [
+    (scope) => { scope.work.work_id = 'work:self-authored'; },
+    (scope) => { scope.work.title = '自报课程标准'; },
+    (scope) => { scope.edition.valid_to_year += 1; },
+  ];
+  for (const attack of attacks) {
+    const value = fixture();
+    attack(value.scopes[1]);
+    assert.throws(
+      () => validatePromotion(value),
+      /work identity\/title is not derived|exact edition validity differs/,
+    );
+  }
+});
+
+test('lineage kind and predecessor must match governed work chronology', () => {
+  const wrongKind = fixture();
+  wrongKind.scopes[1].lineage_assertion.kind = 'first_edition';
+  assert.throws(() => validatePromotion(wrongKind), /lineage kind is not derived from the governed catalog work chronology/);
+
+  const wrongPredecessor = fixture();
+  wrongPredecessor.context.coverage_catalog.find((record) => record.document_id === 'doc-new').predecessor_document_id = 'doc-forged';
+  assert.throws(() => validatePromotion(wrongPredecessor), /revision predecessor is not the distinct exact earlier edition/);
+});
+
+test('first-edition and revision assertions require dedicated exact-edition roles', () => {
+  const first = fixture();
+  first.scopes[0].lineage_assertion.assertion_type = 'unresolved';
+  assert.throws(() => validatePromotion(first), /first-edition assertion lacks dedicated bounded content/);
+
+  const revision = fixture();
+  revision.scopes[1].lineage_assertion.evidence_roles[0].edition_id = revision.scopes[1].edition.edition_id;
+  assert.throws(() => validatePromotion(revision), /lineage role edition mismatch/);
+
+  const emptyEvidence = fixture();
+  emptyEvidence.scopes[0].lineage_assertion.evidence_roles[0].evidence_ids = [];
+  assert.throws(() => validatePromotion(emptyEvidence), /lacks exact-edition evidence/);
+
+  const wrongUniverse = fixture();
+  wrongUniverse.scopes[0].lineage_assertion.coverage_universe_id = 'universe:current';
+  assert.throws(() => validatePromotion(wrongUniverse), /independently validated bounded universe/);
+});
+
+test('scope identity, hierarchy roots, and cycles are structural rather than self-reported', () => {
+  const forgedDimension = fixture();
+  forgedDimension.scopes[0].scope_dimensions.stage = '高中';
+  assert.throws(() => validatePromotion(forgedDimension), /scope dimensions differ/);
+
+  const missingRoot = fixture();
+  missingRoot.scopes[0].hierarchies[0].root_concept_ids = [missingRoot.scopes[0].concepts[1].concept_id];
+  assert.throws(() => validatePromotion(missingRoot), /declared roots differs/);
+
+  const cycle = fixture();
+  const goal = cycle.scopes[0].concepts[0];
+  goal.parent_concept_id = goal.concept_id;
+  cycle.scopes[0].hierarchies[0].root_concept_ids = [];
+  assert.throws(() => validatePromotion(cycle), /lacks roots|concept cycle/);
+});
+
+test('rename cannot collapse both endpoints into one exact-edition scope', () => {
+  const value = fixture();
+  const relation = value.scopes[1].relations[0];
+  relation.source_endpoints = structuredClone(relation.target_endpoints);
+  assert.throws(() => validatePromotion(value), /distinct exact-edition scopes/);
+});
+
+test('changing rename to broaden with identical spans and a recomputed diff still fails signed semantic adjudication', () => {
+  const value = fixture();
+  const relation = value.scopes[1].relations[0];
+  relation.relation_type = 'broaden';
+  relation.adjudication.semantic_basis_code = 'broader_target_extension';
+  relation.relation_diff_sha256 = computeRelationDiffSha256(relation, value.resolved);
+  assert.throws(
+    () => validatePromotion(value),
+    /signed adjudication payload hash differs|adjudication Ed25519 signature is invalid/,
+  );
+});
+
+test('relation adjudication is bound to the pinned reviewer registry', () => {
+  const value = fixture();
+  value.context.reviewer_registry[0].status = 'revoked';
+  assert.throws(
+    () => validatePromotion(value),
+    /adjudicator is not active and semantic_resolution-authorized/,
+  );
+});
+
+test('relation signature or diff invalidates on page bundle, online snapshot, or reviewer-policy drift', () => {
+  const mutations = [
+    (value) => {
+      value.context.page_evidence.pages[1].bundle_sha256 = H('new-bundle');
+      value.scopes[1].evidence[0].canonical_page_evidence.bundle_sha256 = H('new-bundle');
+    },
+    (value) => { value.context.page_evidence.pages[1].online_claims[0].capture_body_sha256 = H('new-online-capture'); },
+    (value) => { value.context.page_evidence.policy_revision_sha256 = H('new-review-policy'); },
+    (value) => {
+      const replacement = H('new-reviewer-registry');
+      value.context.source_bindings.reviewer_registry_sha256 = replacement;
+      value.index.bindings.reviewer_registry.sha256 = replacement;
+      value.scopes[1].relations[0].review.policy_revision_sha256 = replacement;
+    },
+  ];
+  for (const mutate of mutations) {
+    const value = fixture();
+    mutate(value);
+    assert.throws(
+      () => validatePromotion(value),
+      /signed adjudication payload hash differs|diff hash does not bind/,
+    );
+  }
+});
+
+test('serialized caller-built promotion contexts remain forbidden outside the test-only API', () => {
+  const value = fixture();
+  value.context.context_kind = 'immutable_prepared_release_v1';
+  assert.throws(
+    () => validateSubjectOntologyFixtureForTest(value),
+    /promotion context must come from the immutable release builder/,
+  );
+});
+
+test('scope-plan works and internal course or section labels cannot become subject facets', async () => {
   const catalog = JSON.parse(await readFile(new URL('../data/catalog.json', import.meta.url), 'utf8'));
   const taxonomy = JSON.parse(await readFile(new URL('../data/concept-model-v2.json', import.meta.url), 'utf8'));
   const provenance = JSON.parse(await readFile(new URL('../data/document-sources.json', import.meta.url), 'utf8'));
@@ -479,82 +767,6 @@ test('scope-plan works and their internal course or section labels cannot become
   assert.equal(CANONICAL_FACETS.some((facet) => ['定向行走', '美工', '沟通与交往', '学业质量'].includes(facet.label)), false);
 });
 
-test('coverage exclusion reasons must be derived from frozen catalog and provenance', () => {
-  const value = fixture();
-  for (const universe of value.index.coverage_universes) {
-    universe.catalog_decisions[1] = { document_id: 'doc-new', disposition: 'excluded', reason_code: 'different_population' };
-    universe.included_scope_ids = ['scope:old'];
-  }
-  assert.throws(() => validatePromotion(value), /exclusion reason is not derived/);
-});
-
-test('first-edition and revision assertions require dedicated exact-edition roles', () => {
-  const first = fixture();
-  first.scopes[0].lineage_assertion.assertion_type = 'unresolved';
-  assert.throws(() => validatePromotion(first), /first-edition assertion lacks dedicated bounded content/);
-
-  const revision = fixture();
-  revision.scopes[1].lineage_assertion.evidence_roles[0].edition_id = revision.scopes[1].edition.edition_id;
-  assert.throws(() => validatePromotion(revision), /lineage role edition mismatch/);
-
-  const emptyEvidence = fixture();
-  emptyEvidence.scopes[0].lineage_assertion.evidence_roles[0].evidence_ids = [];
-  assert.throws(() => validatePromotion(emptyEvidence), /lacks exact-edition evidence/);
-
-  const wrongUniverse = fixture();
-  wrongUniverse.scopes[0].lineage_assertion.coverage_universe_id = 'universe:current';
-  assert.throws(() => validatePromotion(wrongUniverse), /independently validated bounded universe/);
-});
-
-test('scope identity, hierarchy roots, and cycles are derived and structural rather than self-reported', () => {
-  const forgedYear = fixture();
-  forgedYear.scopes[0].edition.valid_from_year = 1999;
-  assert.throws(() => validatePromotion(forgedYear), /exact edition differs from frozen catalog identity/);
-
-  const forgedDimension = fixture();
-  forgedDimension.scopes[0].scope_dimensions.stage = '高中';
-  assert.throws(() => validatePromotion(forgedDimension), /scope dimensions differ/);
-
-  const missingRoot = fixture();
-  missingRoot.scopes[0].hierarchies[0].root_concept_ids = [missingRoot.scopes[0].concepts[1].concept_id];
-  assert.throws(() => validatePromotion(missingRoot), /declared roots differs/);
-
-  const cycle = fixture();
-  const goal = cycle.scopes[0].concepts[0];
-  goal.parent_concept_id = goal.concept_id;
-  cycle.scopes[0].hierarchies[0].root_concept_ids = [];
-  assert.throws(() => validatePromotion(cycle), /lacks roots|concept cycle/);
-});
-
-test('rename cannot collapse both endpoints into one exact-edition scope', () => {
-  const value = fixture();
-  const relation = value.scopes[1].relations[0];
-  relation.source_endpoints = structuredClone(relation.target_endpoints);
-  assert.throws(() => validatePromotion(value), /distinct exact-edition scopes/);
-});
-
-test('relation diff hash invalidates on page bundle, online snapshot, or reviewer-policy drift', () => {
-  const mutations = [
-    (value) => {
-      value.context.page_evidence.pages[1].bundle_sha256 = H('new-bundle');
-      value.scopes[1].evidence[0].canonical_page_evidence.bundle_sha256 = H('new-bundle');
-    },
-    (value) => { value.context.page_evidence.pages[1].online_claims[0].capture_body_sha256 = H('new-online-capture'); },
-    (value) => { value.context.page_evidence.policy_revision_sha256 = H('new-review-policy'); },
-  ];
-  for (const mutate of mutations) {
-    const value = fixture();
-    mutate(value);
-    assert.throws(() => validatePromotion(value), /diff hash does not bind/);
-  }
-});
-
-test('serialized caller-built immutable contexts are rejected even when fields look complete', () => {
-  const value = fixture();
-  value.context.context_kind = 'immutable_prepared_release_v1';
-  assert.throws(() => validateSubjectOntologyState({ ...value, mode: 'promotion' }), /caller-constructed immutable promotion contexts are forbidden/);
-});
-
 test('release inventory registers all v2 data as candidate_fail_closed and keeps it out of R2', async () => {
   const policy = JSON.parse(await readFile(new URL('../data/release-assets-policy.json', import.meta.url), 'utf8'));
   const expected = [
@@ -571,4 +783,5 @@ test('release inventory registers all v2 data as candidate_fail_closed and keeps
   }
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   assert.match(packageJson.scripts.verify, /ontology:v2:validate/);
+  assert.match(packageJson.scripts['release:manifest:ontology-v2:promotion'], /subject-ontology-v2-promotion/);
 });

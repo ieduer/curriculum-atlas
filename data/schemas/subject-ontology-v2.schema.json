@@ -109,6 +109,7 @@
         "universe_id",
         "facet_id",
         "purpose",
+        "as_of_date",
         "subject_ids",
         "start_year",
         "end_year",
@@ -122,6 +123,7 @@
         "universe_id": { "type": "string", "pattern": "^universe:[a-z0-9._:-]+$" },
         "facet_id": { "type": "string", "pattern": "^facet:[a-z-]+$" },
         "purpose": { "enum": ["current_ordinary", "historical_negative_claim"] },
+        "as_of_date": { "type": "string", "format": "date" },
         "subject_ids": {
           "type": "array",
           "minItems": 1,
@@ -156,12 +158,12 @@
               "reason_code": {
                 "enum": [
                   "included_exact_scope",
-                  "outside_time_boundary",
+                  "after_governed_as_of",
                   "different_population",
                   "different_document_function",
                   "exact_duplicate_alias",
-                  "superseded_variant_same_edition",
-                  "insufficient_provenance"
+                  "insufficient_provenance",
+                  "not_current_as_of_catalog"
                 ]
               }
             }
@@ -291,6 +293,7 @@
         "source_endpoints",
         "target_endpoints",
         "relation_diff_sha256",
+        "adjudication",
         "review"
       ],
       "properties": {
@@ -300,6 +303,38 @@
         "source_endpoints": { "$ref": "#/$defs/endpoints" },
         "target_endpoints": { "$ref": "#/$defs/endpoints" },
         "relation_diff_sha256": { "$ref": "#/$defs/sha256" },
+        "adjudication": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy",
+            "reviewer_id",
+            "decided_at",
+            "semantic_basis_code",
+            "signature_algorithm",
+            "signed_payload_sha256",
+            "signature_base64"
+          ],
+          "properties": {
+            "policy": { "const": "signed_subject_ontology_relation_adjudication_v1" },
+            "reviewer_id": { "type": "string", "minLength": 1 },
+            "decided_at": { "type": "string", "format": "date-time" },
+            "semantic_basis_code": {
+              "enum": [
+                "equivalent_meaning_lexical_change",
+                "one_to_many_semantic_differentiation",
+                "many_to_one_semantic_consolidation",
+                "broader_target_extension",
+                "narrower_target_restriction",
+                "discontinuous_semantic_replacement",
+                "parallel_validity_distinct_senses"
+              ]
+            },
+            "signature_algorithm": { "const": "Ed25519" },
+            "signed_payload_sha256": { "$ref": "#/$defs/sha256" },
+            "signature_base64": { "type": "string", "pattern": "^[A-Za-z0-9+/]{86}==$" }
+          }
+        },
         "review": { "$ref": "#/$defs/review" },
         "cross_subject_exception": {
           "type": "object",
