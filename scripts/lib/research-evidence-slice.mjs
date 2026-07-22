@@ -275,8 +275,10 @@ function validateOnlineSources({ manifest, documentById, resourcePaths, errors }
     sourceBindingValid.set(sourceId, bindingValid);
 
     const raw = safeResource(resourcePaths, source.resource?.resource_id, errors, `${location}.resource`);
+    let resourceBytesVerified = false;
     if (raw && SHA256.test(source.resource?.sha256 || '')) {
-      expect(errors, sha256(raw) === source.resource.sha256, 'source_resource_sha256_mismatch', `${location}.resource.sha256`, sourceId);
+      resourceBytesVerified = sha256(raw) === source.resource.sha256;
+      expect(errors, resourceBytesVerified, 'source_resource_sha256_mismatch', `${location}.resource.sha256`, sourceId);
     }
 
     if (source.evidence_role === 'primary_artifact') {
@@ -300,15 +302,28 @@ function validateOnlineSources({ manifest, documentById, resourcePaths, errors }
         ['exact_document_text', 'same_version_policy_text'].includes(source.witness_scope),
         'independent_witness_scope_invalid', `${location}.witness_scope`, sourceId);
       expect(errors, bindingValid, 'independent_source_document_binding_invalid', `${location}.document_binding`, sourceId);
+      expect(errors, source.resource?.media_type === 'text/html',
+        'independent_text_media_type_invalid', `${location}.resource.media_type`, String(source.resource?.media_type));
     }
 
     let canonicalBody = null;
+    let canonicalBodyVerified = false;
     if (source.resource?.media_type === 'text/html' && raw) {
       canonicalBody = canonicalizeHtmlText(raw.toString('utf8'));
-      expect(errors, SHA256.test(source.canonical_text_sha256 || ''), 'online_body_sha256_invalid', `${location}.canonical_text_sha256`, sourceId);
-      expect(errors, sha256(canonicalBody) === source.canonical_text_sha256, 'online_body_sha256_mismatch', `${location}.canonical_text_sha256`, sourceId);
+      const canonicalHashValid = SHA256.test(source.canonical_text_sha256 || '');
+      const canonicalHashMatches = canonicalHashValid
+        && sha256(canonicalBody) === source.canonical_text_sha256;
+      expect(errors, canonicalHashValid, 'online_body_sha256_invalid', `${location}.canonical_text_sha256`, sourceId);
+      expect(errors, canonicalHashMatches, 'online_body_sha256_mismatch', `${location}.canonical_text_sha256`, sourceId);
+      canonicalBodyVerified = resourceBytesVerified && canonicalHashMatches;
     } else {
       expect(errors, source.canonical_text_sha256 === null, 'binary_source_has_canonical_text_sha256', `${location}.canonical_text_sha256`, sourceId);
+    }
+    if (source.independently_counts_for_text === true) {
+      expect(errors, canonicalBodyVerified, 'independent_text_body_unverified', `${location}.resource`, sourceId);
+      if (!canonicalBodyVerified || source.resource?.media_type !== 'text/html') {
+        invalidIndependentSourceIds.add(sourceId);
+      }
     }
 
     if (source.independently_counts_for_text === true) {
@@ -347,6 +362,11 @@ function validateOnlineSources({ manifest, documentById, resourcePaths, errors }
       expect(errors, typeof span?.exact_text === 'string' && span.exact_text.length > 0, 'online_span_text_missing', `${spanLocation}.exact_text`, 'required');
       expect(errors, sha256(span?.exact_text || '') === span?.exact_text_sha256, 'online_span_sha256_mismatch', `${spanLocation}.exact_text_sha256`, String(spanId));
       expect(errors, Number.isInteger(span?.occurrence_index) && span.occurrence_index >= 0, 'online_span_occurrence_invalid', `${spanLocation}.occurrence_index`, String(span?.occurrence_index));
+      const spanBodyVerified = canonicalBodyVerified
+        && Number.isInteger(span?.utf16_start)
+        && Number.isInteger(span?.utf16_end)
+        && canonicalBody.slice(span.utf16_start, span.utf16_end) === span.exact_text
+        && occurrences(canonicalBody, span.exact_text)[span.occurrence_index] === span.utf16_start;
       if (canonicalBody !== null && Number.isInteger(span?.utf16_start) && Number.isInteger(span?.utf16_end)) {
         expect(errors,
           canonicalBody.slice(span.utf16_start, span.utf16_end) === span.exact_text,
@@ -355,6 +375,9 @@ function validateOnlineSources({ manifest, documentById, resourcePaths, errors }
         expect(errors,
           positions[span.occurrence_index] === span.utf16_start,
           'online_span_occurrence_mismatch', `${spanLocation}.occurrence_index`, String(spanId));
+      }
+      if (source.independently_counts_for_text === true && !spanBodyVerified) {
+        invalidIndependentSourceIds.add(sourceId);
       }
     }
     if (['official_version_identity', 'official_version_identity_with_policy_text'].includes(source.evidence_role)) {
@@ -649,6 +672,29 @@ function validateConflicts({ manifest, evidenceById, spanById, errors }) {
         expect(errors, conflictById.get(conflictIds[0])?.evidence_id === evidenceId, 'evidence_conflict_span_wrong_evidence', `$.evidence[${evidenceId}].online_conflict_span_ids`, spanId);
       }
     }
+  }
+  for (const [spanId, binding] of spanById) {
+    if (binding.span.purpose !== 'transcription_conflict') continue;
+    const conflictIds = conflictIdsBySpanId.get(spanId) || [];
+    expect(errors, conflictIds.length === 1,
+      'transcription_conflict_span_coverage_invalid',
+      `$.online_sources[${binding.source.source_id}].spans[${spanId}]`,
+      `${spanId} is covered by ${conflictIds.length} conflicts`);
+    if (conflictIds.length !== 1) continue;
+    const conflict = conflictById.get(conflictIds[0]);
+    const evidence = evidenceById.get(conflict?.evidence_id);
+    const evidenceSpanCount = (evidence?.online_conflict_span_ids || [])
+      .filter((candidate) => candidate === spanId).length;
+    expect(errors, evidenceSpanCount === 1,
+      'transcription_conflict_evidence_binding_invalid',
+      `$.conflicts[${conflictIds[0]}].source_span_ids`,
+      `${spanId} is bound ${evidenceSpanCount} times by evidence ${String(conflict?.evidence_id)}`);
+    expect(errors,
+      binding.source.document_binding?.document_id === evidence?.document_id
+        && binding.source.document_binding?.source_artifact_sha256 === evidence?.source_artifact_sha256,
+      'transcription_conflict_document_binding_mismatch',
+      `$.conflicts[${conflictIds[0]}].source_span_ids`,
+      spanId);
   }
   for (const ids of conflictIdsByEvidenceId.values()) ids.sort();
   return { conflictById, conflictIdsByEvidenceId };

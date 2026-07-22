@@ -117,6 +117,12 @@ async function fixture() {
       occurrence_index: 0,
     };
   };
+  const fromConflictSpan = span(
+    'online-span:from-conflict',
+    '冲突版本表述',
+    fromCanonical,
+    'transcription_conflict',
+  );
 
   const sources = [
     {
@@ -218,7 +224,6 @@ async function fixture() {
       canonical_text_sha256: sha256(fromCanonical),
       spans: [
         span('online-span:from', '旧版精确表述', fromCanonical, 'exact_text_witness'),
-        span('online-span:from-conflict', '冲突版本表述', fromCanonical, 'transcription_conflict'),
       ],
       limitations: ['独立转录不替代原始 PDF。'],
     },
@@ -428,7 +433,7 @@ async function fixture() {
     'page-image:from': fromPageImagePath,
     'page-image:to': toPageImagePath,
   };
-  return { root, manifest, resourcePaths };
+  return { root, manifest, resourcePaths, fromConflictSpan };
 }
 
 test('HTML canonicalization is deterministic and preserves joined Chinese text nodes', () => {
@@ -522,6 +527,26 @@ test('same-artifact mirrors never satisfy independent text evidence', async () =
   assert.ok(codes.includes('evidence_missing_independent_online_witness'));
 });
 
+test('binary bytes labelled as PDF cannot carry arbitrary independent exact-text spans', async () => {
+  const { manifest, resourcePaths } = await fixture();
+  const source = manifest.online_sources.find(
+    (item) => item.source_id === 'source:from-independent',
+  );
+  source.resource = {
+    resource_id: 'page-image:from',
+    media_type: 'application/pdf',
+    sha256: manifest.evidence[0].page_image.sha256,
+  };
+  source.canonical_text_sha256 = null;
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  const codes = validation.errors.map((item) => item.code);
+  assert.ok(codes.includes('json_schema_const'));
+  assert.ok(codes.includes('independent_text_media_type_invalid'));
+  assert.ok(codes.includes('independent_text_body_unverified'));
+  assert.equal(validation.assertions[0].research_evidence_ready, false);
+  assert.ok(validation.assertions[0].blockers.includes('independent_exact_document_witness_missing'));
+});
+
 test('an online witness must bind the exact evidence document, version and artifact', async () => {
   const mismatch = await fixture();
   const source = mismatch.manifest.online_sources.find((item) => item.source_id === 'source:from-independent');
@@ -569,7 +594,10 @@ test('duplicate snapshot bytes and canonical text cannot be relabelled as indepe
 });
 
 test('a declared unresolved transcription conflict blocks research readiness and every public consumer', async () => {
-  const { manifest, resourcePaths } = await fixture();
+  const { manifest, resourcePaths, fromConflictSpan } = await fixture();
+  manifest.online_sources.find(
+    (item) => item.source_id === 'source:from-independent',
+  ).spans.push(fromConflictSpan);
   manifest.conflicts.push({
     conflict_id: 'conflict:fixture',
     evidence_id: 'evidence:from',
@@ -622,7 +650,10 @@ test('a declared unresolved transcription conflict blocks research readiness and
 });
 
 test('assertion conflict statuses and gate blockers are derived from every conflict touching its evidence', async () => {
-  const { manifest, resourcePaths } = await fixture();
+  const { manifest, resourcePaths, fromConflictSpan } = await fixture();
+  manifest.online_sources.find(
+    (item) => item.source_id === 'source:from-independent',
+  ).spans.push(fromConflictSpan);
   manifest.conflicts.push({
     conflict_id: 'conflict:fixture-omitted',
     evidence_id: 'evidence:from',
@@ -641,10 +672,52 @@ test('assertion conflict statuses and gate blockers are derived from every confl
 });
 
 test('an evidence-declared conflict span cannot lose its conflict record', async () => {
-  const { manifest, resourcePaths } = await fixture();
+  const { manifest, resourcePaths, fromConflictSpan } = await fixture();
+  manifest.online_sources.find(
+    (item) => item.source_id === 'source:from-independent',
+  ).spans.push(fromConflictSpan);
   manifest.evidence[0].online_conflict_span_ids = ['online-span:from-conflict'];
   const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
   assert.ok(validation.errors.some((item) => item.code === 'evidence_conflict_span_coverage_invalid'));
+});
+
+test('a transcription-conflict span cannot be orphaned by deleting every conflict declaration', async () => {
+  const { manifest, resourcePaths, fromConflictSpan } = await fixture();
+  manifest.online_sources.find(
+    (item) => item.source_id === 'source:from-independent',
+  ).spans.push(fromConflictSpan);
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  assert.ok(validation.errors.some(
+    (item) => item.code === 'transcription_conflict_span_coverage_invalid',
+  ));
+});
+
+test('a transcription-conflict span cannot be claimed by duplicate conflict records', async () => {
+  const { manifest, resourcePaths, fromConflictSpan } = await fixture();
+  manifest.online_sources.find(
+    (item) => item.source_id === 'source:from-independent',
+  ).spans.push(fromConflictSpan);
+  manifest.evidence[0].online_conflict_span_ids = ['online-span:from-conflict'];
+  manifest.conflicts.push(
+    {
+      conflict_id: 'conflict:fixture-first',
+      evidence_id: 'evidence:from',
+      source_span_ids: ['online-span:from-conflict'],
+      status: 'unresolved_fail_closed',
+      note: '第一条重复冲突声明。',
+    },
+    {
+      conflict_id: 'conflict:fixture-second',
+      evidence_id: 'evidence:from',
+      source_span_ids: ['online-span:from-conflict'],
+      status: 'unresolved_fail_closed',
+      note: '第二条重复冲突声明。',
+    },
+  );
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  const codes = validation.errors.map((item) => item.code);
+  assert.ok(codes.includes('evidence_conflict_span_coverage_invalid'));
+  assert.ok(codes.includes('transcription_conflict_span_coverage_invalid'));
 });
 
 test('rejects the shared five-consumer release gate when it opens before editor review', async () => {

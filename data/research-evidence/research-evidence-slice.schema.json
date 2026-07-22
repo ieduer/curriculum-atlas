@@ -206,7 +206,24 @@
         "canonical_text_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
         "spans": { "type": "array", "items": { "$ref": "#/$defs/onlineSpan" } },
         "limitations": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmpty" } }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "independently_counts_for_text": { "const": true } },
+            "required": ["independently_counts_for_text"]
+          },
+          "then": {
+            "properties": {
+              "resource": {
+                "type": "object",
+                "properties": { "media_type": { "const": "text/html" } },
+                "required": ["media_type"]
+              }
+            }
+          }
+        }
+      ]
     },
     "documentBinding": {
       "type": "object",
