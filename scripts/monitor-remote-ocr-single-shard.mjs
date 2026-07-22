@@ -27,6 +27,7 @@ import {
 import {
   fingerprintPaddlexLayoutModelCache,
   validateCompleteProgressContract,
+  validateCompleteTimestampOrder,
   validateRunIdentitySeedLineageContract,
   validateRunStatusSeedLineageContract,
 } from './run-remote-ocr-offload.mjs';
@@ -1005,20 +1006,75 @@ function predecessorStatusFormat(identity, progress, status, statusSha256, state
   throw new Error(`${state.document_id}: B1 predecessor document status shape is not exact`);
 }
 
-function validateCompleteProgress({
+export function validateMonitorCompleteProgress({
   receiptDocument,
   progress,
   predecessorProgress,
   phase,
   statusTimestampField,
 }) {
-  return validateCompleteProgressContract({
+  const contract = {
     receiptDocument,
     progress,
     predecessorProgress,
     phase,
     statusTimestampField,
-  });
+  };
+  const retainsModernCompleteHistory = receiptDocument.predecessor_status === 'complete'
+    && receiptDocument.predecessor_status_format === 'complete_identity_v1';
+  if (!retainsModernCompleteHistory) return validateCompleteProgressContract(contract);
+
+  const label = `${receiptDocument.document_id}: B2 complete progress`;
+  requireObject(progress, label);
+  requireObject(predecessorProgress, `${label} predecessor`);
+  validateCompleteTimestampOrder(predecessorProgress, `${label} predecessor`);
+  validateCompleteTimestampOrder(progress, label);
+  const sanitizedProgress = { ...progress };
+  for (const field of ['failed_at', 'interrupted_at']) {
+    const predecessorHas = Object.hasOwn(predecessorProgress, field);
+    const progressHas = Object.hasOwn(progress, field);
+    if (predecessorHas !== progressHas) {
+      throw new Error(`${label} field set differs`);
+    }
+    if (predecessorHas && predecessorProgress[field] !== progress[field]) {
+      throw new Error(`${label} retained ${field} differs from predecessor`);
+    }
+    if (predecessorHas) delete sanitizedProgress[field];
+  }
+
+  const predecessorHasInterruptedAt = Object.hasOwn(predecessorProgress, 'interrupted_at');
+  const progressHasInterruptedAt = Object.hasOwn(progress, 'interrupted_at');
+  const predecessorHasSignal = Object.hasOwn(predecessorProgress, 'signal');
+  const progressHasSignal = Object.hasOwn(progress, 'signal');
+  if (predecessorHasSignal !== predecessorHasInterruptedAt
+    || progressHasSignal !== progressHasInterruptedAt
+    || predecessorHasSignal !== progressHasSignal
+    || (predecessorHasSignal
+      && (typeof predecessorProgress.signal !== 'string'
+        || predecessorProgress.signal.length === 0
+        || predecessorProgress.signal !== progress.signal))) {
+    throw new Error(`${label} retained interrupted history signal differs from predecessor`);
+  }
+  if (predecessorHasSignal) delete sanitizedProgress.signal;
+
+  const predecessorHasVerifiedAt = Object.hasOwn(predecessorProgress, 'verified_at');
+  if (phase === 'initial') {
+    const progressHasVerifiedAt = Object.hasOwn(progress, 'verified_at');
+    if (predecessorHasVerifiedAt !== progressHasVerifiedAt) {
+      throw new Error(`${label} field set differs`);
+    }
+    if (predecessorHasVerifiedAt
+      && predecessorProgress.verified_at !== progress.verified_at) {
+      throw new Error(`${label} retained verified_at differs from predecessor`);
+    }
+    if (predecessorHasVerifiedAt) delete sanitizedProgress.verified_at;
+  } else if (phase === 'full' && predecessorHasVerifiedAt
+    && Date.parse(progress.verified_at) < Date.parse(predecessorProgress.verified_at)) {
+    throw new Error(`${label} verified_at predates predecessor verified_at`);
+  }
+
+  validateCompleteProgressContract({ ...contract, progress: sanitizedProgress });
+  return progress;
 }
 
 function validateInitialCompleteStatus({
@@ -1040,7 +1096,7 @@ function validateInitialCompleteStatus({
   if (!modern && !legacy) {
     throw new Error(`${receiptDocument.document_id}: B2 initial inherited complete status format is invalid`);
   }
-  validateCompleteProgress({
+  validateMonitorCompleteProgress({
     receiptDocument,
     progress,
     predecessorProgress,
@@ -1146,7 +1202,7 @@ function validateFullCompleteStatus({
     throw new Error(`${receiptDocument.document_id}: B2 full complete status timestamp field is not exact`);
   }
   const timestampField = hasCompletedAt ? 'completed_at' : 'verified_at';
-  validateCompleteProgress({
+  validateMonitorCompleteProgress({
     receiptDocument,
     progress,
     predecessorProgress,

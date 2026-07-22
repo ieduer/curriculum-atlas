@@ -27,6 +27,7 @@ import {
   parseSingleShardMonitorArgs,
   privacySafeSingleShardEvent,
   validateP4ToP1MonitorDelta,
+  validateMonitorCompleteProgress,
   writeSingleShardMonitorOutputs,
 } from '../scripts/monitor-remote-ocr-single-shard.mjs';
 import { fingerprintPaddlexLayoutModelCache } from '../scripts/run-remote-ocr-offload.mjs';
@@ -39,6 +40,168 @@ const auditedCommonInferenceSuffixSha256 = '4edade704624f0bac5bcd76eeb113a07452a
 const seedAwareTransition = 'p4_to_p1_seed_aware_ocr_v2';
 const hash = (character) => character.repeat(64);
 const legacyB1RunnerScriptSha256 = 'b08c3f7aa3da6e44dd9fffeecaf20b2a020df4d604c9b957399abaf886d15a55';
+
+function modernCompleteProgressFixture({
+  phase = 'initial',
+  history = {},
+  predecessorVerifiedAt = null,
+} = {}) {
+  const receiptDocument = {
+    document_id: 'legacy-compendium-general-primary',
+    predecessor_status: 'complete',
+    predecessor_status_format: 'complete_identity_v1',
+  };
+  const predecessorProgress = {
+    status: 'complete',
+    attempts: 5,
+    page_count: 10,
+    started_at: '2026-07-17T00:10:00.000Z',
+    completed_at: '2026-07-17T00:20:00.000Z',
+    ...history,
+    ...(predecessorVerifiedAt ? { verified_at: predecessorVerifiedAt } : {}),
+  };
+  const progress = {
+    status: 'complete',
+    attempts: 5,
+    inherited_attempts: 5,
+    page_count: 10,
+    predecessor_status: 'complete',
+    seed_id: hash('a'),
+    status_json_sha256: hash('b'),
+    started_at: predecessorProgress.started_at,
+    completed_at: predecessorProgress.completed_at,
+    ...history,
+    ...(phase === 'initial' && predecessorVerifiedAt
+      ? { verified_at: predecessorVerifiedAt }
+      : {}),
+    ...(phase === 'full'
+      ? { verified_at: '2026-07-17T00:30:00.000Z' }
+      : {}),
+  };
+  return {
+    receiptDocument,
+    predecessorProgress,
+    progress,
+    phase,
+    statusTimestampField: phase === 'initial' ? 'completed_at' : 'verified_at',
+  };
+}
+
+test('monitor accepts exact retained complete history in both initial and full phases', () => {
+  for (const phase of ['initial', 'full']) {
+    for (const history of [
+      { failed_at: '2026-07-17T00:00:00.000Z' },
+      {
+        interrupted_at: '2026-07-17T00:05:00.000Z',
+        signal: 'SIGTERM',
+      },
+      {
+        failed_at: '2026-07-17T00:00:00.000Z',
+        interrupted_at: '2026-07-17T00:05:00.000Z',
+        signal: 'SIGTERM',
+      },
+    ]) {
+      const fixture = modernCompleteProgressFixture({ phase, history });
+      assert.strictEqual(validateMonitorCompleteProgress(fixture), fixture.progress);
+    }
+  }
+});
+
+test('monitor handles an optional predecessor verified_at without weakening full verification order', () => {
+  const predecessorVerifiedAt = '2026-07-17T00:25:00.000Z';
+  for (const phase of ['initial', 'full']) {
+    const fixture = modernCompleteProgressFixture({
+      phase,
+      history: { failed_at: '2026-07-17T00:00:00.000Z' },
+      predecessorVerifiedAt,
+    });
+    assert.strictEqual(validateMonitorCompleteProgress(fixture), fixture.progress);
+  }
+  const regressed = modernCompleteProgressFixture({
+    phase: 'full',
+    predecessorVerifiedAt,
+  });
+  regressed.progress.verified_at = '2026-07-17T00:24:00.000Z';
+  assert.throws(
+    () => validateMonitorCompleteProgress(regressed),
+    /verified_at.*predates|timestamp/u,
+  );
+});
+
+test('monitor rejects added, dropped, or mismatched retained complete history', () => {
+  const cases = [
+    (fixture) => { delete fixture.progress.failed_at; },
+    (fixture) => { fixture.progress.failed_at = '2026-07-17T00:01:00.000Z'; },
+    (fixture) => {
+      delete fixture.predecessorProgress.failed_at;
+      fixture.progress.failed_at = '2026-07-17T00:00:00.000Z';
+    },
+    (fixture) => { delete fixture.progress.signal; },
+    (fixture) => { fixture.progress.signal = 'SIGKILL'; },
+    (fixture) => { delete fixture.predecessorProgress.signal; },
+    (fixture) => { delete fixture.progress.interrupted_at; },
+    (fixture) => { fixture.progress.interrupted_at = '2026-07-17T00:06:00.000Z'; },
+    (fixture) => { delete fixture.predecessorProgress.interrupted_at; },
+  ];
+  for (const mutate of cases) {
+    const fixture = modernCompleteProgressFixture({
+      history: {
+        failed_at: '2026-07-17T00:00:00.000Z',
+        interrupted_at: '2026-07-17T00:05:00.000Z',
+        signal: 'SIGTERM',
+      },
+    });
+    mutate(fixture);
+    assert.throws(
+      () => validateMonitorCompleteProgress(fixture),
+      /field set differs|retained|history/u,
+    );
+  }
+});
+
+test('monitor requires an initial historical verified_at to be retained exactly', () => {
+  const predecessorVerifiedAt = '2026-07-17T00:25:00.000Z';
+  for (const mutate of [
+    (fixture) => { delete fixture.progress.verified_at; },
+    (fixture) => { fixture.progress.verified_at = '2026-07-17T00:26:00.000Z'; },
+    (fixture) => { delete fixture.predecessorProgress.verified_at; },
+  ]) {
+    const fixture = modernCompleteProgressFixture({ predecessorVerifiedAt });
+    mutate(fixture);
+    assert.throws(
+      () => validateMonitorCompleteProgress(fixture),
+      /field set differs|retained verified_at differs from predecessor/u,
+    );
+  }
+});
+
+test('monitor rejects noncanonical, order-invalid, unpaired, and stray complete history', () => {
+  const cases = [
+    (fixture) => {
+      fixture.predecessorProgress.failed_at = '2026-07-17T00:00:00Z';
+      fixture.progress.failed_at = fixture.predecessorProgress.failed_at;
+    },
+    (fixture) => {
+      fixture.predecessorProgress.failed_at = '2026-07-17T00:21:00.000Z';
+      fixture.progress.failed_at = fixture.predecessorProgress.failed_at;
+    },
+    (fixture) => {
+      fixture.predecessorProgress.interrupted_at = '2026-07-17T00:05:00.000Z';
+      fixture.progress.interrupted_at = fixture.predecessorProgress.interrupted_at;
+    },
+    (fixture) => { fixture.progress.stray_history = true; },
+  ];
+  for (const mutate of cases) {
+    const fixture = modernCompleteProgressFixture({
+      history: { failed_at: '2026-07-17T00:00:00.000Z' },
+    });
+    mutate(fixture);
+    assert.throws(
+      () => validateMonitorCompleteProgress(fixture),
+      /field set differs|timestamp|signal|history/u,
+    );
+  }
+});
 
 function systemdShow(overrides = {}) {
   const fields = {
