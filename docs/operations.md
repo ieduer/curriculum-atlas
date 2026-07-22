@@ -14,6 +14,7 @@
 - 环境证据提交为 `290755749a0257ed720e7b2d26aa6b972c60aebb`；完整本地发布链通过 380/380 tests。
 - Production 只读终验事件 `2026-07-17T06:35:37.437Z`：三尺寸浏览器、API negative-write、D1 前后摘要与 Pulse 均通过；完整图 553/214/261、全隐藏 0/0、语文 143/60、运动能力泄漏 0，Pulse 425 requests / 0 errors。
 - OCR 仍未完成或上线：本机 primary/audit 6,947/11,847、Vision 7,012、accepted display/citation 0；B-r1 冻结在 1,259/3,182。
+- 2026-07-22 本地候选已把误标为“小学科学”的 `moe-2011-12` 订正为“初中科学”，并把 ICTR 88 页同版扫描从第二个文档降为只读 variant；候选为 195 documents、158 ordinary subjects + 1 assessment subject、OCR 名义 85/11,759、唯一实体 84/11,691。该候选尚未部署，因此本节其余 health/version/R2 数字继续描述线上 v10。
 
 ## 1. Source of truth
 

@@ -11,7 +11,7 @@ const [catalog, migration, classify] = await Promise.all([
   loadDocumentClassificationResolver(root),
 ]);
 
-test('0007 migrates all 196 legacy classifications to the exact v2 taxonomy without identity drift', () => {
+test('0007 migrates all 195 canonical work classifications to the exact v2 taxonomy without identity drift', () => {
   const db = new DatabaseSync(':memory:');
   db.exec(`PRAGMA foreign_keys=ON;
     CREATE TABLE documents(id TEXT PRIMARY KEY);
@@ -56,7 +56,7 @@ test('0007 migrates all 196 legacy classifications to the exact v2 taxonomy with
     cross_cutting_framework: 13,
     curriculum_course: 16,
     source_collection: 4,
-    subject: 159,
+    subject: 158,
   });
   assert.equal(Number(db.prepare(
     "SELECT COUNT(DISTINCT display_facet) AS count FROM document_classifications WHERE taxonomy_entity_kind='subject'",

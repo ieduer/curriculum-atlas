@@ -22,11 +22,13 @@ D1 的线上规范结构目前由 `migrations/0001_initial.sql` 至 `0007_docume
 
 `document_classifications.entity_kind` 保留旧 `subject` / `scope` 兼容层；规范身份由 `taxonomy_entity_kind` 决定：
 
-- `subject`：159 份资料，28 个精确普通学科 query identities，可映射至 12 个 `display_facet`；
+- `subject`：158 份普通学科资料，28 个精确普通学科 query identities，可映射至 12 个 `display_facet`；
 - `assessment_subject`：1 份“汉语”考试身份，关联语文 facet，但不进入普通 `subject=汉语` 查询；
 - `curriculum_course`：16 份课程，`canonical_subject` 与 `display_facet` 均为 `null`；
 - `assessment_domain` 3、`source_collection` 4、`cross_cutting_framework` 13，共 20 scope；
 - `unclassified`：0。
+
+同一作品的不同扫描件不再各占一个 `documents` 身份。已核验的 2011 年初中科学教育部 89 页发布件使用 `moe-2011-12` 作为唯一作品/版本身份；ICTR 88 页扫描件通过 `document_sources.artifact_disposition='variant'` 与 `artifact-registry` 的 `same_edition_cross_validation_scan` 关系保留，只用于页序、图像与 OCR 交叉核对，不进入第二次 OCR 或版本比较。
 
 公开 12 facets 为：语文、数学、外语、思想政治与道德法治、历史、历史与社会、地理、科学类、技术、劳动、艺术、体育与健康。Facet 是展示聚合，不覆盖原始来源标签、精确学科 identity、官方 code 或课程身份。普通 subject filter 只允许 `taxonomy_entity_kind='subject'`；assessment/course/scope 通过独立元数据和详情呈现。
 

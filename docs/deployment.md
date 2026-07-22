@@ -129,7 +129,7 @@ npm run corpus:import:preview
 - 客户端中断时先查询远端 receipts，只从第一个未提交的精确 chunk 恢复；
 - 同一 owner 可续期；expiry takeover 必须取得更高 fence。旧 owner 的 start/chunk/failure/resume/finalize/renew 全部 fail closed；
 - 不盲目重放，不跳过 receipt，不把部分导入写成 ready；
-- finalize 只在 196/16,456/16,456/6,031/16,456/0/91 等 manifest 计数全部相等时写 `ready`；同一精确 release 已为 `ready` 时 importer 只释放临时 owner 并返回 `already_ready`，不清空 receipt、不把 site metadata 倒退为 `in_progress`。
+- finalize 只在 195/16,456/16,456/6,031/16,456/0/91 等当前 manifest 计数全部相等时写 `ready`；同一精确 release 已为 `ready` 时 importer 只释放临时 owner 并返回 `already_ready`，不清空 receipt、不把 site metadata 倒退为 `in_progress`。
 
 恢复参数以 importer 输出的首个未提交编号为准：
 

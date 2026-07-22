@@ -255,8 +255,12 @@ export async function auditProjectAssets(options = {}) {
   }
 
   for (const source of sourceRecords) {
+    const disposition = source.artifact_disposition ?? 'canonical';
+    if (!(registry.allowed_dispositions ?? []).includes(disposition)) {
+      errors.push(issue('data', 'invalid_source_artifact_disposition', `${source.document_id} has unsupported source artifact disposition ${disposition}`));
+    }
     addReference(referencesByHash, source.checksum_sha256, {
-      disposition: 'canonical',
+      disposition,
       source: 'document-sources',
       document_id: source.document_id,
       path: null,

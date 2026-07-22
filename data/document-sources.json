@@ -172,14 +172,15 @@
       "note": null
     },
     {
-      "document_id": "ictr-f6754fe2f491",
+      "document_id": "moe-2011-12",
       "provider": "教育部课程教材研究所",
       "source_page_url": "https://www.ictr.edu.cn/download_center/yiwu.html",
       "source_url": "https://www.ictr.edu.cn/Uploads/File/2022/04/28/%E4%B9%89%E5%8A%A1%E6%95%99%E8%82%B2%E5%88%9D%E4%B8%AD%E7%A7%91%E5%AD%A6%E8%AF%BE%E7%A8%8B%E6%A0%87%E5%87%86%EF%BC%882011%E5%B9%B4%E7%89%88%EF%BC%89.20220428171018.pdf",
       "checksum_sha256": "3cf8c2ddedd1cffa1196aa5f722056ebc48d6588c474d6b432b3bf31083b2818",
       "access_status": "verified_online",
-      "is_primary": 1,
-      "note": null
+      "is_primary": 0,
+      "artifact_disposition": "variant",
+      "note": "与教育部原始发布件属于同一 2011 年版初中科学课程标准；作为不同扫描件用于页序、图像与 OCR 交叉核对，不构成第二个课程标准版本。"
     },
     {
       "document_id": "moe-2011-14",

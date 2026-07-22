@@ -19,19 +19,19 @@
   ],
   "downloads_relevant_name_pattern": "课程标准|教学大纲|课程方案|考试大纲|课程计划",
   "expected_counts": {
-    "catalog_documents": 196,
+    "catalog_documents": 195,
     "document_source_records": 163,
-    "ingest_entries": 196,
+    "ingest_entries": 195,
     "source_pdf_files": 245,
     "unique_source_pdf_artifacts": 209,
     "invalid_pdf_files": 4,
-    "explicit_artifacts": 8,
+    "explicit_artifacts": 9,
     "quarantine_artifacts": 3,
     "source_archive_containers": 1,
-    "nominal_queue_documents": 86,
-    "nominal_queue_pages": 11847,
-    "unique_queue_artifacts": 85,
-    "unique_queue_pages": 11779,
+    "nominal_queue_documents": 85,
+    "nominal_queue_pages": 11759,
+    "unique_queue_artifacts": 84,
+    "unique_queue_pages": 11691,
     "blocked_documents": 2
   },
   "document_aliases": [
@@ -46,6 +46,24 @@
     }
   ],
   "artifacts": [
+    {
+      "artifact_id": "moe-2011-12-ictr-scan",
+      "disposition": "variant",
+      "media_type": "application/pdf",
+      "sha256": "3cf8c2ddedd1cffa1196aa5f722056ebc48d6588c474d6b432b3bf31083b2818",
+      "size_bytes": 3827798,
+      "page_count": 88,
+      "paths": [
+        ".cache/sources/ictr/义务教育课程标准（2011年版）/义务教育初中科学课程标准（2011年版）.pdf"
+      ],
+      "parent_document_id": "moe-2011-12",
+      "parent_sha256": "4468169cecce2242d5a82777d799dd61ed7fc67d7af6ede44fc63700d2e9111f",
+      "relation": "same_edition_cross_validation_scan",
+      "valid_pdf_required": true,
+      "queue_eligible": false,
+      "publication_eligible": false,
+      "note": "课程教材研究所同版 88 页扫描件；仅供页序、图像、OCR 与在线文本交叉核对，不单列为课程标准版本。"
+    },
     {
       "artifact_id": "legacy-compendium-biology-scan-b",
       "disposition": "variant",

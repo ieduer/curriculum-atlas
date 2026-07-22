@@ -119,7 +119,7 @@ test('explicit taxonomy covers the catalog with separate subject, course, and sc
     'cross_cutting_framework', 'source_collection', 'unclassified',
   ].map((kind) => [kind, rows.filter((item) => item.taxonomy_entity_kind === kind).length]));
   assert.deepEqual(taxonomyCounts, {
-    subject: 159,
+    subject: 158,
     assessment_subject: 1,
     curriculum_course: 16,
     assessment_domain: 3,
@@ -134,5 +134,5 @@ test('explicit taxonomy covers the catalog with separate subject, course, and sc
     scope: rows.filter((item) => item.entity_kind === 'scope' && item.scope_kind !== 'curriculum_course').length,
     unclassified: rows.filter((item) => item.scope_kind === 'unclassified').length,
   };
-  assert.deepEqual(counts, { subject: 160, course: 16, scope: 20, unclassified: 0 });
+  assert.deepEqual(counts, { subject: 159, course: 16, scope: 20, unclassified: 0 });
 });

@@ -4,7 +4,7 @@ import test from 'node:test';
 import { sourceManifest } from '../scripts/source-manifest.mjs';
 
 test('every catalog record has an explicit fail-closed text-quality disposition', () => {
-  assert.equal(sourceManifest.length, 196);
+  assert.equal(sourceManifest.length, 195);
   for (const record of sourceManifest) {
     assert.equal(typeof record.citation_allowed, 'boolean', `${record.id} citation_allowed`);
     assert.match(String(record.text_quality_status || ''), /\S/u, `${record.id} text_quality_status`);

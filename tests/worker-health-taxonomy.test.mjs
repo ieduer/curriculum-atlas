@@ -33,9 +33,9 @@ const readyCoreCounts = {
   periods: 5,
   document_relations: 0,
   chapters: 0,
-  document_classifications: 196,
+  document_classifications: 195,
   document_sources: 252,
-  primary_document_sources: 196,
+  primary_document_sources: 195,
   subject_insights: 6,
   terms: 5,
   term_relations: 4,
@@ -50,7 +50,7 @@ function readyCorpus(overrides = {}) {
     release_id: `corpus-${'c'.repeat(24)}`,
     manifest_sha256: 'a'.repeat(64),
     state: 'ready',
-    expected_documents: 196,
+    expected_documents: 195,
     expected_paragraphs: 1,
     expected_fts_rows: 1,
     expected_page_gates: 1,
@@ -58,14 +58,14 @@ function readyCorpus(overrides = {}) {
     accepted_ocr_documents: 0,
     expected_chunks: 1,
     expected_core_counts_json: JSON.stringify(readyCoreCounts),
-    actual_documents: 196,
+    actual_documents: 195,
     actual_paragraphs: 1,
     actual_fts_rows: 1,
     actual_page_gates: 1,
     actual_displayed_paragraphs: 1,
     actual_chunks: 1,
     actual_core_counts_json: JSON.stringify(readyCoreCounts),
-    live_documents: 196,
+    live_documents: 195,
     live_paragraphs: 1,
     live_fts_rows: 1,
     live_page_gates: 1,
@@ -79,7 +79,7 @@ function readyCorpus(overrides = {}) {
 
 function makeEnv(classification, corpus = readyCorpus()) {
   const classificationWithTaxonomy = {
-    academic_identity_documents: 160,
+    academic_identity_documents: 159,
     assessment_subject_documents: 1,
     display_facets: 12,
     ...classification,
@@ -133,9 +133,9 @@ const displayFacetNames = [
 function makeTaxonomyApiEnv() {
   return {
     ...makeEnv({
-      documents: 196,
-      classified: 196,
-      subject_documents: 159,
+      documents: 195,
+      classified: 195,
+      subject_documents: 158,
       course_documents: 16,
       scope_documents: 20,
       unclassified_documents: 0,
@@ -163,7 +163,7 @@ function makeTaxonomyApiEnv() {
                 entity_label: '汉语',
               } : null;
             }
-            return { count: sql.includes("citation_allowed=1") ? 101 : sql.includes('paragraphs') ? 16456 : 196 };
+            return { count: sql.includes("citation_allowed=1") ? 101 : sql.includes('paragraphs') ? 16456 : 195 };
           },
           async all() {
             if (sql.includes('SELECT dc.display_facet AS name')) {
@@ -190,7 +190,7 @@ function makeTaxonomyApiEnv() {
 test('Worker health fails closed unless the complete taxonomy distribution matches production', async () => {
   const source = await readFile(new URL('src/index.ts', root), 'utf8');
 
-  assert.match(source, /REQUIRED_CLASSIFICATION_COUNTS\s*=\s*\{[\s\S]*?documents:\s*196,[\s\S]*?academicIdentities:\s*160,[\s\S]*?subjects:\s*159,[\s\S]*?assessmentSubjects:\s*1,[\s\S]*?displayFacets:\s*12,[\s\S]*?courses:\s*16,[\s\S]*?scopes:\s*20,[\s\S]*?unclassified:\s*0,/);
+  assert.match(source, /REQUIRED_CLASSIFICATION_COUNTS\s*=\s*\{[\s\S]*?documents:\s*195,[\s\S]*?academicIdentities:\s*159,[\s\S]*?subjects:\s*158,[\s\S]*?assessmentSubjects:\s*1,[\s\S]*?displayFacets:\s*12,[\s\S]*?courses:\s*16,[\s\S]*?scopes:\s*20,[\s\S]*?unclassified:\s*0,/);
   assert.match(source, /classificationCounts\.documents === REQUIRED_CLASSIFICATION_COUNTS\.documents/);
   assert.match(source, /classificationCounts\.classified === REQUIRED_CLASSIFICATION_COUNTS\.documents/);
   assert.match(source, /classificationCounts\.academicIdentities === REQUIRED_CLASSIFICATION_COUNTS\.academicIdentities/);
@@ -211,14 +211,14 @@ test('Worker health fails closed unless the complete taxonomy distribution match
   assert.doesNotMatch(source, /classificationCounts\.documents === classificationCounts\.classified/);
 });
 
-test('Worker health accepts 159 subjects plus one assessment identity and rejects the legacy 196/175/0/20/0 distribution', async () => {
+test('Worker health accepts 158 ordinary-subject documents plus one assessment identity and rejects the legacy flattened distribution', async () => {
   const worker = await loadWorker();
   const request = new Request('https://curriculum.example/api/health');
 
   const valid = await worker.fetch(request, makeEnv({
-    documents: 196,
-    classified: 196,
-    subject_documents: 159,
+    documents: 195,
+    classified: 195,
+    subject_documents: 158,
     course_documents: 16,
     scope_documents: 20,
     unclassified_documents: 0,
@@ -226,7 +226,7 @@ test('Worker health accepts 159 subjects plus one assessment identity and reject
   assert.equal(valid.status, 200);
   const validBody = await valid.json();
   assert.equal(validBody.ok, true);
-  assert.equal(validBody.classification.academicIdentityDocuments, 160);
+  assert.equal(validBody.classification.academicIdentityDocuments, 159);
   assert.equal(validBody.classification.assessmentSubjectDocuments, 1);
   assert.equal(validBody.classification.displayFacets, 12);
   assert.equal(validBody.pagePublicationSchemaVersion, '1');
@@ -237,9 +237,9 @@ test('Worker health accepts 159 subjects plus one assessment identity and reject
   assert.equal(validBody.release.corpusReleaseId, `corpus-${'c'.repeat(24)}`);
 
   const proofDriftEnv = makeEnv({
-    documents: 196,
-    classified: 196,
-    subject_documents: 159,
+    documents: 195,
+    classified: 195,
+    subject_documents: 158,
     course_documents: 16,
     scope_documents: 20,
     unclassified_documents: 0,
@@ -250,8 +250,8 @@ test('Worker health accepts 159 subjects plus one assessment identity and reject
   assert.equal((await proofDrift.json()).release.gitCommit, null);
 
   const legacy = await worker.fetch(request, makeEnv({
-    documents: 196,
-    classified: 196,
+    documents: 195,
+    classified: 195,
     subject_documents: 175,
     course_documents: 0,
     scope_documents: 20,
@@ -263,9 +263,9 @@ test('Worker health accepts 159 subjects plus one assessment identity and reject
   assert.equal(legacyBody.classification.complete, false);
 
   const importing = await worker.fetch(request, makeEnv({
-    documents: 196,
-    classified: 196,
-    subject_documents: 159,
+    documents: 195,
+    classified: 195,
+    subject_documents: 158,
     course_documents: 16,
     scope_documents: 20,
     unclassified_documents: 0,
@@ -274,9 +274,9 @@ test('Worker health accepts 159 subjects plus one assessment identity and reject
   assert.equal((await importing.json()).corpus.ready, false);
 
   const coreDrift = await worker.fetch(request, makeEnv({
-    documents: 196,
-    classified: 196,
-    subject_documents: 159,
+    documents: 195,
+    classified: 195,
+    subject_documents: 158,
     course_documents: 16,
     scope_documents: 20,
     unclassified_documents: 0,
@@ -289,9 +289,9 @@ test('Worker health accepts 159 subjects plus one assessment identity and reject
   assert.equal(coreDriftBody.corpus.live.coreTables.document_sources, 253);
 
   const extraCoreKey = await worker.fetch(request, makeEnv({
-    documents: 196,
-    classified: 196,
-    subject_documents: 159,
+    documents: 195,
+    classified: 195,
+    subject_documents: 158,
     course_documents: 16,
     scope_documents: 20,
     unclassified_documents: 0,
@@ -304,9 +304,9 @@ test('Worker health accepts 159 subjects plus one assessment identity and reject
   assert.equal(extraCoreKeyBody.corpus.live.coreTables, null);
 
   const legacyCoreRow = await worker.fetch(request, makeEnv({
-    documents: 196,
-    classified: 196,
-    subject_documents: 159,
+    documents: 195,
+    classified: 195,
+    subject_documents: 158,
     course_documents: 16,
     scope_documents: 20,
     unclassified_documents: 0,
@@ -323,10 +323,10 @@ test('Worker health fails closed when any taxonomy metric drifts independently',
   const worker = await loadWorker();
   const request = new Request('https://curriculum.example/api/health');
   const baseline = {
-    documents: 196,
-    classified: 196,
-    academic_identity_documents: 160,
-    subject_documents: 159,
+    documents: 195,
+    classified: 195,
+    academic_identity_documents: 159,
+    subject_documents: 158,
     assessment_subject_documents: 1,
     display_facets: 12,
     course_documents: 16,
@@ -334,10 +334,10 @@ test('Worker health fails closed when any taxonomy metric drifts independently',
     unclassified_documents: 0,
   };
   const drifts = {
-    documents: 195,
-    classified: 195,
-    academic_identity_documents: 159,
-    subject_documents: 158,
+    documents: 194,
+    classified: 194,
+    academic_identity_documents: 158,
+    subject_documents: 157,
     assessment_subject_documents: 0,
     display_facets: 11,
     course_documents: 15,

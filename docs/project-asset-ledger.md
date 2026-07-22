@@ -31,6 +31,12 @@ The 2026-07-17 full scan established:
 
 The three forgotten alternate scans are now explicit `variant` records. The two standalone OCR-layer PDFs are explicit `derived` records and remain publication-blocked because their transformation lineage is incomplete. The zero-filled ICTR payloads are explicit `quarantine` records rather than PDFs.
 
+### 2026-07-22 identity correction
+
+The Ministry of Education directory and rendered title page identify `W020220418401384948134.pdf` as the **junior-secondary** science standard, not a primary-school standard. The catalog title is corrected to `义务教育初中科学课程标准（2011年版）`. The 89-page Ministry file remains canonical `moe-2011-12`; the different 88-page ICTR scan is retained as `moe-2011-12-ictr-scan`, with `same_edition_cross_validation_scan`, `queue_eligible=false`, and `publication_eligible=false`. It is no longer a second document identity.
+
+The corrected local data layer contains 195 catalog/ingest identities, 163 source records, 245 PDF paths / 209 unique artifacts, and 9 explicit artifact records. The OCR queue is 85 nominal documents / 11,759 pages and 84 unique entities / 11,691 pages. This correction does not delete either source file and does not retroactively alter the immutable 2026-07-17 production receipts above.
+
 ## Commands
 
 Audit the project-owned source roots and OCR queue:

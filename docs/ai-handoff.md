@@ -41,6 +41,7 @@
 - 这是 legacy 线上基线；本仓库的 `0008_release_ownership_fences.sql`、唯一 desired-release v2 artifact、D1 owner/fence 与 R2 conditional coordinator 在完成真实 preview/production 验证前均不得写成已上线。
 - Corpus `corpus-358471fcce862b2f0ae446fc` 两端 ready：196 documents、16,456 paragraphs、16,456 FTS、6,031 page gates、16,456 displayed、0 accepted OCR、91 chunks。
 - Taxonomy 精确为 159 subject、1 assessment subject、16 curriculum course、20 scope、12 display facets、28 ordinary query identities。
+- 2026-07-22 本地候选已合并 2011 初中科学同版双扫描身份；候选 taxonomy 为 158 ordinary subject documents + 1 assessment subject。上行的 159 + 1 仍是尚未替换的线上 v10 快照。
 - Production version/deployment 为 `28c7e6d4-1638-42bc-b371-bd8d24210b93` / `baa8a92f-ccc8-4972-b0ad-6d67876cdc84`，Assets Git `57487dc95481391cbcd40e0be0c92ee2d1ed8fdf`；preview 为 `2d107d38-cf31-49b6-82b1-20b32a32e824` / `32b91e16-302a-4672-b55d-4e73bcedf54a`，Assets Git `40cb114e410e5f2afc886732eb146707edf8477b`。
 - Production R2 current 为 `release-9cb02f77c06ee0535e7981a22b312373`，preview 为 `release-841a528f0086ce69f2f7a6f2d07c0999`；环境证据提交为 `290755749a0257ed720e7b2d26aa6b972c60aebb`，完整 verify 380/380。
 - Production 终验事件 `2026-07-17T06:35:37.437Z` 已通过 API、D1 negative-write、三尺寸浏览器与 Pulse：完整图 553/214/261（概念星/谱系/跨学科），全隐藏 0/0，语文 143/60、运动能力泄漏 0，桌面和移动自动缩放 0.864→1.32、0.20→0.568；D1 前后 canonical digest 均为 `c4166f451f4b9529bf4221b56fb3017dc51aef7493a699553dc218287e42c430`，用户/运维表计数 0/0/3/2/0，Pulse 425/0。

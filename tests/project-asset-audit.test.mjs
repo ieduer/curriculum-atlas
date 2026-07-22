@@ -236,6 +236,25 @@ test('accepts a complete asset ledger with canonical, alias, variant, derived, q
   assert.equal(result.queue.unique_pages, 1);
 });
 
+test('document source records may identify a same-edition scan as a variant artifact', async (t) => {
+  const { root, hashes } = await makeFixture(t);
+  const sources = await readJson(root, 'data/document-sources.json');
+  sources.sources.push({
+    document_id: 'doc-a',
+    checksum_sha256: hashes.variant,
+    artifact_disposition: 'variant',
+    is_primary: 0,
+  });
+  await writeJson(root, 'data/document-sources.json', sources);
+
+  const registry = await readJson(root, 'data/artifact-registry.json');
+  registry.expected_counts.document_source_records = 2;
+  await writeJson(root, 'data/artifact-registry.json', registry);
+
+  const result = await auditProjectAssets({ projectRoot: root });
+  assert.equal(result.ok, true, JSON.stringify(result.errors, null, 2));
+});
+
 test('fails closed when a physical source PDF has no disposition', async (t) => {
   const { root } = await makeFixture(t);
   await writeFile(path.join(root, '.cache/sources/forgotten.pdf'), Buffer.from('%PDF-1.4\nforgotten'));

@@ -303,5 +303,5 @@ test('subject facet is controlled while courses, frameworks, domains, and collec
     course: graph.subject_entity_audit.filter((item) => item.entity_kind === 'curriculum_course').length,
     scope: graph.subject_entity_audit.filter((item) => !item.facet_eligible && item.entity_kind !== 'curriculum_course').length,
   };
-  assert.deepEqual(counts, { subject: 160, course: 16, scope: 20 });
+  assert.deepEqual(counts, { subject: 159, course: 16, scope: 20 });
 });

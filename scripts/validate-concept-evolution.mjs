@@ -229,9 +229,9 @@ const catalogEntityCounts = {
   scope: graph.subject_entity_audit.filter((item) => !isFacetEntity(item) && item.entity_kind !== 'curriculum_course' && item.entity_kind !== 'unclassified').length,
   unclassified: graph.subject_entity_audit.filter((item) => item.entity_kind === 'unclassified').length,
 };
-fail(graph.subject_entity_audit.length === 196, `catalog classifications: expected 196, got ${graph.subject_entity_audit.length}`);
-fail(catalogEntityCounts.subject === 160 && catalogEntityCounts.course === 16 && catalogEntityCounts.scope === 20 && catalogEntityCounts.unclassified === 0,
-  `catalog classifications: expected 160/16/20/0, got ${catalogEntityCounts.subject}/${catalogEntityCounts.course}/${catalogEntityCounts.scope}/${catalogEntityCounts.unclassified}`);
+fail(graph.subject_entity_audit.length === 195, `catalog classifications: expected 195, got ${graph.subject_entity_audit.length}`);
+fail(catalogEntityCounts.subject === 159 && catalogEntityCounts.course === 16 && catalogEntityCounts.scope === 20 && catalogEntityCounts.unclassified === 0,
+  `catalog classifications: expected 159/16/20/0, got ${catalogEntityCounts.subject}/${catalogEntityCounts.course}/${catalogEntityCounts.scope}/${catalogEntityCounts.unclassified}`);
 
 const sourceValue = (value) => graph.subject_taxonomy.find((item) => item.source_label === value);
 for (const value of ['课程方案', '考试大纲', '考试评价', '综合', '艺术与劳动']) {

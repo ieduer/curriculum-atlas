@@ -289,7 +289,7 @@
     "bridge_sources": [
       {
         "path": "src/index.ts",
-        "sha256": "5c253e98f94e390752bc5c288613983dbfce6f635c5c637b55c48d98c6bf7b80",
+        "sha256": "c2610fc5eddab66a9c8a7b0258859d7b9afc78632a4167a3253bf74b07aa994d",
         "bytes": 82821
       },
       {
@@ -336,7 +336,7 @@
         "core_table_key_count": 14
       }
     ],
-    "receipt_sha256": "68bcebec2c923c44f4abee1981451450893a19d660de3f0e10ee6f36213e020b"
+    "receipt_sha256": "cf708bca032bb54339231f48fbd6bbbbacf9d6803c517d65bc775ef9692292d6"
   },
-  "receipt_sha256": "f3eca25a998c6419624073608a081138f582a7b687ac7977bc00605eeeda42e6"
+  "receipt_sha256": "dabaa32e96574bce89bee040ab585eb96fdf7622a295bd1844caef02ad91788a"
 }

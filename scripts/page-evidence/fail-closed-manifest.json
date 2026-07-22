@@ -16,8 +16,8 @@
   "bindings": {
     "catalog": {
       "locator": "data/catalog.json",
-      "sha256": "75c64afb87aff147014ca2613b1d425ee956473d917586ac006a929f1a9743ce",
-      "bytes": 262175
+      "sha256": "32668d6ff45db54ac575e56735c5f058c6e1873d5adf777945ea799da3253293",
+      "bytes": 260674
     },
     "page_publication_manifest": {
       "locator": "data/page-publication-manifest.json",

@@ -18,9 +18,9 @@ const MAX_INGEST_MANIFEST_BYTES = 64 * 1024 * 1024;
 const GRAPH_SHARD_TRANSPORT = 'immutable-content-addressed-graph-shards-v1';
 const MAX_GRAPH_INDEX_BYTES = 512 * 1024;
 const REQUIRED_CLASSIFICATION_COUNTS = {
-  documents: 196,
-  academicIdentities: 160,
-  subjects: 159,
+  documents: 195,
+  academicIdentities: 159,
+  subjects: 158,
   assessmentSubjects: 1,
   displayFacets: 12,
   courses: 16,

@@ -19,6 +19,16 @@ const existingByTitle = new Map(existingCatalog.documents.map((document) => [doc
 const inventoryByRelativePath = new Map(inventory.records
   .filter((record) => record.root_label === 'ictr')
   .map((record) => [record.relative_path, record]));
+const reviewedWorkIdentities = new Map([
+  [
+    '义务教育课程标准（2011年版）\0义务教育初中科学课程标准（2011年版）',
+    {
+      document_id: 'moe-2011-12',
+      artifact_disposition: 'variant',
+      note: '与教育部原始发布件属于同一 2011 年版初中科学课程标准；作为不同扫描件用于页序、图像与 OCR 交叉核对，不构成第二个课程标准版本。',
+    },
+  ],
+]);
 
 function clean(value) {
   return value.replace(/&nbsp;|&#160;/g, ' ').replace(/&amp;/g, '&').replace(/<[^>]+>/g, '').trim();
@@ -90,7 +100,8 @@ for (const category of categories) {
     const relativePath = `${category.label}/${link.title}.pdf`;
     const local = inventoryByRelativePath.get(relativePath);
     const existing = existingByTitle.get(link.title);
-    const documentId = existing?.id || stableId(category, link.title);
+    const reviewedIdentity = reviewedWorkIdentities.get(`${category.label}\0${link.title}`);
+    const documentId = reviewedIdentity?.document_id || existing?.id || stableId(category, link.title);
     const accessStatus = local
       ? (local.valid_pdf ? 'verified_online' : 'listed_official_invalid_download')
       : 'metadata_only';
@@ -101,10 +112,13 @@ for (const category of categories) {
       source_url: link.url,
       checksum_sha256: local?.valid_pdf ? local.sha256 : null,
       access_status: accessStatus,
-      is_primary: existing ? 0 : 1,
-      note: local?.valid_pdf === false ? 'The official endpoint returned a non-PDF zero-filled payload during verification; retained as metadata only.' : null,
+      is_primary: existing || reviewedIdentity ? 0 : 1,
+      ...(reviewedIdentity ? { artifact_disposition: reviewedIdentity.artifact_disposition } : {}),
+      note: local?.valid_pdf === false
+        ? 'The official endpoint returned a non-PDF zero-filled payload during verification; retained as metadata only.'
+        : reviewedIdentity?.note ?? null,
     });
-    if (existing) continue;
+    if (existing || reviewedIdentity) continue;
     supplemental.push({
       id: documentId,
       country: '中国',

@@ -2,6 +2,12 @@
 
 本项目遵循日期化发布记录；生产资源的精确版本、验证证据与回滚锚点另见 `docs/operations.md` 和本机 canonical operations report。
 
+## 2026-07-22 — 2011 初中科学作品身份订正（未部署）
+
+- 依据教育部 2011 目录与 PDF 首页，把 `moe-2011-12` 从误标的“小学科学”订正为“义务教育初中科学课程标准（2011年版）”。
+- 原 `ictr-f6754fe2f491` 不是第二个课程标准版本，而是同版不同扫描件；现映射为 `moe-2011-12` 的非主来源，并以 `same_edition_cross_validation_scan` variant 保留两份原始 PDF、校验和与来源 URL。
+- 该 variant 明确 `queue_eligible=false`、`publication_eligible=false`，只能用于页序、图像、OCR 与在线文本交叉核对。订正后的本地候选为 195 个规范作品身份、85/11,759 名义 OCR 队列与 84/11,691 唯一 OCR 实体；线上 v10 暂未改变。
+
 ## 2026-07-18 — fenced publication v2（未部署）
 
 - 新增唯一 `curriculum_desired_release_v2` artifact：从 clean、upstream-exact Git HEAD 的 blob 构建 `dist`，并让 Worker 变量、corpus、R2 manifest 与环境证据共享同一组 Git/release/source-tree/corpus pin；观测时间、health、pointer 与治理回执不进入 release identity。

@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-15T14:34:31.202Z",
+  "generated_at": "2026-07-22T04:35:25.262Z",
   "counts": {
-    "documents": 86,
-    "pages": 11847,
+    "documents": 85,
+    "pages": 11759,
     "priority_0_documents": 2,
     "priority_1_documents": 12,
     "blocked_documents": 2
@@ -598,18 +598,6 @@
       "policy": "PaddleOCR-VL structured primary; Apple Vision independent audit; PP-StructureV3 adjudication; fail closed before citation."
     },
     {
-      "id": "ictr-f6754fe2f491",
-      "title": "义务教育初中科学课程标准（2011年版）",
-      "subject": "初中科学",
-      "source_tier": "primary_official_institute",
-      "source_sha256": "3cf8c2ddedd1cffa1196aa5f722056ebc48d6588c474d6b432b3bf31083b2818",
-      "page_count": 88,
-      "local_cache_path": ".cache/sources/ictr/义务教育课程标准（2011年版）/义务教育初中科学课程标准（2011年版）.pdf",
-      "input_quality_status": "ocr_required",
-      "priority": 2,
-      "policy": "PaddleOCR-VL structured primary; Apple Vision independent audit; PP-StructureV3 adjudication; fail closed before citation."
-    },
-    {
       "id": "ictr-f985431f376f",
       "title": "全日制义务教育日语课程标准（实验稿）",
       "subject": "日语",
@@ -755,7 +743,7 @@
     },
     {
       "id": "moe-2011-12",
-      "title": "义务教育小学科学课程标准（2011年版）",
+      "title": "义务教育初中科学课程标准（2011年版）",
       "subject": "科学",
       "source_tier": "primary_official",
       "source_sha256": "4468169cecce2242d5a82777d799dd61ed7fc67d7af6ede44fc63700d2e9111f",
