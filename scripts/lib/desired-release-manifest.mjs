@@ -17,6 +17,60 @@ function stableStringify(value) {
   return JSON.stringify(value);
 }
 
+function hasExactKeys(value, expected) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).sort().join('\u0000') === [...expected].sort().join('\u0000'));
+}
+
+function validBoundArtifact(value, expectedPath) {
+  return hasExactKeys(value, ['path', 'sha256', 'bytes'])
+    && value.path === expectedPath
+    && SHA256_PATTERN.test(String(value.sha256 || ''))
+    && Number.isSafeInteger(value.bytes) && value.bytes > 0;
+}
+
+function validSubjectOntologyIdentity(ontology) {
+  const dependencyKeys = [
+    'taxonomy_sha256', 'catalog_sha256', 'provenance_sha256', 'corpus_manifest_sha256',
+    'corpus_release_id', 'corpus_release_fingerprint_sha256', 'page_evidence_manifest_sha256',
+    'page_evidence_status', 'signed_reviewer_registry_sha256',
+    'external_online_source_registry_sha256', 'online_verification_standard_sha256',
+    'independent_coverage_catalog_sha256', 'independent_coverage_catalog_records',
+  ];
+  const hashDependencies = dependencyKeys.filter((key) => key.endsWith('_sha256'));
+  const counts = ontology?.counts;
+  const boundary = ontology?.release_boundary;
+  return hasExactKeys(ontology, [
+    'contract_id', 'mode', 'valid', 'publishable', 'index', 'schema', 'report',
+    'dependencies', 'counts', 'release_boundary',
+  ])
+    && ontology.contract_id === 'subject-ontology-v2'
+    && ontology.mode === 'ordinary_nonpublishable'
+    && ontology.valid === true && ontology.publishable === false
+    && validBoundArtifact(ontology.index, 'data/ontologies/index.json')
+    && validBoundArtifact(ontology.schema, 'data/schemas/subject-ontology-v2.schema.json')
+    && validBoundArtifact(ontology.report, 'data/subject-ontology-v2-validation.json')
+    && hasExactKeys(ontology.dependencies, dependencyKeys)
+    && hashDependencies.every((key) => SHA256_PATTERN.test(String(ontology.dependencies[key] || '')))
+    && CORPUS_ID_PATTERN.test(String(ontology.dependencies.corpus_release_id || ''))
+    && typeof ontology.dependencies.page_evidence_status === 'string'
+    && ontology.dependencies.page_evidence_status.length > 0
+    && Number.isSafeInteger(ontology.dependencies.independent_coverage_catalog_records)
+    && ontology.dependencies.independent_coverage_catalog_records >= 0
+    && hasExactKeys(counts, ['valid', 'publishable', 'facets', 'scopes', 'coverage_universes', 'concepts', 'relations'])
+    && counts.valid === true && counts.publishable === false && counts.facets === 12
+    && counts.scopes === 0 && counts.coverage_universes === 0 && counts.concepts === 0 && counts.relations === 0
+    && hasExactKeys(boundary, [
+      'candidate_fail_closed', 'frontend_consumer_allowed', 'r2_consumer_allowed',
+      'explicit_promotion_required', 'same_commit_scope_evidence_self_attestation_allowed',
+    ])
+    && boundary.candidate_fail_closed === true
+    && boundary.frontend_consumer_allowed === false
+    && boundary.r2_consumer_allowed === false
+    && boundary.explicit_promotion_required === true
+    && boundary.same_commit_scope_evidence_self_attestation_allowed === false;
+}
+
 function desiredCorpusRelease(value) {
   if (!value || typeof value !== 'object') return value;
   const { generated_at: _generatedAt, ...stable } = value;
@@ -82,6 +136,10 @@ export function validateDesiredReleaseManifest(value) {
       || value.release_identity?.corpus_release?.release_id !== value.corpus_release.release_id
       || value.release_identity?.corpus_release?.manifest_sha256 !== value.corpus_release.manifest_sha256) {
     throw new Error('desired release manifest cross-plane identity is inconsistent');
+  }
+  const ontology = value.release_identity?.subject_ontology_v2;
+  if (!validSubjectOntologyIdentity(ontology)) {
+    throw new Error('desired release manifest lacks the exact fail-closed subject ontology v2 validation identity');
   }
   const expectedReleaseId = `release-${sha256(Buffer.from(stableStringify(value.release_identity))).slice(0, 32)}`;
   if (value.release_id !== expectedReleaseId) {

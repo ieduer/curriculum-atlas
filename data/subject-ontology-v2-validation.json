@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "subject_ontology_v2_validation_report",
+  "contract_id": "subject-ontology-v2",
+  "mode": "ordinary_nonpublishable",
+  "valid": true,
+  "publishable": false,
+  "index": {
+    "path": "data/ontologies/index.json",
+    "sha256": "6ff4110eddb5d45e909ceee06402278d9905dc4522c9840c3ed36df3fa24839f",
+    "bytes": 6708
+  },
+  "schema": {
+    "path": "data/schemas/subject-ontology-v2.schema.json",
+    "sha256": "39a78e4dfcc6e67044713ec1242b2669e8fd18f0ebc46aa33c91e49b20022bf3",
+    "bytes": 20655
+  },
+  "dependencies": {
+    "taxonomy_sha256": "98d8b3b8c9f4ad1e7f02410c2470fa8b34820996e380d39230a763fd49b3356e",
+    "catalog_sha256": "32668d6ff45db54ac575e56735c5f058c6e1873d5adf777945ea799da3253293",
+    "provenance_sha256": "8405ae337a58ee9bcdd727091238711090fabf54a2c0262875bedd512b4e9853",
+    "corpus_manifest_sha256": "0d34d802e9c1f1f4c0f827fbb180a851568e3cf59b02ada83f288fe042d0b413",
+    "corpus_release_id": "corpus-4fe2f31344f52706de761788",
+    "corpus_release_fingerprint_sha256": "4fe2f31344f52706de761788a0c741ed03d87b74cb096f8de0590cba0baecf76",
+    "page_evidence_manifest_sha256": "d4be339d7f54d405fbe089801bfdccc127039c6f70596271f941c2173a2655bd",
+    "page_evidence_status": "unresolved_fail_closed",
+    "signed_reviewer_registry_sha256": "4602217e96d83cbc9caf472742cdf0912ae0bdf33863bd2244417d31975d9325",
+    "external_online_source_registry_sha256": "d8d51035d46f82b8f92d31eca384aba13db4d4d31d9a241ad4845cbce3686144",
+    "online_verification_standard_sha256": "53a1db63cbee3dedde685b9ecad2c446da9899dc0f13dda5795343279afe5ec4",
+    "independent_coverage_catalog_sha256": "56a56d65a19687b3aa8af6eedc97191bbaf0b59efd8af657f0a0822b54e537b4",
+    "independent_coverage_catalog_records": 195
+  },
+  "counts": {
+    "valid": true,
+    "publishable": false,
+    "facets": 12,
+    "scopes": 0,
+    "coverage_universes": 0,
+    "concepts": 0,
+    "relations": 0
+  },
+  "release_boundary": {
+    "candidate_fail_closed": true,
+    "frontend_consumer_allowed": false,
+    "r2_consumer_allowed": false,
+    "explicit_promotion_required": true,
+    "same_commit_scope_evidence_self_attestation_allowed": false
+  }
+}

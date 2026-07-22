@@ -182,6 +182,15 @@ test('release manifest binds the complete data, graph, static, Git, and environm
   assert.equal(manifest.corpus_release.bytes, rawCorpusBinding.bytes);
   assert.equal(manifest.page_evidence.valid, true);
   assert.equal(manifest.page_evidence.publishable, false);
+  assert.equal(manifest.subject_ontology_v2.valid, true);
+  assert.equal(manifest.subject_ontology_v2.publishable, false);
+  assert.equal(manifest.subject_ontology_v2.mode, 'ordinary_nonpublishable');
+  assert.equal(manifest.subject_ontology_v2.release_boundary.frontend_consumer_allowed, false);
+  assert.equal(manifest.subject_ontology_v2.release_boundary.r2_consumer_allowed, false);
+  assert.deepEqual(manifest.release_identity.subject_ontology_v2, manifest.subject_ontology_v2);
+  const ontologyReport = await readFile(new URL('../data/subject-ontology-v2-validation.json', import.meta.url));
+  assert.equal(manifest.subject_ontology_v2.report.sha256, createHash('sha256').update(ontologyReport).digest('hex'));
+  assert.equal(manifest.subject_ontology_v2.report.bytes, ontologyReport.byteLength);
 
   assert.equal(manifest.graph_assets.length, 2);
   assert.equal(manifest.graph_assets[0].build_revision, manifest.graph_assets[1].build_revision);
@@ -336,6 +345,11 @@ test('one canonical desired release artifact is complete across Worker, R2, and 
   assert.equal(pin.corpus_manifest_sha256, manifest.corpus_release.manifest_sha256);
   assert.equal(parsed.value.r2.release_manifest_key, `releases/${manifest.release_id}/manifest.json`);
   assert.equal(parsed.value.r2.managed_object_count, parsed.value.r2.objects.length);
+  assert.deepEqual(
+    parsed.value.release_identity.subject_ontology_v2,
+    manifest.subject_ontology_v2,
+    'desired-release identity must bind the exact ontology validation report and dependencies',
+  );
   const serialized = artifact.buffer.toString('utf8');
   for (const forbidden of ['environment_snapshot', 'release_blockers', 'published_at', 'observed_at', 'health', 'generated_at']) {
     assert.doesNotMatch(serialized, new RegExp(`"${forbidden}"`));
@@ -347,6 +361,24 @@ test('one canonical desired release artifact is complete across Worker, R2, and 
     () => parseDesiredReleaseManifestArtifact(Buffer.from(`${JSON.stringify(drift, null, 2)}\n`)),
     /release_id does not match release_identity/,
   );
+});
+
+test('desired release rejects a stripped or weakened ontology identity even after release-id rebinding', async () => {
+  const manifest = await buildHermeticReleaseManifest('2026-07-22T05:00:00.000Z');
+  for (const mutate of [
+    (ontology) => { delete ontology.dependencies; },
+    (ontology) => { delete ontology.counts.coverage_universes; },
+    (ontology) => { ontology.release_boundary.same_commit_scope_evidence_self_attestation_allowed = true; },
+  ]) {
+    const desired = desiredReleaseManifestArtifact(manifest).value;
+    mutate(desired.release_identity.subject_ontology_v2);
+    desired.release_id = releaseIdFromIdentity(desired.release_identity);
+    const artifact = desiredReleaseManifestArtifact(desired);
+    assert.throws(
+      () => parseDesiredReleaseManifestArtifact(artifact.buffer),
+      /exact fail-closed subject ontology v2 validation identity/,
+    );
+  }
 });
 
 test('D1 publication lease serializes different owners even for the same release', () => {

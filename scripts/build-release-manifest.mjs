@@ -15,6 +15,7 @@ import {
 import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 import { desiredReleaseManifestArtifact } from './lib/desired-release-manifest.mjs';
 import { validateDualSchemaBootstrapReceipt } from './verify-dual-schema-bootstrap.mjs';
+import { validateSubjectOntologyV2 } from './validate-subject-ontology-v2.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const DEFAULT_POLICY = 'data/release-assets-policy.json';
@@ -870,6 +871,10 @@ export async function buildReleaseManifest({
   const r2Objects = await validateR2PolicyCoverage(projectRoot, policy);
   const publicationCoordination = validatePublicationCoordination(policy);
   const dataInventory = await validateDataInventory(projectRoot, policy, r2Objects);
+  const subjectOntologyV2 = validateSubjectOntologyV2({
+    rootDir: projectRoot,
+    pageEvidenceValidator: () => pageEvidence,
+  });
   const sourceTree = sourceTreeOverride || await buildSourceTree(projectRoot, policy, runCommand);
   const corpusRelease = await inspectCorpusRelease(projectRoot, corpusSourceBindingValidator);
   const dataAssets = [];
@@ -1099,6 +1104,18 @@ export async function buildReleaseManifest({
     git: { head: git.head },
     source_tree_sha256: sourceTree.sha256,
     data_inventory: dataInventory,
+    subject_ontology_v2: {
+      contract_id: subjectOntologyV2.contract_id,
+      mode: subjectOntologyV2.mode,
+      valid: subjectOntologyV2.valid,
+      publishable: subjectOntologyV2.publishable,
+      index: subjectOntologyV2.index,
+      schema: subjectOntologyV2.schema,
+      report: subjectOntologyV2.report,
+      dependencies: subjectOntologyV2.dependencies,
+      counts: subjectOntologyV2.counts,
+      release_boundary: subjectOntologyV2.release_boundary,
+    },
     corpus_release: corpusReleaseIdentity(corpusRelease),
     page_evidence: pageEvidenceIdentity(pageEvidence),
     data_assets: cleanDataAssets.map(({ role, source, key, sha256: hash, bytes }) => ({ role, source, key, sha256: hash, bytes })),
@@ -1163,6 +1180,7 @@ export async function buildReleaseManifest({
     git,
     source_tree: sourceTree,
     data_inventory: dataInventory,
+    subject_ontology_v2: releaseIdentity.subject_ontology_v2,
     corpus_release: corpusRelease,
     page_evidence: pageEvidence,
     downloads_asset_audit: downloadsAssetAudit,
@@ -1199,6 +1217,7 @@ export async function buildReleaseManifest({
         'ocr_queue_subset_of_catalog',
         'declared_catalog_and_queue_counts_current',
         'online_verification_validation_passed',
+        'subject_ontology_v2_report_hash_bound_and_fail_closed',
         'core_academic_build_revision_exact',
         'graph_catalog_and_queue_fingerprints_exact',
         'core_academic_reference_hash_and_counts_exact',
