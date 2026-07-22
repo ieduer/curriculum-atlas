@@ -262,6 +262,233 @@ test('A2 pre-claim AppleDouble repair preserves evidence and never reapplies the
   assert.match(code, /grant-repair-preview-1\.json[\s\S]*grant-repair-preview-2\.json[\s\S]*cmp/u);
 });
 
+test('A2 partial AppleDouble incident resumes through a quiet two-phase state machine', async () => {
+  const [runbook, resumeScript] = await Promise.all([
+    readFile(new URL('../docs/remote-ocr-a2-deployment.md', import.meta.url), 'utf8'),
+    readFile(new URL('../scripts/resume-a2-appledouble-quarantine.sh', import.meta.url), 'utf8'),
+  ]);
+  const resume = runbook.slice(
+    runbook.indexOf('## 4B. Resume the partial pre-move incident'),
+    runbook.indexOf('## 4C. Revalidate the repaired workspace'),
+  );
+  assert.ok(resume.length > 0, 'partial-resume section');
+  for (const exact of [
+    'scripts/resume-a2-appledouble-quarantine.sh',
+    'REPAIR_PROTOCOL_REPO=',
+    'RESUME_SCRIPT_BLOB=',
+    'inspect',
+    'seal',
+    'PREMOVE_READY',
+    'MOVED_UNSEALED',
+    'SEALED',
+    'Never retry `seal` after an unknown SSH result',
+    'd4360775194aaf8593a9fa5db10cf7465b222534',
+    '38f2e5bce7d7782163619782a8ce181cb40417b6',
+  ]) assert.ok(resume.includes(exact), exact);
+  assert.equal((resume.match(/"\$\{SSH_INNER\[@\]\}" bash -se/gu) || []).length, 2);
+  assert.doesNotMatch(resume, /--apply|--seed-(?:dry-run|only)/u);
+  assert.doesNotMatch(resume, /rm\s+(?:-[^\s]+\s+)*"?\$(?:WORKSPACE|INCIDENT|AUTHORITY|GRANT)/u);
+
+  for (const exact of [
+    '/usr/bin/mv -T --no-clobber --no-copy -- "$WORKSPACE" "$QUARANTINED_WORKSPACE"',
+    'incident and workspace are not on the same filesystem',
+    'EXPECTED_EVIDENCE_INODE=41854492',
+    'EXPECTED_INCIDENT_INODE=43669283',
+    'EXPECTED_AUTHORITY_INODE=41854486',
+    'incident filesystem changed immediately before move',
+    'workspace final manifest does not cover the exact file tree',
+    'workspace contains an empty or unexpected directory',
+    'classify_state',
+    'assert_exact_regular_file',
+    'assert_exact_incident_top_level',
+    'assert_exact_authority_top_level',
+    'assert_partial_seal_evidence',
+    'assert_post_move_prefix',
+    'assert_canonical_sha256_sidecar',
+    'assert_deterministic_preview',
+    'EXPECTED_AUTHORITY_PREVIEW_SHA256=0e12e99619af4207aa8f21fc8f0c8ac75826a20f5f347bd67908b0336e1f02f9',
+    'EXPECTED_GRANT_PREVIEW_SHA256=8ac1ea3624f911b3088ddadc719d340f6c72cebd453f3f4758426adb539308d1',
+    'sha256_value "$active_workspace/SHA256SUMS"',
+    'BDFZ_A2_ATOMIC_PARENT_NLINK=$expected_parent_nlink',
+    'os.O_TMPFILE',
+    'os.open(\n        b"."',
+    'os.fsync(fd)',
+    'procfd = f"/proc/self/fd/{fd}"',
+    'linkat(-100, ctypes.c_char_p(procfd), dirfd, ctypes.c_char_p(name), 0x400)',
+    'BDFZ_A2_ATOMIC_PAYLOAD=$payload',
+    '__A2_GENERATOR_COMPLETE_d4360775194aaf8593a9fa5db10cf7465b222534__',
+    'GNU mv lacks --no-copy',
+    'probe_target_otmpfile 2',
+    'probe_target_otmpfile 3',
+    'target filesystem lacks safe O_TMPFILE support',
+    'sha256sum --check --strict --status',
+    'resume-protocol.env',
+    'workspace-stat-after.env',
+    'QUARANTINE_EVIDENCE_SHA256SUMS',
+    'QUARANTINE_EVIDENCE_SHA256SUMS.sha256',
+    'AUTHORITY_CLAIM_COUNT',
+    'test "$AUTHORITY_CLAIM_COUNT" -eq 0',
+    'systemctl --user show',
+  ]) assert.ok(resumeScript.includes(exact), exact);
+  assert.doesNotMatch(resumeScript, /sha256sum --check --strict(?! --status)/u);
+  assert.doesNotMatch(resumeScript, /mv -T "\$WORKSPACE"/u);
+  assert.doesNotMatch(resumeScript, /mv -T --no-clobber -- "\$WORKSPACE"/u);
+  assert.doesNotMatch(resumeScript, /linkat\(fd, ctypes\.c_char_p\(b""\)/u);
+  assert.doesNotMatch(resumeScript, /0x1000/u);
+  assert.doesNotMatch(resumeScript, /cat > "\$pathname"/u);
+  assert.doesNotMatch(resumeScript, /\|\s*(?:atomic_noclobber_bytes|publish_generator_noclobber)/u);
+  assert.doesNotMatch(resumeScript, /sha256sum --check[^\n]*workspace-SHA256SUMS\.sha256/u);
+  assert.doesNotMatch(resumeScript, /--apply|--seed-(?:dry-run|only)/u);
+  assert.doesNotMatch(resumeScript, /rm\s+(?:-[^\s]+\s+)*"?\$(?:WORKSPACE|INCIDENT|AUTHORITY|GRANT)/u);
+  assert.ok(
+    resumeScript.indexOf('probe_target_otmpfile 2')
+      < resumeScript.indexOf('/usr/bin/mv -T --no-clobber --no-copy'),
+    'target filesystem O_TMPFILE probe must precede the move',
+  );
+  assert.equal(spawnSync('/bin/bash', ['-n'], { input: resumeScript }).status, 0);
+});
+
+test('A2 partial-resume helpers reject ambiguous, altered, linked, and extra evidence', async () => {
+  const resumeScript = await readFile(
+    new URL('../scripts/resume-a2-appledouble-quarantine.sh', import.meta.url),
+    'utf8',
+  );
+  const fixture = spawnSync('/bin/bash', ['-se'], {
+    encoding: 'utf8',
+    env: { ...process.env, RESUME_SCRIPT_SOURCE: resumeScript },
+    input: `set -euo pipefail
+BDFZ_A2_RESUME_LIBRARY_ONLY=1
+eval "$RESUME_SCRIPT_SOURCE"
+ROOT=$(mktemp -d)
+trap 'rm -rf "$ROOT"' EXIT INT TERM
+WORKSPACE="$ROOT/workspace"
+QUARANTINED="$ROOT/quarantined"
+mkdir "$WORKSPACE"
+DEVICE=$(stat_value %d "$WORKSPACE")
+INODE=$(stat_value %i "$WORKSPACE")
+test "$(classify_state "$WORKSPACE" "$QUARANTINED" "$DEVICE" "$INODE")" = PREMOVE_READY
+mv "$WORKSPACE" "$QUARANTINED"
+test "$(classify_state "$WORKSPACE" "$QUARANTINED" "$DEVICE" "$INODE")" = MOVED_UNSEALED
+: > "$QUARANTINED/../resume-protocol.env"
+test "$(classify_state "$WORKSPACE" "$QUARANTINED" "$DEVICE" "$INODE" "$QUARANTINED/..")" = MOVED_UNSEALED
+for name in workspace-stat-after.env QUARANTINE_EVIDENCE_SHA256SUMS QUARANTINE_EVIDENCE_SHA256SUMS.sha256; do
+  : > "$QUARANTINED/../$name"
+done
+test "$(classify_state "$WORKSPACE" "$QUARANTINED" "$DEVICE" "$INODE" "$QUARANTINED/..")" = SEALED
+mkdir "$WORKSPACE"
+if (BDFZ_A2_RESUME_LIBRARY_ONLY=0; classify_state "$WORKSPACE" "$QUARANTINED" "$DEVICE" "$INODE" "$QUARANTINED/..") >/dev/null 2>&1; then exit 91; fi
+rmdir "$WORKSPACE"
+if (BDFZ_A2_RESUME_LIBRARY_ONLY=0; classify_state "$WORKSPACE" "$QUARANTINED" "$DEVICE" "$((INODE + 1))" "$QUARANTINED/..") >/dev/null 2>&1; then exit 92; fi
+
+FILE="$ROOT/evidence"
+printf '%s' exact > "$FILE"
+SHA=$(sha256sum "$FILE" | awk '{print $1}')
+SIZE=$(stat_value %s "$FILE")
+assert_exact_regular_file "$FILE" 600 "$(id -u)" 1 "$SIZE" "$SHA"
+printf '%s' changed > "$FILE"
+if (BDFZ_A2_RESUME_LIBRARY_ONLY=0; assert_exact_regular_file "$FILE" 600 "$(id -u)" 1 "$SIZE" "$SHA") >/dev/null 2>&1; then exit 93; fi
+rm "$FILE"
+printf '%s' exact > "$ROOT/target"
+ln -s "$ROOT/target" "$FILE"
+if (BDFZ_A2_RESUME_LIBRARY_ONLY=0; assert_exact_regular_file "$FILE" 777 "$(id -u)" 1 5 "$SHA") >/dev/null 2>&1; then exit 94; fi
+
+INCIDENT="$ROOT/incident"
+mkdir "$INCIDENT"
+for name in incident.env repair-protocol.env appledouble-files.txt appledouble-files.SHA256SUMS contaminated-workspace-seals.sha256 workspace-stat-before.env; do
+  : > "$INCIDENT/$name"
+done
+assert_exact_incident_top_level "$INCIDENT"
+: > "$INCIDENT/extra"
+if (BDFZ_A2_RESUME_LIBRARY_ONLY=0; assert_exact_incident_top_level "$INCIDENT") >/dev/null 2>&1; then exit 95; fi
+`,
+  });
+  assert.equal(fixture.status, 0, fixture.stderr);
+});
+
+test('A2 atomic evidence publication is no-replace and never exposes a failed payload', {
+  skip: process.platform !== 'linux',
+}, async () => {
+  const resumeScript = await readFile(
+    new URL('../scripts/resume-a2-appledouble-quarantine.sh', import.meta.url),
+    'utf8',
+  );
+  const fixture = spawnSync('/bin/bash', ['-se'], {
+    encoding: 'utf8',
+    env: { ...process.env, RESUME_SCRIPT_SOURCE: resumeScript },
+    input: `set -euo pipefail
+BDFZ_A2_RESUME_LIBRARY_ONLY=1
+eval "$RESUME_SCRIPT_SOURCE"
+ROOT=$(mktemp -d)
+trap 'rm -rf "$ROOT"' EXIT INT TERM
+chmod 700 "$ROOT"
+DEVICE=$(stat -c %d "$ROOT")
+INODE=$(stat -c %i "$ROOT")
+CURRENT_UID=$(id -u)
+CURRENT_GID=$(id -g)
+
+PAYLOAD=$'complete payload\n'
+atomic_noclobber_bytes "$ROOT/direct" "$PAYLOAD" \
+  "$DEVICE" "$INODE" "$CURRENT_UID" "$CURRENT_GID" 700 2
+cmp -s "$ROOT/direct" <(printf '%s' "$PAYLOAD")
+if atomic_noclobber_bytes "$ROOT/direct" replacement \
+  "$DEVICE" "$INODE" "$CURRENT_UID" "$CURRENT_GID" 700 2 >/dev/null 2>&1; then exit 91; fi
+cmp -s "$ROOT/direct" <(printf '%s' "$PAYLOAD")
+
+if atomic_noclobber_bytes "$ROOT/injected-failure" partial \
+  "$DEVICE" "$INODE" "$CURRENT_UID" "$CURRENT_GID" 700 2 1 >/dev/null 2>&1; then exit 92; fi
+test ! -e "$ROOT/injected-failure"
+test ! -L "$ROOT/injected-failure"
+
+good_generator() { printf 'generated payload\n'; }
+failed_generator() { printf 'partial payload'; return 73; }
+publish_generator_noclobber "$ROOT/generated" good_generator \
+  "$DEVICE" "$INODE" "$CURRENT_UID" "$CURRENT_GID" 700 2
+cmp -s "$ROOT/generated" <(printf 'generated payload\n')
+if publish_generator_noclobber "$ROOT/failed-generator" failed_generator \
+  "$DEVICE" "$INODE" "$CURRENT_UID" "$CURRENT_GID" 700 2 >/dev/null 2>&1; then exit 93; fi
+test ! -e "$ROOT/failed-generator"
+
+INCIDENT_FIXTURE="$ROOT/incident"
+QUARANTINED_FIXTURE="$INCIDENT_FIXTURE/workspace-a-r2-contaminated"
+ORIGINAL_FIXTURE="$ROOT/workspace-a-r2"
+mkdir "$INCIDENT_FIXTURE" "$ORIGINAL_FIXTURE"
+FIXTURE_DEVICE=$(stat -c %d "$ORIGINAL_FIXTURE")
+FIXTURE_INODE=$(stat -c %i "$ORIGINAL_FIXTURE")
+INCIDENT_INODE=$(stat -c %i "$INCIDENT_FIXTURE")
+test "$(classify_state "$ORIGINAL_FIXTURE" "$QUARANTINED_FIXTURE" \
+  "$FIXTURE_DEVICE" "$FIXTURE_INODE" "$INCIDENT_FIXTURE")" = PREMOVE_READY
+/usr/bin/mv -T --no-clobber --no-copy -- "$ORIGINAL_FIXTURE" "$QUARANTINED_FIXTURE"
+test "$(classify_state "$ORIGINAL_FIXTURE" "$QUARANTINED_FIXTURE" \
+  "$FIXTURE_DEVICE" "$FIXTURE_INODE" "$INCIDENT_FIXTURE")" = MOVED_UNSEALED
+marker_generator() { printf 'sealed marker\n'; }
+for marker in \
+  resume-protocol.env \
+  workspace-stat-after.env \
+  QUARANTINE_EVIDENCE_SHA256SUMS; do
+  if atomic_noclobber_bytes "$INCIDENT_FIXTURE/$marker" incomplete \
+    "$FIXTURE_DEVICE" "$INCIDENT_INODE" "$CURRENT_UID" "$CURRENT_GID" 700 3 1 \
+    >/dev/null 2>&1; then exit 94; fi
+  test ! -e "$INCIDENT_FIXTURE/$marker"
+  publish_generator_noclobber "$INCIDENT_FIXTURE/$marker" marker_generator \
+    "$FIXTURE_DEVICE" "$INCIDENT_INODE" "$CURRENT_UID" "$CURRENT_GID" 700 3
+  test "$(classify_state "$ORIGINAL_FIXTURE" "$QUARANTINED_FIXTURE" \
+    "$FIXTURE_DEVICE" "$FIXTURE_INODE" "$INCIDENT_FIXTURE")" = MOVED_UNSEALED
+done
+if atomic_noclobber_bytes \
+  "$INCIDENT_FIXTURE/QUARANTINE_EVIDENCE_SHA256SUMS.sha256" incomplete \
+  "$FIXTURE_DEVICE" "$INCIDENT_INODE" "$CURRENT_UID" "$CURRENT_GID" 700 3 1 \
+  >/dev/null 2>&1; then exit 95; fi
+test ! -e "$INCIDENT_FIXTURE/QUARANTINE_EVIDENCE_SHA256SUMS.sha256"
+publish_generator_noclobber \
+  "$INCIDENT_FIXTURE/QUARANTINE_EVIDENCE_SHA256SUMS.sha256" marker_generator \
+  "$FIXTURE_DEVICE" "$INCIDENT_INODE" "$CURRENT_UID" "$CURRENT_GID" 700 3
+test "$(classify_state "$ORIGINAL_FIXTURE" "$QUARANTINED_FIXTURE" \
+  "$FIXTURE_DEVICE" "$FIXTURE_INODE" "$INCIDENT_FIXTURE")" = SEALED
+`,
+  });
+  assert.equal(fixture.status, 0, fixture.stderr);
+});
+
 test('A2 deployment creates a new private monitor output directory before worker start', async () => {
   const runbook = await readFile(new URL('../docs/remote-ocr-a2-deployment.md', import.meta.url), 'utf8');
   for (const exact of [

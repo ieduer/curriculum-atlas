@@ -510,6 +510,8 @@ git -C "$REPO" diff --quiet
 git -C "$REPO" diff --cached --quiet
 git -C "$REPO" merge-base --is-ancestor \
   d4360775194aaf8593a9fa5db10cf7465b222534 "$REPAIR_PROTOCOL_COMMIT"
+git -C "$REPO" merge-base --is-ancestor \
+  38f2e5bce7d7782163619782a8ce181cb40417b6 "$REPAIR_PROTOCOL_COMMIT"
 REPAIR_PROTOCOL_UPSTREAM=$(git -C "$REPO" rev-parse \
   --abbrev-ref --symbolic-full-name '@{upstream}')
 test "$(git -C "$REPO" rev-parse "$REPAIR_PROTOCOL_UPSTREAM^{commit}")" \
@@ -695,6 +697,132 @@ stat -c 'device=%d\ninode=%i\nmode=%a\nuid=%u\ngid=%g' "$QUARANTINED_WORKSPACE" 
 (cd "$INCIDENT" && sha256sum --check --strict QUARANTINE_EVIDENCE_SHA256SUMS)
 REMOTE
 ```
+
+## 4B. Resume the partial pre-move incident
+
+Use this incident-specific path only when Step 4A created the six sealed
+pre-move files but the SSH channel closed before the workspace rename. It is a
+quiet, two-phase state machine: the first SSH session is read-only and prints
+one state line; the second repeats every gate, performs at most one atomic
+rename, seals the recursive evidence tree, and prints `SEALED`. It never
+rewrites the six original files, never reapplies the grant, and never creates
+the successor output, seed, monitor, lifecycle lock, or systemd runtime.
+
+Review and push the exact resume commit first. The payload workspace remains
+bound to `d4360775194aaf8593a9fa5db10cf7465b222534`; the newer commit authorizes
+only this recovery protocol.
+
+```zsh
+set -euo pipefail
+REPAIR_PROTOCOL_REPO="/private/tmp/curriculum-a2-partial-resume-protocol-20260719"
+REPAIR_PROTOCOL_COMMIT="<REVIEWED_A2_PARTIAL_RESUME_COMMIT>"
+test "${#REPAIR_PROTOCOL_COMMIT}" -eq 40
+printf '%s\n' "$REPAIR_PROTOCOL_COMMIT" | grep -Eq '^[0-9a-f]{40}$'
+git -C "$REPAIR_PROTOCOL_REPO" cat-file -e "$REPAIR_PROTOCOL_COMMIT^{commit}"
+test "$(git -C "$REPAIR_PROTOCOL_REPO" rev-parse HEAD)" = "$REPAIR_PROTOCOL_COMMIT"
+test -z "$(git -C "$REPAIR_PROTOCOL_REPO" status --porcelain=v1 --untracked-files=all)"
+git -C "$REPAIR_PROTOCOL_REPO" diff --quiet
+git -C "$REPAIR_PROTOCOL_REPO" diff --cached --quiet
+git -C "$REPAIR_PROTOCOL_REPO" merge-base --is-ancestor \
+  d4360775194aaf8593a9fa5db10cf7465b222534 "$REPAIR_PROTOCOL_COMMIT"
+git -C "$REPAIR_PROTOCOL_REPO" merge-base --is-ancestor \
+  38f2e5bce7d7782163619782a8ce181cb40417b6 "$REPAIR_PROTOCOL_COMMIT"
+REPAIR_PROTOCOL_UPSTREAM=$(git -C "$REPAIR_PROTOCOL_REPO" rev-parse \
+  --abbrev-ref --symbolic-full-name '@{upstream}')
+test "$(git -C "$REPAIR_PROTOCOL_REPO" rev-parse "$REPAIR_PROTOCOL_UPSTREAM^{commit}")" \
+  = "$REPAIR_PROTOCOL_COMMIT"
+REPAIR_RUNBOOK_BLOB=$(git -C "$REPAIR_PROTOCOL_REPO" rev-parse \
+  "${REPAIR_PROTOCOL_COMMIT}:docs/remote-ocr-a2-deployment.md")
+REPAIR_TEST_BLOB=$(git -C "$REPAIR_PROTOCOL_REPO" rev-parse \
+  "${REPAIR_PROTOCOL_COMMIT}:tests/remote-ocr-a2-systemd.test.mjs")
+RESUME_SCRIPT_BLOB=$(git -C "$REPAIR_PROTOCOL_REPO" rev-parse \
+  "${REPAIR_PROTOCOL_COMMIT}:scripts/resume-a2-appledouble-quarantine.sh")
+printf '%s\n%s\n%s\n%s\n' \
+  "$REPAIR_PROTOCOL_COMMIT" "$REPAIR_RUNBOOK_BLOB" \
+  "$REPAIR_TEST_BLOB" "$RESUME_SCRIPT_BLOB" \
+  | grep -Ec '^[0-9a-f]{40}$' | grep -qx 4
+```
+
+Phase 1 is 100% read-only. It rechecks the exact six-name/type/owner/mode/link
+count/size/hash set, the literal bytes of `workspace-stat-before.env`, the
+workspace device/inode/mode, the exact non-empty directory set, every
+mode-`0400` single-link file, and all 27 AppleDouble paths and hashes. It also
+pins the authority inode and exact four-file identity/issuance set, the exact
+grant pair, canonical one-line sidecars, the A1 pre-grant tree, one issuance
+and zero claims, and every absent A2 path and unit. Finally it runs each
+authority and grant preview twice in memory, requires byte identity,
+`verified_idempotent`, zero planned writes, and the reviewed output hashes.
+No preview or file list is persisted. Its only stdout is one of
+`PREMOVE_READY`, `MOVED_UNSEALED`, or `SEALED`; before the first Phase 2 run the
+required result is `PREMOVE_READY`.
+
+```zsh
+PHASE1_RESULT=$(
+  git -C "$REPAIR_PROTOCOL_REPO" show \
+    "${REPAIR_PROTOCOL_COMMIT}:scripts/resume-a2-appledouble-quarantine.sh" \
+    | "${SSH_INNER[@]}" bash -se -- \
+      inspect "$REPAIR_PROTOCOL_COMMIT" "$REPAIR_RUNBOOK_BLOB" \
+      "$REPAIR_TEST_BLOB" "$RESUME_SCRIPT_BLOB"
+)
+case "$PHASE1_RESULT" in
+  PREMOVE_READY|MOVED_UNSEALED|SEALED) ;;
+  *) printf 'unexpected Phase 1 result: %q\n' "$PHASE1_RESULT" >&2; exit 1 ;;
+esac
+printf '%s\n' "$PHASE1_RESULT"
+```
+
+For the known pre-move state, run Phase 2 with `PHASE2_ACTION=seal`. The script
+opens a non-creating lock on the incident directory, repeats Phase 1's race
+gates, then opens, writes, fsyncs, and closes an unnamed `O_TMPFILE` on the
+exact pinned incident filesystem before changing any pathname. It then uses exactly
+`/usr/bin/mv -T --no-clobber --no-copy -- "$WORKSPACE" "$QUARANTINED_WORKSPACE"`, classifies the
+paths instead of trusting the `mv` exit status, then adds only:
+
+- `resume-protocol.env`
+- `workspace-stat-after.env`
+- `QUARANTINE_EVIDENCE_SHA256SUMS`
+- `QUARANTINE_EVIDENCE_SHA256SUMS.sha256`
+
+The recursive manifest covers the unchanged six files, the two new identity
+files, and every regular file below the quarantined workspace; it excludes only
+itself and its sidecar. All checks use quiet hash verification, so no file list
+can flood the SSH channel.
+
+```zsh
+PHASE2_ACTION=seal
+case "$PHASE2_ACTION:$PHASE1_RESULT" in
+  seal:PREMOVE_READY|finish-seal:MOVED_UNSEALED) ;;
+  *) echo 'Phase 2 action does not match the separately inspected state' >&2; exit 1 ;;
+esac
+PHASE2_RESULT=$(
+  git -C "$REPAIR_PROTOCOL_REPO" show \
+    "${REPAIR_PROTOCOL_COMMIT}:scripts/resume-a2-appledouble-quarantine.sh" \
+    | "${SSH_INNER[@]}" bash -se -- \
+      "$PHASE2_ACTION" "$REPAIR_PROTOCOL_COMMIT" "$REPAIR_RUNBOOK_BLOB" \
+      "$REPAIR_TEST_BLOB" "$RESUME_SCRIPT_BLOB"
+)
+test "$PHASE2_RESULT" = SEALED
+printf '%s\n' "$PHASE2_RESULT"
+```
+
+Never retry `seal` after an unknown SSH result. Rerun Phase 1 only. If it says
+`SEALED`, proceed to Step 4C. If it says `MOVED_UNSEALED`, review that read-only
+result, set `PHASE2_ACTION=finish-seal`, and use the Phase 2 block; that action
+cannot rename anything. An exact, already-written prefix of the four new files
+also remains `MOVED_UNSEALED`; `finish-seal` verifies every existing byte and
+adds only the missing suffix through a directory-fd-relative `O_TMPFILE` +
+`fsync` + `/proc/self/fd/<fd>` `linkat(AT_SYMLINK_FOLLOW)` no-replace
+publication. The protocol gates exact GNU `mv --no-copy`, `flock`, Python,
+`O_TMPFILE`, `linkat`, and `/proc/self/fd` capabilities before classification.
+A final pathname therefore
+never exposes partially written bytes. If it says
+`PREMOVE_READY`, a new `seal` attempt is
+allowed only after the read-only result and local exact-upstream preflight have
+both been reviewed again. Any non-prefix or byte-drifted partial marker set,
+changed inode, extra entry, symlink, failed hash, claim, A2 runtime path, or
+loaded unit is an intentional hard stop.
+
+## 4C. Revalidate the repaired workspace
 
 After the quarantine command succeeds, set local `A2_GIT_COMMIT` to exactly
 `d4360775194aaf8593a9fa5db10cf7465b222534` and rerun **only Step 2 once**.
