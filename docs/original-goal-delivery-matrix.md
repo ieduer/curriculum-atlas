@@ -32,6 +32,7 @@
 | OCR 队列候选 | 名义 86 documents / 11,903 pages；扣除劳动课标完全相同别名后 85 unique artifacts / 11,835 pages；0 blocked documents | 入队不表示完成，更不表示可引用 |
 | 概念图 | production 有 553 concept episodes、214 lineage、261 cross-subject edges；169 个公开本体节点主要属于语文 | 不是全学科、全历史、全层级精细本体；观察数据目前止于 2020 |
 | 汇编篇目 | 61 个目录身份为候选，0 display / 0 citation / 0 semantic | 已识别目录不等于篇目正文、边界和版本身份已发布 |
+| B3 远端 OCR | 6 本历史汇编、3,182 页已 `finished=true`、`settled=true`、6/6 complete：艺术劳动、化学、语文、历史、物理、课程计划 | 尚未通过受审 receiver 整卷导入本机；完成不等于可显示或可引用 |
 | A2 远端 OCR | 同一 attempt 6 已耐久完成 1,568/3,182 页：4/8 卷完成、1 卷中断、3 卷 retry_wait、0 失败页；主机资源正常但服务仍按安全策略冻结，forward continuation 正在本地审查 | 不得另发授权、重置 attempt、覆盖 state，亦不得把耐久页数误报为可引用页数 |
 
 任何后续状态变化必须更新本表的真值快照、`operations.md`、append-only action log 和 canonical Cloudflare report；不能只改 README 数字。
