@@ -14,6 +14,10 @@ import { createCorpusSourceSnapshot } from './lib/corpus-source-snapshot.mjs';
 import { desiredReleaseManifestArtifact } from './lib/desired-release-manifest.mjs';
 import { assertSourceRecoveryOnlineReceiptFresh } from './source-recovery-online-receipt.mjs';
 import {
+  assertResearchEvidenceReleaseGate,
+  validateResearchEvidenceSliceFile,
+} from './validate-research-evidence-slice.mjs';
+import {
   materializeGitHeadReleaseTree,
   materializeVerifiedBuffer,
   readGitBlob,
@@ -57,6 +61,9 @@ export async function prepareRelease({
   cleanSourceValidator = assertCleanReleaseSource,
   projectAssetAuditor = auditProjectAssets,
   pageEvidenceValidator = validatePageEvidenceForRelease,
+  researchEvidenceResourceMap = process.env.CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP || null,
+  researchEvidenceValidator = validateResearchEvidenceSliceFile,
+  researchEvidenceGate = assertResearchEvidenceReleaseGate,
   manifestBuilder = buildReleaseManifest,
 } = {}) {
   const repositoryRoot = resolve(root);
@@ -93,6 +100,24 @@ export async function prepareRelease({
     }
     corpusSnapshot = await createCorpusSourceSnapshot({ root: gitTree.root, manifest: corpusManifest });
     await corpusSnapshot.verify();
+    if (!researchEvidenceResourceMap) {
+      throw new Error('strict release requires --research-evidence-resource-map or CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP');
+    }
+    const researchEvidenceManifest = JSON.parse(await readFile(
+      resolve(gitTree.root, 'data/research-evidence/zh-hs-2017-2020.json'),
+      'utf8',
+    ));
+    const researchEvidence = await researchEvidenceValidator({
+      root: gitTree.root,
+      resourceMap: researchEvidenceResourceMap,
+      resourcePathOverrides: {
+        [researchEvidenceManifest.corpus.manifest_resource_id]: resolve(
+          gitTree.root,
+          'data/corpus-chunks/manifest.json',
+        ),
+      },
+    });
+    researchEvidenceGate(researchEvidence, { requirePublicationEligible: true });
     const pageEvidence = pageEvidenceValidator({
       root: gitTree.root,
       pageEvidencePromotion,
@@ -147,7 +172,11 @@ export async function prepareRelease({
 }
 
 function parseArgs(argv) {
-  const options = { root: DEFAULT_ROOT, output: DEFAULT_OUTPUT };
+  const options = {
+    root: DEFAULT_ROOT,
+    output: DEFAULT_OUTPUT,
+    researchEvidenceResourceMap: process.env.CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP || null,
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (key === '--page-evidence-promotion') {
@@ -159,6 +188,7 @@ function parseArgs(argv) {
     if (key === '--root') options.root = value;
     else if (key === '--output') options.output = value;
     else if (key === '--renderer') options.rendererPath = value;
+    else if (key === '--research-evidence-resource-map') options.researchEvidenceResourceMap = value;
     else throw new Error(`unexpected argument: ${key}`);
     index += 1;
   }

@@ -1,0 +1,464 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/research-evidence-slice-v1.json",
+  "title": "Resolved exact-span fail-closed research evidence slice",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "policy",
+    "slice_id",
+    "title",
+    "assertion_boundary",
+    "subject_facet",
+    "school_type",
+    "stage",
+    "corpus",
+    "documents",
+    "online_sources",
+    "evidence",
+    "conflicts",
+    "assertions",
+    "release_boundary"
+  ],
+  "properties": {
+    "$schema": { "const": "./research-evidence-slice.schema.json" },
+    "schema_version": { "const": 1 },
+    "policy": { "const": "resolved_exact_span_fail_closed_research_slice_v1" },
+    "slice_id": { "$ref": "#/$defs/id" },
+    "title": { "$ref": "#/$defs/nonEmpty" },
+    "assertion_boundary": { "$ref": "#/$defs/nonEmpty" },
+    "subject_facet": { "const": "语文" },
+    "school_type": { "const": "ordinary_general_education" },
+    "stage": { "const": "普通高中" },
+    "corpus": { "$ref": "#/$defs/corpus" },
+    "documents": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/document" }
+    },
+    "online_sources": {
+      "type": "array",
+      "minItems": 6,
+      "items": { "$ref": "#/$defs/source" }
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/conflict" }
+    },
+    "assertions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/assertion" }
+    },
+    "release_boundary": { "$ref": "#/$defs/releaseBoundary" }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9:._-]*$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "corpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resource_id",
+        "manifest_resource_id",
+        "release_id",
+        "release_fingerprint_sha256",
+        "manifest_sha256"
+      ],
+      "properties": {
+        "resource_id": { "$ref": "#/$defs/id" },
+        "manifest_resource_id": { "$ref": "#/$defs/id" },
+        "release_id": { "type": "string", "pattern": "^corpus-[a-f0-9]{24}$" },
+        "release_fingerprint_sha256": { "$ref": "#/$defs/sha256" },
+        "manifest_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "document_id",
+        "title",
+        "version_label",
+        "sort_year",
+        "issued_by",
+        "subject",
+        "stage",
+        "document_type",
+        "source_artifact_sha256",
+        "primary_source_id",
+        "version_identity_source_id"
+      ],
+      "properties": {
+        "role": { "enum": ["from", "to"] },
+        "document_id": { "$ref": "#/$defs/id" },
+        "title": { "$ref": "#/$defs/nonEmpty" },
+        "version_label": { "$ref": "#/$defs/nonEmpty" },
+        "sort_year": { "type": "integer", "minimum": 1900, "maximum": 2100 },
+        "issued_by": { "$ref": "#/$defs/nonEmpty" },
+        "subject": { "const": "语文" },
+        "stage": { "const": "普通高中" },
+        "document_type": { "const": "课程标准" },
+        "source_artifact_sha256": { "$ref": "#/$defs/sha256" },
+        "primary_source_id": { "$ref": "#/$defs/id" },
+        "version_identity_source_id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource_id", "media_type", "sha256"],
+      "properties": {
+        "resource_id": { "$ref": "#/$defs/id" },
+        "media_type": { "enum": ["application/pdf", "text/html"] },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "onlineSpan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "span_id",
+        "purpose",
+        "evidence_id",
+        "utf16_start",
+        "utf16_end",
+        "exact_text",
+        "exact_text_sha256",
+        "occurrence_index"
+      ],
+      "properties": {
+        "span_id": { "$ref": "#/$defs/id" },
+        "purpose": { "enum": ["version_identity", "exact_text_witness", "transcription_conflict"] },
+        "evidence_id": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "utf16_start": { "type": "integer", "minimum": 0 },
+        "utf16_end": { "type": "integer", "minimum": 1 },
+        "exact_text": { "$ref": "#/$defs/nonEmpty" },
+        "exact_text_sha256": { "$ref": "#/$defs/sha256" },
+        "occurrence_index": { "type": "integer", "minimum": 0 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "purpose": { "const": "version_identity" } }, "required": ["purpose"] },
+          "then": { "properties": { "evidence_id": { "type": "null" } } },
+          "else": { "properties": { "evidence_id": { "$ref": "#/$defs/id" } } }
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "title",
+        "publisher",
+        "url",
+        "authority_class",
+        "evidence_role",
+        "version_relation",
+        "independently_counts_for_text",
+        "witness_scope",
+        "same_artifact_as",
+        "document_binding",
+        "resource",
+        "canonical_text_sha256",
+        "spans",
+        "limitations"
+      ],
+      "properties": {
+        "source_id": { "$ref": "#/$defs/id" },
+        "title": { "$ref": "#/$defs/nonEmpty" },
+        "publisher": { "$ref": "#/$defs/nonEmpty" },
+        "url": { "type": "string", "pattern": "^https://" },
+        "authority_class": { "$ref": "#/$defs/nonEmpty" },
+        "evidence_role": {
+          "enum": [
+            "primary_artifact",
+            "official_version_identity",
+            "official_version_identity_with_policy_text",
+            "independent_text_transcription",
+            "independent_policy_correspondence",
+            "integrity_only_same_artifact"
+          ]
+        },
+        "version_relation": {
+          "enum": [
+            "exact_document_exact_edition",
+            "same_artifact_exact_edition",
+            "official_release_same_edition",
+            "different_edition"
+          ]
+        },
+        "independently_counts_for_text": { "type": "boolean" },
+        "witness_scope": {
+          "enum": [
+            "artifact_identity_only",
+            "version_identity_only",
+            "exact_document_text",
+            "same_version_policy_text",
+            "artifact_integrity_only"
+          ]
+        },
+        "same_artifact_as": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "document_binding": { "$ref": "#/$defs/documentBinding" },
+        "resource": { "$ref": "#/$defs/resource" },
+        "canonical_text_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "spans": { "type": "array", "items": { "$ref": "#/$defs/onlineSpan" } },
+        "limitations": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmpty" } }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "independently_counts_for_text": { "const": true } },
+            "required": ["independently_counts_for_text"]
+          },
+          "then": {
+            "properties": {
+              "resource": {
+                "type": "object",
+                "properties": { "media_type": { "const": "text/html" } },
+                "required": ["media_type"]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "documentBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_id",
+        "version_label",
+        "source_artifact_sha256",
+        "version_identity_source_id"
+      ],
+      "properties": {
+        "document_id": { "$ref": "#/$defs/id" },
+        "version_label": { "$ref": "#/$defs/nonEmpty" },
+        "source_artifact_sha256": { "$ref": "#/$defs/sha256" },
+        "version_identity_source_id": { "$ref": "#/$defs/id" }
+      }
+    },
+    "pageImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resource_id",
+        "media_type",
+        "sha256",
+        "rendered_from_source_artifact_sha256",
+        "renderer",
+        "dpi"
+      ],
+      "properties": {
+        "resource_id": { "$ref": "#/$defs/id" },
+        "media_type": { "const": "image/png" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "rendered_from_source_artifact_sha256": { "$ref": "#/$defs/sha256" },
+        "renderer": { "$ref": "#/$defs/rendererIdentity" },
+        "dpi": { "const": 240 }
+      }
+    },
+    "rendererIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "sha256", "command_contract", "execution_binding"],
+      "properties": {
+        "name": { "const": "pdftoppm" },
+        "version": { "type": "string", "pattern": "^pdftoppm version [0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "command_contract": { "const": "pdftoppm_png_single_page_v1" },
+        "execution_binding": { "const": "verified_private_read_only_copy_v1" }
+      }
+    },
+    "visualReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewed_by", "reviewed_at", "note"],
+      "properties": {
+        "status": { "const": "machine_assisted_visual_match" },
+        "reviewed_by": { "$ref": "#/$defs/nonEmpty" },
+        "reviewed_at": { "type": "string", "format": "date-time" },
+        "note": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "document_id",
+        "paragraph_id",
+        "paragraph_ordinal",
+        "physical_pdf_page",
+        "paragraph_body_sha256",
+        "utf16_start",
+        "utf16_end",
+        "exact_text",
+        "exact_text_sha256",
+        "source_artifact_sha256",
+        "page_final_text_sha256",
+        "page_publication_stable_locator",
+        "page_image",
+        "visual_review",
+        "online_witness_span_ids",
+        "online_conflict_span_ids"
+      ],
+      "properties": {
+        "evidence_id": { "$ref": "#/$defs/id" },
+        "document_id": { "$ref": "#/$defs/id" },
+        "paragraph_id": { "type": "integer", "minimum": 1 },
+        "paragraph_ordinal": { "type": "integer", "minimum": 0 },
+        "physical_pdf_page": { "type": "integer", "minimum": 1 },
+        "paragraph_body_sha256": { "$ref": "#/$defs/sha256" },
+        "utf16_start": { "type": "integer", "minimum": 0 },
+        "utf16_end": { "type": "integer", "minimum": 1 },
+        "exact_text": { "$ref": "#/$defs/nonEmpty" },
+        "exact_text_sha256": { "$ref": "#/$defs/sha256" },
+        "source_artifact_sha256": { "$ref": "#/$defs/sha256" },
+        "page_final_text_sha256": { "$ref": "#/$defs/sha256" },
+        "page_publication_stable_locator": { "$ref": "#/$defs/nonEmpty" },
+        "page_image": { "$ref": "#/$defs/pageImage" },
+        "visual_review": { "$ref": "#/$defs/visualReview" },
+        "online_witness_span_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "online_conflict_span_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }
+      }
+    },
+    "conflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["conflict_id", "evidence_id", "source_span_ids", "status", "note"],
+      "properties": {
+        "conflict_id": { "$ref": "#/$defs/id" },
+        "evidence_id": { "$ref": "#/$defs/id" },
+        "source_span_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "status": { "const": "unresolved_fail_closed" },
+        "note": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewer_id", "decision_resource_id", "uncertainty_note"],
+      "properties": {
+        "status": { "const": "pending_signed_editor_review" },
+        "reviewer_id": { "type": "null" },
+        "decision_resource_id": { "type": "null" },
+        "uncertainty_note": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "builder_input_allowed",
+        "public_compare_allowed",
+        "public_star_allowed",
+        "ai_citation_allowed",
+        "discussion_claim_citation_allowed"
+      ],
+      "properties": {
+        "builder_input_allowed": { "const": false },
+        "public_compare_allowed": { "const": false },
+        "public_star_allowed": { "const": false },
+        "ai_citation_allowed": { "const": false },
+        "discussion_claim_citation_allowed": { "const": false }
+      }
+    },
+    "releaseGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "blocked_by_statuses"],
+      "properties": {
+        "allowed": { "const": false },
+        "blocked_by_statuses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["online-version-conflict", "editor-review-pending"]
+          }
+        }
+      }
+    },
+    "assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assertion_id",
+        "assertion_kind",
+        "dimension",
+        "claim",
+        "from_document_id",
+        "to_document_id",
+        "from_evidence_ids",
+        "to_evidence_ids",
+        "version_identity_source_ids",
+        "unresolved_conflict_ids",
+        "evidence_bundle_sha256",
+        "semantic_statuses",
+        "review",
+        "publication",
+        "release_gate"
+      ],
+      "properties": {
+        "assertion_id": { "$ref": "#/$defs/id" },
+        "assertion_kind": {
+          "enum": ["parallel_exact_text_observation", "exact_textual_revision_observation"]
+        },
+        "dimension": { "$ref": "#/$defs/nonEmpty" },
+        "claim": { "$ref": "#/$defs/nonEmpty" },
+        "from_document_id": { "$ref": "#/$defs/id" },
+        "to_document_id": { "$ref": "#/$defs/id" },
+        "from_evidence_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "to_evidence_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "version_identity_source_ids": { "type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "unresolved_conflict_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "evidence_bundle_sha256": { "$ref": "#/$defs/sha256" },
+        "semantic_statuses": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "allOf": [
+            { "contains": { "const": "exact-source-supported" } },
+            { "contains": { "const": "editor-review-pending" } }
+          ],
+          "items": {
+            "enum": ["exact-source-supported", "online-version-conflict", "editor-review-pending"]
+          }
+        },
+        "review": { "$ref": "#/$defs/review" },
+        "publication": { "$ref": "#/$defs/publication" },
+        "release_gate": { "$ref": "#/$defs/releaseGate" }
+      }
+    },
+    "releaseBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signed_editor_review_required",
+        "builder_input_allowed",
+        "public_data_update_allowed",
+        "deployment_allowed"
+      ],
+      "properties": {
+        "signed_editor_review_required": { "const": true },
+        "builder_input_allowed": { "const": false },
+        "public_data_update_allowed": { "const": false },
+        "deployment_allowed": { "const": false }
+      }
+    }
+  }
+}

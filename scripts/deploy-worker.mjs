@@ -5,13 +5,10 @@ import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { assertCleanReleaseSource } from './assert-clean-release-source.mjs';
-import { buildReleaseManifest } from './build-release-manifest.mjs';
 import {
   assertOntologyReleaseGate,
   validateOntologyReleaseFile,
 } from './validate-ontology-release.mjs';
-import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 import { createImmutableTreeSnapshot } from './lib/immutable-release-snapshot.mjs';
 import { immutableVersionedManifestArtifact } from './publish-metadata.mjs';
 import { prepareRelease } from './prepare-release.mjs';
@@ -20,6 +17,7 @@ import { validateDualSchemaBootstrapReceipt } from './verify-dual-schema-bootstr
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const DEFAULT_MANIFEST = '.wrangler/release-manifest.json';
+const preparedByBuiltInReleaseGate = new WeakSet();
 const ONTOLOGY_MANIFEST_PATH = 'data/ontology-release-manifest.json';
 const RECEIPT_SCHEMA = './ontology-preview-acceptance-receipt.schema.json';
 const EXACT_SHA256 = /^[0-9a-f]{64}$/;
@@ -185,6 +183,39 @@ export function assertOntologyReleaseDeploymentGate(report, { ontologyPromotion 
   return true;
 }
 
+export function assertDeploymentPromotionOptions({
+  environment,
+  ontologyPromotion = false,
+  previewAcceptanceReceipt = null,
+} = {}) {
+  if (previewAcceptanceReceipt && (!ontologyPromotion || environment !== 'production')) {
+    throw new Error('preview acceptance receipt is valid only for production ontology promotion');
+  }
+  if (environment === 'production' && ontologyPromotion && !previewAcceptanceReceipt) {
+    throw new Error('production ontology promotion preview acceptance receipt is required');
+  }
+  return true;
+}
+
+export function deploymentSnapshotInventory(manifest) {
+  const inventory = new Map();
+  const add = (entry, pathKey = 'path') => {
+    const path = String(entry?.[pathKey] || '');
+    const current = inventory.get(path);
+    const normalized = { path, sha256: entry?.sha256, bytes: entry?.bytes };
+    if (current && (current.sha256 !== normalized.sha256 || current.bytes !== normalized.bytes)) {
+      throw new Error(`deployment snapshot inventory has conflicting bytes for ${path}`);
+    }
+    inventory.set(path, normalized);
+  };
+  for (const file of manifest?.source_tree?.files || []) add(file);
+  for (const file of manifest?.static_assets?.files || []) add(file, 'deploy_path');
+  for (const file of manifest?.graph_assets || []) add(file, 'deploy_path');
+  for (const file of manifest?.graph_shards || []) add(file, 'deploy_path');
+  if (!inventory.size) throw new Error('release manifest has no deployment snapshot inventory');
+  return [...inventory.values()];
+}
+
 export function assertManifestDeploymentGates(manifest, environment, { phase = 'steady', root = DEFAULT_ROOT } = {}) {
   if (!['preview', 'production'].includes(environment)) {
     throw new Error(`unsupported deployment environment: ${environment || '<unset>'}`);
@@ -265,92 +296,92 @@ export async function deployWorker({
   runCommand = spawnSync,
   pageEvidencePromotion = false,
   rendererPath = null,
+  researchEvidenceResourceMap = process.env.CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP || null,
   ontologyPromotion = false,
   previewAcceptanceReceipt = null,
-  pageEvidenceValidator = validatePageEvidenceForRelease,
-  cleanSourceValidator = assertCleanReleaseSource,
-  manifestBuilder = buildReleaseManifest,
-  releasePreparer = prepareRelease,
   validateOntology = validateOntologyReleaseFile,
   readPreviewAcceptanceReceipt = readOntologyPreviewAcceptanceReceipt,
   snapshotBuilder = createImmutableTreeSnapshot,
 } = {}) {
   await assertSourceRecoveryOnlineReceiptFresh({ root });
-  if (previewAcceptanceReceipt && (!ontologyPromotion || environment !== 'production')) {
-    throw new Error('preview acceptance receipt is valid only for production ontology promotion');
-  }
-  if (environment === 'production' && ontologyPromotion && !previewAcceptanceReceipt) {
-    throw new Error('production ontology promotion preview acceptance receipt is required');
-  }
-  let prepared = null;
-  let snapshot = null;
-  let sourceRoot = root;
-  let git;
-  let manifest;
-  try {
-  if (manifestBuilder === buildReleaseManifest) {
-    prepared = await releasePreparer({
-      root,
-      output: DEFAULT_MANIFEST,
-      pageEvidencePromotion,
-      rendererPath,
-      runCommand,
-      pageEvidenceValidator,
-      cleanSourceValidator,
-    });
-    sourceRoot = prepared.source.root;
-    git = { head: prepared.manifest.git.head };
-    manifest = prepared.manifest;
-  } else {
-    pageEvidenceValidator({ root, pageEvidencePromotion, rendererPath });
-    git = cleanSourceValidator({ root, requireUpstream: true, runCommand });
-    manifest = await manifestBuilder({
-      root,
-      repositoryRoot: root,
-      pageEvidencePromotion,
-      rendererPath,
-      runCommand,
-    });
-  }
-  assertManifestSourceGates(manifest);
-  assertManifestDeploymentGates(manifest, environment, { phase, root: sourceRoot });
-  if (manifest.git?.head !== git.head) throw new Error('release manifest Git HEAD differs from the clean source gate');
-  if (manifest.git?.dirty !== false) throw new Error('release manifest reports a dirty source');
-  const ontologyReport = await validateOntology({
+  assertDeploymentPromotionOptions({ environment, ontologyPromotion, previewAcceptanceReceipt });
+  const prepared = await prepareRelease({
     root,
-    requirePublishable: ontologyPromotion,
+    output: DEFAULT_MANIFEST,
+    pageEvidencePromotion,
+    rendererPath,
+    researchEvidenceResourceMap,
+    runCommand,
   });
-  assertOntologyReleaseDeploymentGate(ontologyReport, { ontologyPromotion });
-  assertOntologyManifestSourceBinding(manifest, ontologyReport);
+  preparedByBuiltInReleaseGate.add(prepared);
+  return deployPreparedWorker({
+    environment,
+    phase,
+    root,
+    runCommand,
+    pageEvidencePromotion,
+    ontologyPromotion,
+    previewAcceptanceReceipt,
+    validateOntology,
+    readPreviewAcceptanceReceipt,
+    snapshotBuilder,
+    prepared,
+  });
+}
 
-  const inventory = new Map();
-  const add = (entry, pathKey = 'path') => {
-    const path = String(entry?.[pathKey] || '');
-    const current = inventory.get(path);
-    const normalized = { path, sha256: entry?.sha256, bytes: entry?.bytes };
-    if (current && (current.sha256 !== normalized.sha256 || current.bytes !== normalized.bytes)) {
-      throw new Error(`deployment snapshot inventory has conflicting bytes for ${path}`);
-    }
-    inventory.set(path, normalized);
-  };
-  for (const file of manifest.source_tree?.files || []) add(file);
-  for (const file of manifest.static_assets?.files || []) add(file, 'deploy_path');
-  for (const file of manifest.graph_assets || []) add(file, 'deploy_path');
-  for (const file of manifest.graph_shards || []) add(file, 'deploy_path');
-  if (!inventory.size) throw new Error('release manifest has no deployment snapshot inventory');
-  const sourceTreeDigest = createHash('sha256').update(
-    [...(manifest.source_tree?.files || [])]
-      .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0))
-      .map((file) => `${file.path}\0${file.sha256}\0${file.bytes}\n`)
-      .join(''),
-  ).digest('hex');
-  if (sourceTreeDigest !== manifest.source_tree?.sha256) {
-    throw new Error('release manifest source tree digest is internally inconsistent');
+// Transaction core for a release already produced by the mandatory prepareRelease gate above.
+// The CLI and deployWorker never accept a replacement release preparer.
+export async function deployPreparedWorker({
+  environment,
+  phase = 'steady',
+  root = DEFAULT_ROOT,
+  runCommand = spawnSync,
+  pageEvidencePromotion = false,
+  ontologyPromotion = false,
+  previewAcceptanceReceipt = null,
+  validateOntology = validateOntologyReleaseFile,
+  readPreviewAcceptanceReceipt = readOntologyPreviewAcceptanceReceipt,
+  snapshotBuilder = createImmutableTreeSnapshot,
+  prepared,
+} = {}) {
+  if (!prepared || !preparedByBuiltInReleaseGate.has(prepared)) {
+    throw new Error('prepared release was not produced by the built-in prepareRelease gate');
   }
+  preparedByBuiltInReleaseGate.delete(prepared);
+  let snapshot = null;
+  try {
+    assertDeploymentPromotionOptions({ environment, ontologyPromotion, previewAcceptanceReceipt });
+    if (!prepared?.source?.root || !prepared?.manifest) {
+      throw new Error('deployment transaction requires a prepared release');
+    }
+    const sourceRoot = prepared.source.root;
+    const git = { head: prepared.manifest.git.head };
+    const manifest = prepared.manifest;
+    assertManifestSourceGates(manifest);
+    assertManifestDeploymentGates(manifest, environment, { phase, root: sourceRoot });
+    if (manifest.git?.head !== git.head) throw new Error('release manifest Git HEAD differs from the clean source gate');
+    if (manifest.git?.dirty !== false) throw new Error('release manifest reports a dirty source');
+    const ontologyReport = await validateOntology({
+      root,
+      requirePublishable: ontologyPromotion,
+    });
+    assertOntologyReleaseDeploymentGate(ontologyReport, { ontologyPromotion });
+    assertOntologyManifestSourceBinding(manifest, ontologyReport);
 
-  snapshot = await snapshotBuilder({
+    const inventory = deploymentSnapshotInventory(manifest);
+    const sourceTreeDigest = createHash('sha256').update(
+      [...(manifest.source_tree?.files || [])]
+        .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0))
+        .map((file) => `${file.path}\0${file.sha256}\0${file.bytes}\n`)
+        .join(''),
+    ).digest('hex');
+    if (sourceTreeDigest !== manifest.source_tree?.sha256) {
+      throw new Error('release manifest source tree digest is internally inconsistent');
+    }
+
+    snapshot = await snapshotBuilder({
       root: sourceRoot,
-      files: [...inventory.values()],
+      files: inventory,
       label: 'Worker deployment source',
     });
     await snapshot.verify();
@@ -400,6 +431,7 @@ export function parseArgs(argv) {
     phase: 'steady',
     pageEvidencePromotion: false,
     rendererPath: null,
+    researchEvidenceResourceMap: process.env.CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP || null,
     ontologyPromotion: false,
     previewAcceptanceReceipt: null,
   };
@@ -417,11 +449,12 @@ export function parseArgs(argv) {
       options.ontologyPromotion = true;
       continue;
     }
-    if (['--environment', '--renderer', '--phase', '--preview-acceptance-receipt'].includes(argument)) {
+    if (['--environment', '--renderer', '--research-evidence-resource-map', '--phase', '--preview-acceptance-receipt'].includes(argument)) {
       const value = argv[index + 1];
       if (!value || value.startsWith('--')) throw new Error(`missing value for ${argument}`);
       if (argument === '--environment') options.environment = value;
       else if (argument === '--renderer') options.rendererPath = value;
+      else if (argument === '--research-evidence-resource-map') options.researchEvidenceResourceMap = value;
       else if (argument === '--phase') options.phase = value;
       else options.previewAcceptanceReceipt = value;
       index += 1;
@@ -430,7 +463,7 @@ export function parseArgs(argv) {
     throw new Error(`unexpected argument: ${argument}`);
   }
   if (!options.environment) {
-    throw new Error('usage: node scripts/deploy-worker.mjs --environment <preview|production> [--phase <prepare|steady>] [--page-evidence-promotion] [--ontology-promotion] [--preview-acceptance-receipt <PATH>] [--renderer <MUTOOL_PATH>]');
+    throw new Error('usage: node scripts/deploy-worker.mjs --environment <preview|production> [--phase <prepare|steady>] [--page-evidence-promotion] [--ontology-promotion] [--preview-acceptance-receipt <PATH>] [--renderer <MUTOOL_PATH>] [--research-evidence-resource-map <PATH>]');
   }
   if (!['preview', 'production'].includes(options.environment)) {
     throw new Error(`unsupported deployment environment: ${options.environment}`);
