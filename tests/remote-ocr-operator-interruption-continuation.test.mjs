@@ -1,15 +1,23 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { chmod, mkdtemp, mkdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, readFile, realpath, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   continueOperatorInterruptedAttempt,
+  inspectA2ContinuationUnits,
   operatorContinuationPaths,
 } from '../scripts/continue-remote-ocr-operator-interruption.mjs';
-import { canonicalJson, inspectTree } from '../scripts/lib/remote-ocr-local-snapshot.mjs';
+import {
+  EXACT_A2_FORWARD_CONTINUATION_INCIDENT,
+  validateA2ForwardContinuationProfile,
+  validateOperatorContinuationEvidence,
+  validateOperatorContinuationOutput,
+} from '../scripts/lib/remote-ocr-operator-continuation.mjs';
+import { acquireLifecycleLock } from '../scripts/repair-remote-ocr-preinference-interruption.mjs';
+import { canonicalJson, copyTreeStrict, inspectTree } from '../scripts/lib/remote-ocr-local-snapshot.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const runnerPath = fileURLToPath(new URL('../scripts/run-remote-ocr-offload.mjs', import.meta.url));
@@ -41,7 +49,11 @@ async function makeFixture(t) {
   t.after(() => rm(root, { recursive: true, force: true }));
   const inputRoot = path.join(root, 'input');
   const outputRoot = path.join(root, 'output');
-  const incidentEvidenceRoot = path.join(root, 'incident-evidence');
+  const evidenceBaseRoot = path.join(root, 'a2-deploy-evidence');
+  const incidentEvidenceRoot = path.join(evidenceBaseRoot, 'incident-operator-freeze');
+  const rearmRepairId = 'a'.repeat(64);
+  const rearmEvidenceRoot = path.join(evidenceBaseRoot, rearmRepairId);
+  const lifecycleLock = path.join(root, '.a2-lifecycle.lock');
   const documentRoot = path.join(outputRoot, 'documents', documentId);
   const statusRoot = path.join(outputRoot, 'status');
   const logRoot = path.join(outputRoot, 'logs');
@@ -51,14 +63,23 @@ async function makeFixture(t) {
     mkdir(statusRoot, { recursive: true, mode: 0o700 }),
     mkdir(logRoot, { recursive: true, mode: 0o700 }),
     mkdir(incidentEvidenceRoot, { recursive: true, mode: 0o700 }),
+    mkdir(rearmEvidenceRoot, { recursive: true, mode: 0o700 }),
+    mkdir(path.join(outputRoot, 'timeout-recovery-issuance'), { recursive: true, mode: 0o700 }),
+    mkdir(path.join(outputRoot, 'seed-predecessor-evidence'), { recursive: true, mode: 0o700 }),
   ]);
   await Promise.all([
     chmod(outputRoot, 0o700),
+    chmod(evidenceBaseRoot, 0o700),
     chmod(incidentEvidenceRoot, 0o700),
+    chmod(rearmEvidenceRoot, 0o700),
   ]);
+  await writeFile(lifecycleLock, '', { mode: 0o600 });
   const canonicalInputRoot = await realpath(inputRoot);
   const canonicalOutputRoot = await realpath(outputRoot);
   const canonicalIncidentEvidenceRoot = await realpath(incidentEvidenceRoot);
+  const canonicalEvidenceBaseRoot = await realpath(evidenceBaseRoot);
+  const canonicalRearmEvidenceRoot = await realpath(rearmEvidenceRoot);
+  const canonicalRunRoot = await realpath(root);
 
   const source = Buffer.from('fixture PDF bytes');
   const sourcePath = path.join(inputRoot, 'pdfs', 'english.pdf');
@@ -218,7 +239,75 @@ async function makeFixture(t) {
     }],
     citation_allowed: false,
   };
-  await writeJsonSidecar(path.join(outputRoot, 'seed-receipt.json'), seedReceipt);
+  const seedReceiptEvidence = await writeJsonSidecar(path.join(outputRoot, 'seed-receipt.json'), seedReceipt);
+  const seedCommitEvidence = await writeJsonSidecar(path.join(outputRoot, 'seed-commit.json'), {
+    schema_version: 1,
+    seed_id: seedId,
+    citation_allowed: false,
+  });
+  const seedJournalEvidence = await writeJsonSidecar(path.join(outputRoot, '.seed-journal.json'), {
+    schema_version: 1,
+    seed_id: seedId,
+    phase: 'committed',
+    citation_allowed: false,
+  });
+  const ledgerEvidence = await writeJsonSidecar(
+    path.join(outputRoot, 'timeout-recovery-ledger-identity.json'),
+    { schema_version: 1, seed_id: seedId, citation_allowed: false },
+  );
+  const issuanceName = `${'b'.repeat(64)}.issuance.json`;
+  const issuanceEvidence = await writeJsonSidecar(
+    path.join(outputRoot, 'timeout-recovery-issuance', issuanceName),
+    { schema_version: 1, seed_id: seedId, grant_id: grantId, citation_allowed: false },
+  );
+  await writeFile(
+    path.join(outputRoot, 'seed-predecessor-evidence', 'run-status.json'),
+    '{"fixture":true}\n',
+    { mode: 0o600 },
+  );
+  const rearmReservationRaw = Buffer.from(`${JSON.stringify({
+    schema_version: 1,
+    claim_type: 'curriculum_remote_ocr_preinference_rearm_evidence_reservation',
+    repair_id: rearmRepairId,
+    evidence_path: rearmEvidenceRoot,
+    citation_allowed: false,
+  }, null, 2)}\n`);
+  const rearmAfterStatusRaw = Buffer.from('{"status":"interrupted"}\n');
+  const rearmAfterStatusSidecarRaw = Buffer.from(
+    `${sha256(rearmAfterStatusRaw)}  ${documentId}.json\n`,
+  );
+  const rearmAfterRunStatusRaw = Buffer.from('{"finished":false}\n');
+  const rearmAfterRunStatusSidecarRaw = Buffer.from(
+    `${sha256(rearmAfterRunStatusRaw)}  run-status.json\n`,
+  );
+  const rearmAfterRecords = [
+    [`status/${documentId}.json`, rearmAfterStatusRaw],
+    [`status/${documentId}.json.sha256`, rearmAfterStatusSidecarRaw],
+    ['run-status.json', rearmAfterRunStatusRaw],
+    ['run-status.json.sha256', rearmAfterRunStatusSidecarRaw],
+  ];
+  const rearmReceiptEvidence = await writeJsonSidecar(
+    path.join(rearmEvidenceRoot, 'repair-receipt.json'),
+    {
+      schema_version: 1,
+      receipt_type: 'curriculum_remote_ocr_preinference_interruption_rearm',
+      status: 'prepared_atomic_apply_required',
+      repair_id: rearmRepairId,
+      transaction: rearmAfterRecords.map(([outputPath, raw]) => ({
+        output_path: outputPath,
+        after: { sha256: sha256(raw), bytes: raw.byteLength },
+      })),
+      after_run_status_sha256: sha256(rearmAfterRunStatusRaw),
+      after_document_status_sha256: sha256(rearmAfterStatusRaw),
+      publication_claim: { sha256: sha256(rearmReservationRaw), bytes: rearmReservationRaw.byteLength },
+      citation_allowed: false,
+    },
+  );
+  await writeFile(
+    path.join(evidenceBaseRoot, `${rearmRepairId}.claim.json`),
+    rearmReservationRaw,
+    { mode: 0o600 },
+  );
 
   const identity = {
     schema_version: 1,
@@ -265,11 +354,8 @@ async function makeFixture(t) {
     whole_document_atomic: true,
     citation_allowed: false,
   };
-  await writeFile(
-    path.join(outputRoot, 'run-identity.json'),
-    `${JSON.stringify(identity, null, 2)}\n`,
-    { mode: 0o600 },
-  );
+  const identityRaw = Buffer.from(`${JSON.stringify(identity, null, 2)}\n`);
+  await writeFile(path.join(outputRoot, 'run-identity.json'), identityRaw, { mode: 0o600 });
 
   const status = {
     schema_version: 1,
@@ -328,6 +414,81 @@ async function makeFixture(t) {
 
   const documentTree = await inspectTree(documentRoot);
   const incidentTree = await inspectTree(incidentEvidenceRoot);
+  const predecessorTree = await inspectTree(path.join(outputRoot, 'seed-predecessor-evidence'));
+  const rearmTree = await inspectTree(rearmEvidenceRoot);
+  const [evidenceBaseInfo, incidentInfo, lifecycleInfo] = await Promise.all([
+    stat(evidenceBaseRoot, { bigint: true }),
+    stat(incidentEvidenceRoot, { bigint: true }),
+    stat(lifecycleLock, { bigint: true }),
+  ]);
+  const profile = {
+    ...EXACT_A2_FORWARD_CONTINUATION_INCIDENT,
+    runRoot: canonicalRunRoot,
+    outputRoot: canonicalOutputRoot,
+    outputDevice: String(outputInfo.dev),
+    outputInode: String(outputInfo.ino),
+    lifecycleLock: path.join(canonicalRunRoot, '.a2-lifecycle.lock'),
+    lifecycleLockInode: String(lifecycleInfo.ino),
+    evidenceBaseRoot: canonicalEvidenceBaseRoot,
+    evidenceBaseDevice: String(evidenceBaseInfo.dev),
+    evidenceBaseInode: String(evidenceBaseInfo.ino),
+    incidentEvidenceRoot: canonicalIncidentEvidenceRoot,
+    incidentEvidenceDevice: String(incidentInfo.dev),
+    incidentEvidenceInode: String(incidentInfo.ino),
+    incidentEvidenceMode: '0700',
+    incidentEvidenceUid: String(incidentInfo.uid),
+    incidentEvidenceGid: String(incidentInfo.gid),
+    incidentEvidenceTreeSha256: incidentTree.tree_sha256,
+    runStatusSha256: runStatusEvidence.sha256,
+    documentStatusSha256: statusEvidence.sha256,
+    logSha256: sha256(logRaw),
+    logBytes: logRaw.byteLength,
+    stateSha256: sha256(stateRaw),
+    documentTreeSha256: documentTree.tree_sha256,
+    documentTreeFiles: documentTree.files,
+    documentTreeBytes: documentTree.bytes,
+    seedId,
+    seedReceiptSha256: seedReceiptEvidence.sha256,
+    seedReceiptBytes: seedReceiptEvidence.raw.byteLength,
+    seedCommitSha256: seedCommitEvidence.sha256,
+    seedCommitBytes: seedCommitEvidence.raw.byteLength,
+    seedJournalSha256: seedJournalEvidence.sha256,
+    seedJournalBytes: seedJournalEvidence.raw.byteLength,
+    runIdentitySha256: sha256(identityRaw),
+    runIdentityBytes: identityRaw.byteLength,
+    ledgerIdentitySha256: ledgerEvidence.sha256,
+    ledgerIdentityBytes: ledgerEvidence.raw.byteLength,
+    timeoutGrantSha256: grantEvidence.sha256,
+    timeoutGrantBytes: grantEvidence.raw.byteLength,
+    timeoutConsumptionClaimSha256: claimEvidence.sha256,
+    timeoutConsumptionClaimBytes: claimEvidence.raw.byteLength,
+    timeoutIssuanceRelativePath: `timeout-recovery-issuance/${issuanceName}`,
+    timeoutIssuanceSha256: issuanceEvidence.sha256,
+    timeoutIssuanceBytes: issuanceEvidence.raw.byteLength,
+    timeoutIssuanceSidecarSha256: sha256(await readFile(path.join(outputRoot, 'timeout-recovery-issuance', `${issuanceName}.sha256`))),
+    timeoutIssuanceSidecarBytes: (await stat(path.join(outputRoot, 'timeout-recovery-issuance', `${issuanceName}.sha256`))).size,
+    ledgerSidecarSha256: sha256(await readFile(path.join(outputRoot, 'timeout-recovery-ledger-identity.json.sha256'))),
+    ledgerSidecarBytes: (await stat(path.join(outputRoot, 'timeout-recovery-ledger-identity.json.sha256'))).size,
+    predecessorEvidenceTreeSha256: predecessorTree.tree_sha256,
+    predecessorEvidenceTreeFiles: predecessorTree.files,
+    predecessorEvidenceTreeBytes: predecessorTree.bytes,
+    rearmRepairId,
+    rearmEvidenceRoot: canonicalRearmEvidenceRoot,
+    rearmReceiptSha256: rearmReceiptEvidence.sha256,
+    rearmReceiptBytes: rearmReceiptEvidence.raw.byteLength,
+    rearmReservationClaimSha256: sha256(rearmReservationRaw),
+    rearmEvidenceTreeSha256: rearmTree.tree_sha256,
+    rearmAfterStatusSha256: sha256(rearmAfterStatusRaw),
+    rearmAfterStatusSidecarSha256: sha256(rearmAfterStatusSidecarRaw),
+    rearmAfterRunStatusSha256: sha256(rearmAfterRunStatusRaw),
+    rearmAfterRunStatusSidecarSha256: sha256(rearmAfterRunStatusSidecarRaw),
+    workerUnit: 'fixture-worker.service',
+    monitorUnit: 'fixture-monitor.service',
+    monitorTimerUnit: 'fixture-monitor.timer',
+    alertUnit: 'fixture-alert.service',
+    llamaUnit: 'fixture-llama.service',
+  };
+  validateA2ForwardContinuationProfile(profile);
   const options = {
     manifest: manifestPath,
     inputRoot: canonicalInputRoot,
@@ -338,7 +499,7 @@ async function makeFixture(t) {
     mmproj: '/unused/mmproj',
     llamaRepo: '/unused/llama',
     llamaServerBin: '/unused/llama-server',
-    llamaSystemdUnit: 'curriculum-ocr-llama.service',
+    llamaSystemdUnit: profile.llamaUnit,
     llamaUrl: 'http://127.0.0.1:8112/v1',
     runtimeDevice: 'fixture-gpu',
     paddlexCacheHome: path.join(outputRoot, 'paddlex-cache'),
@@ -354,27 +515,10 @@ async function makeFixture(t) {
     childPollIntervalSeconds: 5,
     documentId,
     attempt: 6,
-    workerInvocationId,
-    operatorInterruptedAt: interruptedAt,
     authorizedAt,
     continuedAt,
-    incidentEvidenceRoot: canonicalIncidentEvidenceRoot,
-    expectedRunStatusSha256: runStatusEvidence.sha256,
-    expectedStatusSha256: statusEvidence.sha256,
-    expectedLogSha256: sha256(logRaw),
-    expectedLogBytes: logRaw.byteLength,
-    expectedStateSha256: sha256(stateRaw),
-    expectedDocumentTreeSha256: documentTree.tree_sha256,
-    expectedDocumentTreeFiles: documentTree.files,
-    expectedDocumentTreeBytes: documentTree.bytes,
-    expectedIncidentTreeSha256: incidentTree.tree_sha256,
-    expectedGrantSha256: grantEvidence.sha256,
-    expectedConsumptionClaimSha256: claimEvidence.sha256,
-    expectedRunnerScriptSha256: EXPECTED_UNCHANGED_RUNNER_SHA256,
     apply: false,
   };
-  options.expectedOutputDevice = String(outputInfo.dev);
-  options.expectedOutputInode = String(outputInfo.ino);
   return {
     root,
     outputRoot: canonicalOutputRoot,
@@ -384,18 +528,58 @@ async function makeFixture(t) {
     statusPath,
     runStatusPath,
     options,
+    profile,
+    evidenceBaseRoot: canonicalEvidenceBaseRoot,
+    lifecycleLock: profile.lifecycleLock,
     state,
     identity,
   };
 }
 
-function dependencies(extra = {}) {
+function dependencies(fixture, extra = {}) {
+  let llamaActive = false;
+  const inactiveService = (invocationId = '0'.repeat(32), exitStatus = '0') => ({
+    LoadState: 'loaded',
+    ActiveState: 'inactive',
+    SubState: 'dead',
+    MainPID: '0',
+    InvocationID: invocationId,
+    ExecMainStatus: exitStatus,
+  });
   return {
+    incidentProfile: fixture.profile,
+    acquireLifecycleLock: async (pathname) => {
+      assert.equal(pathname, fixture.lifecycleLock);
+      let released = false;
+      const release = async () => { released = true; };
+      release.assertHeld = () => assert.equal(released, false, 'lifecycle lock must still be held');
+      return release;
+    },
+    inspectUnit: async (unit, role) => {
+      if (role === 'monitor_timer') {
+        return { LoadState: 'loaded', ActiveState: 'inactive', SubState: 'dead', InvocationID: '' };
+      }
+      if (role === 'worker') return inactiveService(workerInvocationId, '75');
+      if (role === 'llama' && llamaActive) {
+        return {
+          LoadState: 'loaded',
+          ActiveState: 'active',
+          SubState: 'running',
+          MainPID: '42',
+          InvocationID: 'b'.repeat(32),
+          ExecMainStatus: '0',
+        };
+      }
+      assert.ok([fixture.profile.monitorUnit, fixture.profile.alertUnit, fixture.profile.llamaUnit].includes(unit));
+      return inactiveService();
+    },
+    startLlama: async () => { llamaActive = true; },
+    stopLlama: async () => { llamaActive = false; },
     verifyCommittedSeed: async () => ({ verified: true }),
     verifyActiveRuntime: async () => ({ verified: true }),
     pageCounter: () => 2,
     validateDocumentOutput: async () => ({
-      state_sha256: '6'.repeat(64),
+      state_sha256: sha256(await readFile(fixture.statePath)),
       page_artifacts: [],
       page_artifacts_sha256: '7'.repeat(64),
     }),
@@ -405,6 +589,26 @@ function dependencies(extra = {}) {
   };
 }
 
+async function finishFixtureDocument(fixture) {
+  await writeFile(fixture.logPath, 'continued attempt 6\n', { flag: 'a' });
+  const completed = structuredClone(fixture.state);
+  completed.completed_pages = [1, 2];
+  completed.pages['2'] = {
+    status: 'ocr_complete_pending_audit',
+    physical_pdf_page: 2,
+    rendered_image_sha256: '8'.repeat(64),
+    result_json_sha256: '9'.repeat(64),
+    content_markdown_sha256: 'a'.repeat(64),
+    citation_eligible: false,
+  };
+  completed.selected_pages_complete = true;
+  await mkdir(path.join(fixture.documentRoot, 'pages/0002'), { mode: 0o700 });
+  await writeFile(path.join(fixture.documentRoot, 'pages/0002/result.json'), '{}\n', { mode: 0o600 });
+  await writeFile(path.join(fixture.documentRoot, 'pages/0002/content.md'), 'page 2\n', { mode: 0o600 });
+  await writeFile(fixture.statePath, `${JSON.stringify(completed, null, 2)}\n`, { mode: 0o600 });
+  return { code: 0, signal: null, monitorIncident: null };
+}
+
 test('the immutable seeded runner remains byte-identical', async () => {
   assert.equal(sha256(await readFile(runnerPath)), EXPECTED_UNCHANGED_RUNNER_SHA256);
 });
@@ -412,11 +616,11 @@ test('the immutable seeded runner remains byte-identical', async () => {
 test('exact operator interruption is a mutation-free dry run', async (t) => {
   const fixture = await makeFixture(t);
   const before = await inspectTree(fixture.outputRoot);
-  const result = await continueOperatorInterruptedAttempt(fixture.options, dependencies({
+  const result = await continueOperatorInterruptedAttempt(fixture.options, dependencies(fixture, {
     verifyCommittedSeed: async () => assert.fail('dry run must remain persistence-free'),
     invokeOcr: async () => assert.fail('dry run must not invoke OCR'),
   }));
-  const repeated = await continueOperatorInterruptedAttempt(fixture.options, dependencies({
+  const repeated = await continueOperatorInterruptedAttempt(fixture.options, dependencies(fixture, {
     verifyCommittedSeed: async () => assert.fail('dry run must remain persistence-free'),
     invokeOcr: async () => assert.fail('dry run must not invoke OCR'),
   }));
@@ -425,7 +629,7 @@ test('exact operator interruption is a mutation-free dry run', async (t) => {
   assert.equal(result.citation_allowed, false);
   assert.deepEqual(repeated, result);
   assert.deepEqual(await inspectTree(fixture.outputRoot), before);
-  await assert.rejects(stat(operatorContinuationPaths(fixture.outputRoot, documentId, 6).root), { code: 'ENOENT' });
+  await assert.rejects(stat(operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6).root), { code: 'ENOENT' });
 });
 
 test('apply consumes one claim and completes the same attempt 6 without truncating prior evidence', async (t) => {
@@ -463,7 +667,7 @@ test('apply consumes one claim and completes the same attempt 6 without truncati
   };
   const result = await continueOperatorInterruptedAttempt(
     { ...fixture.options, apply: true },
-    dependencies({ invokeOcr }),
+    dependencies(fixture, { invokeOcr }),
   );
   assert.equal(result.status, 'complete');
   assert.equal(result.attempt, 6);
@@ -477,7 +681,7 @@ test('apply consumes one claim and completes the same attempt 6 without truncati
   assert.ok((await readFile(fixture.logPath)).subarray(0, originalLog.length).equals(originalLog));
   assert.ok((await readFile(timeoutGrantPath)).equals(timeoutGrantBefore));
   assert.ok((await readFile(timeoutClaimPath)).equals(timeoutClaimBefore));
-  const paths = operatorContinuationPaths(fixture.outputRoot, documentId, 6);
+  const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
   for (const pathname of [paths.receipt, paths.receiptSidecar, paths.claim, paths.claimSidecar, paths.interruptedRunStatus, paths.interruptedStatus, paths.interruptedState, paths.preContinuationLog]) {
     assert.equal((await stat(pathname)).mode & 0o777, 0o600);
   }
@@ -487,15 +691,22 @@ test('apply consumes one claim and completes the same attempt 6 without truncati
   assert.equal(receipt.interrupted_snapshot.document_status.status, 'interrupted');
   assert.equal(claim.continuation_id, receipt.continuation_id);
   assert.equal(claim.attempt, 6);
+  const verifiedEvidence = await validateOperatorContinuationEvidence(paths.root, fixture.profile);
+  const verifiedOutput = await validateOperatorContinuationOutput(
+    fixture.outputRoot,
+    verifiedEvidence,
+    fixture.profile,
+  );
+  assert.equal(verifiedEvidence.terminal.outcome, 'complete');
+  assert.equal(verifiedOutput.status.status, 'complete');
 
   let reinvoked = false;
-  await assert.rejects(
-    continueOperatorInterruptedAttempt(
-      { ...fixture.options, apply: true },
-      dependencies({ invokeOcr: async () => { reinvoked = true; } }),
-    ),
-    /already consumed|no longer matches the authorized interrupted state/u,
+  const recovered = await continueOperatorInterruptedAttempt(
+    { ...fixture.options, apply: true },
+    dependencies(fixture, { invokeOcr: async () => { reinvoked = true; } }),
   );
+  assert.equal(recovered.status, 'complete');
+  assert.equal(recovered.recovered, true);
   assert.equal(reinvoked, false);
 });
 
@@ -512,59 +723,400 @@ test('every expected incident anchor is fail-closed before claim publication', a
       const fixture = await makeFixture(subtest);
       await mutate(fixture);
       await assert.rejects(
-        continueOperatorInterruptedAttempt({ ...fixture.options, apply: true }, dependencies()),
+        continueOperatorInterruptedAttempt({ ...fixture.options, apply: true }, dependencies(fixture)),
         pattern,
       );
-      await assert.rejects(stat(operatorContinuationPaths(fixture.outputRoot, documentId, 6).claim), { code: 'ENOENT' });
+      await assert.rejects(stat(operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6).claim), { code: 'ENOENT' });
     });
   }
 });
 
-test('a shared-runtime failure after claim never rolls attempt 6 back to 5', async (t) => {
+test('a resealed rearm receipt cannot replace the independently pinned after controls', async (t) => {
   const fixture = await makeFixture(t);
+  const receiptPath = path.join(fixture.profile.rearmEvidenceRoot, 'repair-receipt.json');
+  const receipt = JSON.parse(await readFile(receiptPath, 'utf8'));
+  receipt.transaction[0].after.sha256 = 'f'.repeat(64);
+  const resealed = await writeJsonSidecar(receiptPath, receipt);
+  const rearmTree = await inspectTree(fixture.profile.rearmEvidenceRoot);
+  const profile = {
+    ...fixture.profile,
+    rearmReceiptSha256: resealed.sha256,
+    rearmReceiptBytes: resealed.raw.byteLength,
+    rearmEvidenceTreeSha256: rearmTree.tree_sha256,
+  };
   await assert.rejects(
     continueOperatorInterruptedAttempt(
-      { ...fixture.options, apply: true },
-      dependencies({
-        invokeOcr: async () => ({ code: 1, signal: null, monitorIncident: null }),
-        revalidateActiveRuntime: async () => { throw new Error('llama attestation drift'); },
-      }),
+      fixture.options,
+      dependencies(fixture, { incidentProfile: profile }),
     ),
-    /shared runtime revalidation failed.*llama attestation drift/u,
+    /rearm transaction.*after SHA-256/u,
   );
+  const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+  await assert.rejects(stat(paths.root), { code: 'ENOENT' });
+});
+
+test('a shared-runtime failure after claim never rolls attempt 6 back to 5', async (t) => {
+  const fixture = await makeFixture(t);
+  const result = await continueOperatorInterruptedAttempt(
+    { ...fixture.options, apply: true },
+    dependencies(fixture, {
+      invokeOcr: async () => ({ code: 1, signal: null, monitorIncident: null }),
+      revalidateActiveRuntime: async () => { throw new Error('llama attestation drift'); },
+    }),
+  );
+  assert.equal(result.status, 'failed');
+  assert.equal(result.exitCode, 2);
   const runStatus = JSON.parse(await readFile(fixture.runStatusPath, 'utf8'));
   assert.equal(runStatus.documents[documentId].status, 'failed');
   assert.equal(runStatus.documents[documentId].attempts, 6);
   assert.equal(runStatus.documents[documentId].failure_class, 'shared_runtime_configuration');
-  const paths = operatorContinuationPaths(fixture.outputRoot, documentId, 6);
+  const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
   assert.equal((await stat(paths.claim)).isFile(), true);
 });
 
-test('wrong grant/claim binding and pre-existing claim artifacts are rejected', async (t) => {
-  await t.test('grant digest', async (subtest) => {
+test('caller proofs are rejected and claim pairs recover crash states', async (t) => {
+  await t.test('caller cannot self-prove grant or InvocationID', async (subtest) => {
     const fixture = await makeFixture(subtest);
-    fixture.options.expectedGrantSha256 = grantSha256;
     await assert.rejects(
-      continueOperatorInterruptedAttempt({ ...fixture.options, apply: true }, dependencies()),
-      /timeout recovery grant SHA-256/u,
+      continueOperatorInterruptedAttempt(
+        { ...fixture.options, expectedGrantSha256: grantSha256 },
+        dependencies(fixture),
+      ),
+      /frozen incident authority.*caller/u,
+    );
+    await assert.rejects(
+      continueOperatorInterruptedAttempt(
+        { ...fixture.options, workerInvocationId },
+        dependencies(fixture),
+      ),
+      /frozen incident authority.*caller/u,
     );
   });
-  await t.test('claim digest', async (subtest) => {
+  await t.test('claim body without sidecar resumes', async (subtest) => {
     const fixture = await makeFixture(subtest);
-    fixture.options.expectedConsumptionClaimSha256 = claimSha256;
     await assert.rejects(
-      continueOperatorInterruptedAttempt({ ...fixture.options, apply: true }, dependencies()),
-      /consumption claim SHA-256/u,
+      continueOperatorInterruptedAttempt(
+        { ...fixture.options, apply: true },
+        dependencies(fixture, { afterClaimBody: async () => { throw new Error('simulated claim crash'); } }),
+      ),
+      /simulated claim crash/u,
     );
+    const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+    assert.equal((await stat(paths.claim)).isFile(), true);
+    await assert.rejects(stat(paths.claimSidecar), { code: 'ENOENT' });
+    const result = await continueOperatorInterruptedAttempt(
+      { ...fixture.options, apply: true },
+      dependencies(fixture, { invokeOcr: async () => finishFixtureDocument(fixture) }),
+    );
+    assert.equal(result.status, 'complete');
+    assert.equal((await stat(paths.claimSidecar)).isFile(), true);
   });
-  await t.test('orphan continuation claim sidecar', async (subtest) => {
+  await t.test('claim sidecar without body resumes', async (subtest) => {
     const fixture = await makeFixture(subtest);
-    const paths = operatorContinuationPaths(fixture.outputRoot, documentId, 6);
-    await mkdir(paths.root, { recursive: true, mode: 0o700 });
-    await writeFile(paths.claimSidecar, `${'f'.repeat(64)}  claim.json\n`, { mode: 0o600 });
     await assert.rejects(
-      continueOperatorInterruptedAttempt({ ...fixture.options, apply: true }, dependencies()),
-      /orphan.*claim sidecar|continuation evidence directory/u,
+      continueOperatorInterruptedAttempt(
+        { ...fixture.options, apply: true },
+        dependencies(fixture, { afterClaimBody: async () => { throw new Error('simulated claim crash'); } }),
+      ),
+      /simulated claim crash/u,
     );
+    const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+    const claimRaw = await readFile(paths.claim);
+    await writeFile(paths.claimSidecar, `${sha256(claimRaw)}  claim.json\n`, { mode: 0o600 });
+    await unlink(paths.claim);
+    const result = await continueOperatorInterruptedAttempt(
+      { ...fixture.options, apply: true },
+      dependencies(fixture, { invokeOcr: async () => finishFixtureDocument(fixture) }),
+    );
+    assert.equal(result.status, 'complete');
+    assert.equal((await stat(paths.claim)).isFile(), true);
   });
+});
+
+test('production incident profile remains explicitly fail-closed before lock acquisition', async () => {
+  let lockAttempted = false;
+  await assert.rejects(
+    continueOperatorInterruptedAttempt({}, {
+      acquireLifecycleLock: async () => {
+        lockAttempted = true;
+        assert.fail('incomplete frozen profile must fail before lifecycle flock');
+      },
+    }),
+    /profile is incomplete.*incidentEvidenceTreeSha256.*rearmReceiptSha256/u,
+  );
+  assert.equal(lockAttempted, false);
+});
+
+test('continuation evidence is disjoint and monitor output-root allowlist is unchanged', async (t) => {
+  const fixture = await makeFixture(t);
+  const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+  assert.equal(path.relative(fixture.outputRoot, paths.root).startsWith('..'), true);
+  assert.equal(path.relative(fixture.evidenceBaseRoot, paths.root).startsWith('..'), false);
+  const monitorPath = fileURLToPath(new URL('../scripts/monitor-remote-ocr-single-shard.mjs', import.meta.url));
+  const source = await readFile(monitorPath, 'utf8');
+  assert.doesNotMatch(source, /operator-forward-continuations|operator-continuations/u);
+  assert.match(source, /'\.remote-ocr-orchestrator\.lock'/u);
+});
+
+test('child exit 2 preserves shared-runtime exit 2 semantics', async (t) => {
+  const fixture = await makeFixture(t);
+  let revalidated = false;
+  const result = await continueOperatorInterruptedAttempt(
+    { ...fixture.options, apply: true },
+    dependencies(fixture, {
+      invokeOcr: async () => ({ code: 2, signal: null, monitorIncident: null }),
+      revalidateActiveRuntime: async () => { revalidated = true; },
+    }),
+  );
+  assert.equal(result.status, 'failed');
+  assert.equal(result.exitCode, 2);
+  assert.equal(revalidated, false);
+  const runStatus = JSON.parse(await readFile(fixture.runStatusPath, 'utf8'));
+  assert.equal(runStatus.documents[documentId].status, 'failed');
+  assert.equal(runStatus.documents[documentId].failure_class, 'shared_runtime_configuration');
+  assert.equal(runStatus.documents[documentId].attempts, 6);
+});
+
+test('a partially successful llama start is stopped and the five-unit gate still runs', async (t) => {
+  const fixture = await makeFixture(t);
+  const base = dependencies(fixture);
+  let llamaActive = false;
+  let stopCalls = 0;
+  let inactiveLlamaObservations = 0;
+  const inactive = (invocationId = '0'.repeat(32), exitStatus = '0') => ({
+    LoadState: 'loaded',
+    ActiveState: 'inactive',
+    SubState: 'dead',
+    MainPID: '0',
+    InvocationID: invocationId,
+    ExecMainStatus: exitStatus,
+  });
+  await assert.rejects(
+    continueOperatorInterruptedAttempt(
+      { ...fixture.options, apply: true },
+      {
+        ...base,
+        startLlama: async () => {
+          llamaActive = true;
+          throw new Error('injected start acknowledgement failure');
+        },
+        stopLlama: async () => {
+          stopCalls += 1;
+          llamaActive = false;
+        },
+        inspectUnit: async (_unit, role) => {
+          if (role === 'monitor_timer') {
+            return { LoadState: 'loaded', ActiveState: 'inactive', SubState: 'dead', InvocationID: '' };
+          }
+          if (role === 'worker') return inactive(workerInvocationId, '75');
+          if (role === 'llama' && llamaActive) {
+            return {
+              LoadState: 'loaded',
+              ActiveState: 'active',
+              SubState: 'running',
+              MainPID: '42',
+              InvocationID: 'b'.repeat(32),
+              ExecMainStatus: '0',
+            };
+          }
+          if (role === 'llama') inactiveLlamaObservations += 1;
+          return inactive();
+        },
+      },
+    ),
+    /injected start acknowledgement failure/u,
+  );
+  assert.equal(stopCalls, 1);
+  assert.equal(inactiveLlamaObservations, 2);
+});
+
+test('terminal transaction resumes after a crash between the four replacements', async (t) => {
+  const fixture = await makeFixture(t);
+  await assert.rejects(
+    continueOperatorInterruptedAttempt(
+      { ...fixture.options, apply: true },
+      dependencies(fixture, {
+        invokeOcr: async () => finishFixtureDocument(fixture),
+        afterTerminalReplacement: async (count) => {
+          if (count === 1) throw new Error('simulated terminal persistence crash');
+        },
+      }),
+    ),
+    /simulated terminal persistence crash/u,
+  );
+  let invoked = false;
+  const recovered = await continueOperatorInterruptedAttempt(
+    { ...fixture.options, apply: true },
+    dependencies(fixture, { invokeOcr: async () => { invoked = true; } }),
+  );
+  assert.equal(recovered.status, 'complete');
+  assert.equal(recovered.exitCode, 0);
+  assert.equal(recovered.recovered, true);
+  assert.equal(invoked, false);
+});
+
+test('state journal body-only and sidecar-only crash states resume', async (t) => {
+  for (const sidecarOnly of [false, true]) {
+    await t.test(sidecarOnly ? 'sidecar only' : 'body only', async (subtest) => {
+      const fixture = await makeFixture(subtest);
+      await assert.rejects(
+        continueOperatorInterruptedAttempt(
+          { ...fixture.options, apply: true },
+          dependencies(fixture, {
+            afterJournalBody: async () => { throw new Error('simulated journal crash'); },
+          }),
+        ),
+        /simulated journal crash/u,
+      );
+      const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+      const statePath = path.join(paths.states, '000001-claimed.json');
+      if (sidecarOnly) {
+        const raw = await readFile(statePath);
+        await writeFile(`${statePath}.sha256`, `${sha256(raw)}  000001-claimed.json\n`, { mode: 0o600 });
+        await unlink(statePath);
+      }
+      const result = await continueOperatorInterruptedAttempt(
+        { ...fixture.options, apply: true },
+        dependencies(fixture, { invokeOcr: async () => finishFixtureDocument(fixture) }),
+      );
+      assert.equal(result.status, 'complete');
+      assert.equal((await stat(statePath)).isFile(), true);
+      assert.equal((await stat(`${statePath}.sha256`)).isFile(), true);
+    });
+  }
+});
+
+test('forward-only validator quarantines invalid new paths and log inode replacement', async (t) => {
+  const attacks = [
+    ['existing page mutation', async (fixture) => {
+      await writeFile(path.join(fixture.documentRoot, 'pages/0001/unexpected.txt'), 'bad\n', { mode: 0o600 });
+    }],
+    ['hidden staging path', async (fixture) => {
+      await mkdir(path.join(fixture.documentRoot, 'pages/0002'), { mode: 0o700 });
+      await writeFile(path.join(fixture.documentRoot, 'pages/0002/.staging'), 'bad\n', { mode: 0o600 });
+    }],
+    ['out of range page', async (fixture) => {
+      await mkdir(path.join(fixture.documentRoot, 'pages/0003'), { mode: 0o700 });
+      await writeFile(path.join(fixture.documentRoot, 'pages/0003/result.json'), '{}\n', { mode: 0o600 });
+    }],
+    ['log inode replacement', async (fixture) => {
+      const prefix = await readFile(fixture.logPath);
+      await unlink(fixture.logPath);
+      await writeFile(fixture.logPath, Buffer.concat([prefix, Buffer.from('replacement\n')]), { mode: 0o600 });
+    }],
+  ];
+  for (const [label, attack] of attacks) {
+    await t.test(label, async (subtest) => {
+      const fixture = await makeFixture(subtest);
+      const result = await continueOperatorInterruptedAttempt(
+        { ...fixture.options, apply: true },
+        dependencies(fixture, {
+          invokeOcr: async () => {
+            await attack(fixture);
+            return { code: 0, signal: null, monitorIncident: null };
+          },
+        }),
+      );
+      assert.equal(result.status, 'quarantined');
+      assert.equal(result.exitCode, 12);
+    });
+  }
+});
+
+test('five-unit gate rejects a live monitor and exact worker InvocationID drift', async (t) => {
+  const fixture = await makeFixture(t);
+  const base = dependencies(fixture);
+  await assert.rejects(
+    inspectA2ContinuationUnits(fixture.profile, {
+      inspectUnit: async (unit, role) => {
+        const state = await base.inspectUnit(unit, role);
+        return role === 'monitor' ? { ...state, ActiveState: 'active', SubState: 'running', MainPID: '99' } : state;
+      },
+    }),
+    /not quiescent/u,
+  );
+  await assert.rejects(
+    inspectA2ContinuationUnits(fixture.profile, {
+      inspectUnit: async (unit, role) => {
+        const state = await base.inspectUnit(unit, role);
+        return role === 'worker' ? { ...state, InvocationID: 'c'.repeat(32) } : state;
+      },
+    }),
+    /InvocationID/u,
+  );
+});
+
+test('receiver-grade evidence validation rejects missing, tampered, and replaced claim evidence', async (t) => {
+  const mutations = [
+    ['missing claim', async (paths) => unlink(paths.claim)],
+    ['tampered claim sidecar', async (paths) => writeFile(
+      paths.claimSidecar,
+      `${'0'.repeat(64)}  claim.json\n`,
+      { mode: 0o600 },
+    )],
+    ['coherently tampered interrupted status archive', async (paths) => {
+      const status = JSON.parse(await readFile(paths.interruptedStatus, 'utf8'));
+      status.interrupted_at = '2026-07-22T04:13:35.391Z';
+      await writeJsonSidecar(paths.interruptedStatus, status);
+    }],
+    ['coherently tampered document inventory', async (paths) => {
+      const inventory = JSON.parse(await readFile(paths.documentInventory, 'utf8'));
+      inventory.log.inode = String(BigInt(inventory.log.inode) + 1n);
+      await writeJsonSidecar(paths.documentInventory, inventory);
+    }],
+    ['replaced evidence directory inode', async (paths, fixture) => {
+      const original = `${paths.root}.original`;
+      await rename(paths.root, original);
+      await copyTreeStrict(original, paths.root);
+      assert.notEqual((await stat(paths.root)).ino, (await stat(original)).ino);
+      void fixture;
+    }],
+  ];
+  for (const [label, mutate] of mutations) {
+    await t.test(label, async (subtest) => {
+      const fixture = await makeFixture(subtest);
+      await continueOperatorInterruptedAttempt(
+        { ...fixture.options, apply: true },
+        dependencies(fixture, { invokeOcr: async () => finishFixtureDocument(fixture) }),
+      );
+      const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+      await mutate(paths, fixture);
+      await assert.rejects(
+        validateOperatorContinuationEvidence(paths.root, fixture.profile),
+        /missing|sidecar|evidence root|claim|receipt|snapshot|inventory/u,
+      );
+    });
+  }
+});
+
+test('receiver-grade output validation retains every pre-continuation directory inode', async (t) => {
+  const fixture = await makeFixture(t);
+  await continueOperatorInterruptedAttempt(
+    { ...fixture.options, apply: true },
+    dependencies(fixture, { invokeOcr: async () => finishFixtureDocument(fixture) }),
+  );
+  const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+  const evidence = await validateOperatorContinuationEvidence(paths.root, fixture.profile);
+  const pageRoot = path.join(fixture.documentRoot, 'pages', '0001');
+  const original = `${pageRoot}.original`;
+  await rename(pageRoot, original);
+  await copyTreeStrict(original, pageRoot);
+  await assert.rejects(
+    validateOperatorContinuationOutput(fixture.outputRoot, evidence, fixture.profile),
+    /directory identity changed/u,
+  );
+});
+
+test('real inherited-fd lifecycle flock excludes a second holder on Linux', {
+  skip: process.platform !== 'linux',
+}, async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'a2-continuation-flock-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const lockPath = path.join(root, '.a2-lifecycle.lock');
+  await writeFile(lockPath, '', { mode: 0o600 });
+  const first = await acquireLifecycleLock(lockPath);
+  await assert.rejects(acquireLifecycleLock(lockPath), /flock is held or unavailable/u);
+  await first();
+  const second = await acquireLifecycleLock(lockPath);
+  await second();
 });

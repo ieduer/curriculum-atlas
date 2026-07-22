@@ -17,6 +17,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {
+  operatorContinuationReceiptDocument,
   parseReceiverArguments,
   receiveRemoteOcrOffload,
   validateP4ToP1SeedDelta,
@@ -1860,6 +1861,76 @@ test('argument parser keeps dry-run as the default and pairs shard inputs', () =
       '--manifest', 'parent.json',
     ]),
     /cannot be combined/,
+  );
+  assert.deepEqual(
+    parseReceiverArguments([
+      '--manifest', 'parent.json',
+      '--shard-manifest', 'a.json',
+      '--shard-root', 'a-root',
+      '--continuation-evidence-root', 'a-continuation',
+      '--shard-manifest', 'b.json',
+      '--shard-root', 'b-root',
+      '--continuation-evidence-root', '-',
+    ]).shards,
+    [
+      { manifestPath: 'a.json', root: 'a-root', continuationEvidenceRoot: 'a-continuation' },
+      { manifestPath: 'b.json', root: 'b-root' },
+    ],
+  );
+  assert.throws(
+    () => parseReceiverArguments([
+      '--manifest', 'parent.json',
+      '--shard-manifest', 'a.json',
+      '--shard-root', 'a-root',
+      '--shard-manifest', 'b.json',
+      '--shard-root', 'b-root',
+      '--continuation-evidence-root', 'only-one',
+    ]),
+    /continuation-evidence-root.*once per shard/u,
+  );
+});
+
+test('receiver rejects orphan continuation evidence on a non-A2 shard', async (t) => {
+  const value = await fixture(t);
+  const orphanRoot = path.join(value.root, 'orphan-continuation');
+  await mkdir(orphanRoot, { mode: 0o700 });
+  const shards = value.options.shards.map((shard, index) => (
+    index === 0 ? { ...shard, continuationEvidenceRoot: orphanRoot } : shard
+  ));
+  await assert.rejects(
+    receiveRemoteOcrOffload({ ...value.options, shards }, value.dependencies),
+    /continuation evidence.*non-A2 shard/u,
+  );
+  assert.equal(await pathExists(value.productionRoot), false);
+  assert.equal(await pathExists(value.receiptRoot), false);
+});
+
+test('operator continuation document evidence is scoped only to its exact target document', () => {
+  const continuation = {
+    evidence: {
+      profile: { documentId: 'target-document' },
+      receipt: { continuation_id: '1'.repeat(64) },
+      claim: { claim_id: '2'.repeat(64) },
+      evidence_fingerprint_sha256: '3'.repeat(64),
+      states: [{ sha256: '4'.repeat(64) }],
+    },
+    output: { output_fingerprint_sha256: '5'.repeat(64) },
+  };
+  const shard = { operatorContinuation: continuation };
+  assert.deepEqual(
+    operatorContinuationReceiptDocument({ shard, document: { id: 'target-document' } }),
+    {
+      continuation_id: '1'.repeat(64),
+      claim_id: '2'.repeat(64),
+      evidence_fingerprint_sha256: '3'.repeat(64),
+      output_fingerprint_sha256: '5'.repeat(64),
+      terminal_state_sha256: '4'.repeat(64),
+      citation_allowed: false,
+    },
+  );
+  assert.equal(
+    operatorContinuationReceiptDocument({ shard, document: { id: 'unrelated-document' } }),
+    null,
   );
 });
 

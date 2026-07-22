@@ -1,210 +1,169 @@
 # A2 operator-interrupted attempt 6 forward continuation
 
-This procedure covers one incident only: the already granted A2 attempt 6 for
-`legacy-compendium-english` was healthy and making progress, but the operator stopped its worker
-after a monitor-result `jq` query used a nonexistent path. It is not another timeout recovery and
-does not authorize another OCR attempt.
+This procedure is for one incident only: `legacy-compendium-english`, already-consumed attempt 6,
+was stopped by the operator after an observer-side `jq` mistake. It does not create another timeout
+grant, reset the attempt count, or authorize attempt 7.
 
-## Why the existing runner must remain unchanged
+## Current release gate: intentionally blocked
 
-The committed A2 seed identity pins `scripts/run-remote-ocr-offload.mjs` to SHA-256
-`0fbf3d284f324f5faa710ca09342cdef88d24e6349b6e5d590ccca215065354d`. Editing that runner would
-make its own committed-seed identity check fail. Overriding that hash would falsely present changed
-code as the original runner. Rolling `attempts` back to 5 would erase the fact that attempt 6 really
-started. Neither action is allowed.
+The executable owns the incident profile in
+`scripts/lib/remote-ocr-operator-continuation.mjs`. Incident identity is not accepted from CLI flags.
+The production profile intentionally contains `null` for independently unconfirmed values:
 
-`scripts/continue-remote-ocr-operator-interruption.mjs` is therefore a separate, one-shot runner. On
-apply it first asks the byte-identical base runner to verify the complete committed seed and live
-runtime. It then takes the same `.remote-ocr-orchestrator.lock`, rechecks every incident anchor,
-publishes a separate authorization receipt and atomic consumption claim, and invokes the same OCR
-entrypoint without incrementing attempt 6. A successful continuation writes the ordinary attempt-6
-completion schema, after which the unchanged base runner can resume the remaining documents.
+- the complete operator-freeze incident evidence tree SHA-256;
+- the A2 rearm `repair-receipt.json` SHA-256 and byte count;
+- the A2 rearm reservation-claim SHA-256;
+- the complete A2 rearm evidence tree SHA-256.
 
-## Frozen incident
+`validateA2ForwardContinuationProfile()` rejects the profile before acquiring the lifecycle lock or
+reading A2. Do not substitute values from an operator command, a copied tree, or the unrelated
+`22eae7d9...` r5 repair. One independently approved, bounded, read-only collection must recover the
+remaining values; source review must then pin them before any dry run or apply is possible.
 
-These values are not discovery defaults. They are the exact authorization boundary for this A2
-incident:
+## Frozen identity already recovered
 
 | Anchor | Exact value |
 | --- | --- |
-| document | `legacy-compendium-english` |
-| granted attempt / ceiling | `6 / 6` |
-| original worker InvocationID | `cea41604c79f46cfa9483b46d64ad0fd` |
-| operator interruption time | `2026-07-22T04:13:35.390Z` |
+| run root | `/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess` |
+| output root | `.../output/production-p1-mb16-shard-a-r2` |
 | output device / inode | `66306 / 45748776` |
-| interrupted `run-status.json` SHA-256 | `1daf1ab535d8378c25625591494acd1e7922266873e48821e46be9ff04ddbe1b` |
-| interrupted document status SHA-256 | `28921af43e57ffd2e1443a2b03a2261075557e3dfd9a732cedc5ff4b4848c63a` |
-| append-only log SHA-256 / bytes | `470d7b4ef6be1ff3363e44c6e320d0b6d062196069f1205a679eac9b466662d2 / 11585` |
+| lifecycle lock / inode | `.a2-lifecycle.lock / 41590544` |
+| evidence base inode | `42336296` |
+| operator-freeze evidence inode | `42336297` |
+| document / attempt | `legacy-compendium-english / 6` |
+| worker InvocationID | `cea41604c79f46cfa9483b46d64ad0fd` |
+| interrupted at | `2026-07-22T04:13:35.390Z` |
+| run-status SHA-256 | `1daf1ab535d8378c25625591494acd1e7922266873e48821e46be9ff04ddbe1b` |
+| document-status SHA-256 | `28921af43e57ffd2e1443a2b03a2261075557e3dfd9a732cedc5ff4b4848c63a` |
+| log SHA-256 / bytes | `470d7b4ef6be1ff3363e44c6e320d0b6d062196069f1205a679eac9b466662d2 / 11585` |
 | state SHA-256 | `d16de657043c260136552cd8cf881791f42308169e2ecf55fe0cab5f155aa09d` |
 | document tree SHA-256 / files / bytes | `0ecee6008bc62def2fbaaa701ea9161b72a06b739dddc7e6fe72ff8963d23265 / 579 / 7100211` |
 | immutable base runner SHA-256 | `0fbf3d284f324f5faa710ca09342cdef88d24e6349b6e5d590ccca215065354d` |
-| operator incident evidence root | `.../a2-deploy-evidence/20260719T003812Z/incident-operator-freeze-monitor-jq-20260722T041335Z` |
+| seed ID | `d3b9638c866b2e5d447a62ef0bd0fd7877950dcfa9fb971b50c0927fc96e4d00` |
+| timeout grant SHA-256 | `d52aafa542d7c9321158c74716ebc08d4e364356b216804856edac1e91cd5338` |
+| timeout consumption claim SHA-256 | `b30c8999016d555208deff3ac8c7826f9a4bb6106b4a1d8c8c14905455af24e6` |
+| A2 rearm repair ID | `a08b53ee30c0320bc8c2783df1087392a42e33a283a776630206a857412b7dc6` |
 
-The interrupted entry must be the English document. `legacy-compendium-geography` remains a normal
-`retry_wait` document at inherited attempt 5 and must not appear in this continuation receipt.
+The source profile also pins the seed receipt/commit/journal, run identity, ledger identity and
+sidecar, timeout issuance and sidecar, predecessor evidence tree, rearm after-state hashes, modes,
+owners, paths, file counts, and byte counts.
 
-Before staging, read and freeze the incident evidence tree SHA-256 and the existing root-level
-`timeout-recovery-grant.json` and `timeout-recovery-consumption-claim.json` SHA-256 values. The tool
-requires all three. It verifies that exactly one entry for the English document exists in the grant
-and consumption claim, that both authorize attempt 6 from inherited attempt 5, and that the claim is
-bound to output inode `45748776` and the committed seed ID.
+## Lock and unit boundary
 
-## Non-negotiable gates
+The continuation uses the existing `.a2-lifecycle.lock`, opened with `O_NOFOLLOW` and held through
+an inherited file descriptor using `/usr/bin/flock`. It is acquired before the first incident or
+unit inspection and is held through terminal durability plus the final five-unit check. A failed
+stop or final gate is fatal, but closeout still releases the flock rather than orphaning it.
 
-- Keep the worker, monitor timer, notifier, and any prior repair process stopped and process-free.
-- Start only the already attested `curriculum-ocr-llama.service` before the live runtime gate. Do not
-  query or start the obsolete `llama-server.service`.
-- Do not restore any of the four pre-inference repair files. Their old bytes describe the earlier
-  pre-inference incident and are no longer the current state.
-- Do not create, copy, reconstruct, or republish a timeout grant, issuance, authority, or timeout
-  consumption claim.
-- Do not change `attempts` from 6 to 5 and do not authorize attempt 7.
-- Do not truncate or replace the English document log or document tree. The OCR child appends to the
-  existing log and may only add missing-page artifacts plus update `state.json`.
-- Do not run the ordinary worker after a continuation claim exists unless the continuation finished
-  and the English document is an exact, validated `complete` at attempt 6.
-- Completion here remains `citation_allowed=false`. It is OCR staging evidence, not publication.
+The first gate requires these five units to be loaded, quiescent, and process-free:
 
-## Stage and verify the sealed runtime
+1. `curriculum-ocr-reprocess-a-r2.service`;
+2. `curriculum-ocr-reprocess-a-r2-monitor.service`;
+3. `curriculum-ocr-reprocess-a-r2-monitor.timer`;
+4. `curriculum-ocr-monitor-alert@curriculum-ocr-reprocess-a-r2-monitor.service.service`;
+5. `curriculum-ocr-llama.service`.
 
-Create a new content-addressed runtime; do not edit the sealed monitor or earlier repair runtime.
-Include:
+The worker must retain InvocationID `cea416...` and `ExecMainStatus=75`. Apply starts only the exact
+llama unit under the held lifecycle lock, captures its real InvocationID/MainPID, validates the
+pinned runtime, and immediately before child spawn rechecks the other four quiescent units, the
+same active llama InvocationID, every frozen control hash, output/evidence/lifecycle identities,
+pre-existing directory identities, and the log inode. Closeout stops llama and proves all five
+units quiescent, reporting any stop/gate/release failures together.
 
-- `scripts/continue-remote-ocr-operator-interruption.mjs`
-- the byte-identical `scripts/run-remote-ocr-offload.mjs`
-- the byte-identical `scripts/ocr-pdf-paddle.py`
-- `scripts/lib/remote-ocr-local-snapshot.mjs`
+## Disjoint, crash-resumable evidence
 
-Write an absolute-path `SHA256SUMS`, set directories to `0500`, files to `0400`, and record the source
-commit. Verify the base runner separately:
-
-```bash
-sha256sum scripts/run-remote-ocr-offload.mjs
-# must equal 0fbf3d284f324f5faa710ca09342cdef88d24e6349b6e5d590ccca215065354d
-```
-
-Run the focused Linux suite from the sealed runtime before touching A2:
-
-```bash
-node --test tests/remote-ocr-operator-interruption-continuation.test.mjs
-```
-
-## Build the exact command once
-
-Take the original A2 worker's OCR/runtime options from the verified effective systemd unit. Do not
-retype or infer them. Set `AUTHORIZED_AT` and `CONTINUED_AT` once as canonical UTC millisecond
-timestamps and reuse the same values for both previews and apply. Fill only the three read-only
-anchors shown as placeholders below.
-
-```bash
-CONTINUATION=(
-  node <SEALED_RUNTIME>/scripts/continue-remote-ocr-operator-interruption.mjs
-  <EXACT_ORIGINAL_A2_MANIFEST_INPUT_RUNTIME_AND_MONITORING_OPTIONS>
-  --document-id legacy-compendium-english
-  --attempt 6
-  --worker-invocation-id cea41604c79f46cfa9483b46d64ad0fd
-  --operator-interrupted-at 2026-07-22T04:13:35.390Z
-  --authorized-at "<AUTHORIZED_AT>"
-  --continued-at "<CONTINUED_AT>"
-  --incident-evidence-root "<EXACT_INCIDENT_EVIDENCE_ROOT>"
-  --expected-output-device 66306
-  --expected-output-inode 45748776
-  --expected-run-status-sha256 1daf1ab535d8378c25625591494acd1e7922266873e48821e46be9ff04ddbe1b
-  --expected-status-sha256 28921af43e57ffd2e1443a2b03a2261075557e3dfd9a732cedc5ff4b4848c63a
-  --expected-log-sha256 470d7b4ef6be1ff3363e44c6e320d0b6d062196069f1205a679eac9b466662d2
-  --expected-log-bytes 11585
-  --expected-state-sha256 d16de657043c260136552cd8cf881791f42308169e2ecf55fe0cab5f155aa09d
-  --expected-document-tree-sha256 0ecee6008bc62def2fbaaa701ea9161b72a06b739dddc7e6fe72ff8963d23265
-  --expected-document-tree-files 579
-  --expected-document-tree-bytes 7100211
-  --expected-incident-tree-sha256 "<INCIDENT_EVIDENCE_TREE_SHA256>"
-  --expected-grant-sha256 "<EXISTING_GRANT_SHA256>"
-  --expected-consumption-claim-sha256 "<EXISTING_CONSUMPTION_CLAIM_SHA256>"
-  --expected-runner-script-sha256 0fbf3d284f324f5faa710ca09342cdef88d24e6349b6e5d590ccca215065354d
-)
-```
-
-The exact original options must still resolve to p1, micro-batch 16, queues enabled, loopback
-`127.0.0.1:8112/v1`, startup 180 seconds, idle 1200 seconds, wall floor 1200 seconds, 25 seconds per
-page, termination grace 15 seconds, and poll interval 5 seconds. Any difference is rejected.
-
-## Preview twice, then apply once
-
-Two previews must be byte-identical and leave the output tree byte inventory unchanged:
-
-```bash
-"${CONTINUATION[@]}" >preview-1.json
-"${CONTINUATION[@]}" >preview-2.json
-cmp preview-1.json preview-2.json
-sha256sum preview-1.json preview-2.json
-```
-
-Both must return `status=ready`, `attempt=6`, `citation_allowed=false`, the same continuation ID,
-and the same future receipt/claim paths. No `operator-continuations` directory may exist afterward.
-
-Run apply once from a bounded user systemd unit so that SSH loss does not become another operator
-signal. Preserve the transient unit's journal and InvocationID with the evidence bundle:
-
-```bash
-"${CONTINUATION[@]}" --apply
-```
-
-Apply first runs the unchanged base runner's full committed-seed/live-runtime gate. Under the shared
-orchestrator lock it then creates:
+Continuation evidence is outside the monitored output root, under:
 
 ```text
-operator-continuations/legacy-compendium-english/attempt-0006/
-  interrupted-run-status.json{,.sha256}
-  interrupted-status.json{,.sha256}
-  interrupted-state.json{,.sha256}
-  pre-continuation.log{,.sha256}
-  receipt.json{,.sha256}
-  claim.json{,.sha256}
+<A2_EVIDENCE_BASE>/operator-forward-continuations/
+  legacy-compendium-english/attempt-0006/
+    receipt.json{,.sha256}
+    claim.json{,.sha256}
+    interrupted-run-status.json{,.sha256}
+    interrupted-status.json{,.sha256}
+    interrupted-state.json{,.sha256}
+    pre-continuation.log{,.sha256}
+    document-inventory.json{,.sha256}
+    states/
+      000001-claimed.json{,.sha256}
+      000002-running.json{,.sha256}
+      000003-terminal_plan.json{,.sha256}
+      000004-terminal.json{,.sha256}
 ```
 
-Directories are owner-only `0700`; files are owner-only, single-link `0600`. The archived files are
-the exact pre-continuation bytes. The claim is written with no replacement immediately before OCR
-spawn. A second apply always fails as already consumed.
+This preserves the monitor's exact B2 output-root allowlist. The receipt directory is atomically
+renamed into place. The claim binds its receipt, output device/inode, and continuation-evidence
+device/inode. Claim and journal pairs recover deterministic body-only or sidecar-only crash states;
+different bytes fail closed.
 
-## Success verification
+The live `run-status.json`, document status, and their sidecars remain at the original interrupted
+bytes while OCR runs. Before any terminal replacement, an immutable `terminal_plan` state stores the
+four exact before/after records. Each live file must be exactly before or exactly after, so restart
+can finish a partially applied four-file transaction without rerunning OCR. The terminal journal is
+append-only and hash chained.
 
-Require all of the following before returning ownership to the ordinary worker:
+## Forward-only output rules
 
-1. continuation exits `0` and returns `status=complete`, `attempt=6`;
-2. receipt and claim sidecars verify, modes are exact, and their IDs bind each other;
-3. English progress and document status are both `complete`, attempt/max `6/6`;
-4. English original `started_at` is retained; no new attempt timestamp replaced it;
-5. the archived interrupted progress/status still say attempt 6, `SIGTERM`, and
-   `2026-07-22T04:13:35.390Z`;
-6. the live log begins byte-for-byte with archived `pre-continuation.log` and is not shorter;
-7. every pre-existing document-tree file except `state.json` is byte-identical; only missing-page
-   artifacts were added;
-8. completed output passes the ordinary whole-document validator;
-9. grant, issuance, timeout consumption claim, seed receipt, and old repair evidence retain their
-   pre-continuation hashes;
-10. no attempt 7, new timeout grant, new timeout authority claim, or attempt reset exists.
+- Every pre-existing document-tree path except `state.json` stays byte-identical.
+- Every pre-existing directory keeps device, inode, mode, UID, and GID.
+- New paths may exist only below a previously absent canonical `pages/NNNN` within the document page
+  range.
+- A new page may contain only `result.json`, `content.md`, `markdown/`, and `visual/` families.
+- Hidden, temporary, staging, out-of-range, or additions inside an existing page are rejected.
+- The log must retain the same device/inode, cannot shrink, and must begin with the exact archived
+  byte prefix.
+- The ordinary complete whole-document validator remains mandatory.
 
-Then restore/start the unchanged ordinary A2 worker and run two separate monitor canaries. The first
-ordinary runner pass must recognize English as complete without invoking it and may continue only
-the other three `retry_wait` documents.
+Output reads use `O_NOFOLLOW`, handle `fstat` before/after, pathname inode rechecks, single-link and
+owner/mode checks. Tree walks use stable file reads and reject symlinks/non-regular entries.
 
-## Failure and rollback boundary
+## Exit semantics and restart
 
-This protocol is forward-only. There is no rollback to the pre-continuation status files.
+- `0`: complete attempt 6.
+- `75`: a second operator stop; attempt 6 remains interrupted.
+- `2`: child exit 2 or shared-runtime revalidation failure; terminal status is `failed` with
+  `failure_class=shared_runtime_configuration`.
+- `12`: content/monitor/whole-document/forward-only validation failure; terminal status is
+  `quarantined`.
 
-- Before `claim.json` exists: stop, preserve the receipt if already published, fix only the staged
-  runtime or command, and rerun the same exact authorization.
-- After `claim.json` exists: never delete or replace the claim and never run apply again.
-- A second operator stop returns exit `75` and leaves attempt 6 interrupted with the claim consumed.
-- A content failure returns exit `12` and quarantines attempt 6.
-- A shared runtime failure returns exit `2`, records `failure_class=shared_runtime_configuration`,
-  and keeps attempts at 6. It does not release the attempt back to 5.
-- Any control, inode, hash, log length, page tree, seed, grant, claim, runtime, or runner drift fails
-  closed before the continuation claim whenever possible.
+A restart with a deterministic partial claim or state pair repairs the missing half. A restart with
+`terminal_plan` completes only remaining exact-before replacements. A restart after the child
+finished but before terminal planning validates the forward result and completes without invoking
+OCR again. An incomplete forward result may resume the same already-claimed attempt 6; it never
+increments or resets the attempt.
 
-After any non-success outcome, keep every unit held and archive the complete continuation directory,
-journal, current run/status/log/state hashes, and process-free proof for a new review. Do not start
-the ordinary runner merely to force a terminal status.
+## Command, after profile release
 
-The receiver/import path must not publish this document until it also archives and validates the
-operator-continuation receipt and claim. OCR completion alone remains non-citable staging.
+Only runtime/input options and the two operator-action timestamps are supplied. Incident hashes,
+paths, InvocationID, interruption time, devices, inodes, grant, claim, and rearm authority are not
+CLI arguments.
+
+```bash
+node <SEALED_RUNTIME>/scripts/continue-remote-ocr-operator-interruption.mjs \
+  <EXACT_ORIGINAL_A2_MANIFEST_INPUT_AND_RUNTIME_OPTIONS> \
+  --document-id legacy-compendium-english \
+  --attempt 6 \
+  --authorized-at '<CANONICAL_UTC_MS>' \
+  --continued-at '<CANONICAL_UTC_MS>'
+```
+
+Run the same command with `--apply` only after two mutation-free previews agree and the independent
+review releases the profile. Do not start services or touch A2 merely to fill profile values.
+
+## Receiver gate
+
+The receiver accepts `--continuation-evidence-root` once per shard (`-` for other shards). For the
+exact A2 root, omission is fatal. Evidence on any non-A2 shard is also fatal. The receiver:
+
+- matches the frozen output path plus seed receipt, grant, consumption claim, runner, and English
+  manifest identity;
+- validates receipt, claim, all sidecars, state hash chain, terminal complete/exit 0, and evidence
+  directory inode binding;
+- independently rechecks live complete attempt 6, strict forward-only tree, and append-only log;
+- fingerprints the continuation evidence and live output in source-shard identity;
+- archives the entire continuation tree under receiver `source-evidence`, verifies tree equality,
+  then reads back receipt, claim, inventory, and sidecars;
+- revalidates the archive and fingerprints on idempotent receiver entry.
+
+OCR completion remains `citation_allowed=false`; receiver acceptance is still not a publication or
+citation release.

@@ -38,6 +38,12 @@ import {
   inspectTreeInventory,
   LOCAL_REPROCESS_SNAPSHOT_MODE,
 } from './lib/remote-ocr-local-snapshot.mjs';
+import {
+  EXACT_A2_FORWARD_CONTINUATION_INCIDENT,
+  validateA2ForwardContinuationProfile,
+  validateOperatorContinuationEvidence,
+  validateOperatorContinuationOutput,
+} from './lib/remote-ocr-operator-continuation.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultProjectRoot = path.resolve(path.dirname(scriptPath), '..');
@@ -3235,7 +3241,25 @@ async function loadRepairManifest(manifestPath, shardRoot) {
   };
 }
 
-async function loadShard({ manifestPath, root, repairManifestPath }) {
+function requireExactA2ContinuationShardControls({
+  resolvedRoot,
+  manifest,
+  identity,
+  seed,
+}, profile) {
+  const documents = manifest.documents.filter(({ id }) => id === profile.documentId);
+  if (resolvedRoot !== profile.outputRoot
+    || documents.length !== 1
+    || identity.runner_script_sha256 !== profile.baseRunnerSha256
+    || seed?.receipt?.seed_id !== profile.seedId
+    || seed?.receiptSha256 !== profile.seedReceiptSha256
+    || seed?.timeoutRecovery?.rawSha256 !== profile.timeoutGrantSha256
+    || seed?.timeoutRecoveryConsumption?.claimSha256 !== profile.timeoutConsumptionClaimSha256) {
+    throw new Error('frozen A2 output root exists but its continuation provenance controls differ');
+  }
+}
+
+async function loadShard({ manifestPath, root, repairManifestPath, continuationEvidenceRoot }, dependencies = {}) {
   const resolvedManifestPath = path.resolve(manifestPath);
   const requestedRoot = path.resolve(root);
   const rootInfo = await lstat(requestedRoot).catch((error) => {
@@ -3301,6 +3325,34 @@ async function loadShard({ manifestPath, root, repairManifestPath }) {
     }
   }
   validateRunStatus(runStatus, identity, manifest, seed);
+  const rawProfile = dependencies.incidentProfile || EXACT_A2_FORWARD_CONTINUATION_INCIDENT;
+  const isA2ContinuationRoot = resolvedRoot === rawProfile.outputRoot;
+  let operatorContinuation = null;
+  if (isA2ContinuationRoot) {
+    const profile = validateA2ForwardContinuationProfile(rawProfile);
+    requireExactA2ContinuationShardControls({ resolvedRoot, manifest, identity, seed }, profile);
+    if (!continuationEvidenceRoot) {
+      throw new Error('frozen A2 continuation shard requires --continuation-evidence-root');
+    }
+    const evidenceRoot = await realpath(path.resolve(continuationEvidenceRoot)).catch((error) => {
+      if (error?.code === 'ENOENT') throw new Error('A2 continuation evidence root is missing');
+      throw error;
+    });
+    if (isWithin(resolvedRoot, evidenceRoot) || isWithin(evidenceRoot, resolvedRoot)) {
+      throw new Error('A2 continuation evidence root must be disjoint from the shard output root');
+    }
+    const evidence = await validateOperatorContinuationEvidence(evidenceRoot, profile);
+    const output = await validateOperatorContinuationOutput(resolvedRoot, evidence, profile);
+    const sourceTree = await inspectTree(evidenceRoot);
+    const { entries: _evidenceEntries, ...validatedEvidenceTree } = evidence.evidenceTree;
+    if (runStatusSha256 !== output.runStatusSha256
+      || !sameJson(sourceTree, validatedEvidenceTree)) {
+      throw new Error('receiver run status or continuation evidence changed after validation');
+    }
+    operatorContinuation = { root: evidenceRoot, evidence, output, sourceTree };
+  } else if (continuationEvidenceRoot) {
+    throw new Error('continuation evidence was supplied for a non-A2 shard');
+  }
   return {
     manifestPath: resolvedManifestPath,
     manifest,
@@ -3312,6 +3364,7 @@ async function loadShard({ manifestPath, root, repairManifestPath }) {
     runStatusSha256,
     repair,
     seed,
+    operatorContinuation,
   };
 }
 
@@ -4157,11 +4210,16 @@ function sourceShardFingerprint(shard) {
       : {}),
     repair_manifest_sha256: shard.repair?.manifestSha256 || null,
     repair_receipt_sha256: shard.repair?.receiptSha256 || null,
+    operator_continuation_evidence_sha256:
+      shard.operatorContinuation?.evidence.evidence_fingerprint_sha256 || null,
+    operator_continuation_output_sha256:
+      shard.operatorContinuation?.output.output_fingerprint_sha256 || null,
   };
 }
 
 async function verifyIdempotentArchivedTimeoutRecoveryEvidence(receipt, receiptPath, shards) {
   const timeoutShards = shards.filter((shard) => shard.seed?.timeoutRecovery);
+  const continuationShards = shards.filter((shard) => shard.operatorContinuation);
   const sourceEvidence = requireObject(receipt.source_evidence, 'receiver receipt source_evidence');
   if (!Array.isArray(sourceEvidence.shards)
     || sourceEvidence.shards.length !== shards.length) {
@@ -4174,11 +4232,13 @@ async function verifyIdempotentArchivedTimeoutRecoveryEvidence(receipt, receiptP
     );
     if (archivedShard.source_root !== shards[index].root
       || Boolean(archivedShard.seed_lineage?.timeout_recovery)
-        !== Boolean(shards[index].seed?.timeoutRecovery)) {
-      throw new Error('receiver receipt archived shard timeout recovery mapping differs from current shards');
+        !== Boolean(shards[index].seed?.timeoutRecovery)
+      || Boolean(archivedShard.operator_continuation)
+        !== Boolean(shards[index].operatorContinuation)) {
+      throw new Error('receiver receipt archived shard recovery provenance mapping differs from current shards');
     }
   }
-  if (timeoutShards.length === 0) return;
+  if (timeoutShards.length === 0 && continuationShards.length === 0) return;
   const receiptDirectory = path.dirname(receiptPath);
   const canonicalReceiptDirectory = await realpath(receiptDirectory);
   if (canonicalReceiptDirectory !== receiptDirectory) {
@@ -4430,6 +4490,58 @@ async function verifyIdempotentArchivedTimeoutRecoveryEvidence(receipt, receiptP
       );
     }
   }
+  for (const shard of continuationShards) {
+    const evidenceIndex = sourceEvidence.shards.findIndex(
+      (candidate) => candidate?.source_root === shard.root,
+    );
+    if (evidenceIndex < 0) {
+      throw new Error(`archived operator continuation evidence is missing for ${shard.root}`);
+    }
+    const archived = requireObject(
+      sourceEvidence.shards[evidenceIndex].operator_continuation,
+      `archived operator continuation evidence for ${shard.root}`,
+    );
+    const archiveRoot = path.join(
+      receiptDirectory,
+      'source-evidence',
+      `shard-${String(evidenceIndex + 1).padStart(2, '0')}`,
+      'operator-continuation',
+    );
+    if (archived.path !== archiveRoot || !isWithin(receiptDirectory, archiveRoot)) {
+      throw new Error('archived operator continuation path differs from the receipt');
+    }
+    await requireCanonicalArchiveDirectory(archiveRoot, 'archived operator continuation root');
+    const tree = await inspectTree(archiveRoot);
+    if (!sameJson(tree, shard.operatorContinuation.sourceTree)
+      || archived.tree_sha256 !== tree.tree_sha256
+      || archived.files !== tree.files
+      || archived.bytes !== tree.bytes
+      || archived.evidence_fingerprint_sha256
+        !== shard.operatorContinuation.evidence.evidence_fingerprint_sha256
+      || archived.output_fingerprint_sha256
+        !== shard.operatorContinuation.output.output_fingerprint_sha256
+      || archived.receipt_sha256 !== shard.operatorContinuation.evidence.receiptSha256
+      || archived.claim_sha256 !== shard.operatorContinuation.evidence.claimSha256
+      || archived.terminal_state_sha256
+        !== shard.operatorContinuation.evidence.states.at(-1).sha256) {
+      throw new Error('archived operator continuation fingerprints differ from current staging');
+    }
+    for (const [basename, expectedSha256] of [
+      ['receipt.json', shard.operatorContinuation.evidence.receiptSha256],
+      ['claim.json', shard.operatorContinuation.evidence.claimSha256],
+      ['document-inventory.json', shard.operatorContinuation.evidence.inventorySha256],
+    ]) {
+      const pathname = path.join(archiveRoot, basename);
+      const stable = await readStableArchivedAuthorityFile(
+        pathname,
+        `archived operator continuation ${basename}`,
+      );
+      if (stable.digest !== expectedSha256) {
+        throw new Error(`archived operator continuation ${basename} differs from current staging`);
+      }
+      await verifySha256Sidecar(pathname, `archived operator continuation ${basename}`);
+    }
+  }
 }
 
 async function findIdempotentReceipt(
@@ -4507,6 +4619,10 @@ async function findIdempotentReceipt(
           : {}),
         repair_manifest_sha256: shard.repair_manifest_sha256 || null,
         repair_receipt_sha256: shard.repair_receipt_sha256 || null,
+        operator_continuation_evidence_sha256:
+          shard.operator_continuation_evidence_sha256 || null,
+        operator_continuation_output_sha256:
+          shard.operator_continuation_output_sha256 || null,
       }))
       .sort((left, right) => left.root < right.root ? -1 : left.root > right.root ? 1 : 0);
     if (!sameJson(actualShardFingerprints, expectedShardFingerprints)) {
@@ -4753,6 +4869,9 @@ async function normalizeOptions(options) {
       manifestPath: path.resolve(shard.manifestPath),
       root: path.resolve(shard.root),
       repairManifestPath: shard.repairManifestPath ? path.resolve(shard.repairManifestPath) : null,
+      continuationEvidenceRoot: shard.continuationEvidenceRoot
+        ? path.resolve(shard.continuationEvidenceRoot)
+        : null,
     })),
     projectRoot,
     productionRoot,
@@ -4790,7 +4909,7 @@ async function prepareReceiptPlan(options, dependencies = {}) {
   validateRemoteOcrManifest(parentManifest);
   const parentManifestSha256 = sha256(parentRaw);
   const shards = [];
-  for (const shardOption of normalized.shards) shards.push(await loadShard(shardOption));
+  for (const shardOption of normalized.shards) shards.push(await loadShard(shardOption, dependencies));
   const { runnerCompatibility } = validateShardUnion(parentManifest, shards);
 
   const documents = [];
@@ -4835,6 +4954,19 @@ async function prepareReceiptPlan(options, dependencies = {}) {
   };
 }
 
+export function operatorContinuationReceiptDocument(item) {
+  const continuation = item.shard.operatorContinuation;
+  if (!continuation || item.document.id !== continuation.evidence.profile.documentId) return null;
+  return {
+    continuation_id: continuation.evidence.receipt.continuation_id,
+    claim_id: continuation.evidence.claim.claim_id,
+    evidence_fingerprint_sha256: continuation.evidence.evidence_fingerprint_sha256,
+    output_fingerprint_sha256: continuation.output.output_fingerprint_sha256,
+    terminal_state_sha256: continuation.evidence.states.at(-1).sha256,
+    citation_allowed: false,
+  };
+}
+
 function receiptDocument(item, localSnapshot, roots, receiptDirectory) {
   const destinationDocument = path.join(roots.productionRoot, item.document.id);
   const destinationText = path.join(roots.textRoot, `${item.document.id}.txt`);
@@ -4848,6 +4980,7 @@ function receiptDocument(item, localSnapshot, roots, receiptDirectory) {
   const timeoutRecovery = timeoutRecoveryReceiptDocument(
     item.shard.seed?.receipt.documents.find((document) => document.document_id === item.document.id),
   );
+  const operatorContinuation = operatorContinuationReceiptDocument(item);
   return {
     document_id: item.document.id,
     page_count: item.document.page_count,
@@ -4868,6 +5001,7 @@ function receiptDocument(item, localSnapshot, roots, receiptDirectory) {
     source_native_markdown_asset_bytes: item.nativeAssetBytes,
     repair_pages: item.repairPageCount,
     ...(timeoutRecovery ? { timeout_recovery: timeoutRecovery } : {}),
+    ...(operatorContinuation ? { operator_continuation: operatorContinuation } : {}),
     citation_allowed: false,
     target_document_path: destinationDocument,
     target_document_tree_sha256: item.sourceTree.tree_sha256,
@@ -5145,6 +5279,63 @@ async function archiveSourceEvidence(plan, receiptDirectory) {
         evidence,
       };
     }
+    let operatorContinuationEvidence = null;
+    if (shard.operatorContinuation) {
+      const continuationRoot = path.join(shardRoot, 'operator-continuation');
+      const sourceTreeBefore = await inspectTree(shard.operatorContinuation.root);
+      if (!sameJson(sourceTreeBefore, shard.operatorContinuation.sourceTree)) {
+        throw new Error(`shard ${index + 1} operator continuation evidence changed before archive`);
+      }
+      await copyTreeStrict(shard.operatorContinuation.root, continuationRoot);
+      const [archivedTree, sourceTreeAfter] = await Promise.all([
+        inspectTree(continuationRoot),
+        inspectTree(shard.operatorContinuation.root),
+      ]);
+      if (!sameJson(archivedTree, shard.operatorContinuation.sourceTree)
+        || !sameJson(sourceTreeAfter, shard.operatorContinuation.sourceTree)) {
+        throw new Error(`shard ${index + 1} operator continuation evidence changed during archive`);
+      }
+      for (const [basename, expectedSha256] of [
+        ['receipt.json', shard.operatorContinuation.evidence.receiptSha256],
+        ['claim.json', shard.operatorContinuation.evidence.claimSha256],
+        ['document-inventory.json', shard.operatorContinuation.evidence.inventorySha256],
+      ]) {
+        const pathname = path.join(continuationRoot, basename);
+        const archivedSha256 = await verifySha256Sidecar(
+          pathname,
+          `archived shard ${index + 1} operator continuation ${basename}`,
+        );
+        if (archivedSha256 !== expectedSha256) {
+          throw new Error(`archived shard ${index + 1} operator continuation ${basename} differs`);
+        }
+      }
+      const receiptReadback = await readJsonWithRaw(
+        path.join(continuationRoot, 'receipt.json'),
+        `archived shard ${index + 1} operator continuation receipt`,
+      );
+      const claimReadback = await readJsonWithRaw(
+        path.join(continuationRoot, 'claim.json'),
+        `archived shard ${index + 1} operator continuation claim`,
+      );
+      if (receiptReadback.value.continuation_id
+          !== shard.operatorContinuation.evidence.receipt.continuation_id
+        || claimReadback.value.claim_id
+          !== shard.operatorContinuation.evidence.claim.claim_id) {
+        throw new Error(`archived shard ${index + 1} operator continuation identity readback differs`);
+      }
+      operatorContinuationEvidence = {
+        path: continuationRoot,
+        ...archivedTree,
+        evidence_fingerprint_sha256:
+          shard.operatorContinuation.evidence.evidence_fingerprint_sha256,
+        output_fingerprint_sha256:
+          shard.operatorContinuation.output.output_fingerprint_sha256,
+        receipt_sha256: shard.operatorContinuation.evidence.receiptSha256,
+        claim_sha256: shard.operatorContinuation.evidence.claimSha256,
+        terminal_state_sha256:
+          shard.operatorContinuation.evidence.states.at(-1).sha256,
+      };
+    }
     const statuses = [];
     for (const item of plan.documents.filter((document) => document.shard === shard)) {
       const sourceStatus = path.join(shard.root, 'status', `${item.document.id}.json`);
@@ -5172,6 +5363,7 @@ async function archiveSourceEvidence(plan, receiptDirectory) {
       run_status: runStatus,
       seed_lineage: seedEvidence,
       repair: repairEvidence,
+      operator_continuation: operatorContinuationEvidence,
       statuses,
     });
   }
@@ -5560,6 +5752,10 @@ async function applyReceiptPlan(plan, dependencies = {}) {
         repair_manifest_path: shard.repair?.manifestPath || null,
         repair_manifest_sha256: shard.repair?.manifestSha256 || null,
         repair_receipt_sha256: shard.repair?.receiptSha256 || null,
+        operator_continuation_evidence_sha256:
+          shard.operatorContinuation?.evidence.evidence_fingerprint_sha256 || null,
+        operator_continuation_output_sha256:
+          shard.operatorContinuation?.output.output_fingerprint_sha256 || null,
       })),
       ...(plan.runnerCompatibility ? {
         source_shard_compatibility: plan.runnerCompatibility,
@@ -6040,6 +6236,10 @@ export async function receiveRemoteOcrOffload(options, dependencies = {}) {
       repair_manifest_path: shard.repair?.manifestPath || null,
       repair_manifest_sha256: shard.repair?.manifestSha256 || null,
       repair_receipt_sha256: shard.repair?.receiptSha256 || null,
+      operator_continuation_evidence_sha256:
+        shard.operatorContinuation?.evidence.evidence_fingerprint_sha256 || null,
+      operator_continuation_output_sha256:
+        shard.operatorContinuation?.output.output_fingerprint_sha256 || null,
     })),
     ...(plan.runnerCompatibility ? {
       source_shard_compatibility: plan.runnerCompatibility,
@@ -6074,6 +6274,9 @@ export async function receiveRemoteOcrOffload(options, dependencies = {}) {
           ),
         ),
       } : {}),
+      ...(operatorContinuationReceiptDocument(item) ? {
+        operator_continuation: operatorContinuationReceiptDocument(item),
+      } : {}),
       replacement_mode: plan.localSnapshots.get(item.document.id).mode === LOCAL_REPROCESS_SNAPSHOT_MODE
         ? LOCAL_REPROCESS_SNAPSHOT_MODE
         : 'install_into_absent_destination',
@@ -6089,6 +6292,7 @@ export function parseReceiverArguments(argv) {
   const shardManifests = [];
   const shardRoots = [];
   const repairManifests = [];
+  const continuationEvidenceRoots = [];
   const suppliedValueKeys = [];
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
@@ -6104,6 +6308,7 @@ export function parseReceiverArguments(argv) {
     if (key === '--shard-manifest') shardManifests.push(value);
     else if (key === '--shard-root') shardRoots.push(value);
     else if (key === '--repair-manifest') repairManifests.push(value);
+    else if (key === '--continuation-evidence-root') continuationEvidenceRoots.push(value);
     else if (key === '--manifest') options.manifest = value;
     else if (key === '--project-root') options.projectRoot = value;
     else if (key === '--production-root') options.productionRoot = value;
@@ -6127,11 +6332,18 @@ export function parseReceiverArguments(argv) {
   if (repairManifests.length !== 0 && repairManifests.length !== shardManifests.length) {
     throw new Error('--repair-manifest must be omitted entirely or supplied once per shard (use - for no repair)');
   }
+  if (continuationEvidenceRoots.length !== 0
+    && continuationEvidenceRoots.length !== shardManifests.length) {
+    throw new Error('--continuation-evidence-root must be omitted entirely or supplied once per shard (use - for none)');
+  }
   options.shards = shardManifests.map((manifestPath, index) => ({
     manifestPath,
     root: shardRoots[index],
     ...(repairManifests[index] && !['-', 'none'].includes(repairManifests[index])
       ? { repairManifestPath: repairManifests[index] }
+      : {}),
+    ...(continuationEvidenceRoots[index] && !['-', 'none'].includes(continuationEvidenceRoots[index])
+      ? { continuationEvidenceRoot: continuationEvidenceRoots[index] }
       : {}),
   }));
   return options;
