@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "policy": "git_pinned_research_source_registry_v1",
+  "slice_id": "slice:zh-hs-2017-2020:v1",
+  "research_corpus_rowset_sha256": "505e384f61ed2231d42b410caada121ae5c88655338e00369bdd66a6c618c261",
+  "documents": [
+    {
+      "document_id": "ictr-a71e3780f934",
+      "work_identity_sha256": "be0f9d82489a135ccb7c5df983f6c1b1403b1241a31e00e94e771d12fed77082"
+    },
+    {
+      "document_id": "moe-hs-2020-02",
+      "work_identity_sha256": "697d0be868543558404063b82ffa06b17d9975c34bd55208121efd15300f933e"
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "source:zh-hs-2017-primary",
+      "source_contract_sha256": "b137f9d63beea9df0f04247e068364943d4ae35b156ccd1a95b14d003f4f4bab"
+    },
+    {
+      "source_id": "source:zh-hs-2020-primary",
+      "source_contract_sha256": "a48b9cf87cdc7de87eb2297b85c63d4cdb3b62b756f462d6940dfa7fc9317b3e"
+    },
+    {
+      "source_id": "source:moe-2017-release",
+      "source_contract_sha256": "5620746dab3f61bfcecaaff81b832ce8afe3ed6d284b0bc7027f91951d91176b"
+    },
+    {
+      "source_id": "source:moe-2020-revision",
+      "source_contract_sha256": "9263d6f27a9e2f37e988eecadcd24b78523f3a0a62007a5038b03b6334fcb81c"
+    },
+    {
+      "source_id": "source:wikisource-zh-hs-2017",
+      "source_contract_sha256": "bbc8e62a13341cb5b0c177f5e2c7fca7a484343a09b12470530926f0ec9d27bc"
+    },
+    {
+      "source_id": "source:nsfz-zh-hs-2020",
+      "source_contract_sha256": "0015c08e8a4a14d36c894f8012f6097f500cf5fe03924f4a382c832a52c3ad77"
+    },
+    {
+      "source_id": "source:ictr-zh-hs-2020-mirror",
+      "source_contract_sha256": "d5d57de9f8473d881ec13fdb2f20bb6a4a95eb77674f35a6bb5473336892a16a"
+    }
+  ],
+  "evidence_ids": [
+    "evidence:zh-hs-2017-course-nature",
+    "evidence:zh-hs-2020-course-nature",
+    "evidence:zh-hs-2017-basic-idea",
+    "evidence:zh-hs-2020-basic-idea",
+    "evidence:zh-hs-2017-core-literacy-term",
+    "evidence:zh-hs-2020-core-literacy-term"
+  ],
+  "assertion_ids": [
+    "assertion:zh-hs-2017-2020-course-nature-aim-wording",
+    "assertion:zh-hs-2017-2020-basic-idea-student-individual",
+    "assertion:zh-hs-2017-2020-core-literacy-value-term"
+  ]
+}

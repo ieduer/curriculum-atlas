@@ -129,6 +129,7 @@
         {
           "span_id": "online-span:moe-2017-version",
           "purpose": "version_identity",
+          "evidence_id": null,
           "utf16_start": 346,
           "utf16_end": 385,
           "exact_text": "教育部组织260多位专家对普通高中课程方案和语文等14门学科课程标准进行了修订",
@@ -138,6 +139,7 @@
         {
           "span_id": "online-span:moe-2017-core-literacy-policy",
           "purpose": "exact_text_witness",
+          "evidence_id": "evidence:zh-hs-2017-core-literacy-term",
           "utf16_start": 877,
           "utf16_end": 893,
           "exact_text": "正确价值观念、必备品格和关键能力",
@@ -176,6 +178,7 @@
         {
           "span_id": "online-span:moe-2020-version",
           "purpose": "version_identity",
+          "evidence_id": null,
           "utf16_start": 0,
           "utf16_end": 43,
           "exact_text": "教育部关于印发普通高中课程方案和语文等学科课程标准（2017年版2020年修订）的通知",
@@ -214,6 +217,7 @@
         {
           "span_id": "online-span:wikisource-2017-course-nature",
           "purpose": "exact_text_witness",
+          "evidence_id": "evidence:zh-hs-2017-course-nature",
           "utf16_start": 4989,
           "utf16_end": 5002,
           "exact_text": "全面而有个性的发展奠定基础",
@@ -223,6 +227,7 @@
         {
           "span_id": "online-span:wikisource-2017-basic-idea",
           "purpose": "exact_text_witness",
+          "evidence_id": "evidence:zh-hs-2017-basic-idea",
           "utf16_start": 5363,
           "utf16_end": 5381,
           "exact_text": "在促进人的全面发展方面发挥应有的功能",
@@ -232,6 +237,7 @@
         {
           "span_id": "online-span:wikisource-2017-core-literacy-conflict",
           "purpose": "transcription_conflict",
+          "evidence_id": "evidence:zh-hs-2017-core-literacy-term",
           "utf16_start": 6538,
           "utf16_end": 6553,
           "exact_text": "正确价值观、必备品格和关键能力",
@@ -270,6 +276,7 @@
         {
           "span_id": "online-span:nsfz-2020-version",
           "purpose": "version_identity",
+          "evidence_id": null,
           "utf16_start": 357,
           "utf16_end": 384,
           "exact_text": "普通高中 语文课程标准 （2017年版2020年修订）",
@@ -279,6 +286,7 @@
         {
           "span_id": "online-span:nsfz-2020-course-nature",
           "purpose": "exact_text_witness",
+          "evidence_id": "evidence:zh-hs-2020-course-nature",
           "utf16_start": 4745,
           "utf16_end": 4768,
           "exact_text": "培养德智体美劳全面发展的社会主义建设者和接班人",
@@ -288,6 +296,7 @@
         {
           "span_id": "online-span:nsfz-2020-basic-idea",
           "purpose": "exact_text_witness",
+          "evidence_id": "evidence:zh-hs-2020-basic-idea",
           "utf16_start": 5101,
           "utf16_end": 5124,
           "exact_text": "在促进学生全面而有个性的发展方面发挥应有的功能",
@@ -297,6 +306,7 @@
         {
           "span_id": "online-span:nsfz-2020-core-literacy",
           "purpose": "exact_text_witness",
+          "evidence_id": "evidence:zh-hs-2020-core-literacy-term",
           "utf16_start": 6271,
           "utf16_end": 6286,
           "exact_text": "正确价值观、必备品格和关键能力",
@@ -354,6 +364,7 @@
       "page_publication_stable_locator": "ictr-a71e3780f934:page:11",
       "page_image": {
         "resource_id": "page-image:zh-2017-p11",
+        "media_type": "image/png",
         "sha256": "2e58bc77a2eb52ed67d81801ba3576f5ce19043941e1b5a6d10acf339fbce426",
         "rendered_from_source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
         "renderer": "pdftoppm 240dpi PNG",
@@ -384,6 +395,7 @@
       "page_publication_stable_locator": "moe-hs-2020-02:page:9",
       "page_image": {
         "resource_id": "page-image:zh-2020-p9",
+        "media_type": "image/png",
         "sha256": "50a9deffc231ef5faa24786ffa486eb8c28d1abd1acaaaeb0cb651bb590373ab",
         "rendered_from_source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
         "renderer": "pdftoppm 240dpi PNG",
@@ -414,6 +426,7 @@
       "page_publication_stable_locator": "ictr-a71e3780f934:page:12",
       "page_image": {
         "resource_id": "page-image:zh-2017-p12",
+        "media_type": "image/png",
         "sha256": "41de2fd04fb410694c1ba94a691787a898b7d41b11a4ced4ea171dec85de3359",
         "rendered_from_source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
         "renderer": "pdftoppm 240dpi PNG",
@@ -444,6 +457,7 @@
       "page_publication_stable_locator": "moe-hs-2020-02:page:10",
       "page_image": {
         "resource_id": "page-image:zh-2020-p10",
+        "media_type": "image/png",
         "sha256": "258c0ff88d7f3a0c38affd83973a34702caa05e603b6207276ea70929f655258",
         "rendered_from_source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
         "renderer": "pdftoppm 240dpi PNG",
@@ -474,6 +488,7 @@
       "page_publication_stable_locator": "ictr-a71e3780f934:page:14",
       "page_image": {
         "resource_id": "page-image:zh-2017-p14",
+        "media_type": "image/png",
         "sha256": "47be772df33f28a5c396f7d0edcb11a6816b135cb8cfedcfcde235c6bb9ef1dc",
         "rendered_from_source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
         "renderer": "pdftoppm 240dpi PNG",
@@ -504,6 +519,7 @@
       "page_publication_stable_locator": "moe-hs-2020-02:page:12",
       "page_image": {
         "resource_id": "page-image:zh-2020-p12",
+        "media_type": "image/png",
         "sha256": "9fd7fa119cdde56e7a7dd299e1ed8595a521a5e142440fd194e8d04b8c6e6fa4",
         "rendered_from_source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
         "renderer": "pdftoppm 240dpi PNG",

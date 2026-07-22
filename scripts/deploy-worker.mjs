@@ -5,13 +5,10 @@ import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { assertCleanReleaseSource } from './assert-clean-release-source.mjs';
-import { buildReleaseManifest } from './build-release-manifest.mjs';
 import {
   assertOntologyReleaseGate,
   validateOntologyReleaseFile,
 } from './validate-ontology-release.mjs';
-import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 import { createImmutableTreeSnapshot } from './lib/immutable-release-snapshot.mjs';
 import { immutableVersionedManifestArtifact } from './publish-metadata.mjs';
 import { prepareRelease } from './prepare-release.mjs';
@@ -267,10 +264,6 @@ export async function deployWorker({
   researchEvidenceResourceMap = process.env.CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP || null,
   ontologyPromotion = false,
   previewAcceptanceReceipt = null,
-  pageEvidenceValidator = validatePageEvidenceForRelease,
-  cleanSourceValidator = assertCleanReleaseSource,
-  manifestBuilder = buildReleaseManifest,
-  releasePreparer = prepareRelease,
   validateOntology = validateOntologyReleaseFile,
   readPreviewAcceptanceReceipt = readOntologyPreviewAcceptanceReceipt,
   snapshotBuilder = createImmutableTreeSnapshot,
@@ -281,74 +274,95 @@ export async function deployWorker({
   if (environment === 'production' && ontologyPromotion && !previewAcceptanceReceipt) {
     throw new Error('production ontology promotion preview acceptance receipt is required');
   }
-  let prepared = null;
-  let snapshot = null;
-  let sourceRoot = root;
-  let git;
-  let manifest;
-  try {
-  if (manifestBuilder === buildReleaseManifest) {
-    prepared = await releasePreparer({
-      root,
-      output: DEFAULT_MANIFEST,
-      pageEvidencePromotion,
-      rendererPath,
-      researchEvidenceResourceMap,
-      runCommand,
-      pageEvidenceValidator,
-      cleanSourceValidator,
-    });
-    sourceRoot = prepared.source.root;
-    git = { head: prepared.manifest.git.head };
-    manifest = prepared.manifest;
-  } else {
-    pageEvidenceValidator({ root, pageEvidencePromotion, rendererPath });
-    git = cleanSourceValidator({ root, requireUpstream: true, runCommand });
-    manifest = await manifestBuilder({
-      root,
-      repositoryRoot: root,
-      pageEvidencePromotion,
-      rendererPath,
-      runCommand,
-    });
-  }
-  assertManifestSourceGates(manifest);
-  assertManifestDeploymentGates(manifest, environment, { phase, root: sourceRoot });
-  if (manifest.git?.head !== git.head) throw new Error('release manifest Git HEAD differs from the clean source gate');
-  if (manifest.git?.dirty !== false) throw new Error('release manifest reports a dirty source');
-  const ontologyReport = await validateOntology({
+  const prepared = await prepareRelease({
     root,
-    requirePublishable: ontologyPromotion,
+    output: DEFAULT_MANIFEST,
+    pageEvidencePromotion,
+    rendererPath,
+    researchEvidenceResourceMap,
+    runCommand,
   });
-  assertOntologyReleaseDeploymentGate(ontologyReport, { ontologyPromotion });
-  assertOntologyManifestSourceBinding(manifest, ontologyReport);
+  return deployPreparedWorker({
+    environment,
+    phase,
+    root,
+    runCommand,
+    pageEvidencePromotion,
+    ontologyPromotion,
+    previewAcceptanceReceipt,
+    validateOntology,
+    readPreviewAcceptanceReceipt,
+    snapshotBuilder,
+    prepared,
+  });
+}
 
-  const inventory = new Map();
-  const add = (entry, pathKey = 'path') => {
-    const path = String(entry?.[pathKey] || '');
-    const current = inventory.get(path);
-    const normalized = { path, sha256: entry?.sha256, bytes: entry?.bytes };
-    if (current && (current.sha256 !== normalized.sha256 || current.bytes !== normalized.bytes)) {
-      throw new Error(`deployment snapshot inventory has conflicting bytes for ${path}`);
+// Transaction core for a release already produced by the mandatory prepareRelease gate above.
+// The CLI and deployWorker never accept a replacement release preparer.
+export async function deployPreparedWorker({
+  environment,
+  phase = 'steady',
+  root = DEFAULT_ROOT,
+  runCommand = spawnSync,
+  pageEvidencePromotion = false,
+  ontologyPromotion = false,
+  previewAcceptanceReceipt = null,
+  validateOntology = validateOntologyReleaseFile,
+  readPreviewAcceptanceReceipt = readOntologyPreviewAcceptanceReceipt,
+  snapshotBuilder = createImmutableTreeSnapshot,
+  prepared,
+} = {}) {
+  let snapshot = null;
+  try {
+    if (previewAcceptanceReceipt && (!ontologyPromotion || environment !== 'production')) {
+      throw new Error('preview acceptance receipt is valid only for production ontology promotion');
     }
-    inventory.set(path, normalized);
-  };
-  for (const file of manifest.source_tree?.files || []) add(file);
-  for (const file of manifest.static_assets?.files || []) add(file, 'deploy_path');
-  for (const file of manifest.graph_assets || []) add(file, 'deploy_path');
-  for (const file of manifest.graph_shards || []) add(file, 'deploy_path');
-  if (!inventory.size) throw new Error('release manifest has no deployment snapshot inventory');
-  const sourceTreeDigest = createHash('sha256').update(
-    [...(manifest.source_tree?.files || [])]
-      .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0))
-      .map((file) => `${file.path}\0${file.sha256}\0${file.bytes}\n`)
-      .join(''),
-  ).digest('hex');
-  if (sourceTreeDigest !== manifest.source_tree?.sha256) {
-    throw new Error('release manifest source tree digest is internally inconsistent');
-  }
+    if (environment === 'production' && ontologyPromotion && !previewAcceptanceReceipt) {
+      throw new Error('production ontology promotion preview acceptance receipt is required');
+    }
+    if (!prepared?.source?.root || !prepared?.manifest) {
+      throw new Error('deployment transaction requires a prepared release');
+    }
+    const sourceRoot = prepared.source.root;
+    const git = { head: prepared.manifest.git.head };
+    const manifest = prepared.manifest;
+    assertManifestSourceGates(manifest);
+    assertManifestDeploymentGates(manifest, environment, { phase, root: sourceRoot });
+    if (manifest.git?.head !== git.head) throw new Error('release manifest Git HEAD differs from the clean source gate');
+    if (manifest.git?.dirty !== false) throw new Error('release manifest reports a dirty source');
+    const ontologyReport = await validateOntology({
+      root,
+      requirePublishable: ontologyPromotion,
+    });
+    assertOntologyReleaseDeploymentGate(ontologyReport, { ontologyPromotion });
+    assertOntologyManifestSourceBinding(manifest, ontologyReport);
 
-  snapshot = await snapshotBuilder({
+    const inventory = new Map();
+    const add = (entry, pathKey = 'path') => {
+      const path = String(entry?.[pathKey] || '');
+      const current = inventory.get(path);
+      const normalized = { path, sha256: entry?.sha256, bytes: entry?.bytes };
+      if (current && (current.sha256 !== normalized.sha256 || current.bytes !== normalized.bytes)) {
+        throw new Error(`deployment snapshot inventory has conflicting bytes for ${path}`);
+      }
+      inventory.set(path, normalized);
+    };
+    for (const file of manifest.source_tree?.files || []) add(file);
+    for (const file of manifest.static_assets?.files || []) add(file, 'deploy_path');
+    for (const file of manifest.graph_assets || []) add(file, 'deploy_path');
+    for (const file of manifest.graph_shards || []) add(file, 'deploy_path');
+    if (!inventory.size) throw new Error('release manifest has no deployment snapshot inventory');
+    const sourceTreeDigest = createHash('sha256').update(
+      [...(manifest.source_tree?.files || [])]
+        .sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0))
+        .map((file) => `${file.path}\0${file.sha256}\0${file.bytes}\n`)
+        .join(''),
+    ).digest('hex');
+    if (sourceTreeDigest !== manifest.source_tree?.sha256) {
+      throw new Error('release manifest source tree digest is internally inconsistent');
+    }
+
+    snapshot = await snapshotBuilder({
       root: sourceRoot,
       files: [...inventory.values()],
       label: 'Worker deployment source',

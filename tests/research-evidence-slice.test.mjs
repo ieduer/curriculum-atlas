@@ -7,9 +7,11 @@ import test from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 
 import {
+  buildResearchSourceRegistry,
   canonicalJson,
   canonicalizeHtmlText,
   projectResearchEvidenceSlice,
+  researchCorpusRowsetSha256,
   validateResearchEvidenceSlice,
 } from '../scripts/lib/research-evidence-slice.mjs';
 import { assertResearchEvidenceReleaseGate } from '../scripts/validate-research-evidence-slice.mjs';
@@ -30,14 +32,15 @@ async function fixture() {
   const fromPageImagePath = path.join(root, 'from-page.png');
   const toPageImagePath = path.join(root, 'to-page.png');
 
-  const fromPdf = Buffer.from('fixture-from-pdf');
-  const toPdf = Buffer.from('fixture-to-pdf');
+  const fromPdf = Buffer.from('%PDF-1.7\nfixture-from-pdf\n%%EOF');
+  const toPdf = Buffer.from('%PDF-1.7\nfixture-to-pdf\n%%EOF');
   const fromHtml = Buffer.from('<html><body><p>旧版精确表述</p><p>冲突版本表述</p></body></html>');
   const toHtml = Buffer.from('<html><body><p>新版精确表述</p></body></html>');
   const fromIdentity = Buffer.from('<html><body><h1>教育部发布旧版课程标准</h1></body></html>');
   const toIdentity = Buffer.from('<html><body><h1>教育部发布新版修订课程标准</h1></body></html>');
-  const fromPageImage = Buffer.from('fixture-from-page-image');
-  const toPageImage = Buffer.from('fixture-to-page-image');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+  const fromPageImage = Buffer.concat([png, Buffer.from('from')]);
+  const toPageImage = Buffer.concat([png, Buffer.from('to')]);
   await Promise.all([
     writeFile(fromPdfPath, fromPdf),
     writeFile(toPdfPath, toPdf),
@@ -105,11 +108,12 @@ async function fixture() {
   const toCanonical = canonicalizeHtmlText(toHtml.toString('utf8'));
   const fromIdentityCanonical = canonicalizeHtmlText(fromIdentity.toString('utf8'));
   const toIdentityCanonical = canonicalizeHtmlText(toIdentity.toString('utf8'));
-  const span = (id, text, body, purpose) => {
+  const span = (id, text, body, purpose, evidenceId = null) => {
     const utf16Start = body.indexOf(text);
     return {
       span_id: id,
       purpose,
+      evidence_id: evidenceId,
       utf16_start: utf16Start,
       utf16_end: utf16Start + text.length,
       exact_text: text,
@@ -122,6 +126,7 @@ async function fixture() {
     '冲突版本表述',
     fromCanonical,
     'transcription_conflict',
+    'evidence:from',
   );
 
   const sources = [
@@ -182,7 +187,7 @@ async function fixture() {
       },
       resource: { resource_id: 'snapshot:from-identity', media_type: 'text/html', sha256: sha256(fromIdentity) },
       canonical_text_sha256: sha256(fromIdentityCanonical),
-      spans: [span('online-span:from-identity', '教育部发布旧版课程标准', fromIdentityCanonical, 'version_identity')],
+      spans: [span('online-span:from-identity', '教育部发布旧版课程标准', fromIdentityCanonical, 'version_identity', null)],
       limitations: ['发布页只证明版本身份。'],
     },
     {
@@ -202,7 +207,7 @@ async function fixture() {
       },
       resource: { resource_id: 'snapshot:to-identity', media_type: 'text/html', sha256: sha256(toIdentity) },
       canonical_text_sha256: sha256(toIdentityCanonical),
-      spans: [span('online-span:to-identity', '教育部发布新版修订课程标准', toIdentityCanonical, 'version_identity')],
+      spans: [span('online-span:to-identity', '教育部发布新版修订课程标准', toIdentityCanonical, 'version_identity', null)],
       limitations: ['发布页只证明版本身份。'],
     },
     {
@@ -223,7 +228,7 @@ async function fixture() {
       resource: { resource_id: 'snapshot:from', media_type: 'text/html', sha256: sha256(fromHtml) },
       canonical_text_sha256: sha256(fromCanonical),
       spans: [
-        span('online-span:from', '旧版精确表述', fromCanonical, 'exact_text_witness'),
+        span('online-span:from', '旧版精确表述', fromCanonical, 'exact_text_witness', 'evidence:from'),
       ],
       limitations: ['独立转录不替代原始 PDF。'],
     },
@@ -244,7 +249,7 @@ async function fixture() {
       },
       resource: { resource_id: 'snapshot:to', media_type: 'text/html', sha256: sha256(toHtml) },
       canonical_text_sha256: sha256(toCanonical),
-      spans: [span('online-span:to', '新版精确表述', toCanonical, 'exact_text_witness')],
+      spans: [span('online-span:to', '新版精确表述', toCanonical, 'exact_text_witness', 'evidence:to')],
       limitations: ['独立转录不替代原始 PDF。'],
     },
     {
@@ -286,6 +291,7 @@ async function fixture() {
       page_publication_stable_locator: 'doc-from:page:11',
       page_image: {
         resource_id: 'page-image:from',
+        media_type: 'image/png',
         sha256: sha256(fromPageImage),
         rendered_from_source_artifact_sha256: sha256(fromPdf),
         renderer: 'fixture-renderer',
@@ -316,6 +322,7 @@ async function fixture() {
       page_publication_stable_locator: 'doc-to:page:9',
       page_image: {
         resource_id: 'page-image:to',
+        media_type: 'image/png',
         sha256: sha256(toPageImage),
         rendered_from_source_artifact_sha256: sha256(toPdf),
         renderer: 'fixture-renderer',
@@ -420,6 +427,9 @@ async function fixture() {
       deployment_allowed: false,
     },
   };
+  const registryDatabase = new DatabaseSync(databasePath, { readOnly: true });
+  const sourceRegistry = buildResearchSourceRegistry(manifest, registryDatabase);
+  registryDatabase.close();
   const resourcePaths = {
     'corpus:sqlite': databasePath,
     'corpus:manifest': corpusManifestPath,
@@ -433,7 +443,18 @@ async function fixture() {
     'page-image:from': fromPageImagePath,
     'page-image:to': toPageImagePath,
   };
-  return { root, manifest, resourcePaths, fromConflictSpan };
+  const renderPageImage = ({ evidence: item }) => (
+    item.evidence_id === 'evidence:from' ? fromPageImage : toPageImage
+  );
+  return { root, manifest, resourcePaths, sourceRegistry, renderPageImage, fromConflictSpan };
+}
+
+function refreshSourceRegistry({ manifest, resourcePaths, sourceRegistry }) {
+  const database = new DatabaseSync(resourcePaths['corpus:sqlite'], { readOnly: true });
+  const replacement = buildResearchSourceRegistry(manifest, database);
+  database.close();
+  for (const key of Object.keys(sourceRegistry)) delete sourceRegistry[key];
+  Object.assign(sourceRegistry, replacement);
 }
 
 test('HTML canonicalization is deterministic and preserves joined Chinese text nodes', () => {
@@ -461,8 +482,8 @@ test('the checked-in JSON Schema rejects root and nested additional properties a
 });
 
 test('resolves corpus, page-publication, artifacts, online bodies and exact UTF-16 spans but stays fail closed pending review', async () => {
-  const { manifest, resourcePaths } = await fixture();
-  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  const { manifest, resourcePaths, sourceRegistry, renderPageImage } = await fixture();
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths, sourceRegistry, renderPageImage });
   assert.deepEqual(validation.errors, []);
   assert.equal(validation.evidence_integrity_valid, true);
   assert.equal(validation.assertions[0].research_evidence_ready, true);
@@ -494,12 +515,35 @@ test('resolves corpus, page-publication, artifacts, online bodies and exact UTF-
   );
 });
 
+test('the Git-pinned source registry has an exact non-extensible contract', async () => {
+  const candidate = await fixture();
+  candidate.sourceRegistry.unreviewed_scope = [];
+  const validation = validateResearchEvidenceSlice(candidate);
+  assert.ok(validation.errors.some((item) => item.code === 'source_registry_invalid'));
+  assert.equal(validation.evidence_integrity_valid, false);
+});
+
+test('the research corpus rowset digest excludes volatile SQLite audit timestamps', async () => {
+  const candidate = await fixture();
+  const database = new DatabaseSync(candidate.resourcePaths['corpus:sqlite']);
+  database.exec("ALTER TABLE documents ADD COLUMN created_at TEXT; ALTER TABLE documents ADD COLUMN updated_at TEXT;");
+  const before = researchCorpusRowsetSha256(database, candidate.manifest);
+  database.prepare('UPDATE documents SET created_at=?,updated_at=?').run(
+    '2026-07-22 00:00:00',
+    '2026-07-22 00:00:01',
+  );
+  const after = researchCorpusRowsetSha256(database, candidate.manifest);
+  database.close();
+  assert.equal(before, candidate.sourceRegistry.research_corpus_rowset_sha256);
+  assert.equal(after, before);
+});
+
 test('fails closed when a corpus paragraph body no longer matches its pinned hash and UTF-16 span', async () => {
-  const { manifest, resourcePaths } = await fixture();
+  const { manifest, resourcePaths, sourceRegistry, renderPageImage } = await fixture();
   const database = new DatabaseSync(resourcePaths['corpus:sqlite']);
   database.prepare('UPDATE paragraphs SET body=? WHERE id=?').run('tampered body', 101);
   database.close();
-  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths, sourceRegistry, renderPageImage });
   assert.equal(validation.evidence_integrity_valid, false);
   assert.match(validation.errors.map((item) => item.code).join(','), /paragraph_body_sha256_mismatch/);
   assert.throws(() => projectResearchEvidenceSlice({ manifest, validation }), /integrity validation failed/);
@@ -518,17 +562,17 @@ test('fails closed when an online snapshot is missing or its exact span is shift
 });
 
 test('same-artifact mirrors never satisfy independent text evidence', async () => {
-  const { manifest, resourcePaths } = await fixture();
+  const { manifest, resourcePaths, sourceRegistry, renderPageImage } = await fixture();
   manifest.evidence[1].online_witness_span_ids = [];
   manifest.online_sources.find((item) => item.source_id === 'source:to-mirror').independently_counts_for_text = true;
-  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths, sourceRegistry, renderPageImage });
   const codes = validation.errors.map((item) => item.code);
   assert.ok(codes.includes('same_artifact_marked_independent'));
   assert.ok(codes.includes('evidence_missing_independent_online_witness'));
 });
 
 test('binary bytes labelled as PDF cannot carry arbitrary independent exact-text spans', async () => {
-  const { manifest, resourcePaths } = await fixture();
+  const { manifest, resourcePaths, sourceRegistry, renderPageImage } = await fixture();
   const source = manifest.online_sources.find(
     (item) => item.source_id === 'source:from-independent',
   );
@@ -538,7 +582,7 @@ test('binary bytes labelled as PDF cannot carry arbitrary independent exact-text
     sha256: manifest.evidence[0].page_image.sha256,
   };
   source.canonical_text_sha256 = null;
-  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths, sourceRegistry, renderPageImage });
   const codes = validation.errors.map((item) => item.code);
   assert.ok(codes.includes('json_schema_const'));
   assert.ok(codes.includes('independent_text_media_type_invalid'));
@@ -563,6 +607,7 @@ test('a different-edition source cannot satisfy exact-document corroboration', a
   candidate.manifest.online_sources.find(
     (item) => item.source_id === 'source:from-independent',
   ).version_relation = 'different_edition';
+  refreshSourceRegistry(candidate);
   const validation = validateResearchEvidenceSlice(candidate);
   assert.deepEqual(validation.errors, []);
   assert.equal(validation.assertions[0].research_evidence_ready, false);
@@ -594,7 +639,7 @@ test('duplicate snapshot bytes and canonical text cannot be relabelled as indepe
 });
 
 test('a declared unresolved transcription conflict blocks research readiness and every public consumer', async () => {
-  const { manifest, resourcePaths, fromConflictSpan } = await fixture();
+  const { manifest, resourcePaths, sourceRegistry, renderPageImage, fromConflictSpan } = await fixture();
   manifest.online_sources.find(
     (item) => item.source_id === 'source:from-independent',
   ).spans.push(fromConflictSpan);
@@ -630,7 +675,8 @@ test('a declared unresolved transcription conflict blocks research readiness and
     version_identity_source_ids: assertion.version_identity_source_ids,
     unresolved_conflict_ids: assertion.unresolved_conflict_ids,
   }));
-  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  refreshSourceRegistry({ manifest, resourcePaths, sourceRegistry });
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths, sourceRegistry, renderPageImage });
   assert.deepEqual(validation.errors, []);
   assert.equal(validation.assertions[0].research_evidence_ready, false);
   assert.deepEqual(validation.assertions[0].semantic_statuses, [
@@ -650,7 +696,7 @@ test('a declared unresolved transcription conflict blocks research readiness and
 });
 
 test('assertion conflict statuses and gate blockers are derived from every conflict touching its evidence', async () => {
-  const { manifest, resourcePaths, fromConflictSpan } = await fixture();
+  const { manifest, resourcePaths, sourceRegistry, renderPageImage, fromConflictSpan } = await fixture();
   manifest.online_sources.find(
     (item) => item.source_id === 'source:from-independent',
   ).spans.push(fromConflictSpan);
@@ -662,7 +708,7 @@ test('assertion conflict statuses and gate blockers are derived from every confl
     note: '攻击样例保留冲突对象，却从断言自报字段删除冲突。',
   });
   manifest.evidence[0].online_conflict_span_ids = ['online-span:from-conflict'];
-  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths, sourceRegistry, renderPageImage });
   const codes = validation.errors.map((item) => item.code);
   assert.ok(codes.includes('assertion_required_conflicts_mismatch'));
   assert.ok(codes.includes('assertion_bundle_sha256_mismatch'));
@@ -672,28 +718,28 @@ test('assertion conflict statuses and gate blockers are derived from every confl
 });
 
 test('an evidence-declared conflict span cannot lose its conflict record', async () => {
-  const { manifest, resourcePaths, fromConflictSpan } = await fixture();
+  const { manifest, resourcePaths, sourceRegistry, renderPageImage, fromConflictSpan } = await fixture();
   manifest.online_sources.find(
     (item) => item.source_id === 'source:from-independent',
   ).spans.push(fromConflictSpan);
   manifest.evidence[0].online_conflict_span_ids = ['online-span:from-conflict'];
-  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths, sourceRegistry, renderPageImage });
   assert.ok(validation.errors.some((item) => item.code === 'evidence_conflict_span_coverage_invalid'));
 });
 
 test('a transcription-conflict span cannot be orphaned by deleting every conflict declaration', async () => {
-  const { manifest, resourcePaths, fromConflictSpan } = await fixture();
+  const { manifest, resourcePaths, sourceRegistry, renderPageImage, fromConflictSpan } = await fixture();
   manifest.online_sources.find(
     (item) => item.source_id === 'source:from-independent',
   ).spans.push(fromConflictSpan);
-  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths, sourceRegistry, renderPageImage });
   assert.ok(validation.errors.some(
     (item) => item.code === 'transcription_conflict_span_coverage_invalid',
   ));
 });
 
 test('a transcription-conflict span cannot be claimed by duplicate conflict records', async () => {
-  const { manifest, resourcePaths, fromConflictSpan } = await fixture();
+  const { manifest, resourcePaths, sourceRegistry, renderPageImage, fromConflictSpan } = await fixture();
   manifest.online_sources.find(
     (item) => item.source_id === 'source:from-independent',
   ).spans.push(fromConflictSpan);
@@ -714,17 +760,151 @@ test('a transcription-conflict span cannot be claimed by duplicate conflict reco
       note: '第二条重复冲突声明。',
     },
   );
-  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths, sourceRegistry, renderPageImage });
   const codes = validation.errors.map((item) => item.code);
   assert.ok(codes.includes('evidence_conflict_span_coverage_invalid'));
   assert.ok(codes.includes('transcription_conflict_span_coverage_invalid'));
 });
 
 test('rejects the shared five-consumer release gate when it opens before editor review', async () => {
-  const { manifest, resourcePaths } = await fixture();
+  const { manifest, resourcePaths, sourceRegistry, renderPageImage } = await fixture();
   manifest.assertions[0].release_gate.allowed = true;
-  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths, sourceRegistry, renderPageImage });
   assert.equal(validation.evidence_integrity_valid, false);
   assert.ok(validation.errors.some((item) => item.code === 'assertion_release_gate_open'));
   assert.throws(() => projectResearchEvidenceSlice({ manifest, validation }), /integrity validation failed/);
+});
+
+test('rejects PDF or binary bytes self-labelled as an independent HTML transcription', async () => {
+  const candidate = await fixture();
+  const source = candidate.manifest.online_sources.find((item) => item.source_id === 'source:from-independent');
+  const raw = Buffer.from('%PDF-1.7\nnot really HTML\n旧版精确表述\n%%EOF');
+  await writeFile(candidate.resourcePaths['snapshot:from'], raw);
+  const canonical = canonicalizeHtmlText(raw.toString('utf8'));
+  source.resource.sha256 = sha256(raw);
+  source.canonical_text_sha256 = sha256(canonical);
+  source.spans[0].utf16_start = canonical.indexOf('旧版精确表述');
+  source.spans[0].utf16_end = source.spans[0].utf16_start + '旧版精确表述'.length;
+  const validation = validateResearchEvidenceSlice(candidate);
+  assert.ok(validation.errors.some((item) => item.code === 'html_resource_structure_invalid'));
+  assert.equal(validation.evidence_integrity_valid, false);
+});
+
+test('rejects an unrelated HTML page self-labelled as the official exact work and edition identity', async () => {
+  const candidate = await fixture();
+  const source = candidate.manifest.online_sources.find((item) => item.source_id === 'source:from-identity');
+  const raw = Buffer.from('<html><body><p>完全无关的网页内容</p></body></html>');
+  await writeFile(candidate.resourcePaths['snapshot:from-identity'], raw);
+  const canonical = canonicalizeHtmlText(raw.toString('utf8'));
+  source.resource.sha256 = sha256(raw);
+  source.canonical_text_sha256 = sha256(canonical);
+  source.spans[0] = {
+    ...source.spans[0], utf16_start: 0, utf16_end: canonical.length,
+    exact_text: canonical, exact_text_sha256: sha256(canonical), occurrence_index: 0,
+  };
+  const validation = validateResearchEvidenceSlice(candidate);
+  assert.ok(validation.errors.some((item) => item.code === 'source_contract_registry_mismatch'));
+  assert.equal(validation.evidence_integrity_valid, false);
+});
+
+test('rejects non-PNG bytes and any page image not reproduced from the fixed PDF page', async () => {
+  const candidate = await fixture();
+  const raw = Buffer.from('not a PNG and not rendered from the PDF');
+  await writeFile(candidate.resourcePaths['page-image:from'], raw);
+  candidate.manifest.evidence[0].page_image.sha256 = sha256(raw);
+  const validation = validateResearchEvidenceSlice(candidate);
+  const codes = validation.errors.map((item) => item.code);
+  assert.ok(codes.includes('evidence_page_image_magic_invalid'));
+  assert.ok(codes.includes('evidence_page_render_mismatch'));
+});
+
+test('rejects a forged owner SQLite even when its research manifest and internal row hashes are made self-consistent', async () => {
+  const candidate = await fixture();
+  const forgedText = '伪造精确表述';
+  const forgedBody = `段落前${forgedText}段落后`;
+  const forgedPageHash = sha256('forged-page');
+  const database = new DatabaseSync(candidate.resourcePaths['corpus:sqlite']);
+  database.prepare('UPDATE paragraphs SET body=?,body_sha256=?,page_final_text_sha256=? WHERE id=?')
+    .run(forgedBody, sha256(forgedBody), forgedPageHash, 101);
+  database.prepare('UPDATE page_publication_gates SET final_text_sha256=? WHERE document_id=? AND page_number=?')
+    .run(forgedPageHash, 'doc-from', 11);
+  database.close();
+  const evidence = candidate.manifest.evidence[0];
+  evidence.paragraph_body_sha256 = sha256(forgedBody);
+  evidence.utf16_start = forgedBody.indexOf(forgedText);
+  evidence.utf16_end = evidence.utf16_start + forgedText.length;
+  evidence.exact_text = forgedText;
+  evidence.exact_text_sha256 = sha256(forgedText);
+  evidence.page_final_text_sha256 = forgedPageHash;
+  const source = candidate.manifest.online_sources.find((item) => item.source_id === 'source:from-independent');
+  const raw = Buffer.from(`<html><body><p>${forgedText}</p></body></html>`);
+  await writeFile(candidate.resourcePaths['snapshot:from'], raw);
+  const canonical = canonicalizeHtmlText(raw.toString('utf8'));
+  source.resource.sha256 = sha256(raw);
+  source.canonical_text_sha256 = sha256(canonical);
+  source.spans[0] = {
+    ...source.spans[0], utf16_start: 0, utf16_end: forgedText.length,
+    exact_text: forgedText, exact_text_sha256: sha256(forgedText), occurrence_index: 0,
+  };
+  const assertion = candidate.manifest.assertions[0];
+  const evidenceById = new Map(candidate.manifest.evidence.map((item) => [item.evidence_id, item]));
+  assertion.evidence_bundle_sha256 = sha256(canonicalJson({
+    assertion_id: assertion.assertion_id, assertion_kind: assertion.assertion_kind,
+    dimension: assertion.dimension, claim: assertion.claim,
+    from_document_id: assertion.from_document_id, to_document_id: assertion.to_document_id,
+    from_evidence: assertion.from_evidence_ids.map((id) => ({ evidence_id: id, exact_text_sha256: evidenceById.get(id).exact_text_sha256 })),
+    to_evidence: assertion.to_evidence_ids.map((id) => ({ evidence_id: id, exact_text_sha256: evidenceById.get(id).exact_text_sha256 })),
+    version_identity_source_ids: assertion.version_identity_source_ids,
+    unresolved_conflict_ids: assertion.unresolved_conflict_ids,
+  }));
+  const validation = validateResearchEvidenceSlice(candidate);
+  assert.ok(validation.errors.some((item) => item.code === 'corpus_research_rowset_registry_mismatch'));
+  assert.equal(validation.evidence_integrity_valid, false);
+});
+
+test('rejects fragment aliases and source-scope expansion for the same HTTP retrieval', async () => {
+  const candidate = await fixture();
+  const original = candidate.manifest.online_sources.find((item) => item.source_id === 'source:from-independent');
+  const relabelled = structuredClone(original);
+  relabelled.source_id = 'source:from-independent-fragment';
+  relabelled.url = `${original.url}#same-http-retrieval`;
+  relabelled.resource.resource_id = 'snapshot:from-fragment';
+  relabelled.spans[0].span_id = 'online-span:from-fragment';
+  const aliasPath = path.join(candidate.root, 'fragment-alias.html');
+  await writeFile(aliasPath, await import('node:fs/promises').then(({ readFile }) => readFile(candidate.resourcePaths['snapshot:from'])));
+  candidate.resourcePaths[relabelled.resource.resource_id] = aliasPath;
+  candidate.manifest.online_sources.push(relabelled);
+  candidate.manifest.evidence[0].online_witness_span_ids = [relabelled.spans[0].span_id];
+  const validation = validateResearchEvidenceSlice(candidate);
+  const codes = validation.errors.map((item) => item.code);
+  assert.ok(codes.includes('source_url_invalid'));
+  assert.ok(codes.includes('source_registry_source_scope_mismatch'));
+});
+
+test('rejects semantic aliases of one conflict span even when each alias has one conflict id', async () => {
+  const candidate = await fixture();
+  const source = candidate.manifest.online_sources.find((item) => item.source_id === 'source:from-independent');
+  source.spans.push(candidate.fromConflictSpan, {
+    ...structuredClone(candidate.fromConflictSpan), span_id: 'online-span:from-conflict-alias',
+  });
+  candidate.manifest.evidence[0].online_conflict_span_ids = [
+    'online-span:from-conflict', 'online-span:from-conflict-alias',
+  ];
+  candidate.manifest.conflicts.push(
+    { conflict_id: 'conflict:alias', evidence_id: 'evidence:from', source_span_ids: ['online-span:from-conflict-alias'], status: 'unresolved_fail_closed', note: '语义别名。' },
+    { conflict_id: 'conflict:primary', evidence_id: 'evidence:from', source_span_ids: ['online-span:from-conflict'], status: 'unresolved_fail_closed', note: '原始区间。' },
+  );
+  const validation = validateResearchEvidenceSlice(candidate);
+  assert.ok(validation.errors.some((item) => item.code === 'duplicate_semantic_online_span'));
+});
+
+test('rejects hiding a known mismatch by renaming its purpose from conflict to witness', async () => {
+  const candidate = await fixture();
+  const source = candidate.manifest.online_sources.find((item) => item.source_id === 'source:from-independent');
+  source.spans.push({ ...candidate.fromConflictSpan, purpose: 'exact_text_witness' });
+  const validation = validateResearchEvidenceSlice(candidate);
+  const codes = validation.errors.map((item) => item.code);
+  assert.ok(codes.includes('source_contract_registry_mismatch'));
+  assert.ok(codes.includes('exact_text_witness_coverage_invalid'));
+  assert.ok(codes.includes('exact_text_witness_bound_text_mismatch'));
 });

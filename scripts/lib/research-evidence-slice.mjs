@@ -45,6 +45,7 @@ export const DEFAULT_RESEARCH_EVIDENCE_SCHEMA = JSON.parse(readFileSync(
 ));
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 function sorted(value) {
   if (Array.isArray(value)) return value.map(sorted);
@@ -54,6 +55,152 @@ function sorted(value) {
 
 export function canonicalJson(value) {
   return JSON.stringify(sorted(value));
+}
+
+function strictUtf8(raw) {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(raw);
+  } catch {
+    return null;
+  }
+}
+
+function isPdfBytes(raw) {
+  return Buffer.isBuffer(raw)
+    && raw.length >= 12
+    && raw.subarray(0, 5).toString('ascii') === '%PDF-'
+    && raw.subarray(Math.max(0, raw.length - 1024)).includes(Buffer.from('%%EOF'));
+}
+
+function isPngBytes(raw) {
+  return Buffer.isBuffer(raw)
+    && raw.length >= 33
+    && raw.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)
+    && raw.subarray(12, 16).toString('ascii') === 'IHDR';
+}
+
+function strictHtml(raw) {
+  const decoded = strictUtf8(raw);
+  if (decoded === null || /\u0000|[\u0001-\u0008\u000b\u000c\u000e-\u001f]/u.test(decoded)) return null;
+  const trimmed = decoded.replace(/^\ufeff/u, '').trim();
+  if (!/^(?:<!doctype\s+html\b[^>]*>\s*)?<html\b[^>]*>/iu.test(trimmed)
+      || !/<\/html\s*>\s*$/iu.test(trimmed)) return null;
+  return decoded;
+}
+
+function normalizedHttpsUrl(value) {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.hash) return null;
+    parsed.hostname = parsed.hostname.toLowerCase();
+    const sortedSearch = [...parsed.searchParams.entries()]
+      .sort(([leftKey, leftValue], [rightKey, rightValue]) => (
+        leftKey.localeCompare(rightKey) || leftValue.localeCompare(rightValue)
+      ));
+    parsed.search = '';
+    for (const [key, entryValue] of sortedSearch) parsed.searchParams.append(key, entryValue);
+    return parsed.href;
+  } catch {
+    return null;
+  }
+}
+
+function workIdentity(document) {
+  return {
+    document_id: document.document_id,
+    title: document.title,
+    version_label: document.version_label,
+    sort_year: document.sort_year,
+    issued_by: document.issued_by,
+    subject: document.subject,
+    stage: document.stage,
+    document_type: document.document_type,
+    source_artifact_sha256: document.source_artifact_sha256,
+    primary_source_id: document.primary_source_id,
+    version_identity_source_id: document.version_identity_source_id,
+  };
+}
+
+function sourceContract(source) {
+  return {
+    source_id: source.source_id,
+    title: source.title,
+    publisher: source.publisher,
+    url: source.url,
+    authority_class: source.authority_class,
+    evidence_role: source.evidence_role,
+    version_relation: source.version_relation,
+    independently_counts_for_text: source.independently_counts_for_text,
+    witness_scope: source.witness_scope,
+    same_artifact_as: source.same_artifact_as,
+    document_binding: source.document_binding,
+    resource: source.resource,
+    canonical_text_sha256: source.canonical_text_sha256,
+    spans: source.spans,
+  };
+}
+
+function validateSourceRegistry(manifest, registry, errors) {
+  const documents = Array.isArray(registry?.documents) ? registry.documents : [];
+  const sources = Array.isArray(registry?.sources) ? registry.sources : [];
+  const evidenceIds = Array.isArray(registry?.evidence_ids) ? registry.evidence_ids : [];
+  const assertionIds = Array.isArray(registry?.assertion_ids) ? registry.assertion_ids : [];
+  const shapeValid = exactKeys(registry, [
+    'schema_version', 'policy', 'slice_id', 'research_corpus_rowset_sha256',
+    'documents', 'sources', 'evidence_ids', 'assertion_ids',
+  ])
+    && SHA256.test(registry?.research_corpus_rowset_sha256 || '')
+    && Array.isArray(registry?.documents)
+    && documents.every((entry) => exactKeys(entry, ['document_id', 'work_identity_sha256'])
+      && ID.test(entry.document_id || '') && SHA256.test(entry.work_identity_sha256 || ''))
+    && new Set(documents.map((entry) => entry.document_id)).size === documents.length
+    && Array.isArray(registry?.sources)
+    && sources.every((entry) => exactKeys(entry, ['source_id', 'source_contract_sha256'])
+      && ID.test(entry.source_id || '') && SHA256.test(entry.source_contract_sha256 || ''))
+    && new Set(sources.map((entry) => entry.source_id)).size === sources.length
+    && Array.isArray(registry?.evidence_ids)
+    && evidenceIds.every((id) => ID.test(id || ''))
+    && new Set(evidenceIds).size === evidenceIds.length
+    && Array.isArray(registry?.assertion_ids)
+    && assertionIds.every((id) => ID.test(id || ''))
+    && new Set(assertionIds).size === assertionIds.length;
+  if (!shapeValid
+      || registry.schema_version !== 1
+      || registry.policy !== 'git_pinned_research_source_registry_v1'
+      || registry.slice_id !== manifest.slice_id) {
+    addError(errors, 'source_registry_invalid', '$registry', 'exact Git-pinned source registry required');
+    return;
+  }
+  const expectedDocuments = new Map(documents.map((entry) => [entry.document_id, entry]));
+  const expectedSources = new Map(sources.map((entry) => [entry.source_id, entry]));
+  expect(errors,
+    JSON.stringify((manifest.documents || []).map((entry) => entry.document_id))
+      === JSON.stringify(documents.map((entry) => entry.document_id)),
+    'source_registry_document_scope_mismatch', '$.documents', 'document scope differs from Git-pinned registry');
+  expect(errors,
+    JSON.stringify((manifest.online_sources || []).map((entry) => entry.source_id))
+      === JSON.stringify(sources.map((entry) => entry.source_id)),
+    'source_registry_source_scope_mismatch', '$.online_sources', 'source scope differs from Git-pinned registry');
+  expect(errors,
+    JSON.stringify((manifest.evidence || []).map((entry) => entry.evidence_id))
+      === JSON.stringify(evidenceIds),
+    'source_registry_evidence_scope_mismatch', '$.evidence', 'evidence scope differs from Git-pinned registry');
+  expect(errors,
+    JSON.stringify((manifest.assertions || []).map((entry) => entry.assertion_id))
+      === JSON.stringify(assertionIds),
+    'source_registry_assertion_scope_mismatch', '$.assertions', 'assertion scope differs from Git-pinned registry');
+  for (const document of manifest.documents || []) {
+    expect(errors,
+      expectedDocuments.get(document.document_id)?.work_identity_sha256
+        === sha256(canonicalJson(workIdentity(document))),
+      'work_version_identity_registry_mismatch', `$.documents[${document.document_id}]`, document.document_id);
+  }
+  for (const source of manifest.online_sources || []) {
+    expect(errors,
+      expectedSources.get(source.source_id)?.source_contract_sha256
+        === sha256(canonicalJson(sourceContract(source))),
+      'source_contract_registry_mismatch', `$.online_sources[${source.source_id}]`, source.source_id);
+  }
 }
 
 function decodeHtmlEntities(value) {
@@ -187,6 +334,67 @@ function assertionBundle(assertion, evidenceById, requiredConflictIds) {
   };
 }
 
+export function researchCorpusRowsetSha256(database, manifest) {
+  const documentIds = [...new Set((manifest.documents || []).map((item) => item.document_id))].sort();
+  const paragraphIds = [...new Set((manifest.evidence || []).map((item) => item.paragraph_id))]
+    .filter(Number.isInteger).sort((left, right) => left - right);
+  const pageKeys = new Set((manifest.evidence || [])
+    .map((item) => `${item.document_id}\u0000${item.physical_pdf_page}`));
+  const placeholders = (items) => items.map(() => '?').join(',');
+  const documentColumns = [
+    'id', 'title', 'subject', 'stage', 'document_type', 'version_label', 'issued_by',
+    'sort_year', 'checksum_sha256', 'text_quality_status', 'citation_allowed', 'corpus_release_id',
+  ];
+  const classificationColumns = [
+    'document_id', 'taxonomy_entity_kind', 'canonical_subject', 'display_facet',
+  ];
+  const paragraphColumns = [
+    'id', 'document_id', 'ordinal', 'page_number', 'body', 'body_sha256', 'display_allowed',
+    'citation_allowed', 'source_artifact_sha256', 'page_final_text_sha256',
+    'provenance_locator', 'corpus_release_id',
+  ];
+  const pageGateColumns = [
+    'document_id', 'page_number', 'source_artifact_sha256', 'final_text_sha256',
+    'stable_locator', 'publication_basis', 'review_status', 'display_allowed',
+    'citation_allowed', 'corpus_release_id',
+  ];
+  const rows = {
+    documents: documentIds.length
+      ? database.prepare(`SELECT ${documentColumns.join(',')} FROM documents WHERE id IN (${placeholders(documentIds)}) ORDER BY id`).all(...documentIds)
+      : [],
+    document_classifications: documentIds.length
+      ? database.prepare(`SELECT ${classificationColumns.join(',')} FROM document_classifications WHERE document_id IN (${placeholders(documentIds)}) ORDER BY document_id`).all(...documentIds)
+      : [],
+    paragraphs: paragraphIds.length
+      ? database.prepare(`SELECT ${paragraphColumns.join(',')} FROM paragraphs WHERE id IN (${placeholders(paragraphIds)}) ORDER BY id`).all(...paragraphIds)
+      : [],
+    page_publication_gates: documentIds.length
+      ? database.prepare(`SELECT ${pageGateColumns.join(',')} FROM page_publication_gates WHERE document_id IN (${placeholders(documentIds)}) ORDER BY document_id,page_number`).all(...documentIds)
+        .filter((item) => pageKeys.has(`${item.document_id}\u0000${item.page_number}`))
+      : [],
+  };
+  return sha256(canonicalJson(rows));
+}
+
+export function buildResearchSourceRegistry(manifest, database) {
+  return {
+    schema_version: 1,
+    policy: 'git_pinned_research_source_registry_v1',
+    slice_id: manifest.slice_id,
+    research_corpus_rowset_sha256: researchCorpusRowsetSha256(database, manifest),
+    documents: manifest.documents.map((document) => ({
+      document_id: document.document_id,
+      work_identity_sha256: sha256(canonicalJson(workIdentity(document))),
+    })),
+    sources: manifest.online_sources.map((source) => ({
+      source_id: source.source_id,
+      source_contract_sha256: sha256(canonicalJson(sourceContract(source))),
+    })),
+    evidence_ids: manifest.evidence.map((item) => item.evidence_id),
+    assertion_ids: manifest.assertions.map((item) => item.assertion_id),
+  };
+}
+
 function validateManifestBoundary(manifest, errors) {
   expect(errors, isObject(manifest), 'manifest_not_object', '$', 'manifest must be an object');
   if (!isObject(manifest)) return;
@@ -224,6 +432,7 @@ function validateOnlineSources({ manifest, documentById, resourcePaths, errors }
   const independentCanonicalHashes = new Map();
   const independentUrls = new Map();
   const resourceIds = new Map();
+  const semanticSpanKeys = new Map();
 
   const registerUnique = (index, key, sourceId, code, location) => {
     if (!key) return;
@@ -241,7 +450,8 @@ function validateOnlineSources({ manifest, documentById, resourcePaths, errors }
     const location = `$.online_sources[${sourceId}]`;
     expect(errors, SOURCE_ROLES.has(source.evidence_role), 'source_role_invalid', `${location}.evidence_role`, String(source.evidence_role));
     expect(errors, WITNESS_SCOPES.has(source.witness_scope), 'witness_scope_invalid', `${location}.witness_scope`, String(source.witness_scope));
-    expect(errors, typeof source.url === 'string' && /^https:\/\//.test(source.url), 'source_url_invalid', `${location}.url`, String(source.url));
+    const normalizedUrl = normalizedHttpsUrl(source.url);
+    expect(errors, Boolean(normalizedUrl), 'source_url_invalid', `${location}.url`, String(source.url));
     expect(errors, isObject(source.resource) && ID.test(source.resource?.resource_id || ''), 'source_resource_invalid', `${location}.resource`, 'resource_id required');
     expect(errors, SHA256.test(source.resource?.sha256 || ''), 'source_sha256_invalid', `${location}.resource.sha256`, String(source.resource?.sha256));
     expect(errors, Array.isArray(source.spans), 'source_spans_not_array', `${location}.spans`, 'required array');
@@ -281,6 +491,10 @@ function validateOnlineSources({ manifest, documentById, resourcePaths, errors }
       expect(errors, resourceBytesVerified, 'source_resource_sha256_mismatch', `${location}.resource.sha256`, sourceId);
     }
 
+    if (source.resource?.media_type === 'application/pdf' && raw) {
+      expect(errors, isPdfBytes(raw), 'pdf_resource_magic_invalid', `${location}.resource.media_type`, sourceId);
+    }
+
     if (source.evidence_role === 'primary_artifact') {
       expect(errors, source.resource?.media_type === 'application/pdf', 'primary_artifact_media_type_invalid', `${location}.resource.media_type`, String(source.resource?.media_type));
       expect(errors, source.independently_counts_for_text === false, 'primary_artifact_marked_independent', `${location}.independently_counts_for_text`, sourceId);
@@ -309,9 +523,12 @@ function validateOnlineSources({ manifest, documentById, resourcePaths, errors }
     let canonicalBody = null;
     let canonicalBodyVerified = false;
     if (source.resource?.media_type === 'text/html' && raw) {
-      canonicalBody = canonicalizeHtmlText(raw.toString('utf8'));
+      const html = strictHtml(raw);
+      expect(errors, html !== null, 'html_resource_structure_invalid', `${location}.resource.media_type`, sourceId);
+      if (html !== null) canonicalBody = canonicalizeHtmlText(html);
       const canonicalHashValid = SHA256.test(source.canonical_text_sha256 || '');
       const canonicalHashMatches = canonicalHashValid
+        && canonicalBody !== null
         && sha256(canonicalBody) === source.canonical_text_sha256;
       expect(errors, canonicalHashValid, 'online_body_sha256_invalid', `${location}.canonical_text_sha256`, sourceId);
       expect(errors, canonicalHashMatches, 'online_body_sha256_mismatch', `${location}.canonical_text_sha256`, sourceId);
@@ -343,7 +560,7 @@ function validateOnlineSources({ manifest, documentById, resourcePaths, errors }
       );
       registerUnique(
         independentUrls,
-        source.url,
+        normalizedUrl,
         sourceId,
         'duplicate_independent_source_url',
         `${location}.url`,
@@ -357,11 +574,26 @@ function validateOnlineSources({ manifest, documentById, resourcePaths, errors }
       if (spanById.has(spanId)) addError(errors, 'duplicate_online_span_id', `${spanLocation}.span_id`, spanId);
       else spanById.set(spanId, { source, span });
       expect(errors, ['version_identity', 'exact_text_witness', 'transcription_conflict'].includes(span?.purpose), 'online_span_purpose_invalid', `${spanLocation}.purpose`, String(span?.purpose));
+      expect(errors,
+        span?.purpose === 'version_identity' ? span?.evidence_id === null : typeof span?.evidence_id === 'string',
+        'online_span_evidence_binding_invalid', `${spanLocation}.evidence_id`, String(span?.evidence_id));
       expect(errors, Number.isInteger(span?.utf16_start) && span.utf16_start >= 0, 'online_span_start_invalid', `${spanLocation}.utf16_start`, String(span?.utf16_start));
       expect(errors, Number.isInteger(span?.utf16_end) && span.utf16_end > span.utf16_start, 'online_span_end_invalid', `${spanLocation}.utf16_end`, String(span?.utf16_end));
       expect(errors, typeof span?.exact_text === 'string' && span.exact_text.length > 0, 'online_span_text_missing', `${spanLocation}.exact_text`, 'required');
       expect(errors, sha256(span?.exact_text || '') === span?.exact_text_sha256, 'online_span_sha256_mismatch', `${spanLocation}.exact_text_sha256`, String(spanId));
       expect(errors, Number.isInteger(span?.occurrence_index) && span.occurrence_index >= 0, 'online_span_occurrence_invalid', `${spanLocation}.occurrence_index`, String(span?.occurrence_index));
+      const semanticKey = canonicalJson({
+        source_id: sourceId,
+        document_id: source.document_binding?.document_id ?? null,
+        source_artifact_sha256: source.document_binding?.source_artifact_sha256 ?? null,
+        utf16_start: span?.utf16_start ?? null,
+        utf16_end: span?.utf16_end ?? null,
+        exact_text_sha256: span?.exact_text_sha256 ?? null,
+      });
+      const previousSemanticSpan = semanticSpanKeys.get(semanticKey);
+      expect(errors, !previousSemanticSpan, 'duplicate_semantic_online_span', spanLocation,
+        previousSemanticSpan ? `${spanId} aliases ${previousSemanticSpan}` : String(spanId));
+      if (!previousSemanticSpan) semanticSpanKeys.set(semanticKey, spanId);
       const spanBodyVerified = canonicalBodyVerified
         && Number.isInteger(span?.utf16_start)
         && Number.isInteger(span?.utf16_end)
@@ -428,7 +660,7 @@ function validateOnlineSources({ manifest, documentById, resourcePaths, errors }
   };
 }
 
-function validateCorpus({ manifest, resourcePaths, errors }) {
+function validateCorpus({ manifest, resourcePaths, sourceRegistry, errors }) {
   const corpus = manifest.corpus || {};
   expect(errors, typeof corpus.resource_id === 'string', 'corpus_resource_id_missing', '$.corpus.resource_id', 'required');
   expect(errors, typeof corpus.manifest_resource_id === 'string', 'corpus_manifest_resource_id_missing', '$.corpus.manifest_resource_id', 'required');
@@ -463,6 +695,11 @@ function validateCorpus({ manifest, resourcePaths, errors }) {
           expect(errors, actual === corpusManifest[key], 'corpus_table_count_mismatch', `$.corpus.${key}`, `${actual} != ${corpusManifest[key]}`);
         }
       }
+      expect(errors,
+        SHA256.test(sourceRegistry?.research_corpus_rowset_sha256 || '')
+          && researchCorpusRowsetSha256(database, manifest) === sourceRegistry.research_corpus_rowset_sha256,
+        'corpus_research_rowset_registry_mismatch', '$.corpus.resource_id',
+        'research rows differ from the Git-pinned registry');
     } catch (error) {
       addError(errors, 'corpus_database_open_failed', '$.corpus.resource_id', error.message);
       database?.close();
@@ -519,6 +756,7 @@ function validateEvidence({
   sourceBindingValid,
   invalidIndependentSourceIds,
   resourcePaths,
+  renderPageImage,
   errors,
 }) {
   const evidenceById = uniqueMap(manifest.evidence, 'evidence_id', errors, '$.evidence');
@@ -549,6 +787,7 @@ function validateEvidence({
     expect(errors, Array.isArray(evidence.online_witness_span_ids) && evidence.online_witness_span_ids.length > 0, 'evidence_missing_independent_online_witness', `${location}.online_witness_span_ids`, evidenceId);
     expect(errors, Array.isArray(evidence.online_conflict_span_ids), 'evidence_online_conflicts_not_array', `${location}.online_conflict_span_ids`, evidenceId);
     expect(errors, isObject(evidence.page_image), 'evidence_page_image_missing', `${location}.page_image`, evidenceId);
+    expect(errors, evidence.page_image?.media_type === 'image/png', 'evidence_page_image_media_type_invalid', `${location}.page_image.media_type`, String(evidence.page_image?.media_type));
     expect(errors, SHA256.test(evidence.page_image?.sha256 || ''), 'evidence_page_image_sha256_invalid', `${location}.page_image.sha256`, evidenceId);
     expect(errors, evidence.page_image?.rendered_from_source_artifact_sha256 === evidence.source_artifact_sha256, 'evidence_page_image_source_mismatch', `${location}.page_image.rendered_from_source_artifact_sha256`, evidenceId);
     expect(errors, typeof evidence.page_image?.renderer === 'string' && evidence.page_image.renderer.length > 0, 'evidence_page_image_renderer_missing', `${location}.page_image.renderer`, evidenceId);
@@ -556,6 +795,31 @@ function validateEvidence({
     const pageImage = safeResource(resourcePaths, evidence.page_image?.resource_id, errors, `${location}.page_image.resource_id`);
     if (pageImage && SHA256.test(evidence.page_image?.sha256 || '')) {
       expect(errors, sha256(pageImage) === evidence.page_image.sha256, 'evidence_page_image_sha256_mismatch', `${location}.page_image.sha256`, evidenceId);
+      expect(errors, isPngBytes(pageImage), 'evidence_page_image_magic_invalid', `${location}.page_image.media_type`, evidenceId);
+      const primarySource = sourceById.get(document?.primary_source_id);
+      const pdfPath = resourcePaths?.[primarySource?.resource?.resource_id];
+      if (typeof renderPageImage !== 'function') {
+        addError(errors, 'evidence_page_renderer_unavailable', `${location}.page_image`, evidenceId);
+      } else if (typeof pdfPath !== 'string') {
+        addError(errors, 'evidence_page_source_pdf_missing', `${location}.page_image`, evidenceId);
+      } else {
+        try {
+          const rendered = renderPageImage({
+            pdfPath,
+            page: evidence.physical_pdf_page,
+            dpi: evidence.page_image.dpi,
+            document,
+            evidence,
+          });
+          expect(errors, Buffer.isBuffer(rendered), 'evidence_page_render_invalid', `${location}.page_image`, evidenceId);
+          if (Buffer.isBuffer(rendered)) {
+            expect(errors, isPngBytes(rendered), 'evidence_page_render_magic_invalid', `${location}.page_image`, evidenceId);
+            expect(errors, rendered.equals(pageImage), 'evidence_page_render_mismatch', `${location}.page_image`, evidenceId);
+          }
+        } catch (error) {
+          addError(errors, 'evidence_page_render_failed', `${location}.page_image`, `${evidenceId}: ${error.message}`);
+        }
+      }
     }
     expect(errors, evidence.visual_review?.status === 'machine_assisted_visual_match', 'evidence_visual_review_status_invalid', `${location}.visual_review.status`, String(evidence.visual_review?.status));
     expect(errors, typeof evidence.visual_review?.reviewed_by === 'string' && evidence.visual_review.reviewed_by.length > 0, 'evidence_visual_reviewer_missing', `${location}.visual_review.reviewed_by`, evidenceId);
@@ -597,6 +861,7 @@ function validateEvidence({
         continue;
       }
       expect(errors, binding.span.purpose === 'exact_text_witness', 'evidence_online_witness_purpose_invalid', `${location}.online_witness_span_ids`, spanId);
+      expect(errors, binding.span.evidence_id === evidenceId, 'evidence_online_witness_id_binding_mismatch', `${location}.online_witness_span_ids`, spanId);
       expect(errors, binding.span.exact_text === evidence.exact_text, 'evidence_online_witness_text_mismatch', `${location}.online_witness_span_ids`, spanId);
       expect(errors, binding.source.independently_counts_for_text === true, 'evidence_online_witness_not_independent', `${location}.online_witness_span_ids`, spanId);
       const bindingMatchesEvidence = sourceBindingValid.get(binding.source.source_id) === true
@@ -624,6 +889,7 @@ function validateEvidence({
       expect(errors, Boolean(binding), 'evidence_online_conflict_span_missing', `${location}.online_conflict_span_ids`, spanId);
       if (!binding) continue;
       expect(errors, binding.span.purpose === 'transcription_conflict', 'evidence_online_conflict_purpose_invalid', `${location}.online_conflict_span_ids`, spanId);
+      expect(errors, binding.span.evidence_id === evidenceId, 'evidence_online_conflict_id_binding_mismatch', `${location}.online_conflict_span_ids`, spanId);
       expect(errors, binding.span.exact_text !== evidence.exact_text, 'evidence_online_conflict_not_conflicting', `${location}.online_conflict_span_ids`, spanId);
     }
     evidenceResults.set(evidenceId, {
@@ -674,6 +940,29 @@ function validateConflicts({ manifest, evidenceById, spanById, errors }) {
     }
   }
   for (const [spanId, binding] of spanById) {
+    if (binding.span.purpose === 'version_identity') continue;
+    const boundEvidence = evidenceById.get(binding.span.evidence_id);
+    expect(errors, Boolean(boundEvidence), 'online_span_bound_evidence_missing',
+      `$.online_sources[${binding.source.source_id}].spans[${spanId}]`, String(binding.span.evidence_id));
+    if (boundEvidence) {
+      expect(errors,
+        binding.source.document_binding?.document_id === boundEvidence.document_id
+          && binding.source.document_binding?.source_artifact_sha256 === boundEvidence.source_artifact_sha256,
+        'online_span_document_artifact_binding_mismatch',
+        `$.online_sources[${binding.source.source_id}].spans[${spanId}]`, spanId);
+    }
+    if (binding.span.purpose === 'exact_text_witness') {
+      const witnessReferences = [...evidenceById.values()]
+        .flatMap((item) => item.online_witness_span_ids || [])
+        .filter((candidate) => candidate === spanId).length;
+      expect(errors, witnessReferences === 1, 'exact_text_witness_coverage_invalid',
+        `$.online_sources[${binding.source.source_id}].spans[${spanId}]`,
+        `${spanId} is referenced ${witnessReferences} times`);
+      expect(errors, binding.span.exact_text === boundEvidence?.exact_text,
+        'exact_text_witness_bound_text_mismatch',
+        `$.online_sources[${binding.source.source_id}].spans[${spanId}]`, spanId);
+      continue;
+    }
     if (binding.span.purpose !== 'transcription_conflict') continue;
     const conflictIds = conflictIdsBySpanId.get(spanId) || [];
     expect(errors, conflictIds.length === 1,
@@ -691,7 +980,10 @@ function validateConflicts({ manifest, evidenceById, spanById, errors }) {
       `${spanId} is bound ${evidenceSpanCount} times by evidence ${String(conflict?.evidence_id)}`);
     expect(errors,
       binding.source.document_binding?.document_id === evidence?.document_id
-        && binding.source.document_binding?.source_artifact_sha256 === evidence?.source_artifact_sha256,
+        && binding.source.document_binding?.version_label
+          === manifest.documents.find((item) => item.document_id === evidence?.document_id)?.version_label
+        && binding.source.document_binding?.source_artifact_sha256 === evidence?.source_artifact_sha256
+        && binding.span.evidence_id === evidence?.evidence_id,
       'transcription_conflict_document_binding_mismatch',
       `$.conflicts[${conflictIds[0]}].source_span_ids`,
       spanId);
@@ -800,6 +1092,8 @@ export function validateResearchEvidenceSlice({
   manifest,
   resourcePaths,
   schema = DEFAULT_RESEARCH_EVIDENCE_SCHEMA,
+  sourceRegistry,
+  renderPageImage,
 }) {
   const errors = [];
   validateJsonSchema(manifest, schema, errors);
@@ -807,9 +1101,10 @@ export function validateResearchEvidenceSlice({
   if (!isObject(manifest)) {
     return { valid: false, evidence_integrity_valid: false, errors, assertions: [] };
   }
+  validateSourceRegistry(manifest, sourceRegistry, errors);
   const documentById = uniqueMap(manifest.documents, 'document_id', errors, '$.documents');
   const online = validateOnlineSources({ manifest, documentById, resourcePaths, errors });
-  const corpus = validateCorpus({ manifest, resourcePaths, errors });
+  const corpus = validateCorpus({ manifest, resourcePaths, sourceRegistry, errors });
   validateDocuments({
     manifest,
     documentById,
@@ -826,6 +1121,7 @@ export function validateResearchEvidenceSlice({
     sourceBindingValid: online.sourceBindingValid,
     invalidIndependentSourceIds: online.invalidIndependentSourceIds,
     resourcePaths,
+    renderPageImage,
     errors,
   });
   const conflicts = validateConflicts({

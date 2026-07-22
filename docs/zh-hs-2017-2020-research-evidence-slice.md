@@ -4,7 +4,9 @@
 
 `data/research-evidence/zh-hs-2017-2020.json` 是第一个把同一组 `assertion_id` / `evidence_id` 贯穿 compare、reader/search、星图、AI 和讨论目标的真实证据纵切片。它不是公开版本差异数据，也不修改 D1、公开星图、本体或发布指针。
 
-每条 evidence 都必须同时解析：私有 corpus release、文档身份、段落 ID/ordinal、物理 PDF 页、段落正文 SHA-256、UTF-16 起止位置、精确短引文、页级 publication gate、240 DPI 页图、在线 HTML 快照正文和在线 UTF-16 span。每个在线来源还必须用 `document_binding` 固定对应的 `document_id`、版本标签、原始 PDF SHA-256 与官方版本身份来源。只有绑定完全匹配且 `version_relation=exact_document_exact_edition` 的独立全文来源才可满足 exact-document corroboration；`different_edition` 永远不能满足。PDF 镜像若 SHA-256 与主制品相同，只能标为 `integrity_only_same_artifact`。两个所谓独立来源若原始快照 SHA-256、规范正文 SHA-256 或 URL 重复，也会同时失去独立资格，不能靠改名重复计数。
+每条 evidence 都必须同时解析：私有 corpus release、文档身份、段落 ID/ordinal、物理 PDF 页、段落正文 SHA-256、UTF-16 起止位置、精确短引文、页级 publication gate、240 DPI 页图、在线 HTML 快照正文和在线 UTF-16 span。每个在线来源还必须用 `document_binding` 固定对应的 `document_id`、版本标签、原始 PDF SHA-256 与官方版本身份来源。只有绑定完全匹配且 `version_relation=exact_document_exact_edition` 的独立全文来源才可满足 exact-document corroboration；`different_edition` 永远不能满足。PDF 镜像若 SHA-256 与主制品相同，只能标为 `integrity_only_same_artifact`。两个所谓独立来源若原始快照 SHA-256、规范正文 SHA-256 或规范化 URL 重复，也会同时失去独立资格，不能靠改名重复计数；URL 片段、凭据或非 HTTPS URL 直接拒绝。
+
+`data/research-evidence/zh-hs-2017-2020-source-registry.json` 是随 Git 审核的独立来源边界，固定本切片的 document/work identity、完整 source contract、evidence/assertion ID 集合，以及研究所用 D1 行集摘要。manifest 不能靠同时改标题、版本、来源角色、URL、span purpose 或 span ID 来自行扩大证据范围。每个非版本身份 span 还必须直接绑定唯一 `evidence_id`；每个 exact witness 和 conflict span 必须恰好由对应 evidence/冲突记录引用一次，语义相同的 span 不能换 ID 重复计数。
 
 本 successor 从 `ba9fa6a` 候选的 91 个逐项验签 SQL 分片重新物化 195-document SQLite，并把六个 span 重新绑定到 `corpus-4fe2f31344f52706de761788`。两份 PDF 的六个目标页又用 Poppler `pdftoppm 26.07.0` 以 240 DPI 独立重渲染；六张 PNG 均与已固定页图逐字节相同。这证明当前 corpus/page 定位未随去重漂移，但仍不是签名编辑复核。
 
@@ -49,26 +51,30 @@
 }
 ```
 
-实际映射还必须覆盖 manifest 中列出的官方身份页、同制品镜像和六张页图资源。缺一项、文件是 symlink、任一原始/规范正文/span 哈希不符、page gate 关闭或 corpus release 不符，验证即失败且不生成 projection。manifest 先由 Ajv Draft 2020-12 对仓库内 schema 做完整验证，包括所有层级的 `additionalProperties: false`、required、枚举、格式与组合约束，然后才执行资源和语义验证。
+实际映射还必须覆盖 manifest 中列出的官方身份页、同制品镜像和六张页图资源。资源映射中的 SQLite 路径只保留显式资源声明，不能成为验证事实：验证器会从仓库固定的 corpus manifest、逐项验签 SQL 分片、文本资产和排序后的 migrations 临时重建只读 SQLite，并以 source registry 中的研究行集摘要复核。因而替换一份内部自洽的外部 SQLite 也不能改变研究证据。
+
+HTML 资源必须是无二进制控制字符、严格 UTF-8、具有完整 `<html>…</html>` 根结构的页面；PDF 必须具有 PDF 头和 EOF 标记；页图必须是 PNG。六张固定页图会在每次验证时从绑定的原 PDF、物理页和 DPI 用 `pdftoppm` 重新渲染，并要求 PNG 字节完全一致。缺一项、文件是 symlink、任一原始/规范正文/span 哈希不符、重新渲染不一致、page gate 关闭或 corpus release 不符，验证即失败且不生成 projection。manifest 先由 Ajv Draft 2020-12 对仓库内 schema 做完整验证，包括所有层级的 `additionalProperties: false`、required、枚举、格式与组合约束，然后才执行资源和语义验证。
 
 ## 验证与发布闸门
 
 验证研究证据完整性：
 
 ```bash
-npm run research:evidence:validate -- --resource-map <OWNER_ONLY_RESOURCE_MAP_JSON>
+npm run research:evidence:validate -- \
+  --resource-map <OWNER_ONLY_RESOURCE_MAP_JSON> \
+  --renderer <PDFTOPPM_PATH>
 ```
 
 手动执行严格发布资格检查：
 
 ```bash
 CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP=<OWNER_ONLY_RESOURCE_MAP_JSON> \
-  npm run research:evidence:release:validate
+  npm run research:evidence:release:validate -- --renderer <PDFTOPPM_PATH>
 ```
 
 当前严格命令按设计返回退出码 `3`，因为没有签名编辑裁决，且第三条仍有在线转录冲突。退出码 `2` 表示证据或输入完整性失败；退出码 `0` 只允许在所有 assertion 真正具备 publication eligibility 后出现。
 
-这不是文档约定：`npm run verify` 已包含严格检查，`prepare-release.mjs` 在构造 release manifest 前会用 Git 物化树中的 manifest/schema、当前 corpus manifest 和 owner-only 资源映射重跑真实验证，并强制 `requirePublicationEligible=true`。`deploy-worker.mjs` 将 `--research-evidence-resource-map` 传入同一准备流程；缺少资源映射或任一断言未放行都会在 Wrangler 之前终止。
+这不是文档约定：`npm run verify` 已包含严格检查，`prepare-release.mjs` 在构造 release manifest 前会用 Git 物化树中的 manifest/schema/source registry、当前 corpus manifest 与验签后的 SQL/文本资产、owner-only 资源映射和确定性页图重渲染重跑真实验证，并强制 `requirePublicationEligible=true`。`deploy-worker.mjs` 只能调用内建 `prepareRelease`，不接受替代 release preparer；它把 `--research-evidence-resource-map` 与 renderer 传入同一准备流程。缺少资源映射、来源/语料/页图漂移或任一断言未放行都会在 Wrangler 之前终止。
 
 ## 五个消费者的同一身份
 

@@ -94,6 +94,7 @@
       { "path": "data/release-baselines/ontology-public-v2.json", "disposition": "candidate_fail_closed", "consumers": ["ontology_release_validator", "release_manifest", "deploy_gate"] },
       { "path": "data/release-environment-evidence.json", "disposition": "release_governance_receipt", "consumers": ["release_readiness", "environment_evidence_collector"] },
       { "path": "data/research-evidence/research-evidence-slice.schema.json", "disposition": "candidate_fail_closed", "consumers": ["research_evidence_validator"] },
+      { "path": "data/research-evidence/zh-hs-2017-2020-source-registry.json", "disposition": "candidate_fail_closed", "consumers": ["research_evidence_validator"] },
       { "path": "data/research-evidence/zh-hs-2017-2020.json", "disposition": "candidate_fail_closed", "consumers": ["research_evidence_validator", "compare", "reader_search", "star", "ai", "discussion"] },
       { "path": "data/semantic-publication-policy.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "semantic_gate"] },
       { "path": "data/semantic-publication-policy.schema.json", "disposition": "r2_public_metadata", "consumers": ["semantic_gate"] },

@@ -130,6 +130,7 @@
       "required": [
         "span_id",
         "purpose",
+        "evidence_id",
         "utf16_start",
         "utf16_end",
         "exact_text",
@@ -139,12 +140,20 @@
       "properties": {
         "span_id": { "$ref": "#/$defs/id" },
         "purpose": { "enum": ["version_identity", "exact_text_witness", "transcription_conflict"] },
+        "evidence_id": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
         "utf16_start": { "type": "integer", "minimum": 0 },
         "utf16_end": { "type": "integer", "minimum": 1 },
         "exact_text": { "$ref": "#/$defs/nonEmpty" },
         "exact_text_sha256": { "$ref": "#/$defs/sha256" },
         "occurrence_index": { "type": "integer", "minimum": 0 }
-      }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "purpose": { "const": "version_identity" } }, "required": ["purpose"] },
+          "then": { "properties": { "evidence_id": { "type": "null" } } },
+          "else": { "properties": { "evidence_id": { "$ref": "#/$defs/id" } } }
+        }
+      ]
     },
     "source": {
       "type": "object",
@@ -246,6 +255,7 @@
       "additionalProperties": false,
       "required": [
         "resource_id",
+        "media_type",
         "sha256",
         "rendered_from_source_artifact_sha256",
         "renderer",
@@ -253,6 +263,7 @@
       ],
       "properties": {
         "resource_id": { "$ref": "#/$defs/id" },
+        "media_type": { "const": "image/png" },
         "sha256": { "$ref": "#/$defs/sha256" },
         "rendered_from_source_artifact_sha256": { "$ref": "#/$defs/sha256" },
         "renderer": { "$ref": "#/$defs/nonEmpty" },

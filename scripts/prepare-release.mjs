@@ -86,24 +86,6 @@ export async function prepareRelease({
     const corpusManifest = validateCorpusManifest(JSON.parse(
       await readFile(resolve(gitTree.root, 'data/corpus-chunks/manifest.json'), 'utf8'),
     ));
-    if (!researchEvidenceResourceMap) {
-      throw new Error('strict release requires --research-evidence-resource-map or CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP');
-    }
-    const researchEvidenceManifest = JSON.parse(await readFile(
-      resolve(gitTree.root, 'data/research-evidence/zh-hs-2017-2020.json'),
-      'utf8',
-    ));
-    const researchEvidence = await researchEvidenceValidator({
-      root: gitTree.root,
-      resourceMap: researchEvidenceResourceMap,
-      resourcePathOverrides: {
-        [researchEvidenceManifest.corpus.manifest_resource_id]: resolve(
-          gitTree.root,
-          'data/corpus-chunks/manifest.json',
-        ),
-      },
-    });
-    researchEvidenceGate(researchEvidence, { requirePublicationEligible: true });
     for (const entry of corpusManifest.sql_files) {
       const relativePath = `data/corpus-chunks/${entry.name}`;
       const buffer = await readFile(resolve(repositoryRoot, relativePath));
@@ -116,6 +98,25 @@ export async function prepareRelease({
     }
     corpusSnapshot = await createCorpusSourceSnapshot({ root: gitTree.root, manifest: corpusManifest });
     await corpusSnapshot.verify();
+    if (!researchEvidenceResourceMap) {
+      throw new Error('strict release requires --research-evidence-resource-map or CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP');
+    }
+    const researchEvidenceManifest = JSON.parse(await readFile(
+      resolve(gitTree.root, 'data/research-evidence/zh-hs-2017-2020.json'),
+      'utf8',
+    ));
+    const researchEvidence = await researchEvidenceValidator({
+      root: gitTree.root,
+      resourceMap: researchEvidenceResourceMap,
+      rendererPath,
+      resourcePathOverrides: {
+        [researchEvidenceManifest.corpus.manifest_resource_id]: resolve(
+          gitTree.root,
+          'data/corpus-chunks/manifest.json',
+        ),
+      },
+    });
+    researchEvidenceGate(researchEvidence, { requirePublicationEligible: true });
     const pageEvidence = pageEvidenceValidator({
       root: gitTree.root,
       pageEvidencePromotion,
