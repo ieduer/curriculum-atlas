@@ -16,6 +16,7 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { sealCorpusManifest } from '../scripts/import-corpus.mjs';
 import {
@@ -1131,6 +1132,126 @@ test('offline full build, conditional publish, descriptor, receipt, download, de
       fetchImpl,
     });
     assert.equal(hydrated.status, 'hydrated');
+    assert.deepEqual(await readFile(join(destination, 'data/corpus-chunks/000-core.sql')), source.sql);
+    assert.deepEqual(await readFile(join(destination, '.cache/text/doc-a.txt')), source.text);
+  } finally {
+    await rm(source.root, { recursive: true, force: true });
+    await rm(operator, { recursive: true, force: true });
+    await rm(destination, { recursive: true, force: true });
+  }
+});
+
+test('standalone hydrate CLI keeps its own lifecycle alive through fast offline readback and decrypt', async (context) => {
+  if (spawnSync('age', ['--version'], { stdio: 'ignore' }).status !== 0
+      || spawnSync('zstd', ['--version'], { stdio: 'ignore' }).status !== 0
+      || spawnSync('age-keygen', ['--version'], { stdio: 'ignore' }).status !== 0) {
+    context.skip('age, age-keygen, or zstd is unavailable');
+    return;
+  }
+  const node22 = process.env.CURRICULUM_NODE22_BIN
+    || '/Users/ylsuen/.nvm/versions/node/v22.21.1/bin/node';
+  if (spawnSync(node22, ['--version'], { stdio: 'ignore' }).status !== 0) {
+    context.skip('Node.js 22 lifecycle regression runtime is unavailable');
+    return;
+  }
+
+  const source = await corpusFixture();
+  const operator = await mkdtemp(join(tmpdir(), 'curriculum-private-corpus-cli-operator-'));
+  const destination = await mkdtemp(join(tmpdir(), 'curriculum-private-corpus-cli-destination-'));
+  try {
+    const identity = join(operator, 'identity.txt');
+    const recipients = join(operator, 'recipients.txt');
+    assert.equal(spawnSync('age-keygen', ['-o', identity], { stdio: ['ignore', 'ignore', 'ignore'] }).status, 0);
+    await chmod(identity, 0o600);
+    const publicKey = spawnSync('age-keygen', ['-y', identity], { encoding: null, stdio: ['ignore', 'pipe', 'ignore'] });
+    assert.equal(publicKey.status, 0);
+    await writeFile(recipients, publicKey.stdout, { mode: 0o600 });
+
+    const artifactPath = join(operator, 'bundle.tar.zst.age');
+    const buildReceiptPath = join(operator, 'build-receipt.json');
+    const publishReceiptPath = join(operator, 'publish-receipt.json');
+    const descriptorPath = join(operator, 'corpus-artifact.json');
+    await buildEncryptedPrivateCorpusBundle({
+      root: source.root,
+      outputPath: artifactPath,
+      receiptPath: buildReceiptPath,
+      recipientFile: recipients,
+      identityFile: identity,
+    });
+
+    const objects = new Map();
+    const fetchImpl = async (url, init) => {
+      const key = new URL(url).pathname;
+      if (init.method === 'PUT') {
+        const bytes = Buffer.from(init.body);
+        objects.set(key, bytes);
+        return new Response('', { status: 200, headers: { etag: `"${hash(bytes).slice(0, 32)}"` } });
+      }
+      if (init.method === 'GET' && objects.has(key)) {
+        const bytes = objects.get(key);
+        return new Response(bytes, {
+          status: 200,
+          headers: { etag: `"${hash(bytes).slice(0, 32)}"`, 'content-length': String(bytes.length) },
+        });
+      }
+      return new Response('', { status: 404 });
+    };
+    await publishPrivateCorpusBundle({
+      artifactPath,
+      buildReceiptPath,
+      identityFile: identity,
+      publishReceiptPath,
+      descriptorPath,
+      endpoint: 'https://example.invalid',
+      accessKeyId: 'fixture-access',
+      secretAccessKey: 'fixture-secret',
+      allowPrivateUpload: true,
+      fetchImpl,
+    });
+
+    await put(destination, 'data/corpus-chunks/manifest.json', source.manifestBuffer);
+    const preloadPath = join(operator, 'offline-fetch-preload.mjs');
+    await writeFile(preloadPath, [
+      "import { readFileSync } from 'node:fs';",
+      'const bodies = [',
+      `  readFileSync(${JSON.stringify(publishReceiptPath)}),`,
+      `  readFileSync(${JSON.stringify(artifactPath)}),`,
+      '];',
+      'let call = 0;',
+      'globalThis.fetch = async () => {',
+      '  const body = bodies[call++];',
+      "  if (!body) return new Response('', { status: 404 });",
+      "  return new Response(body, { status: 200, headers: { etag: '\"fixture\"', 'content-length': String(body.length) } });",
+      '};',
+      '',
+    ].join('\n'), { mode: 0o600 });
+
+    const projectRoot = fileURLToPath(new URL('../', import.meta.url));
+    const cli = spawnSync(node22, [
+      '--import', preloadPath,
+      join(projectRoot, 'scripts/hydrate-corpus.mjs'),
+      '--root', destination,
+      '--descriptor', descriptorPath,
+      '--identity-file', identity,
+      '--endpoint', 'https://example.invalid',
+      '--allow-private-download',
+    ], {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      timeout: 15_000,
+      env: {
+        ...process.env,
+        R2_ACCESS_KEY_ID: 'fixture-access',
+        R2_SECRET_ACCESS_KEY: 'fixture-secret',
+      },
+    });
+    assert.equal(cli.error, undefined);
+    assert.equal(cli.signal, null, cli.stderr);
+    assert.equal(cli.status, 0, cli.stderr);
+    const output = JSON.parse(cli.stdout);
+    assert.equal(output.ok, true);
+    assert.equal(output.status, 'hydrated');
+    assert.equal(output.hydrated_file_count, 2);
     assert.deepEqual(await readFile(join(destination, 'data/corpus-chunks/000-core.sql')), source.sql);
     assert.deepEqual(await readFile(join(destination, '.cache/text/doc-a.txt')), source.text);
   } finally {

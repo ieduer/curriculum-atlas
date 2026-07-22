@@ -19,6 +19,8 @@ import {
   validatePublishReceipt,
   validateSingleRecipientAgeEnvelope,
 } from './lib/private-corpus-bundle.mjs';
+// Keep this static: a dynamic import from main deadlocks on publish's reverse imports while this module is evaluating.
+import { getObject } from './publish-private-corpus-bundle.mjs';
 
 const DEFAULT_DESCRIPTOR = 'data/corpus-artifact.json';
 const MAX_ERROR_BYTES = 8192;
@@ -358,7 +360,6 @@ export async function hydrateCorpusFromDescriptor({
     expectedRecipient: descriptor.bundle.age_recipient,
   });
   try {
-    const { getObject } = await import('./publish-private-corpus-bundle.mjs');
     const common = {
       endpoint,
       bucket: descriptor.storage.bucket,
