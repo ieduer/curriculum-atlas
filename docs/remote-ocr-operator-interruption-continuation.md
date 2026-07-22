@@ -145,6 +145,13 @@ execution and checkpoint hashes. A generic validation error never qualifies as a
 document; only `IncompleteOcrDocumentError` followed by a successful `requireComplete:false` strict
 validation permits a checkpoint and resume.
 
+An unmonitored child `SIGKILL` is the one signal eligible for this non-terminal path. It must leave
+at least one additional strictly valid completed page, a changed valid state, and an extended
+same-inode log. The current invocation durably appends and readback-verifies the checkpoint, returns
+`resumable` with exit 75, and leaves the claim on attempt 6 for the next invocation. A different
+signal, a monitor incident, no durable page progress, a generic validation error, a complete result,
+or a failed strict partial validation retains the fatal quarantine behavior and terminal plan.
+
 Each terminal record uses a deterministic temp pathname derived from the immutable terminal-plan
 state SHA-256, output path, and exact after hash/byte count. Before writing target bytes, an adjacent
 durable ownership receipt binds that plan, the exact before/after records, path, and newly created
@@ -171,6 +178,8 @@ source bytes.
 - After a partial checkpoint, every page artifact captured by that checkpoint also becomes
   immutable; completed-page metadata in later states must be a monotonic exact superset.
 - Every pre-existing directory keeps device, inode, mode, UID, and GID.
+- Before the first OCR spawn, both the frozen state and log must retain their original device and
+  inode as well as their exact bytes; a same-bytes atomic state replacement is rejected.
 - New paths may exist only below a previously absent canonical `pages/NNNN` within the document page
   range.
 - A new page may contain only `result.json`, `content.md`, `markdown/`, and `visual/` families.
@@ -199,8 +208,10 @@ increments or resets the attempt. A timeout predecessor's `failed_at` remains in
 attempt-6 lifecycle record, as required by receiver validation.
 
 Local regression coverage includes an OCR writer that persists a valid new page, state and log
-entry and is then actually killed with `SIGKILL`; restart checkpoints those bytes and completes the
-remaining page. Separate tests reject page replacement, state truncation or inode replacement, log
+entry and is then actually killed with `SIGKILL`; the interrupted invocation checkpoints those
+bytes without a terminal plan and the next invocation completes the remaining page. Separate tests
+reject no-progress or non-`SIGKILL` signal recovery, generic/corrupt partial validation, first-spawn
+state inode replacement, page replacement, state truncation or checkpoint inode replacement, log
 truncation or inode replacement, log-prefix mutation, and directory-inode replacement before OCR
 respawn. Two process/lock checks remain intentionally Linux-only and must run on the sealed target
 before an A2 canary: exact `/proc` ownership discovery/termination and inherited-fd lifecycle-flock

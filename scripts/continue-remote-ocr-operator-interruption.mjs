@@ -2521,6 +2521,9 @@ async function verifyFrozenPreSpawnSnapshot(inspected, profile, partialCheckpoin
     await verifyExactPartialCheckpointSnapshot(inspected, partialCheckpoint);
   } else {
     if (state.sha256 !== profile.stateSha256
+      || state.bytes !== inspected.stateRecord.bytes
+      || state.dev !== inspected.stateRecord.dev
+      || state.ino !== inspected.stateRecord.ino
       || log.sha256 !== profile.logSha256
       || log.bytes !== profile.logBytes
       || log.dev !== inspected.logRecord.dev
@@ -3193,6 +3196,24 @@ async function validateRecoveredDocumentOutput(inspected, runtime, dependencies 
   }
 }
 
+function requireSigkillCheckpointProgress(inspected, previousCheckpoint, forward) {
+  const previousTree = previousCheckpoint?.value.document_tree || inspected.documentTree;
+  const previousState = previousCheckpoint
+    ? checkpointStateRecord(previousCheckpoint)
+    : { sha256: inspected.stateRecord.sha256, raw: inspected.stateRaw };
+  const previousLog = checkpointLogReference(inspected, previousCheckpoint);
+  const previousStateValue = parseJson(previousState.raw, 'pre-SIGKILL checkpoint state');
+  const currentStateValue = parseJson(forward.state.raw, 'post-SIGKILL checkpoint state');
+  if (forward.after.tree_sha256 === previousTree.tree_sha256
+    || forward.state.sha256 === previousState.sha256
+    || forward.log.bytes <= previousLog.bytes
+    || !Array.isArray(previousStateValue.completed_pages)
+    || !Array.isArray(currentStateValue.completed_pages)
+    || currentStateValue.completed_pages.length <= previousStateValue.completed_pages.length) {
+    throw new Error('SIGKILL left no complete durable page/state/log progress to checkpoint');
+  }
+}
+
 export async function continueOperatorInterruptedAttempt(options, dependencies = {}) {
   const profile = validateA2ForwardContinuationProfile(
     dependencies.incidentProfile || EXACT_A2_FORWARD_CONTINUATION_INCIDENT,
@@ -3629,6 +3650,70 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       || !childResult
       || childResult.code !== 0,
     );
+    let sigkillValidationError = null;
+    let resumableSigkill = null;
+    if (childResult?.signal === 'SIGKILL' && !monitorIncident && !invocationError) {
+      try {
+        const forward = await verifyForwardOnlyDocument(inspected, resumeCheckpoint);
+        const recovered = await validateRecoveredDocumentOutput(
+          inspected,
+          activeRuntime?.runtime || inspected.identity.runtime,
+          dependencies,
+        );
+        if (!recovered.complete) {
+          requireSigkillCheckpointProgress(inspected, resumeCheckpoint, forward);
+          resumableSigkill = { forward };
+        }
+      } catch (error) {
+        sigkillValidationError = error;
+      }
+    }
+    if (resumableSigkill) {
+      await transactionGuard('before_sigkill_partial_checkpoint');
+      journal = await recoverTrailingJournalPair(published.paths, claim, frozenUnitFence);
+      const sigkillProgression = validateJournalProgression(
+        journal.states,
+        claim,
+        frozenUnitFence,
+      );
+      const sigkillExecution = sigkillProgression.executionStates.at(-1);
+      if (!sigkillExecution
+        || sigkillExecution.value.spawn_nonce !== spawnNonce
+        || sigkillExecution.value.ocr_command_sha256 !== ocrCommandSha256
+        || sigkillExecution.value.llama_invocation_id !== activeLlama.InvocationID
+        || sigkillProgression.partialCheckpoints.at(-1)?.value.execution_state_sha256
+          === sigkillExecution.sha256) {
+        throw new Error('SIGKILL checkpoint does not belong to the just-finished execution');
+      }
+      const checkpointStage = `partial_checkpoint_${String(sigkillProgression.executionStates.length).padStart(4, '0')}`;
+      const checkpointPayload = await buildPartialCheckpointPayload(
+        inspected,
+        sigkillProgression,
+        resumableSigkill.forward,
+        timestamp,
+      );
+      const checkpoint = await appendJournalState(
+        published.paths,
+        claim,
+        checkpointStage,
+        checkpointPayload,
+        guardedDependencies,
+      );
+      await verifyExactPartialCheckpointSnapshot(inspected, checkpoint);
+      await transactionGuard('after_sigkill_partial_checkpoint');
+      return {
+        status: 'resumable',
+        exitCode: 75,
+        signal: childResult.signal,
+        continuation_id: inspected.receipt.continuation_id,
+        receipt_sha256: published.receiptSha256,
+        claim_sha256: claim.sha256,
+        partial_checkpoint_state_sha256: checkpoint.sha256,
+        document_id: options.documentId,
+        attempt: attemptCeiling,
+        citation_allowed: false,
+      };
+    }
     if (childFailed) {
       if (childResult?.code === 2 && !childResult.signal && !monitorIncident && !invocationError) {
         return await finalizeOutcome(
@@ -3664,7 +3749,9 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
           : invocationError
             ? `OCR child invocation failed: ${invocationError.message}`
             : childResult?.signal
-              ? `OCR child terminated by ${childResult.signal}`
+              ? `OCR child terminated by ${childResult.signal}${sigkillValidationError
+                  ? `; partial output is not resumable: ${sigkillValidationError.message}`
+                  : ''}`
               : `OCR child exited ${childResult?.code ?? 'without a result'}`,
       );
       return await finalizeOutcome(

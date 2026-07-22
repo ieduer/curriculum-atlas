@@ -1708,20 +1708,30 @@ test('a restarted process seals a running crash tail and appends a verifiable re
 
 test('a valid partial page, state, and log survive SIGKILL through a durable execution checkpoint', async (t) => {
   const fixture = await makeFixture(t, { pageCount: 3 });
-  await assert.rejects(
-    continueOperatorInterruptedAttempt(
-      { ...fixture.options, apply: true },
-      dependencies(fixture, {
-        validateDocumentOutput: validateOcrDocumentOutput,
-        invokeOcr: async () => writePartialPageThenSigkill(fixture),
-        afterChildExit: async () => { throw new Error('simulated continuation host SIGKILL'); },
-      }),
-    ),
-    /simulated continuation host SIGKILL/u,
+  const interrupted = await continueOperatorInterruptedAttempt(
+    { ...fixture.options, apply: true },
+    dependencies(fixture, {
+      validateDocumentOutput: validateOcrDocumentOutput,
+      invokeOcr: async () => writePartialPageThenSigkill(fixture),
+    }),
   );
+  assert.equal(interrupted.status, 'resumable');
+  assert.equal(interrupted.exitCode, 75);
+  assert.equal(interrupted.signal, 'SIGKILL');
   const partialState = JSON.parse(await readFile(fixture.statePath, 'utf8'));
   assert.deepEqual(partialState.completed_pages, [1, 2]);
   assert.equal(partialState.selected_pages_complete, false);
+
+  const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+  const interruptedNames = (await readdir(paths.states))
+    .filter((name) => name.endsWith('.json'))
+    .sort();
+  assert.deepEqual(interruptedNames.map((name) => name.replace(/^\d{6}-|\.json$/gu, '')), [
+    'claimed',
+    'running',
+    'partial_checkpoint_0001',
+  ]);
+  await assert.rejects(stat(path.join(paths.states, '000004-terminal_plan.json')), { code: 'ENOENT' });
 
   const result = await continueOperatorInterruptedAttempt(
     { ...fixture.options, apply: true },
@@ -1736,7 +1746,6 @@ test('a valid partial page, state, and log survive SIGKILL through a durable exe
     }),
   );
   assert.equal(result.status, 'complete');
-  const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
   const names = (await readdir(paths.states))
     .filter((name) => name.endsWith('.json'))
     .sort();
@@ -1760,6 +1769,81 @@ test('a valid partial page, state, and log survive SIGKILL through a durable exe
   const output = await validateOperatorContinuationOutput(fixture.outputRoot, evidence, fixture.profile);
   assert.equal(evidence.partialCheckpoints.length, 1);
   assert.equal(output.status.status, 'complete');
+});
+
+test('SIGKILL is resumable only for a typed incomplete document with strict valid partial output', async (t) => {
+  for (const [label, validateDocumentOutput, invokeOcr] of [
+    [
+      'no new durable page',
+      validateOcrDocumentOutput,
+      async () => ({ code: null, signal: 'SIGKILL', monitorIncident: null }),
+    ],
+    [
+      'generic incomplete-looking error',
+      async () => { throw new Error('partial output is incomplete'); },
+      writePartialPageThenSigkill,
+    ],
+    [
+      'typed incomplete followed by corrupt partial validation',
+      async (_document, _root, _runtime, validationOptions = {}) => {
+        if (validationOptions.requireComplete !== false) {
+          throw new IncompleteOcrDocumentError(documentId, [2], []);
+        }
+        throw new Error('partial state artifact hash mismatch');
+      },
+      writePartialPageThenSigkill,
+    ],
+    [
+      'non-SIGKILL signal with otherwise valid partial output',
+      validateOcrDocumentOutput,
+      async (fixture) => {
+        await writeFixturePage(fixture, 2, { complete: false });
+        return { code: null, signal: 'SIGTERM', monitorIncident: null };
+      },
+    ],
+  ]) {
+    await t.test(label, async (subtest) => {
+      const fixture = await makeFixture(subtest, { pageCount: 3 });
+      const result = await continueOperatorInterruptedAttempt(
+        { ...fixture.options, apply: true },
+        dependencies(fixture, {
+          validateDocumentOutput,
+          invokeOcr: async () => invokeOcr(fixture),
+        }),
+      );
+      assert.equal(result.status, 'quarantined');
+      assert.equal(result.exitCode, 12);
+      const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+      const names = (await readdir(paths.states))
+        .filter((name) => name.endsWith('.json'))
+        .sort();
+      assert.equal(names.some((name) => name.includes('partial_checkpoint')), false);
+      assert.equal(names.some((name) => name.includes('terminal_plan')), true);
+      assert.equal(names.some((name) => name.endsWith('-terminal.json')), true);
+    });
+  }
+});
+
+test('first spawn rejects a same-bytes state inode replacement after claim', async (t) => {
+  const fixture = await makeFixture(t);
+  let replaced = false;
+  await assert.rejects(
+    continueOperatorInterruptedAttempt(
+      { ...fixture.options, apply: true },
+      dependencies(fixture, {
+        afterJournalBody: async (pathname) => {
+          if (replaced || !pathname.endsWith('-running.json')) return;
+          const replacement = `${fixture.statePath}.replacement`;
+          await writeFile(replacement, await readFile(fixture.statePath), { mode: 0o600 });
+          await rename(replacement, fixture.statePath);
+          replaced = true;
+        },
+        invokeOcr: async () => assert.fail('state inode replacement must block the first OCR spawn'),
+      }),
+    ),
+    /frozen state.*provenance|state.*inode/u,
+  );
+  assert.equal(replaced, true);
 });
 
 test('restart resumes only a typed incomplete document with a successful strict partial validation', async (t) => {
