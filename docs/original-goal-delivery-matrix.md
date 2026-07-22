@@ -50,7 +50,7 @@
 | 8. 前端视觉与交互 | 研究并复用 hp/qx 实现；宇宙为主视线；长文稳定；动画可关；低性能、移动、平板可用 | 全屏宇宙、双侧轨道、底部工作台、单学科自适应、hide-all、移动布局和 reduced-motion 合同已实现；production 三尺寸通过 | `LIVE_VERIFIED` | 新 release 重跑 Chrome/Safari/Firefox/Edge、键盘、reduced-motion、低性能与真机；第一方 console/page error 为 0 |
 | 9. 技术架构 | Cloudflare 组件按规模选型；前端/API/数据/文件/搜索/向量/评论/身份边界清楚；服务端持久化与备份 | Worker+Assets、D1、R2、APIS、USER_CENTER 已上线；fenced release v2、0008/0009 与 compendium schema 仍是本地候选 | `LIVE_VERIFIED` + `CANDIDATE_VERIFIED` | preview 完成 dual-schema bridge、迁移、D1/R2 协调激活和回滚演练，再以相同工件发布 production |
 | 10. 统一登录与站点关系 | 接入 my、Nav、Portal、Companion、Pulse；区分教师/学生/管理员；跨站依赖受控 | User Center、Nav、Portal、Companion 源码、Pulse 已登记并验证；Companion 新 APK 未经真实 Android 设备验收 | `LIVE_VERIFIED` + `NOT_PROVED` | authenticated/anonymous/admin 权限矩阵逐路由验证；真实设备 App 登录、回跳、讨论和 AI 验收；五个登记面与 Pulse live meta/range 一致 |
-| 11. 内容处理流程 | 原件、哈希、OCR、目录/章节、锚点、分类、概念/评价、差异、关系、抽检、发布和更新日志分层且可持续 | 原件/清洗/结构化/分析分层、哈希、OCR supervisor、Vision、在线核对、page/semantic gates 和私有备份均已建立 | `CANDIDATE_VERIFIED` + `EVIDENCE_BLOCKED` | 84 个唯一 OCR 实体全部形成整卷 receipt；逐页三证和编辑裁决完成；重建 corpus/FTS/graph 可重复且零越权发布 |
+| 11. 内容处理流程 | 原件、哈希、OCR、目录/章节、锚点、分类、概念/评价、差异、关系、抽检、发布和更新日志分层且可持续 | 原件/清洗/结构化/分析分层、哈希、OCR supervisor、Vision、在线核对、page/semantic gates 和私有备份均已建立 | `CANDIDATE_VERIFIED` + `EVIDENCE_BLOCKED` | 当前 85 个唯一 OCR 实体全部形成整卷 receipt；逐页三证和编辑裁决完成；重建 corpus/FTS/graph 可重复且零越权发布 |
 | 12. 编辑与审核后台 | 文件、元数据、章节、段落、术语、关系、AI、评论、权限、导入导出、索引和日志均可审计管理 | 有受保护的管理/审核 API、评论举报与内容审计数据结构；未证明存在覆盖全部原始功能的完整后台 UI 和真实管理员验收 | `NOT_PROVED` | 建立后台功能清单与角色矩阵；每个写操作保留 before/after、操作者和时间；真实 admin/non-admin 端到端测试通过 |
 | 13. GitHub 公开仓库 | 公开源码、架构、开发、env、数据、导入、部署、测试、来源、版权、安全、贡献、日志、运维和接手文档齐备且无秘密 | `ieduer/curriculum-atlas` 已公开；本地候选比公开主线超前；gitleaks 当前候选无发现 | `LIVE_VERIFIED` + `CANDIDATE_VERIFIED` | 当前候选经独立审查后推送；GitHub HEAD 与将部署的 Assets Git 完全一致；公开仓库重新扫描无秘密和受限全文 |
 | 14. 域名与部署 | preview 先行；DNS/HTTPS/cache/headers/CORS/CSP/rate/Turnstile/log/monitor/backup/rollback/SEO 完整 | `curriculum.bdfz.net` v10 正常；D1/R2/Worker、备份与 rollback 锚点已记录；候选 v13 尚未 preview/production | `LIVE_VERIFIED` + `CANDIDATE_VERIFIED` | 使用 exact clean HEAD 在 preview 执行完整发布手册和回滚演练，签发 acceptance receipt 后再 production；重跑 sitemap/robots/OG/headers |
@@ -64,7 +64,7 @@
 
 按依赖顺序推进，不能用后一步绕过前一步：
 
-1. **冻结候选基线**：独立审查 `6cdbdc8` 的作品去重、队列分母和所有生成工件；保持 production v10 不变。
+1. **冻结唯一整合候选**：只把独立审查通过的来源、本体、OCR 续跑、学术证据与后台提交合入 `codex/curriculum-final-integration-20260722`；所有生成工件统一在组件收口后再生；保持 production v10 不变。
 2. **安全续跑 A2**：只允许同一已存在 attempt 6、同一输出 inode、同一 authority/grant 的 forward continuation；先过 Linux/真实边界 dry-run，再恢复一个 canary 并连续观察。
 3. **完成唯一 OCR 实体**：收齐整卷页集、state、日志、runtime/model/Paddle cache 身份和 receiver receipt；失败页隔离但不能丢失。
 4. **完成逐页三证**：页图与 primary/Vision/audit 对齐；用同文同版在线文本核对；表格、罕见字符、页眉页脚和版本冲突走专门规则；人工签审后才写 page publication。
