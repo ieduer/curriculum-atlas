@@ -10,6 +10,10 @@ import {
 import path from 'node:path';
 
 import { canonicalJson } from './remote-ocr-local-snapshot.mjs';
+import {
+  validateA2ContinuationRuntimeManifest,
+  validateArchivedA2ContinuationRuntimeManifest,
+} from './remote-ocr-continuation-runtime-manifest.mjs';
 import { inspectTreeStrict } from '../monitor-remote-ocr-single-shard.mjs';
 
 const sha256Pattern = /^[a-f0-9]{64}$/u;
@@ -366,6 +370,7 @@ export function operatorContinuationEvidencePaths(evidenceBaseRoot, documentId, 
     interruptedState: path.join(root, 'interrupted-state.json'),
     preContinuationLog: path.join(root, 'pre-continuation.log'),
     documentInventory: path.join(root, 'document-inventory.json'),
+    runtimeManifest: path.join(root, 'runtime-manifest.json'),
     states: path.join(root, 'states'),
   };
 }
@@ -716,6 +721,8 @@ export async function validateOperatorContinuationEvidence(
     'pre-continuation.log.sha256',
     'receipt.json',
     'receipt.json.sha256',
+    'runtime-manifest.json',
+    'runtime-manifest.json.sha256',
     'states',
   ], 'operator continuation evidence');
   const [
@@ -726,6 +733,7 @@ export async function validateOperatorContinuationEvidence(
     interruptedStatusRecord,
     interruptedStateRecord,
     preContinuationLogRecord,
+    runtimeManifestRecord,
   ] = await Promise.all([
     readStableFileWithSidecar(resolved.pathname, expectedPaths.receipt, 'operator continuation receipt'),
     readStableFileWithSidecar(resolved.pathname, expectedPaths.claim, 'operator continuation claim'),
@@ -734,6 +742,7 @@ export async function validateOperatorContinuationEvidence(
     readStableFileWithSidecar(resolved.pathname, expectedPaths.interruptedStatus, 'archived interrupted document status'),
     readStableFileWithSidecar(resolved.pathname, expectedPaths.interruptedState, 'archived interrupted document state'),
     readStableFileWithSidecar(resolved.pathname, expectedPaths.preContinuationLog, 'archived pre-continuation log'),
+    readStableFileWithSidecar(resolved.pathname, expectedPaths.runtimeManifest, 'archived continuation runtime manifest'),
   ]);
   const receipt = parseJson(receiptRecord, 'operator continuation receipt');
   const claim = parseJson(claimRecord, 'operator continuation claim');
@@ -778,7 +787,15 @@ export async function validateOperatorContinuationEvidence(
     'incident_evidence_tree_sha256',
     'base_runner_path',
     'base_runner_sha256',
+    'runtime_manifest',
   ], 'operator continuation authorization');
+  const runtimeManifestDescriptor = exactObject(authorization.runtime_manifest, [
+    'path',
+    'sha256',
+    'bytes',
+    'runtime_tree_sha256',
+    'files',
+  ], 'operator continuation runtime manifest descriptor');
   const timeoutRecovery = exactObject(receipt.timeout_recovery, [
     'seed_id',
     'grant_id',
@@ -802,7 +819,9 @@ export async function validateOperatorContinuationEvidence(
     'interrupted_state',
     'pre_continuation_log',
   ], 'operator continuation interrupted archives');
-  if (receipt.schema_version !== 2
+  const trustedRuntimeManifest = await validateA2ContinuationRuntimeManifest();
+  validateArchivedA2ContinuationRuntimeManifest(runtimeManifestRecord.raw, trustedRuntimeManifest);
+  if (receipt.schema_version !== 3
     || receipt.receipt_type !== OPERATOR_CONTINUATION_RECEIPT_TYPE
     || receipt.mode !== OPERATOR_CONTINUATION_MODE
     || receipt.profile_sha256 !== a2ForwardContinuationProfileFingerprint(profile)
@@ -825,6 +844,11 @@ export async function validateOperatorContinuationEvidence(
     || typeof authorization.base_runner_path !== 'string'
     || !path.isAbsolute(authorization.base_runner_path)
     || authorization.base_runner_sha256 !== profile.baseRunnerSha256
+    || runtimeManifestDescriptor.path !== 'runtime-manifest.json'
+    || runtimeManifestDescriptor.sha256 !== runtimeManifestRecord.sha256
+    || runtimeManifestDescriptor.bytes !== runtimeManifestRecord.bytes
+    || runtimeManifestDescriptor.runtime_tree_sha256 !== trustedRuntimeManifest.runtime_tree_sha256
+    || runtimeManifestDescriptor.files !== trustedRuntimeManifest.files
     || timeoutRecovery.seed_id !== profile.seedId
     || !sha256Pattern.test(String(timeoutRecovery.grant_id || ''))
     || timeoutRecovery.grant_sha256 !== profile.timeoutGrantSha256
@@ -965,6 +989,7 @@ export async function validateOperatorContinuationEvidence(
   const states = [];
   const executionStates = [];
   const invocationIds = new Set();
+  const spawnNonces = new Set();
   const commonStateKeys = [
     'schema_version',
     'sequence',
@@ -976,7 +1001,13 @@ export async function validateOperatorContinuationEvidence(
   ];
   const expectedStateKeys = new Map([
     ['claimed', ['claimed_at', 'worker_invocation_id', 'quiescent_unit_fence']],
-    ['running', ['started_at', 'llama_invocation_id', 'llama_main_pid']],
+    ['running', [
+      'started_at',
+      'llama_invocation_id',
+      'llama_main_pid',
+      'spawn_nonce',
+      'ocr_command_sha256',
+    ]],
     ['terminal_plan', ['outcome', 'exit_code', 'terminal_at', 'transaction']],
     ['terminal', ['outcome', 'exit_code', 'terminal_at', 'terminal_plan_state_sha256']],
   ]);
@@ -993,7 +1024,14 @@ export async function validateOperatorContinuationEvidence(
     const value = parseJson(record, 'operator continuation state');
     const resumeMatch = /^resume_running_(\d{4})$/u.exec(String(value.stage || ''));
     const extraKeys = resumeMatch
-      ? ['resumed_at', 'llama_invocation_id', 'llama_main_pid', 'resumed_from_state_sha256']
+      ? [
+          'resumed_at',
+          'llama_invocation_id',
+          'llama_main_pid',
+          'spawn_nonce',
+          'ocr_command_sha256',
+          'resumed_from_state_sha256',
+        ]
       : expectedStateKeys.get(value.stage);
     if (!extraKeys) throw new Error('operator continuation state stage is invalid');
     exactObject(value, [...commonStateKeys, ...extraKeys], `operator continuation ${value.stage} state`);
@@ -1016,10 +1054,13 @@ export async function validateOperatorContinuationEvidence(
       requireCanonicalTimestamp(value.started_at, 'operator continuation running time');
       if (value.started_at !== claim.claimed_at
         || !invocationIdPattern.test(String(value.llama_invocation_id || ''))
-        || !/^[1-9]\d*$/u.test(String(value.llama_main_pid || ''))) {
+        || !/^[1-9]\d*$/u.test(String(value.llama_main_pid || ''))
+        || !sha256Pattern.test(String(value.spawn_nonce || ''))
+        || !sha256Pattern.test(String(value.ocr_command_sha256 || ''))) {
         throw new Error('operator continuation running state is invalid');
       }
       invocationIds.add(value.llama_invocation_id);
+      spawnNonces.add(value.spawn_nonce);
       executionStates.push({ value, sha256: record.sha256 });
     }
     if (resumeMatch) {
@@ -1032,11 +1073,15 @@ export async function validateOperatorContinuationEvidence(
         || value.resumed_from_state_sha256 !== predecessor.sha256
         || !invocationIdPattern.test(String(value.llama_invocation_id || ''))
         || invocationIds.has(value.llama_invocation_id)
+        || spawnNonces.has(value.spawn_nonce)
         || !/^[1-9]\d*$/u.test(String(value.llama_main_pid || ''))
+        || !sha256Pattern.test(String(value.spawn_nonce || ''))
+        || !sha256Pattern.test(String(value.ocr_command_sha256 || ''))
         || Date.parse(value.resumed_at) < Date.parse(predecessorTimestamp)) {
         throw new Error('operator continuation resume_running state is invalid');
       }
       invocationIds.add(value.llama_invocation_id);
+      spawnNonces.add(value.spawn_nonce);
       executionStates.push({ value, sha256: record.sha256 });
     }
     if (value.stage === 'terminal_plan') {

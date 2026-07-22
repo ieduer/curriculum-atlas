@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "manifest_type": "curriculum_remote_ocr_a2_continuation_runtime_manifest",
+  "entrypoint": "scripts/continue-remote-ocr-operator-interruption.mjs",
+  "files": [
+    {
+      "path": "scripts/continue-remote-ocr-operator-interruption.mjs",
+      "sha256": "ebfd5987816a9574362ddc78d98dff9e5d1949fea7a91c393b642d61e7e484d4",
+      "bytes": 120637
+    },
+    {
+      "path": "scripts/lib/remote-ocr-continuation-runtime-manifest.mjs",
+      "sha256": "bf6ec434c071d6e0297912ac1d738b240c9bdb365ce1fcaf113df74f9154cde9",
+      "bytes": 6693
+    },
+    {
+      "path": "scripts/lib/remote-ocr-local-snapshot.mjs",
+      "sha256": "560aaf41a66241d58998769dcddbfcc403d9fbc7dc71ab656bbe4d8e26369d6b",
+      "bytes": 16578
+    },
+    {
+      "path": "scripts/lib/remote-ocr-operator-continuation.mjs",
+      "sha256": "a3bd336e29e6099c7fb6c20630a25dc8d1faa83938159bf02cbcc96b67472139",
+      "bytes": 57707
+    },
+    {
+      "path": "scripts/monitor-remote-ocr-reprocess.mjs",
+      "sha256": "f8bea627ac675bb0b7e16500afba47bee89bd61ef7cc544204f6a895ae3f9b36",
+      "bytes": 39259
+    },
+    {
+      "path": "scripts/monitor-remote-ocr-single-shard.mjs",
+      "sha256": "eab9872df842f496d5c293bf30819a2ce479a449ca81ea23eda64742409868f1",
+      "bytes": 171784
+    },
+    {
+      "path": "scripts/repair-remote-ocr-preinference-interruption.mjs",
+      "sha256": "e30bc1d3242a102ef62bbe37371f558a3744f667bbc2b7dd9133414e79d93baa",
+      "bytes": 70578
+    },
+    {
+      "path": "scripts/run-remote-ocr-offload.mjs",
+      "sha256": "0fbf3d284f324f5faa710ca09342cdef88d24e6349b6e5d590ccca215065354d",
+      "bytes": 290847
+    }
+  ],
+  "runtime_tree_sha256": "f108a06889ce94c63a881a27854e53e0c823dc5c82c42c5880fa9bab97e10384"
+}

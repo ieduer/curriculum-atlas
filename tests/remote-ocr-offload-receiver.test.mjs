@@ -2603,6 +2603,14 @@ test('non-null A2 profile continues, receiver-applies, archives the complete evi
   const archived = receipt.source_evidence.shards[0].operator_continuation;
   assert.ok(archived, 'receiver receipt must retain operator continuation provenance');
   assert.deepEqual(await inspectTree(archived.path), sourceEvidenceTree);
+  const archivedRuntimeManifest = await readFile(path.join(archived.path, 'runtime-manifest.json'));
+  const sourceRuntimeManifest = await readFile(path.join(value.continuationPaths.root, 'runtime-manifest.json'));
+  assert.ok(archivedRuntimeManifest.equals(sourceRuntimeManifest));
+  assert.equal(
+    JSON.parse(await readFile(path.join(archived.path, 'receipt.json'), 'utf8'))
+      .authorization.runtime_manifest.sha256,
+    sha256(archivedRuntimeManifest),
+  );
   assert.equal(
     receipt.documents[0].operator_continuation.continuation_id,
     continued.continuation_id,

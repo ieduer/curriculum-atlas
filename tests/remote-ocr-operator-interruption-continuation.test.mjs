@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { once } from 'node:events';
 import { chmod, mkdtemp, mkdir, readFile, readdir, realpath, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,6 +11,8 @@ import {
   continueOperatorInterruptedAttempt,
   inspectA2ContinuationUnits,
   operatorContinuationPaths,
+  reconcileOwnedContinuationExecution,
+  recoverableTerminalAtomicReplace,
 } from '../scripts/continue-remote-ocr-operator-interruption.mjs';
 import {
   EXACT_A2_FORWARD_CONTINUATION_INCIDENT,
@@ -18,6 +22,7 @@ import {
 } from '../scripts/lib/remote-ocr-operator-continuation.mjs';
 import { acquireLifecycleLock } from '../scripts/repair-remote-ocr-preinference-interruption.mjs';
 import { canonicalJson, copyTreeStrict, inspectTree } from '../scripts/lib/remote-ocr-local-snapshot.mjs';
+import { validateA2ContinuationRuntimeManifest } from '../scripts/lib/remote-ocr-continuation-runtime-manifest.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const runnerPath = fileURLToPath(new URL('../scripts/run-remote-ocr-offload.mjs', import.meta.url));
@@ -50,6 +55,46 @@ async function assertHashBoundPair(pathname) {
     await readFile(`${pathname}.sha256`, 'utf8'),
     `${sha256(raw)}  ${path.basename(pathname)}\n`,
   );
+}
+
+function terminalTemporaryPath(planStateRaw, outputRoot, record) {
+  const planStateSha256 = sha256(planStateRaw);
+  const token = sha256(canonicalJson({
+    schema_version: 1,
+    terminal_plan_state_sha256: planStateSha256,
+    output_path: record.output_path,
+    after_sha256: record.after_sha256,
+    after_bytes: record.after_bytes,
+  }));
+  return `${path.join(outputRoot, record.output_path)}.a2-terminal-${token}.tmp`;
+}
+
+function pidIsAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error?.code === 'ESRCH') return false;
+    throw error;
+  }
+}
+
+async function waitForPidExit(pid, timeoutMilliseconds = 3_000) {
+  const deadline = Date.now() + timeoutMilliseconds;
+  while (Date.now() < deadline) {
+    if (!pidIsAlive(pid)) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`PID ${pid} did not exit`);
+}
+
+async function readFirstJsonLine(stream) {
+  let buffered = '';
+  while (!buffered.includes('\n')) {
+    const [chunk] = await once(stream, 'data');
+    buffered += chunk.toString('utf8');
+  }
+  return JSON.parse(buffered.slice(0, buffered.indexOf('\n')));
 }
 
 async function makeFixture(t) {
@@ -556,10 +601,12 @@ function unitGeneration(role, revision = 0) {
 }
 
 function dependencies(fixture, extra = {}) {
-  let llamaActive = false;
+  let llamaActive = extra.initialLlamaActive === true;
   const generationRevision = extra.unitGenerationRevision || (() => 0);
-  const llamaInvocationId = extra.llamaInvocationId || 'b'.repeat(32);
-  const llamaMainPid = extra.llamaMainPid || '42';
+  let llamaInvocationId = extra.initialLlamaInvocationId
+    || extra.llamaInvocationId
+    || 'b'.repeat(32);
+  let llamaMainPid = extra.initialLlamaMainPid || extra.llamaMainPid || '42';
   const inactiveService = (role, invocationId = '0'.repeat(32), exitStatus = '0') => ({
     LoadState: 'loaded',
     ActiveState: 'inactive',
@@ -603,8 +650,15 @@ function dependencies(fixture, extra = {}) {
       assert.ok([fixture.profile.monitorUnit, fixture.profile.alertUnit, fixture.profile.llamaUnit].includes(unit));
       return inactiveService(role);
     },
-    startLlama: async () => { llamaActive = true; },
-    stopLlama: async () => { llamaActive = false; },
+    startLlama: async () => {
+      llamaInvocationId = extra.startedLlamaInvocationId || extra.llamaInvocationId || 'b'.repeat(32);
+      llamaMainPid = extra.startedLlamaMainPid || extra.llamaMainPid || '42';
+      llamaActive = true;
+    },
+    stopLlama: async () => {
+      extra.onStopLlama?.({ llamaInvocationId, llamaMainPid });
+      llamaActive = false;
+    },
     verifyCommittedSeed: async () => ({ verified: true }),
     verifyActiveRuntime: async () => ({ verified: true }),
     pageCounter: () => 2,
@@ -615,6 +669,7 @@ function dependencies(fixture, extra = {}) {
     }),
     now: () => '2026-07-22T04:30:00.000Z',
     handleSignals: false,
+    findOwnedOcrProcesses: async () => [],
     ...extra,
   };
 }
@@ -641,6 +696,19 @@ async function finishFixtureDocument(fixture) {
 
 test('the immutable seeded runner remains byte-identical', async () => {
   assert.equal(sha256(await readFile(runnerPath)), EXPECTED_UNCHANGED_RUNNER_SHA256);
+});
+
+test('independent runtime manifest binds the actual continuation module closure without self-hashing', async () => {
+  const runtime = await validateA2ContinuationRuntimeManifest();
+  const files = runtime.manifest.files.map((descriptor) => descriptor.path);
+  for (const required of [
+    'scripts/continue-remote-ocr-operator-interruption.mjs',
+    'scripts/lib/remote-ocr-operator-continuation.mjs',
+    'scripts/run-remote-ocr-offload.mjs',
+    'scripts/monitor-remote-ocr-single-shard.mjs',
+  ]) assert.ok(files.includes(required), `runtime closure omits ${required}`);
+  assert.equal(files.includes('data/remote-ocr-a2-continuation-runtime-manifest.json'), false);
+  assert.equal(runtime.manifest.files.find(({ path: pathname }) => pathname === 'scripts/run-remote-ocr-offload.mjs').sha256, EXPECTED_UNCHANGED_RUNNER_SHA256);
 });
 
 test('exact operator interruption is a mutation-free dry run', async (t) => {
@@ -719,6 +787,10 @@ test('apply consumes one claim and completes the same attempt 6 without truncati
   const claim = JSON.parse(await readFile(paths.claim, 'utf8'));
   assert.equal(receipt.interrupted_snapshot.document_progress.attempts, 6);
   assert.equal(receipt.interrupted_snapshot.document_status.status, 'interrupted');
+  assert.equal(receipt.authorization.runtime_manifest.path, 'runtime-manifest.json');
+  assert.match(receipt.authorization.runtime_manifest.sha256, /^[a-f0-9]{64}$/u);
+  assert.match(receipt.authorization.runtime_manifest.runtime_tree_sha256, /^[a-f0-9]{64}$/u);
+  await assertHashBoundPair(path.join(paths.root, 'runtime-manifest.json'));
   assert.equal(claim.continuation_id, receipt.continuation_id);
   assert.equal(claim.attempt, 6);
   const verifiedEvidence = await validateOperatorContinuationEvidence(paths.root, fixture.profile);
@@ -759,6 +831,23 @@ test('every expected incident anchor is fail-closed before claim publication', a
       await assert.rejects(stat(operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6).claim), { code: 'ENOENT' });
     });
   }
+});
+
+test('validator rejects an archive whose runtime manifest is rehashed but differs from the trusted local closure', async (t) => {
+  const fixture = await makeFixture(t);
+  await continueOperatorInterruptedAttempt(
+    { ...fixture.options, apply: true },
+    dependencies(fixture, { invokeOcr: async () => finishFixtureDocument(fixture) }),
+  );
+  const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+  const runtimePath = path.join(paths.root, 'runtime-manifest.json');
+  const runtime = JSON.parse(await readFile(runtimePath, 'utf8'));
+  runtime.files[0].sha256 = '0'.repeat(64);
+  await writeJsonSidecar(runtimePath, runtime);
+  await assert.rejects(
+    validateOperatorContinuationEvidence(paths.root, fixture.profile),
+    /archived A2 continuation runtime manifest differs from the trusted receiver runtime/u,
+  );
 });
 
 test('a resealed rearm receipt cannot replace the independently pinned after controls', async (t) => {
@@ -1023,6 +1112,116 @@ test('terminal plan recovery precedes ordinary seed verification at all 0-4 repl
   }
 });
 
+test('terminal recovery reuses only its deterministic exact-after temp and rejects third bytes', async (t) => {
+  for (const exactAfter of [true, false]) {
+    await t.test(exactAfter ? 'exact-after temp converges' : 'third bytes fail closed', async (subtest) => {
+      const fixture = await makeFixture(subtest);
+      const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+      await assert.rejects(
+        continueOperatorInterruptedAttempt(
+          { ...fixture.options, apply: true },
+          dependencies(fixture, {
+            invokeOcr: async () => finishFixtureDocument(fixture),
+            afterTerminalPlan: async () => { throw new Error('stop after durable terminal plan'); },
+          }),
+        ),
+        /stop after durable terminal plan/u,
+      );
+      const planPath = path.join(paths.states, '000003-terminal_plan.json');
+      const planRaw = await readFile(planPath);
+      const plan = JSON.parse(planRaw);
+      const first = plan.transaction[0];
+      const temporary = terminalTemporaryPath(planRaw, fixture.outputRoot, first);
+      const temporaryRaw = exactAfter
+        ? Buffer.from(first.after_base64, 'base64')
+        : Buffer.from('neither before nor after\n');
+      await writeFile(temporary, temporaryRaw, { mode: 0o600 });
+
+      const restarted = continueOperatorInterruptedAttempt(
+        { ...fixture.options, apply: true },
+        dependencies(fixture, { invokeOcr: async () => assert.fail('terminal recovery must not invoke OCR') }),
+      );
+      if (!exactAfter) {
+        await assert.rejects(restarted, /deterministic terminal temp is neither exact after nor safely absent/u);
+        return;
+      }
+      const result = await restarted;
+      assert.equal(result.recovered, true);
+      await assert.rejects(stat(temporary), { code: 'ENOENT' });
+      assert.equal(sha256(await readFile(path.join(fixture.outputRoot, first.output_path))), first.after_sha256);
+    });
+  }
+});
+
+test('SIGKILL after deterministic terminal temp fsync recovers exact-after bytes on restart', async (t) => {
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'ocr-terminal-temp-kill-'));
+  const root = await realpath(temporaryRoot);
+  t.after(() => rm(temporaryRoot, { recursive: true, force: true }));
+  await chmod(root, 0o700);
+  const pathname = path.join(root, 'status.json');
+  const before = Buffer.from('before\n');
+  const after = Buffer.from('after\n');
+  await writeFile(pathname, before, { mode: 0o600 });
+  const record = {
+    output_path: 'status.json',
+    before_sha256: sha256(before),
+    before_bytes: before.byteLength,
+    after_sha256: sha256(after),
+    after_bytes: after.byteLength,
+  };
+  const planRaw = Buffer.from('immutable terminal plan bytes\n');
+  const terminalPlanState = { sha256: sha256(planRaw) };
+  const moduleUrl = new URL('../scripts/continue-remote-ocr-operator-interruption.mjs', import.meta.url).href;
+  const childScript = String.raw`
+    const { recoverableTerminalAtomicReplace } = await import(process.env.CONTINUATION_MODULE_URL);
+    await recoverableTerminalAtomicReplace(
+      process.env.ROOT,
+      process.env.TARGET,
+      Buffer.from(process.env.AFTER_BASE64, 'base64'),
+      JSON.parse(process.env.RECORD_JSON),
+      JSON.parse(process.env.PLAN_STATE_JSON),
+      { afterTerminalTempSync: async () => {
+        process.stdout.write('temp-synced\n');
+        await new Promise(() => setInterval(() => {}, 1000));
+      } },
+    );
+  `;
+  const child = spawn(process.execPath, ['--input-type=module', '-e', childScript], {
+    env: {
+      ...process.env,
+      CONTINUATION_MODULE_URL: moduleUrl,
+      ROOT: root,
+      TARGET: pathname,
+      AFTER_BASE64: after.toString('base64'),
+      RECORD_JSON: JSON.stringify(record),
+      PLAN_STATE_JSON: JSON.stringify(terminalPlanState),
+    },
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+  t.after(() => {
+    if (pidIsAlive(child.pid)) child.kill('SIGKILL');
+  });
+  const [marker] = await once(child.stdout, 'data');
+  assert.match(marker.toString('utf8'), /temp-synced/u);
+  const temporary = terminalTemporaryPath(planRaw, root, record);
+  assert.ok((await readFile(pathname)).equals(before));
+  assert.ok((await readFile(temporary)).equals(after));
+  child.kill('SIGKILL');
+  const [code, signal] = await once(child, 'exit');
+  assert.equal(code, null);
+  assert.equal(signal, 'SIGKILL');
+
+  await recoverableTerminalAtomicReplace(
+    root,
+    pathname,
+    after,
+    record,
+    terminalPlanState,
+  );
+  assert.ok((await readFile(pathname)).equals(after));
+  await assert.rejects(stat(temporary), { code: 'ENOENT' });
+});
+
 test('state journal body-only and sidecar-only crash states resume', async (t) => {
   for (const sidecarOnly of [false, true]) {
     await t.test(sidecarOnly ? 'sidecar only' : 'body only', async (subtest) => {
@@ -1102,16 +1301,36 @@ test('a restarted process seals a running crash tail and appends a verifiable re
           page_artifacts_sha256: '7'.repeat(64),
         };
       };
+      let priorOwnerAlive = true;
+      const stoppedLlamaInvocations = [];
       const result = await continueOperatorInterruptedAttempt(
         { ...fixture.options, apply: true },
         dependencies(fixture, {
-          llamaInvocationId: 'c'.repeat(32),
-          llamaMainPid: '44',
+          initialLlamaActive: true,
+          initialLlamaInvocationId: 'b'.repeat(32),
+          initialLlamaMainPid: '42',
+          startedLlamaInvocationId: 'c'.repeat(32),
+          startedLlamaMainPid: '44',
+          findOwnedOcrProcesses: async () => priorOwnerAlive
+            ? [{ pid: 9876, uid: typeof process.getuid === 'function' ? process.getuid() : 0 }]
+            : [],
+          terminateOwnedOcrProcess: async (pid) => {
+            assert.equal(pid, 9876);
+            priorOwnerAlive = false;
+          },
+          onStopLlama: ({ llamaInvocationId, llamaMainPid }) => {
+            stoppedLlamaInvocations.push([llamaInvocationId, llamaMainPid]);
+          },
           validateDocumentOutput,
           invokeOcr: async () => finishFixtureDocument(fixture),
         }),
       );
       assert.equal(result.status, 'complete');
+      assert.equal(priorOwnerAlive, false);
+      assert.deepEqual(stoppedLlamaInvocations, [
+        ['b'.repeat(32), '42'],
+        ['c'.repeat(32), '44'],
+      ]);
       await assertHashBoundPair(runningPath);
       const stateNames = (await readdir(paths.states))
         .filter((name) => name.endsWith('.json'))
@@ -1131,10 +1350,146 @@ test('a restarted process seals a running crash tail and appends a verifiable re
       assert.equal(resumed.resumed_from_state_sha256, sha256(await readFile(runningPath)));
       assert.equal(running.llama_invocation_id, 'b'.repeat(32));
       assert.equal(resumed.llama_invocation_id, 'c'.repeat(32));
+      assert.match(running.spawn_nonce, /^[a-f0-9]{64}$/u);
+      assert.match(resumed.spawn_nonce, /^[a-f0-9]{64}$/u);
+      assert.notEqual(resumed.spawn_nonce, running.spawn_nonce);
+      assert.equal(resumed.ocr_command_sha256, running.ocr_command_sha256);
       const evidence = await validateOperatorContinuationEvidence(paths.root, fixture.profile);
       assert.equal(evidence.states.length, 5);
     });
   }
+});
+
+test('SIGKILLed continuation host leaves only its hash-bound OCR and exact llama eligible for recovery', async (t) => {
+  const spawnNonce = 'd'.repeat(64);
+  const commandSha256 = 'e'.repeat(64);
+  const llamaInvocationId = 'f'.repeat(32);
+  const sleeper = 'setInterval(() => {}, 1000)';
+  const unrelated = spawn(process.execPath, ['-e', sleeper], { stdio: 'ignore' });
+  const ownerScript = String.raw`
+    const { spawn } = require('node:child_process');
+    const sleeper = 'setInterval(() => {}, 1000)';
+    const ocr = spawn(process.execPath, ['-e', sleeper], {
+      env: {
+        ...process.env,
+        CURRICULUM_A2_CONTINUATION_SPAWN_NONCE: process.env.OWNER_NONCE,
+        CURRICULUM_A2_CONTINUATION_COMMAND_SHA256: process.env.OWNER_COMMAND_SHA256,
+      },
+      stdio: 'ignore',
+    });
+    const llama = spawn(process.execPath, ['-e', sleeper], { stdio: 'ignore' });
+    process.stdout.write(JSON.stringify({ ocrPid: ocr.pid, llamaPid: llama.pid }) + '\n');
+    setInterval(() => {}, 1000);
+  `;
+  const owner = spawn(process.execPath, ['-e', ownerScript], {
+    env: {
+      ...process.env,
+      OWNER_NONCE: spawnNonce,
+      OWNER_COMMAND_SHA256: commandSha256,
+    },
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+  const owned = await readFirstJsonLine(owner.stdout);
+  const cleanupPids = new Set([unrelated.pid, owner.pid, owned.ocrPid, owned.llamaPid]);
+  t.after(async () => {
+    for (const pid of cleanupPids) {
+      if (pidIsAlive(pid)) process.kill(pid, 'SIGKILL');
+    }
+  });
+  assert.equal(pidIsAlive(owned.ocrPid), true);
+  assert.equal(pidIsAlive(owned.llamaPid), true);
+  owner.kill('SIGKILL');
+  const [ownerCode, ownerSignal] = await once(owner, 'exit');
+  assert.equal(ownerCode, null);
+  assert.equal(ownerSignal, 'SIGKILL');
+
+  const profile = {
+    llamaUnit: 'fixture-llama.service',
+  };
+  const executionState = {
+    value: {
+      spawn_nonce: spawnNonce,
+      ocr_command_sha256: commandSha256,
+      llama_invocation_id: llamaInvocationId,
+      llama_main_pid: String(owned.llamaPid),
+    },
+  };
+  const inspectUnit = async () => pidIsAlive(owned.llamaPid) ? {
+    LoadState: 'loaded',
+    ActiveState: 'active',
+    SubState: 'running',
+    MainPID: String(owned.llamaPid),
+    InvocationID: llamaInvocationId,
+    ExecMainStatus: '0',
+    Generation: unitGeneration('llama', 1),
+  } : {
+    LoadState: 'loaded',
+    ActiveState: 'inactive',
+    SubState: 'dead',
+    MainPID: '0',
+    InvocationID: llamaInvocationId,
+    ExecMainStatus: '0',
+    Generation: unitGeneration('llama', 2),
+  };
+  const recovered = await reconcileOwnedContinuationExecution(profile, executionState, {
+    inspectUnit,
+    findOwnedOcrProcesses: async (state) => {
+      assert.equal(state.value.spawn_nonce, spawnNonce);
+      assert.equal(state.value.ocr_command_sha256, commandSha256);
+      return pidIsAlive(owned.ocrPid)
+        ? [{ pid: owned.ocrPid, uid: typeof process.getuid === 'function' ? process.getuid() : 0 }]
+        : [];
+    },
+    stopLlama: async () => {
+      assert.equal(pidIsAlive(owned.llamaPid), true);
+      process.kill(owned.llamaPid, 'SIGTERM');
+      await waitForPidExit(owned.llamaPid);
+    },
+    ownedProcessGraceMilliseconds: 250,
+  });
+  assert.equal(recovered.terminated_ocr_pid, owned.ocrPid);
+  assert.equal(recovered.stopped_llama, true);
+  assert.equal(pidIsAlive(owned.ocrPid), false);
+  assert.equal(pidIsAlive(owned.llamaPid), false);
+  assert.equal(pidIsAlive(unrelated.pid), true, 'unrelated process must not be signalled');
+});
+
+test('orphan recovery refuses a different live llama identity before signalling any process', async () => {
+  let processSignalled = false;
+  let llamaStopped = false;
+  await assert.rejects(
+    reconcileOwnedContinuationExecution(
+      { llamaUnit: 'fixture-llama.service' },
+      {
+        value: {
+          spawn_nonce: '1'.repeat(64),
+          ocr_command_sha256: '2'.repeat(64),
+          llama_invocation_id: '3'.repeat(32),
+          llama_main_pid: '123',
+        },
+      },
+      {
+        findOwnedOcrProcesses: async () => [{
+          pid: 456,
+          uid: typeof process.getuid === 'function' ? process.getuid() : 0,
+        }],
+        inspectUnit: async () => ({
+          LoadState: 'loaded',
+          ActiveState: 'active',
+          SubState: 'running',
+          MainPID: '999',
+          InvocationID: '4'.repeat(32),
+          ExecMainStatus: '0',
+          Generation: unitGeneration('llama', 1),
+        }),
+        terminateOwnedOcrProcess: async () => { processSignalled = true; },
+        stopLlama: async () => { llamaStopped = true; },
+      },
+    ),
+    /active llama unit is not owned/u,
+  );
+  assert.equal(processSignalled, false);
+  assert.equal(llamaStopped, false);
 });
 
 test('lifecycle pathname replacement during OCR aborts before any terminal control transition', async (t) => {

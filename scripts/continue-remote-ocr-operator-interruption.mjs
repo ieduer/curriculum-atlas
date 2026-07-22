@@ -14,8 +14,10 @@ import {
   rename,
   rm,
   stat,
+  unlink,
 } from 'node:fs/promises';
 import path from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import {
@@ -35,6 +37,10 @@ import {
 import {
   canonicalJson,
 } from './lib/remote-ocr-local-snapshot.mjs';
+import {
+  validateA2ContinuationRuntimeManifest,
+  validateArchivedA2ContinuationRuntimeManifest,
+} from './lib/remote-ocr-continuation-runtime-manifest.mjs';
 import {
   EXACT_A2_FORWARD_CONTINUATION_INCIDENT,
   OPERATOR_CONTINUATION_CLAIM_TYPE,
@@ -74,6 +80,8 @@ const systemdGenerationProperties = Object.freeze([
   'InactiveEnterTimestampMonotonic',
 ]);
 const continuationFenceRoles = Object.freeze(['worker', 'monitor', 'monitor_timer', 'alert']);
+const spawnNonceEnvironmentKey = ['CURRICULUM_A2_CONTINUATION', 'SPAWN', 'NONCE'].join('_');
+const commandShaEnvironmentKey = 'CURRICULUM_A2_CONTINUATION_COMMAND_SHA256';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -179,7 +187,11 @@ async function syncDirectory(pathname) {
 }
 
 async function writeDurableFile(pathname, raw, mode = 0o600) {
-  const handle = await open(pathname, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY, mode);
+  const handle = await open(
+    pathname,
+    constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW,
+    mode,
+  );
   try {
     const before = await handle.stat({ bigint: true });
     const currentUid = typeof process.getuid === 'function' ? BigInt(process.getuid()) : before.uid;
@@ -207,16 +219,98 @@ async function writeDurableFile(pathname, raw, mode = 0o600) {
   }
 }
 
-async function durableAtomicReplace(pathname, raw) {
-  const temporary = `${pathname}.tmp-${process.pid}-${randomUUID()}`;
-  await writeDurableFile(temporary, raw);
-  try {
-    await rename(temporary, pathname);
-    await syncDirectory(path.dirname(pathname));
-  } catch (error) {
-    await rm(temporary, { force: true }).catch(() => {});
-    throw error;
+function terminalTransactionTemporaryPath(pathname, record, terminalPlanState) {
+  const token = sha256(canonicalJson({
+    schema_version: 1,
+    terminal_plan_state_sha256: terminalPlanState.sha256,
+    output_path: record.output_path,
+    after_sha256: record.after_sha256,
+    after_bytes: record.after_bytes,
+  }));
+  return `${pathname}.a2-terminal-${token}.tmp`;
+}
+
+async function removeVerifiedFile(pathname, record, label) {
+  const current = await lstat(pathname, { bigint: true });
+  if (!current.isFile()
+    || current.isSymbolicLink()
+    || current.nlink !== 1n
+    || String(current.dev) !== record.dev
+    || String(current.ino) !== record.ino) {
+    throw new Error(`${label} changed before removal`);
   }
+  await unlink(pathname);
+  await syncDirectory(path.dirname(pathname));
+}
+
+export async function recoverableTerminalAtomicReplace(
+  root,
+  pathname,
+  raw,
+  record,
+  terminalPlanState,
+  dependencies = {},
+) {
+  const temporary = terminalTransactionTemporaryPath(pathname, record, terminalPlanState);
+  let temporaryRecord = await lstat(temporary).then(
+    () => readStableFileRecord(root, temporary, `deterministic terminal temp for ${record.output_path}`),
+    (error) => {
+      if (error?.code === 'ENOENT') return null;
+      throw error;
+    },
+  );
+  if (temporaryRecord
+    && (temporaryRecord.sha256 !== record.after_sha256
+      || temporaryRecord.bytes !== record.after_bytes
+      || !temporaryRecord.raw.equals(raw))) {
+    throw new Error(
+      `deterministic terminal temp is neither exact after nor safely absent: ${record.output_path}`,
+    );
+  }
+  const current = await readStableFileRecord(root, pathname, `terminal control ${record.output_path}`);
+  if (current.sha256 === record.after_sha256 && current.bytes === record.after_bytes) {
+    if (temporaryRecord) {
+      await removeVerifiedFile(
+        temporary,
+        temporaryRecord,
+        `deterministic terminal temp for ${record.output_path}`,
+      );
+    }
+    return;
+  }
+  if (current.sha256 !== record.before_sha256 || current.bytes !== record.before_bytes) {
+    throw new Error(
+      `terminal control is neither exact before nor exact after: ${record.output_path} `
+      + `(actual ${current.sha256}/${current.bytes}, before ${record.before_sha256}/${record.before_bytes}, `
+      + `after ${record.after_sha256}/${record.after_bytes})`,
+    );
+  }
+  if (!temporaryRecord) {
+    await writeDurableFile(temporary, raw);
+    await syncDirectory(path.dirname(temporary));
+    temporaryRecord = await readStableFileRecord(
+      root,
+      temporary,
+      `deterministic terminal temp for ${record.output_path}`,
+    );
+    if (temporaryRecord.sha256 !== record.after_sha256
+      || temporaryRecord.bytes !== record.after_bytes
+      || !temporaryRecord.raw.equals(raw)) {
+      throw new Error(`deterministic terminal temp did not persist exact after bytes: ${record.output_path}`);
+    }
+    await dependencies.afterTerminalTempSync?.(temporary, record.output_path);
+  }
+  const targetBeforeRename = await readStableFileRecord(
+    root,
+    pathname,
+    `terminal control ${record.output_path}`,
+  );
+  if (targetBeforeRename.sha256 !== record.before_sha256
+    || targetBeforeRename.bytes !== record.before_bytes) {
+    throw new Error(`terminal control changed before deterministic rename: ${record.output_path}`);
+  }
+  await rename(temporary, pathname);
+  await syncDirectory(path.dirname(pathname));
 }
 
 async function writeEvidenceFile(root, basename, raw) {
@@ -485,7 +579,7 @@ async function verifyExactAuthorityArtifacts({
   };
 }
 
-async function loadExistingIncidentArchive(profile) {
+async function loadExistingIncidentArchive(profile, runtimeManifest) {
   const paths = operatorContinuationPaths(profile.evidenceBaseRoot, profile.documentId, profile.attempt);
   const present = await lstat(paths.root).then(() => true, (error) => {
     if (error?.code === 'ENOENT') return false;
@@ -493,17 +587,26 @@ async function loadExistingIncidentArchive(profile) {
   });
   if (!present) return null;
   await requireStableDirectory(paths.root, 'existing continuation evidence', { mode: 0o700 });
-  const [receiptRecord, runStatusRecord, statusRecord, stateRecord, logRecord, inventoryRecord] = await Promise.all([
+  const [
+    receiptRecord,
+    runStatusRecord,
+    statusRecord,
+    stateRecord,
+    logRecord,
+    inventoryRecord,
+    runtimeManifestRecord,
+  ] = await Promise.all([
     readStableFileWithSidecarRecord(paths.root, paths.receipt, 'existing continuation receipt'),
     readStableFileWithSidecarRecord(paths.root, paths.interruptedRunStatus, 'archived interrupted run status'),
     readStableFileWithSidecarRecord(paths.root, paths.interruptedStatus, 'archived interrupted document status'),
     readStableFileWithSidecarRecord(paths.root, paths.interruptedState, 'archived interrupted state'),
     readStableFileWithSidecarRecord(paths.root, paths.preContinuationLog, 'archived pre-continuation log'),
     readStableFileWithSidecarRecord(paths.root, paths.documentInventory, 'archived document inventory'),
+    readStableFileWithSidecarRecord(paths.root, paths.runtimeManifest, 'archived continuation runtime manifest'),
   ]);
   const receipt = parseJson(receiptRecord.raw, 'existing continuation receipt');
   const inventory = parseJson(inventoryRecord.raw, 'archived document inventory');
-  if (receipt.schema_version !== 2
+  if (receipt.schema_version !== 3
     || receipt.receipt_type !== receiptType
     || receipt.mode !== continuationMode
     || receipt.profile_sha256 !== a2ForwardContinuationProfileFingerprint(profile)
@@ -514,9 +617,15 @@ async function loadExistingIncidentArchive(profile) {
     || receipt.document?.attempt !== profile.attempt
     || receipt.authorization?.worker_invocation_id !== profile.workerInvocationId
     || receipt.authorization?.interrupted_at !== profile.interruptedAt
+    || receipt.authorization?.runtime_manifest?.path !== 'runtime-manifest.json'
+    || receipt.authorization?.runtime_manifest?.sha256 !== runtimeManifest.sha256
+    || receipt.authorization?.runtime_manifest?.bytes !== runtimeManifest.bytes
+    || receipt.authorization?.runtime_manifest?.runtime_tree_sha256 !== runtimeManifest.runtime_tree_sha256
+    || receipt.authorization?.runtime_manifest?.files !== runtimeManifest.files
     || receipt.citation_allowed !== false) {
     throw new Error('existing continuation receipt is not the frozen A2 incident');
   }
+  validateArchivedA2ContinuationRuntimeManifest(runtimeManifestRecord.raw, runtimeManifest);
   const basis = { ...receipt };
   delete basis.continuation_id;
   if (receipt.continuation_id !== sha256(canonicalJson(basis))) {
@@ -558,10 +667,11 @@ async function loadExistingIncidentArchive(profile) {
     logRecord,
     inventory,
     inventoryRecord,
+    runtimeManifestRecord,
   };
 }
 
-async function inspectInterruptedState(options, profile) {
+async function inspectInterruptedState(options, profile, runtimeManifest) {
   const outputRoot = await realpath(options.outputRoot);
   const inputRoot = await realpath(options.inputRoot);
   const incidentEvidenceRoot = await realpath(profile.incidentEvidenceRoot);
@@ -602,7 +712,7 @@ async function inspectInterruptedState(options, profile) {
   const runStatusPath = path.join(outputRoot, 'run-status.json');
   const logPath = path.join(outputRoot, 'logs', `${options.documentId}.log`);
   const statePath = path.join(documentRoot, 'state.json');
-  const archivedIncident = await loadExistingIncidentArchive(profile);
+  const archivedIncident = await loadExistingIncidentArchive(profile, runtimeManifest);
   const liveRecords = await Promise.all([
     readStrictFile(path.join(outputRoot, 'run-identity.json'), 'run identity'),
     readStrictFileWithSidecar(path.join(outputRoot, 'seed-receipt.json'), 'seed receipt'),
@@ -842,7 +952,7 @@ async function inspectInterruptedState(options, profile) {
     },
   };
   const receiptBasis = {
-    schema_version: 2,
+    schema_version: 3,
     receipt_type: receiptType,
     mode: continuationMode,
     output: {
@@ -873,6 +983,13 @@ async function inspectInterruptedState(options, profile) {
       incident_evidence_tree_sha256: incidentTree.tree_sha256,
       base_runner_path: baseRunnerPath,
       base_runner_sha256: profile.baseRunnerSha256,
+      runtime_manifest: {
+        path: 'runtime-manifest.json',
+        sha256: runtimeManifest.sha256,
+        bytes: runtimeManifest.bytes,
+        runtime_tree_sha256: runtimeManifest.runtime_tree_sha256,
+        files: runtimeManifest.files,
+      },
     },
     timeout_recovery: {
       seed_id: identitySeed.seed_id,
@@ -929,6 +1046,7 @@ async function inspectInterruptedState(options, profile) {
     progress,
     receipt,
     receiptDocument,
+    runtimeManifest,
     runStatus,
     runStatusEvidence,
     runStatusPath,
@@ -1082,6 +1200,8 @@ async function publishReceipt(inspected, options, profile) {
       'pre-continuation.log.sha256',
       'document-inventory.json',
       'document-inventory.json.sha256',
+      'runtime-manifest.json',
+      'runtime-manifest.json.sha256',
       'states',
       'claim.json',
       'claim.json.sha256',
@@ -1098,6 +1218,7 @@ async function publishReceipt(inspected, options, profile) {
       [paths.interruptedState, inspected.stateRaw, 'archived interrupted state'],
       [paths.preContinuationLog, inspected.logRaw, 'archived pre-continuation log'],
       [paths.documentInventory, prettyJson(inspected.documentInventory), 'archived document inventory'],
+      [paths.runtimeManifest, inspected.runtimeManifest.raw, 'archived continuation runtime manifest'],
     ]) {
       const evidence = await readStrictFileWithSidecar(pathname, label);
       if (!evidence.raw.equals(raw)) throw new Error(`${label} differs from the authorized incident`);
@@ -1115,6 +1236,7 @@ async function publishReceipt(inspected, options, profile) {
       writeEvidenceFile(temporary, 'interrupted-state.json', inspected.stateRaw),
       writeEvidenceFile(temporary, 'pre-continuation.log', inspected.logRaw),
       writeEvidenceFile(temporary, 'document-inventory.json', prettyJson(inspected.documentInventory)),
+      writeEvidenceFile(temporary, 'runtime-manifest.json', inspected.runtimeManifest.raw),
       writeEvidenceFile(temporary, 'receipt.json', receiptRaw),
     ]);
     await mkdir(path.join(temporary, 'states'), { mode: 0o700 });
@@ -1383,6 +1505,148 @@ async function inspectPreSpawnUnits(profile, activeLlama, dependencies = {}) {
   const result = await inspectContinuationFenceUnits(profile, dependencies);
   result.llama = await inspectActiveLlama(profile, activeLlama.InvocationID, dependencies);
   return result;
+}
+
+function processEnvironmentMatches(raw, spawnNonce, commandSha256, separator) {
+  const entries = separator === '\0'
+    ? raw.toString('utf8').split('\0')
+    : raw.toString('utf8').split(/\s+/u);
+  return entries.includes(`${spawnNonceEnvironmentKey}=${spawnNonce}`)
+    && entries.includes(`${commandShaEnvironmentKey}=${commandSha256}`);
+}
+
+async function findOwnedOcrProcesses(executionState) {
+  const spawnNonce = executionState.value.spawn_nonce;
+  const commandSha256 = executionState.value.ocr_command_sha256;
+  const currentUid = typeof process.getuid === 'function' ? process.getuid() : null;
+  const matches = [];
+  if (process.platform === 'linux') {
+    const pids = (await readdir('/proc')).filter((name) => /^[1-9]\d*$/u.test(name));
+    for (const textPid of pids) {
+      const pid = Number(textPid);
+      if (pid === process.pid) continue;
+      const processRoot = `/proc/${textPid}`;
+      try {
+        const info = await lstat(processRoot);
+        if (currentUid !== null && info.uid !== currentUid) continue;
+        const environment = await readFile(path.join(processRoot, 'environ'));
+        if (processEnvironmentMatches(environment, spawnNonce, commandSha256, '\0')) {
+          matches.push({ pid, uid: info.uid });
+        }
+      } catch (error) {
+        if (['ENOENT', 'EACCES', 'EPERM'].includes(error?.code)) continue;
+        throw error;
+      }
+    }
+    return matches;
+  }
+  const { stdout } = await execFile('/bin/ps', ['-axo', 'pid=,uid='], {
+    encoding: 'utf8',
+    maxBuffer: 2 * 1024 * 1024,
+  });
+  for (const line of String(stdout).trim().split('\n')) {
+    const match = /^\s*([1-9]\d*)\s+([0-9]+)\s*$/u.exec(line);
+    if (!match) continue;
+    const pid = Number(match[1]);
+    const uid = Number(match[2]);
+    if (pid === process.pid || (currentUid !== null && uid !== currentUid)) continue;
+    try {
+      const observed = await execFile('/bin/ps', ['eww', '-p', String(pid), '-o', 'command='], {
+        encoding: 'utf8',
+        maxBuffer: 512 * 1024,
+      });
+      if (processEnvironmentMatches(Buffer.from(observed.stdout), spawnNonce, commandSha256, ' ')) {
+        matches.push({ pid, uid });
+      }
+    } catch (error) {
+      if (error?.code === 1 || error?.code === 'ESRCH') continue;
+      throw error;
+    }
+  }
+  return matches;
+}
+
+function processIsAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error?.code === 'ESRCH') return false;
+    throw error;
+  }
+}
+
+async function terminateExactProcess(pid, graceMilliseconds = 2_000) {
+  if (!Number.isSafeInteger(pid) || pid < 1 || pid === process.pid) {
+    throw new Error('owned OCR process PID is invalid');
+  }
+  if (!processIsAlive(pid)) return;
+  process.kill(pid, 'SIGTERM');
+  const deadline = Date.now() + graceMilliseconds;
+  while (Date.now() < deadline) {
+    if (!processIsAlive(pid)) return;
+    await delay(25);
+  }
+  if (processIsAlive(pid)) process.kill(pid, 'SIGKILL');
+  const killDeadline = Date.now() + 2_000;
+  while (Date.now() < killDeadline) {
+    if (!processIsAlive(pid)) return;
+    await delay(25);
+  }
+  throw new Error(`owned OCR process ${pid} did not terminate`);
+}
+
+export async function reconcileOwnedContinuationExecution(profile, executionState, dependencies = {}) {
+  if (!executionState?.value
+    || !sha256Pattern.test(String(executionState.value.spawn_nonce || ''))
+    || !sha256Pattern.test(String(executionState.value.ocr_command_sha256 || ''))
+    || !invocationIdPattern.test(String(executionState.value.llama_invocation_id || ''))
+    || !/^[1-9]\d*$/u.test(String(executionState.value.llama_main_pid || ''))) {
+    throw new Error('running journal does not contain an exact owned execution identity');
+  }
+  const findProcesses = dependencies.findOwnedOcrProcesses || findOwnedOcrProcesses;
+  const ownedProcesses = await findProcesses(executionState);
+  if (!Array.isArray(ownedProcesses)
+    || new Set(ownedProcesses.map(({ pid }) => pid)).size !== ownedProcesses.length) {
+    throw new Error('running journal resolves to an invalid owned OCR process set');
+  }
+  const inspectUnit = dependencies.inspectUnit || inspectSystemdUnit;
+  const llama = await inspectUnit(profile.llamaUnit, 'llama');
+  const llamaActive = llama.LoadState === 'loaded'
+    && llama.ActiveState === 'active'
+    && llama.SubState === 'running';
+  if (llamaActive
+    && (llama.InvocationID !== executionState.value.llama_invocation_id
+      || llama.MainPID !== executionState.value.llama_main_pid)) {
+    throw new Error('active llama unit is not owned by the running journal identity');
+  }
+  if (!llamaActive) requireQuiescentUnit(llama, profile.llamaUnit, 'llama');
+  for (const owned of ownedProcesses) {
+    const currentUid = typeof process.getuid === 'function' ? process.getuid() : owned.uid;
+    if (!Number.isSafeInteger(owned.pid)
+      || owned.pid < 1
+      || owned.pid === process.pid
+      || owned.uid !== currentUid) {
+      throw new Error('owned OCR process identity is unsafe');
+    }
+  }
+  const terminate = dependencies.terminateOwnedOcrProcess || terminateExactProcess;
+  await Promise.all(ownedProcesses.map(({ pid }) => terminate(
+    pid,
+    dependencies.ownedProcessGraceMilliseconds,
+  )));
+  if (llamaActive) await stopExactLlama(profile, dependencies);
+  const remaining = await findProcesses(executionState);
+  if (!Array.isArray(remaining) || remaining.length !== 0) {
+    throw new Error('owned OCR process remained after recovery');
+  }
+  const stoppedLlama = await inspectUnit(profile.llamaUnit, 'llama');
+  requireQuiescentUnit(stoppedLlama, profile.llamaUnit, 'llama');
+  return {
+    terminated_ocr_pid: ownedProcesses[0]?.pid || null,
+    terminated_ocr_pids: ownedProcesses.map(({ pid }) => pid).sort((left, right) => left - right),
+    stopped_llama: llamaActive,
+  };
 }
 
 function monitoringPolicy(options, pageCount) {
@@ -1755,26 +2019,36 @@ function validateJournalProgression(states, claim, expectedUnitFence) {
     const running = states[index];
     requireExactStateKeys(
       running.value,
-      ['started_at', 'llama_invocation_id', 'llama_main_pid'],
+      ['started_at', 'llama_invocation_id', 'llama_main_pid', 'spawn_nonce', 'ocr_command_sha256'],
       'operator continuation running state',
     );
     if (running.value.stage !== 'running'
       || running.value.started_at !== claim.claim.claimed_at
       || !invocationIdPattern.test(String(running.value.llama_invocation_id || ''))
-      || !/^[1-9]\d*$/u.test(String(running.value.llama_main_pid || ''))) {
+      || !/^[1-9]\d*$/u.test(String(running.value.llama_main_pid || ''))
+      || !sha256Pattern.test(String(running.value.spawn_nonce || ''))
+      || !sha256Pattern.test(String(running.value.ocr_command_sha256 || ''))) {
       throw new Error('operator continuation running state is invalid');
     }
     executionStates.push(running);
     index += 1;
   }
   const invocationIds = new Set(executionStates.map(({ value }) => value.llama_invocation_id));
+  const spawnNonces = new Set(executionStates.map(({ value }) => value.spawn_nonce));
   let resumeOrdinal = 1;
   while (states[index] && /^resume_running_\d{4}$/u.test(states[index].value.stage)) {
     const resumed = states[index];
     const expectedStage = `resume_running_${String(resumeOrdinal).padStart(4, '0')}`;
     requireExactStateKeys(
       resumed.value,
-      ['resumed_at', 'llama_invocation_id', 'llama_main_pid', 'resumed_from_state_sha256'],
+      [
+        'resumed_at',
+        'llama_invocation_id',
+        'llama_main_pid',
+        'spawn_nonce',
+        'ocr_command_sha256',
+        'resumed_from_state_sha256',
+      ],
       `operator continuation ${expectedStage} state`,
     );
     const predecessor = executionStates.at(-1);
@@ -1784,7 +2058,10 @@ function validateJournalProgression(states, claim, expectedUnitFence) {
       || resumed.value.resumed_from_state_sha256 !== predecessor.sha256
       || !invocationIdPattern.test(String(resumed.value.llama_invocation_id || ''))
       || invocationIds.has(resumed.value.llama_invocation_id)
-      || !/^[1-9]\d*$/u.test(String(resumed.value.llama_main_pid || ''))) {
+      || spawnNonces.has(resumed.value.spawn_nonce)
+      || !/^[1-9]\d*$/u.test(String(resumed.value.llama_main_pid || ''))
+      || !sha256Pattern.test(String(resumed.value.spawn_nonce || ''))
+      || !sha256Pattern.test(String(resumed.value.ocr_command_sha256 || ''))) {
       throw new Error('operator continuation resume_running chain is invalid');
     }
     requireCanonicalTimestamp(resumed.value.resumed_at, 'operator continuation resume time');
@@ -1792,6 +2069,7 @@ function validateJournalProgression(states, claim, expectedUnitFence) {
       throw new Error('operator continuation resume_running chronology is invalid');
     }
     invocationIds.add(resumed.value.llama_invocation_id);
+    spawnNonces.add(resumed.value.spawn_nonce);
     executionStates.push(resumed);
     resumeOrdinal += 1;
     index += 1;
@@ -1859,6 +2137,75 @@ async function recoverTrailingJournalPair(paths, claim, expectedUnitFence) {
   scanned = await scanJournal(paths, claim);
   validateJournalProgression(scanned.states, claim, expectedUnitFence);
   return scanned;
+}
+
+async function loadExistingRecoveryJournal(profile, runtimeManifest, currentUnitFence) {
+  const paths = operatorContinuationPaths(profile.evidenceBaseRoot, profile.documentId, profile.attempt);
+  const rootPresent = await lstat(paths.root).then(() => true, (error) => {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  });
+  if (!rootPresent) return null;
+  const root = await requireStableDirectory(paths.root, 'existing continuation recovery root', { mode: 0o700 });
+  const claimPresent = await lstat(paths.claim).then(() => true, (error) => {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  });
+  const claimSidecarPresent = await lstat(paths.claimSidecar).then(() => true, (error) => {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  });
+  if (!claimPresent || !claimSidecarPresent) return null;
+  const [receiptRecord, claimRecord, archivedRuntimeManifest] = await Promise.all([
+    readStableFileWithSidecarRecord(paths.root, paths.receipt, 'existing continuation recovery receipt'),
+    readStableFileWithSidecarRecord(paths.root, paths.claim, 'existing continuation recovery claim'),
+    readStableFileWithSidecarRecord(paths.root, paths.runtimeManifest, 'existing continuation recovery runtime manifest'),
+  ]);
+  const receipt = parseJson(receiptRecord.raw, 'existing continuation recovery receipt');
+  const claimValue = parseJson(claimRecord.raw, 'existing continuation recovery claim');
+  validateArchivedA2ContinuationRuntimeManifest(archivedRuntimeManifest.raw, runtimeManifest);
+  const receiptBasis = { ...receipt };
+  delete receiptBasis.continuation_id;
+  const claimBasis = { ...claimValue };
+  delete claimBasis.claim_id;
+  if (receipt.schema_version !== 3
+    || receipt.receipt_type !== receiptType
+    || receipt.mode !== continuationMode
+    || receipt.profile_sha256 !== a2ForwardContinuationProfileFingerprint(profile)
+    || receipt.continuation_id !== sha256(canonicalJson(receiptBasis))
+    || receipt.output?.root !== profile.outputRoot
+    || receipt.output?.device !== profile.outputDevice
+    || receipt.output?.inode !== profile.outputInode
+    || receipt.document?.document_id !== profile.documentId
+    || receipt.document?.attempt !== profile.attempt
+    || receipt.authorization?.worker_invocation_id !== profile.workerInvocationId
+    || receipt.authorization?.runtime_manifest?.sha256 !== runtimeManifest.sha256
+    || claimValue.schema_version !== 2
+    || claimValue.claim_type !== claimType
+    || claimValue.mode !== continuationMode
+    || claimValue.continuation_id !== receipt.continuation_id
+    || claimValue.receipt_sha256 !== receiptRecord.sha256
+    || claimValue.output?.root !== profile.outputRoot
+    || claimValue.output?.device !== profile.outputDevice
+    || claimValue.output?.inode !== profile.outputInode
+    || claimValue.evidence_root?.path !== paths.root
+    || claimValue.evidence_root?.device !== String(root.info.dev)
+    || claimValue.evidence_root?.inode !== String(root.info.ino)
+    || claimValue.document_id !== profile.documentId
+    || claimValue.attempt !== profile.attempt
+    || claimValue.profile_sha256 !== receipt.profile_sha256
+    || claimValue.claim_id !== sha256(canonicalJson(claimBasis))
+    || claimValue.citation_allowed !== false) {
+    throw new Error('existing recovery journal authority is not the exact frozen continuation claim');
+  }
+  const claim = { claim: claimValue, raw: claimRecord.raw, sha256: claimRecord.sha256 };
+  let scanned = await scanJournal(paths, claim);
+  if (scanned.states.length === 0) return { paths, claim, progression: null };
+  const claimedFence = scanned.states[0].value.quiescent_unit_fence;
+  requireSameContinuationUnitFence(currentUnitFence, claimedFence);
+  scanned = await recoverTrailingJournalPair(paths, claim, claimedFence);
+  const progression = validateJournalProgression(scanned.states, claim, claimedFence);
+  return { paths, claim, progression, claimedFence };
 }
 
 async function appendJournalState(paths, claim, stage, payload, dependencies = {}) {
@@ -1949,19 +2296,14 @@ async function applyTerminalTransaction(inspected, terminalPlanState, dependenci
   for (let index = 0; index < plan.transaction.length; index += 1) {
     await dependencies.transactionGuard?.(`before_terminal_replacement_${index + 1}`);
     const record = plan.transaction[index];
-    const current = await readStableFileRecord(inspected.outputRoot, record.pathname, `terminal control ${record.output_path}`);
-    if (current.sha256 === record.after_sha256 && current.bytes === record.after_bytes) {
-      await dependencies.transactionGuard?.(`after_terminal_replacement_${index + 1}`);
-      continue;
-    }
-    if (current.sha256 !== record.before_sha256 || current.bytes !== record.before_bytes) {
-      throw new Error(
-        `terminal control is neither exact before nor exact after: ${record.output_path} `
-        + `(actual ${current.sha256}/${current.bytes}, before ${record.before_sha256}/${record.before_bytes}, `
-        + `after ${record.after_sha256}/${record.after_bytes})`,
-      );
-    }
-    await durableAtomicReplace(record.pathname, record.after);
+    await recoverableTerminalAtomicReplace(
+      inspected.outputRoot,
+      record.pathname,
+      record.after,
+      record,
+      terminalPlanState,
+      dependencies,
+    );
     await dependencies.afterTerminalReplacement?.(index + 1, record.output_path);
     await dependencies.transactionGuard?.(`after_terminal_replacement_${index + 1}`);
   }
@@ -2007,6 +2349,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
     dependencies.incidentProfile || EXACT_A2_FORWARD_CONTINUATION_INCIDENT,
   );
   validateOptions(options, profile);
+  const runtimeManifest = await validateA2ContinuationRuntimeManifest();
   const lock = dependencies.acquireLifecycleLock || acquireLifecycleLock;
   const releaseLock = await lock(profile.lifecycleLock);
   const assertLockHeld = async () => {
@@ -2053,6 +2396,18 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
   }
   try {
     await assertLockHeld();
+    const recoveryFenceUnits = await inspectContinuationFenceUnits(profile, dependencies);
+    const existingRecovery = await loadExistingRecoveryJournal(
+      profile,
+      runtimeManifest,
+      recoveryFenceUnits,
+    );
+    const priorExecutionState = existingRecovery?.progression?.executionStates.at(-1) || null;
+    if (priorExecutionState && options.apply === true) {
+      await reconcileOwnedContinuationExecution(profile, priorExecutionState, dependencies);
+      const recoveredFenceUnits = await inspectContinuationFenceUnits(profile, dependencies);
+      requireSameContinuationUnitFence(recoveredFenceUnits, existingRecovery.claimedFence);
+    }
     const initialUnits = await inspectA2ContinuationUnits(profile, dependencies);
     frozenUnitFence = continuationUnitFence(initialUnits);
     const transactionGuard = async () => {
@@ -2066,7 +2421,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       expectedUnitFence: frozenUnitFence,
       transactionGuard,
     };
-    const inspected = await inspectInterruptedState(options, profile);
+    const inspected = await inspectInterruptedState(options, profile, runtimeManifest);
     const paths = operatorContinuationPaths(profile.evidenceBaseRoot, options.documentId, options.attempt);
     if (options.apply !== true) {
       return {
@@ -2183,6 +2538,26 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       sourceSha256: inspected.document.source_sha256,
       pageCount: inspected.document.page_count,
     };
+    const commandArguments = [
+      activeRuntime?.ocrScriptPath || options.ocrScript,
+      options.documentId,
+      source.sourcePath || path.join(inspected.inputRoot, inspected.document.source_path),
+      path.join(inspected.outputRoot, 'documents'),
+      '--llama-url', options.llamaUrl,
+      '--dpi', String(inspected.identity.runtime.render_dpi),
+      '--vl-rec-max-concurrency', String(options.vlRecMaxConcurrency),
+      '--server-parallel', String(options.serverParallel),
+      '--micro-batch', String(options.microBatch),
+      '--runtime-device', options.runtimeDevice,
+      '--use-queues',
+      '--seed-id', inspected.identity.seed_lineage.seed_id,
+      '--seed-predecessor-run-identity-sha256',
+      inspected.identity.seed_lineage.predecessor_run_identity_sha256,
+      '--seed-predecessor-configuration-sha256',
+      inspected.receiptDocument.predecessor_configuration_sha256,
+    ];
+    const spawnNonce = sha256(randomUUID());
+    const ocrCommandSha256 = sha256(canonicalJson([options.python, ...commandArguments]));
     const previousExecutionState = progression.executionStates.at(-1);
     const executionStage = previousExecutionState
       ? `resume_running_${String(progression.executionStates.length).padStart(4, '0')}`
@@ -2203,35 +2578,21 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       resumed_at: executionTimestamp,
       llama_invocation_id: activeLlama.InvocationID,
       llama_main_pid: activeLlama.MainPID,
+      spawn_nonce: spawnNonce,
+      ocr_command_sha256: ocrCommandSha256,
       resumed_from_state_sha256: previousExecutionState.sha256,
     } : {
       started_at: executionTimestamp,
       llama_invocation_id: activeLlama.InvocationID,
       llama_main_pid: activeLlama.MainPID,
+      spawn_nonce: spawnNonce,
+      ocr_command_sha256: ocrCommandSha256,
     }, guardedDependencies);
     await transactionGuard('after_execution_state');
     const preSpawnUnits = await inspectPreSpawnUnits(profile, activeLlama, dependencies);
     requireSameContinuationUnitFence(preSpawnUnits, frozenUnitFence);
     await verifyFrozenPreSpawnSnapshot(inspected, profile);
 
-    const commandArguments = [
-      activeRuntime?.ocrScriptPath || options.ocrScript,
-      options.documentId,
-      source.sourcePath || path.join(inspected.inputRoot, inspected.document.source_path),
-      path.join(inspected.outputRoot, 'documents'),
-      '--llama-url', options.llamaUrl,
-      '--dpi', String(inspected.identity.runtime.render_dpi),
-      '--vl-rec-max-concurrency', String(options.vlRecMaxConcurrency),
-      '--server-parallel', String(options.serverParallel),
-      '--micro-batch', String(options.microBatch),
-      '--runtime-device', options.runtimeDevice,
-      '--use-queues',
-      '--seed-id', inspected.identity.seed_lineage.seed_id,
-      '--seed-predecessor-run-identity-sha256',
-      inspected.identity.seed_lineage.predecessor_run_identity_sha256,
-      '--seed-predecessor-configuration-sha256',
-      inspected.receiptDocument.predecessor_configuration_sha256,
-    ];
     const invoke = dependencies.invokeOcr || invokeOcrChild;
     let childResult;
     let invocationError;
@@ -2240,6 +2601,8 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
         env: {
           ...process.env,
           PADDLE_PDX_CACHE_HOME: inspected.identity.worker_configuration.paddlex_cache_home,
+          [spawnNonceEnvironmentKey]: spawnNonce,
+          [commandShaEnvironmentKey]: ocrCommandSha256,
         },
         logPath: inspected.logPath,
         documentRoot: inspected.documentRoot,

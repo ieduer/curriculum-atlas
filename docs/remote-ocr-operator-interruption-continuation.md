@@ -59,7 +59,7 @@ after child exit, before terminal durability, and during closeout; unlink-and-re
 though the old descriptor still owns a flock. A failed stop or final gate is fatal, but closeout
 still releases the flock rather than orphaning it.
 
-The first gate requires these five units to be loaded, quiescent, and process-free:
+On a new claim, the first gate requires these five units to be loaded, quiescent, and process-free:
 
 1. `curriculum-ocr-reprocess-a-r2.service`;
 2. `curriculum-ocr-reprocess-a-r2-monitor.service`;
@@ -78,6 +78,15 @@ InvocationID, every frozen control hash, output/evidence/lifecycle identities, p
 directory identities, and the log inode. Closeout stops llama and proves all five units quiescent
 and the four-unit fence unchanged, reporting any stop/gate/release failures together.
 
+After an abrupt process death, restart first validates the archived receipt/claim/runtime manifest
+and the frozen four-unit fence. A trailing `running`/`resume_running_NNNN` state owns an OCR process
+family only through its random 256-bit spawn nonce plus exact command SHA-256 in the process
+environment, and owns llama only through the recorded systemd InvocationID/MainPID. Restart refuses
+a different active llama identity before signalling anything. It terminates every current-UID OCR
+process carrying both exact values, stops only the exact llama invocation, proves both are gone and
+all five units are quiescent, and only then rescans the journal and starts a new invocation of the
+same attempt 6. A dry run never performs this recovery mutation.
+
 ## Disjoint, crash-resumable evidence
 
 Continuation evidence is outside the monitored output root, under:
@@ -92,6 +101,7 @@ Continuation evidence is outside the monitored output root, under:
     interrupted-state.json{,.sha256}
     pre-continuation.log{,.sha256}
     document-inventory.json{,.sha256}
+    runtime-manifest.json{,.sha256}
     states/
       000001-claimed.json{,.sha256}
       000002-running.json{,.sha256}
@@ -111,9 +121,28 @@ four exact before/after records. Each live file must be exactly before or exactl
 can finish a partially applied four-file transaction without rerunning OCR. Recovery reads and
 applies an existing `terminal_plan` before calling the ordinary seed verifier; this ordering covers
 crashes after zero through four replacements. The terminal journal is append-only and hash chained.
-Every restarted child receives the next contiguous `resume_running_NNNN` state, with a new verified
-llama InvocationID/PID and the SHA-256 of the preceding execution state; an InvocationID may never
-be reused in the chain.
+Every `running` state also binds a unique 256-bit spawn nonce and the exact Python/argument command
+SHA-256; both are injected into the child environment so an abrupt-death restart can distinguish
+owned descendants from unrelated processes. Every restarted child receives the next contiguous
+`resume_running_NNNN` state, with a new verified llama InvocationID/PID, a fresh spawn nonce, and the
+SHA-256 of the preceding execution state. Neither an InvocationID nor a spawn nonce may be reused in
+the chain.
+
+Each terminal record uses a deterministic temp pathname derived from the immutable terminal-plan
+state SHA-256, output path, and exact after hash/byte count. The temp is current-owner, mode-0600,
+single-link and opened with `O_NOFOLLOW`; it is fsynced with its parent directory before rename. On
+restart, an exact-after temp is reused (or removed if the target is already after), absence is safe,
+and any third bytes fail closed. This makes a real process death between temp fsync and rename
+recoverable without accepting an unbound orphan temp.
+
+The checked-in `data/remote-ocr-a2-continuation-runtime-manifest.json` independently lists and hashes
+the complete relative-import closure actually executed by the continuation entrypoint, including
+the continuation script, validator library, immutable base runner, monitor and repair dependencies.
+The manifest deliberately does not hash itself, avoiding a fixed-point/self-hash claim. Its raw
+bytes, file count and runtime tree hash are embedded in receipt authorization and archived as the
+hash-bound `runtime-manifest.json` pair. Startup recomputes the closure before taking the lock;
+validator and receiver compare the archive against their own trusted checked-in manifest and local
+source bytes.
 
 ## Forward-only output rules
 
@@ -173,6 +202,8 @@ exact A2 root, omission is fatal. Evidence on any non-A2 shard is also fatal. Th
   manifest identity;
 - validates receipt, claim, all sidecars, state hash chain, terminal complete/exit 0, and evidence
   directory inode binding;
+- independently recomputes its local continuation runtime closure and requires the archived runtime
+  manifest plus receipt descriptor to match byte-for-byte;
 - independently rechecks live complete attempt 6, strict forward-only tree, and append-only log;
 - accepts the extra `forward_document_tree` and `append_only_log` terminal artifacts only when they
   exactly equal the already-validated continuation output for that document;
