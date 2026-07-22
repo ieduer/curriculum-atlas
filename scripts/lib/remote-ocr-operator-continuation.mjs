@@ -33,8 +33,7 @@ export const OPERATOR_CONTINUATION_CLAIM_TYPE =
   'curriculum_remote_ocr_operator_interruption_continuation_claim';
 export const OPERATOR_CONTINUATION_MODE = 'same_granted_attempt_forward_continuation';
 
-// This is intentionally incomplete. The executable must stay fail-closed until
-// the remaining values are recovered by an independently approved, read-only
+// These values were recovered by an independently verified, read-only
 // inspection of the frozen A2 incident. They are not CLI inputs: a caller may
 // not turn its own assertions into authority.
 export const EXACT_A2_FORWARD_CONTINUATION_INCIDENT = Object.freeze({
@@ -54,7 +53,7 @@ export const EXACT_A2_FORWARD_CONTINUATION_INCIDENT = Object.freeze({
   incidentEvidenceMode: '0700',
   incidentEvidenceUid: '1000',
   incidentEvidenceGid: '1000',
-  incidentEvidenceTreeSha256: null,
+  incidentEvidenceTreeSha256: 'ecad58b65032556b52e274055bde314aa479f58ab19d54bd9c861b1681e5d2c6',
   documentId: 'legacy-compendium-english',
   attempt: 6,
   inheritedAttempts: 5,
@@ -96,10 +95,10 @@ export const EXACT_A2_FORWARD_CONTINUATION_INCIDENT = Object.freeze({
   predecessorEvidenceTreeBytes: 3283852,
   rearmRepairId: 'a08b53ee30c0320bc8c2783df1087392a42e33a283a776630206a857412b7dc6',
   rearmEvidenceRoot: '/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/a2-deploy-evidence/20260719T003812Z/a08b53ee30c0320bc8c2783df1087392a42e33a283a776630206a857412b7dc6',
-  rearmReceiptSha256: null,
-  rearmReceiptBytes: null,
-  rearmReservationClaimSha256: null,
-  rearmEvidenceTreeSha256: null,
+  rearmReceiptSha256: '05c7d6fae0551ba22527c3353e112fc1ec9bce083f2a627537c089ce76754706',
+  rearmReceiptBytes: 7691,
+  rearmReservationClaimSha256: '91c7433f7169b369c3f980140a0ca8d32db7c83d88d34a15894af229b1ff610b',
+  rearmEvidenceTreeSha256: 'a758aa84cff692c952ce2d0eae8db5c136d1c35c440710981319f534508e86d6',
   rearmAfterStatusSha256: '5a797bc61c1b62130824971276072b680b61dc6369b42a4ee0c569711358c722',
   rearmAfterStatusSidecarSha256: '666016acce233ab6dcf154d3b92a78aafae86ffc2b8e5a129a30d230a2c99eee',
   rearmAfterRunStatusSha256: 'bea326f6c1f079af4781400aed66fff1ac30c44d308a37d78c7617c78f3883e4',

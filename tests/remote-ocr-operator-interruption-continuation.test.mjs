@@ -1114,18 +1114,25 @@ test('caller proofs are rejected and claim pairs recover crash states', async (t
   });
 });
 
-test('production incident profile remains explicitly fail-closed before lock acquisition', async () => {
-  let lockAttempted = false;
-  await assert.rejects(
-    continueOperatorInterruptedAttempt({}, {
-      acquireLifecycleLock: async () => {
-        lockAttempted = true;
-        assert.fail('incomplete frozen profile must fail before lifecycle flock');
-      },
-    }),
-    /profile is incomplete.*incidentEvidenceTreeSha256.*rearmReceiptSha256/u,
+test('production incident profile pins the independently recovered read-only anchors', () => {
+  const profile = validateA2ForwardContinuationProfile(EXACT_A2_FORWARD_CONTINUATION_INCIDENT);
+  assert.equal(
+    profile.incidentEvidenceTreeSha256,
+    'ecad58b65032556b52e274055bde314aa479f58ab19d54bd9c861b1681e5d2c6',
   );
-  assert.equal(lockAttempted, false);
+  assert.equal(
+    profile.rearmReceiptSha256,
+    '05c7d6fae0551ba22527c3353e112fc1ec9bce083f2a627537c089ce76754706',
+  );
+  assert.equal(profile.rearmReceiptBytes, 7691);
+  assert.equal(
+    profile.rearmReservationClaimSha256,
+    '91c7433f7169b369c3f980140a0ca8d32db7c83d88d34a15894af229b1ff610b',
+  );
+  assert.equal(
+    profile.rearmEvidenceTreeSha256,
+    'a758aa84cff692c952ce2d0eae8db5c136d1c35c440710981319f534508e86d6',
+  );
 });
 
 test('continuation evidence is disjoint and monitor output-root allowlist is unchanged', async (t) => {

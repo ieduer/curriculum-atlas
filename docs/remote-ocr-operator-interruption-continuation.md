@@ -4,21 +4,26 @@ This procedure is for one incident only: `legacy-compendium-english`, already-co
 was stopped by the operator after an observer-side `jq` mistake. It does not create another timeout
 grant, reset the attempt count, or authorize attempt 7.
 
-## Current release gate: intentionally blocked
+## Current release gate: anchors pinned, execution still blocked
 
 The executable owns the incident profile in
 `scripts/lib/remote-ocr-operator-continuation.mjs`. Incident identity is not accepted from CLI flags.
-The production profile intentionally contains `null` for independently unconfirmed values:
+An independently verified, bounded, read-only collection pinned the remaining values in the
+candidate profile:
 
-- the complete operator-freeze incident evidence tree SHA-256;
-- the A2 rearm `repair-receipt.json` SHA-256 and byte count;
-- the A2 rearm reservation-claim SHA-256;
-- the complete A2 rearm evidence tree SHA-256.
+- operator-freeze evidence tree SHA-256:
+  `ecad58b65032556b52e274055bde314aa479f58ab19d54bd9c861b1681e5d2c6`;
+- A2 rearm `repair-receipt.json`: 7,691 bytes, SHA-256
+  `05c7d6fae0551ba22527c3353e112fc1ec9bce083f2a627537c089ce76754706`;
+- A2 rearm reservation-claim SHA-256:
+  `91c7433f7169b369c3f980140a0ca8d32db7c83d88d34a15894af229b1ff610b`;
+- A2 rearm evidence tree SHA-256:
+  `a758aa84cff692c952ce2d0eae8db5c136d1c35c440710981319f534508e86d6`.
 
-`validateA2ForwardContinuationProfile()` rejects the profile before acquiring the lifecycle lock or
-reading A2. Do not substitute values from an operator command, a copied tree, or the unrelated
-`22eae7d9...` r5 repair. One independently approved, bounded, read-only collection must recover the
-remaining values; source review must then pin them before any dry run or apply is possible.
+Do not substitute values from an operator command, a copied tree, or the unrelated `22eae7d9...`
+r5 repair. Pinning these anchors does not authorize execution. The exact pin commit still requires
+independent review, the three Linux-only ownership/lock tests, two byte-identical live dry runs, and
+a bounded same-attempt canary before the frozen worker may resume.
 
 ## Frozen identity already recovered
 

@@ -20,8 +20,8 @@
     },
     {
       "path": "scripts/lib/remote-ocr-operator-continuation.mjs",
-      "sha256": "756c9afaf3ab1df8a3ee61a4b04d4fbb6f8299e2a9d47886ec0ee8a2e5ee0673",
-      "bytes": 71939
+      "sha256": "fb5a5619bee33a81fb218ad45d9a4d9fbaa354b24618bb1a342a69328ca4feeb",
+      "bytes": 72100
     },
     {
       "path": "scripts/monitor-remote-ocr-reprocess.mjs",
@@ -44,5 +44,5 @@
       "bytes": 290847
     }
   ],
-  "runtime_tree_sha256": "3d7d0a507e4728fe5a256a7ee36216c5dc36131aaf2023794491dd84462e45fa"
+  "runtime_tree_sha256": "8b645fd61e8f545b8c8971b78976576a7ab2e79daff3953af40f04931c88af78"
 }
