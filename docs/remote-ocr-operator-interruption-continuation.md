@@ -33,7 +33,8 @@ a bounded same-attempt canary before the frozen worker may resume.
 | output root | `.../output/production-p1-mb16-shard-a-r2` |
 | output device / inode | `66306 / 45748776` |
 | lifecycle lock / inode | `.a2-lifecycle.lock / 41590544` |
-| evidence base inode | `42336296` |
+| evidence base inode | `41854492` |
+| monitor directory inode (not an evidence anchor) | `42336296` |
 | operator-freeze evidence inode | `42336297` |
 | document / attempt | `legacy-compendium-english / 6` |
 | worker InvocationID | `cea41604c79f46cfa9483b46d64ad0fd` |
@@ -52,6 +53,10 @@ a bounded same-attempt canary before the frozen worker may resume.
 The source profile also pins the seed receipt/commit/journal, run identity, ledger identity and
 sidecar, timeout issuance and sidecar, predecessor evidence tree, rearm after-state hashes, modes,
 owners, paths, file counts, and byte counts.
+
+The read-only production stat and the original reviewed A2 resume protocol both bind the evidence
+base to inode `41854492`. Inode `42336296` belongs to `monitor-a-r2`; it must never be substituted for
+the evidence-base identity.
 
 ## Lock and unit boundary
 

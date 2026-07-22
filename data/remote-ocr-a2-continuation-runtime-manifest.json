@@ -20,7 +20,7 @@
     },
     {
       "path": "scripts/lib/remote-ocr-operator-continuation.mjs",
-      "sha256": "fb5a5619bee33a81fb218ad45d9a4d9fbaa354b24618bb1a342a69328ca4feeb",
+      "sha256": "72d6dc354f01b4ccb273484b5085023ed929339a8559951a14ecd1636f8f3107",
       "bytes": 72100
     },
     {
@@ -44,5 +44,5 @@
       "bytes": 290847
     }
   ],
-  "runtime_tree_sha256": "024a7033509a8b4194a4c3798fa111b36d3ff2819aac1c8b20acb2f29e082dcb"
+  "runtime_tree_sha256": "d2108fb2b9562c46963b8ddc7d850fe2f0c1afda5a2cc4a2439f548ed7d83733"
 }

@@ -46,7 +46,7 @@ export const EXACT_A2_FORWARD_CONTINUATION_INCIDENT = Object.freeze({
   lifecycleLockInode: '41590544',
   evidenceBaseRoot: '/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/a2-deploy-evidence/20260719T003812Z',
   evidenceBaseDevice: '66306',
-  evidenceBaseInode: '42336296',
+  evidenceBaseInode: '41854492',
   incidentEvidenceRoot: '/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/a2-deploy-evidence/20260719T003812Z/incident-operator-freeze-monitor-jq-20260722T041335Z',
   incidentEvidenceDevice: '66306',
   incidentEvidenceInode: '42336297',

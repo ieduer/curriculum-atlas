@@ -1114,8 +1114,16 @@ test('caller proofs are rejected and claim pairs recover crash states', async (t
   });
 });
 
-test('production incident profile pins the independently recovered read-only anchors', () => {
+test('production incident profile pins the independently recovered read-only anchors without confusing evidence and monitor identities', () => {
   const profile = validateA2ForwardContinuationProfile(EXACT_A2_FORWARD_CONTINUATION_INCIDENT);
+  const monitorDirectoryInode = '42336296';
+  assert.equal(
+    profile.evidenceBaseRoot,
+    '/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/a2-deploy-evidence/20260719T003812Z',
+  );
+  assert.equal(profile.evidenceBaseDevice, '66306');
+  assert.equal(profile.evidenceBaseInode, '41854492');
+  assert.notEqual(profile.evidenceBaseInode, monitorDirectoryInode);
   assert.equal(
     profile.incidentEvidenceTreeSha256,
     'ecad58b65032556b52e274055bde314aa479f58ab19d54bd9c861b1681e5d2c6',
