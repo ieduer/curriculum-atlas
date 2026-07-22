@@ -13,6 +13,7 @@ import {
   buildIndependentCoverageCatalog,
   computeRelationDiffSha256,
   deriveFacetCoverageAuthority,
+  prepareGovernedReviewSigningPayload,
   prepareRelationAdjudicationSigningPayload,
   resolveSubjectOntologyEvidenceForTest,
   subjectOntologyObjectSha256ForTest,
@@ -37,6 +38,33 @@ function review(reviewer = 'reviewer-a', policy = POLICY_SHA) {
     policy_revision_sha256: policy,
     decision: 'accepted',
   };
+}
+
+function withoutReview(value) {
+  const { review: _review, ...subject } = value;
+  return subject;
+}
+
+function signedGovernedReview(reviewKind, subject, privateKey, reviewer = 'governed-reviewer') {
+  const value = {
+    policy: 'signed_subject_ontology_governed_review_v1',
+    reviewer_id: reviewer,
+    reviewed_at: '2026-07-22T05:00:00Z',
+    policy_revision_sha256: REVIEWER_REGISTRY_SHA,
+    decision: 'accepted',
+    reviewer_role: 'semantic_resolution',
+    signature_algorithm: 'Ed25519',
+    signed_payload_sha256: '',
+    signature_base64: '',
+  };
+  const prepared = prepareGovernedReviewSigningPayload({ reviewKind, subject, review: value });
+  value.signed_payload_sha256 = prepared.payload_sha256;
+  value.signature_base64 = signMessage(
+    null,
+    Buffer.from(prepared.payload_text, 'utf8'),
+    privateKey,
+  ).toString('base64');
+  return value;
 }
 
 function gate(negative = true) {
@@ -140,12 +168,10 @@ function exactEvidence(scopeId, edition, body, paragraphOrdinal, physicalPage) {
         reviewed_at: currentPage.reviewed_at,
         online_claim_ids: currentPage.online_claims.map((claim) => claim.claim_id),
       },
-      prepared_release: {
-        git_head: 'a'.repeat(40),
-        source_tree_sha256: H('source-tree'),
-        corpus_release_id: 'corpus-aaaaaaaaaaaaaaaaaaaaaaaa',
-        corpus_manifest_sha256: CORPUS_MANIFEST_SHA,
-        corpus_release_fingerprint_sha256: CORPUS_FINGERPRINT,
+      corpus_release: {
+        release_id: 'corpus-aaaaaaaaaaaaaaaaaaaaaaaa',
+        manifest_sha256: CORPUS_MANIFEST_SHA,
+        release_fingerprint_sha256: CORPUS_FINGERPRINT,
       },
     },
     paragraph: {
@@ -255,7 +281,7 @@ function makeScope({ id, record, evidence, predecessor = null, current = false }
     review: review(),
   };
   Object.defineProperty(value, '__registry_path', {
-    value: `./chinese-language/${record.document_id}.json`,
+    value: `data/ontologies/chinese-language/${record.document_id}.json`,
     enumerable: false,
   });
   return value;
@@ -304,7 +330,7 @@ function governedInputs() {
 function sealOntologyArtifacts(value) {
   value.context.ontology_artifacts.index.object_sha256 = subjectOntologyObjectSha256ForTest(value.index);
   for (const scope of value.scopes) {
-    const path = `data/ontologies/${scope.__registry_path.replace(/^\.\//u, '')}`;
+    const path = scope.__registry_path;
     const identity = value.context.ontology_artifacts.scope_files.find((row) => row.path === path);
     identity.object_sha256 = subjectOntologyObjectSha256ForTest(scope);
   }
@@ -335,9 +361,16 @@ function fixture() {
     },
   });
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  const governedKeys = generateKeyPairSync('ed25519');
   const context = {
     context_kind: 'test_fixture_v2',
-    prepared_release: oldExact.evidence.prepared_release,
+    prepared_release: {
+      git_head: 'a'.repeat(40),
+      source_tree_sha256: H('source-tree'),
+      corpus_release_id: oldExact.evidence.corpus_release.release_id,
+      corpus_manifest_sha256: oldExact.evidence.corpus_release.manifest_sha256,
+      corpus_release_fingerprint_sha256: oldExact.evidence.corpus_release.release_fingerprint_sha256,
+    },
     source_bindings: {
       taxonomy_sha256: H('taxonomy'),
       catalog_sha256: H('catalog'),
@@ -353,7 +386,7 @@ function fixture() {
         object_sha256: H('unsealed-index'),
       },
       scope_files: [oldScope, newScope].map((scope) => ({
-        path: `data/ontologies/${scope.__registry_path.replace(/^\.\//u, '')}`,
+        path: scope.__registry_path,
         sha256: H(`scope-bytes:${scope.scope_id}`),
         bytes: 1,
         object_sha256: H(`unsealed:${scope.scope_id}`),
@@ -367,15 +400,26 @@ function fixture() {
     paragraphs: [oldExact.paragraph, newExact.paragraph],
     coverage_catalog: coverageCatalog,
     coverage_authority: coverageAuthority,
-    reviewer_registry: [{
-      reviewer_id: 'relation-reviewer',
-      display_name: 'Relation Reviewer',
-      status: 'active',
-      valid_from: '2026-01-01T00:00:00Z',
-      valid_until: null,
-      scopes: ['semantic_resolution'],
-      public_key_pem: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
-    }],
+    reviewer_registry: [
+      {
+        reviewer_id: 'relation-reviewer',
+        display_name: 'Relation Reviewer',
+        status: 'active',
+        valid_from: '2026-01-01T00:00:00Z',
+        valid_until: null,
+        scopes: ['semantic_resolution'],
+        public_key_pem: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+      },
+      {
+        reviewer_id: 'governed-reviewer',
+        display_name: 'Governed Ontology Reviewer',
+        status: 'active',
+        valid_from: '2026-01-01T00:00:00Z',
+        valid_until: null,
+        scopes: ['semantic_resolution'],
+        public_key_pem: governedKeys.publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+      },
+    ],
   };
   const resolved = new Map([
     [oldExact.evidence.evidence_id, resolveSubjectOntologyEvidenceForTest(oldScope, oldExact.evidence, context)],
@@ -485,13 +529,85 @@ function fixture() {
     ],
     release_gate: gate(true),
   };
-  return sealOntologyArtifacts({
+  for (const universeValue of index.coverage_universes) {
+    universeValue.review = signedGovernedReview(
+      'coverage_universe',
+      withoutReview(universeValue),
+      governedKeys.privateKey,
+    );
+  }
+  for (const scope of [oldScope, newScope]) {
+    scope.lineage_assertion.review = signedGovernedReview(
+      'lineage',
+      { scope_id: scope.scope_id, ...withoutReview(scope.lineage_assertion) },
+      governedKeys.privateKey,
+    );
+  }
+  for (const scope of [oldScope, newScope]) {
+    scope.review = signedGovernedReview('scope', withoutReview(scope), governedKeys.privateKey);
+  }
+  const result = sealOntologyArtifacts({
     index,
     scopes: [oldScope, newScope],
     context,
     resolved,
     governed,
   });
+  Object.defineProperty(result, '__governed_private_key', {
+    value: governedKeys.privateKey,
+    enumerable: false,
+  });
+  return result;
+}
+
+function crossWorkFixture() {
+  const value = fixture();
+  const oldScope = value.scopes[0];
+  const newScope = value.scopes[1];
+  const oldRecord = value.context.coverage_catalog.find((record) => record.document_id === oldScope.edition.document_id);
+  const newRecord = value.context.coverage_catalog.find((record) => record.document_id === newScope.edition.document_id);
+  oldRecord.work_id = 'work:independent-earlier-standard';
+  oldScope.work.work_id = oldRecord.work_id;
+  newRecord.predecessor_document_id = null;
+  newRecord.lineage_kind = 'first_edition';
+  const assertionText = `${newScope.edition.edition_id} is first only inside universe:historical`;
+  newScope.lineage_assertion = {
+    kind: 'first_edition',
+    assertion_type: 'first_edition_in_bounded_catalog_universe',
+    assertion_text: assertionText,
+    assertion_sha256: H(assertionText),
+    predecessor_scope_id: null,
+    predecessor_edition_id: null,
+    coverage_universe_id: 'universe:historical',
+    evidence_roles: [{
+      role: 'first_edition_identity',
+      scope_id: newScope.scope_id,
+      edition_id: newScope.edition.edition_id,
+      evidence_ids: [newScope.evidence[0].evidence_id],
+    }],
+    review: null,
+  };
+  newScope.lineage_assertion.review = signedGovernedReview(
+    'lineage',
+    { scope_id: newScope.scope_id, ...withoutReview(newScope.lineage_assertion) },
+    value.__governed_private_key,
+  );
+  const relation = newScope.relations[0];
+  relation.cross_subject_exception = {
+    dimensions: ['work'],
+    rationale: 'The exact-edition relation intentionally compares two separately governed curriculum works.',
+    review: null,
+  };
+  relation.cross_subject_exception.review = signedGovernedReview(
+    'cross_subject_exception',
+    { relation_id: relation.relation_id, ...withoutReview(relation.cross_subject_exception) },
+    value.__governed_private_key,
+  );
+  relation.relation_diff_sha256 = computeRelationDiffSha256(relation, value.resolved);
+  for (const scope of value.scopes) {
+    scope.review = signedGovernedReview('scope', withoutReview(scope), value.__governed_private_key);
+  }
+  return sealOntologyArtifacts(value);
 }
 
 function validatePromotion(value, { reseal = true } = {}) {
@@ -521,6 +637,82 @@ test('reviewed two-edition promotion fixture passes governed evidence, coverage,
     concepts: 10,
     relations: 1,
   });
+});
+
+test('a committed non-empty promotion is constructable without scope self-reference', () => {
+  const value = fixture();
+  for (const scope of value.scopes) {
+    for (const evidence of scope.evidence) {
+      assert.equal(
+        Object.hasOwn(evidence, 'prepared_release'),
+        false,
+        'scope evidence must not embed the current Git commit or source-tree identity',
+      );
+    }
+  }
+  const scopeObjectDigests = value.scopes.map(subjectOntologyObjectSha256ForTest);
+  value.context.prepared_release.git_head = 'b'.repeat(40);
+  value.context.prepared_release.source_tree_sha256 = H('post-commit-source-tree');
+  assert.deepEqual(value.scopes.map(subjectOntologyObjectSha256ForTest), scopeObjectDigests);
+  assert.equal(validatePromotion(value).publishable, true);
+});
+
+test('unsigned or unregistered promotion-authorizing reviews are rejected', () => {
+  for (const { make, selectReview } of [
+    { make: fixture, selectReview: (value) => value.scopes[0].review },
+    { make: fixture, selectReview: (value) => value.scopes[0].lineage_assertion.review },
+    { make: fixture, selectReview: (value) => value.index.coverage_universes[0].review },
+    { make: crossWorkFixture, selectReview: (value) => value.scopes[1].relations[0].cross_subject_exception.review },
+  ]) {
+    const unsigned = make();
+    delete selectReview(unsigned).signature_base64;
+    assert.throws(
+      () => validatePromotion(unsigned),
+      /field set mismatch|signed governed review|review signature/i,
+    );
+
+    const unregistered = make();
+    selectReview(unregistered).reviewer_id = 'unregistered-reviewer';
+    assert.throws(
+      () => validatePromotion(unregistered),
+      /not registered in the pinned reviewer registry/i,
+    );
+  }
+
+  const wrongRole = fixture();
+  wrongRole.context.reviewer_registry.find((reviewer) => reviewer.reviewer_id === 'governed-reviewer').scopes = ['page_display'];
+  assert.throws(() => validatePromotion(wrongRole), /not active and semantic_resolution-authorized/);
+
+  const expired = fixture();
+  expired.context.reviewer_registry.find((reviewer) => reviewer.reviewer_id === 'governed-reviewer').valid_until = '2026-07-22T04:59:59Z';
+  assert.throws(() => validatePromotion(expired), /outside the pinned validity interval/);
+
+  const payloadDrift = fixture();
+  payloadDrift.scopes[0].concepts[0].label = 'unsigned post-review semantic drift';
+  assert.throws(() => validatePromotion(payloadDrift), /payload digest differs from current subject/);
+});
+
+test('schema, index, loader, and desired manifest share one canonical ontology path contract', async () => {
+  const paths = await import('../scripts/lib/subject-ontology-paths.mjs');
+  const index = JSON.parse(await readFile(new URL('../data/ontologies/index.json', import.meta.url), 'utf8'));
+  const schema = JSON.parse(await readFile(new URL('../data/schemas/subject-ontology-v2.schema.json', import.meta.url), 'utf8'));
+  const scopePattern = schema.$defs.facet.properties.scope_files.items.pattern;
+  for (const facet of index.canonical_facets) {
+    const slug = facet.facet_id.slice('facet:'.length);
+    assert.equal(facet.directory, `data/ontologies/${slug}`);
+    for (const scopePath of facet.scope_files) {
+      assert.equal(paths.assertCanonicalSubjectOntologyScopePath(scopePath, { facetSlug: slug }), scopePath);
+    }
+  }
+  assert.equal(scopePattern, paths.SUBJECT_ONTOLOGY_SCOPE_PATH_PATTERN_SOURCE);
+  assert.equal(
+    paths.assertCanonicalSubjectOntologyScopePath('data/ontologies/chinese-language/example.json', {
+      facetSlug: 'chinese-language',
+    }),
+    'data/ontologies/chinese-language/example.json',
+  );
+  assert.throws(() => paths.assertCanonicalSubjectOntologyScopePath('./chinese-language/example.json'));
+  assert.throws(() => paths.assertCanonicalSubjectOntologyScopePath('data/ontologies/facets/chinese-language/example.json'));
 });
 
 test('promotion cannot receive in-memory objects outside the canonical release builder', () => {
@@ -726,7 +918,7 @@ test('relation signature or diff invalidates on page bundle, online snapshot, or
     mutate(value);
     assert.throws(
       () => validatePromotion(value),
-      /signed adjudication payload hash differs|diff hash does not bind/,
+      /signed adjudication payload hash differs|diff hash does not bind|not bound to the pinned reviewer registry/,
     );
   }
 });

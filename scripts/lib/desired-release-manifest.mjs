@@ -1,4 +1,8 @@
 import { createHash } from 'node:crypto';
+import {
+  SUBJECT_ONTOLOGY_INDEX_PATH,
+  isCanonicalSubjectOntologyScopePath,
+} from './subject-ontology-paths.mjs';
 
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const RELEASE_ID_PATTERN = /^release-[a-f0-9]{32}$/;
@@ -29,12 +33,71 @@ function validBoundArtifact(value, expectedPath) {
     && Number.isSafeInteger(value.bytes) && value.bytes > 0;
 }
 
+function validProjectRelativePath(value) {
+  return typeof value === 'string' && value.length > 0
+    && !value.startsWith('/') && !value.startsWith('./') && !value.startsWith('../')
+    && !value.includes('\\') && !value.includes('/../') && !value.includes('//');
+}
+
+function validSourceTreeIdentity(sourceTree) {
+  const expectedKeys = [
+    'tracked_only', 'git_index_file_count', 'sha256', 'file_count', 'total_bytes', 'files',
+  ];
+  if (Object.hasOwn(sourceTree || {}, 'materialized_from_git_blobs')) expectedKeys.push('materialized_from_git_blobs');
+  if (!hasExactKeys(sourceTree, expectedKeys) || sourceTree.tracked_only !== true
+      || (Object.hasOwn(sourceTree, 'materialized_from_git_blobs') && sourceTree.materialized_from_git_blobs !== true)
+      || !Array.isArray(sourceTree.files)
+      || !Number.isSafeInteger(sourceTree.git_index_file_count)
+      || sourceTree.git_index_file_count < sourceTree.files.length) {
+    return false;
+  }
+  const paths = [];
+  let totalBytes = 0;
+  let material = '';
+  for (const entry of sourceTree.files) {
+    if (!hasExactKeys(entry, ['path', 'sha256', 'bytes']) || !validProjectRelativePath(entry.path)
+        || !SHA256_PATTERN.test(String(entry.sha256 || ''))
+        || !Number.isSafeInteger(entry.bytes) || entry.bytes <= 0) {
+      return false;
+    }
+    paths.push(entry.path);
+    totalBytes += entry.bytes;
+    material += `${entry.path}\0${entry.sha256}\0${entry.bytes}\n`;
+  }
+  return new Set(paths).size === paths.length
+    && paths.join('\0') === [...paths].sort().join('\0')
+    && sourceTree.file_count === sourceTree.files.length
+    && sourceTree.total_bytes === totalBytes
+    && sourceTree.sha256 === sha256(Buffer.from(material));
+}
+
 function validSubjectOntologyScopeArtifact(value) {
   return hasExactKeys(value, ['path', 'sha256', 'bytes', 'object_sha256'])
-    && /^data\/ontologies\/facets\/[^/]+\/[^/]+\.json$/u.test(String(value.path || ''))
+    && isCanonicalSubjectOntologyScopePath(value.path)
     && SHA256_PATTERN.test(String(value.sha256 || ''))
     && SHA256_PATTERN.test(String(value.object_sha256 || ''))
     && Number.isSafeInteger(value.bytes) && value.bytes > 0;
+}
+
+function sameBlobIdentity(left, right) {
+  return left?.path === right?.path && left?.sha256 === right?.sha256 && left?.bytes === right?.bytes;
+}
+
+function validSubjectOntologyPromotionEnvelope(envelope, ontology, releaseIdentity) {
+  if (!hasExactKeys(envelope, [
+    'policy', 'git_head', 'source_tree_sha256', 'index', 'scope_artifacts',
+  ]) || envelope.policy !== 'subject_ontology_v2_external_promotion_envelope_v1'
+      || envelope.git_head !== releaseIdentity?.git?.head
+      || envelope.source_tree_sha256 !== releaseIdentity?.source_tree_sha256
+      || !hasExactKeys(envelope.index, ['path', 'sha256', 'bytes'])
+      || !sameBlobIdentity(envelope.index, ontology.index)
+      || !Array.isArray(envelope.scope_artifacts)
+      || envelope.scope_artifacts.length !== ontology.scope_artifacts.length) {
+    return false;
+  }
+  return envelope.scope_artifacts.every((artifact, index) =>
+    hasExactKeys(artifact, ['path', 'sha256', 'bytes'])
+    && sameBlobIdentity(artifact, ontology.scope_artifacts[index]));
 }
 
 function validSubjectOntologyIdentity(ontology, releaseIdentity, sourceTree) {
@@ -50,7 +113,7 @@ function validSubjectOntologyIdentity(ontology, releaseIdentity, sourceTree) {
   const counts = ontology?.counts;
   const boundary = ontology?.release_boundary;
   const scopeArtifacts = ontology?.scope_artifacts;
-  const preparedRelease = ontology?.prepared_release;
+  const promotionEnvelope = ontology?.promotion_envelope;
   const sourceTreeFiles = Array.isArray(sourceTree?.files) ? sourceTree.files : [];
   const sourceTreeByPath = new Map(sourceTreeFiles.map((entry) => [entry?.path, entry]));
   const boundToSourceTree = (artifact) => {
@@ -59,11 +122,11 @@ function validSubjectOntologyIdentity(ontology, releaseIdentity, sourceTree) {
   };
   const commonValid = hasExactKeys(ontology, [
     'contract_id', 'mode', 'valid', 'publishable', 'index', 'schema', 'scope_artifacts',
-    'report', 'dependencies', 'counts', 'release_boundary', 'prepared_release',
+    'report', 'dependencies', 'counts', 'release_boundary', 'promotion_envelope',
   ])
     && ontology.contract_id === 'subject-ontology-v2'
     && ontology.valid === true
-    && validBoundArtifact(ontology.index, 'data/ontologies/index.json')
+    && validBoundArtifact(ontology.index, SUBJECT_ONTOLOGY_INDEX_PATH)
     && validBoundArtifact(ontology.schema, 'data/schemas/subject-ontology-v2.schema.json')
     && validBoundArtifact(ontology.report, 'data/subject-ontology-v2-validation.json')
     && [ontology.index, ontology.schema, ontology.report].every(boundToSourceTree)
@@ -102,7 +165,7 @@ function validSubjectOntologyIdentity(ontology, releaseIdentity, sourceTree) {
       && counts.scopes === 0 && counts.coverage_universes === 0
       && counts.concepts === 0 && counts.relations === 0
       && scopeArtifacts.length === 0
-      && preparedRelease === null
+      && promotionEnvelope === null
       && boundary.candidate_fail_closed === true;
   }
 
@@ -114,19 +177,11 @@ function validSubjectOntologyIdentity(ontology, releaseIdentity, sourceTree) {
     && counts.scopes > 0 && counts.coverage_universes > 0
     && counts.concepts > 0 && counts.relations >= 0
     && scopeArtifacts.length === counts.scopes
-    && hasExactKeys(preparedRelease, [
-      'git_head', 'source_tree_sha256', 'corpus_release_id', 'corpus_manifest_sha256',
-      'corpus_release_fingerprint_sha256',
-    ])
-    && preparedRelease.git_head === releaseIdentity?.git?.head
-    && preparedRelease.source_tree_sha256 === releaseIdentity?.source_tree_sha256
-    && preparedRelease.corpus_release_id === releaseIdentity?.corpus_release?.release_id
-    && preparedRelease.corpus_manifest_sha256 === releaseIdentity?.corpus_release?.manifest_sha256
-    && preparedRelease.corpus_release_fingerprint_sha256 === releaseIdentity?.corpus_release?.release_fingerprint_sha256
-    && ontology.dependencies.corpus_release_id === preparedRelease.corpus_release_id
-    && ontology.dependencies.corpus_manifest_sha256 === preparedRelease.corpus_manifest_sha256
-    && ontology.dependencies.corpus_release_fingerprint_sha256 === preparedRelease.corpus_release_fingerprint_sha256
-    && ontology.dependencies.page_evidence_manifest_sha256 === releaseIdentity?.page_evidence?.manifest_sha256
+    && validSubjectOntologyPromotionEnvelope(promotionEnvelope, ontology, releaseIdentity)
+    && ontology.dependencies.corpus_release_id === releaseIdentity?.corpus_release?.release_id
+    && ontology.dependencies.corpus_manifest_sha256 === releaseIdentity?.corpus_release?.sha256
+    && ontology.dependencies.corpus_release_fingerprint_sha256 === releaseIdentity?.corpus_release?.release_fingerprint_sha256
+    && ontology.dependencies.page_evidence_manifest_sha256 === releaseIdentity?.page_evidence?.manifest?.sha256
     && boundary.candidate_fail_closed === false;
 }
 
@@ -189,6 +244,9 @@ export function validateDesiredReleaseManifest(value) {
       || !SHA256_PATTERN.test(String(value.corpus_release?.manifest_sha256 || ''))
       || !SHA256_PATTERN.test(String(value.corpus_release?.sha256 || ''))) {
     throw new Error('desired release manifest identity is incomplete');
+  }
+  if (!validSourceTreeIdentity(value.source_tree)) {
+    throw new Error('desired release manifest source-tree identity is not reproducible');
   }
   if (value.release_identity?.git?.head !== value.git.head
       || value.release_identity?.source_tree_sha256 !== value.source_tree.sha256

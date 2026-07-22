@@ -7,13 +7,13 @@
   "publishable": false,
   "index": {
     "path": "data/ontologies/index.json",
-    "sha256": "6ff4110eddb5d45e909ceee06402278d9905dc4522c9840c3ed36df3fa24839f",
-    "bytes": 6708
+    "sha256": "00995314ef44cc2c90475714c432e00dbd833ff5260a119117de166f8d856313",
+    "bytes": 6876
   },
   "schema": {
     "path": "data/schemas/subject-ontology-v2.schema.json",
-    "sha256": "10f8dc4b2507d2d0820d05baac514cccddbed4f34ab63028657cbf3d9dbbd920",
-    "bytes": 22040
+    "sha256": "17db31521371686abcaff91c974bc036212b4507fb2aee485a05896d1f3742a9",
+    "bytes": 23144
   },
   "scope_artifacts": [],
   "dependencies": {

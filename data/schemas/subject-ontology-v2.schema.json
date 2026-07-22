@@ -34,6 +34,32 @@
         "decision": { "enum": ["accepted", "rejected", "needs_revision"] }
       }
     },
+    "governed_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy",
+        "reviewer_id",
+        "reviewed_at",
+        "policy_revision_sha256",
+        "decision",
+        "reviewer_role",
+        "signature_algorithm",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "properties": {
+        "policy": { "const": "signed_subject_ontology_governed_review_v1" },
+        "reviewer_id": { "type": "string", "minLength": 1 },
+        "reviewed_at": { "type": "string", "format": "date-time" },
+        "policy_revision_sha256": { "$ref": "#/$defs/sha256" },
+        "decision": { "const": "accepted" },
+        "reviewer_role": { "const": "semantic_resolution" },
+        "signature_algorithm": { "const": "Ed25519" },
+        "signed_payload_sha256": { "$ref": "#/$defs/sha256" },
+        "signature_base64": { "type": "string", "pattern": "^[A-Za-z0-9+/]{86}==$" }
+      }
+    },
     "release_gate": {
       "type": "object",
       "additionalProperties": false,
@@ -66,12 +92,12 @@
       "properties": {
         "facet_id": { "type": "string", "pattern": "^facet:[a-z-]+$" },
         "label": { "type": "string", "minLength": 1 },
-        "directory": { "type": "string", "pattern": "^\\./[a-z-]+$" },
+        "directory": { "type": "string", "pattern": "^data/ontologies/(chinese-language|mathematics|foreign-languages|politics-morality-law|history|history-and-society|geography|science|technology|labor|arts|physical-education-health)$" },
         "status": { "enum": ["not_started", "candidate", "reviewed_release"] },
         "scope_files": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^\\./[a-z-]+/[a-z0-9._-]+\\.json$" }
+          "items": { "type": "string", "pattern": "^data/ontologies/(chinese-language|mathematics|foreign-languages|politics-morality-law|history|history-and-society|geography|science|technology|labor|arts|physical-education-health)/[a-z0-9][a-z0-9._-]*\\.json$" }
         },
         "coverage": {
           "type": "object",
@@ -169,7 +195,7 @@
             }
           }
         },
-        "review": { "$ref": "#/$defs/review" }
+        "review": { "$ref": "#/$defs/governed_review" }
       }
     },
     "evidence": {
@@ -188,7 +214,7 @@
         "matched_text",
         "matched_text_sha256",
         "canonical_page_evidence",
-        "prepared_release"
+        "corpus_release"
       ],
       "properties": {
         "evidence_id": { "type": "string", "pattern": "^evidence:[a-z0-9._:-]+$" },
@@ -227,22 +253,18 @@
             }
           }
         },
-        "prepared_release": {
+        "corpus_release": {
           "type": "object",
           "additionalProperties": false,
           "required": [
-            "git_head",
-            "source_tree_sha256",
-            "corpus_release_id",
-            "corpus_manifest_sha256",
-            "corpus_release_fingerprint_sha256"
+            "release_id",
+            "manifest_sha256",
+            "release_fingerprint_sha256"
           ],
           "properties": {
-            "git_head": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
-            "source_tree_sha256": { "$ref": "#/$defs/sha256" },
-            "corpus_release_id": { "type": "string", "pattern": "^corpus-[a-f0-9]{24}$" },
-            "corpus_manifest_sha256": { "$ref": "#/$defs/sha256" },
-            "corpus_release_fingerprint_sha256": { "$ref": "#/$defs/sha256" }
+            "release_id": { "type": "string", "pattern": "^corpus-[a-f0-9]{24}$" },
+            "manifest_sha256": { "$ref": "#/$defs/sha256" },
+            "release_fingerprint_sha256": { "$ref": "#/$defs/sha256" }
           }
         }
       }
@@ -280,7 +302,7 @@
             }
           }
         },
-        "review": { "$ref": "#/$defs/review" }
+        "review": { "$ref": "#/$defs/governed_review" }
       }
     },
     "relation": {
@@ -348,7 +370,7 @@
               "items": { "enum": ["facet", "subject", "work"] }
             },
             "rationale": { "type": "string", "minLength": 1 },
-            "review": { "$ref": "#/$defs/review" }
+            "review": { "$ref": "#/$defs/governed_review" }
           }
         }
       }
@@ -576,7 +598,7 @@
         "coverage": { "$ref": "#/$defs/scope_coverage" },
         "unresolved_items": { "type": "array", "maxItems": 0 },
         "release_gate": { "$ref": "#/$defs/release_gate" },
-        "review": { "$ref": "#/$defs/review" }
+        "review": { "$ref": "#/$defs/governed_review" }
       }
     }
   }

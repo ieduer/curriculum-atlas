@@ -12,21 +12,30 @@ import { DatabaseSync } from 'node:sqlite';
 
 import { validatePageEvidenceForRelease } from './page-evidence-release-hook.mjs';
 import { validateCorpusManifest } from './import-corpus.mjs';
+import {
+  SUBJECT_ONTOLOGY_INDEX_PATH,
+  assertCanonicalSubjectOntologyScopePath,
+  canonicalSubjectOntologyFacetDirectory,
+} from './lib/subject-ontology-paths.mjs';
 
 export const CANONICAL_FACETS = Object.freeze([
-  ['facet:chinese-language', '语文', './chinese-language'],
-  ['facet:mathematics', '数学', './mathematics'],
-  ['facet:foreign-languages', '外语', './foreign-languages'],
-  ['facet:politics-morality-law', '思想政治与道德法治', './politics-morality-law'],
-  ['facet:history', '历史', './history'],
-  ['facet:history-and-society', '历史与社会', './history-and-society'],
-  ['facet:geography', '地理', './geography'],
-  ['facet:science', '科学类', './science'],
-  ['facet:technology', '技术', './technology'],
-  ['facet:labor', '劳动', './labor'],
-  ['facet:arts', '艺术', './arts'],
-  ['facet:physical-education-health', '体育与健康', './physical-education-health'],
-].map(([facet_id, label, directory]) => Object.freeze({ facet_id, label, directory })));
+  ['facet:chinese-language', '语文', 'chinese-language'],
+  ['facet:mathematics', '数学', 'mathematics'],
+  ['facet:foreign-languages', '外语', 'foreign-languages'],
+  ['facet:politics-morality-law', '思想政治与道德法治', 'politics-morality-law'],
+  ['facet:history', '历史', 'history'],
+  ['facet:history-and-society', '历史与社会', 'history-and-society'],
+  ['facet:geography', '地理', 'geography'],
+  ['facet:science', '科学类', 'science'],
+  ['facet:technology', '技术', 'technology'],
+  ['facet:labor', '劳动', 'labor'],
+  ['facet:arts', '艺术', 'arts'],
+  ['facet:physical-education-health', '体育与健康', 'physical-education-health'],
+].map(([facet_id, label, facetSlug]) => Object.freeze({
+  facet_id,
+  label,
+  directory: canonicalSubjectOntologyFacetDirectory(facetSlug),
+})));
 
 export const HIERARCHY_FAMILIES = Object.freeze([
   'goal',
@@ -37,6 +46,14 @@ export const HIERARCHY_FAMILIES = Object.freeze([
 ]);
 
 const RELATION_TYPES = new Set(['rename', 'split', 'merge', 'broaden', 'narrow', 'replace', 'coexist']);
+const GOVERNED_REVIEW_KINDS = new Set([
+  'scope',
+  'lineage',
+  'coverage_universe',
+  'cross_subject_exception',
+]);
+const GOVERNED_REVIEW_POLICY = 'signed_subject_ontology_governed_review_v1';
+const GOVERNED_REVIEW_ROLE = 'semantic_resolution';
 const ONTOLOGY_DOCUMENT_FUNCTIONS = Object.freeze(['curriculum_standard', 'teaching_syllabus', 'assessment_specification']);
 const CURRENT_CATALOG_STATUSES = new Set(['current_reference', 'current_with_revision_watch']);
 const RELATION_SEMANTIC_BASIS = Object.freeze({
@@ -137,6 +154,90 @@ function acceptedReview(review, label) {
   }
   asSha(review.policy_revision_sha256, `${label}.policy_revision_sha256`);
   if (review.decision !== 'accepted') fail(`${label}.decision must be accepted`);
+  return review;
+}
+
+function withoutReview(value) {
+  const { review: _review, ...subject } = value;
+  return subject;
+}
+
+export function buildGovernedReviewSigningPayload({ reviewKind, subject, review }) {
+  if (!GOVERNED_REVIEW_KINDS.has(reviewKind)) fail(`unsupported governed review kind ${reviewKind || '<unset>'}`);
+  asObject(subject, `${reviewKind} governed review subject`);
+  return {
+    schema_version: 1,
+    policy: GOVERNED_REVIEW_POLICY,
+    review_kind: reviewKind,
+    reviewer_role: GOVERNED_REVIEW_ROLE,
+    subject,
+    reviewer_id: review.reviewer_id,
+    reviewed_at: review.reviewed_at,
+    decision: review.decision,
+    reviewer_registry_sha256: review.policy_revision_sha256,
+  };
+}
+
+export function prepareGovernedReviewSigningPayload(input) {
+  const payload = buildGovernedReviewSigningPayload(input);
+  const payload_text = stableJson(payload);
+  return {
+    payload,
+    payload_text,
+    payload_sha256: digest(Buffer.from(payload_text, 'utf8')),
+  };
+}
+
+function validateGovernedReview(review, { reviewKind, subject, context, label }) {
+  exactKeys(review, [
+    'policy', 'reviewer_id', 'reviewed_at', 'policy_revision_sha256', 'decision',
+    'reviewer_role', 'signature_algorithm', 'signed_payload_sha256', 'signature_base64',
+  ], label);
+  if (review.policy !== GOVERNED_REVIEW_POLICY || review.reviewer_role !== GOVERNED_REVIEW_ROLE
+      || review.signature_algorithm !== 'Ed25519' || review.decision !== 'accepted') {
+    fail(`${label} is not an accepted signed governed review`);
+  }
+  asString(review.reviewer_id, `${label}.reviewer_id`);
+  if (!TIMESTAMP.test(String(review.reviewed_at || '')) || Number.isNaN(Date.parse(review.reviewed_at))) {
+    fail(`${label}.reviewed_at must be canonical UTC seconds`);
+  }
+  asSha(review.policy_revision_sha256, `${label}.policy_revision_sha256`);
+  asSha(review.signed_payload_sha256, `${label}.signed_payload_sha256`);
+  if (review.policy_revision_sha256 !== context.source_bindings.reviewer_registry_sha256) {
+    fail(`${label} is not bound to the pinned reviewer registry`);
+  }
+  const reviewer = context.reviewerById.get(review.reviewer_id);
+  if (!reviewer) fail(`${label} reviewer is not registered in the pinned reviewer registry`);
+  if (reviewer.status !== 'active' || !reviewer.scopes.includes(GOVERNED_REVIEW_ROLE)) {
+    fail(`${label} reviewer is not active and ${GOVERNED_REVIEW_ROLE}-authorized`);
+  }
+  const reviewedAt = Date.parse(review.reviewed_at);
+  if (reviewedAt < Date.parse(reviewer.valid_from)
+      || (reviewer.valid_until && reviewedAt > Date.parse(reviewer.valid_until))) {
+    fail(`${label} reviewer was outside the pinned validity interval`);
+  }
+  const signature = asString(review.signature_base64, `${label}.signature_base64`);
+  if (!/^[A-Za-z0-9+/]{86}==$/u.test(signature)) fail(`${label} review signature is not canonical Ed25519 base64`);
+  const signatureBytes = Buffer.from(signature, 'base64');
+  if (signatureBytes.length !== 64 || signatureBytes.toString('base64') !== signature) {
+    fail(`${label} review signature bytes are invalid`);
+  }
+  const prepared = prepareGovernedReviewSigningPayload({ reviewKind, subject, review });
+  if (prepared.payload_sha256 !== review.signed_payload_sha256) {
+    fail(`${label} signed governed review payload digest differs from current subject`);
+  }
+  let verified = false;
+  try {
+    verified = verifySignature(
+      null,
+      Buffer.from(prepared.payload_text, 'utf8'),
+      createPublicKey(reviewer.public_key_pem),
+      signatureBytes,
+    );
+  } catch (error) {
+    fail(`${label} governed review signature verification failed: ${error.message}`);
+  }
+  if (!verified) fail(`${label} governed review Ed25519 signature is invalid`);
   return review;
 }
 
@@ -690,6 +791,16 @@ function validateFacetIdentity(index) {
       fail(`facet[${position}] differs from canonical identity`);
     }
     unique(asArray(facet.scope_files, `${facet.facet_id}.scope_files`), `${facet.facet_id}.scope_files`);
+    for (const scopePath of facet.scope_files) {
+      try {
+        assertCanonicalSubjectOntologyScopePath(scopePath, {
+          facetSlug: expected.facet_id.slice('facet:'.length),
+          label: `${facet.facet_id}.scope_files`,
+        });
+      } catch (error) {
+        fail(error.message);
+      }
+    }
     exactKeys(facet.coverage, [
       'scope_count', 'concept_count', 'semantic_relation_count',
       'current_ordinary_scope_complete', 'historical_coverage_complete',
@@ -795,7 +906,7 @@ function validateEvidence(scope, evidence, context) {
   exactKeys(evidence, [
     'evidence_id', 'scope_id', 'edition_id', 'document_id', 'physical_page',
     'paragraph_ordinal', 'body_sha256', 'start_utf16', 'end_utf16', 'matched_text',
-    'matched_text_sha256', 'canonical_page_evidence', 'prepared_release',
+    'matched_text_sha256', 'canonical_page_evidence', 'corpus_release',
   ], `${scope.scope_id}.${evidence.evidence_id || 'evidence'}`);
   const label = `${scope.scope_id}.${evidence.evidence_id}`;
   asString(evidence.evidence_id, `${label}.evidence_id`);
@@ -829,12 +940,16 @@ function validateEvidence(scope, evidence, context) {
   if (matched !== evidence.matched_text || digest(Buffer.from(matched, 'utf8')) !== evidence.matched_text_sha256) {
     fail(`${label} exact UTF-16 span does not match immutable corpus bytes`);
   }
-  exactKeys(evidence.prepared_release, [
-    'git_head', 'source_tree_sha256', 'corpus_release_id', 'corpus_manifest_sha256',
-    'corpus_release_fingerprint_sha256',
-  ], `${label}.prepared_release`);
-  if (stableJson(evidence.prepared_release) !== stableJson(context.prepared_release)) {
-    fail(`${label} prepared release identity is not the validator-owned immutable context`);
+  exactKeys(evidence.corpus_release, [
+    'release_id', 'manifest_sha256', 'release_fingerprint_sha256',
+  ], `${label}.corpus_release`);
+  const expectedCorpusRelease = {
+    release_id: context.prepared_release.corpus_release_id,
+    manifest_sha256: context.prepared_release.corpus_manifest_sha256,
+    release_fingerprint_sha256: context.prepared_release.corpus_release_fingerprint_sha256,
+  };
+  if (stableJson(evidence.corpus_release) !== stableJson(expectedCorpusRelease)) {
+    fail(`${label} corpus release identity differs from the validator-owned immutable corpus`);
   }
   const page = context.pages.get(`${evidence.document_id}\u0000${evidence.physical_page}`);
   if (!page || page.citation_allowed !== true || page.display_allowed !== true || page.review_status !== 'accepted') {
@@ -910,7 +1025,7 @@ function validateEvidence(scope, evidence, context) {
       supporting_slice_sha256: claim.supporting_slice_sha256,
       version_anchors: claim.version_anchors,
     })),
-    prepared_release: context.prepared_release,
+    corpus_release: expectedCorpusRelease,
   };
 }
 
@@ -1097,7 +1212,12 @@ function validateRelation(owner, relation, scopes, evidenceByScope, resolvedEvid
     exactKeys(exception, ['dimensions', 'rationale', 'review'], `${relation.relation_id}.cross_subject_exception`);
     exactSet(exception.dimensions, [...dimensions], `${relation.relation_id}.cross_subject_exception.dimensions`);
     asString(exception.rationale, `${relation.relation_id}.cross_subject_exception.rationale`);
-    acceptedReview(exception.review, `${relation.relation_id}.cross_subject_exception.review`);
+    validateGovernedReview(exception.review, {
+      reviewKind: 'cross_subject_exception',
+      subject: { relation_id: relation.relation_id, ...withoutReview(exception) },
+      context,
+      label: `${relation.relation_id}.cross_subject_exception.review`,
+    });
     if (exception.review.reviewer_id === relation.review.reviewer_id) {
       fail(`${relation.relation_id} cross-subject exception needs a distinct second reviewer`);
     }
@@ -1161,13 +1281,12 @@ function validateHierarchy(scope) {
   }
 }
 
-function validateLineage(scope, scopes, universes, evidenceByScope, coverageCatalog) {
+function validateLineage(scope, scopes, universes, evidenceByScope, coverageCatalog, context) {
   const assertion = scope.lineage_assertion;
   exactKeys(assertion, [
     'kind', 'assertion_type', 'assertion_text', 'assertion_sha256', 'predecessor_scope_id',
     'predecessor_edition_id', 'evidence_roles', 'review',
   ], `${scope.scope_id}.lineage_assertion`, ['coverage_universe_id']);
-  acceptedReview(assertion.review, `${scope.scope_id}.lineage_assertion.review`);
   if (assertion.assertion_sha256 !== digest(Buffer.from(asString(assertion.assertion_text, 'lineage assertion text'), 'utf8'))) {
     fail(`${scope.scope_id} lineage assertion content hash is stale`);
   }
@@ -1226,9 +1345,15 @@ function validateLineage(scope, scopes, universes, evidenceByScope, coverageCata
   } else {
     fail(`${scope.scope_id} unresolved lineage cannot be promoted`);
   }
+  validateGovernedReview(assertion.review, {
+    reviewKind: 'lineage',
+    subject: { scope_id: scope.scope_id, ...withoutReview(assertion) },
+    context,
+    label: `${scope.scope_id}.lineage_assertion.review`,
+  });
 }
 
-function validateCoverageUniverse(universe, scopes, coverageCatalog, coverageAuthorityByFacet) {
+function validateCoverageUniverse(universe, scopes, coverageCatalog, coverageAuthorityByFacet, context) {
   exactKeys(universe, [
     'universe_id', 'facet_id', 'purpose', 'as_of_date', 'subject_ids', 'start_year', 'end_year',
     'population', 'document_functions', 'included_scope_ids', 'catalog_decisions', 'review',
@@ -1246,7 +1371,6 @@ function validateCoverageUniverse(universe, scopes, coverageCatalog, coverageAut
       || universe.end_year !== authority.as_of_year) {
     fail(`${universe.universe_id} narrows or extends the governed catalog as-of boundary`);
   }
-  acceptedReview(universe.review, `${universe.universe_id}.review`);
   const subjectIds = unique(asArray(universe.subject_ids, `${universe.universe_id}.subject_ids`), `${universe.universe_id}.subject_ids`);
   const functions = unique(asArray(universe.document_functions, `${universe.universe_id}.document_functions`), `${universe.universe_id}.document_functions`);
   if (subjectIds.length === 0 || functions.length === 0) fail(`${universe.universe_id} subject/function boundary is empty`);
@@ -1289,6 +1413,12 @@ function validateCoverageUniverse(universe, scopes, coverageCatalog, coverageAut
     fail(`${universe.universe_id} includes a scope from another facet or subject`);
   }
   exactSet(includedScopes.map((scope) => scope.edition.document_id), includedDocumentIds, `${universe.universe_id} included scope/catalog identity`);
+  validateGovernedReview(universe.review, {
+    reviewKind: 'coverage_universe',
+    subject: withoutReview(universe),
+    context,
+    label: `${universe.universe_id}.review`,
+  });
   return universe;
 }
 
@@ -1320,7 +1450,6 @@ function validateScopeShape(scope, facet) {
   exactKeys(scope.scope_dimensions, ['population', 'document_function', 'stage'], `${scope.scope_id}.scope_dimensions`);
   for (const key of ['population', 'document_function', 'stage']) asString(scope.scope_dimensions[key], `${scope.scope_id}.scope_dimensions.${key}`);
   if (scope.status !== 'reviewed_release') fail(`${scope.scope_id} is not reviewed_release`);
-  acceptedReview(scope.review, `${scope.scope_id}.review`);
   if (asArray(scope.unresolved_items, `${scope.scope_id}.unresolved_items`).length !== 0) fail(`${scope.scope_id} has unresolved items`);
   validateHierarchy(scope);
 }
@@ -1423,11 +1552,11 @@ function validateSubjectOntologyState({
   const scopeByPath = new Map(scopes.map((scope) => [scope.__registry_path, scope]));
   exactSet([...scopeByPath.keys()], expectedPaths, 'registry scope files');
   const scopeArtifactByPath = new Map(normalizedContext.ontology_artifacts.scope_files.map((identity) => [identity.path, identity]));
-  exactSet([...scopeArtifactByPath.keys()], expectedPaths.map((entry) => `data/ontologies/${entry.replace(/^\.\//u, '')}`), 'immutable scope artifact registry');
+  exactSet([...scopeArtifactByPath.keys()], expectedPaths, 'immutable scope artifact registry');
   for (const facet of facets) {
     for (const scopePath of facet.scope_files) {
       const scope = scopeByPath.get(scopePath);
-      const artifactPath = `data/ontologies/${scopePath.replace(/^\.\//u, '')}`;
+      const artifactPath = scopePath;
       if (jsonDigest(scope) !== scopeArtifactByPath.get(artifactPath).object_sha256) {
         fail(`${artifactPath} object differs from the immutable prepared Git artifact`);
       }
@@ -1443,6 +1572,7 @@ function validateSubjectOntologyState({
       scopeMap,
       normalizedContext.coverage_catalog,
       normalizedContext.coverageAuthorityByFacet,
+      normalizedContext,
     ));
   }
   const resolvedEvidenceById = new Map();
@@ -1470,10 +1600,23 @@ function validateSubjectOntologyState({
     }
     validateCoverageClaim(scope, universes);
   }
-  for (const scope of scopes) validateLineage(scope, scopeMap, universes, evidenceByScope, normalizedContext.coverage_catalog);
+  for (const scope of scopes) validateLineage(
+    scope,
+    scopeMap,
+    universes,
+    evidenceByScope,
+    normalizedContext.coverage_catalog,
+    normalizedContext,
+  );
   for (const scope of scopes) {
     for (const relation of scope.relations) validateRelation(scope, relation, scopeMap, evidenceByScope, resolvedEvidenceById, normalizedContext);
     openGate(scope.release_gate, `${scope.scope_id}.release_gate`, { negative: scope.coverage.negative_claim_eligible });
+    validateGovernedReview(scope.review, {
+      reviewKind: 'scope',
+      subject: withoutReview(scope),
+      context: normalizedContext,
+      label: `${scope.scope_id}.review`,
+    });
   }
   for (const facet of facets) {
     const owned = scopes.filter((scope) => scope.facet_id === facet.facet_id);
@@ -1516,10 +1659,7 @@ function loadRegisteredScopes(rootDir, facets) {
   const scopes = [];
   for (const facet of facets) {
     for (const registryPath of facet.scope_files) {
-      const expectedPrefix = `${facet.directory}/`;
-      if (!registryPath.startsWith(expectedPrefix)) fail(`${facet.facet_id} scope path crosses facet directory`);
-      const fullPath = `data/ontologies/${registryPath.replace(/^\.\//u, '')}`;
-      const artifact = safeRead(rootDir, fullPath, `${facet.facet_id} scope`);
+      const artifact = safeRead(rootDir, registryPath, `${facet.facet_id} scope`);
       const scope = JSON.parse(artifact.buffer.toString('utf8'));
       Object.defineProperty(scope, '__registry_path', { value: registryPath, enumerable: false });
       Object.defineProperty(scope, '__artifact', { value: { ...artifact, json: scope }, enumerable: false });
@@ -1530,7 +1670,7 @@ function loadRegisteredScopes(rootDir, facets) {
 }
 
 export function computeSubjectOntologyV2Report({ rootDir = process.cwd(), pageEvidenceValidator = validatePageEvidenceForRelease } = {}) {
-  const indexArtifact = safeRead(rootDir, 'data/ontologies/index.json', 'subject ontology index');
+  const indexArtifact = safeRead(rootDir, SUBJECT_ONTOLOGY_INDEX_PATH, 'subject ontology index');
   const schemaArtifact = safeRead(rootDir, 'data/schemas/subject-ontology-v2.schema.json', 'subject ontology schema');
   const index = JSON.parse(indexArtifact.buffer.toString('utf8'));
   const artifacts = validateBindings(rootDir, index);
@@ -1606,7 +1746,7 @@ export function validateSubjectOntologyV2PromotionForRelease({
     fail('ontology promotion is reachable only from the canonical release builder materialization');
   }
   const sourceTreeFiles = verifyReleaseBuilderSourceTree(rootDir, git, sourceTree);
-  const indexArtifact = safeRead(rootDir, 'data/ontologies/index.json', 'subject ontology promotion index');
+  const indexArtifact = safeRead(rootDir, SUBJECT_ONTOLOGY_INDEX_PATH, 'subject ontology promotion index');
   const schemaArtifact = safeRead(rootDir, 'data/schemas/subject-ontology-v2.schema.json', 'subject ontology schema');
   const reportArtifact = safeRead(rootDir, 'data/subject-ontology-v2-validation.json', 'subject ontology promotion report');
   const index = JSON.parse(indexArtifact.buffer.toString('utf8'));
@@ -1672,10 +1812,21 @@ export function validateSubjectOntologyV2PromotionForRelease({
   };
   const expectedReport = Buffer.from(`${JSON.stringify(report, null, 2)}\n`, 'utf8');
   if (!reportArtifact.buffer.equals(expectedReport)) fail('subject ontology promotion report is not the exact committed release-builder result');
+  const promotionEnvelope = {
+    policy: 'subject_ontology_v2_external_promotion_envelope_v1',
+    git_head: context.prepared_release.git_head,
+    source_tree_sha256: context.prepared_release.source_tree_sha256,
+    index: { path: indexArtifact.path, sha256: indexArtifact.sha256, bytes: indexArtifact.bytes },
+    scope_artifacts: scopeArtifacts.map(({ path: artifactPath, sha256, bytes }) => ({
+      path: artifactPath,
+      sha256,
+      bytes,
+    })),
+  };
   return {
     ...report,
     report: { path: reportArtifact.path, sha256: reportArtifact.sha256, bytes: reportArtifact.bytes },
-    prepared_release: context.prepared_release,
+    promotion_envelope: promotionEnvelope,
   };
 }
 

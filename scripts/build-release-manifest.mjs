@@ -1176,7 +1176,7 @@ export async function buildReleaseManifest({
       dependencies: subjectOntologyV2.dependencies,
       counts: subjectOntologyV2.counts,
       release_boundary: subjectOntologyV2.release_boundary,
-      prepared_release: subjectOntologyV2.prepared_release || null,
+      promotion_envelope: subjectOntologyV2.promotion_envelope || null,
     },
     corpus_release: corpusReleaseIdentity(corpusRelease),
     page_evidence: pageEvidenceIdentity(pageEvidence),
