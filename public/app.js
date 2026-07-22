@@ -1054,15 +1054,110 @@ async function renderAdmin() {
     return;
   }
   try {
-    const [summary, comments] = await Promise.all([api('/api/admin/summary'), loadAllComments('/api/comments?moderation=1')]);
-    workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>审核概况</h2><p>待审核 ${summary.pending.count || 0} · 开放举报 ${summary.reports.count || 0} · 7 日 AI 引文失败 ${summary.aiFailures.count || 0}</p></aside><main class="workspace-main"><h2>待审核讨论</h2><div class="comment-list">${comments.comments.filter((item) => item.status === 'pending').map((item) => `<article class="comment-row"><h3>${escapeHtml(item.author_name)}</h3><p>${escapeHtml(item.body)}</p><div class="inspector-actions"><button class="work-button" data-moderate="approved" data-id="${item.id}">通过</button><button class="work-button secondary" data-moderate="rejected" data-id="${item.id}">拒绝</button></div></article>`).join('') || '<div class="empty-state">当前没有待审核讨论。</div>'}</div></main></div>`;
-    document.querySelectorAll('[data-moderate]').forEach((button) => button.addEventListener('click', async () => {
-      try {
-        await api(`/api/admin/comments/${button.dataset.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: button.dataset.moderate }) });
-        toast('审核状态已更新');
-        renderAdmin();
-      } catch (error) { toast(error.message); }
-    }));
+    const [overview, comments, reports, aiLogs, audits, inventory] = await Promise.all([
+      api('/api/admin/overview'),
+      api('/api/admin/comments?status=pending&limit=80'),
+      api('/api/admin/reports?status=open&limit=80'),
+      api('/api/admin/ai-logs?status=failed&limit=80'),
+      api('/api/admin/audit?limit=80'),
+      api('/api/admin/inventory?kind=documents&limit=50'),
+    ]);
+    const groupedCount = (rows, key) => Number(rows.find((item) => item.status === key)?.count || 0);
+    const metric = (label, value, detail = '') => `<article class="admin-metric"><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b>${detail ? `<small>${escapeHtml(detail)}</small>` : ''}</article>`;
+    const record = (title, meta, body = '', actions = '') => `<article class="admin-record"><header><b>${escapeHtml(title)}</b><small>${escapeHtml(meta)}</small></header>${body ? `<p>${escapeHtml(body)}</p>` : ''}${actions}</article>`;
+    const inventoryRecord = (item) => record(
+      item.title || item.label || item.id,
+      [item.id, item.subject, item.stage, item.version_label, item.current_status].filter(Boolean).join(' · '),
+      `文本：${item.text_quality_status || '未评估'}；引文：${Number(item.citation_allowed) === 1 ? '开放' : '关闭'}；页数：${item.page_count || '待核'}`,
+    );
+    const renderPanel = (name) => {
+      const panel = document.querySelector('#admin-panel');
+      document.querySelectorAll('[data-admin-view]').forEach((button) => button.classList.toggle('active', button.dataset.adminView === name));
+      if (name === 'comments') {
+        panel.innerHTML = `<h2>讨论审核</h2><p>匿名讨论默认待审核；所有决定写入内容审计日志。</p><div class="admin-records">${comments.rows.map((item) => record(
+          item.author_name,
+          `${item.document_title || item.document_id} · ${item.created_at}`,
+          item.body,
+          `<div class="inspector-actions"><button class="work-button" data-moderate="approved" data-id="${escapeHtml(item.id)}">通过</button><button class="work-button secondary" data-moderate="rejected" data-id="${escapeHtml(item.id)}">拒绝</button></div>`,
+        )).join('') || '<div class="empty-state">当前没有待审核讨论。</div>'}</div>`;
+      } else if (name === 'reports') {
+        panel.innerHTML = `<h2>举报处置</h2><p>处理理由、举报状态与讨论状态在同一事务中审计。</p><div class="admin-records">${reports.rows.map((item) => record(
+          item.document_title || item.comment_id,
+          `${item.created_at} · 讨论状态 ${item.comment_status}`,
+          `举报：${item.reason}\n讨论：${item.comment_body}`,
+          `<label class="admin-note">处理理由<input data-report-note="${escapeHtml(item.id)}" maxlength="240" placeholder="至少 4 个字符"></label><div class="inspector-actions"><button class="work-button" data-resolve-report="approved" data-id="${escapeHtml(item.id)}">保留讨论并关闭</button><button class="work-button secondary" data-resolve-report="deleted" data-id="${escapeHtml(item.id)}">删除讨论并关闭</button></div>`,
+        )).join('') || '<div class="empty-state">当前没有开放举报。</div>'}</div>`;
+      } else if (name === 'ai') {
+        panel.innerHTML = `<h2>AI 引文失败</h2><p>不返回用户或查询哈希，只显示定位故障所需的最小聚合信息。</p><div class="admin-records">${aiLogs.rows.map((item) => record(
+          item.status,
+          `${item.created_at} · ${item.model_label} · ${item.subject_filter || '跨学科'}`,
+          `检索 ${item.retrieved_count} 段，引用 ${item.cited_count} 段`,
+        )).join('') || '<div class="empty-state">当前筛选范围内无 AI 引文失败。</div>'}</div>`;
+      } else if (name === 'audit') {
+        panel.innerHTML = `<h2>不可变审计日志</h2><p>记录操作者、动作、对象以及 before/after；此处只读。</p><div class="admin-records">${audits.rows.map((item) => record(
+          `${item.action} · ${item.entity_type}`,
+          `${item.created_at} · ${item.actor_slug} · ${item.entity_id}`,
+          [item.before_json ? `before ${item.before_json}` : '', item.after_json ? `after ${item.after_json}` : ''].filter(Boolean).join('\n'),
+        )).join('') || '<div class="empty-state">当前没有审计记录。</div>'}</div>`;
+      } else if (name === 'inventory') {
+        panel.innerHTML = `<h2>发布资料清单</h2><p>可检索文件、章节、段落、术语、关系、版本结论与页级证据。不可直接修改已发布语料；修订必须回到受审 Git/证据发布链。</p><form class="work-form admin-inventory-form" id="admin-inventory-form"><label for="admin-kind">资料层</label><select id="admin-kind" name="kind"><option value="documents">文件</option><option value="chapters">章节</option><option value="paragraphs">段落</option><option value="terms">术语</option><option value="relations">术语关系</option><option value="versions">版本比较</option><option value="evidence">页级证据</option></select><label for="admin-query">关键词</label><input id="admin-query" name="q" maxlength="160"><button class="work-button" type="submit">查询只读快照</button></form><div class="admin-records" id="admin-inventory-results">${inventory.rows.map(inventoryRecord).join('') || '<div class="empty-state">当前资料层没有记录。</div>'}</div>`;
+      } else {
+        panel.innerHTML = `<h2>运行与出版概况</h2><div class="admin-metrics">${[
+          metric('文件', overview.counts.documents), metric('章节', overview.counts.chapters),
+          metric('段落 / FTS', `${overview.counts.paragraphs} / ${overview.counts.fts}`),
+          metric('概念节点 / 图关系', `${state.conceptGraph.episodes.length} / ${state.conceptGraph.edges.length}`),
+          metric('本体节点', state.conceptGraph.ontology_nodes.length),
+          metric('D1 版本结论', overview.counts.versions),
+          metric('页级展示门', overview.pageGates.display_allowed || 0, `总计 ${overview.pageGates.total || 0}`),
+          metric('页级引文门', overview.pageGates.citation_allowed || 0),
+          metric('待审核讨论', groupedCount(overview.comments, 'pending')),
+          metric('开放举报', groupedCount(overview.reports, 'open')),
+          metric('7 日 AI 失败', groupedCount(overview.ai, 'failed')),
+        ].join('')}</div><article class="admin-release"><h3>当前语料发布</h3><p>${escapeHtml(overview.release?.release_id || '未读到 release')} · ${escapeHtml(overview.release?.state || '状态未知')} · accepted OCR ${escapeHtml(overview.release?.accepted_ocr_documents || 0)}</p><p><b>边界：</b>后台不可直接改 D1 已发布正文、重建索引或导入文件；这些操作只允许由同一 clean Git snapshot 的受审发布流程执行。</p></article>`;
+      }
+      panel.querySelectorAll('[data-moderate]').forEach((button) => button.addEventListener('click', async () => {
+        button.disabled = true;
+        try {
+          await api(`/api/admin/comments/${button.dataset.id}`, {
+            method: 'PATCH', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ status: button.dataset.moderate, note: '管理员后台审核' }),
+          });
+          toast('讨论审核状态已更新');
+          renderAdmin();
+        } catch (error) { toast(error.message); button.disabled = false; }
+      }));
+      panel.querySelectorAll('[data-resolve-report]').forEach((button) => button.addEventListener('click', async () => {
+        const note = panel.querySelector(`[data-report-note="${CSS.escape(button.dataset.id)}"]`)?.value.trim() || '';
+        if (note.length < 4) { toast('请记录至少 4 个字符的处理理由'); return; }
+        button.disabled = true;
+        try {
+          await api(`/api/admin/reports/${button.dataset.id}`, {
+            method: 'PATCH', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ status: 'resolved', note, commentStatus: button.dataset.resolveReport }),
+          });
+          toast('举报与讨论状态已在同一事务中更新');
+          renderAdmin();
+        } catch (error) { toast(error.message); button.disabled = false; }
+      }));
+      panel.querySelector('#admin-inventory-form')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const button = form.querySelector('button[type="submit"]');
+        button.disabled = true;
+        try {
+          const values = new FormData(form);
+          const result = await api(`/api/admin/inventory?kind=${encodeURIComponent(values.get('kind'))}&q=${encodeURIComponent(values.get('q'))}&limit=100`);
+          document.querySelector('#admin-inventory-results').innerHTML = result.rows.map((item) => record(
+            item.title || item.label || item.document_title || item.id || `${item.document_id} · p.${item.page_number || '?'}`,
+            [item.id, item.document_id, item.subject, item.stage, item.version_label, item.review_status].filter(Boolean).join(' · '),
+            item.excerpt || item.definition || item.summary || item.evidence_triad_status || '',
+          )).join('') || '<div class="empty-state">没有匹配记录。</div>';
+        } catch (error) { toast(error.message); } finally { button.disabled = false; }
+      });
+    };
+    workbenchBody.innerHTML = `<div class="workspace-grid admin-workspace"><aside class="workspace-aside"><h2>管理控制面</h2><p>只向服务端白名单管理员开放。管理 UI 用于浏览、审核和审计；语料、索引、OCR 与关系发布仍由不可变发布链控制。</p><nav class="admin-nav" aria-label="管理功能"><button type="button" data-admin-view="overview">概况</button><button type="button" data-admin-view="inventory">资料与证据</button><button type="button" data-admin-view="comments">讨论</button><button type="button" data-admin-view="reports">举报</button><button type="button" data-admin-view="ai">AI</button><button type="button" data-admin-view="audit">审计</button></nav></aside><main class="workspace-main" id="admin-panel"></main></div>`;
+    document.querySelectorAll('[data-admin-view]').forEach((button) => button.addEventListener('click', () => renderPanel(button.dataset.adminView)));
+    renderPanel('overview');
   } catch (error) {
     workbenchBody.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
   }

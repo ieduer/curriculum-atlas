@@ -353,6 +353,32 @@ button { color: inherit; }
 .login-note a { display: inline-flex; margin-top: 10px; }
 .turnstile-slot { min-height: 70px; }
 
+.admin-nav { display: grid; gap: 5px; margin-top: 18px; }
+.admin-nav button {
+  min-height: 38px; padding: 0 12px; border: 1px solid transparent; border-radius: 9px;
+  color: #59657b; background: transparent; text-align: left; cursor: pointer; font: 650 12px var(--sans);
+}
+.admin-nav button:hover, .admin-nav button:focus-visible { border-color: rgba(38,48,71,.2); color: #182031; }
+.admin-nav button.active { border-color: rgba(164,123,40,.28); color: #171e2e; background: rgba(164,123,40,.1); }
+.admin-metrics { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.admin-metric { min-height: 98px; padding: 15px; border: 1px solid rgba(38,48,71,.14); border-radius: 12px; background: rgba(255,255,255,.34); }
+.admin-metric span, .admin-metric small { display: block; color: #778196; font-size: 10px; }
+.admin-metric b { display: block; margin: 7px 0 4px; color: #182031; font: 600 22px var(--serif); overflow-wrap: anywhere; }
+.admin-release { margin-top: 18px; padding: 18px; border: 1px solid rgba(38,48,71,.14); border-radius: 12px; background: rgba(255,255,255,.26); }
+.admin-release h3 { margin: 0; font: 600 17px var(--serif); }
+.admin-records { display: grid; }
+.admin-record { padding: 16px 0; border-top: 1px solid rgba(38,48,71,.14); }
+.admin-record:first-child { border-top: 0; }
+.admin-record header { display: grid; gap: 4px; }
+.admin-record header b { color: #172033; font: 600 15px/1.45 var(--serif); overflow-wrap: anywhere; }
+.admin-record header small { color: #7b8599; font-size: 10px; overflow-wrap: anywhere; }
+.admin-record p { margin: 8px 0 0; color: #58647a; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.65; }
+.admin-note { display: grid; gap: 6px; margin-top: 12px; color: #667086; font-size: 10px; font-weight: 700; }
+.admin-note input { width: 100%; padding: 10px 12px; border: 1px solid rgba(38,48,71,.22); border-radius: 8px; color: #171e2e; background: rgba(255,255,255,.55); }
+.admin-inventory-form { grid-template-columns: minmax(130px,.35fr) minmax(180px,1fr) auto; align-items: end; margin: 18px 0 12px; }
+.admin-inventory-form label { grid-row: 1; }
+.admin-inventory-form select, .admin-inventory-form input, .admin-inventory-form button { grid-row: 2; }
+
 .toast { position: fixed; z-index: 150; left: 50%; bottom: 92px; max-width: min(460px, calc(100% - 28px)); padding: 11px 16px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: rgba(6,9,21,.94); transform: translate(-50%,20px); opacity: 0; pointer-events: none; transition: .22s; }
 .toast.show { opacity: 1; transform: translate(-50%,0); }
 
@@ -369,6 +395,9 @@ button { color: inherit; }
   .star-inspector { top: 92px; right: 158px; width: min(330px, calc(100% - 320px)); max-height: calc(100svh - 112px); }
   .workspace-grid, .reader-grid, .ai-grid { grid-template-columns: minmax(0,1fr); }
   .workspace-aside, .reader-facts { position: static; }
+  .admin-nav { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .admin-nav button { text-align: center; }
+  .admin-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .reader-facts { padding-left: 0; border-left: 0; border-top: 1px solid rgba(38,48,71,.16); padding-top: 20px; }
 }
 
@@ -436,6 +465,9 @@ button { color: inherit; }
     height: calc(100% - 138px); padding: 18px 0 calc(var(--mobile-dock-clearance) + 24px);
     scroll-padding-bottom: calc(var(--mobile-dock-clearance) + 24px);
   }
+  .admin-metrics { grid-template-columns: minmax(0,1fr); }
+  .admin-inventory-form { grid-template-columns: minmax(0,1fr); }
+  .admin-inventory-form label, .admin-inventory-form select, .admin-inventory-form input, .admin-inventory-form button { grid-row: auto; }
   body:has(.workbench:not([hidden])) .timeline-library-column { z-index: 82; }
   body:has(.workbench:not([hidden])) .timeline-library-column .era-rail,
   body:has(.workbench:not([hidden])) .timeline-library-column .map-key { visibility: hidden; pointer-events: none; }
