@@ -12,6 +12,7 @@ import {
   projectResearchEvidenceSlice,
   validateResearchEvidenceSlice,
 } from '../scripts/lib/research-evidence-slice.mjs';
+import { assertResearchEvidenceReleaseGate } from '../scripts/validate-research-evidence-slice.mjs';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -129,6 +130,10 @@ async function fixture() {
       independently_counts_for_text: false,
       witness_scope: 'artifact_identity_only',
       same_artifact_as: null,
+      document_binding: {
+        document_id: 'doc-from', version_label: '2017年版',
+        source_artifact_sha256: sha256(fromPdf), version_identity_source_id: 'source:from-identity',
+      },
       resource: { resource_id: 'artifact:from', media_type: 'application/pdf', sha256: sha256(fromPdf) },
       canonical_text_sha256: null,
       spans: [],
@@ -145,6 +150,10 @@ async function fixture() {
       independently_counts_for_text: false,
       witness_scope: 'artifact_identity_only',
       same_artifact_as: null,
+      document_binding: {
+        document_id: 'doc-to', version_label: '2017年版2020年修订',
+        source_artifact_sha256: sha256(toPdf), version_identity_source_id: 'source:to-identity',
+      },
       resource: { resource_id: 'artifact:to', media_type: 'application/pdf', sha256: sha256(toPdf) },
       canonical_text_sha256: null,
       spans: [],
@@ -161,6 +170,10 @@ async function fixture() {
       independently_counts_for_text: false,
       witness_scope: 'version_identity_only',
       same_artifact_as: null,
+      document_binding: {
+        document_id: 'doc-from', version_label: '2017年版',
+        source_artifact_sha256: sha256(fromPdf), version_identity_source_id: 'source:from-identity',
+      },
       resource: { resource_id: 'snapshot:from-identity', media_type: 'text/html', sha256: sha256(fromIdentity) },
       canonical_text_sha256: sha256(fromIdentityCanonical),
       spans: [span('online-span:from-identity', '教育部发布旧版课程标准', fromIdentityCanonical, 'version_identity')],
@@ -177,6 +190,10 @@ async function fixture() {
       independently_counts_for_text: false,
       witness_scope: 'version_identity_only',
       same_artifact_as: null,
+      document_binding: {
+        document_id: 'doc-to', version_label: '2017年版2020年修订',
+        source_artifact_sha256: sha256(toPdf), version_identity_source_id: 'source:to-identity',
+      },
       resource: { resource_id: 'snapshot:to-identity', media_type: 'text/html', sha256: sha256(toIdentity) },
       canonical_text_sha256: sha256(toIdentityCanonical),
       spans: [span('online-span:to-identity', '教育部发布新版修订课程标准', toIdentityCanonical, 'version_identity')],
@@ -193,6 +210,10 @@ async function fixture() {
       independently_counts_for_text: true,
       witness_scope: 'exact_document_text',
       same_artifact_as: null,
+      document_binding: {
+        document_id: 'doc-from', version_label: '2017年版',
+        source_artifact_sha256: sha256(fromPdf), version_identity_source_id: 'source:from-identity',
+      },
       resource: { resource_id: 'snapshot:from', media_type: 'text/html', sha256: sha256(fromHtml) },
       canonical_text_sha256: sha256(fromCanonical),
       spans: [
@@ -212,6 +233,10 @@ async function fixture() {
       independently_counts_for_text: true,
       witness_scope: 'exact_document_text',
       same_artifact_as: null,
+      document_binding: {
+        document_id: 'doc-to', version_label: '2017年版2020年修订',
+        source_artifact_sha256: sha256(toPdf), version_identity_source_id: 'source:to-identity',
+      },
       resource: { resource_id: 'snapshot:to', media_type: 'text/html', sha256: sha256(toHtml) },
       canonical_text_sha256: sha256(toCanonical),
       spans: [span('online-span:to', '新版精确表述', toCanonical, 'exact_text_witness')],
@@ -228,6 +253,10 @@ async function fixture() {
       independently_counts_for_text: false,
       witness_scope: 'artifact_integrity_only',
       same_artifact_as: 'source:to-primary',
+      document_binding: {
+        document_id: 'doc-to', version_label: '2017年版2020年修订',
+        source_artifact_sha256: sha256(toPdf), version_identity_source_id: 'source:to-identity',
+      },
       resource: { resource_id: 'artifact:to-mirror', media_type: 'application/pdf', sha256: sha256(toPdf) },
       canonical_text_sha256: null,
       spans: [],
@@ -407,6 +436,25 @@ test('HTML canonicalization is deterministic and preserves joined Chinese text n
   assert.equal(canonicalizeHtmlText(html), '全面而有个性的发展奠定基础');
 });
 
+test('the checked-in JSON Schema rejects root and nested additional properties and missing required fields', async () => {
+  const rootExtra = await fixture();
+  rootExtra.manifest.unreviewed_extra = true;
+  const rootValidation = validateResearchEvidenceSlice(rootExtra);
+  assert.ok(rootValidation.errors.some((item) => item.code === 'json_schema_additionalProperties'
+    && item.location === '$'));
+
+  const nestedExtra = await fixture();
+  nestedExtra.manifest.online_sources[4].document_binding.unreviewed_extra = true;
+  const nestedValidation = validateResearchEvidenceSlice(nestedExtra);
+  assert.ok(nestedValidation.errors.some((item) => item.code === 'json_schema_additionalProperties'
+    && item.location.includes('document_binding')));
+
+  const missingRequired = await fixture();
+  delete missingRequired.manifest.online_sources[4].document_binding;
+  const requiredValidation = validateResearchEvidenceSlice(missingRequired);
+  assert.ok(requiredValidation.errors.some((item) => item.code === 'json_schema_required'));
+});
+
 test('resolves corpus, page-publication, artifacts, online bodies and exact UTF-16 spans but stays fail closed pending review', async () => {
   const { manifest, resourcePaths } = await fixture();
   const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
@@ -433,6 +481,12 @@ test('resolves corpus, page-publication, artifacts, online bodies and exact UTF-
   assert.equal(projection.consumer_bindings.star[0].public_display_allowed, false);
   assert.equal(projection.consumer_bindings.ai[0].citation_allowed, false);
   assert.equal(projection.consumer_bindings.discussion[0].claim_citation_allowed, false);
+  const result = { validation, projection };
+  assert.equal(assertResearchEvidenceReleaseGate(result), result);
+  assert.throws(
+    () => assertResearchEvidenceReleaseGate(result, { requirePublicationEligible: true }),
+    /strict publication eligibility gate failed/,
+  );
 });
 
 test('fails closed when a corpus paragraph body no longer matches its pinned hash and UTF-16 span', async () => {
@@ -466,6 +520,52 @@ test('same-artifact mirrors never satisfy independent text evidence', async () =
   const codes = validation.errors.map((item) => item.code);
   assert.ok(codes.includes('same_artifact_marked_independent'));
   assert.ok(codes.includes('evidence_missing_independent_online_witness'));
+});
+
+test('an online witness must bind the exact evidence document, version and artifact', async () => {
+  const mismatch = await fixture();
+  const source = mismatch.manifest.online_sources.find((item) => item.source_id === 'source:from-independent');
+  source.document_binding.document_id = 'doc-to';
+  const validation = validateResearchEvidenceSlice(mismatch);
+  const codes = validation.errors.map((item) => item.code);
+  assert.ok(codes.includes('source_document_binding_version_mismatch'));
+  assert.ok(codes.includes('source_document_binding_artifact_mismatch'));
+  assert.ok(codes.includes('evidence_online_witness_document_binding_mismatch'));
+});
+
+test('a different-edition source cannot satisfy exact-document corroboration', async () => {
+  const candidate = await fixture();
+  candidate.manifest.online_sources.find(
+    (item) => item.source_id === 'source:from-independent',
+  ).version_relation = 'different_edition';
+  const validation = validateResearchEvidenceSlice(candidate);
+  assert.deepEqual(validation.errors, []);
+  assert.equal(validation.assertions[0].research_evidence_ready, false);
+  assert.ok(validation.assertions[0].blockers.includes('independent_exact_document_witness_missing'));
+});
+
+test('duplicate snapshot bytes and canonical text cannot be relabelled as independent witnesses', async () => {
+  const candidate = await fixture();
+  const original = candidate.manifest.online_sources.find(
+    (item) => item.source_id === 'source:from-independent',
+  );
+  const relabelled = structuredClone(original);
+  relabelled.source_id = 'source:from-independent-relabelled';
+  relabelled.title = '改名后的同一快照';
+  relabelled.url = 'https://independent.example/relabelled';
+  relabelled.resource.resource_id = 'snapshot:from-relabelled';
+  relabelled.spans = relabelled.spans.map((span) => ({
+    ...span,
+    span_id: `${span.span_id}-relabelled`,
+  }));
+  candidate.manifest.online_sources.push(relabelled);
+  candidate.resourcePaths['snapshot:from-relabelled'] = candidate.resourcePaths['snapshot:from'];
+  candidate.manifest.evidence[0].online_witness_span_ids = ['online-span:from-relabelled'];
+  const validation = validateResearchEvidenceSlice(candidate);
+  const codes = validation.errors.map((item) => item.code);
+  assert.ok(codes.includes('duplicate_independent_snapshot_bytes'));
+  assert.ok(codes.includes('duplicate_independent_canonical_text'));
+  assert.ok(validation.assertions[0].blockers.includes('independent_exact_document_witness_missing'));
 });
 
 test('a declared unresolved transcription conflict blocks research readiness and every public consumer', async () => {
@@ -519,6 +619,32 @@ test('a declared unresolved transcription conflict blocks research readiness and
   for (const consumer of ['compare', 'reader_search', 'star', 'ai', 'discussion']) {
     assert.deepEqual(projection.consumer_bindings[consumer][0].release_gate, expectedReleaseGate);
   }
+});
+
+test('assertion conflict statuses and gate blockers are derived from every conflict touching its evidence', async () => {
+  const { manifest, resourcePaths } = await fixture();
+  manifest.conflicts.push({
+    conflict_id: 'conflict:fixture-omitted',
+    evidence_id: 'evidence:from',
+    source_span_ids: ['online-span:from-conflict'],
+    status: 'unresolved_fail_closed',
+    note: '攻击样例保留冲突对象，却从断言自报字段删除冲突。',
+  });
+  manifest.evidence[0].online_conflict_span_ids = ['online-span:from-conflict'];
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  const codes = validation.errors.map((item) => item.code);
+  assert.ok(codes.includes('assertion_required_conflicts_mismatch'));
+  assert.ok(codes.includes('assertion_bundle_sha256_mismatch'));
+  assert.ok(codes.includes('assertion_semantic_statuses_mismatch'));
+  assert.ok(codes.includes('assertion_release_gate_blockers_mismatch'));
+  assert.ok(validation.assertions[0].blockers.includes('unresolved_transcription_conflict'));
+});
+
+test('an evidence-declared conflict span cannot lose its conflict record', async () => {
+  const { manifest, resourcePaths } = await fixture();
+  manifest.evidence[0].online_conflict_span_ids = ['online-span:from-conflict'];
+  const validation = validateResearchEvidenceSlice({ manifest, resourcePaths });
+  assert.ok(validation.errors.some((item) => item.code === 'evidence_conflict_span_coverage_invalid'));
 });
 
 test('rejects the shared five-consumer release gate when it opens before editor review', async () => {

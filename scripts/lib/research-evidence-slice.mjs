@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import Ajv2020 from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const ID = /^[a-z0-9][a-z0-9:._-]*$/;
@@ -37,6 +39,10 @@ const SEMANTIC_STATUS_VALUES = new Set([
   'online-version-conflict',
   'editor-review-pending',
 ]);
+export const DEFAULT_RESEARCH_EVIDENCE_SCHEMA = JSON.parse(readFileSync(
+  new URL('../../data/research-evidence/research-evidence-slice.schema.json', import.meta.url),
+  'utf8',
+));
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -110,6 +116,30 @@ function exactKeys(value, keys) {
     && keys.every((key) => Object.hasOwn(value, key));
 }
 
+function schemaLocation(instancePath = '') {
+  if (!instancePath) return '$';
+  return `$${instancePath.replace(/\/([0-9]+)/g, '[$1]').replace(/\/([^/[]+)/g, '.$1')}`;
+}
+
+function validateJsonSchema(manifest, schema, errors) {
+  try {
+    const ajv = new Ajv2020({ allErrors: true, strict: true });
+    addFormats(ajv);
+    const validate = ajv.compile(schema);
+    if (validate(manifest)) return;
+    for (const error of validate.errors || []) {
+      addError(
+        errors,
+        `json_schema_${error.keyword}`,
+        schemaLocation(error.instancePath),
+        `${error.message || 'schema validation failed'} ${JSON.stringify(error.params || {})}`,
+      );
+    }
+  } catch (error) {
+    addError(errors, 'json_schema_definition_invalid', '$schema', error.message);
+  }
+}
+
 function safeResource(resourcePaths, resourceId, errors, location) {
   const rawPath = resourcePaths?.[resourceId];
   if (typeof rawPath !== 'string' || !path.isAbsolute(rawPath)) {
@@ -136,7 +166,7 @@ function occurrences(body, needle) {
   return offsets;
 }
 
-function assertionBundle(assertion, evidenceById) {
+function assertionBundle(assertion, evidenceById, requiredConflictIds) {
   return {
     assertion_id: assertion.assertion_id,
     assertion_kind: assertion.assertion_kind,
@@ -153,7 +183,7 @@ function assertionBundle(assertion, evidenceById) {
       exact_text_sha256: evidenceById.get(id)?.exact_text_sha256 ?? null,
     })),
     version_identity_source_ids: assertion.version_identity_source_ids,
-    unresolved_conflict_ids: assertion.unresolved_conflict_ids,
+    unresolved_conflict_ids: requiredConflictIds,
   };
 }
 
@@ -183,11 +213,29 @@ function validateManifestBoundary(manifest, errors) {
   }
 }
 
-function validateOnlineSources({ manifest, resourcePaths, errors }) {
+function validateOnlineSources({ manifest, documentById, resourcePaths, errors }) {
   const sourceById = uniqueMap(manifest.online_sources, 'source_id', errors, '$.online_sources');
   const spanById = new Map();
   const primaryHashes = new Map();
   const resolvedSources = new Map();
+  const sourceBindingValid = new Map();
+  const invalidIndependentSourceIds = new Set();
+  const independentRawHashes = new Map();
+  const independentCanonicalHashes = new Map();
+  const independentUrls = new Map();
+  const resourceIds = new Map();
+
+  const registerUnique = (index, key, sourceId, code, location) => {
+    if (!key) return;
+    const previous = index.get(key);
+    if (previous) {
+      addError(errors, code, location, `${sourceId} duplicates ${previous}`);
+      invalidIndependentSourceIds.add(previous);
+      invalidIndependentSourceIds.add(sourceId);
+      return;
+    }
+    index.set(key, sourceId);
+  };
 
   for (const [sourceId, source] of sourceById) {
     const location = `$.online_sources[${sourceId}]`;
@@ -198,6 +246,33 @@ function validateOnlineSources({ manifest, resourcePaths, errors }) {
     expect(errors, SHA256.test(source.resource?.sha256 || ''), 'source_sha256_invalid', `${location}.resource.sha256`, String(source.resource?.sha256));
     expect(errors, Array.isArray(source.spans), 'source_spans_not_array', `${location}.spans`, 'required array');
     expect(errors, Array.isArray(source.limitations) && source.limitations.length > 0, 'source_limitations_missing', `${location}.limitations`, 'at least one limitation required');
+    registerUnique(
+      resourceIds,
+      source.resource?.resource_id,
+      sourceId,
+      'duplicate_source_resource_id',
+      `${location}.resource.resource_id`,
+    );
+
+    const binding = source.document_binding;
+    const document = documentById.get(binding?.document_id);
+    const bindingShapeValid = exactKeys(binding, [
+      'document_id',
+      'version_label',
+      'source_artifact_sha256',
+      'version_identity_source_id',
+    ]);
+    const bindingValid = bindingShapeValid
+      && Boolean(document)
+      && binding.version_label === document.version_label
+      && binding.source_artifact_sha256 === document.source_artifact_sha256
+      && binding.version_identity_source_id === document.version_identity_source_id;
+    expect(errors, bindingShapeValid, 'source_document_binding_shape_invalid', `${location}.document_binding`, sourceId);
+    expect(errors, Boolean(document), 'source_document_binding_document_missing', `${location}.document_binding.document_id`, String(binding?.document_id));
+    expect(errors, !document || binding?.version_label === document.version_label, 'source_document_binding_version_mismatch', `${location}.document_binding.version_label`, sourceId);
+    expect(errors, !document || binding?.source_artifact_sha256 === document.source_artifact_sha256, 'source_document_binding_artifact_mismatch', `${location}.document_binding.source_artifact_sha256`, sourceId);
+    expect(errors, !document || binding?.version_identity_source_id === document.version_identity_source_id, 'source_document_binding_identity_mismatch', `${location}.document_binding.version_identity_source_id`, sourceId);
+    sourceBindingValid.set(sourceId, bindingValid);
 
     const raw = safeResource(resourcePaths, source.resource?.resource_id, errors, `${location}.resource`);
     if (raw && SHA256.test(source.resource?.sha256 || '')) {
@@ -224,6 +299,7 @@ function validateOnlineSources({ manifest, resourcePaths, errors }) {
       expect(errors,
         ['exact_document_text', 'same_version_policy_text'].includes(source.witness_scope),
         'independent_witness_scope_invalid', `${location}.witness_scope`, sourceId);
+      expect(errors, bindingValid, 'independent_source_document_binding_invalid', `${location}.document_binding`, sourceId);
     }
 
     let canonicalBody = null;
@@ -233,6 +309,30 @@ function validateOnlineSources({ manifest, resourcePaths, errors }) {
       expect(errors, sha256(canonicalBody) === source.canonical_text_sha256, 'online_body_sha256_mismatch', `${location}.canonical_text_sha256`, sourceId);
     } else {
       expect(errors, source.canonical_text_sha256 === null, 'binary_source_has_canonical_text_sha256', `${location}.canonical_text_sha256`, sourceId);
+    }
+
+    if (source.independently_counts_for_text === true) {
+      registerUnique(
+        independentRawHashes,
+        source.resource?.sha256,
+        sourceId,
+        'duplicate_independent_snapshot_bytes',
+        `${location}.resource.sha256`,
+      );
+      registerUnique(
+        independentCanonicalHashes,
+        source.canonical_text_sha256,
+        sourceId,
+        'duplicate_independent_canonical_text',
+        `${location}.canonical_text_sha256`,
+      );
+      registerUnique(
+        independentUrls,
+        source.url,
+        sourceId,
+        'duplicate_independent_source_url',
+        `${location}.url`,
+      );
     }
 
     for (const [index, span] of (source.spans || []).entries()) {
@@ -269,6 +369,22 @@ function validateOnlineSources({ manifest, resourcePaths, errors }) {
   }
 
   for (const [sourceId, source] of sourceById) {
+    const identitySource = sourceById.get(source.document_binding?.version_identity_source_id);
+    expect(errors,
+      ['official_version_identity', 'official_version_identity_with_policy_text'].includes(identitySource?.evidence_role),
+      'source_document_binding_identity_source_invalid',
+      `$.online_sources[${sourceId}].document_binding.version_identity_source_id`,
+      String(source.document_binding?.version_identity_source_id));
+    if (['official_version_identity', 'official_version_identity_with_policy_text'].includes(source.evidence_role)) {
+      expect(errors,
+        source.document_binding?.version_identity_source_id === sourceId,
+        'version_identity_source_not_self_bound',
+        `$.online_sources[${sourceId}].document_binding.version_identity_source_id`,
+        sourceId);
+    }
+  }
+
+  for (const [sourceId, source] of sourceById) {
     if (source.evidence_role !== 'integrity_only_same_artifact' || typeof source.same_artifact_as !== 'string') continue;
     const primary = sourceById.get(source.same_artifact_as);
     expect(errors, primary?.evidence_role === 'primary_artifact', 'integrity_mirror_primary_invalid', `$.online_sources[${sourceId}].same_artifact_as`, source.same_artifact_as);
@@ -280,7 +396,13 @@ function validateOnlineSources({ manifest, resourcePaths, errors }) {
       expect(errors, !primaryHashSet.has(source.resource?.sha256), 'independent_source_equals_primary_artifact', `$.online_sources[${sourceId}].resource.sha256`, sourceId);
     }
   }
-  return { sourceById, spanById, resolvedSources };
+  return {
+    sourceById,
+    spanById,
+    resolvedSources,
+    sourceBindingValid,
+    invalidIndependentSourceIds,
+  };
 }
 
 function validateCorpus({ manifest, resourcePaths, errors }) {
@@ -327,8 +449,7 @@ function validateCorpus({ manifest, resourcePaths, errors }) {
   return { database, corpusManifest };
 }
 
-function validateDocuments({ manifest, database, sourceById, errors }) {
-  const documentById = uniqueMap(manifest.documents, 'document_id', errors, '$.documents');
+function validateDocuments({ manifest, documentById, database, sourceById, errors }) {
   const roles = manifest.documents?.map((item) => item.role).sort() || [];
   expect(errors, JSON.stringify(roles) === JSON.stringify(['from', 'to']), 'document_roles_invalid', '$.documents', roles.join(','));
   if (!database) return documentById;
@@ -358,13 +479,25 @@ function validateDocuments({ manifest, database, sourceById, errors }) {
     const primary = sourceById.get(expected.primary_source_id);
     expect(errors, primary?.evidence_role === 'primary_artifact', 'document_primary_source_invalid', `${location}.primary_source_id`, String(expected.primary_source_id));
     expect(errors, primary?.resource?.sha256 === expected.source_artifact_sha256, 'document_primary_source_hash_mismatch', `${location}.primary_source_id`, String(expected.primary_source_id));
+    expect(errors, primary?.document_binding?.document_id === documentId, 'document_primary_source_binding_mismatch', `${location}.primary_source_id`, String(expected.primary_source_id));
     const identity = sourceById.get(expected.version_identity_source_id);
     expect(errors, ['official_version_identity', 'official_version_identity_with_policy_text'].includes(identity?.evidence_role), 'document_version_identity_source_invalid', `${location}.version_identity_source_id`, String(expected.version_identity_source_id));
+    expect(errors, identity?.document_binding?.document_id === documentId, 'document_version_identity_binding_mismatch', `${location}.version_identity_source_id`, String(expected.version_identity_source_id));
   }
   return documentById;
 }
 
-function validateEvidence({ manifest, database, documentById, sourceById, spanById, resourcePaths, errors }) {
+function validateEvidence({
+  manifest,
+  database,
+  documentById,
+  sourceById,
+  spanById,
+  sourceBindingValid,
+  invalidIndependentSourceIds,
+  resourcePaths,
+  errors,
+}) {
   const evidenceById = uniqueMap(manifest.evidence, 'evidence_id', errors, '$.evidence');
   const evidenceResults = new Map();
   if (!database) return { evidenceById, evidenceResults };
@@ -443,9 +576,21 @@ function validateEvidence({ manifest, database, documentById, sourceById, spanBy
       expect(errors, binding.span.purpose === 'exact_text_witness', 'evidence_online_witness_purpose_invalid', `${location}.online_witness_span_ids`, spanId);
       expect(errors, binding.span.exact_text === evidence.exact_text, 'evidence_online_witness_text_mismatch', `${location}.online_witness_span_ids`, spanId);
       expect(errors, binding.source.independently_counts_for_text === true, 'evidence_online_witness_not_independent', `${location}.online_witness_span_ids`, spanId);
-      if (binding.source.independently_counts_for_text === true && binding.span.exact_text === evidence.exact_text) {
+      const bindingMatchesEvidence = sourceBindingValid.get(binding.source.source_id) === true
+        && binding.source.document_binding.document_id === evidence.document_id
+        && binding.source.document_binding.version_label === document?.version_label
+        && binding.source.document_binding.source_artifact_sha256 === evidence.source_artifact_sha256
+        && binding.source.document_binding.version_identity_source_id === document?.version_identity_source_id;
+      expect(errors, bindingMatchesEvidence, 'evidence_online_witness_document_binding_mismatch', `${location}.online_witness_span_ids`, spanId);
+      const independentValid = binding.source.independently_counts_for_text === true
+        && !invalidIndependentSourceIds.has(binding.source.source_id)
+        && bindingMatchesEvidence;
+      if (independentValid && binding.span.exact_text === evidence.exact_text) {
         independentWitnesses += 1;
-        if (binding.source.witness_scope === 'exact_document_text') exactDocumentWitnesses += 1;
+        if (binding.source.witness_scope === 'exact_document_text'
+          && binding.source.version_relation === 'exact_document_exact_edition') {
+          exactDocumentWitnesses += 1;
+        }
       }
     }
     if ((evidence.online_witness_span_ids || []).length > 0) {
@@ -469,6 +614,8 @@ function validateEvidence({ manifest, database, documentById, sourceById, spanBy
 
 function validateConflicts({ manifest, evidenceById, spanById, errors }) {
   const conflictById = uniqueMap(manifest.conflicts, 'conflict_id', errors, '$.conflicts');
+  const conflictIdsByEvidenceId = new Map();
+  const conflictIdsBySpanId = new Map();
   for (const [conflictId, conflict] of conflictById) {
     const location = `$.conflicts[${conflictId}]`;
     const evidence = evidenceById.get(conflict.evidence_id);
@@ -476,7 +623,15 @@ function validateConflicts({ manifest, evidenceById, spanById, errors }) {
     expect(errors, conflict.status === 'unresolved_fail_closed', 'conflict_status_invalid', `${location}.status`, String(conflict.status));
     expect(errors, typeof conflict.note === 'string' && conflict.note.length > 0, 'conflict_note_missing', `${location}.note`, 'required');
     expect(errors, Array.isArray(conflict.source_span_ids) && conflict.source_span_ids.length > 0, 'conflict_spans_missing', `${location}.source_span_ids`, 'required');
+    if (evidence) {
+      const ids = conflictIdsByEvidenceId.get(evidence.evidence_id) || [];
+      ids.push(conflictId);
+      conflictIdsByEvidenceId.set(evidence.evidence_id, ids);
+    }
     for (const spanId of conflict.source_span_ids || []) {
+      const spanConflictIds = conflictIdsBySpanId.get(spanId) || [];
+      spanConflictIds.push(conflictId);
+      conflictIdsBySpanId.set(spanId, spanConflictIds);
       const binding = spanById.get(spanId);
       expect(errors, Boolean(binding), 'conflict_span_missing', `${location}.source_span_ids`, spanId);
       if (binding && evidence) {
@@ -486,10 +641,29 @@ function validateConflicts({ manifest, evidenceById, spanById, errors }) {
       }
     }
   }
-  return conflictById;
+  for (const [evidenceId, evidence] of evidenceById) {
+    for (const spanId of evidence.online_conflict_span_ids || []) {
+      const conflictIds = conflictIdsBySpanId.get(spanId) || [];
+      expect(errors, conflictIds.length === 1, 'evidence_conflict_span_coverage_invalid', `$.evidence[${evidenceId}].online_conflict_span_ids`, `${spanId} is covered by ${conflictIds.length} conflicts`);
+      if (conflictIds.length === 1) {
+        expect(errors, conflictById.get(conflictIds[0])?.evidence_id === evidenceId, 'evidence_conflict_span_wrong_evidence', `$.evidence[${evidenceId}].online_conflict_span_ids`, spanId);
+      }
+    }
+  }
+  for (const ids of conflictIdsByEvidenceId.values()) ids.sort();
+  return { conflictById, conflictIdsByEvidenceId };
 }
 
-function validateAssertions({ manifest, documentById, sourceById, evidenceById, evidenceResults, conflictById, errors }) {
+function validateAssertions({
+  manifest,
+  documentById,
+  sourceById,
+  evidenceById,
+  evidenceResults,
+  conflictById,
+  conflictIdsByEvidenceId,
+  errors,
+}) {
   const assertionById = uniqueMap(manifest.assertions, 'assertion_id', errors, '$.assertions');
   const results = [];
   for (const [assertionId, assertion] of assertionById) {
@@ -499,20 +673,33 @@ function validateAssertions({ manifest, documentById, sourceById, evidenceById, 
     expect(errors, Array.isArray(assertion.from_evidence_ids) && assertion.from_evidence_ids.length > 0, 'assertion_from_evidence_missing', `${location}.from_evidence_ids`, 'required');
     expect(errors, Array.isArray(assertion.to_evidence_ids) && assertion.to_evidence_ids.length > 0, 'assertion_to_evidence_missing', `${location}.to_evidence_ids`, 'required');
     const evidenceIds = [...(assertion.from_evidence_ids || []), ...(assertion.to_evidence_ids || [])];
+    const requiredConflictIds = [...new Set(evidenceIds.flatMap((id) => conflictIdsByEvidenceId.get(id) || []))].sort();
     for (const id of evidenceIds) expect(errors, evidenceById.has(id), 'assertion_evidence_missing', location, id);
     for (const id of assertion.from_evidence_ids || []) expect(errors, evidenceById.get(id)?.document_id === assertion.from_document_id, 'assertion_from_evidence_document_mismatch', location, id);
     for (const id of assertion.to_evidence_ids || []) expect(errors, evidenceById.get(id)?.document_id === assertion.to_document_id, 'assertion_to_evidence_document_mismatch', location, id);
     expect(errors, Array.isArray(assertion.version_identity_source_ids) && assertion.version_identity_source_ids.length === 2, 'assertion_version_identity_pair_invalid', `${location}.version_identity_source_ids`, 'exactly two required');
     for (const id of assertion.version_identity_source_ids || []) expect(errors, ['official_version_identity', 'official_version_identity_with_policy_text'].includes(sourceById.get(id)?.evidence_role), 'assertion_version_identity_source_invalid', location, id);
+    const expectedIdentitySourceIds = [
+      documentById.get(assertion.from_document_id)?.version_identity_source_id,
+      documentById.get(assertion.to_document_id)?.version_identity_source_id,
+    ];
+    expect(errors,
+      JSON.stringify(assertion.version_identity_source_ids) === JSON.stringify(expectedIdentitySourceIds),
+      'assertion_version_identity_binding_mismatch', `${location}.version_identity_source_ids`,
+      `expected ${JSON.stringify(expectedIdentitySourceIds)}`);
     expect(errors, Array.isArray(assertion.unresolved_conflict_ids), 'assertion_conflicts_not_array', `${location}.unresolved_conflict_ids`, 'required array');
     for (const id of assertion.unresolved_conflict_ids || []) expect(errors, conflictById.has(id), 'assertion_conflict_missing', location, id);
+    expect(errors,
+      JSON.stringify(assertion.unresolved_conflict_ids) === JSON.stringify(requiredConflictIds),
+      'assertion_required_conflicts_mismatch', `${location}.unresolved_conflict_ids`,
+      `expected ${JSON.stringify(requiredConflictIds)}`);
     expect(errors, SHA256.test(assertion.evidence_bundle_sha256 || ''), 'assertion_bundle_sha256_invalid', `${location}.evidence_bundle_sha256`, String(assertion.evidence_bundle_sha256));
     expect(errors,
-      sha256(canonicalJson(assertionBundle(assertion, evidenceById))) === assertion.evidence_bundle_sha256,
+      sha256(canonicalJson(assertionBundle(assertion, evidenceById, requiredConflictIds))) === assertion.evidence_bundle_sha256,
       'assertion_bundle_sha256_mismatch', `${location}.evidence_bundle_sha256`, assertionId);
     const expectedSemanticStatuses = [
       'exact-source-supported',
-      ...((assertion.unresolved_conflict_ids || []).length > 0 ? ['online-version-conflict'] : []),
+      ...(requiredConflictIds.length > 0 ? ['online-version-conflict'] : []),
       'editor-review-pending',
     ];
     expect(errors,
@@ -545,7 +732,7 @@ function validateAssertions({ manifest, documentById, sourceById, evidenceById, 
     const exactDocumentWitnessesComplete = evidenceIds.every((id) => evidenceResults.get(id)?.exact_document_witness_count > 0);
     if (!allEvidenceResolved) blockers.push('evidence_resolution_incomplete');
     if (!exactDocumentWitnessesComplete) blockers.push('independent_exact_document_witness_missing');
-    if ((assertion.unresolved_conflict_ids || []).length > 0) blockers.unshift('unresolved_transcription_conflict');
+    if (requiredConflictIds.length > 0) blockers.unshift('unresolved_transcription_conflict');
     blockers.push('pending_signed_editor_review');
     results.push({
       assertion_id: assertionId,
@@ -555,7 +742,7 @@ function validateAssertions({ manifest, documentById, sourceById, evidenceById, 
       release_gate: assertion.release_gate,
       research_evidence_ready: allEvidenceResolved
         && exactDocumentWitnessesComplete
-        && assertion.unresolved_conflict_ids.length === 0,
+        && requiredConflictIds.length === 0,
       publication_eligible: false,
       blockers,
     });
@@ -563,16 +750,23 @@ function validateAssertions({ manifest, documentById, sourceById, evidenceById, 
   return results;
 }
 
-export function validateResearchEvidenceSlice({ manifest, resourcePaths }) {
+export function validateResearchEvidenceSlice({
+  manifest,
+  resourcePaths,
+  schema = DEFAULT_RESEARCH_EVIDENCE_SCHEMA,
+}) {
   const errors = [];
+  validateJsonSchema(manifest, schema, errors);
   validateManifestBoundary(manifest, errors);
   if (!isObject(manifest)) {
     return { valid: false, evidence_integrity_valid: false, errors, assertions: [] };
   }
-  const online = validateOnlineSources({ manifest, resourcePaths, errors });
+  const documentById = uniqueMap(manifest.documents, 'document_id', errors, '$.documents');
+  const online = validateOnlineSources({ manifest, documentById, resourcePaths, errors });
   const corpus = validateCorpus({ manifest, resourcePaths, errors });
-  const documentById = validateDocuments({
+  validateDocuments({
     manifest,
+    documentById,
     database: corpus.database,
     sourceById: online.sourceById,
     errors,
@@ -583,10 +777,12 @@ export function validateResearchEvidenceSlice({ manifest, resourcePaths }) {
     documentById,
     sourceById: online.sourceById,
     spanById: online.spanById,
+    sourceBindingValid: online.sourceBindingValid,
+    invalidIndependentSourceIds: online.invalidIndependentSourceIds,
     resourcePaths,
     errors,
   });
-  const conflictById = validateConflicts({
+  const conflicts = validateConflicts({
     manifest,
     evidenceById: evidence.evidenceById,
     spanById: online.spanById,
@@ -598,7 +794,8 @@ export function validateResearchEvidenceSlice({ manifest, resourcePaths }) {
     sourceById: online.sourceById,
     evidenceById: evidence.evidenceById,
     evidenceResults: evidence.evidenceResults,
-    conflictById,
+    conflictById: conflicts.conflictById,
+    conflictIdsByEvidenceId: conflicts.conflictIdsByEvidenceId,
     errors,
   });
   corpus.database?.close();

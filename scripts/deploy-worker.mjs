@@ -264,6 +264,7 @@ export async function deployWorker({
   runCommand = spawnSync,
   pageEvidencePromotion = false,
   rendererPath = null,
+  researchEvidenceResourceMap = process.env.CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP || null,
   ontologyPromotion = false,
   previewAcceptanceReceipt = null,
   pageEvidenceValidator = validatePageEvidenceForRelease,
@@ -292,6 +293,7 @@ export async function deployWorker({
       output: DEFAULT_MANIFEST,
       pageEvidencePromotion,
       rendererPath,
+      researchEvidenceResourceMap,
       runCommand,
       pageEvidenceValidator,
       cleanSourceValidator,
@@ -398,6 +400,7 @@ export function parseArgs(argv) {
     phase: 'steady',
     pageEvidencePromotion: false,
     rendererPath: null,
+    researchEvidenceResourceMap: process.env.CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP || null,
     ontologyPromotion: false,
     previewAcceptanceReceipt: null,
   };
@@ -415,11 +418,12 @@ export function parseArgs(argv) {
       options.ontologyPromotion = true;
       continue;
     }
-    if (['--environment', '--renderer', '--phase', '--preview-acceptance-receipt'].includes(argument)) {
+    if (['--environment', '--renderer', '--research-evidence-resource-map', '--phase', '--preview-acceptance-receipt'].includes(argument)) {
       const value = argv[index + 1];
       if (!value || value.startsWith('--')) throw new Error(`missing value for ${argument}`);
       if (argument === '--environment') options.environment = value;
       else if (argument === '--renderer') options.rendererPath = value;
+      else if (argument === '--research-evidence-resource-map') options.researchEvidenceResourceMap = value;
       else if (argument === '--phase') options.phase = value;
       else options.previewAcceptanceReceipt = value;
       index += 1;
@@ -428,7 +432,7 @@ export function parseArgs(argv) {
     throw new Error(`unexpected argument: ${argument}`);
   }
   if (!options.environment) {
-    throw new Error('usage: node scripts/deploy-worker.mjs --environment <preview|production> [--phase <prepare|steady>] [--page-evidence-promotion] [--ontology-promotion] [--preview-acceptance-receipt <PATH>] [--renderer <MUTOOL_PATH>]');
+    throw new Error('usage: node scripts/deploy-worker.mjs --environment <preview|production> [--phase <prepare|steady>] [--page-evidence-promotion] [--ontology-promotion] [--preview-acceptance-receipt <PATH>] [--renderer <MUTOOL_PATH>] [--research-evidence-resource-map <PATH>]');
   }
   if (!['preview', 'production'].includes(options.environment)) {
     throw new Error(`unsupported deployment environment: ${options.environment}`);

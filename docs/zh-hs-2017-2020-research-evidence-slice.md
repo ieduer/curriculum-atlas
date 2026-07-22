@@ -4,7 +4,7 @@
 
 `data/research-evidence/zh-hs-2017-2020.json` 是第一个把同一组 `assertion_id` / `evidence_id` 贯穿 compare、reader/search、星图、AI 和讨论目标的真实证据纵切片。它不是公开版本差异数据，也不修改 D1、公开星图、本体或发布指针。
 
-每条 evidence 都必须同时解析：私有 corpus release、文档身份、段落 ID/ordinal、物理 PDF 页、段落正文 SHA-256、UTF-16 起止位置、精确短引文、页级 publication gate、240 DPI 页图、在线 HTML 快照正文和在线 UTF-16 span。PDF 镜像若 SHA-256 与主制品相同，只能标为 `integrity_only_same_artifact`，不能满足独立在线文本条件。
+每条 evidence 都必须同时解析：私有 corpus release、文档身份、段落 ID/ordinal、物理 PDF 页、段落正文 SHA-256、UTF-16 起止位置、精确短引文、页级 publication gate、240 DPI 页图、在线 HTML 快照正文和在线 UTF-16 span。每个在线来源还必须用 `document_binding` 固定对应的 `document_id`、版本标签、原始 PDF SHA-256 与官方版本身份来源。只有绑定完全匹配且 `version_relation=exact_document_exact_edition` 的独立全文来源才可满足 exact-document corroboration；`different_edition` 永远不能满足。PDF 镜像若 SHA-256 与主制品相同，只能标为 `integrity_only_same_artifact`。两个所谓独立来源若原始快照 SHA-256、规范正文 SHA-256 或 URL 重复，也会同时失去独立资格，不能靠改名重复计数。
 
 本 successor 从 `ba9fa6a` 候选的 91 个逐项验签 SQL 分片重新物化 195-document SQLite，并把六个 span 重新绑定到 `corpus-4fe2f31344f52706de761788`。两份 PDF 的六个目标页又用 Poppler `pdftoppm 26.07.0` 以 240 DPI 独立重渲染；六张 PNG 均与已固定页图逐字节相同。这证明当前 corpus/page 定位未随去重漂移，但仍不是签名编辑复核。
 
@@ -28,6 +28,8 @@
 
 `exact-source-supported` 只表示 PDF、corpus、页图和精确 span 可解析；`online-version-conflict` 表示同版在线转录存在尚未裁决的版本敏感冲突；`editor-review-pending` 表示还没有签名编辑决定。每条 assertion 只有一个 `release_gate`；compare、reader/search、星图、AI 和 discussion 五个消费者均原样携带它，不得各自重算或省略。实现和校验代码完成不等于内容发布。
 
+断言所需的 conflict ID 由其全部 evidence 对应的 `conflicts[]` 反向推导，必须与 `unresolved_conflict_ids` 完全一致；语义状态与发布门禁再从该推导结果生成。删除断言自报的冲突字段、状态或 blocker，不能消除 evidence 上仍存在的冲突。反过来，evidence 声明的每个 conflict span 也必须恰好由一个 conflict 记录覆盖。
+
 ## 本地资源映射
 
 公开仓库不保存原 PDF、整页 PNG、在线网页快照、私有 corpus SQL 或 SQLite。验证时必须提供一个不提交的 owner-only resource map：
@@ -47,7 +49,7 @@
 }
 ```
 
-实际映射还必须覆盖 manifest 中列出的官方身份页、同制品镜像和六张页图资源。缺一项、文件是 symlink、任一原始/规范正文/span 哈希不符、page gate 关闭或 corpus release 不符，验证即失败且不生成 projection。
+实际映射还必须覆盖 manifest 中列出的官方身份页、同制品镜像和六张页图资源。缺一项、文件是 symlink、任一原始/规范正文/span 哈希不符、page gate 关闭或 corpus release 不符，验证即失败且不生成 projection。manifest 先由 Ajv Draft 2020-12 对仓库内 schema 做完整验证，包括所有层级的 `additionalProperties: false`、required、枚举、格式与组合约束，然后才执行资源和语义验证。
 
 ## 验证与发布闸门
 
@@ -57,15 +59,16 @@
 npm run research:evidence:validate -- --resource-map <OWNER_ONLY_RESOURCE_MAP_JSON>
 ```
 
-构建或发布流程必须再加严格参数：
+手动执行严格发布资格检查：
 
 ```bash
-npm run research:evidence:validate -- \
-  --resource-map <OWNER_ONLY_RESOURCE_MAP_JSON> \
-  --require-publication-eligible
+CURRICULUM_RESEARCH_EVIDENCE_RESOURCE_MAP=<OWNER_ONLY_RESOURCE_MAP_JSON> \
+  npm run research:evidence:release:validate
 ```
 
 当前严格命令按设计返回退出码 `3`，因为没有签名编辑裁决，且第三条仍有在线转录冲突。退出码 `2` 表示证据或输入完整性失败；退出码 `0` 只允许在所有 assertion 真正具备 publication eligibility 后出现。
+
+这不是文档约定：`npm run verify` 已包含严格检查，`prepare-release.mjs` 在构造 release manifest 前会用 Git 物化树中的 manifest/schema、当前 corpus manifest 和 owner-only 资源映射重跑真实验证，并强制 `requirePublicationEligible=true`。`deploy-worker.mjs` 将 `--research-evidence-resource-map` 传入同一准备流程；缺少资源映射或任一断言未放行都会在 Wrangler 之前终止。
 
 ## 五个消费者的同一身份
 
@@ -79,4 +82,4 @@ npm run research:evidence:validate -- \
 | AI | `retrieval_allowed=false`、`citation_allowed=false` + 统一 `release_gate` | 回答句必须引用 assertion 与两端 evidence，而非仅 `[P:id]` |
 | discussion | 稳定 `research_assertion` target + 统一 `release_gate` | 可讨论候选身份，但不得把未放行 claim 显示为已核结论 |
 
-签名编辑复核、D1 schema/import、Worker API、公开前端和部署属于后续集成层。本切片先固定可复用证据 primitive，避免不同功能各自复制文本、漂移 ID 或绕过冲突。
+签名编辑复核、D1 schema/import、Worker API 与公开前端数据接入仍属于后续集成层；发布流程的 fail-closed 闸门已经接通，因此当前切片会阻止自身被误带入任何 release/promotion。本切片先固定可复用证据 primitive，避免不同功能各自复制文本、漂移 ID 或绕过冲突。

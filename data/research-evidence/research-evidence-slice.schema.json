@@ -160,6 +160,7 @@
         "independently_counts_for_text",
         "witness_scope",
         "same_artifact_as",
+        "document_binding",
         "resource",
         "canonical_text_sha256",
         "spans",
@@ -181,7 +182,14 @@
             "integrity_only_same_artifact"
           ]
         },
-        "version_relation": { "$ref": "#/$defs/nonEmpty" },
+        "version_relation": {
+          "enum": [
+            "exact_document_exact_edition",
+            "same_artifact_exact_edition",
+            "official_release_same_edition",
+            "different_edition"
+          ]
+        },
         "independently_counts_for_text": { "type": "boolean" },
         "witness_scope": {
           "enum": [
@@ -193,10 +201,27 @@
           ]
         },
         "same_artifact_as": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "document_binding": { "$ref": "#/$defs/documentBinding" },
         "resource": { "$ref": "#/$defs/resource" },
         "canonical_text_sha256": { "anyOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
         "spans": { "type": "array", "items": { "$ref": "#/$defs/onlineSpan" } },
         "limitations": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmpty" } }
+      }
+    },
+    "documentBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_id",
+        "version_label",
+        "source_artifact_sha256",
+        "version_identity_source_id"
+      ],
+      "properties": {
+        "document_id": { "$ref": "#/$defs/id" },
+        "version_label": { "$ref": "#/$defs/nonEmpty" },
+        "source_artifact_sha256": { "$ref": "#/$defs/sha256" },
+        "version_identity_source_id": { "$ref": "#/$defs/id" }
       }
     },
     "pageImage": {
@@ -266,8 +291,8 @@
         "page_publication_stable_locator": { "$ref": "#/$defs/nonEmpty" },
         "page_image": { "$ref": "#/$defs/pageImage" },
         "visual_review": { "$ref": "#/$defs/visualReview" },
-        "online_witness_span_ids": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } },
-        "online_conflict_span_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } }
+        "online_witness_span_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "online_conflict_span_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } }
       }
     },
     "conflict": {
@@ -277,7 +302,7 @@
       "properties": {
         "conflict_id": { "$ref": "#/$defs/id" },
         "evidence_id": { "$ref": "#/$defs/id" },
-        "source_span_ids": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } },
+        "source_span_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
         "status": { "const": "unresolved_fail_closed" },
         "note": { "$ref": "#/$defs/nonEmpty" }
       }
@@ -356,10 +381,10 @@
         "claim": { "$ref": "#/$defs/nonEmpty" },
         "from_document_id": { "$ref": "#/$defs/id" },
         "to_document_id": { "$ref": "#/$defs/id" },
-        "from_evidence_ids": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } },
-        "to_evidence_ids": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } },
-        "version_identity_source_ids": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/id" } },
-        "unresolved_conflict_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+        "from_evidence_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "to_evidence_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "version_identity_source_ids": { "type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "unresolved_conflict_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
         "evidence_bundle_sha256": { "$ref": "#/$defs/sha256" },
         "semantic_statuses": {
           "type": "array",

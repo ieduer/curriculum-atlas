@@ -57,6 +57,12 @@
       "independently_counts_for_text": false,
       "witness_scope": "artifact_identity_only",
       "same_artifact_as": null,
+      "document_binding": {
+        "document_id": "ictr-a71e3780f934",
+        "version_label": "2017年版",
+        "source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
+        "version_identity_source_id": "source:moe-2017-release"
+      },
       "resource": {
         "resource_id": "artifact:zh-hs-2017-pdf",
         "media_type": "application/pdf",
@@ -79,6 +85,12 @@
       "independently_counts_for_text": false,
       "witness_scope": "artifact_identity_only",
       "same_artifact_as": null,
+      "document_binding": {
+        "document_id": "moe-hs-2020-02",
+        "version_label": "2017年版2020年修订",
+        "source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+        "version_identity_source_id": "source:moe-2020-revision"
+      },
       "resource": {
         "resource_id": "artifact:zh-hs-2020-pdf",
         "media_type": "application/pdf",
@@ -101,6 +113,12 @@
       "independently_counts_for_text": true,
       "witness_scope": "same_version_policy_text",
       "same_artifact_as": null,
+      "document_binding": {
+        "document_id": "ictr-a71e3780f934",
+        "version_label": "2017年版",
+        "source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
+        "version_identity_source_id": "source:moe-2017-release"
+      },
       "resource": {
         "resource_id": "snapshot:moe-2017-release-html",
         "media_type": "text/html",
@@ -142,6 +160,12 @@
       "independently_counts_for_text": false,
       "witness_scope": "version_identity_only",
       "same_artifact_as": null,
+      "document_binding": {
+        "document_id": "moe-hs-2020-02",
+        "version_label": "2017年版2020年修订",
+        "source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+        "version_identity_source_id": "source:moe-2020-revision"
+      },
       "resource": {
         "resource_id": "snapshot:moe-2020-revision-html",
         "media_type": "text/html",
@@ -174,6 +198,12 @@
       "independently_counts_for_text": true,
       "witness_scope": "exact_document_text",
       "same_artifact_as": null,
+      "document_binding": {
+        "document_id": "ictr-a71e3780f934",
+        "version_label": "2017年版",
+        "source_artifact_sha256": "f5598c5defae19acdc120e6fe50db639696edbd939b4e662b7a338b26d771e17",
+        "version_identity_source_id": "source:moe-2017-release"
+      },
       "resource": {
         "resource_id": "snapshot:wikisource-2017-html",
         "media_type": "text/html",
@@ -224,6 +254,12 @@
       "independently_counts_for_text": true,
       "witness_scope": "exact_document_text",
       "same_artifact_as": null,
+      "document_binding": {
+        "document_id": "moe-hs-2020-02",
+        "version_label": "2017年版2020年修订",
+        "source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+        "version_identity_source_id": "source:moe-2020-revision"
+      },
       "resource": {
         "resource_id": "snapshot:nsfz-2020-html",
         "media_type": "text/html",
@@ -283,6 +319,12 @@
       "independently_counts_for_text": false,
       "witness_scope": "artifact_integrity_only",
       "same_artifact_as": "source:zh-hs-2020-primary",
+      "document_binding": {
+        "document_id": "moe-hs-2020-02",
+        "version_label": "2017年版2020年修订",
+        "source_artifact_sha256": "7a187079f1fffe8ae834fdeff25bac9dd0e7de6b979db40fd875786dc0365977",
+        "version_identity_source_id": "source:moe-2020-revision"
+      },
       "resource": {
         "resource_id": "artifact:ictr-zh-hs-2020-mirror-pdf",
         "media_type": "application/pdf",

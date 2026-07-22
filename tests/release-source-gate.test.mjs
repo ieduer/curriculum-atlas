@@ -391,6 +391,7 @@ test('deploy CLI combines audited phase, page, and ontology modes without order 
     phase: 'steady',
     pageEvidencePromotion: false,
     rendererPath: null,
+    researchEvidenceResourceMap: null,
     ontologyPromotion: false,
     previewAcceptanceReceipt: null,
   });
@@ -399,6 +400,7 @@ test('deploy CLI combines audited phase, page, and ontology modes without order 
     phase: 'steady',
     pageEvidencePromotion: false,
     rendererPath: null,
+    researchEvidenceResourceMap: null,
     ontologyPromotion: true,
     previewAcceptanceReceipt: null,
   });
@@ -410,6 +412,7 @@ test('deploy CLI combines audited phase, page, and ontology modes without order 
     phase: 'steady',
     pageEvidencePromotion: false,
     rendererPath: null,
+    researchEvidenceResourceMap: null,
     ontologyPromotion: true,
     previewAcceptanceReceipt: '/private/tmp/ontology-preview-acceptance.json',
   });
@@ -417,11 +420,13 @@ test('deploy CLI combines audited phase, page, and ontology modes without order 
     '--ontology-promotion', '--page-evidence-promotion', '--phase', 'prepare',
     '--preview-acceptance-receipt', '/private/tmp/ontology-preview-acceptance.json',
     '--environment', 'production', '--renderer', '/usr/local/bin/mutool',
+    '--research-evidence-resource-map', '/private/tmp/research-map.json',
   ]), {
     environment: 'production',
     phase: 'prepare',
     pageEvidencePromotion: true,
     rendererPath: '/usr/local/bin/mutool',
+    researchEvidenceResourceMap: '/private/tmp/research-map.json',
     ontologyPromotion: true,
     previewAcceptanceReceipt: '/private/tmp/ontology-preview-acceptance.json',
   });
@@ -440,6 +445,10 @@ test('deploy CLI combines audited phase, page, and ontology modes without order 
     new URL('scripts/validate-ontology-release.mjs', projectRoot),
     'utf8',
   );
+  const releasePreparer = await readFile(
+    new URL('scripts/prepare-release.mjs', projectRoot),
+    'utf8',
+  );
   const releasePreparation = source.indexOf('await releasePreparer({');
   const validation = source.indexOf('await validateOntology({');
   const manifestGates = source.indexOf('  assertManifestDeploymentGates(manifest, environment, { phase');
@@ -449,6 +458,13 @@ test('deploy CLI combines audited phase, page, and ontology modes without order 
     && manifestGates < validation
     && validation < wrangler);
   assert.match(source, /requirePublishable: ontologyPromotion/);
+  assert.match(source, /researchEvidenceResourceMap,/);
+  const researchValidation = releasePreparer.indexOf('await researchEvidenceValidator({');
+  const strictResearchGate = releasePreparer.indexOf('researchEvidenceGate(researchEvidence, { requirePublicationEligible: true });');
+  const releaseManifestBuild = releasePreparer.indexOf('const manifest = await manifestBuilder({');
+  assert.ok(researchValidation >= 0
+    && researchValidation < strictResearchGate
+    && strictResearchGate < releaseManifestBuild);
   assert.match(ontologyValidator, /public_baseline: loadImmutablePublicBaseline\(root\)/);
   assert.match(ontologyValidator, /promotion_baseline: promotionBaseline/);
   assert.match(ontologyValidator, /runGit\(root, \['show', `\$\{anchorCommit\}:/);
@@ -463,6 +479,11 @@ test('deploy CLI combines audited phase, page, and ontology modes without order 
   );
 
   const packageJson = JSON.parse(await readFile(new URL('package.json', projectRoot), 'utf8'));
+  assert.match(packageJson.scripts.verify, /research:evidence:release:validate/);
+  assert.equal(
+    packageJson.scripts['research:evidence:release:validate'],
+    'node scripts/validate-research-evidence-slice.mjs --require-publication-eligible',
+  );
   assert.equal(packageJson.scripts['deploy:preview'], 'node scripts/deploy-worker.mjs --environment preview');
   assert.equal(packageJson.scripts['deploy:production'], 'node scripts/deploy-worker.mjs --environment production');
   assert.equal(
