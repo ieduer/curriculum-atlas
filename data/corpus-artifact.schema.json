@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/corpus-artifact-v1.json",
+  "title": "Curriculum Atlas private corpus artifact descriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract",
+    "classification",
+    "public_runtime",
+    "corpus",
+    "bundle",
+    "storage",
+    "receipt"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "contract": {
+      "const": "curriculum_private_corpus_artifact_v1"
+    },
+    "classification": {
+      "const": "copyright_restricted_derived_release_input_private"
+    },
+    "public_runtime": {
+      "const": false
+    },
+    "corpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release_id",
+        "release_fingerprint_sha256",
+        "manifest_sha256",
+        "manifest_bytes"
+      ],
+      "properties": {
+        "release_id": {
+          "type": "string",
+          "pattern": "^corpus-[a-f0-9]{24}$"
+        },
+        "release_fingerprint_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "manifest_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "manifest_bytes": {
+          "$ref": "#/$defs/positiveInteger"
+        }
+      }
+    },
+    "bundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bundle_id",
+        "age_recipient",
+        "bundle_manifest_sha256",
+        "payload_sha256",
+        "archive_file_count",
+        "plaintext_tar_sha256",
+        "plaintext_tar_bytes",
+        "ciphertext_sha256",
+        "ciphertext_bytes"
+      ],
+      "properties": {
+        "bundle_id": {
+          "type": "string",
+          "pattern": "^corpus-bundle-[a-f0-9]{24}$"
+        },
+        "age_recipient": {
+          "type": "string",
+          "pattern": "^age1[0-9a-z]{58}$"
+        },
+        "bundle_manifest_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "payload_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "archive_file_count": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "plaintext_tar_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "plaintext_tar_bytes": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "ciphertext_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "ciphertext_bytes": {
+          "$ref": "#/$defs/positiveInteger"
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "bucket",
+        "object_key",
+        "receipt_key"
+      ],
+      "properties": {
+        "provider": {
+          "const": "cloudflare_r2_s3"
+        },
+        "bucket": {
+          "const": "bdfz-ops-backups"
+        },
+        "object_key": {
+          "type": "string",
+          "pattern": "^curriculum-atlas/corpus-bundles/v1/objects/sha256/[a-f0-9]{64}\\.tar\\.zst\\.age$"
+        },
+        "receipt_key": {
+          "type": "string",
+          "pattern": "^curriculum-atlas/corpus-bundles/v1/receipts/sha256/[a-f0-9]{64}\\.json$"
+        }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "bytes": {
+          "$ref": "#/$defs/positiveInteger"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    }
+  }
+}
