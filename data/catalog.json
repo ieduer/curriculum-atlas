@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-22T07:51:36.338Z",
+  "generated_at": "2026-07-22T08:51:51.784Z",
   "source_policy": "Primary official sources first; missing originals stay explicitly missing.",
   "counts": {
     "documents": 195,
@@ -3656,7 +3656,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中德语课程标准（2017年版）.pdf"
+      "original_filename": "普通高中德语课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-49a06acc5c30",
@@ -3683,7 +3685,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中地理课程标准（2017年版）.pdf"
+      "original_filename": "普通高中地理课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-d4d7a73cce00",
@@ -3710,7 +3714,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中俄语课程标准（2017年版）.pdf"
+      "original_filename": "普通高中俄语课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-b38ed137f52d",
@@ -3737,7 +3743,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中法语课程标准（2017年版）.pdf"
+      "original_filename": "普通高中法语课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-19ad589c202c",
@@ -3764,7 +3772,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中化学课程标准（2017年版）.pdf"
+      "original_filename": "普通高中化学课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-76b2c3d24d6c",
@@ -3791,7 +3801,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中历史课程标准（2017年版）.pdf"
+      "original_filename": "普通高中历史课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-de1ed67f4d81",
@@ -3818,7 +3830,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中美术课程标准（2017年版）.pdf"
+      "original_filename": "普通高中美术课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-a2fc108c4cbf",
@@ -3845,7 +3859,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中日语课程标准（2017年版）.pdf"
+      "original_filename": "普通高中日语课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-4bafe454e71c",
@@ -3872,7 +3888,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中生物学课程标准（2017年版）.pdf"
+      "original_filename": "普通高中生物学课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-c6548a1bafaa",
@@ -3899,7 +3917,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中数学课程标准（2017年版）.pdf"
+      "original_filename": "普通高中数学课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-964bf92284f7",
@@ -3926,7 +3946,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中思想政治课程标准（2017年版）.pdf"
+      "original_filename": "普通高中思想政治课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-797ca14fa623",
@@ -3953,7 +3975,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中体育与健康课程标准（2017年版）.pdf"
+      "original_filename": "普通高中体育与健康课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-2be12e10b157",
@@ -3980,7 +4004,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中通用技术课程标准（2017年版）.pdf"
+      "original_filename": "普通高中通用技术课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-2a9f8ddd4169",
@@ -4008,7 +4034,9 @@
       "citation_allowed": true,
       "note": "教育部 2017 原始发布 RAR 成员恢复；课程教材研究所损坏下载保留在 quarantine。官方 PDF 为原生文本，只有精确页段仍可引用。",
       "original_filename": "普通高中物理课程标准（2017年版）.pdf",
-      "recovery_proof_id": "exact_artifact_version_aware_source_recovery_v2:ictr-2a9f8ddd4169"
+      "recovery_proof_id": "exact_artifact_version_aware_source_recovery_v2:ictr-2a9f8ddd4169",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-5a08a40f1810",
@@ -4035,7 +4063,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中西班牙语课程标准（2017年版）.pdf"
+      "original_filename": "普通高中西班牙语课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-cda29e4b3f6e",
@@ -4062,7 +4092,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中信息技术课程标准（2017年版）.pdf"
+      "original_filename": "普通高中信息技术课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-ee910e3b7681",
@@ -4089,7 +4121,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中艺术课程标准（2017年版）.pdf"
+      "original_filename": "普通高中艺术课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-51f6c6efd6c6",
@@ -4116,7 +4150,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中音乐课程标准（2017年版）.pdf"
+      "original_filename": "普通高中音乐课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-558a1b45c392",
@@ -4143,7 +4179,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中英语课程标准（2017年版）.pdf"
+      "original_filename": "普通高中英语课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-a71e3780f934",
@@ -4170,7 +4208,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（2017年版）”栏目收录。",
-      "original_filename": "普通高中语文课程标准（2017年版）.pdf"
+      "original_filename": "普通高中语文课程标准（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-043d90816a8b",
@@ -4214,7 +4254,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-3db457c6f361",
@@ -4258,7 +4300,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-06ce7a4eb5fa",
@@ -4302,7 +4346,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-e1fab1e6823b",
@@ -4346,7 +4392,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-2ef191eaec15",
@@ -4390,7 +4438,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-e096e4d65c97",
@@ -4434,7 +4484,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-bb00e7fd186f",
@@ -4478,7 +4530,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-c198f8ed538f",
@@ -4522,7 +4576,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-8b649cdfb27d",
@@ -4566,7 +4622,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-a027c4d6e30e",
@@ -4664,7 +4722,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-1adc57fe27b4",
@@ -4708,7 +4768,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-7c995a071399",
@@ -4752,7 +4814,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-8c4134098f38",
@@ -4796,7 +4860,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-24bb45bda31b",
@@ -4839,7 +4905,9 @@
           "note": "旧教育部附件与损坏 ICTR 端点的 8192 字节后尾部完全一致；保留作端点身份见证，不作为质量优先 OCR 输入。"
         }
       ],
-      "recovery_proof_id": "exact_artifact_version_aware_source_recovery_v2:ictr-24bb45bda31b"
+      "recovery_proof_id": "exact_artifact_version_aware_source_recovery_v2:ictr-24bb45bda31b",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-0bcfe4b915df",
@@ -4883,7 +4951,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-cfb2a39a2016",
@@ -5006,7 +5076,9 @@
       "text_quality_status": "official_native_text",
       "citation_allowed": true,
       "note": "课程教材研究所下载中心“课程方案”栏目收录。",
-      "original_filename": "普通高中课程方案（2017年版）.pdf"
+      "original_filename": "普通高中课程方案（2017年版）.pdf",
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-6aed243f91fa",
@@ -5050,7 +5122,9 @@
           "publication_eligible": false,
           "note": "教育部当前附件与课程教材研究所扫描对应同一作品/版本，但字节不同；仅作独立版本见证，不替换已在途 OCR。"
         }
-      ]
+      ],
+      "native_text_cache_path": null,
+      "native_text_sha256": null
     },
     {
       "id": "ictr-07a04c6c51fd",

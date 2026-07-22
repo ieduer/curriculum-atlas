@@ -14,8 +14,12 @@ const CHECKER = 'scripts/source-recovery-online-receipt.mjs';
 const MAX_AGE_SECONDS = 72 * 60 * 60;
 const SHA256 = /^[0-9a-f]{64}$/;
 const ALLOWED_OFFICIAL_HOSTS = new Set(['www.moe.gov.cn', 'www.ictr.edu.cn']);
-const ICTR_WAF_PAGE_PREFIX = 'https://www.ictr.edu.cn/download_center/';
-const ICTR_WAF_STATUSES = new Set([400, 403, 412]);
+const ALLOWED_REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const ICTR_WAF_PAGES = new Set([
+  'https://www.ictr.edu.cn/download_center/fangan.html',
+  'https://www.ictr.edu.cn/download_center/pt.html',
+]);
+const ICTR_WAF_STATUS = 412;
 
 function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
@@ -29,6 +33,12 @@ function stableStringify(value) {
     )).join(',')}}`;
   }
   return JSON.stringify(value);
+}
+
+function exactProofBytes(proofs, diskBytes) {
+  return proofs === null
+    ? diskBytes
+    : Buffer.from(`${JSON.stringify(proofs, null, 2)}\n`);
 }
 
 function exactKeys(value, required) {
@@ -213,8 +223,9 @@ export async function refreshSourceRecoveryOnlineReceipt({
 } = {}) {
   if (typeof fetchImpl !== 'function') throw new Error('online receipt refresh requires fetch');
   const projectRoot = resolve(root instanceof URL ? fileURLToPath(root) : root);
-  const proofBuffer = await readFile(resolve(projectRoot, PROOF_PATH));
-  const proofData = proofs || JSON.parse(proofBuffer.toString('utf8'));
+  const diskProofBuffer = await readFile(resolve(projectRoot, PROOF_PATH));
+  const proofData = proofs || JSON.parse(diskProofBuffer.toString('utf8'));
+  const proofBuffer = exactProofBytes(proofs, diskProofBuffer);
   const expectedArtifacts = collectExpectedSourceRecoveryArtifacts(proofData);
   const artifactsByPage = new Map();
   for (const artifact of expectedArtifacts) {
@@ -242,8 +253,8 @@ export async function refreshSourceRecoveryOnlineReceipt({
     let pageStatus = 'invalid';
     if (fetched.status === 200 && fetched.content_type === 'text/html'
       && verified.length === pageArtifacts.length) pageStatus = 'html_href_verified';
-    else if (pageUrl.startsWith(ICTR_WAF_PAGE_PREFIX)
-      && ICTR_WAF_STATUSES.has(fetched.status)
+    else if (ICTR_WAF_PAGES.has(pageUrl)
+      && fetched.status === ICTR_WAF_STATUS
       && fetched.content_type === 'text/html') pageStatus = 'official_waf_interstitial';
     if (pageStatus === 'invalid') {
       throw new Error(`publication page did not verify every expected href: ${pageUrl} status=${fetched.status}`);
@@ -309,17 +320,22 @@ function issue(errors, code, detail) {
   errors.push({ code, detail });
 }
 
-function validateRedirectChain(chain, errors, label) {
+function validateRedirectChain(chain, errors, label, startUrl, finalUrl) {
   if (!Array.isArray(chain)) {
     issue(errors, 'redirect_chain', label);
     return;
   }
+  let currentUrl = startUrl;
   for (const redirect of chain) {
     if (!exactKeys(redirect, ['url', 'status', 'location'])
       || !officialUrl(redirect.url) || !officialUrl(redirect.location)
-      || !Number.isInteger(redirect.status) || redirect.status < 300 || redirect.status >= 400
-      || redirect.status === 304) issue(errors, 'redirect_chain', label);
+      || !ALLOWED_REDIRECT_STATUSES.has(redirect.status) || redirect.url !== currentUrl) {
+      issue(errors, 'redirect_chain', label);
+      return;
+    }
+    currentUrl = redirect.location;
   }
+  if (currentUrl !== finalUrl) issue(errors, 'redirect_chain', label);
 }
 
 export async function validateSourceRecoveryOnlineReceipt({
@@ -331,11 +347,12 @@ export async function validateSourceRecoveryOnlineReceipt({
   now = new Date(),
 } = {}) {
   const projectRoot = resolve(root instanceof URL ? fileURLToPath(root) : root);
-  const [receiptData, proofBuffer] = await Promise.all([
+  const [receiptData, diskProofBuffer] = await Promise.all([
     receipt || readFile(resolve(projectRoot, DEFAULT_RECEIPT_PATH), 'utf8').then(JSON.parse),
     readFile(resolve(projectRoot, PROOF_PATH)),
   ]);
-  const proofData = proofs || JSON.parse(proofBuffer.toString('utf8'));
+  const proofData = proofs || JSON.parse(diskProofBuffer.toString('utf8'));
+  const proofBuffer = exactProofBytes(proofs, diskProofBuffer);
   const errors = [];
   if (!exactKeys(receiptData, [
     '$schema', 'schema_version', 'policy', 'checked_at', 'max_age_seconds', 'checker',
@@ -384,7 +401,13 @@ export async function validateSourceRecoveryOnlineReceipt({
       issue(errors, 'publication_page_contract', page.page_url || '<missing>');
     }
     pageByUrl.set(page.page_url, page);
-    validateRedirectChain(page.redirect_chain, errors, page.page_url);
+    validateRedirectChain(
+      page.redirect_chain,
+      errors,
+      page.page_url,
+      page.page_url,
+      page.final_url,
+    );
     const expected = expectedPages.get(page.page_url) || [];
     const expectedUrls = expected.map((artifact) => artifact.request_url).sort();
     if (page.page_status === 'html_href_verified') {
@@ -393,8 +416,8 @@ export async function validateSourceRecoveryOnlineReceipt({
         issue(errors, 'publication_href_coverage', page.page_url);
       }
     } else if (page.page_status === 'official_waf_interstitial') {
-      if (!page.page_url.startsWith(ICTR_WAF_PAGE_PREFIX)
-        || !ICTR_WAF_STATUSES.has(page.status)
+      if (!ICTR_WAF_PAGES.has(page.page_url)
+        || page.status !== ICTR_WAF_STATUS
         || (page.verified_artifact_urls || []).length !== 0) {
         issue(errors, 'publication_waf_exception', page.page_url);
       }
@@ -415,7 +438,13 @@ export async function validateSourceRecoveryOnlineReceipt({
       issue(errors, 'artifact_receipt_contract', artifact.artifact_id || '<missing>');
     }
     receiptById.set(artifact.artifact_id, artifact);
-    validateRedirectChain(artifact.redirect_chain, errors, artifact.artifact_id);
+    validateRedirectChain(
+      artifact.redirect_chain,
+      errors,
+      artifact.artifact_id,
+      artifact.request_url,
+      artifact.final_url,
+    );
     const expected = expectedById.get(artifact.artifact_id);
     const page = pageByUrl.get(artifact.publication_page_url);
     if (!expected || artifact.document_id !== expected.document_id || artifact.role !== expected.role

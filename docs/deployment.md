@@ -85,7 +85,7 @@ git status --short
 sha256sum .wrangler/release-manifest.json
 ```
 
-在线收据刷新是发布前明确的联网步骤；刷新后先审查 6 个发布页和 23 个制品的 diff，不得把 ICTR WAF interstitial 扩展到其他 host/status，也不得提交 404、占位 URL 或 hash 漂移。普通 `npm test` 只使用可注入 fetch fixture，不访问网络。`prepare-release` 与 deploy wrapper 会分别读取 tracked receipt，核对 proof SHA 并要求 `checked_at` 在 72 小时内。
+在线收据刷新是发布前明确的联网步骤；刷新后先审查 6 个发布页和 23 个制品的 diff。ICTR WAF interstitial 只允许精确的 `fangan.html`、`pt.html` 和精确状态 412；不得扩展到其他 URL、host 或 status，也不得提交 404、占位 URL、断裂跳转链或 hash 漂移。普通 `npm test` 只使用可注入 fetch fixture，不访问网络。`prepare-release` 与 deploy wrapper 会分别读取 tracked receipt，核对 proof 精确字节 SHA 并要求 `checked_at` 在 72 小时内。
 
 测试数量会随 OCR、release fencing 与篇目负例增加；每次发布记录当次 `npm run verify` 的实际通过数与命令回执，不复制旧基线数字。`npm run verify` 会再次执行生成、测试、`prepare-release`、真实 Wrangler dry-run 和 clean-source gate；它必须在最终提交已推送后执行。`.wrangler/release-manifest.json` 是忽略的发布工件，后续部署、evidence 与 metadata publisher 必须连续使用该文件，不得在中途换 HEAD 或重新解释工作树。
 

@@ -1,5 +1,8 @@
 import { readFile } from 'node:fs/promises';
-import { applySourceRecoveryOverlay } from './source-recovery-overlay.mjs';
+import {
+  applySourceRecoveryOverlay,
+  normalizeSourceRecoveryIdentityShape,
+} from './source-recovery-overlay.mjs';
 
 const moe2022Base = 'https://hudong.moe.gov.cn/srcsite/A26/s8001/202204/';
 const moe2011Base = 'https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/';
@@ -245,4 +248,4 @@ export const sourceManifest = [
   ...policyRecords,
   ...supplementalDocuments,
   ...localCompendia,
-];
+].map(normalizeSourceRecoveryIdentityShape);

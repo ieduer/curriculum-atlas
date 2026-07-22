@@ -31,6 +31,10 @@ function rehash(value) {
   return value;
 }
 
+function proofBytes(value) {
+  return Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+}
+
 test('tracked online receipt binds every official page and exact artifact and is fresh', async () => {
   const report = await validateSourceRecoveryOnlineReceipt({
     root,
@@ -118,4 +122,79 @@ test('placeholder, old 404, missing href, and stale receipt attacks fail closed'
     });
     assert.equal(report.ok, false);
   }
+});
+
+test('the ICTR exception accepts only the two named pages at exact status 412', async () => {
+  for (const status of [400, 403]) {
+    const attacked = structuredClone(receipt);
+    attacked.publication_pages.find((page) => page.page_url.endsWith('/fangan.html')).status = status;
+    rehash(attacked);
+    const report = await validateSourceRecoveryOnlineReceipt({
+      root,
+      receipt: attacked,
+      proofs,
+      requireFresh: true,
+      now: new Date('2026-07-22T08:00:00.000Z'),
+    });
+    assert.equal(report.ok, false, `status ${status}`);
+    assert.ok(report.errors.some((error) => error.code === 'publication_waf_exception'));
+  }
+
+  const originalPageUrl = 'https://www.ictr.edu.cn/download_center/fangan.html';
+  const untrackedPageUrl = 'https://www.ictr.edu.cn/download_center/untracked.html';
+  const injected = JSON.parse(JSON.stringify(proofs).replaceAll(originalPageUrl, untrackedPageUrl));
+  const attacked = structuredClone(receipt);
+  const page = attacked.publication_pages.find((entry) => entry.page_url === originalPageUrl);
+  page.page_url = untrackedPageUrl;
+  page.final_url = untrackedPageUrl;
+  for (const artifact of attacked.artifacts.filter((entry) => (
+    entry.publication_page_url === originalPageUrl
+  ))) artifact.publication_page_url = untrackedPageUrl;
+  const bytes = proofBytes(injected);
+  attacked.source_proof.sha256 = createHash('sha256').update(bytes).digest('hex');
+  attacked.source_proof.bytes = bytes.length;
+  rehash(attacked);
+  const report = await validateSourceRecoveryOnlineReceipt({ root, receipt: attacked, proofs: injected });
+  assert.equal(report.ok, false);
+  assert.ok(report.errors.some((error) => error.code === 'publication_waf_exception'));
+});
+
+test('redirect chains must start at the request, remain contiguous, and end at final_url', async () => {
+  for (const mutation of [
+    (value) => {
+      const page = value.publication_pages.find((item) => item.page_status === 'html_href_verified');
+      page.redirect_chain[0].url = 'https://www.moe.gov.cn/srcsite/A06/s3331/200702/unrelated.html';
+    },
+    (value) => {
+      const artifact = value.artifacts.find((item) => item.redirect_chain.length > 0);
+      artifact.redirect_chain[0].location = 'https://www.moe.gov.cn/srcsite/A26/s8001/unrelated.pdf';
+    },
+    (value) => {
+      const page = value.publication_pages.find((item) => item.redirect_chain.length === 0);
+      page.final_url = 'https://www.ictr.edu.cn/download_center/untracked.html';
+    },
+  ]) {
+    const attacked = structuredClone(receipt);
+    mutation(attacked);
+    rehash(attacked);
+    const report = await validateSourceRecoveryOnlineReceipt({ root, receipt: attacked, proofs });
+    assert.equal(report.ok, false);
+    assert.ok(report.errors.some((error) => error.code === 'redirect_chain'));
+  }
+});
+
+test('an injected proof object must bind the exact proof bytes declared by the receipt', async () => {
+  const injected = structuredClone(proofs);
+  injected.reviewed_by = `${injected.reviewed_by}-untracked`;
+  const report = await validateSourceRecoveryOnlineReceipt({ root, receipt, proofs: injected });
+  assert.equal(report.ok, false);
+  assert.ok(report.errors.some((error) => error.code === 'source_proof_binding'));
+
+  const rebound = structuredClone(receipt);
+  const bytes = proofBytes(injected);
+  rebound.source_proof.sha256 = createHash('sha256').update(bytes).digest('hex');
+  rebound.source_proof.bytes = bytes.length;
+  rehash(rebound);
+  const reboundReport = await validateSourceRecoveryOnlineReceipt({ root, receipt: rebound, proofs: injected });
+  assert.equal(reboundReport.ok, true, JSON.stringify(reboundReport.errors));
 });

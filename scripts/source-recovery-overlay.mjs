@@ -17,6 +17,32 @@ const scanByDocument = new Map(
 const canonicalScanIds = new Set(
   proofs.same_work_scan_variant_context.canonical_document_ids,
 );
+const governedDocumentIds = new Set([
+  ...proofs.corrupt_payload_recoveries.map((entry) => entry.document_id),
+  ...proofs.official_archives.flatMap((entry) => entry.members.map((member) => member[0])),
+  ...proofs.official_same_work_scan_variants.map((entry) => entry[0]),
+  ...proofs.native_attachments.map((entry) => entry.document_id),
+]);
+
+export const SOURCE_RECOVERY_IDENTITY_FIELDS = [
+  'id', 'country', 'language', 'title', 'subject', 'stage', 'document_type',
+  'version_label', 'issued_by', 'issued_date', 'published_date', 'current_status',
+  'source_tier', 'access_status', 'source_page_url', 'source_url', 'file_format',
+  'redistribution', 'checksum_sha256', 'page_count', 'local_cache_path',
+  'text_quality_status', 'citation_allowed', 'original_filename',
+  'native_text_cache_path', 'native_text_sha256',
+];
+
+export function normalizeSourceRecoveryIdentityShape(record) {
+  if (!governedDocumentIds.has(record.id)) return record;
+  return {
+    ...record,
+    ...Object.fromEntries(SOURCE_RECOVERY_IDENTITY_FIELDS.map((field) => [
+      field,
+      record[field] ?? null,
+    ])),
+  };
+}
 
 function officialScanSource(tuple) {
   const [documentId, title, filename, checksumSha256, bytes, pageCount] = tuple;

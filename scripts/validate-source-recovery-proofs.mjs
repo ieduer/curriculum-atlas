@@ -9,6 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const SHA256 = /^[0-9a-f]{64}$/;
 const DOCUMENT_ID = /^[a-z0-9][a-z0-9-]*$/;
+const IMMUTABLE_IDENTITY_BASELINE_COMMIT = '373627780303ba91ac7159f99b166c85f9a1b9af';
 const REQUIRED_CORRUPT_RECOVERY_IDS = new Map([
   ['ictr-2a9f8ddd4169', 'quarantine-ictr-physics-2017-zero-prefix-corrupt'],
   ['ictr-24bb45bda31b', 'quarantine-ictr-english-experimental-zero-prefix-corrupt'],
@@ -36,14 +37,46 @@ function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => (
+      `${JSON.stringify(key)}:${stableStringify(value[key])}`
+    )).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function identityValues(record, fields, { requireExactKeys = false } = {}) {
+  if (!record || typeof record !== 'object' || Array.isArray(record)) return null;
+  if (requireExactKeys && fields.some((field) => (
+    !Object.hasOwn(record, field) || record[field] === undefined
+  ))) return null;
+  return fields.map((field) => record[field] ?? null);
+}
+
 function catalogIdentitySha256(record) {
-  return sha256(JSON.stringify(WORK_IDENTITY_FIELDS.map((field) => record?.[field] ?? null)));
+  const values = identityValues(record, WORK_IDENTITY_FIELDS, { requireExactKeys: true });
+  return values ? sha256(JSON.stringify(values)) : null;
 }
 
 function canonicalArtifactIdentitySha256(record) {
-  return sha256(JSON.stringify(
-    CANONICAL_ARTIFACT_IDENTITY_FIELDS.map((field) => record?.[field] ?? null),
-  ));
+  const values = identityValues(record, CANONICAL_ARTIFACT_IDENTITY_FIELDS, { requireExactKeys: true });
+  return values ? sha256(JSON.stringify(values)) : null;
+}
+
+function readGitJson(projectRoot, path, gitCommand = spawnSync) {
+  const result = gitCommand('git', [
+    '-C', projectRoot, 'show', `${IMMUTABLE_IDENTITY_BASELINE_COMMIT}:${path}`,
+  ], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  if (result.status !== 0) {
+    throw new Error(`git baseline read failed for ${path}: ${String(result.stderr || '').trim()}`);
+  }
+  return JSON.parse(String(result.stdout));
 }
 
 function exactKeys(value, required, optional = []) {
@@ -143,6 +176,7 @@ export async function validateSourceRecoveryProofs({
   requireLocal = false,
   deepArchive = requireLocal,
   runCommand = spawnSync,
+  gitCommand = spawnSync,
 } = {}) {
   const projectRoot = resolve(root instanceof URL ? fileURLToPath(root) : root);
   const [proofData, catalogData, registryData, queueData] = await Promise.all([
@@ -153,6 +187,19 @@ export async function validateSourceRecoveryProofs({
   ]);
   const errors = [];
   const documentById = new Map((catalogData.documents || []).map((record) => [record.id, record]));
+  let baselineCatalog = null;
+  let baselineQueue = null;
+  try {
+    [baselineCatalog, baselineQueue] = [
+      readGitJson(projectRoot, 'data/catalog.json', gitCommand),
+      readGitJson(projectRoot, 'data/ocr-queue.json', gitCommand),
+    ];
+  } catch (error) {
+    issue(errors, 'immutable_identity_baseline', error.message);
+  }
+  const baselineDocumentById = new Map(
+    (baselineCatalog?.documents || []).map((record) => [record.id, record]),
+  );
   const quarantines = (registryData.artifacts || [])
     .filter((artifact) => artifact.disposition === 'quarantine' && artifact.intended_document_id);
   const quarantinesByDocument = new Map();
@@ -561,8 +608,14 @@ export async function validateSourceRecoveryProofs({
     for (const documentId of governedDocumentIds) {
       const document = documentById.get(documentId);
       const expected = document ? catalogIdentitySha256(document) : null;
+      if (!expected) issue(errors, 'catalog_work_identity_shape', documentId);
       if (!SHA256.test(identityBindings[documentId] || '') || identityBindings[documentId] !== expected) {
         issue(errors, 'catalog_work_version_binding', documentId);
+      }
+      const baseline = baselineDocumentById.get(documentId);
+      if (!baseline || stableStringify(identityValues(document, WORK_IDENTITY_FIELDS))
+        !== stableStringify(identityValues(baseline, WORK_IDENTITY_FIELDS))) {
+        issue(errors, 'immutable_identity_baseline', `work:${documentId}`);
       }
     }
   }
@@ -578,9 +631,15 @@ export async function validateSourceRecoveryProofs({
     for (const documentId of governedDocumentIds) {
       const document = documentById.get(documentId);
       const expected = document ? canonicalArtifactIdentitySha256(document) : null;
+      if (!expected) issue(errors, 'catalog_canonical_artifact_identity_shape', documentId);
       if (!SHA256.test(canonicalArtifactBindings[documentId] || '')
         || canonicalArtifactBindings[documentId] !== expected) {
         issue(errors, 'catalog_canonical_artifact_binding', documentId);
+      }
+      const baseline = baselineDocumentById.get(documentId);
+      if (!baseline || stableStringify(identityValues(document, CANONICAL_ARTIFACT_IDENTITY_FIELDS))
+        !== stableStringify(identityValues(baseline, CANONICAL_ARTIFACT_IDENTITY_FIELDS))) {
+        issue(errors, 'immutable_identity_baseline', `artifact:${documentId}`);
       }
     }
   }
@@ -605,6 +664,26 @@ export async function validateSourceRecoveryProofs({
     && Number.isInteger(document.page_count)
     && document.page_count > 0
   ));
+  const baselineCanonicalPdfIds = (baselineCatalog?.documents || []).filter((document) => (
+    String(document.local_cache_path || '').toLowerCase().endsWith('.pdf')
+    && SHA256.test(document.checksum_sha256 || '')
+    && Number.isInteger(document.page_count)
+    && document.page_count > 0
+  )).map((document) => document.id).sort();
+  const canonicalPdfIds = canonicalPdfDocuments.map((document) => document.id).sort();
+  if (!baselineCatalog
+    || JSON.stringify(canonicalPdfIds) !== JSON.stringify(baselineCanonicalPdfIds)) {
+    issue(errors, 'canonical_pdf_universe', `expected ${baselineCanonicalPdfIds.length}, observed ${canonicalPdfIds.length}`);
+  }
+  const queueContract = (queue) => {
+    if (!queue || typeof queue !== 'object' || Array.isArray(queue)) return queue;
+    const { generated_at: _generatedAt, ...contract } = queue;
+    return contract;
+  };
+  if (!baselineQueue
+    || stableStringify(queueContract(queueData)) !== stableStringify(queueContract(baselineQueue))) {
+    issue(errors, 'ocr_queue_universe', `expected ${baselineQueue?.documents?.length || 0}, observed ${queueDocuments.length}`);
+  }
   if (requireLocal) {
     for (const document of canonicalPdfDocuments) {
       try {

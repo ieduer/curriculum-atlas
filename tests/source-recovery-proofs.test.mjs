@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
@@ -21,6 +22,12 @@ function fixture() {
     artifactRegistry: structuredClone(artifactRegistry),
     ocrQueue: structuredClone(ocrQueue),
   };
+}
+
+function identityHash(record, fields) {
+  return createHash('sha256')
+    .update(JSON.stringify(fields.map((field) => record[field] ?? null)))
+    .digest('hex');
 }
 
 async function validate(value) {
@@ -233,6 +240,100 @@ test('every queued record remains exactly bound to its canonical catalog PDF', a
   const report = await validate(value);
   assert.equal(report.ok, false);
   assert.ok(report.errors.some((error) => error.code === 'queue_catalog_binding'));
+});
+
+test('canonical PDF and OCR queue universes cannot lose an otherwise valid record', async () => {
+  for (const mutation of [
+    (value) => {
+      value.catalog.documents = value.catalog.documents.filter((item) => item.id !== 'ictr-559f488c0309');
+    },
+    (value) => {
+      value.ocrQueue.documents = value.ocrQueue.documents.filter((item) => item.id !== 'moe-2022-17');
+    },
+  ]) {
+    const value = fixture();
+    mutation(value);
+    const report = await validate(value);
+    assert.equal(report.ok, false, JSON.stringify(report.counts));
+    assert.ok(report.errors.some((error) => [
+      'canonical_pdf_universe',
+      'ocr_queue_universe',
+    ].includes(error.code)), JSON.stringify(report.errors));
+  }
+});
+
+test('the complete OCR queue row contract is immutable, not only path/hash/page identity', async () => {
+  const value = fixture();
+  const queued = value.ocrQueue.documents.find((item) => item.id === 'moe-2011-01');
+  Object.assign(queued, {
+    title: '错误标题',
+    subject: '错误学科',
+    source_tier: 'unreviewed',
+    input_quality_status: 'accepted',
+    priority: -1,
+    policy: 'caller_selected',
+  });
+  const report = await validate(value);
+  assert.equal(report.ok, false);
+  assert.ok(report.errors.some((error) => error.code === 'ocr_queue_universe'));
+});
+
+test('identity tuples distinguish a missing key from an explicit null', async () => {
+  for (const field of ['issued_date', 'native_text_cache_path']) {
+    const value = fixture();
+    delete value.catalog.documents.find((item) => item.id === 'ictr-c96cc01ca832')[field];
+    const report = await validate(value);
+    assert.equal(report.ok, false, field);
+    assert.ok(report.errors.some((error) => [
+      'catalog_work_identity_shape',
+      'catalog_canonical_artifact_identity_shape',
+    ].includes(error.code)), `${field}: ${JSON.stringify(report.errors)}`);
+  }
+});
+
+test('coordinated work relabelling cannot self-authorize by recomputing proof hashes', async () => {
+  const value = fixture();
+  const ids = ['ictr-6aed243f91fa', 'ictr-0bcfe4b915df'];
+  const [left, right] = ids.map((id) => value.catalog.documents.find((item) => item.id === id));
+  const fields = value.proofs.work_identity_fields.filter((field) => field !== 'id');
+  const leftValues = Object.fromEntries(fields.map((field) => [field, left[field]]));
+  for (const field of fields) left[field] = right[field];
+  for (const field of fields) right[field] = leftValues[field];
+  for (const document of [left, right]) {
+    value.proofs.catalog_identity_sha256_by_document[document.id] = identityHash(
+      document,
+      value.proofs.work_identity_fields,
+    );
+    const tuple = value.proofs.official_same_work_scan_variants.find((item) => item[0] === document.id);
+    tuple[1] = document.title;
+  }
+  const report = await validate(value);
+  assert.equal(report.ok, false);
+  assert.ok(report.errors.some((error) => error.code === 'immutable_identity_baseline'));
+});
+
+test('coordinated canonical artifact swaps cannot self-authorize by recomputing proof hashes', async () => {
+  const value = fixture();
+  const members = value.proofs.official_archives[0].members;
+  const [leftTuple, rightTuple] = members.slice(0, 2);
+  const [left, right] = [leftTuple[0], rightTuple[0]]
+    .map((id) => value.catalog.documents.find((item) => item.id === id));
+  const artifactFields = value.proofs.canonical_artifact_identity_fields.filter((field) => field !== 'id');
+  const leftValues = Object.fromEntries(artifactFields.map((field) => [field, left[field]]));
+  for (const field of artifactFields) left[field] = right[field];
+  for (const field of artifactFields) right[field] = leftValues[field];
+  const leftArtifactTuple = leftTuple.slice(2);
+  leftTuple.splice(2, 4, ...rightTuple.slice(2));
+  rightTuple.splice(2, 4, ...leftArtifactTuple);
+  for (const document of [left, right]) {
+    value.proofs.catalog_canonical_artifact_sha256_by_document[document.id] = identityHash(
+      document,
+      value.proofs.canonical_artifact_identity_fields,
+    );
+  }
+  const report = await validate(value);
+  assert.equal(report.ok, false);
+  assert.ok(report.errors.some((error) => error.code === 'immutable_identity_baseline'));
 });
 
 test('every canonical catalog PDF is physically page-counted, not only recovery proof members', async () => {

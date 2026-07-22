@@ -9,9 +9,9 @@
 
 每个来源保存稳定文档编号、来源页、文件 URL、获取状态、SHA-256、重分发边界和文本质量状态。无法取得的原件保留元数据记录，不用近似文本填补。
 
-来源恢复不得按文件名、题名或“看起来相同”替换。损坏端点、恢复制品、官方压缩包成员、同作品不同扫描和 Office 附件分别保存 SHA-256、字节数、页数或文本哈希及版次关系；受影响文献的作品身份固定哈希覆盖 ID、国家、语言、题名、学科、学段、文献类型、版本、发布机关、发布日期与现行状态，canonical artifact 另以来源页、下载 URL、文件格式、SHA-256、本机路径、页数和文本质量状态等完整字段哈希绑定。归档成员必须从固定归档重新提取并实测 PDF 页数，目录内全部 149 份 canonical PDF 以及 86 条 OCR queue 输入都必须通过本机 `pdfinfo` 和 queue↔catalog 一一校验；Office 文本必须由固定二进制经系统转换器重新抽取后逐字节一致。目录中的 canonical URL 是每份作品唯一主来源；其他 URL 必须标为非主来源以及 `variant`、`quarantine` 或版本冲突。`data/source-recovery-proofs.json` 的可执行验证是目录、OCR 队列和发布清单的共同前置门。
+来源恢复不得按文件名、题名或“看起来相同”替换。损坏端点、恢复制品、官方压缩包成员、同作品不同扫描和 Office 附件分别保存 SHA-256、字节数、页数或文本哈希及版次关系；受影响文献的作品身份固定哈希覆盖 ID、国家、语言、题名、学科、学段、文献类型、版本、发布机关、发布日期与现行状态，canonical artifact 另以来源页、下载 URL、文件格式、SHA-256、本机路径、页数和文本质量状态等完整字段哈希绑定。所有身份字段必须显式存在，缺失键不能再与显式 `null` 混同。自哈希之外，验证器从固定 Git 对象 `373627780303ba91ac7159f99b166c85f9a1b9af` 读取 catalog 与 OCR queue 基线：完整 149 份 canonical PDF ID 集合、86 条队列记录的顺序和全部字段，以及 42 个受治理作品/制品身份都不得由同一批 proof 重算自我授权；任何有意变更必须另走独立审阅的基线晋升。归档成员必须从固定归档重新提取并实测 PDF 页数，目录内全部 149 份 canonical PDF 以及 86 条 OCR queue 输入都必须通过本机 `pdfinfo` 和 queue↔catalog 一一校验；Office 文本必须由固定二进制经系统转换器重新抽取后逐字节一致。目录中的 canonical URL 是每份作品唯一主来源；其他 URL 必须标为非主来源以及 `variant`、`quarantine` 或版本冲突。`data/source-recovery-proofs.json` 的可执行验证是目录、OCR 队列和发布清单的共同前置门。
 
-在线收据 `data/source-recovery-online-receipt.json` 绑定 proof 文件哈希，记录官方发布页的跳转链、状态、MIME、字节数与 SHA-256，以及页面 href 到 23 个精确附件的 URL、跳转链、MIME、magic、字节数和 SHA-256。刷新器使用可注入 `fetch`，普通测试不访问网络；preview/production 准备与部署只接受 72 小时内的新鲜 immutable receipt。`example.invalid`、HTTP 404、漏失 href、附件 hash/bytes/MIME 漂移均 fail closed。ICTR 两个下载目录当前由 WAF 对非浏览器请求返回 412，收据只允许这两个固定官方目录进入明确的 `official_waf_interstitial` 例外；其 4 个附件及 1 个版本变体仍须从原官方 URL 返回 200 并逐字节匹配，例外不得扩展到其他 host、状态或附件。
+在线收据 `data/source-recovery-online-receipt.json` 绑定 proof 的精确序列化字节，记录官方发布页的跳转链、状态、MIME、字节数与 SHA-256，以及页面 href 到 23 个精确附件的 URL、跳转链、MIME、magic、字节数和 SHA-256。每条跳转必须从请求 URL 开始、前后连续并精确结束于 `final_url`；只逐行检查 3xx 状态不构成有效链。刷新器使用可注入 `fetch`，普通测试不访问网络；preview/production 准备与部署只接受 72 小时内的新鲜 immutable receipt。`example.invalid`、HTTP 404、漏失 href、附件 hash/bytes/MIME 漂移均 fail closed。ICTR 例外只允许 `fangan.html` 与 `pt.html` 两个精确 URL 在状态恰为 412 时进入明确的 `official_waf_interstitial`；其 4 个附件及 1 个版本变体仍须从原官方 URL 返回 200 并逐字节匹配，例外不得扩展到其他 URL、host、状态或附件。
 
 ## OCR 与在线核对
 
