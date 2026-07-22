@@ -1316,8 +1316,13 @@ function runtimeFingerprintSha256From(status) {
   return status.runtime_fingerprint_sha256;
 }
 
-async function verifyCommittedSeed(options) {
-  return runRemoteOcrOffload({
+export async function verifyCommittedSeed(options, inspected, dependencies = {}) {
+  const verifySeed = dependencies.runRemoteOcrOffload || runRemoteOcrOffload;
+  const frozenLlamaServerAttestation = structuredClone(requireObject(
+    inspected?.identity?.llama_server_attestation,
+    'frozen A2 llama-server attestation',
+  ));
+  return verifySeed({
     manifest: options.manifest,
     inputRoot: options.inputRoot,
     outputRoot: options.outputRoot,
@@ -1343,7 +1348,20 @@ async function verifyCommittedSeed(options) {
     childPollIntervalSeconds: options.childPollIntervalSeconds,
     seedFromOutputRoot: options.outputRoot,
     seedOnly: true,
+  }, {
+    // The A2 unit fence requires llama to remain quiescent until the durable
+    // continuation claim exists. Reuse the already hash-bound attestation for
+    // committed-seed verification; verifyActiveRuntime re-attests the live
+    // process immediately after this continuation starts its owned invocation.
+    llamaServerAttestation: frozenLlamaServerAttestation,
   });
+}
+
+async function runCommittedSeedVerification(options, inspected, dependencies = {}) {
+  if (dependencies.verifyCommittedSeed) {
+    return dependencies.verifyCommittedSeed(options, inspected);
+  }
+  return verifyCommittedSeed(options, inspected, dependencies);
 }
 
 async function verifyActiveRuntime(options, inspected, dependencies = {}) {
@@ -3177,8 +3195,7 @@ async function finalizeOutcome(inspected, published, claim, options, outcome, ti
   await dependencies.afterTerminalPlan?.(planState);
   await dependencies.transactionGuard?.('after_terminal_plan');
   const applied = await applyTerminalTransaction(inspected, planState, dependencies);
-  const verifyBase = dependencies.verifyCommittedSeed || verifyCommittedSeed;
-  await verifyBase(options);
+  await runCommittedSeedVerification(options, inspected, dependencies);
   await dependencies.transactionGuard?.('before_terminal_state');
   await appendJournalState(published.paths, claim, 'terminal', {
     outcome,
@@ -3416,8 +3433,8 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
         citation_allowed: false,
       };
     }
-    const verifyBase = dependencies.verifyCommittedSeed || verifyCommittedSeed;
-    if (!inspected.archivedIncident) await verifyBase(options);
+    const verifyBase = () => runCommittedSeedVerification(options, inspected, dependencies);
+    if (!inspected.archivedIncident) await verifyBase();
     await transactionGuard('before_receipt_publication');
     const published = await publishReceipt(inspected, options, profile);
     await transactionGuard('after_receipt_publication');
@@ -3439,7 +3456,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
     const existingPlanState = journal.states.find(({ value }) => value.stage === 'terminal_plan');
     if (existingPlanState) {
       const applied = await applyTerminalTransaction(inspected, existingPlanState, guardedDependencies);
-      await verifyBase(options);
+      await verifyBase();
       const terminalAt = existingPlanState.value.terminal_at;
       await appendJournalState(published.paths, claim, 'terminal', {
         outcome: applied.outcome,
@@ -3461,7 +3478,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       };
     }
 
-    if (inspected.archivedIncident) await verifyBase(options);
+    if (inspected.archivedIncident) await verifyBase();
 
     let progression = validateJournalProgression(journal.states, claim, frozenUnitFence);
     if (progression.executionStates.length > 0) {

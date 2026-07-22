@@ -17,6 +17,7 @@ import {
   operatorContinuationPaths,
   reconcileOwnedContinuationExecution,
   recoverableTerminalAtomicReplace,
+  verifyCommittedSeed,
 } from '../scripts/continue-remote-ocr-operator-interruption.mjs';
 import {
   EXACT_A2_FORWARD_CONTINUATION_INCIDENT,
@@ -890,6 +891,65 @@ async function establishPartialCheckpoint(t, fixture) {
 
 test('the immutable seeded runner remains byte-identical', async () => {
   assert.equal(sha256(await readFile(runnerPath)), EXPECTED_UNCHANGED_RUNNER_SHA256);
+});
+
+test('committed-seed verification reuses the frozen llama attestation while the unit stays quiescent', async () => {
+  const frozenAttestation = {
+    schema_version: 1,
+    systemd_unit: 'curriculum-ocr-llama.service',
+    active_state: 'active',
+    sub_state: 'running',
+    invocation_id: 'a'.repeat(32),
+    main_pid: 123,
+  };
+  const options = {
+    manifest: '/fixture/manifest.json',
+    inputRoot: '/fixture/input',
+    outputRoot: '/fixture/output',
+    python: '/fixture/python',
+    ocrScript: '/fixture/ocr.py',
+    model: '/fixture/model.gguf',
+    mmproj: '/fixture/mmproj.gguf',
+    llamaRepo: '/fixture/llama.cpp',
+    llamaServerBin: '/fixture/llama-server',
+    llamaSystemdUnit: 'curriculum-ocr-llama.service',
+    llamaUrl: 'http://127.0.0.1:8112/v1',
+    runtimeDevice: 'gpu:0',
+    paddlexCacheHome: '/fixture/output/paddlex-cache',
+    vlRecMaxConcurrency: 1,
+    serverParallel: 1,
+    microBatch: 16,
+    useQueues: true,
+    childStartupTimeoutSeconds: 180,
+    childIdleTimeoutSeconds: 1200,
+    childWallFloorSeconds: 1200,
+    childWallSecondsPerPage: 25,
+    childTerminateGraceSeconds: 15,
+    childPollIntervalSeconds: 5,
+  };
+  let calls = 0;
+  const result = await verifyCommittedSeed(
+    options,
+    { identity: { llama_server_attestation: frozenAttestation } },
+    {
+      runRemoteOcrOffload: async (actualOptions, runtimeDependencies) => {
+        calls += 1;
+        assert.equal(actualOptions.seedFromOutputRoot, options.outputRoot);
+        assert.equal(actualOptions.seedOnly, true);
+        assert.deepEqual(runtimeDependencies, {
+          llamaServerAttestation: frozenAttestation,
+        });
+        assert.notEqual(
+          runtimeDependencies.llamaServerAttestation,
+          frozenAttestation,
+          'the hash-bound attestation must be cloned before it crosses the verifier boundary',
+        );
+        return { exitCode: 0, seedOnly: true };
+      },
+    },
+  );
+  assert.equal(calls, 1);
+  assert.deepEqual(result, { exitCode: 0, seedOnly: true });
 });
 
 test('independent runtime manifest binds the actual continuation module closure without self-hashing', async () => {

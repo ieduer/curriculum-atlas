@@ -11,7 +11,7 @@
   "anchors": {
     "collection_spec_sha256": "442cae88f467a33e0a61151e59118ddecf101893f8641096d69c534a9fdfc779",
     "profile_sha256": "fde3142fafb82b8ef11f3f40f3e9e0a0c7598d9a152344281bbe4f79fe38aefd",
-    "runtime_manifest_sha256": "7b4190fa6c1e579ae1ad704865cf2d1dc2f94f30be014c7478c7a17b70ae96f6",
+    "runtime_manifest_sha256": "ca7cebb383c156939cb227a357ef8f9512d34ab6859c672ac98c57b4e5d04732",
     "production_snapshot_sha256": "6b2564cdc7e239a7f22b155a47f568fc5f243807e88a71802c8653a0942c993a"
   },
   "frozen_profile": {
