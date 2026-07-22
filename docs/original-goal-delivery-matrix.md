@@ -28,11 +28,11 @@
 |---|---|---|
 | Production v10 | 196 documents、16,456 paragraphs/FTS、6,031 page gates、91 chunks、12 display facets；API、三尺寸浏览器、D1 negative-write 与 Pulse 已终验 | 这些段落并非 11,000 余页历史扫描 OCR 全部通过审核 |
 | OCR publication | accepted OCR documents/pages、display/citation promotion 均为 0 | OCR staging、Vision witness 或 audit 数量不是公开引文数量 |
-| 本地候选 `6cdbdc8` | 195 个规范作品；158 ordinary subject + 1 assessment subject + 16 course + 20 scope；2011 初中科学双扫描归并为一份作品 | 尚未替换 production v10 的 196 文档快照 |
-| OCR 队列候选 | 名义 85 documents / 11,759 pages；扣除劳动课标完全相同别名后 84 unique artifacts / 11,691 pages；2 blocked documents | 入队不表示完成，更不表示可引用 |
+| 本地整合候选 | 195 个规范作品；来源身份恢复提交已独立通过；2011 初中科学双扫描归并为一份作品 | 尚未替换 production v10 的 196 文档快照；其余本体、A2 与后台分支仍须独立审查后合并 |
+| OCR 队列候选 | 名义 86 documents / 11,903 pages；扣除劳动课标完全相同别名后 85 unique artifacts / 11,835 pages；0 blocked documents | 入队不表示完成，更不表示可引用 |
 | 概念图 | production 有 553 concept episodes、214 lineage、261 cross-subject edges；169 个公开本体节点主要属于语文 | 不是全学科、全历史、全层级精细本体；观察数据目前止于 2020 |
 | 汇编篇目 | 61 个目录身份为候选，0 display / 0 citation / 0 semantic | 已识别目录不等于篇目正文、边界和版本身份已发布 |
-| A2 远端 OCR | 上一恢复因监控断言触发安全冻结；同一 attempt 6 的 forward continuation 正在本地审查 | 不得另发授权、重置 attempt、覆盖 state 或宣称远端仍在运行 |
+| A2 远端 OCR | 同一 attempt 6 已耐久完成 1,568/3,182 页：4/8 卷完成、1 卷中断、3 卷 retry_wait、0 失败页；主机资源正常但服务仍按安全策略冻结，forward continuation 正在本地审查 | 不得另发授权、重置 attempt、覆盖 state，亦不得把耐久页数误报为可引用页数 |
 
 任何后续状态变化必须更新本表的真值快照、`operations.md`、append-only action log 和 canonical Cloudflare report；不能只改 README 数字。
 
