@@ -184,6 +184,15 @@ test('release manifest binds the complete data, graph, static, Git, and environm
   assert.equal(manifest.corpus_release.bytes, rawCorpusBinding.bytes);
   assert.equal(manifest.page_evidence.valid, true);
   assert.equal(manifest.page_evidence.publishable, false);
+  assert.equal(manifest.subject_ontology_v2.valid, true);
+  assert.equal(manifest.subject_ontology_v2.publishable, false);
+  assert.equal(manifest.subject_ontology_v2.mode, 'ordinary_nonpublishable');
+  assert.equal(manifest.subject_ontology_v2.release_boundary.frontend_consumer_allowed, false);
+  assert.equal(manifest.subject_ontology_v2.release_boundary.r2_consumer_allowed, false);
+  assert.deepEqual(manifest.release_identity.subject_ontology_v2, manifest.subject_ontology_v2);
+  const ontologyReport = await readFile(new URL('../data/subject-ontology-v2-validation.json', import.meta.url));
+  assert.equal(manifest.subject_ontology_v2.report.sha256, createHash('sha256').update(ontologyReport).digest('hex'));
+  assert.equal(manifest.subject_ontology_v2.report.bytes, ontologyReport.byteLength);
 
   assert.equal(manifest.graph_assets.length, 2);
   assert.equal(manifest.graph_assets[0].build_revision, manifest.graph_assets[1].build_revision);
@@ -307,6 +316,14 @@ test('prepared manifest overrides require one exact materialized Git blob identi
     }),
     /exact materialized Git blob tree/,
   );
+  await assert.rejects(
+    buildReleaseManifest({
+      root,
+      pageEvidencePromotion: true,
+      subjectOntologyV2Promotion: true,
+    }),
+    /canonical page-evidence promotion and exact materialized Git release builder path/,
+  );
 });
 
 test('immutable versioned manifest bytes exclude every volatile audit age for retry-safe keys', async () => {
@@ -338,6 +355,13 @@ test('one canonical desired release artifact is complete across Worker, R2, and 
   assert.equal(pin.corpus_manifest_sha256, manifest.corpus_release.manifest_sha256);
   assert.equal(parsed.value.r2.release_manifest_key, `releases/${manifest.release_id}/manifest.json`);
   assert.equal(parsed.value.r2.managed_object_count, parsed.value.r2.objects.length);
+  assert.deepEqual(
+    parsed.value.release_identity.subject_ontology_v2,
+    manifest.subject_ontology_v2,
+    'desired-release identity must bind the exact ontology validation report and dependencies',
+  );
+  assert.equal(manifest.subject_ontology_v2.promotion_envelope, null);
+  assert.equal(Object.hasOwn(manifest.subject_ontology_v2, 'prepared_release'), false);
   const serialized = artifact.buffer.toString('utf8');
   for (const forbidden of ['environment_snapshot', 'release_blockers', 'published_at', 'observed_at', 'health', 'generated_at']) {
     assert.doesNotMatch(serialized, new RegExp(`"${forbidden}"`));
@@ -348,6 +372,104 @@ test('one canonical desired release artifact is complete across Worker, R2, and 
   assert.throws(
     () => parseDesiredReleaseManifestArtifact(Buffer.from(`${JSON.stringify(drift, null, 2)}\n`)),
     /release_id does not match release_identity/,
+  );
+});
+
+test('desired release rejects a stripped or weakened ontology identity even after release-id rebinding', async () => {
+  const manifest = await buildHermeticReleaseManifest('2026-07-22T05:00:00.000Z');
+  for (const mutate of [
+    (ontology) => { delete ontology.dependencies; },
+    (ontology) => { delete ontology.counts.coverage_universes; },
+    (ontology) => { delete ontology.scope_artifacts; },
+    (ontology) => { delete ontology.promotion_envelope; },
+    (ontology) => { ontology.release_boundary.same_commit_scope_evidence_self_attestation_allowed = true; },
+    (ontology) => { ontology.release_boundary.release_builder_desired_manifest_only = false; },
+  ]) {
+    const desired = desiredReleaseManifestArtifact(manifest).value;
+    mutate(desired.release_identity.subject_ontology_v2);
+    desired.release_id = releaseIdFromIdentity(desired.release_identity);
+    const artifact = desiredReleaseManifestArtifact(desired);
+    assert.throws(
+      () => parseDesiredReleaseManifestArtifact(artifact.buffer),
+      /exact fail-closed subject ontology v2 validation identity/,
+    );
+  }
+});
+
+test('desired release rejects ontology bytes that are not in its immutable Git source-tree identity', async () => {
+  const manifest = await buildHermeticReleaseManifest('2026-07-22T05:00:00.000Z');
+  const desired = desiredReleaseManifestArtifact(manifest).value;
+  desired.release_identity.subject_ontology_v2.index.sha256 = createHash('sha256')
+    .update('uncommitted in-memory ontology index')
+    .digest('hex');
+  desired.release_id = releaseIdFromIdentity(desired.release_identity);
+  const artifact = desiredReleaseManifestArtifact(desired);
+  assert.throws(
+    () => parseDesiredReleaseManifestArtifact(artifact.buffer),
+    /exact fail-closed subject ontology v2 validation identity/,
+  );
+});
+
+test('desired release accepts a post-commit non-empty ontology envelope and rejects envelope drift', async () => {
+  const manifest = await buildHermeticReleaseManifest('2026-07-22T05:00:00.000Z');
+  const desired = desiredReleaseManifestArtifact(manifest).value;
+  const hash = (value) => createHash('sha256').update(value).digest('hex');
+  const scopeArtifact = {
+    path: 'data/ontologies/chinese-language/committed-scope.json',
+    sha256: hash('committed scope blob'),
+    bytes: 321,
+    object_sha256: hash('parsed committed scope object'),
+  };
+  desired.source_tree.files.push({
+    path: scopeArtifact.path,
+    sha256: scopeArtifact.sha256,
+    bytes: scopeArtifact.bytes,
+  });
+  desired.source_tree.files.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
+  desired.source_tree.file_count = desired.source_tree.files.length;
+  desired.source_tree.total_bytes = desired.source_tree.files.reduce((total, entry) => total + entry.bytes, 0);
+  desired.source_tree.sha256 = hash(desired.source_tree.files
+    .map((entry) => `${entry.path}\0${entry.sha256}\0${entry.bytes}\n`).join(''));
+  desired.release_identity.source_tree_sha256 = desired.source_tree.sha256;
+  const ontology = desired.release_identity.subject_ontology_v2;
+  ontology.mode = 'explicit_promotion';
+  ontology.publishable = true;
+  ontology.scope_artifacts = [scopeArtifact];
+  ontology.counts.publishable = true;
+  ontology.counts.scopes = 1;
+  ontology.counts.coverage_universes = 1;
+  ontology.counts.concepts = 1;
+  ontology.release_boundary.candidate_fail_closed = false;
+  ontology.promotion_envelope = {
+    policy: 'subject_ontology_v2_external_promotion_envelope_v1',
+    git_head: desired.git.head,
+    source_tree_sha256: desired.source_tree.sha256,
+    index: {
+      path: ontology.index.path,
+      sha256: ontology.index.sha256,
+      bytes: ontology.index.bytes,
+    },
+    scope_artifacts: [{
+      path: scopeArtifact.path,
+      sha256: scopeArtifact.sha256,
+      bytes: scopeArtifact.bytes,
+    }],
+  };
+  desired.release_identity.page_evidence.valid = true;
+  desired.release_identity.page_evidence.publishable = true;
+  desired.page_evidence = structuredClone(desired.release_identity.page_evidence);
+  desired.release_id = releaseIdFromIdentity(desired.release_identity);
+  desired.r2.release_manifest_key = `${desired.r2.release_prefix}/${desired.release_id}/manifest.json`;
+  const artifact = desiredReleaseManifestArtifact(desired);
+  assert.equal(parseDesiredReleaseManifestArtifact(artifact.buffer).value.release_id, desired.release_id);
+
+  const drift = structuredClone(desired);
+  drift.release_identity.subject_ontology_v2.promotion_envelope.scope_artifacts[0].sha256 = hash('different blob');
+  drift.release_id = releaseIdFromIdentity(drift.release_identity);
+  drift.r2.release_manifest_key = `${drift.r2.release_prefix}/${drift.release_id}/manifest.json`;
+  assert.throws(
+    () => parseDesiredReleaseManifestArtifact(desiredReleaseManifestArtifact(drift).buffer),
+    /exact fail-closed subject ontology v2 validation identity/,
   );
 });
 

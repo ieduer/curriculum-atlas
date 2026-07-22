@@ -1,0 +1,68 @@
+{
+  "$schema": "../schemas/subject-ontology-v2.schema.json",
+  "schema_version": 2,
+  "artifact_kind": "subject_ontology_index",
+  "contract_id": "subject-ontology-v2",
+  "status": "candidate_fail_closed",
+  "bindings": {
+    "taxonomy": {
+      "path": "data/concept-model-v2.json",
+      "sha256": "98d8b3b8c9f4ad1e7f02410c2470fa8b34820996e380d39230a763fd49b3356e"
+    },
+    "catalog": {
+      "path": "data/catalog.json",
+      "sha256": "32668d6ff45db54ac575e56735c5f058c6e1873d5adf777945ea799da3253293"
+    },
+    "provenance": {
+      "path": "data/document-sources.json",
+      "sha256": "8405ae337a58ee9bcdd727091238711090fabf54a2c0262875bedd512b4e9853"
+    },
+    "corpus_manifest": {
+      "path": "data/corpus-chunks/manifest.json",
+      "sha256": "0d34d802e9c1f1f4c0f827fbb180a851568e3cf59b02ada83f288fe042d0b413",
+      "release_id": "corpus-4fe2f31344f52706de761788",
+      "release_fingerprint_sha256": "4fe2f31344f52706de761788a0c741ed03d87b74cb096f8de0590cba0baecf76",
+      "manifest_sha256": "7d2fae37e29b931d8eee59831934de3df10dc47a826df9af8e5f876a2221a5bf"
+    },
+    "page_evidence_manifest": {
+      "path": "scripts/page-evidence/fail-closed-manifest.json",
+      "sha256": "d4be339d7f54d405fbe089801bfdccc127039c6f70596271f941c2173a2655bd"
+    },
+    "reviewer_registry": {
+      "path": "scripts/page-evidence/reviewer-authorities.json",
+      "sha256": "4602217e96d83cbc9caf472742cdf0912ae0bdf33863bd2244417d31975d9325"
+    },
+    "online_source_registry": {
+      "path": "scripts/page-evidence/online-source-identities.json",
+      "sha256": "d8d51035d46f82b8f92d31eca384aba13db4d4d31d9a241ad4845cbce3686144"
+    },
+    "online_verification_standard": {
+      "path": "data/online-verification-standard.json",
+      "sha256": "53a1db63cbee3dedde685b9ecad2c446da9899dc0f13dda5795343279afe5ec4"
+    },
+    "validation_report_path": "data/subject-ontology-v2-validation.json"
+  },
+  "canonical_facets": [
+    { "facet_id": "facet:chinese-language", "label": "语文", "directory": "data/ontologies/chinese-language", "status": "not_started", "scope_files": [], "coverage": { "scope_count": 0, "concept_count": 0, "semantic_relation_count": 0, "current_ordinary_scope_complete": false, "historical_coverage_complete": false, "unknown_or_unresolved": true, "reason_codes": ["not_started"] } },
+    { "facet_id": "facet:mathematics", "label": "数学", "directory": "data/ontologies/mathematics", "status": "not_started", "scope_files": [], "coverage": { "scope_count": 0, "concept_count": 0, "semantic_relation_count": 0, "current_ordinary_scope_complete": false, "historical_coverage_complete": false, "unknown_or_unresolved": true, "reason_codes": ["not_started"] } },
+    { "facet_id": "facet:foreign-languages", "label": "外语", "directory": "data/ontologies/foreign-languages", "status": "not_started", "scope_files": [], "coverage": { "scope_count": 0, "concept_count": 0, "semantic_relation_count": 0, "current_ordinary_scope_complete": false, "historical_coverage_complete": false, "unknown_or_unresolved": true, "reason_codes": ["not_started"] } },
+    { "facet_id": "facet:politics-morality-law", "label": "思想政治与道德法治", "directory": "data/ontologies/politics-morality-law", "status": "not_started", "scope_files": [], "coverage": { "scope_count": 0, "concept_count": 0, "semantic_relation_count": 0, "current_ordinary_scope_complete": false, "historical_coverage_complete": false, "unknown_or_unresolved": true, "reason_codes": ["not_started"] } },
+    { "facet_id": "facet:history", "label": "历史", "directory": "data/ontologies/history", "status": "not_started", "scope_files": [], "coverage": { "scope_count": 0, "concept_count": 0, "semantic_relation_count": 0, "current_ordinary_scope_complete": false, "historical_coverage_complete": false, "unknown_or_unresolved": true, "reason_codes": ["not_started"] } },
+    { "facet_id": "facet:history-and-society", "label": "历史与社会", "directory": "data/ontologies/history-and-society", "status": "not_started", "scope_files": [], "coverage": { "scope_count": 0, "concept_count": 0, "semantic_relation_count": 0, "current_ordinary_scope_complete": false, "historical_coverage_complete": false, "unknown_or_unresolved": true, "reason_codes": ["not_started"] } },
+    { "facet_id": "facet:geography", "label": "地理", "directory": "data/ontologies/geography", "status": "not_started", "scope_files": [], "coverage": { "scope_count": 0, "concept_count": 0, "semantic_relation_count": 0, "current_ordinary_scope_complete": false, "historical_coverage_complete": false, "unknown_or_unresolved": true, "reason_codes": ["not_started"] } },
+    { "facet_id": "facet:science", "label": "科学类", "directory": "data/ontologies/science", "status": "not_started", "scope_files": [], "coverage": { "scope_count": 0, "concept_count": 0, "semantic_relation_count": 0, "current_ordinary_scope_complete": false, "historical_coverage_complete": false, "unknown_or_unresolved": true, "reason_codes": ["not_started"] } },
+    { "facet_id": "facet:technology", "label": "技术", "directory": "data/ontologies/technology", "status": "not_started", "scope_files": [], "coverage": { "scope_count": 0, "concept_count": 0, "semantic_relation_count": 0, "current_ordinary_scope_complete": false, "historical_coverage_complete": false, "unknown_or_unresolved": true, "reason_codes": ["not_started"] } },
+    { "facet_id": "facet:labor", "label": "劳动", "directory": "data/ontologies/labor", "status": "not_started", "scope_files": [], "coverage": { "scope_count": 0, "concept_count": 0, "semantic_relation_count": 0, "current_ordinary_scope_complete": false, "historical_coverage_complete": false, "unknown_or_unresolved": true, "reason_codes": ["not_started"] } },
+    { "facet_id": "facet:arts", "label": "艺术", "directory": "data/ontologies/arts", "status": "not_started", "scope_files": [], "coverage": { "scope_count": 0, "concept_count": 0, "semantic_relation_count": 0, "current_ordinary_scope_complete": false, "historical_coverage_complete": false, "unknown_or_unresolved": true, "reason_codes": ["not_started"] } },
+    { "facet_id": "facet:physical-education-health", "label": "体育与健康", "directory": "data/ontologies/physical-education-health", "status": "not_started", "scope_files": [], "coverage": { "scope_count": 0, "concept_count": 0, "semantic_relation_count": 0, "current_ordinary_scope_complete": false, "historical_coverage_complete": false, "unknown_or_unresolved": true, "reason_codes": ["not_started"] } }
+  ],
+  "coverage_universes": [],
+  "release_gate": {
+    "mode": "ordinary_nonpublishable",
+    "builder_input_allowed": false,
+    "public_data_update_allowed": false,
+    "semantic_claims_allowed": false,
+    "negative_historical_assertions_allowed": false,
+    "reason_codes": ["no_reviewed_scope_files", "all_facets_not_started"]
+  }
+}

@@ -84,6 +84,7 @@
       { "path": "data/online-verification/zh-compulsory-2022-claims.schema.json", "disposition": "r2_public_metadata", "consumers": ["online_verification_validator"] },
       { "path": "data/ontology-candidates/candidate-layer.schema.json", "disposition": "candidate_fail_closed", "consumers": ["ontology_candidate_validator"] },
       { "path": "data/ontology-candidates/zh-compulsory-2022.json", "disposition": "candidate_fail_closed", "consumers": ["ontology_candidate_validator"] },
+      { "path": "data/ontologies/index.json", "disposition": "candidate_fail_closed", "consumers": ["release_manifest", "subject_ontology_v2_validator"] },
       { "path": "data/ontology-preview-acceptance-receipt.schema.json", "disposition": "candidate_fail_closed", "consumers": ["production_ontology_promotion_gate"] },
       { "path": "data/ontology-release-manifest.json", "disposition": "candidate_fail_closed", "consumers": ["ontology_release_validator"] },
       { "path": "data/ontology-release.schema.json", "disposition": "candidate_fail_closed", "consumers": ["ontology_release_validator"] },
@@ -102,7 +103,9 @@
       { "path": "data/source-recovery-online-receipt.schema.json", "disposition": "r2_public_metadata", "consumers": ["asset_audit", "release_manifest"] },
       { "path": "data/source-recovery-proofs.json", "disposition": "r2_public_metadata", "consumers": ["asset_audit", "catalog_builder", "release_manifest"] },
       { "path": "data/source-recovery-proofs.schema.json", "disposition": "r2_public_metadata", "consumers": ["asset_audit", "release_manifest"] },
+      { "path": "data/schemas/subject-ontology-v2.schema.json", "disposition": "candidate_fail_closed", "consumers": ["release_manifest", "subject_ontology_v2_validator"] },
       { "path": "data/subject-insights.json", "disposition": "d1_build_input", "consumers": ["corpus_builder", "concept_builder"] },
+      { "path": "data/subject-ontology-v2-validation.json", "disposition": "candidate_fail_closed", "consumers": ["release_manifest", "subject_ontology_v2_validator"] },
       { "path": "data/supplemental-sources.json", "disposition": "d1_build_input", "consumers": ["catalog_builder"] }
     ]
   },

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import { assertCleanReleaseSource } from '../scripts/assert-clean-release-source.mjs';
@@ -17,6 +19,11 @@ import {
   validateOntologyPreviewAcceptanceReceipt,
   wranglerDeployArgs,
 } from '../scripts/deploy-worker.mjs';
+import {
+  parseArgs as parsePrepareReleaseArgs,
+  prepareRelease,
+} from '../scripts/prepare-release.mjs';
+import { sealCorpusManifest } from '../scripts/import-corpus.mjs';
 import { verifyDualSchemaBootstrap } from '../scripts/verify-dual-schema-bootstrap.mjs';
 
 const projectRoot = new URL('../', import.meta.url);
@@ -386,11 +393,189 @@ test('preview receipt gates only production ontology promotion', () => {
 
 test('page-evidence and ontology promotion flags enter the same trusted transaction', async () => {
   const source = await readFile(new URL('../scripts/deploy-worker.mjs', import.meta.url), 'utf8');
+  const preparation = source.indexOf('await prepareRelease({');
   const trustMark = source.indexOf('preparedByBuiltInReleaseGate.add(prepared);');
+  const subjectFlag = source.indexOf('subjectOntologyV2Promotion: ontologyPromotion,', preparation);
   const transaction = source.indexOf('return deployPreparedWorker({', trustMark);
   const pageFlag = source.indexOf('pageEvidencePromotion,', transaction);
   const ontologyFlag = source.indexOf('ontologyPromotion,', transaction);
-  assert.ok(trustMark >= 0 && transaction > trustMark && pageFlag > transaction && ontologyFlag > transaction);
+  assert.ok(preparation >= 0
+    && subjectFlag > preparation
+    && subjectFlag < trustMark
+    && transaction > trustMark
+    && pageFlag > transaction
+    && ontologyFlag > transaction);
+});
+
+test('canonical prepare-release CLI exposes deterministic ontology promotion report generation', async () => {
+  const options = parsePrepareReleaseArgs([
+    '--page-evidence-promotion',
+    '--subject-ontology-v2-promotion',
+    '--subject-ontology-v2-report-output',
+    'data/subject-ontology-v2-validation.json',
+  ]);
+  assert.equal(options.pageEvidencePromotion, true);
+  assert.equal(options.subjectOntologyV2Promotion, true);
+  assert.equal(options.subjectOntologyV2ReportOutput, 'data/subject-ontology-v2-validation.json');
+
+  const packageJson = JSON.parse(await readFile(new URL('package.json', projectRoot), 'utf8'));
+  assert.match(packageJson.scripts['ontology:v2:promotion:report'], /subject-ontology-v2-report-output/);
+  assert.match(packageJson.scripts['deploy:preview:ontology-promotion'], /page-evidence-promotion/);
+  assert.match(packageJson.scripts['deploy:production:ontology-promotion'], /page-evidence-promotion/);
+
+  await assert.rejects(
+    prepareRelease({
+      root: '.',
+      subjectOntologyV2ReportOutput: 'data/subject-ontology-v2-validation.json',
+    }),
+    /requires both promotion gates/,
+  );
+  await assert.rejects(
+    prepareRelease({
+      root: '.',
+      pageEvidencePromotion: true,
+      subjectOntologyV2Promotion: true,
+      subjectOntologyV2ReportOutput: '../outside.json',
+    }),
+    /output must be data\/subject-ontology-v2-validation\.json/,
+  );
+});
+
+test('canonical prepare-release path writes a deterministic ontology promotion report', async () => {
+  const repository = await mkdtemp(join(tmpdir(), 'curriculum-promotion-report-repository-'));
+  const snapshot = await mkdtemp(join(tmpdir(), 'curriculum-promotion-report-snapshot-'));
+  const sql = Buffer.from('SELECT 1;\n');
+  const checkedInManifest = JSON.parse(await readFile(new URL('data/corpus-chunks/manifest.json', projectRoot)));
+  const projection = {
+    ...checkedInManifest,
+    documents: 0,
+    paragraphs: 0,
+    fts_rows: 0,
+    page_publication_gates: 0,
+    displayed_paragraphs: 0,
+    accepted_ocr_documents: 0,
+    core_table_counts: Object.fromEntries(
+      Object.keys(checkedInManifest.core_table_counts).map((key) => [key, 0]),
+    ),
+    text_asset_count: 0,
+    text_assets: [],
+    sql_chunks: 1,
+    sql_files: [{
+      name: '000-core.sql',
+      sha256: createHash('sha256').update(sql).digest('hex'),
+      bytes: sql.length,
+    }],
+    closed_ocr_paragraphs: 0,
+    skipped_ocr_documents: 0,
+    excluded_exact_duplicate_alias_documents: 0,
+    semantic_excluded_pages: 0,
+  };
+  delete projection.manifest_sha256;
+  const manifest = sealCorpusManifest(projection);
+  const expectedReport = {
+    schema_version: 1,
+    artifact_kind: 'subject_ontology_v2_validation_report',
+    contract_id: 'subject-ontology-v2',
+    mode: 'explicit_promotion',
+    valid: true,
+    publishable: true,
+  };
+  let gitTreeCleanupCalls = 0;
+  let corpusCleanupCalls = 0;
+  let reportBuilderCalls = 0;
+  try {
+    await mkdir(join(repository, 'data/corpus-chunks'), { recursive: true });
+    await mkdir(join(snapshot, 'data/corpus-chunks'), { recursive: true });
+    await mkdir(join(snapshot, 'data/research-evidence'), { recursive: true });
+    await writeFile(join(repository, 'data/corpus-chunks/000-core.sql'), sql);
+    await writeFile(
+      join(snapshot, 'data/corpus-chunks/manifest.json'),
+      `${JSON.stringify(manifest)}\n`,
+    );
+    await writeFile(
+      join(snapshot, 'data/research-evidence/zh-hs-2017-2020.json'),
+      `${JSON.stringify({ corpus: { manifest_resource_id: 'corpus:fixture' } })}\n`,
+    );
+    const sourceTree = {
+      tracked_only: true,
+      materialized_from_git_blobs: true,
+      sha256: 'b'.repeat(64),
+      files: [],
+    };
+    const prepared = await prepareRelease({
+      root: repository,
+      pageEvidencePromotion: true,
+      subjectOntologyV2Promotion: true,
+      subjectOntologyV2ReportOutput: 'data/subject-ontology-v2-validation.json',
+      sourceRecoveryReceiptValidator: async ({ root }) => assert.equal(root, repository),
+      cleanSourceValidator: () => ({
+        head: 'a'.repeat(40),
+        upstream: 'a'.repeat(40),
+        clean: true,
+      }),
+      projectAssetAuditor: async () => ({ ok: true }),
+      releaseTreeMaterializer: async () => ({
+        root: snapshot,
+        source_tree: sourceTree,
+        verify: async () => sourceTree,
+        cleanup: async () => { gitTreeCleanupCalls += 1; },
+      }),
+      gitBlobReader: (_root, _head, path) => Buffer.from(`fixture:${path}\n`),
+      corpusSnapshotFactory: async ({ root, manifest: actualManifest }) => {
+        assert.equal(root, snapshot);
+        assert.equal(actualManifest.manifest_sha256, manifest.manifest_sha256);
+        return {
+          sha256: 'c'.repeat(64),
+          verify: async () => true,
+          cleanup: async () => { corpusCleanupCalls += 1; },
+        };
+      },
+      pageEvidenceValidator: ({ root, pageEvidencePromotion }) => {
+        assert.equal(root, snapshot);
+        assert.equal(pageEvidencePromotion, true);
+        return { valid: true, publishable: true, manifest: { sha256: 'd'.repeat(64) } };
+      },
+      researchEvidenceResourceMap: '/private/tmp/fixture-research-resource-map.json',
+      researchEvidenceValidator: async ({ root, resourceMap, resourcePathOverrides }) => {
+        assert.equal(root, snapshot);
+        assert.equal(resourceMap, '/private/tmp/fixture-research-resource-map.json');
+        assert.equal(
+          resourcePathOverrides['corpus:fixture'],
+          join(snapshot, 'data/corpus-chunks/manifest.json'),
+        );
+        return { valid: true, publishable: true };
+      },
+      researchEvidenceGate: (result, options) => {
+        assert.equal(result.publishable, true);
+        assert.equal(options.requirePublicationEligible, true);
+      },
+      subjectOntologyV2ReportBuilder: (input) => {
+        reportBuilderCalls += 1;
+        assert.equal(input.rootDir, snapshot);
+        assert.equal(input.git.head, 'a'.repeat(40));
+        assert.equal(input.sourceTree, sourceTree);
+        assert.equal(input.corpusRelease.manifest_sha256, manifest.manifest_sha256);
+        assert.equal(input.pageEvidence.publishable, true);
+        return expectedReport;
+      },
+    });
+    try {
+      const expectedBytes = Buffer.from(`${JSON.stringify(expectedReport, null, 2)}\n`);
+      const actualBytes = await readFile(join(repository, 'data/subject-ontology-v2-validation.json'));
+      assert.deepEqual(actualBytes, expectedBytes);
+      assert.deepEqual(prepared.subject_ontology_v2_report, expectedReport);
+      assert.equal(prepared.report_artifact.sha256, createHash('sha256').update(expectedBytes).digest('hex'));
+      assert.equal(prepared.corpus_snapshot_sha256, 'c'.repeat(64));
+      assert.equal(reportBuilderCalls, 1);
+    } finally {
+      await prepared.cleanup();
+    }
+    assert.equal(gitTreeCleanupCalls, 1);
+    assert.equal(corpusCleanupCalls, 1);
+  } finally {
+    await rm(repository, { recursive: true, force: true });
+    await rm(snapshot, { recursive: true, force: true });
+  }
 });
 
 test('ordinary deploy validates only a closed bridge while ontology promotion requires publishable review', () => {
@@ -519,11 +704,11 @@ test('deploy CLI combines audited phase, page, and ontology modes without order 
   assert.equal(packageJson.scripts['deploy:production'], 'node scripts/deploy-worker.mjs --environment production');
   assert.equal(
     packageJson.scripts['deploy:preview:ontology-promotion'],
-    'node scripts/deploy-worker.mjs --environment preview --ontology-promotion',
+    'node scripts/deploy-worker.mjs --environment preview --page-evidence-promotion --ontology-promotion',
   );
   assert.equal(
     packageJson.scripts['deploy:production:ontology-promotion'],
-    'node scripts/deploy-worker.mjs --environment production --ontology-promotion',
+    'node scripts/deploy-worker.mjs --environment production --page-evidence-promotion --ontology-promotion',
   );
 });
 

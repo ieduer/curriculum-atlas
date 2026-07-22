@@ -1,0 +1,605 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/subject-ontology-v2.json",
+  "title": "Subject ontology v2 fail-closed contract",
+  "oneOf": [
+    { "$ref": "#/$defs/index" },
+    { "$ref": "#/$defs/scope" }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "artifact_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^(data|scripts)/[^/].+$" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "release_id": { "type": "string", "minLength": 1 },
+        "release_fingerprint_sha256": { "$ref": "#/$defs/sha256" },
+        "manifest_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewer_id", "reviewed_at", "policy_revision_sha256", "decision"],
+      "properties": {
+        "reviewer_id": { "type": "string", "minLength": 1 },
+        "reviewed_at": { "type": "string", "format": "date-time" },
+        "policy_revision_sha256": { "$ref": "#/$defs/sha256" },
+        "decision": { "enum": ["accepted", "rejected", "needs_revision"] }
+      }
+    },
+    "governed_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy",
+        "reviewer_id",
+        "reviewed_at",
+        "policy_revision_sha256",
+        "decision",
+        "reviewer_role",
+        "signature_algorithm",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "properties": {
+        "policy": { "const": "signed_subject_ontology_governed_review_v1" },
+        "reviewer_id": { "type": "string", "minLength": 1 },
+        "reviewed_at": { "type": "string", "format": "date-time" },
+        "policy_revision_sha256": { "$ref": "#/$defs/sha256" },
+        "decision": { "const": "accepted" },
+        "reviewer_role": { "const": "semantic_resolution" },
+        "signature_algorithm": { "const": "Ed25519" },
+        "signed_payload_sha256": { "$ref": "#/$defs/sha256" },
+        "signature_base64": { "type": "string", "pattern": "^[A-Za-z0-9+/]{86}==$" }
+      }
+    },
+    "release_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "builder_input_allowed",
+        "public_data_update_allowed",
+        "semantic_claims_allowed",
+        "negative_historical_assertions_allowed",
+        "reason_codes"
+      ],
+      "properties": {
+        "mode": { "enum": ["ordinary_nonpublishable", "explicit_promotion"] },
+        "builder_input_allowed": { "type": "boolean" },
+        "public_data_update_allowed": { "type": "boolean" },
+        "semantic_claims_allowed": { "type": "boolean" },
+        "negative_historical_assertions_allowed": { "type": "boolean" },
+        "reason_codes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "facet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["facet_id", "label", "directory", "status", "scope_files", "coverage"],
+      "properties": {
+        "facet_id": { "type": "string", "pattern": "^facet:[a-z-]+$" },
+        "label": { "type": "string", "minLength": 1 },
+        "directory": { "type": "string", "pattern": "^data/ontologies/(chinese-language|mathematics|foreign-languages|politics-morality-law|history|history-and-society|geography|science|technology|labor|arts|physical-education-health)$" },
+        "status": { "enum": ["not_started", "candidate", "reviewed_release"] },
+        "scope_files": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^data/ontologies/(chinese-language|mathematics|foreign-languages|politics-morality-law|history|history-and-society|geography|science|technology|labor|arts|physical-education-health)/[a-z0-9][a-z0-9._-]*\\.json$" }
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scope_count",
+            "concept_count",
+            "semantic_relation_count",
+            "current_ordinary_scope_complete",
+            "historical_coverage_complete",
+            "unknown_or_unresolved",
+            "reason_codes"
+          ],
+          "properties": {
+            "scope_count": { "type": "integer", "minimum": 0 },
+            "concept_count": { "type": "integer", "minimum": 0 },
+            "semantic_relation_count": { "type": "integer", "minimum": 0 },
+            "current_ordinary_scope_complete": { "type": "boolean" },
+            "historical_coverage_complete": { "type": "boolean" },
+            "unknown_or_unresolved": { "type": "boolean" },
+            "reason_codes": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "coverage_universe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "universe_id",
+        "facet_id",
+        "purpose",
+        "as_of_date",
+        "subject_ids",
+        "start_year",
+        "end_year",
+        "population",
+        "document_functions",
+        "included_scope_ids",
+        "catalog_decisions",
+        "review"
+      ],
+      "properties": {
+        "universe_id": { "type": "string", "pattern": "^universe:[a-z0-9._:-]+$" },
+        "facet_id": { "type": "string", "pattern": "^facet:[a-z-]+$" },
+        "purpose": { "enum": ["current_ordinary", "historical_negative_claim"] },
+        "as_of_date": { "type": "string", "format": "date" },
+        "subject_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "start_year": { "type": "integer", "minimum": 1900, "maximum": 2100 },
+        "end_year": { "type": "integer", "minimum": 1900, "maximum": 2100 },
+        "population": { "const": "ordinary_general_education" },
+        "document_functions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["curriculum_standard", "teaching_syllabus", "assessment_specification"] }
+        },
+        "included_scope_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "catalog_decisions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["document_id", "disposition", "reason_code"],
+            "properties": {
+              "document_id": { "type": "string", "minLength": 1 },
+              "disposition": { "enum": ["included", "excluded"] },
+              "reason_code": {
+                "enum": [
+                  "included_exact_scope",
+                  "after_governed_as_of",
+                  "different_population",
+                  "different_document_function",
+                  "exact_duplicate_alias",
+                  "insufficient_provenance",
+                  "not_current_as_of_catalog"
+                ]
+              }
+            }
+          }
+        },
+        "review": { "$ref": "#/$defs/governed_review" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "scope_id",
+        "edition_id",
+        "document_id",
+        "physical_page",
+        "paragraph_ordinal",
+        "body_sha256",
+        "start_utf16",
+        "end_utf16",
+        "matched_text",
+        "matched_text_sha256",
+        "canonical_page_evidence",
+        "corpus_release"
+      ],
+      "properties": {
+        "evidence_id": { "type": "string", "pattern": "^evidence:[a-z0-9._:-]+$" },
+        "scope_id": { "type": "string", "minLength": 1 },
+        "edition_id": { "type": "string", "minLength": 1 },
+        "document_id": { "type": "string", "minLength": 1 },
+        "physical_page": { "type": "integer", "minimum": 1 },
+        "paragraph_ordinal": { "type": "integer", "minimum": 1 },
+        "body_sha256": { "$ref": "#/$defs/sha256" },
+        "start_utf16": { "type": "integer", "minimum": 0 },
+        "end_utf16": { "type": "integer", "minimum": 1 },
+        "matched_text": { "type": "string", "minLength": 1 },
+        "matched_text_sha256": { "$ref": "#/$defs/sha256" },
+        "canonical_page_evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "release_manifest_sha256",
+            "bundle_sha256",
+            "signed_reviewer_payload_sha256",
+            "reviewer_id",
+            "reviewed_at",
+            "online_claim_ids"
+          ],
+          "properties": {
+            "release_manifest_sha256": { "$ref": "#/$defs/sha256" },
+            "bundle_sha256": { "$ref": "#/$defs/sha256" },
+            "signed_reviewer_payload_sha256": { "$ref": "#/$defs/sha256" },
+            "reviewer_id": { "type": "string", "minLength": 1 },
+            "reviewed_at": { "type": "string", "format": "date-time" },
+            "online_claim_ids": {
+              "type": "array",
+              "minItems": 2,
+              "uniqueItems": true,
+              "items": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "corpus_release": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "release_id",
+            "manifest_sha256",
+            "release_fingerprint_sha256"
+          ],
+          "properties": {
+            "release_id": { "type": "string", "pattern": "^corpus-[a-f0-9]{24}$" },
+            "manifest_sha256": { "$ref": "#/$defs/sha256" },
+            "release_fingerprint_sha256": { "$ref": "#/$defs/sha256" }
+          }
+        }
+      }
+    },
+    "lineage_assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "assertion_type", "assertion_text", "assertion_sha256", "predecessor_scope_id", "predecessor_edition_id", "evidence_roles", "review"],
+      "properties": {
+        "kind": { "enum": ["first_edition", "revision", "unknown"] },
+        "assertion_type": {
+          "enum": ["first_edition_in_bounded_catalog_universe", "exact_edition_revision", "unresolved"]
+        },
+        "assertion_text": { "type": "string", "minLength": 1 },
+        "assertion_sha256": { "$ref": "#/$defs/sha256" },
+        "predecessor_scope_id": { "type": ["string", "null"] },
+        "predecessor_edition_id": { "type": ["string", "null"] },
+        "coverage_universe_id": { "type": ["string", "null"] },
+        "evidence_roles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["role", "scope_id", "edition_id", "evidence_ids"],
+            "properties": {
+              "role": { "enum": ["first_edition_identity", "predecessor_version", "current_version"] },
+              "scope_id": { "type": "string", "minLength": 1 },
+              "edition_id": { "type": "string", "minLength": 1 },
+              "evidence_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        },
+        "review": { "$ref": "#/$defs/governed_review" }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relation_id",
+        "relation_type",
+        "assertion_text",
+        "source_endpoints",
+        "target_endpoints",
+        "relation_diff_sha256",
+        "adjudication",
+        "review"
+      ],
+      "properties": {
+        "relation_id": { "type": "string", "pattern": "^relation:[a-z0-9._:-]+$" },
+        "relation_type": { "enum": ["rename", "split", "merge", "broaden", "narrow", "replace", "coexist"] },
+        "assertion_text": { "type": "string", "minLength": 1 },
+        "source_endpoints": { "$ref": "#/$defs/endpoints" },
+        "target_endpoints": { "$ref": "#/$defs/endpoints" },
+        "relation_diff_sha256": { "$ref": "#/$defs/sha256" },
+        "adjudication": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "policy",
+            "reviewer_id",
+            "decided_at",
+            "semantic_basis_code",
+            "signature_algorithm",
+            "signed_payload_sha256",
+            "signature_base64"
+          ],
+          "properties": {
+            "policy": { "const": "signed_subject_ontology_relation_adjudication_v1" },
+            "reviewer_id": { "type": "string", "minLength": 1 },
+            "decided_at": { "type": "string", "format": "date-time" },
+            "semantic_basis_code": {
+              "enum": [
+                "equivalent_meaning_lexical_change",
+                "one_to_many_semantic_differentiation",
+                "many_to_one_semantic_consolidation",
+                "broader_target_extension",
+                "narrower_target_restriction",
+                "discontinuous_semantic_replacement",
+                "parallel_validity_distinct_senses"
+              ]
+            },
+            "signature_algorithm": { "const": "Ed25519" },
+            "signed_payload_sha256": { "$ref": "#/$defs/sha256" },
+            "signature_base64": { "type": "string", "pattern": "^[A-Za-z0-9+/]{86}==$" }
+          }
+        },
+        "review": { "$ref": "#/$defs/review" },
+        "cross_subject_exception": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dimensions", "rationale", "review"],
+          "properties": {
+            "dimensions": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "enum": ["facet", "subject", "work"] }
+            },
+            "rationale": { "type": "string", "minLength": 1 },
+            "review": { "$ref": "#/$defs/governed_review" }
+          }
+        }
+      }
+    },
+    "endpoints": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["scope_id", "edition_id", "sense_id", "evidence_ids"],
+        "properties": {
+          "scope_id": { "type": "string", "minLength": 1 },
+          "edition_id": { "type": "string", "minLength": 1 },
+          "sense_id": { "type": "string", "minLength": 1 },
+          "evidence_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "hierarchy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "status", "reviewed_complete", "root_concept_ids", "reason"],
+      "properties": {
+        "family": { "enum": ["goal", "content_task", "capability", "literacy", "academic_quality"] },
+        "status": { "enum": ["applicable", "not_applicable", "unknown"] },
+        "reviewed_complete": { "type": "boolean" },
+        "root_concept_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "reason": { "type": ["string", "null"] }
+      }
+    },
+    "concept": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["concept_id", "family", "parent_concept_id", "label", "sense_id", "status", "evidence_ids"],
+      "properties": {
+        "concept_id": { "type": "string", "pattern": "^concept:[a-z0-9._:-]+$" },
+        "family": { "enum": ["goal", "content_task", "capability", "literacy", "academic_quality"] },
+        "parent_concept_id": { "type": ["string", "null"] },
+        "label": { "type": "string", "minLength": 1 },
+        "sense_id": { "type": "string", "minLength": 1 },
+        "status": { "const": "reviewed" },
+        "evidence_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "scope_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "current_ordinary_status",
+        "current_ordinary_universe_id",
+        "historical_status",
+        "historical_universe_id",
+        "negative_claim_eligible"
+      ],
+      "properties": {
+        "current_ordinary_status": { "enum": ["human_reviewed_complete", "incomplete_unknown"] },
+        "current_ordinary_universe_id": { "type": ["string", "null"] },
+        "historical_status": { "enum": ["human_reviewed_complete", "incomplete_unknown"] },
+        "historical_universe_id": { "type": ["string", "null"] },
+        "negative_claim_eligible": { "type": "boolean" }
+      }
+    },
+    "index": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "artifact_kind",
+        "contract_id",
+        "status",
+        "bindings",
+        "canonical_facets",
+        "coverage_universes",
+        "release_gate"
+      ],
+      "properties": {
+        "$schema": { "type": "string" },
+        "schema_version": { "const": 2 },
+        "artifact_kind": { "const": "subject_ontology_index" },
+        "contract_id": { "const": "subject-ontology-v2" },
+        "status": { "enum": ["candidate_fail_closed", "promotion_candidate"] },
+        "bindings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "taxonomy",
+            "catalog",
+            "provenance",
+            "corpus_manifest",
+            "page_evidence_manifest",
+            "reviewer_registry",
+            "online_source_registry",
+            "online_verification_standard",
+            "validation_report_path"
+          ],
+          "properties": {
+            "taxonomy": { "$ref": "#/$defs/artifact_binding" },
+            "catalog": { "$ref": "#/$defs/artifact_binding" },
+            "provenance": { "$ref": "#/$defs/artifact_binding" },
+            "corpus_manifest": { "$ref": "#/$defs/artifact_binding" },
+            "page_evidence_manifest": { "$ref": "#/$defs/artifact_binding" },
+            "reviewer_registry": { "$ref": "#/$defs/artifact_binding" },
+            "online_source_registry": { "$ref": "#/$defs/artifact_binding" },
+            "online_verification_standard": { "$ref": "#/$defs/artifact_binding" },
+            "validation_report_path": { "const": "data/subject-ontology-v2-validation.json" }
+          }
+        },
+        "canonical_facets": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "items": { "$ref": "#/$defs/facet" }
+        },
+        "coverage_universes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/coverage_universe" }
+        },
+        "release_gate": { "$ref": "#/$defs/release_gate" }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "artifact_kind",
+        "contract_id",
+        "scope_id",
+        "facet_id",
+        "subject",
+        "work",
+        "edition",
+        "scope_dimensions",
+        "status",
+        "lineage_assertion",
+        "hierarchies",
+        "concepts",
+        "evidence",
+        "relations",
+        "coverage",
+        "unresolved_items",
+        "release_gate",
+        "review"
+      ],
+      "properties": {
+        "$schema": { "type": "string" },
+        "schema_version": { "const": 2 },
+        "artifact_kind": { "const": "subject_ontology_scope" },
+        "contract_id": { "const": "subject-ontology-v2" },
+        "scope_id": { "type": "string", "pattern": "^scope:[a-z0-9._:-]+$" },
+        "facet_id": { "type": "string", "pattern": "^facet:[a-z-]+$" },
+        "subject": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source_label", "canonical_label", "subject_id"],
+          "properties": {
+            "source_label": { "type": "string", "minLength": 1 },
+            "canonical_label": { "type": "string", "minLength": 1 },
+            "subject_id": { "type": "string", "minLength": 1 }
+          }
+        },
+        "work": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["work_id", "title"],
+          "properties": {
+            "work_id": { "type": "string", "minLength": 1 },
+            "title": { "type": "string", "minLength": 1 }
+          }
+        },
+        "edition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["edition_id", "document_id", "version_label", "issued_date", "source_artifact_sha256", "valid_from_year", "valid_to_year"],
+          "properties": {
+            "edition_id": { "type": "string", "minLength": 1 },
+            "document_id": { "type": "string", "minLength": 1 },
+            "version_label": { "type": "string", "minLength": 1 },
+            "issued_date": { "type": "string", "format": "date" },
+            "source_artifact_sha256": { "$ref": "#/$defs/sha256" },
+            "valid_from_year": { "type": "integer", "minimum": 1900, "maximum": 2100 },
+            "valid_to_year": { "type": "integer", "minimum": 1900, "maximum": 2100 }
+          }
+        },
+        "scope_dimensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["population", "document_function", "stage"],
+          "properties": {
+            "population": { "enum": ["ordinary_general_education", "special_education", "mixed", "unknown"] },
+            "document_function": { "enum": ["curriculum_standard", "teaching_syllabus", "assessment_specification", "other"] },
+            "stage": { "type": "string", "minLength": 1 }
+          }
+        },
+        "status": { "enum": ["candidate", "reviewed_release"] },
+        "lineage_assertion": { "$ref": "#/$defs/lineage_assertion" },
+        "hierarchies": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": { "$ref": "#/$defs/hierarchy" }
+        },
+        "concepts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/concept" }
+        },
+        "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/evidence" } },
+        "relations": { "type": "array", "items": { "$ref": "#/$defs/relation" } },
+        "coverage": { "$ref": "#/$defs/scope_coverage" },
+        "unresolved_items": { "type": "array", "maxItems": 0 },
+        "release_gate": { "$ref": "#/$defs/release_gate" },
+        "review": { "$ref": "#/$defs/governed_review" }
+      }
+    }
+  }
+}
