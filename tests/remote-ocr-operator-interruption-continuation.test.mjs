@@ -601,12 +601,16 @@ function unitGeneration(role, revision = 0) {
 }
 
 function dependencies(fixture, extra = {}) {
-  let llamaActive = extra.initialLlamaActive === true;
+  const llamaState = extra.llamaState || {
+    active: extra.initialLlamaActive === true,
+    invocationId: extra.initialLlamaInvocationId
+      || extra.llamaInvocationId
+      || 'b'.repeat(32),
+    mainPid: extra.initialLlamaMainPid || extra.llamaMainPid || '42',
+    managerStartMarker: null,
+    processStartMarker: extra.initialLlamaStartMarker || null,
+  };
   const generationRevision = extra.unitGenerationRevision || (() => 0);
-  let llamaInvocationId = extra.initialLlamaInvocationId
-    || extra.llamaInvocationId
-    || 'b'.repeat(32);
-  let llamaMainPid = extra.initialLlamaMainPid || extra.llamaMainPid || '42';
   const inactiveService = (role, invocationId = '0'.repeat(32), exitStatus = '0') => ({
     LoadState: 'loaded',
     ActiveState: 'inactive',
@@ -636,13 +640,13 @@ function dependencies(fixture, extra = {}) {
         };
       }
       if (role === 'worker') return inactiveService(role, workerInvocationId, '75');
-      if (role === 'llama' && llamaActive) {
+      if (role === 'llama' && llamaState.active) {
         return {
           LoadState: 'loaded',
           ActiveState: 'active',
           SubState: 'running',
-          MainPID: llamaMainPid,
-          InvocationID: llamaInvocationId,
+          MainPID: llamaState.mainPid,
+          InvocationID: llamaState.invocationId,
           ExecMainStatus: '0',
           Generation: unitGeneration(role, generationRevision(role) + 1),
         };
@@ -650,14 +654,30 @@ function dependencies(fixture, extra = {}) {
       assert.ok([fixture.profile.monitorUnit, fixture.profile.alertUnit, fixture.profile.llamaUnit].includes(unit));
       return inactiveService(role);
     },
+    setLlamaStartMarker: async (_profile, marker) => {
+      llamaState.managerStartMarker = marker;
+    },
+    clearLlamaStartMarker: async () => {
+      llamaState.managerStartMarker = null;
+    },
+    verifyLlamaStartMarker: async (activeLlama, marker) => {
+      assert.equal(activeLlama.InvocationID, llamaState.invocationId);
+      assert.equal(activeLlama.MainPID, llamaState.mainPid);
+      assert.equal(llamaState.processStartMarker, marker);
+      return true;
+    },
     startLlama: async () => {
-      llamaInvocationId = extra.startedLlamaInvocationId || extra.llamaInvocationId || 'b'.repeat(32);
-      llamaMainPid = extra.startedLlamaMainPid || extra.llamaMainPid || '42';
-      llamaActive = true;
+      llamaState.invocationId = extra.startedLlamaInvocationId || extra.llamaInvocationId || 'b'.repeat(32);
+      llamaState.mainPid = extra.startedLlamaMainPid || extra.llamaMainPid || '42';
+      llamaState.processStartMarker = llamaState.managerStartMarker;
+      llamaState.active = true;
     },
     stopLlama: async () => {
-      extra.onStopLlama?.({ llamaInvocationId, llamaMainPid });
-      llamaActive = false;
+      extra.onStopLlama?.({
+        llamaInvocationId: llamaState.invocationId,
+        llamaMainPid: llamaState.mainPid,
+      });
+      llamaState.active = false;
     },
     verifyCommittedSeed: async () => ({ verified: true }),
     verifyActiveRuntime: async () => ({ verified: true }),
@@ -1020,6 +1040,7 @@ test('a partially successful llama start is stopped and the five-unit gate still
           llamaActive = true;
           throw new Error('injected start acknowledgement failure');
         },
+        verifyLlamaStartMarker: async () => true,
         stopLlama: async () => {
           stopCalls += 1;
           llamaActive = false;
@@ -1204,8 +1225,10 @@ test('SIGKILL after deterministic terminal temp fsync recovers exact-after bytes
   const [marker] = await once(child.stdout, 'data');
   assert.match(marker.toString('utf8'), /temp-synced/u);
   const temporary = terminalTemporaryPath(planRaw, root, record);
+  const ownership = `${temporary}.owner.json`;
   assert.ok((await readFile(pathname)).equals(before));
   assert.ok((await readFile(temporary)).equals(after));
+  assert.equal((await stat(ownership)).isFile(), true);
   child.kill('SIGKILL');
   const [code, signal] = await once(child, 'exit');
   assert.equal(code, null);
@@ -1220,6 +1243,84 @@ test('SIGKILL after deterministic terminal temp fsync recovers exact-after bytes
   );
   assert.ok((await readFile(pathname)).equals(after));
   await assert.rejects(stat(temporary), { code: 'ENOENT' });
+  await assert.rejects(stat(ownership), { code: 'ENOENT' });
+});
+
+test('SIGKILL during a plan-owned terminal temp write recovers its exact partial prefix', async (t) => {
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'ocr-terminal-mid-write-kill-'));
+  const root = await realpath(temporaryRoot);
+  t.after(() => rm(temporaryRoot, { recursive: true, force: true }));
+  await chmod(root, 0o700);
+  const pathname = path.join(root, 'status.json');
+  const before = Buffer.from('before\n');
+  const after = Buffer.alloc(256 * 1024, 0x61);
+  await writeFile(pathname, before, { mode: 0o600 });
+  const record = {
+    output_path: 'status.json',
+    before_sha256: sha256(before),
+    before_bytes: before.byteLength,
+    after_sha256: sha256(after),
+    after_bytes: after.byteLength,
+  };
+  const planRaw = Buffer.from('immutable terminal mid-write plan bytes\n');
+  const terminalPlanState = { sha256: sha256(planRaw) };
+  const moduleUrl = new URL('../scripts/continue-remote-ocr-operator-interruption.mjs', import.meta.url).href;
+  const childScript = String.raw`
+    const { recoverableTerminalAtomicReplace } = await import(process.env.CONTINUATION_MODULE_URL);
+    const after = Buffer.alloc(Number(process.env.AFTER_BYTES), 0x61);
+    await recoverableTerminalAtomicReplace(
+      process.env.ROOT,
+      process.env.TARGET,
+      after,
+      JSON.parse(process.env.RECORD_JSON),
+      JSON.parse(process.env.PLAN_STATE_JSON),
+      {
+        terminalWriteChunkBytes: 4096,
+        afterTerminalTempChunk: async ({ written, total }) => {
+          if (written < total) {
+            process.stdout.write(JSON.stringify({ stage: 'partial-temp-durable', written, total }) + '\n');
+            await new Promise(() => setInterval(() => {}, 1000));
+          }
+        },
+      },
+    );
+  `;
+  const child = spawn(process.execPath, ['--input-type=module', '-e', childScript], {
+    env: {
+      ...process.env,
+      CONTINUATION_MODULE_URL: moduleUrl,
+      ROOT: root,
+      TARGET: pathname,
+      AFTER_BYTES: String(after.byteLength),
+      RECORD_JSON: JSON.stringify(record),
+      PLAN_STATE_JSON: JSON.stringify(terminalPlanState),
+    },
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+  t.after(() => {
+    if (pidIsAlive(child.pid)) child.kill('SIGKILL');
+  });
+  const marker = await Promise.race([
+    readFirstJsonLine(child.stdout),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('mid-write hook was not reached')), 2_000)),
+  ]);
+  assert.equal(marker.stage, 'partial-temp-durable');
+  assert.ok(marker.written > 0 && marker.written < marker.total);
+  const temporary = terminalTemporaryPath(planRaw, root, record);
+  const ownership = `${temporary}.owner.json`;
+  const partial = await readFile(temporary);
+  assert.equal(partial.byteLength, marker.written);
+  assert.ok(after.subarray(0, partial.byteLength).equals(partial));
+  assert.equal((await stat(ownership)).isFile(), true);
+  child.kill('SIGKILL');
+  const [code, signal] = await once(child, 'exit');
+  assert.equal(code, null);
+  assert.equal(signal, 'SIGKILL');
+
+  await recoverableTerminalAtomicReplace(root, pathname, after, record, terminalPlanState);
+  assert.ok((await readFile(pathname)).equals(after));
+  await assert.rejects(stat(temporary), { code: 'ENOENT' });
+  await assert.rejects(stat(ownership), { code: 'ENOENT' });
 });
 
 test('state journal body-only and sidecar-only crash states resume', async (t) => {
@@ -1253,6 +1354,99 @@ test('state journal body-only and sidecar-only crash states resume', async (t) =
   }
 });
 
+test('a durable llama start intent adopts the exact marked invocation after a pre-running crash', async (t) => {
+  const fixture = await makeFixture(t);
+  const llamaState = {
+    active: false,
+    invocationId: 'b'.repeat(32),
+    mainPid: '42',
+    managerStartMarker: null,
+    processStartMarker: null,
+  };
+  const paths = operatorContinuationPaths(fixture.evidenceBaseRoot, documentId, 6);
+  await assert.rejects(
+    continueOperatorInterruptedAttempt(
+      { ...fixture.options, apply: true },
+      dependencies(fixture, {
+        llamaState,
+        startedLlamaInvocationId: 'd'.repeat(32),
+        startedLlamaMainPid: '84',
+        afterLlamaStartBeforeExecutionState: async () => {
+          throw new Error('simulated SIGKILL after marked llama start');
+        },
+        stopLlama: async () => {
+          throw new Error('simulated SIGKILL bypassed closeout');
+        },
+        invokeOcr: async () => assert.fail('pre-running crash must precede OCR spawn'),
+      }),
+    ),
+    /simulated SIGKILL after marked llama start/u,
+  );
+  assert.equal(llamaState.active, true);
+  assert.match(llamaState.processStartMarker, /^[a-f0-9]{64}$/u);
+  const crashStates = (await readdir(paths.states))
+    .filter((name) => name.endsWith('.json'))
+    .sort();
+  assert.deepEqual(crashStates, ['000001-claimed.json']);
+  const claimed = JSON.parse(await readFile(path.join(paths.states, crashStates[0]), 'utf8'));
+  assert.match(claimed.llama_start_nonce_seed, /^[a-f0-9]{64}$/u);
+
+  const result = await continueOperatorInterruptedAttempt(
+    { ...fixture.options, apply: true },
+    dependencies(fixture, {
+      llamaState,
+      startLlama: async () => assert.fail('restart must adopt, not replace, the marked invocation'),
+      invokeOcr: async () => finishFixtureDocument(fixture),
+    }),
+  );
+  assert.equal(result.status, 'complete');
+  const running = JSON.parse(await readFile(path.join(paths.states, '000002-running.json'), 'utf8'));
+  assert.equal(running.llama_invocation_id, 'd'.repeat(32));
+  assert.equal(running.llama_main_pid, '84');
+  assert.equal(running.llama_start_nonce, llamaState.processStartMarker);
+});
+
+test('a pending llama start intent refuses a replacement marker without stopping it', async (t) => {
+  const fixture = await makeFixture(t);
+  const llamaState = {
+    active: false,
+    invocationId: 'b'.repeat(32),
+    mainPid: '42',
+    managerStartMarker: null,
+    processStartMarker: null,
+  };
+  await assert.rejects(
+    continueOperatorInterruptedAttempt(
+      { ...fixture.options, apply: true },
+      dependencies(fixture, {
+        llamaState,
+        afterLlamaStartBeforeExecutionState: async () => {
+          throw new Error('simulated SIGKILL before running state');
+        },
+        stopLlama: async () => { throw new Error('simulated SIGKILL bypassed closeout'); },
+      }),
+    ),
+    /simulated SIGKILL before running state/u,
+  );
+  llamaState.invocationId = 'e'.repeat(32);
+  llamaState.mainPid = '85';
+  llamaState.processStartMarker = 'f'.repeat(64);
+  let stopped = false;
+  await assert.rejects(
+    continueOperatorInterruptedAttempt(
+      { ...fixture.options, apply: true },
+      dependencies(fixture, {
+        llamaState,
+        stopLlama: async () => { stopped = true; },
+        invokeOcr: async () => assert.fail('foreign active llama must block OCR'),
+      }),
+    ),
+    /active llama start marker is not owned by the pending continuation intent/u,
+  );
+  assert.equal(stopped, false);
+  assert.equal(llamaState.active, true);
+});
+
 test('a restarted process seals a running crash tail and appends a verifiable resume_running invocation', async (t) => {
   for (const completeRunningPair of [false, true]) {
     await t.test(completeRunningPair ? 'complete running pair' : 'body-only running pair', async (subtest) => {
@@ -1281,6 +1475,7 @@ test('a restarted process seals a running crash tail and appends a verifiable re
           { mode: 0o600 },
         );
       }
+      const crashedRunning = JSON.parse(await readFile(runningPath, 'utf8'));
       await assert.rejects(
         continueOperatorInterruptedAttempt(
           { ...fixture.options, apply: true },
@@ -1309,13 +1504,14 @@ test('a restarted process seals a running crash tail and appends a verifiable re
           initialLlamaActive: true,
           initialLlamaInvocationId: 'b'.repeat(32),
           initialLlamaMainPid: '42',
+          initialLlamaStartMarker: crashedRunning.llama_start_nonce,
           startedLlamaInvocationId: 'c'.repeat(32),
           startedLlamaMainPid: '44',
           findOwnedOcrProcesses: async () => priorOwnerAlive
             ? [{ pid: 9876, uid: typeof process.getuid === 'function' ? process.getuid() : 0 }]
             : [],
-          terminateOwnedOcrProcess: async (pid) => {
-            assert.equal(pid, 9876);
+          terminateOwnedOcrProcess: async (owned) => {
+            assert.equal(owned.pid, 9876);
             priorOwnerAlive = false;
           },
           onStopLlama: ({ llamaInvocationId, llamaMainPid }) => {
@@ -1410,6 +1606,7 @@ test('SIGKILLed continuation host leaves only its hash-bound OCR and exact llama
     value: {
       spawn_nonce: spawnNonce,
       ocr_command_sha256: commandSha256,
+      llama_start_nonce: 'a'.repeat(64),
       llama_invocation_id: llamaInvocationId,
       llama_main_pid: String(owned.llamaPid),
     },
@@ -1437,9 +1634,15 @@ test('SIGKILLed continuation host leaves only its hash-bound OCR and exact llama
       assert.equal(state.value.spawn_nonce, spawnNonce);
       assert.equal(state.value.ocr_command_sha256, commandSha256);
       return pidIsAlive(owned.ocrPid)
-        ? [{ pid: owned.ocrPid, uid: typeof process.getuid === 'function' ? process.getuid() : 0 }]
+        ? [{
+            pid: owned.ocrPid,
+            uid: typeof process.getuid === 'function' ? process.getuid() : 0,
+            starttime: 'fixture-owned-starttime',
+          }]
         : [];
     },
+    revalidateOwnedOcrProcess: async (identity) => pidIsAlive(identity.pid) ? identity : null,
+    verifyLlamaStartMarker: async () => true,
     stopLlama: async () => {
       assert.equal(pidIsAlive(owned.llamaPid), true);
       process.kill(owned.llamaPid, 'SIGTERM');
@@ -1464,6 +1667,7 @@ test('orphan recovery refuses a different live llama identity before signalling 
         value: {
           spawn_nonce: '1'.repeat(64),
           ocr_command_sha256: '2'.repeat(64),
+          llama_start_nonce: '5'.repeat(64),
           llama_invocation_id: '3'.repeat(32),
           llama_main_pid: '123',
         },
@@ -1490,6 +1694,150 @@ test('orphan recovery refuses a different live llama identity before signalling 
   );
   assert.equal(processSignalled, false);
   assert.equal(llamaStopped, false);
+});
+
+test('orphan recovery revalidates OCR starttime and ownership markers immediately before signalling', async (t) => {
+  const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+  t.after(() => {
+    if (pidIsAlive(child.pid)) child.kill('SIGKILL');
+  });
+  let scans = 0;
+  let signals = 0;
+  await assert.rejects(
+    reconcileOwnedContinuationExecution(
+      { llamaUnit: 'fixture-llama.service' },
+      {
+        value: {
+          spawn_nonce: '1'.repeat(64),
+          ocr_command_sha256: '2'.repeat(64),
+          llama_start_nonce: '5'.repeat(64),
+          llama_invocation_id: '3'.repeat(32),
+          llama_main_pid: '123',
+        },
+      },
+      {
+        findOwnedOcrProcesses: async () => scans++ === 0 ? [{
+          pid: child.pid,
+          uid: typeof process.getuid === 'function' ? process.getuid() : 0,
+          starttime: '100',
+        }] : [],
+        revalidateOwnedOcrProcess: async () => ({
+          pid: child.pid,
+          uid: typeof process.getuid === 'function' ? process.getuid() : 0,
+          starttime: '101',
+        }),
+        signalOwnedOcrProcess: () => { signals += 1; },
+        inspectUnit: async () => ({
+          LoadState: 'loaded',
+          ActiveState: 'inactive',
+          SubState: 'dead',
+          MainPID: '0',
+          InvocationID: '',
+          ExecMainStatus: '0',
+          Generation: unitGeneration('llama', 1),
+        }),
+      },
+    ),
+    /owned OCR process identity changed immediately before signal/u,
+  );
+  assert.equal(signals, 0);
+  assert.equal(pidIsAlive(child.pid), true, 'replacement PID must survive fail-closed recovery');
+});
+
+test('orphan recovery re-inspects llama InvocationID and MainPID immediately before stop', async () => {
+  const expectedInvocation = '3'.repeat(32);
+  const replacementInvocation = '4'.repeat(32);
+  let phase = 'expected';
+  let stopped = false;
+  let markerChecks = 0;
+  const active = (invocationId, mainPid, revision) => ({
+    LoadState: 'loaded',
+    ActiveState: 'active',
+    SubState: 'running',
+    MainPID: mainPid,
+    InvocationID: invocationId,
+    ExecMainStatus: '0',
+    Generation: unitGeneration('llama', revision),
+  });
+  await assert.rejects(
+    reconcileOwnedContinuationExecution(
+      { llamaUnit: 'fixture-llama.service' },
+      {
+        value: {
+          spawn_nonce: '1'.repeat(64),
+          ocr_command_sha256: '2'.repeat(64),
+          llama_start_nonce: '5'.repeat(64),
+          llama_invocation_id: expectedInvocation,
+          llama_main_pid: '123',
+        },
+      },
+      {
+        findOwnedOcrProcesses: async () => [],
+        inspectUnit: async () => phase === 'expected'
+          ? active(expectedInvocation, '123', 1)
+          : active(replacementInvocation, '456', 2),
+        verifyLlamaStartMarker: async () => {
+          markerChecks += 1;
+          phase = 'replacement';
+          return true;
+        },
+        stopLlama: async () => { stopped = true; },
+      },
+    ),
+    /llama invocation changed immediately before stop/u,
+  );
+  assert.equal(stopped, false);
+  assert.equal(phase, 'replacement');
+  assert.equal(markerChecks, 1);
+});
+
+test('real Linux proc ownership discovery terminates only the exact marked OCR process', {
+  skip: process.platform !== 'linux',
+}, async (t) => {
+  const spawnNonce = '5'.repeat(64);
+  const commandSha256 = '6'.repeat(64);
+  const owned = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
+    env: {
+      ...process.env,
+      CURRICULUM_A2_CONTINUATION_SPAWN_NONCE: spawnNonce,
+      CURRICULUM_A2_CONTINUATION_COMMAND_SHA256: commandSha256,
+    },
+    stdio: 'ignore',
+  });
+  const unrelated = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+  t.after(() => {
+    for (const pid of [owned.pid, unrelated.pid]) if (pidIsAlive(pid)) process.kill(pid, 'SIGKILL');
+  });
+  const ownedExit = once(owned, 'exit');
+  const result = await reconcileOwnedContinuationExecution(
+    { llamaUnit: 'fixture-llama.service' },
+    {
+      value: {
+        spawn_nonce: spawnNonce,
+        ocr_command_sha256: commandSha256,
+        llama_start_nonce: '8'.repeat(64),
+        llama_invocation_id: '7'.repeat(32),
+        llama_main_pid: '123',
+      },
+    },
+    {
+      inspectUnit: async () => ({
+        LoadState: 'loaded',
+        ActiveState: 'inactive',
+        SubState: 'dead',
+        MainPID: '0',
+        InvocationID: '',
+        ExecMainStatus: '0',
+        Generation: unitGeneration('llama', 1),
+      }),
+      ownedProcessGraceMilliseconds: 250,
+    },
+  );
+  const [code, signal] = await ownedExit;
+  assert.equal(code, null);
+  assert.equal(signal, 'SIGTERM');
+  assert.deepEqual(result.terminated_ocr_pids, [owned.pid]);
+  assert.equal(pidIsAlive(unrelated.pid), true);
 });
 
 test('lifecycle pathname replacement during OCR aborts before any terminal control transition', async (t) => {

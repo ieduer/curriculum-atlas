@@ -82,6 +82,7 @@ const systemdGenerationProperties = Object.freeze([
 const continuationFenceRoles = Object.freeze(['worker', 'monitor', 'monitor_timer', 'alert']);
 const spawnNonceEnvironmentKey = ['CURRICULUM_A2_CONTINUATION', 'SPAWN', 'NONCE'].join('_');
 const commandShaEnvironmentKey = 'CURRICULUM_A2_CONTINUATION_COMMAND_SHA256';
+const llamaStartNonceEnvironmentKey = 'CURRICULUM_A2_CONTINUATION_LLAMA_START_NONCE';
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -230,6 +231,141 @@ function terminalTransactionTemporaryPath(pathname, record, terminalPlanState) {
   return `${pathname}.a2-terminal-${token}.tmp`;
 }
 
+function terminalTransactionOwnershipPath(temporary) {
+  return `${temporary}.owner.json`;
+}
+
+function terminalOwnershipRaw(root, temporary, record, terminalPlanState, temporaryRecord) {
+  return Buffer.from(`${JSON.stringify({
+    schema_version: 1,
+    receipt_type: 'curriculum_a2_terminal_temp_ownership',
+    terminal_plan_state_sha256: terminalPlanState.sha256,
+    output_path: record.output_path,
+    temporary_path: path.relative(root, temporary).split(path.sep).join('/'),
+    temporary_device: temporaryRecord.dev,
+    temporary_inode: temporaryRecord.ino,
+    before_sha256: record.before_sha256,
+    before_bytes: record.before_bytes,
+    after_sha256: record.after_sha256,
+    after_bytes: record.after_bytes,
+  }, null, 2)}\n`);
+}
+
+function exactKeys(value, keys) {
+  return value
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && sameJson(Object.keys(value).sort(), [...keys].sort());
+}
+
+async function readOptionalStableFile(root, pathname, label) {
+  return lstat(pathname).then(
+    () => readStableFileRecord(root, pathname, label),
+    (error) => {
+      if (error?.code === 'ENOENT') return null;
+      throw error;
+    },
+  );
+}
+
+function validateTerminalOwnership(
+  root,
+  temporary,
+  record,
+  terminalPlanState,
+  temporaryRecord,
+  ownershipRecord,
+) {
+  let value;
+  try {
+    value = JSON.parse(ownershipRecord.raw.toString('utf8'));
+  } catch {
+    return false;
+  }
+  const keys = [
+    'schema_version',
+    'receipt_type',
+    'terminal_plan_state_sha256',
+    'output_path',
+    'temporary_path',
+    'temporary_device',
+    'temporary_inode',
+    'before_sha256',
+    'before_bytes',
+    'after_sha256',
+    'after_bytes',
+  ];
+  if (!exactKeys(value, keys)
+    || value.schema_version !== 1
+    || value.receipt_type !== 'curriculum_a2_terminal_temp_ownership'
+    || value.terminal_plan_state_sha256 !== terminalPlanState.sha256
+    || value.output_path !== record.output_path
+    || value.temporary_path !== path.relative(root, temporary).split(path.sep).join('/')
+    || value.temporary_device !== temporaryRecord?.dev
+    || value.temporary_inode !== temporaryRecord?.ino
+    || value.before_sha256 !== record.before_sha256
+    || value.before_bytes !== record.before_bytes
+    || value.after_sha256 !== record.after_sha256
+    || value.after_bytes !== record.after_bytes) {
+    return false;
+  }
+  return ownershipRecord.raw.equals(
+    terminalOwnershipRaw(root, temporary, record, terminalPlanState, temporaryRecord),
+  );
+}
+
+async function writePlanOwnedTerminalTemp(
+  root,
+  temporary,
+  raw,
+  temporaryRecord,
+  dependencies,
+) {
+  const handle = await open(temporary, constants.O_WRONLY | constants.O_NOFOLLOW);
+  try {
+    const before = await handle.stat({ bigint: true });
+    if (!before.isFile()
+      || before.nlink !== 1n
+      || String(before.dev) !== temporaryRecord.dev
+      || String(before.ino) !== temporaryRecord.ino) {
+      throw new Error('plan-owned terminal temp changed before rewrite');
+    }
+    await handle.truncate(0);
+    await handle.sync();
+    const configuredChunk = dependencies.terminalWriteChunkBytes;
+    const chunkBytes = Number.isSafeInteger(configuredChunk) && configuredChunk > 0
+      ? configuredChunk
+      : Math.max(1, raw.byteLength);
+    let written = 0;
+    while (written < raw.byteLength) {
+      const end = Math.min(raw.byteLength, written + chunkBytes);
+      let offset = written;
+      while (offset < end) {
+        const result = await handle.write(raw, offset, end - offset, offset);
+        if (!Number.isSafeInteger(result.bytesWritten) || result.bytesWritten < 1) {
+          throw new Error('plan-owned terminal temp write made no progress');
+        }
+        offset += result.bytesWritten;
+      }
+      written = end;
+      await handle.sync();
+      await dependencies.afterTerminalTempChunk?.({ written, total: raw.byteLength });
+    }
+    const after = await handle.stat({ bigint: true });
+    const entry = await lstat(temporary, { bigint: true });
+    if (after.dev !== before.dev
+      || after.ino !== before.ino
+      || entry.dev !== before.dev
+      || entry.ino !== before.ino
+      || after.size !== BigInt(raw.byteLength)) {
+      throw new Error('plan-owned terminal temp changed while it was written');
+    }
+  } finally {
+    await handle.close();
+  }
+  await syncDirectory(path.dirname(temporary));
+}
+
 async function removeVerifiedFile(pathname, record, label) {
   const current = await lstat(pathname, { bigint: true });
   if (!current.isFile()
@@ -252,21 +388,17 @@ export async function recoverableTerminalAtomicReplace(
   dependencies = {},
 ) {
   const temporary = terminalTransactionTemporaryPath(pathname, record, terminalPlanState);
-  let temporaryRecord = await lstat(temporary).then(
-    () => readStableFileRecord(root, temporary, `deterministic terminal temp for ${record.output_path}`),
-    (error) => {
-      if (error?.code === 'ENOENT') return null;
-      throw error;
-    },
+  const ownershipPath = terminalTransactionOwnershipPath(temporary);
+  let temporaryRecord = await readOptionalStableFile(
+    root,
+    temporary,
+    `deterministic terminal temp for ${record.output_path}`,
   );
-  if (temporaryRecord
-    && (temporaryRecord.sha256 !== record.after_sha256
-      || temporaryRecord.bytes !== record.after_bytes
-      || !temporaryRecord.raw.equals(raw))) {
-    throw new Error(
-      `deterministic terminal temp is neither exact after nor safely absent: ${record.output_path}`,
-    );
-  }
+  let ownershipRecord = await readOptionalStableFile(
+    root,
+    ownershipPath,
+    `terminal temp ownership for ${record.output_path}`,
+  );
   const current = await readStableFileRecord(root, pathname, `terminal control ${record.output_path}`);
   if (current.sha256 === record.after_sha256 && current.bytes === record.after_bytes) {
     if (temporaryRecord) {
@@ -274,6 +406,13 @@ export async function recoverableTerminalAtomicReplace(
         temporary,
         temporaryRecord,
         `deterministic terminal temp for ${record.output_path}`,
+      );
+    }
+    if (ownershipRecord) {
+      await removeVerifiedFile(
+        ownershipPath,
+        ownershipRecord,
+        `terminal temp ownership for ${record.output_path}`,
       );
     }
     return;
@@ -285,9 +424,84 @@ export async function recoverableTerminalAtomicReplace(
       + `after ${record.after_sha256}/${record.after_bytes})`,
     );
   }
+  let ownershipValid = temporaryRecord && ownershipRecord
+    ? validateTerminalOwnership(
+        root,
+        temporary,
+        record,
+        terminalPlanState,
+        temporaryRecord,
+        ownershipRecord,
+      )
+    : false;
+  const exactAfter = temporaryRecord
+    && temporaryRecord.sha256 === record.after_sha256
+    && temporaryRecord.bytes === record.after_bytes
+    && temporaryRecord.raw.equals(raw);
+  const exactOwnedPrefix = ownershipValid
+    && temporaryRecord.bytes < record.after_bytes
+    && raw.subarray(0, temporaryRecord.bytes).equals(temporaryRecord.raw);
+  if (temporaryRecord && !exactAfter && !exactOwnedPrefix) {
+    if (temporaryRecord.bytes === 0 && !ownershipValid) {
+      if (ownershipRecord) {
+        await removeVerifiedFile(
+          ownershipPath,
+          ownershipRecord,
+          `incomplete terminal temp ownership for ${record.output_path}`,
+        );
+        ownershipRecord = null;
+      }
+      await removeVerifiedFile(
+        temporary,
+        temporaryRecord,
+        `unbound empty terminal temp for ${record.output_path}`,
+      );
+      temporaryRecord = null;
+    } else {
+      throw new Error(
+        `deterministic terminal temp is neither exact after nor safely absent: ${record.output_path}`,
+      );
+    }
+  }
+  if (!temporaryRecord && ownershipRecord) {
+    throw new Error(`terminal temp ownership has no exact owned inode: ${record.output_path}`);
+  }
   if (!temporaryRecord) {
-    await writeDurableFile(temporary, raw);
+    await writeDurableFile(temporary, Buffer.alloc(0));
     await syncDirectory(path.dirname(temporary));
+    temporaryRecord = await readStableFileRecord(
+      root,
+      temporary,
+      `deterministic terminal temp for ${record.output_path}`,
+    );
+    const ownershipRaw = terminalOwnershipRaw(
+      root,
+      temporary,
+      record,
+      terminalPlanState,
+      temporaryRecord,
+    );
+    await writeDurableFile(ownershipPath, ownershipRaw);
+    await syncDirectory(path.dirname(ownershipPath));
+    ownershipRecord = await readStableFileRecord(
+      root,
+      ownershipPath,
+      `terminal temp ownership for ${record.output_path}`,
+    );
+    ownershipValid = validateTerminalOwnership(
+      root,
+      temporary,
+      record,
+      terminalPlanState,
+      temporaryRecord,
+      ownershipRecord,
+    );
+    if (!ownershipValid) {
+      throw new Error(`terminal temp ownership did not persist exact plan identity: ${record.output_path}`);
+    }
+  }
+  if (!exactAfter) {
+    await writePlanOwnedTerminalTemp(root, temporary, raw, temporaryRecord, dependencies);
     temporaryRecord = await readStableFileRecord(
       root,
       temporary,
@@ -311,6 +525,13 @@ export async function recoverableTerminalAtomicReplace(
   }
   await rename(temporary, pathname);
   await syncDirectory(path.dirname(pathname));
+  if (ownershipRecord) {
+    await removeVerifiedFile(
+      ownershipPath,
+      ownershipRecord,
+      `terminal temp ownership for ${record.output_path}`,
+    );
+  }
 }
 
 async function writeEvidenceFile(root, basename, raw) {
@@ -1458,13 +1679,107 @@ async function startExactLlama(profile, dependencies = {}) {
   return undefined;
 }
 
-async function stopExactLlama(profile, dependencies = {}) {
-  if (dependencies.stopLlama) return dependencies.stopLlama(profile.llamaUnit);
+async function setLlamaStartMarker(profile, marker, dependencies = {}) {
+  if (dependencies.setLlamaStartMarker) {
+    return dependencies.setLlamaStartMarker(profile, marker);
+  }
+  await execFile('systemctl', [
+    '--user',
+    'set-environment',
+    `${llamaStartNonceEnvironmentKey}=${marker}`,
+  ], { encoding: 'utf8', maxBuffer: 64 * 1024 });
+  return undefined;
+}
+
+async function clearLlamaStartMarker(profile, dependencies = {}) {
+  if (dependencies.clearLlamaStartMarker) {
+    return dependencies.clearLlamaStartMarker(profile);
+  }
+  await execFile('systemctl', [
+    '--user',
+    'unset-environment',
+    llamaStartNonceEnvironmentKey,
+  ], { encoding: 'utf8', maxBuffer: 64 * 1024 });
+  return undefined;
+}
+
+async function verifyLlamaStartMarker(activeLlama, marker, dependencies = {}) {
+  if (dependencies.verifyLlamaStartMarker) {
+    return dependencies.verifyLlamaStartMarker(activeLlama, marker);
+  }
+  if (process.platform !== 'linux') {
+    throw new Error('exact llama start marker verification requires Linux procfs');
+  }
+  const pid = Number(activeLlama.MainPID);
+  const processRoot = `/proc/${pid}`;
+  const before = await lstat(processRoot, { bigint: true });
+  const environment = await readFile(path.join(processRoot, 'environ'));
+  const after = await lstat(processRoot, { bigint: true });
+  const currentUid = typeof process.getuid === 'function' ? BigInt(process.getuid()) : after.uid;
+  if (before.dev !== after.dev
+    || before.ino !== after.ino
+    || before.uid !== after.uid
+    || after.uid !== currentUid
+    || !environment.toString('utf8').split('\0').includes(
+      `${llamaStartNonceEnvironmentKey}=${marker}`,
+    )) {
+    throw new Error('active llama start marker is not owned by the pending continuation intent');
+  }
+  return true;
+}
+
+function llamaStartNonce(seed, ordinal) {
+  return sha256(canonicalJson({
+    schema_version: 1,
+    llama_start_nonce_seed: seed,
+    execution_ordinal: ordinal,
+  }));
+}
+
+function llamaStartNonceSeed(claimId) {
+  return sha256(canonicalJson({
+    schema_version: 1,
+    claim_id: claimId,
+    purpose: 'a2_llama_start_intent',
+  }));
+}
+
+async function stopExactLlama(profile, expected, dependencies = {}) {
+  const inspectUnit = dependencies.inspectUnit || inspectSystemdUnit;
+  let current = await inspectUnit(profile.llamaUnit, 'llama');
+  let active = current.LoadState === 'loaded'
+    && current.ActiveState === 'active'
+    && current.SubState === 'running';
+  if (!active) {
+    requireQuiescentUnit(current, profile.llamaUnit, 'llama');
+    return false;
+  }
+  if (!expected
+    || current.InvocationID !== expected.InvocationID
+    || current.MainPID !== expected.MainPID) {
+    throw new Error('llama invocation changed immediately before stop');
+  }
+  if (expected.startNonce) {
+    await verifyLlamaStartMarker(current, expected.startNonce, dependencies);
+  }
+  current = await inspectUnit(profile.llamaUnit, 'llama');
+  active = current.LoadState === 'loaded'
+    && current.ActiveState === 'active'
+    && current.SubState === 'running';
+  if (!active
+    || current.InvocationID !== expected.InvocationID
+    || current.MainPID !== expected.MainPID) {
+    throw new Error('llama invocation changed immediately before stop');
+  }
+  if (dependencies.stopLlama) {
+    await dependencies.stopLlama(profile.llamaUnit, expected);
+    return true;
+  }
   await execFile('systemctl', ['--user', 'stop', profile.llamaUnit], {
     encoding: 'utf8',
     maxBuffer: 64 * 1024,
   });
-  return undefined;
+  return true;
 }
 
 async function inspectActiveLlama(profile, expectedInvocationId, dependencies = {}) {
@@ -1515,9 +1830,96 @@ function processEnvironmentMatches(raw, spawnNonce, commandSha256, separator) {
     && entries.includes(`${commandShaEnvironmentKey}=${commandSha256}`);
 }
 
+function parseLinuxProcessStarttime(raw, pid) {
+  const value = raw.toString('utf8');
+  const close = value.lastIndexOf(')');
+  if (close < 0) throw new Error(`owned OCR process ${pid} has malformed proc stat`);
+  const fields = value.slice(close + 1).trim().split(/\s+/u);
+  const starttime = fields[19];
+  if (!/^[1-9]\d*$/u.test(String(starttime || ''))) {
+    throw new Error(`owned OCR process ${pid} has invalid proc starttime`);
+  }
+  return starttime;
+}
+
+async function inspectLinuxOcrProcess(pid, executionState) {
+  const processRoot = `/proc/${pid}`;
+  try {
+    const before = await lstat(processRoot, { bigint: true });
+    const [environment, procStat] = await Promise.all([
+      readFile(path.join(processRoot, 'environ')),
+      readFile(path.join(processRoot, 'stat')),
+    ]);
+    const after = await lstat(processRoot, { bigint: true });
+    if (before.dev !== after.dev || before.ino !== after.ino || before.uid !== after.uid) {
+      throw new Error(`owned OCR process ${pid} changed during proc inspection`);
+    }
+    return {
+      pid,
+      uid: Number(after.uid),
+      starttime: parseLinuxProcessStarttime(procStat, pid),
+      markersMatch: processEnvironmentMatches(
+        environment,
+        executionState.value.spawn_nonce,
+        executionState.value.ocr_command_sha256,
+        '\0',
+      ),
+    };
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+async function inspectPortableOcrProcess(pid, executionState) {
+  try {
+    const [identity, observed] = await Promise.all([
+      execFile('/bin/ps', ['-p', String(pid), '-o', 'uid=', '-o', 'lstart='], {
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024,
+      }),
+      execFile('/bin/ps', ['eww', '-p', String(pid), '-o', 'command='], {
+        encoding: 'utf8',
+        maxBuffer: 512 * 1024,
+      }),
+    ]);
+    const match = /^\s*([0-9]+)\s+(.+?)\s*$/u.exec(String(identity.stdout));
+    if (!match) throw new Error(`owned OCR process ${pid} has invalid ps identity`);
+    return {
+      pid,
+      uid: Number(match[1]),
+      starttime: match[2],
+      markersMatch: processEnvironmentMatches(
+        Buffer.from(observed.stdout),
+        executionState.value.spawn_nonce,
+        executionState.value.ocr_command_sha256,
+        ' ',
+      ),
+    };
+  } catch (error) {
+    if (error?.code === 1 || error?.code === 'ESRCH') return null;
+    throw error;
+  }
+}
+
+async function inspectOcrProcess(pid, executionState) {
+  return process.platform === 'linux'
+    ? inspectLinuxOcrProcess(pid, executionState)
+    : inspectPortableOcrProcess(pid, executionState);
+}
+
+async function revalidateExactOwnedOcrProcess(owned, executionState) {
+  const current = await inspectOcrProcess(owned.pid, executionState);
+  if (!current) return null;
+  if (!current.markersMatch
+    || current.uid !== owned.uid
+    || current.starttime !== owned.starttime) {
+    throw new Error(`owned OCR process identity changed immediately before signal: ${owned.pid}`);
+  }
+  return { pid: current.pid, uid: current.uid, starttime: current.starttime };
+}
+
 async function findOwnedOcrProcesses(executionState) {
-  const spawnNonce = executionState.value.spawn_nonce;
-  const commandSha256 = executionState.value.ocr_command_sha256;
   const currentUid = typeof process.getuid === 'function' ? process.getuid() : null;
   const matches = [];
   if (process.platform === 'linux') {
@@ -1525,13 +1927,11 @@ async function findOwnedOcrProcesses(executionState) {
     for (const textPid of pids) {
       const pid = Number(textPid);
       if (pid === process.pid) continue;
-      const processRoot = `/proc/${textPid}`;
       try {
-        const info = await lstat(processRoot);
-        if (currentUid !== null && info.uid !== currentUid) continue;
-        const environment = await readFile(path.join(processRoot, 'environ'));
-        if (processEnvironmentMatches(environment, spawnNonce, commandSha256, '\0')) {
-          matches.push({ pid, uid: info.uid });
+        const observed = await inspectLinuxOcrProcess(pid, executionState);
+        if (!observed || (currentUid !== null && observed.uid !== currentUid)) continue;
+        if (observed.markersMatch) {
+          matches.push({ pid, uid: observed.uid, starttime: observed.starttime });
         }
       } catch (error) {
         if (['ENOENT', 'EACCES', 'EPERM'].includes(error?.code)) continue;
@@ -1551,12 +1951,9 @@ async function findOwnedOcrProcesses(executionState) {
     const uid = Number(match[2]);
     if (pid === process.pid || (currentUid !== null && uid !== currentUid)) continue;
     try {
-      const observed = await execFile('/bin/ps', ['eww', '-p', String(pid), '-o', 'command='], {
-        encoding: 'utf8',
-        maxBuffer: 512 * 1024,
-      });
-      if (processEnvironmentMatches(Buffer.from(observed.stdout), spawnNonce, commandSha256, ' ')) {
-        matches.push({ pid, uid });
+      const observed = await inspectPortableOcrProcess(pid, executionState);
+      if (observed?.markersMatch) {
+        matches.push({ pid, uid, starttime: observed.starttime });
       }
     } catch (error) {
       if (error?.code === 1 || error?.code === 'ESRCH') continue;
@@ -1576,18 +1973,36 @@ function processIsAlive(pid) {
   }
 }
 
-async function terminateExactProcess(pid, graceMilliseconds = 2_000) {
+async function terminateExactProcess(owned, executionState, graceMilliseconds = 2_000, dependencies = {}) {
+  const { pid } = owned;
   if (!Number.isSafeInteger(pid) || pid < 1 || pid === process.pid) {
     throw new Error('owned OCR process PID is invalid');
   }
-  if (!processIsAlive(pid)) return;
-  process.kill(pid, 'SIGTERM');
+  const revalidate = dependencies.revalidateOwnedOcrProcess || revalidateExactOwnedOcrProcess;
+  const signal = dependencies.signalOwnedOcrProcess || ((targetPid, value) => process.kill(targetPid, value));
+  const beforeTerm = await revalidate(owned, executionState);
+  if (!beforeTerm) return;
+  if (beforeTerm.pid !== owned.pid
+    || beforeTerm.uid !== owned.uid
+    || beforeTerm.starttime !== owned.starttime) {
+    throw new Error(`owned OCR process identity changed immediately before signal: ${pid}`);
+  }
+  signal(pid, 'SIGTERM');
   const deadline = Date.now() + graceMilliseconds;
   while (Date.now() < deadline) {
     if (!processIsAlive(pid)) return;
     await delay(25);
   }
-  if (processIsAlive(pid)) process.kill(pid, 'SIGKILL');
+  if (processIsAlive(pid)) {
+    const beforeKill = await revalidate(owned, executionState);
+    if (!beforeKill) return;
+    if (beforeKill.pid !== owned.pid
+      || beforeKill.uid !== owned.uid
+      || beforeKill.starttime !== owned.starttime) {
+      throw new Error(`owned OCR process identity changed immediately before signal: ${pid}`);
+    }
+    signal(pid, 'SIGKILL');
+  }
   const killDeadline = Date.now() + 2_000;
   while (Date.now() < killDeadline) {
     if (!processIsAlive(pid)) return;
@@ -1600,6 +2015,7 @@ export async function reconcileOwnedContinuationExecution(profile, executionStat
   if (!executionState?.value
     || !sha256Pattern.test(String(executionState.value.spawn_nonce || ''))
     || !sha256Pattern.test(String(executionState.value.ocr_command_sha256 || ''))
+    || !sha256Pattern.test(String(executionState.value.llama_start_nonce || ''))
     || !invocationIdPattern.test(String(executionState.value.llama_invocation_id || ''))
     || !/^[1-9]\d*$/u.test(String(executionState.value.llama_main_pid || ''))) {
     throw new Error('running journal does not contain an exact owned execution identity');
@@ -1626,16 +2042,28 @@ export async function reconcileOwnedContinuationExecution(profile, executionStat
     if (!Number.isSafeInteger(owned.pid)
       || owned.pid < 1
       || owned.pid === process.pid
-      || owned.uid !== currentUid) {
+      || owned.uid !== currentUid
+      || (typeof owned.starttime !== 'string' && !dependencies.terminateOwnedOcrProcess)
+      || (typeof owned.starttime === 'string' && !owned.starttime)) {
       throw new Error('owned OCR process identity is unsafe');
     }
   }
-  const terminate = dependencies.terminateOwnedOcrProcess || terminateExactProcess;
-  await Promise.all(ownedProcesses.map(({ pid }) => terminate(
-    pid,
-    dependencies.ownedProcessGraceMilliseconds,
-  )));
-  if (llamaActive) await stopExactLlama(profile, dependencies);
+  const terminate = dependencies.terminateOwnedOcrProcess;
+  await Promise.all(ownedProcesses.map((owned) => terminate
+    ? terminate(owned, executionState)
+    : terminateExactProcess(
+        owned,
+        executionState,
+        dependencies.ownedProcessGraceMilliseconds,
+        dependencies,
+      )));
+  if (llamaActive) {
+    await stopExactLlama(profile, {
+      InvocationID: executionState.value.llama_invocation_id,
+      MainPID: executionState.value.llama_main_pid,
+      startNonce: executionState.value.llama_start_nonce,
+    }, dependencies);
+  }
   const remaining = await findProcesses(executionState);
   if (!Array.isArray(remaining) || remaining.length !== 0) {
     throw new Error('owned OCR process remained after recovery');
@@ -2000,16 +2428,19 @@ function requireExactStateKeys(value, extraKeys, label) {
 }
 
 function validateJournalProgression(states, claim, expectedUnitFence) {
-  if (states.length === 0) return { executionStates: [], terminalPlan: null, terminal: null };
+  if (states.length === 0) {
+    return { claimed: null, executionStates: [], terminalPlan: null, terminal: null };
+  }
   const claimed = states[0];
   requireExactStateKeys(
     claimed.value,
-    ['claimed_at', 'worker_invocation_id', 'quiescent_unit_fence'],
+    ['claimed_at', 'worker_invocation_id', 'quiescent_unit_fence', 'llama_start_nonce_seed'],
     'operator continuation claimed state',
   );
   if (claimed.value.stage !== 'claimed'
     || claimed.value.claimed_at !== claim.claim.claimed_at
     || !invocationIdPattern.test(String(claimed.value.worker_invocation_id || ''))
+    || claimed.value.llama_start_nonce_seed !== llamaStartNonceSeed(claim.claim.claim_id)
     || !sameJson(claimed.value.quiescent_unit_fence, expectedUnitFence)) {
     throw new Error('operator continuation claimed state or unit fence is invalid');
   }
@@ -2019,13 +2450,21 @@ function validateJournalProgression(states, claim, expectedUnitFence) {
     const running = states[index];
     requireExactStateKeys(
       running.value,
-      ['started_at', 'llama_invocation_id', 'llama_main_pid', 'spawn_nonce', 'ocr_command_sha256'],
+      [
+        'started_at',
+        'llama_invocation_id',
+        'llama_main_pid',
+        'llama_start_nonce',
+        'spawn_nonce',
+        'ocr_command_sha256',
+      ],
       'operator continuation running state',
     );
     if (running.value.stage !== 'running'
       || running.value.started_at !== claim.claim.claimed_at
       || !invocationIdPattern.test(String(running.value.llama_invocation_id || ''))
       || !/^[1-9]\d*$/u.test(String(running.value.llama_main_pid || ''))
+      || running.value.llama_start_nonce !== llamaStartNonce(claimed.value.llama_start_nonce_seed, 0)
       || !sha256Pattern.test(String(running.value.spawn_nonce || ''))
       || !sha256Pattern.test(String(running.value.ocr_command_sha256 || ''))) {
       throw new Error('operator continuation running state is invalid');
@@ -2045,6 +2484,7 @@ function validateJournalProgression(states, claim, expectedUnitFence) {
         'resumed_at',
         'llama_invocation_id',
         'llama_main_pid',
+        'llama_start_nonce',
         'spawn_nonce',
         'ocr_command_sha256',
         'resumed_from_state_sha256',
@@ -2060,6 +2500,10 @@ function validateJournalProgression(states, claim, expectedUnitFence) {
       || invocationIds.has(resumed.value.llama_invocation_id)
       || spawnNonces.has(resumed.value.spawn_nonce)
       || !/^[1-9]\d*$/u.test(String(resumed.value.llama_main_pid || ''))
+      || resumed.value.llama_start_nonce !== llamaStartNonce(
+        claimed.value.llama_start_nonce_seed,
+        executionStates.length,
+      )
       || !sha256Pattern.test(String(resumed.value.spawn_nonce || ''))
       || !sha256Pattern.test(String(resumed.value.ocr_command_sha256 || ''))) {
       throw new Error('operator continuation resume_running chain is invalid');
@@ -2107,7 +2551,7 @@ function validateJournalProgression(states, claim, expectedUnitFence) {
     index += 1;
   }
   if (index !== states.length) throw new Error('operator continuation state journal stages are invalid');
-  return { executionStates, terminalPlan, terminal };
+  return { claimed, executionStates, terminalPlan, terminal };
 }
 
 async function recoverTrailingJournalPair(paths, claim, expectedUnitFence) {
@@ -2377,7 +2821,9 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
   let activeChild = null;
   let externalTermination = null;
   let stopRequested = false;
-  let llamaStarted = false;
+  let ownedLlamaIdentity = null;
+  let pendingLlamaIdentity = null;
+  let llamaStartMarkerTouched = false;
   let primaryError = null;
   let frozenUnitFence = null;
   let guardedDependencies = dependencies;
@@ -2402,14 +2848,57 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       runtimeManifest,
       recoveryFenceUnits,
     );
-    const priorExecutionState = existingRecovery?.progression?.executionStates.at(-1) || null;
-    if (priorExecutionState && options.apply === true) {
-      await reconcileOwnedContinuationExecution(profile, priorExecutionState, dependencies);
+    const existingProgression = existingRecovery?.progression || null;
+    const priorExecutionState = existingProgression?.executionStates.at(-1) || null;
+    if (existingProgression && options.apply === true) {
+      const inspectUnit = dependencies.inspectUnit || inspectSystemdUnit;
+      const observedLlama = await inspectUnit(profile.llamaUnit, 'llama');
+      const observedActive = observedLlama.LoadState === 'loaded'
+        && observedLlama.ActiveState === 'active'
+        && observedLlama.SubState === 'running';
+      const priorOwnsActive = priorExecutionState
+        && observedActive
+        && observedLlama.InvocationID === priorExecutionState.value.llama_invocation_id
+        && observedLlama.MainPID === priorExecutionState.value.llama_main_pid;
+      if (priorOwnsActive || !observedActive) {
+        if (priorExecutionState) {
+          await reconcileOwnedContinuationExecution(profile, priorExecutionState, dependencies);
+        } else {
+          requireQuiescentUnit(observedLlama, profile.llamaUnit, 'llama');
+        }
+      } else {
+        const claimed = existingProgression.claimed;
+        if (!claimed) throw new Error('active llama has no durable continuation start intent');
+        const expectedStartNonce = llamaStartNonce(
+          claimed.value.llama_start_nonce_seed,
+          existingProgression.executionStates.length,
+        );
+        await verifyLlamaStartMarker(observedLlama, expectedStartNonce, dependencies).catch(() => {
+          throw new Error('active llama start marker is not owned by the pending continuation intent');
+        });
+        if (priorExecutionState) {
+          const findProcesses = dependencies.findOwnedOcrProcesses || findOwnedOcrProcesses;
+          const stale = await findProcesses(priorExecutionState);
+          if (!Array.isArray(stale) || stale.length !== 0) {
+            throw new Error('pending llama start coexists with an unreconciled prior OCR process');
+          }
+        }
+        pendingLlamaIdentity = {
+          ...observedLlama,
+          startNonce: expectedStartNonce,
+        };
+        ownedLlamaIdentity = pendingLlamaIdentity;
+        llamaStartMarkerTouched = true;
+      }
       const recoveredFenceUnits = await inspectContinuationFenceUnits(profile, dependencies);
       requireSameContinuationUnitFence(recoveredFenceUnits, existingRecovery.claimedFence);
     }
-    const initialUnits = await inspectA2ContinuationUnits(profile, dependencies);
-    frozenUnitFence = continuationUnitFence(initialUnits);
+    if (pendingLlamaIdentity) {
+      frozenUnitFence = existingRecovery.claimedFence;
+    } else {
+      const initialUnits = await inspectA2ContinuationUnits(profile, dependencies);
+      frozenUnitFence = continuationUnitFence(initialUnits);
+    }
     const transactionGuard = async () => {
       await assertLockHeld();
       const current = await inspectContinuationFenceUnits(profile, dependencies);
@@ -2442,10 +2931,12 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
     await transactionGuard('after_receipt_publication');
     const claim = await publishClaim(inspected, published, options, profile, guardedDependencies);
     await transactionGuard('after_claim_publication');
+    const continuationLlamaStartNonceSeed = llamaStartNonceSeed(claim.claim.claim_id);
     await appendJournalState(published.paths, claim, 'claimed', {
       claimed_at: options.continuedAt,
       worker_invocation_id: profile.workerInvocationId,
       quiescent_unit_fence: frozenUnitFence,
+      llama_start_nonce_seed: continuationLlamaStartNonceSeed,
     }, guardedDependencies);
 
     let journal = await recoverTrailingJournalPair(
@@ -2528,10 +3019,54 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       }
     }
 
-    llamaStarted = true;
-    await transactionGuard('before_llama_start');
-    await startExactLlama(profile, dependencies);
-    const activeLlama = await inspectActiveLlama(profile, null, dependencies);
+    const nextLlamaStartNonce = llamaStartNonce(
+      progression.claimed.value.llama_start_nonce_seed,
+      progression.executionStates.length,
+    );
+    let activeLlama;
+    if (pendingLlamaIdentity) {
+      await transactionGuard('before_llama_adopt');
+      activeLlama = await inspectActiveLlama(
+        profile,
+        pendingLlamaIdentity.InvocationID,
+        dependencies,
+      );
+      if (activeLlama.MainPID !== pendingLlamaIdentity.MainPID) {
+        throw new Error('pending llama MainPID changed before adoption');
+      }
+      await verifyLlamaStartMarker(activeLlama, nextLlamaStartNonce, dependencies).catch(() => {
+        throw new Error('active llama start marker is not owned by the pending continuation intent');
+      });
+      ownedLlamaIdentity = { ...activeLlama, startNonce: nextLlamaStartNonce };
+      await clearLlamaStartMarker(profile, dependencies);
+      llamaStartMarkerTouched = false;
+    } else {
+      await transactionGuard('before_llama_start');
+      llamaStartMarkerTouched = true;
+      await setLlamaStartMarker(profile, nextLlamaStartNonce, dependencies);
+      let startError = null;
+      try {
+        await startExactLlama(profile, dependencies);
+      } catch (error) {
+        startError = error;
+      }
+      try {
+        activeLlama = await inspectActiveLlama(profile, null, dependencies);
+        await verifyLlamaStartMarker(activeLlama, nextLlamaStartNonce, dependencies).catch(() => {
+          throw new Error('active llama start marker is not owned by the pending continuation intent');
+        });
+        ownedLlamaIdentity = { ...activeLlama, startNonce: nextLlamaStartNonce };
+      } finally {
+        await clearLlamaStartMarker(profile, dependencies);
+        llamaStartMarkerTouched = false;
+      }
+      if (startError) throw startError;
+    }
+    await dependencies.afterLlamaStartBeforeExecutionState?.({
+      InvocationID: activeLlama.InvocationID,
+      MainPID: activeLlama.MainPID,
+      startNonce: nextLlamaStartNonce,
+    });
     const verifyRuntime = dependencies.verifyActiveRuntime || verifyActiveRuntime;
     const activeRuntime = await verifyRuntime(options, inspected, dependencies);
     const source = activeRuntime?.source || {
@@ -2578,6 +3113,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       resumed_at: executionTimestamp,
       llama_invocation_id: activeLlama.InvocationID,
       llama_main_pid: activeLlama.MainPID,
+      llama_start_nonce: nextLlamaStartNonce,
       spawn_nonce: spawnNonce,
       ocr_command_sha256: ocrCommandSha256,
       resumed_from_state_sha256: previousExecutionState.sha256,
@@ -2585,6 +3121,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       started_at: executionTimestamp,
       llama_invocation_id: activeLlama.InvocationID,
       llama_main_pid: activeLlama.MainPID,
+      llama_start_nonce: nextLlamaStartNonce,
       spawn_nonce: spawnNonce,
       ocr_command_sha256: ocrCommandSha256,
     }, guardedDependencies);
@@ -2755,7 +3292,17 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
       finalizationErrors.push(error);
     }
     try {
-      if (llamaStarted) await stopExactLlama(profile, dependencies);
+      if (ownedLlamaIdentity) {
+        await stopExactLlama(profile, ownedLlamaIdentity, dependencies);
+      }
+    } catch (error) {
+      finalizationErrors.push(error);
+    }
+    try {
+      if (llamaStartMarkerTouched) {
+        await clearLlamaStartMarker(profile, dependencies);
+        llamaStartMarkerTouched = false;
+      }
     } catch (error) {
       finalizationErrors.push(error);
     }
@@ -2788,7 +3335,7 @@ export async function continueOperatorInterruptedAttempt(options, dependencies =
     if (finalizationError && primaryError) {
       throw new AggregateError(
         [primaryError, finalizationError],
-        `continuation failed and five-unit quiescent closeout also failed: ${finalizationError.message}`,
+        `continuation failed: ${primaryError.message}; five-unit quiescent closeout also failed: ${finalizationError.message}`,
       );
     }
     if (finalizationError) throw finalizationError;

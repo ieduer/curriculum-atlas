@@ -187,6 +187,22 @@ export function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
 }
 
+function llamaStartNonce(seed, ordinal) {
+  return sha256(canonicalJson({
+    schema_version: 1,
+    llama_start_nonce_seed: seed,
+    execution_ordinal: ordinal,
+  }));
+}
+
+function llamaStartNonceSeed(claimId) {
+  return sha256(canonicalJson({
+    schema_version: 1,
+    claim_id: claimId,
+    purpose: 'a2_llama_start_intent',
+  }));
+}
+
 export function prettyJson(value) {
   return Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
 }
@@ -986,6 +1002,7 @@ export async function validateOperatorContinuationEvidence(
   let terminal = null;
   let terminalPlan = null;
   let terminalPlanTransaction = null;
+  let claimedState = null;
   const states = [];
   const executionStates = [];
   const invocationIds = new Set();
@@ -1000,11 +1017,17 @@ export async function validateOperatorContinuationEvidence(
     'citation_allowed',
   ];
   const expectedStateKeys = new Map([
-    ['claimed', ['claimed_at', 'worker_invocation_id', 'quiescent_unit_fence']],
+    ['claimed', [
+      'claimed_at',
+      'worker_invocation_id',
+      'quiescent_unit_fence',
+      'llama_start_nonce_seed',
+    ]],
     ['running', [
       'started_at',
       'llama_invocation_id',
       'llama_main_pid',
+      'llama_start_nonce',
       'spawn_nonce',
       'ocr_command_sha256',
     ]],
@@ -1028,6 +1051,7 @@ export async function validateOperatorContinuationEvidence(
           'resumed_at',
           'llama_invocation_id',
           'llama_main_pid',
+          'llama_start_nonce',
           'spawn_nonce',
           'ocr_command_sha256',
           'resumed_from_state_sha256',
@@ -1046,15 +1070,21 @@ export async function validateOperatorContinuationEvidence(
     }
     if (value.stage === 'claimed'
       && (value.claimed_at !== claim.claimed_at
-        || value.worker_invocation_id !== profile.workerInvocationId)) {
+        || value.worker_invocation_id !== profile.workerInvocationId
+        || value.llama_start_nonce_seed !== llamaStartNonceSeed(claim.claim_id))) {
       throw new Error('operator continuation claimed state is invalid');
     }
-    if (value.stage === 'claimed') validateQuiescentUnitFence(value.quiescent_unit_fence, profile);
+    if (value.stage === 'claimed') {
+      validateQuiescentUnitFence(value.quiescent_unit_fence, profile);
+      claimedState = value;
+    }
     if (value.stage === 'running') {
       requireCanonicalTimestamp(value.started_at, 'operator continuation running time');
       if (value.started_at !== claim.claimed_at
         || !invocationIdPattern.test(String(value.llama_invocation_id || ''))
         || !/^[1-9]\d*$/u.test(String(value.llama_main_pid || ''))
+        || !claimedState
+        || value.llama_start_nonce !== llamaStartNonce(claimedState.llama_start_nonce_seed, 0)
         || !sha256Pattern.test(String(value.spawn_nonce || ''))
         || !sha256Pattern.test(String(value.ocr_command_sha256 || ''))) {
         throw new Error('operator continuation running state is invalid');
@@ -1075,6 +1105,11 @@ export async function validateOperatorContinuationEvidence(
         || invocationIds.has(value.llama_invocation_id)
         || spawnNonces.has(value.spawn_nonce)
         || !/^[1-9]\d*$/u.test(String(value.llama_main_pid || ''))
+        || !claimedState
+        || value.llama_start_nonce !== llamaStartNonce(
+          claimedState.llama_start_nonce_seed,
+          executionStates.length,
+        )
         || !sha256Pattern.test(String(value.spawn_nonce || ''))
         || !sha256Pattern.test(String(value.ocr_command_sha256 || ''))
         || Date.parse(value.resumed_at) < Date.parse(predecessorTimestamp)) {

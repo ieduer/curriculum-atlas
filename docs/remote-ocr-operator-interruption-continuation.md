@@ -79,13 +79,19 @@ directory identities, and the log inode. Closeout stops llama and proves all fiv
 and the four-unit fence unchanged, reporting any stop/gate/release failures together.
 
 After an abrupt process death, restart first validates the archived receipt/claim/runtime manifest
-and the frozen four-unit fence. A trailing `running`/`resume_running_NNNN` state owns an OCR process
-family only through its random 256-bit spawn nonce plus exact command SHA-256 in the process
-environment, and owns llama only through the recorded systemd InvocationID/MainPID. Restart refuses
-a different active llama identity before signalling anything. It terminates every current-UID OCR
-process carrying both exact values, stops only the exact llama invocation, proves both are gone and
-all five units are quiescent, and only then rescans the journal and starts a new invocation of the
-same attempt 6. A dry run never performs this recovery mutation.
+and the frozen four-unit fence. The durable `claimed` state contains a deterministic llama-start
+nonce seed before any service start. For each execution ordinal, the continuation derives one nonce,
+places it in the user systemd manager environment, starts llama, proves the exact value in
+`/proc/<MainPID>/environ`, and then clears the manager copy. A crash after service start but before a
+`running` state can therefore adopt only that exact marked InvocationID/MainPID; a different or
+unmarked active service is never stopped. A trailing `running`/`resume_running_NNNN` state owns an
+OCR process family through its random 256-bit spawn nonce plus exact command SHA-256 in the process
+environment, and owns llama through the recorded InvocationID/MainPID and start nonce. Every OCR
+candidate also records its current-UID `/proc` start time; marker, UID, start time, and command are
+re-read immediately before each TERM/KILL. Llama InvocationID/MainPID and its process marker are
+likewise re-read immediately before stop. Any replacement fails closed and survives. Only after the
+exact owned processes are gone and all five units are quiescent may the same attempt 6 resume. A dry
+run never performs this recovery mutation.
 
 ## Disjoint, crash-resumable evidence
 
@@ -129,11 +135,15 @@ SHA-256 of the preceding execution state. Neither an InvocationID nor a spawn no
 the chain.
 
 Each terminal record uses a deterministic temp pathname derived from the immutable terminal-plan
-state SHA-256, output path, and exact after hash/byte count. The temp is current-owner, mode-0600,
-single-link and opened with `O_NOFOLLOW`; it is fsynced with its parent directory before rename. On
-restart, an exact-after temp is reused (or removed if the target is already after), absence is safe,
-and any third bytes fail closed. This makes a real process death between temp fsync and rename
-recoverable without accepting an unbound orphan temp.
+state SHA-256, output path, and exact after hash/byte count. Before writing target bytes, an adjacent
+durable ownership receipt binds that plan, the exact before/after records, path, and newly created
+temp device/inode. The mode-0600, current-owner, single-link temp is opened with `O_NOFOLLOW`, written
+in fsynced chunks on that same inode, and fsynced with its parent before rename. Restart may rewrite a
+zero-length or partial temp only when the receipt is canonical for the exact plan/inode and the bytes
+are an exact prefix of the expected after image. An unbound empty placeholder is discarded and
+recreated with a new receipt; exact-after bytes remain convergent; any non-prefix or otherwise
+unbound third bytes fail closed. The target-after case removes a leftover temp/receipt, so deaths
+during write, after temp fsync, or after rename all converge without accepting foreign content.
 
 The checked-in `data/remote-ocr-a2-continuation-runtime-manifest.json` independently lists and hashes
 the complete relative-import closure actually executed by the continuation entrypoint, including

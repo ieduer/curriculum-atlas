@@ -2393,6 +2393,8 @@ async function a2ReceiverContinuationFixture(t) {
 
 function a2ContinuationDependencies(value) {
   let llamaActive = false;
+  let llamaManagerStartMarker = null;
+  let llamaProcessStartMarker = null;
   const inactive = (role, invocationId = '0'.repeat(32), exitStatus = '0') => ({
     LoadState: 'loaded',
     ActiveState: 'inactive',
@@ -2434,7 +2436,20 @@ function a2ContinuationDependencies(value) {
       }
       return inactive(role);
     },
-    startLlama: async () => { llamaActive = true; },
+    setLlamaStartMarker: async (_profile, marker) => {
+      llamaManagerStartMarker = marker;
+    },
+    clearLlamaStartMarker: async () => {
+      llamaManagerStartMarker = null;
+    },
+    verifyLlamaStartMarker: async (_activeLlama, marker) => {
+      assert.equal(llamaProcessStartMarker, marker);
+      return true;
+    },
+    startLlama: async () => {
+      llamaProcessStartMarker = llamaManagerStartMarker;
+      llamaActive = true;
+    },
     stopLlama: async () => { llamaActive = false; },
     verifyCommittedSeed: async () => ({ verified: true }),
     verifyActiveRuntime: async () => {
