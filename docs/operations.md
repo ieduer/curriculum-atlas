@@ -7,10 +7,10 @@
 - 两端 D1 已应用 `0001`–`0007`；Worker 为 `2026.07.16-v10`，health 合同为 schema 3 / taxonomy 2 / page publication 1。
 - Corpus `corpus-358471fcce862b2f0ae446fc` 在 preview 与 production 均为 `ready`：196 documents、16,456 paragraphs、16,456 FTS rows、6,031 page gates、16,456 displayed paragraphs、0 accepted OCR documents、91/91 chunks。
 - Taxonomy 为 159 subject、1 assessment subject、16 curriculum course、20 scope；公开 12 个 display facets，普通学科 API 仅接受 28 个 exact query identities。
-- Production Worker version `6613ba19-a81d-4c16-aa20-f8657e67275b`，Assets Git `298778d0e6e7f0b03fd31acdd09d5b55b5195dd6`。
-- Preview Worker version `50c9f522-9dfc-4650-8f27-ec37235a82e5`，Assets Git `298778d0e6e7f0b03fd31acdd09d5b55b5195dd6`。
+- Production Worker version `c87e1d19-f947-4a34-a628-32b56741df5e`，Assets Git `d3aac98e10698377eed3f0db44e75f376cc58b4e`。
+- Preview Worker version `e6a73567-ff83-4026-9e1b-3ea861c93d3e`，Assets Git `d3aac98e10698377eed3f0db44e75f376cc58b4e`。
 - Production R2 current 为 `release-9cb02f77c06ee0535e7981a22b312373`；preview 为 `release-841a528f0086ce69f2f7a6f2d07c0999`。
-- 环境证据提交仍为 `d497b713e4d124f9fe6d1c6ee9a67f5eddc02292`；本次叶前端不改环境数据，完整本地发布链通过 561/561 Node tests、14/14 Python tests、TypeScript、asset audit、release manifest 与 Wrangler dry-run。
+- 环境证据提交仍为 `d497b713e4d124f9fe6d1c6ee9a67f5eddc02292`；本次叶前端不改环境数据，完整本地发布链通过 563/563 Node tests、14/14 Python tests、TypeScript、asset audit、release manifest 与 Wrangler dry-run。
 - Production 只读终验事件 `2026-07-17T06:35:37.437Z`：三尺寸浏览器、API negative-write、D1 前后摘要与 Pulse 均通过；完整图 553/214/261、全隐藏 0/0、语文 143/60、运动能力泄漏 0，Pulse 425 requests / 0 errors。
 - 单一星图已合并所有学科百年候选投影：134 个 archive items 保留 1,482 条 1902–2000 OCR 来源观察，教育部目录补入 44 条 2011／2020／2022 当代名称观察；按概念 × 年份 × 学科分面投影为 1,031 颗星、3,202 条 evidence、952 条同词面序列与 155 条同篇共现关系。两层共 19 条同层概念演进族，覆盖 12/12 学科、1,034 个观察点，含 952 条同词面实线与 55 条编辑对应实线。全部 citation/semantic/influence 闸门关闭。公开 OCR 状态同时显示 10 册 / 4,078 页已完成，但不代表全队列完成或引文开放。
 
@@ -79,7 +79,7 @@ Production R2 最近一次独立读回：
 - desktop/mobile 星图：默认 `12/12 · 全部显示`、可一键「全开」、全隐藏为零关系、单学科自动适配、语文不出现“运动能力”、概念深挖/资料版本/AI讨论共用工作台、无 horizontal overflow；
 - 浏览器会话关闭，并运行 Playwright orphan dry-run。
 
-视觉结论必须来自带时间的 append-only `verify` 事件。当前 production 事件由任务 `curriculum-atlas-century-concept-evolution-20260723` 记录：1440×1000 与 390×844 均为单一 Canvas、单一年份控件、12/12 学科全开；左栏 `scrollHeight=clientHeight`，移动 `scrollWidth=innerWidth=390`。`/terms` 深链证明「表达与交流」从 1902—2022 同层跨 6 个概念、120 个观察点，其他学科仍保留可见；console errors/warnings 为 0。未来 release 仍需新事件，不能沿用本次结果。
+视觉结论必须来自带时间的 append-only `verify` 事件。当前 production 事件由任务 `curriculum-atlas-all-subject-century-evolution-20260723` 记录：1440×1000 与 390×844 均为单一 Canvas、单一年份控件、12/12 学科全开，移动端 `scrollWidth=innerWidth=390`。12 个学科按钮逐一实点均进入 `1/12` 单科视图；「历史与社会」命中 `社会科 · 1988`，「劳动」命中 `劳动 · 2022`。`/terms` 深链实点「算术」后，在清除定位搜索的未过滤星图中仍保持整族高亮，检查器同时列出「算术 1902—1964／算学 1902—1941／数学 1904—2022」；console warnings/errors 与 page errors 均为 0。未来 release 仍需新事件，不能沿用本次结果。
 
 同一事件证明 API 写闸门为 401/403；D1 验收前后 comments / reports / rate limits / AI citation logs / content audit logs 为 0/0/3/2/0，canonical digest 均为 `c4166f451f4b9529bf4221b56fb3017dc51aef7493a699553dc218287e42c430`；Pulse 为 425 requests / 0 errors。第一方 console/page errors 为 0，Turnstile 仅有 2 个第三方 opaque errors / 5 个 warnings。
 
