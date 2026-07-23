@@ -3,42 +3,54 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
-const [config, artifact, core, ocr, century] = await Promise.all([
+const [config, artifact, core, ocr, detail, century] = await Promise.all([
   readFile(new URL('data/concept-evolution-families.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('public/data/concept-evolution-families.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('public/data/concept-evolution.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('public/data/ocr-observation-layer.json', root), 'utf8').then(JSON.parse),
+  readFile(new URL('public/data/subject-detail-observation-layer.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('public/data/century-observation-layer.json', root), 'utf8').then(JSON.parse),
 ]);
 
-test('the century evolution layer uses two explicit tiers and 19 non-overlapping families', () => {
-  assert.equal(config.schema_version, 2);
+test('the evolution layer keeps the existing tiers and adds three explicit same-grain detail tiers', () => {
+  assert.equal(config.schema_version, 3);
   assert.deepEqual(config.concept_tiers.map((tier) => tier.id), [
     'language-practice-domain',
     'subject-course-identity',
+    'subject-practice-domain',
+    'subject-content-domain',
+    'subject-ability-domain',
   ]);
-  assert.equal(config.families.length, 19);
+  assert.equal(config.families.length, 55);
   const configuredIds = config.families.flatMap((family) => family.concept_ids);
   assert.equal(new Set(configuredIds).size, configuredIds.length);
-  assert.ok(config.families.every((family) => family.concept_ids.length >= 2));
+  assert.ok(config.families.every((family) => family.concept_ids.length >= 1));
   assert.ok(config.assertion_boundary.includes('不证明首次出现'));
   assert.ok(config.assertion_boundary.includes('影响或因果'));
 });
 
-test('every published family crosses 2001 and includes multiple observed concepts', () => {
-  assert.equal(artifact.schema_version, 2);
-  assert.equal(artifact.artifact_profile, 'curriculum-concept-evolution-families-v2');
+test('every family satisfies its disclosed temporal coverage contract', () => {
+  assert.equal(artifact.schema_version, 3);
+  assert.equal(artifact.artifact_profile, 'curriculum-concept-evolution-families-v3');
   assert.equal(artifact.publication_status, 'editorial_correspondence_noncausal');
-  assert.equal(artifact.counts.families, 19);
-  assert.equal(artifact.counts.concept_tiers, 2);
+  assert.equal(artifact.counts.families, 55);
+  assert.equal(artifact.counts.concept_tiers, 5);
   assert.equal(artifact.counts.subject_facets, 12);
+  assert.equal(artifact.counts.detailed_families, 36);
   assert.equal(artifact.counts.first_year, 1902);
   assert.equal(artifact.counts.last_year, 2022);
   for (const family of artifact.families) {
-    assert.ok(family.first_observed_year < 2001, family.id);
-    assert.ok(family.last_observed_year >= 2001, family.id);
-    assert.ok(family.observed_concepts.length >= 2, family.id);
-    assert.ok(['language-practice-domain', 'subject-course-identity'].includes(family.concept_tier_id));
+    assert.ok(family.observed_concepts.length >= 1, family.id);
+    if (family.coverage_contract === 'century_crossing') {
+      assert.ok(family.first_observed_year < 2001, family.id);
+      assert.ok(family.last_observed_year >= 2001, family.id);
+      assert.ok(family.observed_concepts.length >= 2, family.id);
+    } else if (family.coverage_contract === 'single_version_2022') {
+      assert.equal(family.first_observed_year, 2022, family.id);
+      assert.equal(family.last_observed_year, 2022, family.id);
+    } else {
+      assert.ok(family.first_observed_year < family.last_observed_year, family.id);
+    }
   }
 });
 
@@ -46,6 +58,7 @@ test('episode memberships exactly reference real merged star episodes', () => {
   const episodeIds = new Set([
     ...core.episodes,
     ...ocr.episodes,
+    ...detail.episodes,
     ...century.star_projection.episodes,
   ].map((episode) => episode.id));
   const familyIds = new Set(artifact.families.map((family) => family.id));
@@ -53,7 +66,7 @@ test('episode memberships exactly reference real merged star episodes', () => {
   assert.ok(artifact.episode_memberships.every((item) =>
     episodeIds.has(item.episode_id)
     && familyIds.has(item.family_id)
-    && ['language-practice-domain', 'subject-course-identity'].includes(item.concept_tier_id)));
+    && config.concept_tiers.some((tier) => tier.id === item.concept_tier_id)));
 });
 
 test('family edges are solid-renderable, chronological, nonsemantic, and noncausal', () => {
@@ -99,5 +112,22 @@ test('every display facet has one course-identity family spanning historical OCR
   assert.ok(courseFamilies.every((family) =>
     family.first_observed_year < 2001
     && family.last_observed_year >= 2001
-    && family.observed_concepts.length >= 2));
+      && family.observed_concepts.length >= 2));
+});
+
+test('all twelve display facets have practice, content, and ability families at one explicit grain', () => {
+  const expectedFacets = [
+    '语文', '数学', '外语', '思想政治与道德法治', '历史', '历史与社会',
+    '地理', '科学类', '技术', '劳动', '艺术', '体育与健康',
+  ];
+  for (const tier of [
+    'subject-practice-domain',
+    'subject-content-domain',
+    'subject-ability-domain',
+  ]) {
+    const families = artifact.families.filter((family) => family.concept_tier_id === tier);
+    assert.equal(families.length, 12, tier);
+    assert.deepEqual(families.flatMap((family) => family.visibility_facets), expectedFacets, tier);
+    assert.ok(families.every((family) => family.observed_concepts.length >= 1), tier);
+  }
 });

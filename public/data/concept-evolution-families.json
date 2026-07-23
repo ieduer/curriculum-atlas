@@ -1,6 +1,6 @@
 {
-  "schema_version": 2,
-  "artifact_profile": "curriculum-concept-evolution-families-v2",
+  "schema_version": 3,
+  "artifact_profile": "curriculum-concept-evolution-families-v3",
   "concept_tiers": [
     {
       "id": "language-practice-domain",
@@ -11,6 +11,21 @@
       "id": "subject-course-identity",
       "label": "学科与课程名称",
       "definition": "只比较课程方案、课程标准标题和正文中处于同一名称层级的学科或课程词面；分支并列展示，不把课程名称直接解释为目标、能力、制度替代或因果关系。"
+    },
+    {
+      "id": "subject-practice-domain",
+      "label": "实践与学习活动",
+      "definition": "只比较同一学科中实践、探究、活动或任务实施词面，不与课程名称、内容主题和能力指标混层。"
+    },
+    {
+      "id": "subject-content-domain",
+      "label": "课程内容与组织",
+      "definition": "只比较同一学科中内容领域、主题和组织词面，不与活动方式和能力指标混层。"
+    },
+    {
+      "id": "subject-ability-domain",
+      "label": "能力与素养表现",
+      "definition": "只比较同一学科中学生能力或素养表现词面，不与课程名称、内容主题和教学活动混层。"
     }
   ],
   "assertion_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。",
@@ -21,6 +36,7 @@
       "label": "识字与书写",
       "definition": "识字、写字及其后续合并领域名称。",
       "concept_tier_id": "language-practice-domain",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "语文"
       ],
@@ -61,6 +77,7 @@
       "label": "阅读与鉴赏",
       "definition": "读书、讲读、阅读及其后续阅读鉴赏领域名称。",
       "concept_tier_id": "language-practice-domain",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "语文"
       ],
@@ -109,6 +126,7 @@
       "label": "表达与交流",
       "definition": "作文、写作、听说与口语交际在表达交流领域中的词面变化。",
       "concept_tier_id": "language-practice-domain",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "语文"
       ],
@@ -173,6 +191,7 @@
       "label": "语言知识与运用",
       "definition": "文法、语法、修辞及语言文字运用领域的可比较词面。",
       "concept_tier_id": "language-practice-domain",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "语文"
       ],
@@ -221,6 +240,7 @@
       "label": "文学阅读与写作",
       "definition": "文学、文学作品鉴赏及文学阅读写作领域的可比较词面。",
       "concept_tier_id": "language-practice-domain",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "语文"
       ],
@@ -261,6 +281,7 @@
       "label": "经典与文化研习",
       "definition": "读经讲经与中华传统文化经典研习领域的可比较词面。",
       "concept_tier_id": "language-practice-domain",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "语文"
       ],
@@ -293,6 +314,7 @@
       "label": "实用文本与交流",
       "definition": "实用文及实用性阅读交流领域的可比较词面。",
       "concept_tier_id": "language-practice-domain",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "语文"
       ],
@@ -325,6 +347,7 @@
       "label": "语文课程名称",
       "definition": "字课、中国文字、国语、国文到语文等课程名称词面的分支与转写。",
       "concept_tier_id": "subject-course-identity",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "语文"
       ],
@@ -381,6 +404,7 @@
       "label": "数学课程名称",
       "definition": "算术、算学与数学课程名称词面的可比较观察。",
       "concept_tier_id": "subject-course-identity",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "数学"
       ],
@@ -421,6 +445,7 @@
       "label": "外语课程名称",
       "definition": "英文、外国语与英语课程名称词面的可比较观察。",
       "concept_tier_id": "subject-course-identity",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "外语"
       ],
@@ -461,6 +486,7 @@
       "label": "思想政治与道德法治课程名称",
       "definition": "修身、公民、党义、思想品德、思想政治与道德法治等课程名称词面的分支观察。",
       "concept_tier_id": "subject-course-identity",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "思想政治与道德法治"
       ],
@@ -525,6 +551,7 @@
       "label": "历史课程名称",
       "definition": "本国史、中国史、世界史与历史课程名称词面的分支观察。",
       "concept_tier_id": "subject-course-identity",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "历史"
       ],
@@ -573,6 +600,7 @@
       "label": "历史与社会课程名称",
       "definition": "社会科与历史与社会课程名称词面的可比较观察。",
       "concept_tier_id": "subject-course-identity",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "历史与社会"
       ],
@@ -605,6 +633,7 @@
       "label": "地理课程名称",
       "definition": "舆地、本国地理、世界地理与地理课程名称词面的分支观察。",
       "concept_tier_id": "subject-course-identity",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "地理"
       ],
@@ -653,6 +682,7 @@
       "label": "科学类课程名称",
       "definition": "格致、博物、自然、常识及物理、化学、生物、科学等并列课程名称词面的分支观察。",
       "concept_tier_id": "subject-course-identity",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "科学类"
       ],
@@ -741,6 +771,7 @@
       "label": "技术课程名称",
       "definition": "手工、工艺、劳动技术、信息技术、信息科技与通用技术等课程名称词面的分支观察。",
       "concept_tier_id": "subject-course-identity",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "技术"
       ],
@@ -805,6 +836,7 @@
       "label": "劳动课程名称",
       "definition": "劳作、劳动与劳动教育课程名称词面的可比较观察。",
       "concept_tier_id": "subject-course-identity",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "劳动"
       ],
@@ -845,6 +877,7 @@
       "label": "艺术课程名称",
       "definition": "图画、唱歌、音乐、美术与艺术课程名称词面的分支观察。",
       "concept_tier_id": "subject-course-identity",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "艺术"
       ],
@@ -901,6 +934,7 @@
       "label": "体育与健康课程名称",
       "definition": "体操、体育、卫生与体育与健康课程名称词面的分支观察。",
       "concept_tier_id": "subject-course-identity",
+      "coverage_contract": "century_crossing",
       "visibility_facets": [
         "体育与健康"
       ],
@@ -943,6 +977,938 @@
       "first_observed_year": 1902,
       "last_observed_year": 2022,
       "episode_count": 76
+    },
+    {
+      "id": "subject-practice-chinese",
+      "label": "语文综合学习与实践",
+      "definition": "综合性学习与语文实践活动作为同一实践层的版本词面并列观察。",
+      "concept_tier_id": "subject-practice-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "语文"
+      ],
+      "concept_ids": [
+        "detail-chinese-integrated-learning",
+        "detail-chinese-language-practice"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-chinese-integrated-learning",
+          "label": "综合性学习",
+          "first_observed_year": 2001,
+          "last_observed_year": 2011,
+          "episode_count": 2
+        },
+        {
+          "id": "detail-chinese-language-practice",
+          "label": "语文实践活动",
+          "first_observed_year": 2022,
+          "last_observed_year": 2022,
+          "episode_count": 1
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-practice-mathematics",
+      "label": "数学活动",
+      "definition": "数学活动在实验稿、2011 年版和 2022 年版中的同词观察。",
+      "concept_tier_id": "subject-practice-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "数学"
+      ],
+      "concept_ids": [
+        "detail-mathematics-activities"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-mathematics-activities",
+          "label": "数学活动",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-practice-foreign-language",
+      "label": "外语语言实践活动",
+      "definition": "语言实践活动在英语课标版本中的同词观察。",
+      "concept_tier_id": "subject-practice-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "外语"
+      ],
+      "concept_ids": [
+        "detail-foreign-language-practice"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-foreign-language-practice",
+          "label": "语言实践活动",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-practice-civics",
+      "label": "思政与道德法治社会实践",
+      "definition": "社会实践在思想品德及道德与法治课标中的同词观察。",
+      "concept_tier_id": "subject-practice-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "思想政治与道德法治"
+      ],
+      "concept_ids": [
+        "detail-civics-social-practice"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-civics-social-practice",
+          "label": "社会实践",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-practice-history",
+      "label": "历史学习实践",
+      "definition": "历史学习作为学生实践活动词面在三个课标版本中的观察。",
+      "concept_tier_id": "subject-practice-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "历史"
+      ],
+      "concept_ids": [
+        "detail-history-learning"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-history-learning",
+          "label": "历史学习",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-practice-history-society",
+      "label": "历史与社会调查",
+      "definition": "社会调查在历史与社会实验稿和 2011 年版中的同词观察。",
+      "concept_tier_id": "subject-practice-domain",
+      "coverage_contract": "version_span_2001_2011",
+      "visibility_facets": [
+        "历史与社会"
+      ],
+      "concept_ids": [
+        "detail-history-society-survey"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-history-society-survey",
+          "label": "社会调查",
+          "first_observed_year": 2001,
+          "last_observed_year": 2011,
+          "episode_count": 2
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2011,
+      "episode_count": 2
+    },
+    {
+      "id": "subject-practice-geography",
+      "label": "地理实践",
+      "definition": "地理实践在实验稿、2011 年版和 2022 年版中的同词观察。",
+      "concept_tier_id": "subject-practice-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "地理"
+      ],
+      "concept_ids": [
+        "detail-geography-practice"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-geography-practice",
+          "label": "地理实践",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-practice-science",
+      "label": "科学探究实践",
+      "definition": "科学探究在科学课标三个版本中的同词观察。",
+      "concept_tier_id": "subject-practice-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "科学类"
+      ],
+      "concept_ids": [
+        "scientific-inquiry"
+      ],
+      "observed_concepts": [
+        {
+          "id": "scientific-inquiry",
+          "label": "科学探究",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 15
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 15
+    },
+    {
+      "id": "subject-practice-technology",
+      "label": "技术设计学习",
+      "definition": "设计学习在高中技术实验稿与义务教育信息科技 2022 年版中的同词观察。",
+      "concept_tier_id": "subject-practice-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "技术"
+      ],
+      "concept_ids": [
+        "detail-technology-design-learning"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-technology-design-learning",
+          "label": "设计学习",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 2
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 2
+    },
+    {
+      "id": "subject-practice-labor",
+      "label": "劳动项目实践",
+      "definition": "项目实践在当前已完成的 2022 年劳动课标中的单版本观察。",
+      "concept_tier_id": "subject-practice-domain",
+      "coverage_contract": "single_version_2022",
+      "visibility_facets": [
+        "劳动"
+      ],
+      "concept_ids": [
+        "detail-labor-project-practice"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-labor-project-practice",
+          "label": "项目实践",
+          "first_observed_year": 2022,
+          "last_observed_year": 2022,
+          "episode_count": 1
+        }
+      ],
+      "first_observed_year": 2022,
+      "last_observed_year": 2022,
+      "episode_count": 1
+    },
+    {
+      "id": "subject-practice-art",
+      "label": "艺术实践",
+      "definition": "艺术实践在实验稿、2011 年版和 2022 年版中的同词观察。",
+      "concept_tier_id": "subject-practice-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "艺术"
+      ],
+      "concept_ids": [
+        "detail-art-practice"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-art-practice",
+          "label": "艺术实践",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-practice-sports-health",
+      "label": "体育活动实践",
+      "definition": "体育活动在实验稿、2011 年版和 2022 年版中的同词观察。",
+      "concept_tier_id": "subject-practice-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "体育与健康"
+      ],
+      "concept_ids": [
+        "detail-sports-activities"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-sports-activities",
+          "label": "体育活动",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-content-chinese",
+      "label": "语文阅读内容",
+      "definition": "阅读在语文课标三个版本中的同词内容观察。",
+      "concept_tier_id": "subject-content-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "语文"
+      ],
+      "concept_ids": [
+        "detail-chinese-reading"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-chinese-reading",
+          "label": "阅读",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-content-mathematics",
+      "label": "数学数与代数",
+      "definition": "数与代数在数学课标三个版本中的同词内容观察。",
+      "concept_tier_id": "subject-content-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "数学"
+      ],
+      "concept_ids": [
+        "detail-mathematics-number-algebra"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-mathematics-number-algebra",
+          "label": "数与代数",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-content-foreign-language",
+      "label": "外语话题与主题",
+      "definition": "话题和主题作为外语课程内容组织词面的版本并列观察。",
+      "concept_tier_id": "subject-content-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "外语"
+      ],
+      "concept_ids": [
+        "detail-foreign-topic",
+        "detail-foreign-theme"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-foreign-topic",
+          "label": "话题",
+          "first_observed_year": 2001,
+          "last_observed_year": 2011,
+          "episode_count": 2
+        },
+        {
+          "id": "detail-foreign-theme",
+          "label": "主题",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 5
+    },
+    {
+      "id": "subject-content-civics",
+      "label": "思政与道德法治国情教育",
+      "definition": "国情教育在思想品德实验稿和道德与法治 2022 年版中的同词内容观察。",
+      "concept_tier_id": "subject-content-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "思想政治与道德法治"
+      ],
+      "concept_ids": [
+        "detail-civics-national-conditions"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-civics-national-conditions",
+          "label": "国情教育",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 2
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 2
+    },
+    {
+      "id": "subject-content-history",
+      "label": "历史中国古代史",
+      "definition": "中国古代史在历史课标三个版本中的同词内容观察。",
+      "concept_tier_id": "subject-content-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "历史"
+      ],
+      "concept_ids": [
+        "detail-history-ancient-china"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-history-ancient-china",
+          "label": "中国古代史",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-content-history-society",
+      "label": "历史与社会生活",
+      "definition": "社会生活在历史与社会实验稿和 2011 年版中的同词内容观察。",
+      "concept_tier_id": "subject-content-domain",
+      "coverage_contract": "version_span_2001_2011",
+      "visibility_facets": [
+        "历史与社会"
+      ],
+      "concept_ids": [
+        "detail-history-society-social-life"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-history-society-social-life",
+          "label": "社会生活",
+          "first_observed_year": 2001,
+          "last_observed_year": 2011,
+          "episode_count": 2
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2011,
+      "episode_count": 2
+    },
+    {
+      "id": "subject-content-geography",
+      "label": "地理区域地理",
+      "definition": "区域地理在地理课标三个版本中的同词内容观察。",
+      "concept_tier_id": "subject-content-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "地理"
+      ],
+      "concept_ids": [
+        "detail-geography-regional"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-geography-regional",
+          "label": "区域地理",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-content-science",
+      "label": "科学生命科学",
+      "definition": "生命科学在科学课标三个版本中的同词内容观察。",
+      "concept_tier_id": "subject-content-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "科学类"
+      ],
+      "concept_ids": [
+        "detail-science-life"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-science-life",
+          "label": "生命科学",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-content-technology",
+      "label": "技术信息技术与信息科技",
+      "definition": "信息技术与信息科技作为同一内容层级的版本词面并列观察。",
+      "concept_tier_id": "subject-content-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "技术"
+      ],
+      "concept_ids": [
+        "detail-technology-information",
+        "detail-technology-information-science"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-technology-information",
+          "label": "信息技术",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 2
+        },
+        {
+          "id": "detail-technology-information-science",
+          "label": "信息科技",
+          "first_observed_year": 2022,
+          "last_observed_year": 2022,
+          "episode_count": 1
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-content-labor",
+      "label": "劳动日常生活劳动",
+      "definition": "日常生活劳动在当前已完成的 2022 年劳动课标中的单版本内容观察。",
+      "concept_tier_id": "subject-content-domain",
+      "coverage_contract": "single_version_2022",
+      "visibility_facets": [
+        "劳动"
+      ],
+      "concept_ids": [
+        "detail-labor-daily-life"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-labor-daily-life",
+          "label": "日常生活劳动",
+          "first_observed_year": 2022,
+          "last_observed_year": 2022,
+          "episode_count": 1
+        }
+      ],
+      "first_observed_year": 2022,
+      "last_observed_year": 2022,
+      "episode_count": 1
+    },
+    {
+      "id": "subject-content-art",
+      "label": "艺术造型表现",
+      "definition": "造型表现作为艺术内容领域词面在 2011 年版和 2022 年版中的观察。",
+      "concept_tier_id": "subject-content-domain",
+      "coverage_contract": "version_span_2011_2022",
+      "visibility_facets": [
+        "艺术"
+      ],
+      "concept_ids": [
+        "detail-art-modeling-expression"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-art-modeling-expression",
+          "label": "造型表现",
+          "first_observed_year": 2011,
+          "last_observed_year": 2022,
+          "episode_count": 2
+        }
+      ],
+      "first_observed_year": 2011,
+      "last_observed_year": 2022,
+      "episode_count": 2
+    },
+    {
+      "id": "subject-content-sports-health",
+      "label": "体育与健康运动技能",
+      "definition": "运动技能在体育与健康课标三个版本中的同词内容观察。",
+      "concept_tier_id": "subject-content-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "体育与健康"
+      ],
+      "concept_ids": [
+        "detail-sports-motor-skills"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-sports-motor-skills",
+          "label": "运动技能",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-ability-chinese",
+      "label": "语文阅读能力",
+      "definition": "阅读能力在语文课标三个版本中的同词能力观察。",
+      "concept_tier_id": "subject-ability-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "语文"
+      ],
+      "concept_ids": [
+        "detail-chinese-reading-ability"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-chinese-reading-ability",
+          "label": "阅读能力",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-ability-mathematics",
+      "label": "数学推理能力",
+      "definition": "推理能力在数学课标三个版本中的同词能力观察。",
+      "concept_tier_id": "subject-ability-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "数学"
+      ],
+      "concept_ids": [
+        "detail-mathematics-reasoning-ability"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-mathematics-reasoning-ability",
+          "label": "推理能力",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-ability-foreign-language",
+      "label": "外语语言能力",
+      "definition": "语言能力在英语课标三个版本及既有正式课标图谱中的同词能力观察。",
+      "concept_tier_id": "subject-ability-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "外语"
+      ],
+      "concept_ids": [
+        "english-language-ability"
+      ],
+      "observed_concepts": [
+        {
+          "id": "english-language-ability",
+          "label": "语言能力",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 16
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 16
+    },
+    {
+      "id": "subject-ability-civics",
+      "label": "思政与道德法治责任意识",
+      "definition": "责任意识在思想品德及道德与法治课标中的同词能力观察。",
+      "concept_tier_id": "subject-ability-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "思想政治与道德法治"
+      ],
+      "concept_ids": [
+        "responsibility-awareness"
+      ],
+      "observed_concepts": [
+        {
+          "id": "responsibility-awareness",
+          "label": "责任意识",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 6
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 6
+    },
+    {
+      "id": "subject-ability-history",
+      "label": "历史思维能力",
+      "definition": "历史思维能力在历史课标三个版本中的同词能力观察。",
+      "concept_tier_id": "subject-ability-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "历史"
+      ],
+      "concept_ids": [
+        "detail-history-thinking-ability"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-history-thinking-ability",
+          "label": "历史思维能力",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-ability-history-society",
+      "label": "历史与社会获取信息能力",
+      "definition": "获取信息在历史与社会实验稿和 2011 年版中的同词能力观察。",
+      "concept_tier_id": "subject-ability-domain",
+      "coverage_contract": "version_span_2001_2011",
+      "visibility_facets": [
+        "历史与社会"
+      ],
+      "concept_ids": [
+        "detail-history-society-information"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-history-society-information",
+          "label": "获取信息",
+          "first_observed_year": 2001,
+          "last_observed_year": 2011,
+          "episode_count": 2
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2011,
+      "episode_count": 2
+    },
+    {
+      "id": "subject-ability-geography",
+      "label": "地理实践能力与地理实践力",
+      "definition": "地理实践能力与地理实践力作为同一能力层级的版本词面并列观察。",
+      "concept_tier_id": "subject-ability-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "地理"
+      ],
+      "concept_ids": [
+        "detail-geography-practice-ability",
+        "geographical-practice"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-geography-practice-ability",
+          "label": "地理实践能力",
+          "first_observed_year": 2001,
+          "last_observed_year": 2011,
+          "episode_count": 2
+        },
+        {
+          "id": "geographical-practice",
+          "label": "地理实践力",
+          "first_observed_year": 2017,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 5
+    },
+    {
+      "id": "subject-ability-science",
+      "label": "科学探究能力",
+      "definition": "探究能力在科学课标三个版本中的同词能力观察。",
+      "concept_tier_id": "subject-ability-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "科学类"
+      ],
+      "concept_ids": [
+        "detail-science-inquiry-ability"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-science-inquiry-ability",
+          "label": "探究能力",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 3
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 3
+    },
+    {
+      "id": "subject-ability-technology",
+      "label": "技术创新能力",
+      "definition": "创新能力在高中技术实验稿与义务教育信息科技 2022 年版中的同词能力观察。",
+      "concept_tier_id": "subject-ability-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "技术"
+      ],
+      "concept_ids": [
+        "detail-technology-innovation-ability"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-technology-innovation-ability",
+          "label": "创新能力",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 2
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 2
+    },
+    {
+      "id": "subject-ability-labor",
+      "label": "劳动能力",
+      "definition": "劳动能力在当前已完成的 2022 年劳动课标中的单版本能力观察。",
+      "concept_tier_id": "subject-ability-domain",
+      "coverage_contract": "single_version_2022",
+      "visibility_facets": [
+        "劳动"
+      ],
+      "concept_ids": [
+        "detail-labor-ability"
+      ],
+      "observed_concepts": [
+        {
+          "id": "detail-labor-ability",
+          "label": "劳动能力",
+          "first_observed_year": 2022,
+          "last_observed_year": 2022,
+          "episode_count": 1
+        }
+      ],
+      "first_observed_year": 2022,
+      "last_observed_year": 2022,
+      "episode_count": 1
+    },
+    {
+      "id": "subject-ability-art",
+      "label": "艺术表现能力",
+      "definition": "艺术表现在艺术课标三个版本及既有正式课标图谱中的同词能力观察。",
+      "concept_tier_id": "subject-ability-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "艺术"
+      ],
+      "concept_ids": [
+        "artistic-expression"
+      ],
+      "observed_concepts": [
+        {
+          "id": "artistic-expression",
+          "label": "艺术表现",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 8
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 8
+    },
+    {
+      "id": "subject-ability-sports-health",
+      "label": "体育与健康运动能力",
+      "definition": "运动能力在体育与健康课标三个版本及既有正式课标图谱中的同词能力观察。",
+      "concept_tier_id": "subject-ability-domain",
+      "coverage_contract": "version_span_2001_2022",
+      "visibility_facets": [
+        "体育与健康"
+      ],
+      "concept_ids": [
+        "sports-ability"
+      ],
+      "observed_concepts": [
+        {
+          "id": "sports-ability",
+          "label": "运动能力",
+          "first_observed_year": 2001,
+          "last_observed_year": 2022,
+          "episode_count": 8
+        }
+      ],
+      "first_observed_year": 2001,
+      "last_observed_year": 2022,
+      "episode_count": 8
     }
   ],
   "episode_memberships": [
@@ -7667,6 +8633,377 @@
       "year": 2000
     },
     {
+      "episode_id": "subject-detail:ictr-7759fd25e216:artistic-expression",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-afedc894b8c4:detail-chinese-reading-ability",
+      "concept_id": "detail-chinese-reading-ability",
+      "family_id": "subject-ability-chinese",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-d692b0ff2e6c:responsibility-awareness",
+      "concept_id": "responsibility-awareness",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-ddd18cff2338:english-language-ability",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-ddde78e17189:detail-geography-practice-ability",
+      "concept_id": "detail-geography-practice-ability",
+      "family_id": "subject-ability-geography",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-0f671ae84421:detail-history-thinking-ability",
+      "concept_id": "detail-history-thinking-ability",
+      "family_id": "subject-ability-history",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-2aeee929041c:detail-history-society-information",
+      "concept_id": "detail-history-society-information",
+      "family_id": "subject-ability-history-society",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-f36cc1469a0c:detail-mathematics-reasoning-ability",
+      "concept_id": "detail-mathematics-reasoning-ability",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-ceb759a85c4b:detail-science-inquiry-ability",
+      "concept_id": "detail-science-inquiry-ability",
+      "family_id": "subject-ability-science",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-4509b6ddd5b8:sports-ability",
+      "concept_id": "sports-ability",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-e1fab1e6823b:detail-technology-innovation-ability",
+      "concept_id": "detail-technology-innovation-ability",
+      "family_id": "subject-ability-technology",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-afedc894b8c4:detail-chinese-reading",
+      "concept_id": "detail-chinese-reading",
+      "family_id": "subject-content-chinese",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-d692b0ff2e6c:detail-civics-national-conditions",
+      "concept_id": "detail-civics-national-conditions",
+      "family_id": "subject-content-civics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-ddd18cff2338:detail-foreign-theme",
+      "concept_id": "detail-foreign-theme",
+      "family_id": "subject-content-foreign-language",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-ddd18cff2338:detail-foreign-topic",
+      "concept_id": "detail-foreign-topic",
+      "family_id": "subject-content-foreign-language",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-ddde78e17189:detail-geography-regional",
+      "concept_id": "detail-geography-regional",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-0f671ae84421:detail-history-ancient-china",
+      "concept_id": "detail-history-ancient-china",
+      "family_id": "subject-content-history",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-2aeee929041c:detail-history-society-social-life",
+      "concept_id": "detail-history-society-social-life",
+      "family_id": "subject-content-history-society",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-f36cc1469a0c:detail-mathematics-number-algebra",
+      "concept_id": "detail-mathematics-number-algebra",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-ceb759a85c4b:detail-science-life",
+      "concept_id": "detail-science-life",
+      "family_id": "subject-content-science",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-4509b6ddd5b8:detail-sports-motor-skills",
+      "concept_id": "detail-sports-motor-skills",
+      "family_id": "subject-content-sports-health",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-e1fab1e6823b:detail-technology-information",
+      "concept_id": "detail-technology-information",
+      "family_id": "subject-content-technology",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-7759fd25e216:detail-art-practice",
+      "concept_id": "detail-art-practice",
+      "family_id": "subject-practice-art",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-afedc894b8c4:detail-chinese-integrated-learning",
+      "concept_id": "detail-chinese-integrated-learning",
+      "family_id": "subject-practice-chinese",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-d692b0ff2e6c:detail-civics-social-practice",
+      "concept_id": "detail-civics-social-practice",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-ddd18cff2338:detail-foreign-language-practice",
+      "concept_id": "detail-foreign-language-practice",
+      "family_id": "subject-practice-foreign-language",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-ddde78e17189:detail-geography-practice",
+      "concept_id": "detail-geography-practice",
+      "family_id": "subject-practice-geography",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-0f671ae84421:detail-history-learning",
+      "concept_id": "detail-history-learning",
+      "family_id": "subject-practice-history",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-2aeee929041c:detail-history-society-survey",
+      "concept_id": "detail-history-society-survey",
+      "family_id": "subject-practice-history-society",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-f36cc1469a0c:detail-mathematics-activities",
+      "concept_id": "detail-mathematics-activities",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-ceb759a85c4b:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-4509b6ddd5b8:detail-sports-activities",
+      "concept_id": "detail-sports-activities",
+      "family_id": "subject-practice-sports-health",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:ictr-e1fab1e6823b:detail-technology-design-learning",
+      "concept_id": "detail-technology-design-learning",
+      "family_id": "subject-practice-technology",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-16:artistic-expression",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-01:detail-chinese-reading-ability",
+      "concept_id": "detail-chinese-reading-ability",
+      "family_id": "subject-ability-chinese",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-07:responsibility-awareness",
+      "concept_id": "responsibility-awareness",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-02:english-language-ability",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-14:detail-geography-practice-ability",
+      "concept_id": "detail-geography-practice-ability",
+      "family_id": "subject-ability-geography",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-13:detail-history-thinking-ability",
+      "concept_id": "detail-history-thinking-ability",
+      "family_id": "subject-ability-history",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-15:detail-history-society-information",
+      "concept_id": "detail-history-society-information",
+      "family_id": "subject-ability-history-society",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-08:detail-mathematics-reasoning-ability",
+      "concept_id": "detail-mathematics-reasoning-ability",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-12:detail-science-inquiry-ability",
+      "concept_id": "detail-science-inquiry-ability",
+      "family_id": "subject-ability-science",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-19:sports-ability",
+      "concept_id": "sports-ability",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-16:detail-art-modeling-expression",
+      "concept_id": "detail-art-modeling-expression",
+      "family_id": "subject-content-art",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-01:detail-chinese-reading",
+      "concept_id": "detail-chinese-reading",
+      "family_id": "subject-content-chinese",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-02:detail-foreign-theme",
+      "concept_id": "detail-foreign-theme",
+      "family_id": "subject-content-foreign-language",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-02:detail-foreign-topic",
+      "concept_id": "detail-foreign-topic",
+      "family_id": "subject-content-foreign-language",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-14:detail-geography-regional",
+      "concept_id": "detail-geography-regional",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-13:detail-history-ancient-china",
+      "concept_id": "detail-history-ancient-china",
+      "family_id": "subject-content-history",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-15:detail-history-society-social-life",
+      "concept_id": "detail-history-society-social-life",
+      "family_id": "subject-content-history-society",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-08:detail-mathematics-number-algebra",
+      "concept_id": "detail-mathematics-number-algebra",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-12:detail-science-life",
+      "concept_id": "detail-science-life",
+      "family_id": "subject-content-science",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-19:detail-sports-motor-skills",
+      "concept_id": "detail-sports-motor-skills",
+      "family_id": "subject-content-sports-health",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2011
+    },
+    {
       "episode_id": "century-catalog-concept:f7fba3d2c0f2688ecc3f",
       "concept_id": "course-art",
       "family_id": "subject-course-art",
@@ -7772,6 +9109,76 @@
       "year": 2011
     },
     {
+      "episode_id": "subject-detail:moe-2011-16:detail-art-practice",
+      "concept_id": "detail-art-practice",
+      "family_id": "subject-practice-art",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-01:detail-chinese-integrated-learning",
+      "concept_id": "detail-chinese-integrated-learning",
+      "family_id": "subject-practice-chinese",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-07:detail-civics-social-practice",
+      "concept_id": "detail-civics-social-practice",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-02:detail-foreign-language-practice",
+      "concept_id": "detail-foreign-language-practice",
+      "family_id": "subject-practice-foreign-language",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-14:detail-geography-practice",
+      "concept_id": "detail-geography-practice",
+      "family_id": "subject-practice-geography",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-13:detail-history-learning",
+      "concept_id": "detail-history-learning",
+      "family_id": "subject-practice-history",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-15:detail-history-society-survey",
+      "concept_id": "detail-history-society-survey",
+      "family_id": "subject-practice-history-society",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-08:detail-mathematics-activities",
+      "concept_id": "detail-mathematics-activities",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-12:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "subject-detail:moe-2011-19:detail-sports-activities",
+      "concept_id": "detail-sports-activities",
+      "family_id": "subject-practice-sports-health",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
       "episode_id": "concept:862382bc843b7b8d",
       "concept_id": "expression-communication",
       "family_id": "expression-and-communication",
@@ -7828,6 +9235,90 @@
       "year": 2016
     },
     {
+      "episode_id": "concept:1a191f75054324da",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2016
+    },
+    {
+      "episode_id": "concept:7f3e717756842a4a",
+      "concept_id": "responsibility-awareness",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2016
+    },
+    {
+      "episode_id": "concept:5ca45bf0211df8f1",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2016
+    },
+    {
+      "episode_id": "concept:3a3c44925d9fd0c4",
+      "concept_id": "sports-ability",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2016
+    },
+    {
+      "episode_id": "concept:533dfc3d5528f2e5",
+      "concept_id": "sports-ability",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2016
+    },
+    {
+      "episode_id": "concept:c256e1288184883c",
+      "concept_id": "sports-ability",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2016
+    },
+    {
+      "episode_id": "concept:5c9354401dd2bdb3",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2016
+    },
+    {
+      "episode_id": "concept:923df5289e71f526",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2016
+    },
+    {
+      "episode_id": "concept:b9bbff398b749fea",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2016
+    },
+    {
+      "episode_id": "concept:ca36686518d0ffdd",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2016
+    },
+    {
+      "episode_id": "concept:e4234323f43c933a",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2016
+    },
+    {
+      "episode_id": "concept:e55332a715bb435c",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2016
+    },
+    {
       "episode_id": "concept:a3afec4d8029f15c",
       "concept_id": "traditional-culture-classics-study",
       "family_id": "classics-and-cultural-study",
@@ -7877,6 +9368,97 @@
       "year": 2017
     },
     {
+      "episode_id": "concept:87e5143e82cfaed7",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2017
+    },
+    {
+      "episode_id": "concept:da733567fed61b66",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2017
+    },
+    {
+      "episode_id": "concept:015b0799153d1ea7",
+      "concept_id": "responsibility-awareness",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2017
+    },
+    {
+      "episode_id": "concept:1d4a00dcc5a41336",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2017
+    },
+    {
+      "episode_id": "concept:37efae183e019fa8",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2017
+    },
+    {
+      "episode_id": "concept:45588f04c48e3fab",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2017
+    },
+    {
+      "episode_id": "concept:6c313b0baf1875aa",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2017
+    },
+    {
+      "episode_id": "concept:88575ef5302d3802",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2017
+    },
+    {
+      "episode_id": "concept:db2d986858ec43d7",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2017
+    },
+    {
+      "episode_id": "concept:4c7261cdd047ee76",
+      "concept_id": "geographical-practice",
+      "family_id": "subject-ability-geography",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2017
+    },
+    {
+      "episode_id": "concept:01ba652c0d8fd96a",
+      "concept_id": "sports-ability",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2017
+    },
+    {
+      "episode_id": "concept:85d543973aa2a1f2",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2017
+    },
+    {
+      "episode_id": "concept:f84d923f07c3ebfc",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2017
+    },
+    {
       "episode_id": "concept:352e6a305304ca5d",
       "concept_id": "literary-works-appreciation",
       "family_id": "literature-reading-and-writing",
@@ -7888,6 +9470,13 @@
       "concept_id": "reading-appreciation",
       "family_id": "reading-and-appreciation",
       "concept_tier_id": "language-practice-domain",
+      "year": 2019
+    },
+    {
+      "episode_id": "concept:351fa9607c5078c1",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
       "year": 2019
     },
     {
@@ -7937,6 +9526,83 @@
       "concept_id": "reading-appreciation",
       "family_id": "reading-and-appreciation",
       "concept_tier_id": "language-practice-domain",
+      "year": 2020
+    },
+    {
+      "episode_id": "concept:d80ec6fb42a6912b",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2020
+    },
+    {
+      "episode_id": "concept:f1a442dff2d1792a",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2020
+    },
+    {
+      "episode_id": "concept:f71b3b0d98faad5c",
+      "concept_id": "responsibility-awareness",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2020
+    },
+    {
+      "episode_id": "concept:016d9f6775481ebd",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2020
+    },
+    {
+      "episode_id": "concept:2728e9909b960689",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2020
+    },
+    {
+      "episode_id": "concept:2e9e017afc18375b",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2020
+    },
+    {
+      "episode_id": "concept:30270db2a4af8c5a",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2020
+    },
+    {
+      "episode_id": "concept:54a7b3c61471c4f4",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2020
+    },
+    {
+      "episode_id": "concept:68965d7ddfa3e9a4",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2020
+    },
+    {
+      "episode_id": "concept:b2b9fa4218d0fa74",
+      "concept_id": "geographical-practice",
+      "family_id": "subject-ability-geography",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2020
+    },
+    {
+      "episode_id": "concept:4db2c454fb89b8f0",
+      "concept_id": "sports-ability",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
       "year": 2020
     },
     {
@@ -8045,6 +9711,27 @@
       "year": 2020
     },
     {
+      "episode_id": "concept:2ea52960896703a9",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2020
+    },
+    {
+      "episode_id": "concept:9b4dd15ca9bef837",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2020
+    },
+    {
+      "episode_id": "concept:aee3f7a94b198a2d",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2020
+    },
+    {
       "episode_id": "ocr-candidate:moe-2022-03:expression-communication",
       "concept_id": "expression-communication",
       "family_id": "expression-and-communication",
@@ -8084,6 +9771,167 @@
       "concept_id": "reading-appreciation",
       "family_id": "reading-and-appreciation",
       "concept_tier_id": "language-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-16:artistic-expression",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-03:detail-chinese-reading-ability",
+      "concept_id": "detail-chinese-reading-ability",
+      "family_id": "subject-ability-chinese",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-02:responsibility-awareness",
+      "concept_id": "responsibility-awareness",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-06:english-language-ability",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-09:geographical-practice",
+      "concept_id": "geographical-practice",
+      "family_id": "subject-ability-geography",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-04:detail-history-thinking-ability",
+      "concept_id": "detail-history-thinking-ability",
+      "family_id": "subject-ability-history",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-17:detail-labor-ability",
+      "concept_id": "detail-labor-ability",
+      "family_id": "subject-ability-labor",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-05:detail-mathematics-reasoning-ability",
+      "concept_id": "detail-mathematics-reasoning-ability",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-10:detail-science-inquiry-ability",
+      "concept_id": "detail-science-inquiry-ability",
+      "family_id": "subject-ability-science",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-15:sports-ability",
+      "concept_id": "sports-ability",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-14:detail-technology-innovation-ability",
+      "concept_id": "detail-technology-innovation-ability",
+      "family_id": "subject-ability-technology",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-16:detail-art-modeling-expression",
+      "concept_id": "detail-art-modeling-expression",
+      "family_id": "subject-content-art",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-03:detail-chinese-reading",
+      "concept_id": "detail-chinese-reading",
+      "family_id": "subject-content-chinese",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-02:detail-civics-national-conditions",
+      "concept_id": "detail-civics-national-conditions",
+      "family_id": "subject-content-civics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-06:detail-foreign-theme",
+      "concept_id": "detail-foreign-theme",
+      "family_id": "subject-content-foreign-language",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-09:detail-geography-regional",
+      "concept_id": "detail-geography-regional",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-04:detail-history-ancient-china",
+      "concept_id": "detail-history-ancient-china",
+      "family_id": "subject-content-history",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-17:detail-labor-daily-life",
+      "concept_id": "detail-labor-daily-life",
+      "family_id": "subject-content-labor",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-05:detail-mathematics-number-algebra",
+      "concept_id": "detail-mathematics-number-algebra",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-10:detail-science-life",
+      "concept_id": "detail-science-life",
+      "family_id": "subject-content-science",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-15:detail-sports-motor-skills",
+      "concept_id": "detail-sports-motor-skills",
+      "family_id": "subject-content-sports-health",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-14:detail-technology-information",
+      "concept_id": "detail-technology-information",
+      "family_id": "subject-content-technology",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-14:detail-technology-information-science",
+      "concept_id": "detail-technology-information-science",
+      "family_id": "subject-content-technology",
+      "concept_tier_id": "subject-content-domain",
       "year": 2022
     },
     {
@@ -8182,6 +10030,83 @@
       "concept_id": "course-technology-information-science",
       "family_id": "subject-course-technology",
       "concept_tier_id": "subject-course-identity",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-16:detail-art-practice",
+      "concept_id": "detail-art-practice",
+      "family_id": "subject-practice-art",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-03:detail-chinese-language-practice",
+      "concept_id": "detail-chinese-language-practice",
+      "family_id": "subject-practice-chinese",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-02:detail-civics-social-practice",
+      "concept_id": "detail-civics-social-practice",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-06:detail-foreign-language-practice",
+      "concept_id": "detail-foreign-language-practice",
+      "family_id": "subject-practice-foreign-language",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-09:detail-geography-practice",
+      "concept_id": "detail-geography-practice",
+      "family_id": "subject-practice-geography",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-04:detail-history-learning",
+      "concept_id": "detail-history-learning",
+      "family_id": "subject-practice-history",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-17:detail-labor-project-practice",
+      "concept_id": "detail-labor-project-practice",
+      "family_id": "subject-practice-labor",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-05:detail-mathematics-activities",
+      "concept_id": "detail-mathematics-activities",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-10:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-15:detail-sports-activities",
+      "concept_id": "detail-sports-activities",
+      "family_id": "subject-practice-sports-health",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "subject-detail:moe-2022-14:detail-technology-design-learning",
+      "concept_id": "detail-technology-design-learning",
+      "family_id": "subject-practice-technology",
+      "concept_tier_id": "subject-practice-domain",
       "year": 2022
     }
   ],
@@ -12249,6 +14174,886 @@
       "citation_allowed": false,
       "influence_claim_allowed": false,
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:a24028b189b8be19afb3",
+      "source": "subject-detail:ictr-7759fd25e216:artistic-expression",
+      "target": "subject-detail:moe-2011-16:artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:3e12b0f872e68c69a173",
+      "source": "subject-detail:moe-2011-16:artistic-expression",
+      "target": "concept:1a191f75054324da",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2016,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:dfffb284f7e7c5858f76",
+      "source": "concept:1a191f75054324da",
+      "target": "concept:da733567fed61b66",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2016,
+      "target_year": 2017,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:453fd375a92ab7ec1909",
+      "source": "concept:da733567fed61b66",
+      "target": "concept:d80ec6fb42a6912b",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2017,
+      "target_year": 2020,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:24a266acc557f03c5176",
+      "source": "concept:d80ec6fb42a6912b",
+      "target": "subject-detail:moe-2022-16:artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2020,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:5d96f37be4b660c31427",
+      "source": "subject-detail:ictr-afedc894b8c4:detail-chinese-reading-ability",
+      "target": "subject-detail:moe-2011-01:detail-chinese-reading-ability",
+      "family_id": "subject-ability-chinese",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:1a56937fdac2490f3484",
+      "source": "subject-detail:moe-2011-01:detail-chinese-reading-ability",
+      "target": "subject-detail:moe-2022-03:detail-chinese-reading-ability",
+      "family_id": "subject-ability-chinese",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:6b19a0ae4314b6e81a90",
+      "source": "subject-detail:ictr-d692b0ff2e6c:responsibility-awareness",
+      "target": "subject-detail:moe-2011-07:responsibility-awareness",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:4a32a86ee66a85e3b4e2",
+      "source": "subject-detail:moe-2011-07:responsibility-awareness",
+      "target": "concept:7f3e717756842a4a",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2016,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:c6066140fee1d8db8a0a",
+      "source": "concept:7f3e717756842a4a",
+      "target": "concept:015b0799153d1ea7",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2016,
+      "target_year": 2017,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:075db7f3c85cb9987f89",
+      "source": "concept:015b0799153d1ea7",
+      "target": "concept:f71b3b0d98faad5c",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2017,
+      "target_year": 2020,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:1f3b1ad78126cb4052e3",
+      "source": "concept:f71b3b0d98faad5c",
+      "target": "subject-detail:moe-2022-02:responsibility-awareness",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2020,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:21778a555adad8a5bf49",
+      "source": "subject-detail:ictr-ddd18cff2338:english-language-ability",
+      "target": "subject-detail:moe-2011-02:english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:9f7b72a59bbbf3882918",
+      "source": "subject-detail:moe-2011-02:english-language-ability",
+      "target": "concept:5ca45bf0211df8f1",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2016,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:e885f0d0b0caba969d09",
+      "source": "concept:5ca45bf0211df8f1",
+      "target": "concept:88575ef5302d3802",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2016,
+      "target_year": 2017,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:9517b6a1a7bb4eb1a5ff",
+      "source": "concept:88575ef5302d3802",
+      "target": "concept:68965d7ddfa3e9a4",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2017,
+      "target_year": 2020,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:8c74e65782219e5047b3",
+      "source": "concept:68965d7ddfa3e9a4",
+      "target": "subject-detail:moe-2022-06:english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2020,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:a39fb7f5539f0634662a",
+      "source": "subject-detail:ictr-ddde78e17189:detail-geography-practice-ability",
+      "target": "subject-detail:moe-2011-14:detail-geography-practice-ability",
+      "family_id": "subject-ability-geography",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:b2c9c535ec4ef32d7ecd",
+      "source": "subject-detail:moe-2011-14:detail-geography-practice-ability",
+      "target": "concept:4c7261cdd047ee76",
+      "family_id": "subject-ability-geography",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "editorial_correspondence",
+      "mode": "evolution",
+      "label": "能力词面凝练",
+      "source_year": 2011,
+      "target_year": 2017,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
+    },
+    {
+      "id": "evolution-family:8722d2924df3265986c3",
+      "source": "concept:4c7261cdd047ee76",
+      "target": "concept:b2b9fa4218d0fa74",
+      "family_id": "subject-ability-geography",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2017,
+      "target_year": 2020,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:bdd3317667fa6864362b",
+      "source": "concept:b2b9fa4218d0fa74",
+      "target": "subject-detail:moe-2022-09:geographical-practice",
+      "family_id": "subject-ability-geography",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2020,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:1654cf07e1cd5c5098c4",
+      "source": "subject-detail:ictr-0f671ae84421:detail-history-thinking-ability",
+      "target": "subject-detail:moe-2011-13:detail-history-thinking-ability",
+      "family_id": "subject-ability-history",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:1ee89af6d898ff587d0d",
+      "source": "subject-detail:moe-2011-13:detail-history-thinking-ability",
+      "target": "subject-detail:moe-2022-04:detail-history-thinking-ability",
+      "family_id": "subject-ability-history",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:1134106dd05e51571a9d",
+      "source": "subject-detail:ictr-2aeee929041c:detail-history-society-information",
+      "target": "subject-detail:moe-2011-15:detail-history-society-information",
+      "family_id": "subject-ability-history-society",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:d133d4aef558941ebf95",
+      "source": "subject-detail:ictr-f36cc1469a0c:detail-mathematics-reasoning-ability",
+      "target": "subject-detail:moe-2011-08:detail-mathematics-reasoning-ability",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:2540d67ac21e274e7156",
+      "source": "subject-detail:moe-2011-08:detail-mathematics-reasoning-ability",
+      "target": "subject-detail:moe-2022-05:detail-mathematics-reasoning-ability",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:725da41e350a0e8eb64b",
+      "source": "subject-detail:ictr-ceb759a85c4b:detail-science-inquiry-ability",
+      "target": "subject-detail:moe-2011-12:detail-science-inquiry-ability",
+      "family_id": "subject-ability-science",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:a98adbcfd7515df1aa24",
+      "source": "subject-detail:moe-2011-12:detail-science-inquiry-ability",
+      "target": "subject-detail:moe-2022-10:detail-science-inquiry-ability",
+      "family_id": "subject-ability-science",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:dc3593ea6110c63cadba",
+      "source": "subject-detail:ictr-4509b6ddd5b8:sports-ability",
+      "target": "subject-detail:moe-2011-19:sports-ability",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:6de1be17956e22b113d1",
+      "source": "subject-detail:moe-2011-19:sports-ability",
+      "target": "concept:533dfc3d5528f2e5",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2016,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:6584875cac331a8e5a3e",
+      "source": "concept:533dfc3d5528f2e5",
+      "target": "concept:01ba652c0d8fd96a",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2016,
+      "target_year": 2017,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:868584bedc33d7470e58",
+      "source": "concept:01ba652c0d8fd96a",
+      "target": "concept:4db2c454fb89b8f0",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2017,
+      "target_year": 2020,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:7a1749373e501d3e6c31",
+      "source": "concept:4db2c454fb89b8f0",
+      "target": "subject-detail:moe-2022-15:sports-ability",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2020,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:c38fce69b2a8ed0c6cda",
+      "source": "subject-detail:ictr-e1fab1e6823b:detail-technology-innovation-ability",
+      "target": "subject-detail:moe-2022-14:detail-technology-innovation-ability",
+      "family_id": "subject-ability-technology",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:bedba99e6b1f2c720184",
+      "source": "subject-detail:moe-2011-16:detail-art-modeling-expression",
+      "target": "subject-detail:moe-2022-16:detail-art-modeling-expression",
+      "family_id": "subject-content-art",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:6dff769101c0104576c4",
+      "source": "subject-detail:ictr-afedc894b8c4:detail-chinese-reading",
+      "target": "subject-detail:moe-2011-01:detail-chinese-reading",
+      "family_id": "subject-content-chinese",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:1c0ce04bc8244d20aedb",
+      "source": "subject-detail:moe-2011-01:detail-chinese-reading",
+      "target": "subject-detail:moe-2022-03:detail-chinese-reading",
+      "family_id": "subject-content-chinese",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:3db2796851980ce67eef",
+      "source": "subject-detail:ictr-d692b0ff2e6c:detail-civics-national-conditions",
+      "target": "subject-detail:moe-2022-02:detail-civics-national-conditions",
+      "family_id": "subject-content-civics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:41e034b4825710393516",
+      "source": "subject-detail:ictr-ddd18cff2338:detail-foreign-theme",
+      "target": "subject-detail:moe-2011-02:detail-foreign-theme",
+      "family_id": "subject-content-foreign-language",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:954071a1ada2cc1242c9",
+      "source": "subject-detail:ictr-ddd18cff2338:detail-foreign-topic",
+      "target": "subject-detail:moe-2011-02:detail-foreign-topic",
+      "family_id": "subject-content-foreign-language",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:cf27f94705c7d638412e",
+      "source": "subject-detail:moe-2011-02:detail-foreign-topic",
+      "target": "subject-detail:moe-2011-02:detail-foreign-theme",
+      "family_id": "subject-content-foreign-language",
+      "concept_tier_id": "subject-content-domain",
+      "type": "editorial_correspondence",
+      "mode": "evolution",
+      "label": "内容组织词面转写",
+      "source_year": 2011,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
+    },
+    {
+      "id": "evolution-family:397170cdb41eab40f71e",
+      "source": "subject-detail:moe-2011-02:detail-foreign-theme",
+      "target": "subject-detail:moe-2022-06:detail-foreign-theme",
+      "family_id": "subject-content-foreign-language",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:2de1812a35977d011431",
+      "source": "subject-detail:ictr-ddde78e17189:detail-geography-regional",
+      "target": "subject-detail:moe-2011-14:detail-geography-regional",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:0fb44c7c2908c291120f",
+      "source": "subject-detail:moe-2011-14:detail-geography-regional",
+      "target": "subject-detail:moe-2022-09:detail-geography-regional",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:c3fcd5a6ee1d51423390",
+      "source": "subject-detail:ictr-0f671ae84421:detail-history-ancient-china",
+      "target": "subject-detail:moe-2011-13:detail-history-ancient-china",
+      "family_id": "subject-content-history",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:044fb8684c50dc18ce88",
+      "source": "subject-detail:moe-2011-13:detail-history-ancient-china",
+      "target": "subject-detail:moe-2022-04:detail-history-ancient-china",
+      "family_id": "subject-content-history",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:fb74d57935ad4866461e",
+      "source": "subject-detail:ictr-2aeee929041c:detail-history-society-social-life",
+      "target": "subject-detail:moe-2011-15:detail-history-society-social-life",
+      "family_id": "subject-content-history-society",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:85da3bf4c5fad3cca78c",
+      "source": "subject-detail:ictr-f36cc1469a0c:detail-mathematics-number-algebra",
+      "target": "subject-detail:moe-2011-08:detail-mathematics-number-algebra",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:7c8a7d21bcaac5ffa1b0",
+      "source": "subject-detail:moe-2011-08:detail-mathematics-number-algebra",
+      "target": "subject-detail:moe-2022-05:detail-mathematics-number-algebra",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:acd9a3d5b3baa5a5a7f5",
+      "source": "subject-detail:ictr-ceb759a85c4b:detail-science-life",
+      "target": "subject-detail:moe-2011-12:detail-science-life",
+      "family_id": "subject-content-science",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:0ab4f5c39524421c6bb5",
+      "source": "subject-detail:moe-2011-12:detail-science-life",
+      "target": "subject-detail:moe-2022-10:detail-science-life",
+      "family_id": "subject-content-science",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:b70c051a7a75c70df5cc",
+      "source": "subject-detail:ictr-4509b6ddd5b8:detail-sports-motor-skills",
+      "target": "subject-detail:moe-2011-19:detail-sports-motor-skills",
+      "family_id": "subject-content-sports-health",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:b437b2bca07ac12cd62a",
+      "source": "subject-detail:moe-2011-19:detail-sports-motor-skills",
+      "target": "subject-detail:moe-2022-15:detail-sports-motor-skills",
+      "family_id": "subject-content-sports-health",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:eea938ad7276a0b2beab",
+      "source": "subject-detail:ictr-e1fab1e6823b:detail-technology-information",
+      "target": "subject-detail:moe-2022-14:detail-technology-information",
+      "family_id": "subject-content-technology",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:acafc7f7657c05bd4a43",
+      "source": "subject-detail:moe-2022-14:detail-technology-information",
+      "target": "subject-detail:moe-2022-14:detail-technology-information-science",
+      "family_id": "subject-content-technology",
+      "concept_tier_id": "subject-content-domain",
+      "type": "editorial_correspondence",
+      "mode": "evolution",
+      "label": "内容领域名称转写",
+      "source_year": 2022,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
     },
     {
       "id": "evolution-family:d22b1b91d5b83849e576",
@@ -24297,17 +27102,402 @@
       "citation_allowed": false,
       "influence_claim_allowed": false,
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
+    },
+    {
+      "id": "evolution-family:b526c8cd24e9d00ac558",
+      "source": "subject-detail:ictr-7759fd25e216:detail-art-practice",
+      "target": "subject-detail:moe-2011-16:detail-art-practice",
+      "family_id": "subject-practice-art",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:e7a8a8cf7025105210f9",
+      "source": "subject-detail:moe-2011-16:detail-art-practice",
+      "target": "subject-detail:moe-2022-16:detail-art-practice",
+      "family_id": "subject-practice-art",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:7663e45850c8e979acbd",
+      "source": "subject-detail:ictr-afedc894b8c4:detail-chinese-integrated-learning",
+      "target": "subject-detail:moe-2011-01:detail-chinese-integrated-learning",
+      "family_id": "subject-practice-chinese",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:5f271dfcbfcfa99ef8a1",
+      "source": "subject-detail:moe-2011-01:detail-chinese-integrated-learning",
+      "target": "subject-detail:moe-2022-03:detail-chinese-language-practice",
+      "family_id": "subject-practice-chinese",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "editorial_correspondence",
+      "mode": "evolution",
+      "label": "实践组织词面转写",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
+    },
+    {
+      "id": "evolution-family:9dcbe32454222eace2dd",
+      "source": "subject-detail:ictr-d692b0ff2e6c:detail-civics-social-practice",
+      "target": "subject-detail:moe-2011-07:detail-civics-social-practice",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:cfd69b637c7edf8450b1",
+      "source": "subject-detail:moe-2011-07:detail-civics-social-practice",
+      "target": "subject-detail:moe-2022-02:detail-civics-social-practice",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:5ffe3281046628efbf6c",
+      "source": "subject-detail:ictr-ddd18cff2338:detail-foreign-language-practice",
+      "target": "subject-detail:moe-2011-02:detail-foreign-language-practice",
+      "family_id": "subject-practice-foreign-language",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:8e457ec799d736ed3353",
+      "source": "subject-detail:moe-2011-02:detail-foreign-language-practice",
+      "target": "subject-detail:moe-2022-06:detail-foreign-language-practice",
+      "family_id": "subject-practice-foreign-language",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:a8ab9a55ea2925322256",
+      "source": "subject-detail:ictr-ddde78e17189:detail-geography-practice",
+      "target": "subject-detail:moe-2011-14:detail-geography-practice",
+      "family_id": "subject-practice-geography",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:4576020ed82f862ba47c",
+      "source": "subject-detail:moe-2011-14:detail-geography-practice",
+      "target": "subject-detail:moe-2022-09:detail-geography-practice",
+      "family_id": "subject-practice-geography",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:d9fdedd21f414e5c88c0",
+      "source": "subject-detail:ictr-0f671ae84421:detail-history-learning",
+      "target": "subject-detail:moe-2011-13:detail-history-learning",
+      "family_id": "subject-practice-history",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:5f10ed31af32bcad3b72",
+      "source": "subject-detail:moe-2011-13:detail-history-learning",
+      "target": "subject-detail:moe-2022-04:detail-history-learning",
+      "family_id": "subject-practice-history",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:5be67d568a75ebc7341b",
+      "source": "subject-detail:ictr-2aeee929041c:detail-history-society-survey",
+      "target": "subject-detail:moe-2011-15:detail-history-society-survey",
+      "family_id": "subject-practice-history-society",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:df8d810984541ed39aab",
+      "source": "subject-detail:ictr-f36cc1469a0c:detail-mathematics-activities",
+      "target": "subject-detail:moe-2011-08:detail-mathematics-activities",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:d40aa9036ed217567488",
+      "source": "subject-detail:moe-2011-08:detail-mathematics-activities",
+      "target": "subject-detail:moe-2022-05:detail-mathematics-activities",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:6112978bf9337e1ef32a",
+      "source": "subject-detail:ictr-ceb759a85c4b:scientific-inquiry",
+      "target": "subject-detail:moe-2011-12:scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:212b23e8beb7a6b222a6",
+      "source": "subject-detail:moe-2011-12:scientific-inquiry",
+      "target": "concept:e4234323f43c933a",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2016,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:8a64f5797ce74e4ad179",
+      "source": "concept:e4234323f43c933a",
+      "target": "concept:85d543973aa2a1f2",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2016,
+      "target_year": 2017,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:0ad1b843481163357c30",
+      "source": "concept:85d543973aa2a1f2",
+      "target": "concept:351fa9607c5078c1",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2017,
+      "target_year": 2019,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:5314c6f89880258eec61",
+      "source": "concept:351fa9607c5078c1",
+      "target": "concept:aee3f7a94b198a2d",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2019,
+      "target_year": 2020,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:d6a4f63d4333ec1822c2",
+      "source": "concept:aee3f7a94b198a2d",
+      "target": "subject-detail:moe-2022-10:scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2020,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:a7f293601b42da458674",
+      "source": "subject-detail:ictr-4509b6ddd5b8:detail-sports-activities",
+      "target": "subject-detail:moe-2011-19:detail-sports-activities",
+      "family_id": "subject-practice-sports-health",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:14dd492cc602380c7514",
+      "source": "subject-detail:moe-2011-19:detail-sports-activities",
+      "target": "subject-detail:moe-2022-15:detail-sports-activities",
+      "family_id": "subject-practice-sports-health",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:f68fdec7b58d78feaa11",
+      "source": "subject-detail:ictr-e1fab1e6823b:detail-technology-design-learning",
+      "target": "subject-detail:moe-2022-14:detail-technology-design-learning",
+      "family_id": "subject-practice-technology",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2022,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     }
   ],
   "counts": {
-    "families": 19,
-    "concept_tiers": 2,
+    "families": 55,
+    "concept_tiers": 5,
     "subject_facets": 12,
-    "configured_concepts": 78,
-    "observed_concepts": 78,
-    "episode_memberships": 1034,
-    "same_surface_edges": 952,
-    "correspondence_edges": 55,
+    "configured_concepts": 118,
+    "observed_concepts": 118,
+    "episode_memberships": 1171,
+    "same_surface_edges": 1027,
+    "correspondence_edges": 59,
+    "detailed_families": 36,
     "first_year": 1902,
     "last_year": 2022
   }

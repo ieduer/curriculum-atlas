@@ -180,6 +180,7 @@ const [
   coreGraph,
   academicGraph,
   centuryLayer,
+  detailLayer,
   evolutionFamilies,
 ] = await Promise.all([
   readFile(actionLogPath, 'utf8'),
@@ -195,6 +196,7 @@ const [
   readJson('public/data/concept-evolution.json'),
   readJson('public/data/concept-evolution-academic.json'),
   readJson('public/data/century-observation-layer.json'),
+  readJson('public/data/subject-detail-observation-layer.json'),
   readJson('public/data/concept-evolution-families.json'),
 ]);
 
@@ -337,7 +339,7 @@ lines.push(`| Semantic quarantine | aliases ${(semanticPolicy.document_aliases |
 lines.push(`| Corpus release | \`${corpus.release_id}\`；${corpus.documents} documents / ${corpus.paragraphs} paragraphs / ${corpus.fts_rows} FTS / ${corpus.page_publication_gates} page gates / ${corpus.displayed_paragraphs} displayed / ${corpus.accepted_ocr_documents} accepted OCR / ${corpus.sql_chunks} chunks | preview 与 production evidence 均为 ready；OCR 正文仍未接入 |`);
 lines.push(`| Taxonomy | ${taxonomy.subject || 0} subject + ${taxonomy.assessment_subject || 0} assessment subject + ${taxonomy.curriculum_course || 0} courses + ${taxonomy.scopes} scopes；${taxonomy.facets} facets / ${taxonomy.queryIdentities} exact query identities | schema 2；课程和范围不伪装成学科 |`);
 lines.push(`| Concept graph | core ${graphs.episodes} episodes / ${graphs.edges} edges；academic ${graphs.works} works / ${graphs.editions} editions / ${graphs.occurrences} occurrences / ${graphs.evidence} evidence | 五项 live asset byte parity 已由两端 release evidence 绑定 |`);
-lines.push(`| Century candidate graph | ${centuryLayer.counts.items} archive items；${centuryLayer.counts.ocr_concept_observations} OCR + ${centuryLayer.counts.catalog_metadata_observations} catalog-title source observations；${centuryLayer.counts.projected_concept_year_observations} projected stars / ${centuryLayer.star_projection.counts.evidence} evidence / ${centuryLayer.star_projection.counts.lineage_edges} lineage / ${centuryLayer.star_projection.counts.cross_edges} co-observation；${evolutionFamilies.counts.concept_tiers} tiers / ${evolutionFamilies.counts.families} families / ${evolutionFamilies.counts.subject_facets} subject facets / ${evolutionFamilies.counts.episode_memberships} memberships | 1902–2022；12/12 学科；候选、引文、语义和因果闸门全部 fail closed |`);
+lines.push(`| Century candidate graph | ${centuryLayer.counts.items} archive items；${centuryLayer.counts.ocr_concept_observations} OCR + ${centuryLayer.counts.catalog_metadata_observations} catalog-title source observations；${centuryLayer.counts.projected_concept_year_observations} projected century stars / ${centuryLayer.star_projection.counts.evidence} century evidence / ${centuryLayer.star_projection.counts.lineage_edges} lineage / ${centuryLayer.star_projection.counts.cross_edges} co-observation；detail ${detailLayer.counts.source_documents} documents / ${detailLayer.counts.source_pages} pages / ${detailLayer.counts.observed_concepts} concepts / ${detailLayer.counts.episodes} episodes / ${detailLayer.counts.evidence} evidence；${evolutionFamilies.counts.concept_tiers} tiers / ${evolutionFamilies.counts.families} families / ${evolutionFamilies.counts.subject_facets} subject facets / ${evolutionFamilies.counts.episode_memberships} memberships | 1902–2022；12/12 学科；${evolutionFamilies.counts.detailed_families} 条实践／内容／能力族；候选、引文、语义和因果闸门全部 fail closed |`);
 lines.push(`| Deep ontology | ${graphs.ontologyNodes} nodes / ${graphs.ontologyRelations} relations / ${graphs.ontologyEvidence} evidence anchors | 当前主要为语文深层模型；其他学科不可伪装已完成 |`);
 lines.push('');
 lines.push('### 本轮完成、保留边界与剩余阻断');

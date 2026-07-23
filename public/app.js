@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v24';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v25';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -6,7 +6,7 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260723v24';
+} from './subject-facets.js?v=20260723v25';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -61,6 +61,7 @@ const state = {
   insights: [],
   conceptGraph: null,
   ocrLayer: null,
+  detailLayer: null,
   centuryLayer: null,
   evolutionLayer: null,
   evolutionFamilyById: new Map(),
@@ -120,11 +121,12 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const [conceptGraph, ocrLayer, centuryLayer, evolutionLayer, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v24'),
-    api('/data/ocr-observation-layer.json?v=20260723v24'),
-    api('/data/century-observation-layer.json?v=20260723v24'),
-    api('/data/concept-evolution-families.json?v=20260723v24'),
+  const [conceptGraph, ocrLayer, detailLayer, centuryLayer, evolutionLayer, meta, documents, insights] = await Promise.all([
+    api('/data/concept-evolution.json?v=20260723v25'),
+    api('/data/ocr-observation-layer.json?v=20260723v25'),
+    api('/data/subject-detail-observation-layer.json?v=20260723v25'),
+    api('/data/century-observation-layer.json?v=20260723v25'),
+    api('/data/concept-evolution-families.json?v=20260723v25'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -152,6 +154,24 @@ async function loadBase() {
     || ocrLayer.source?.citation_allowed !== false) {
     throw new Error('OCR 观察层数据未通过结构校验');
   }
+  if (detailLayer.schema_version !== 1
+    || detailLayer.artifact_profile !== 'curriculum-subject-detail-observation-layer-v1'
+    || detailLayer.publication_status !== 'candidate_fail_closed'
+    || detailLayer.node_semantics !== 'subject_detail_concept_observation_episode_not_document'
+    || detailLayer.time_semantics !== 'year_is_single_spatial_coordinate_not_a_second_timeline'
+    || detailLayer.projection_policy?.grain !== 'one_exact_surface_observation_per_concept_document'
+    || detailLayer.counts?.subject_facets !== 12
+    || !Array.isArray(detailLayer.sources)
+    || !Array.isArray(detailLayer.episodes)
+    || !Array.isArray(detailLayer.evidence)
+    || !Array.isArray(detailLayer.edges)
+    || detailLayer.sources.some((source) => source.citation_allowed !== false
+      || source.completed_pages !== source.page_count
+      || source.failed_pages !== 0)
+    || detailLayer.episodes.some((episode) => episode.claim_policy?.display_level !== 'uniform_star'
+      || !episode.evidence_ids?.length)) {
+    throw new Error('各学科同粒度 OCR 观察层未通过结构校验');
+  }
   if (centuryLayer.schema_version !== 2
     || centuryLayer.artifact_profile !== 'curriculum-century-candidate-observation-layer-v2'
     || centuryLayer.publication_status !== 'candidate_fail_closed'
@@ -173,10 +193,10 @@ async function loadBase() {
     || centuryLayer.items.some((item) => item.citation_allowed !== false || item.semantic_claim_allowed !== false)) {
     throw new Error('百年文件候选层未通过结构校验');
   }
-  if (evolutionLayer.schema_version !== 2
-    || evolutionLayer.artifact_profile !== 'curriculum-concept-evolution-families-v2'
+  if (evolutionLayer.schema_version !== 3
+    || evolutionLayer.artifact_profile !== 'curriculum-concept-evolution-families-v3'
     || !Array.isArray(evolutionLayer.concept_tiers)
-    || evolutionLayer.concept_tiers.length !== 2
+    || evolutionLayer.concept_tiers.length !== 5
     || evolutionLayer.publication_status !== 'editorial_correspondence_noncausal'
     || !Array.isArray(evolutionLayer.families)
     || !Array.isArray(evolutionLayer.episode_memberships)
@@ -187,6 +207,9 @@ async function loadBase() {
   conceptGraph.episodes = [...conceptGraph.episodes, ...ocrLayer.episodes];
   conceptGraph.edges = [...conceptGraph.edges, ...ocrLayer.edges];
   conceptGraph.evidence = [...conceptGraph.evidence, ...ocrLayer.evidence];
+  conceptGraph.episodes = [...conceptGraph.episodes, ...detailLayer.episodes];
+  conceptGraph.edges = [...conceptGraph.edges, ...detailLayer.edges];
+  conceptGraph.evidence = [...conceptGraph.evidence, ...detailLayer.evidence];
   conceptGraph.episodes = [...conceptGraph.episodes, ...centuryLayer.star_projection.episodes];
   conceptGraph.edges = [...conceptGraph.edges, ...centuryLayer.star_projection.edges];
   conceptGraph.evidence = [...conceptGraph.evidence, ...centuryLayer.star_projection.evidence];
@@ -200,6 +223,7 @@ async function loadBase() {
   conceptGraph.edges = [...conceptGraph.edges, ...evolutionLayer.edges];
   state.conceptGraph = conceptGraph;
   state.ocrLayer = ocrLayer;
+  state.detailLayer = detailLayer;
   state.centuryLayer = centuryLayer;
   state.evolutionLayer = evolutionLayer;
   state.evolutionFamilyById = new Map(evolutionLayer.families.map((family) => [family.id, family]));
@@ -229,8 +253,7 @@ async function loadBase() {
   yearRange.value = String(maxYear);
   yearStart.textContent = String(minYear);
   yearValue.textContent = String(maxYear);
-  const pipeline = ocrLayer.pipeline_summary;
-  ocrLayerStatus.innerHTML = `<b>百年资料与证据</b><span>12/12 学科 · ${escapeHtml(pipeline.complete_documents)} 册 · ${escapeHtml(pipeline.complete_pages)} 页完成</span><small>${escapeHtml(evolutionLayer.counts.families)} 条同层演进族 · ${escapeHtml(centuryLayer.star_projection.counts.episodes)} 个百年候选观察</small>`;
+  ocrLayerStatus.innerHTML = `<b>百年资料与证据</b><span>12/12 学科 · ${escapeHtml(detailLayer.counts.source_documents)} 册同粒度课标 · ${escapeHtml(detailLayer.counts.source_pages)} 页完成</span><small>${escapeHtml(evolutionLayer.counts.detailed_families)} 条实践／内容／能力演进族 · ${escapeHtml(detailLayer.counts.episodes)} 个版本观察 · ${escapeHtml(centuryLayer.star_projection.counts.episodes)} 个百年候选观察</small>`;
   ocrLayerStatus.hidden = false;
 }
 
@@ -378,7 +401,7 @@ function conceptStatusLabel(status) {
 }
 
 function observationLabel(episode) {
-  if (episode.observation?.status === 'ocr_complete_pending_audit') return '来源绑定且全页完成的 2022 OCR 词面观察';
+  if (episode.observation?.status === 'ocr_complete_pending_audit') return '来源绑定且全页完成的 OCR 词面观察';
   if (episode.observation?.status === 'ocr_complete_pending_item_audit') return '目录与物理页已绑定的百年 OCR 词面观察';
   if (episode.observation?.status === 'catalog_title_candidate') return '教育部编目标题中的当代课程名称观察';
   const incoming = state.conceptGraph.edges.find((edge) => edge.type === 'next_observed' && edge.target === episode.id);
@@ -410,9 +433,14 @@ function showConceptInspector(episode) {
   const evolutionTier = evolutionFamily
     ? state.evolutionTierById.get(evolutionFamily.concept_tier_id)
     : null;
+  const evolutionChainLabel = evolutionFamily?.coverage_contract === 'century_crossing'
+    ? '百年演进链'
+    : evolutionFamily?.coverage_contract === 'single_version_2022'
+      ? '单版本同层观察'
+      : '跨版本同层演进链';
   const evolutionHtml = evolutionFamily ? `
     <section class="evolution-chain-summary">
-      <p class="evolution-chain-kicker">百年演进链 · ${escapeHtml(evolutionTier?.label || evolutionFamily.concept_tier_id)}</p>
+      <p class="evolution-chain-kicker">${escapeHtml(evolutionChainLabel)} · ${escapeHtml(evolutionTier?.label || evolutionFamily.concept_tier_id)}</p>
       <h3>${escapeHtml(evolutionFamily.label)}</h3>
       <p>${escapeHtml(evolutionFamily.first_observed_year)}—${escapeHtml(evolutionFamily.last_observed_year)} · ${escapeHtml(evolutionFamily.observed_concepts.length)} 个同层概念 · ${escapeHtml(evolutionFamily.episode_count)} 个观察点</p>
       <div class="evolution-concept-list">${evolutionFamily.observed_concepts.map((concept) =>

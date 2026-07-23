@@ -11,6 +11,7 @@ const LEXICON_PATH = path.join(ROOT, 'data/concept-lexicon.json');
 const CORE_PATH = path.join(ROOT, 'public/data/concept-evolution.json');
 const OCR_PATH = path.join(ROOT, 'public/data/ocr-observation-layer.json');
 const CENTURY_PATH = path.join(ROOT, 'public/data/century-observation-layer.json');
+const DETAIL_PATH = path.join(ROOT, 'public/data/subject-detail-observation-layer.json');
 const OUTPUT_PATH = path.join(ROOT, 'public/data/concept-evolution-families.json');
 
 function sha256(value) {
@@ -48,13 +49,14 @@ function edgeId(parts) {
 }
 
 function buildArtifact(config, lexicon, graphs) {
-  if (config.schema_version !== 2
-    || config.artifact_profile !== 'curriculum-century-concept-families-v2'
+  if (config.schema_version !== 3
+    || config.artifact_profile !== 'curriculum-century-concept-families-v3'
     || !Array.isArray(config.concept_tiers)
-    || config.concept_tiers.length < 2
+    || config.concept_tiers.length < 5
     || !Array.isArray(config.families)
     || !Array.isArray(config.historical_concepts)
-    || !Array.isArray(config.course_identity_concepts)) {
+    || !Array.isArray(config.course_identity_concepts)
+    || !Array.isArray(config.detailed_concepts)) {
     throw new Error('concept evolution family config failed structural validation');
   }
   const tiers = new Map(config.concept_tiers.map((tier) => [tier.id, tier]));
@@ -63,6 +65,7 @@ function buildArtifact(config, lexicon, graphs) {
     ...lexicon.concepts.map((concept) => [concept.id, concept]),
     ...config.historical_concepts.map((concept) => [concept.id, concept]),
     ...config.course_identity_concepts.map((concept) => [concept.id, concept]),
+    ...config.detailed_concepts.map((concept) => [concept.id, concept]),
   ]);
   const familyByConcept = new Map();
   for (const family of config.families) {
@@ -72,7 +75,7 @@ function buildArtifact(config, lexicon, graphs) {
       || !Array.isArray(family.visibility_facets)
       || family.visibility_facets.length === 0
       || !Array.isArray(family.concept_ids)
-      || family.concept_ids.length < 2) {
+      || family.concept_ids.length < 1) {
       throw new Error(`invalid concept family: ${family.id || 'unknown'}`);
     }
     for (const conceptId of family.concept_ids) {
@@ -187,6 +190,7 @@ function buildArtifact(config, lexicon, graphs) {
       label: family.label,
       definition: family.definition,
       concept_tier_id: family.concept_tier_id,
+      coverage_contract: family.coverage_contract || 'century_crossing',
       visibility_facets: family.visibility_facets,
       concept_ids: family.concept_ids,
       observed_concepts: observedConcepts.map((conceptId) => ({
@@ -207,14 +211,29 @@ function buildArtifact(config, lexicon, graphs) {
     || left.source_year - right.source_year
     || left.target_year - right.target_year
     || left.id.localeCompare(right.id, 'en'));
-  if (familySummaries.some((family) => family.observed_concepts.length < 2
-    || family.first_observed_year >= 2001
-    || family.last_observed_year < 2001)) {
-    throw new Error('every published family must cross the historical/current boundary with at least two observed concepts');
+  for (const family of familySummaries) {
+    const years = new Set(memberships
+      .filter((item) => item.family_id === family.id)
+      .map((item) => item.year));
+    if (family.observed_concepts.length < 1) {
+      throw new Error(`${family.id} has no observed concept`);
+    }
+    if (family.coverage_contract === 'century_crossing'
+      && (family.first_observed_year >= 2001 || family.last_observed_year < 2001
+        || family.observed_concepts.length < 2)) {
+      throw new Error(`${family.id} does not satisfy the century-crossing contract`);
+    }
+    if (family.coverage_contract.startsWith('version_span_') && years.size < 2) {
+      throw new Error(`${family.id} does not span at least two observed version years`);
+    }
+    if (family.coverage_contract === 'single_version_2022'
+      && (years.size !== 1 || !years.has(2022))) {
+      throw new Error(`${family.id} does not satisfy its disclosed single-version contract`);
+    }
   }
   return {
-    schema_version: 2,
-    artifact_profile: 'curriculum-concept-evolution-families-v2',
+    schema_version: 3,
+    artifact_profile: 'curriculum-concept-evolution-families-v3',
     concept_tiers: config.concept_tiers,
     assertion_boundary: config.assertion_boundary,
     publication_status: 'editorial_correspondence_noncausal',
@@ -230,6 +249,9 @@ function buildArtifact(config, lexicon, graphs) {
       episode_memberships: memberships.length,
       same_surface_edges: edges.filter((edge) => edge.type === 'same_surface_observed_again').length,
       correspondence_edges: edges.filter((edge) => edge.type === 'editorial_correspondence').length,
+      detailed_families: familySummaries.filter((family) =>
+        family.concept_tier_id.startsWith('subject-')
+        && family.concept_tier_id !== 'subject-course-identity').length,
       first_year: Math.min(...memberships.map((item) => item.year)),
       last_year: Math.max(...memberships.map((item) => item.year)),
     },
@@ -238,17 +260,19 @@ function buildArtifact(config, lexicon, graphs) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const [config, lexicon, core, ocr, century] = await Promise.all([
+  const [config, lexicon, core, ocr, century, detail] = await Promise.all([
     readFile(CONFIG_PATH, 'utf8').then(JSON.parse),
     readFile(LEXICON_PATH, 'utf8').then(JSON.parse),
     readFile(CORE_PATH, 'utf8').then(JSON.parse),
     readFile(OCR_PATH, 'utf8').then(JSON.parse),
     readFile(CENTURY_PATH, 'utf8').then(JSON.parse),
+    readFile(DETAIL_PATH, 'utf8').then(JSON.parse),
   ]);
   const artifact = buildArtifact(config, lexicon, [
     core,
     ocr,
     century.star_projection,
+    detail,
   ]);
   const expected = stableJson(artifact);
   if (options.check) {
