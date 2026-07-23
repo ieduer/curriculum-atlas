@@ -125,6 +125,11 @@ likewise re-read immediately before stop. Any replacement fails closed and survi
 exact owned processes are gone and all five units are quiescent may the same attempt 6 resume. A dry
 run never performs this recovery mutation.
 
+The shared llama unit is `Type=exec`, not `Type=simple`. This is part of the ownership contract:
+`systemctl start` must not return while systemd is still in its pre-`execve()` launcher, where the
+future MainPID's `/proc/<pid>/environ` can be temporarily unreadable. Marker verification therefore
+runs only after the pinned `llama-server` executable has replaced that launcher.
+
 ## Disjoint, crash-resumable evidence
 
 Continuation evidence is outside the monitored output root, under:

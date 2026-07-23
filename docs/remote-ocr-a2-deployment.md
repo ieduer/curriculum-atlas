@@ -503,6 +503,8 @@ done
 
 install -m 0644 "$WORKSPACE/ops/systemd/curriculum-ocr-llama.service" \
   "$SYSTEMD_USER/curriculum-ocr-llama.service"
+cmp "$WORKSPACE/ops/systemd/curriculum-ocr-llama.service" \
+  "$SYSTEMD_USER/curriculum-ocr-llama.service"
 install -m 0644 "$WORKSPACE/ops/systemd/curriculum-ocr-monitor-alert@.service" \
   "$SYSTEMD_USER/curriculum-ocr-monitor-alert@.service"
 install -m 0644 "$WORKSPACE/ops/systemd/curriculum-ocr-monitor-alert-retry@.timer" \
@@ -562,8 +564,11 @@ systemd-analyze --user verify \
   "$SYSTEMD_USER/curriculum-ocr-reprocess-a-r2.service" \
   "$SYSTEMD_USER/curriculum-ocr-reprocess-a-r2-monitor.service" \
   "$SYSTEMD_USER/curriculum-ocr-reprocess-a-r2-monitor.timer"
+test "$(systemctl --user show curriculum-ocr-llama.service --property=Type --value)" = exec
 ! systemctl --user cat curriculum-ocr-reprocess-a-r2.service \
   | grep -Eq '^Condition(Path|File)'
+systemctl --user cat curriculum-ocr-llama.service \
+  > "$EVIDENCE/curriculum-ocr-llama.service.installed.txt"
 systemctl --user cat curriculum-ocr-reprocess-a-r2.service \
   > "$EVIDENCE/curriculum-ocr-reprocess-a-r2.service.installed.txt"
 systemctl --user cat curriculum-ocr-reprocess-a-r2-monitor.service \

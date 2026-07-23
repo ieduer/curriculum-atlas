@@ -46,6 +46,7 @@ test('A2 runtime is parallel-1, quality-first, and isolated from every predecess
   ]);
   assert.match(llama, /--ctx-size 32768 --parallel 1 /u);
   assert.match(llama, /--temp 0 /u);
+  assert.match(llama, /^Type=exec$/mu);
   assert.match(worker, /--vl-rec-max-concurrency 1 --server-parallel 1 --micro-batch 16 --use-queues/u);
   assert.match(worker, /--child-idle-timeout-seconds 1200/u);
   assert.doesNotMatch(worker, /--server-parallel 4/u);
@@ -107,6 +108,7 @@ test('A2 deployment runbook is executable, ordered, and preserves the authority 
     'SHA256SUMS',
     'a1-anchors.env',
     'systemd-analyze --user verify',
+    'test "$(systemctl --user show curriculum-ocr-llama.service --property=Type --value)" = exec',
     'provision-timeout-recovery-authority.mjs',
     'prepare-timeout-recovery-grant.mjs',
     '--seed-dry-run',

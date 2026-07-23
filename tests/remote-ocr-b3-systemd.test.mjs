@@ -26,6 +26,7 @@ test('B3 llama and worker pin the exact parallel-1 runtime', async () => {
   ]);
   assert.match(llama, /--ctx-size 32768 --parallel 1 /u);
   assert.match(llama, /--temp 0 /u);
+  assert.match(llama, /^Type=exec$/mu);
   assert.match(llama, /^Conflicts=curriculum-ocr-llama-p1-canary\.service$/mu);
   assert.match(worker, /--vl-rec-max-concurrency 1 --server-parallel 1 --micro-batch 16 --use-queues/u);
   assert.match(worker, /--child-idle-timeout-seconds 1200/u);

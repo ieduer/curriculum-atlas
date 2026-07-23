@@ -8,7 +8,7 @@ ConditionPathExists=/home/suen/curriculum-ocr-offload/runs/20260716T0250Z-paddle
 ConditionPathExists=/home/suen/curriculum-ocr-offload/runs/20260716T0250Z-paddleocrvl16-canary/models/PaddleOCR-VL-1.6-GGUF-mmproj.gguf
 
 [Service]
-Type=simple
+Type=exec
 ExecStart=/home/suen/curriculum-ocr-offload/runs/20260716T0250Z-paddleocrvl16-canary/src/llama.cpp/build-cuda/bin/llama-server -m /home/suen/curriculum-ocr-offload/runs/20260716T0250Z-paddleocrvl16-canary/models/PaddleOCR-VL-1.6-GGUF.gguf --mmproj /home/suen/curriculum-ocr-offload/runs/20260716T0250Z-paddleocrvl16-canary/models/PaddleOCR-VL-1.6-GGUF-mmproj.gguf --host 127.0.0.1 --port 8112 --temp 0 --ctx-size 32768 --parallel 1 --n-gpu-layers all --mmproj-offload --flash-attn auto --cache-type-k f16 --cache-type-v f16 --batch-size 2048 --ubatch-size 512 --cont-batching --fit off --timeout 3600 --threads 8 --threads-batch 16 --no-webui --metrics
 Restart=on-failure
 RestartSec=5s
