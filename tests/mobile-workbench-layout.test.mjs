@@ -9,7 +9,7 @@ const [html, styles, appJs] = await Promise.all([
   readFile(new URL('public/app.js', root), 'utf8'),
 ]);
 
-const assetVersion = '20260723v22';
+const assetVersion = '20260723v23';
 
 function block(source, opening, closing = '}') {
   const start = source.indexOf(opening);
@@ -53,7 +53,7 @@ test('mobile inspector and workbench preserve the two-entry dock in the consolid
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*--mobile-dock-clearance:\s*96px;/);
   assert.match(styles, /\.star-inspector \{[\s\S]*?inset:\s*auto 9px calc\(var\(--mobile-dock-clearance\) \+ env\(safe-area-inset-bottom\)\) 9px;/);
   assert.match(styles, /body:has\(\.workbench:not\(\[hidden\]\)\) \.map-control-column \{ z-index: 82; \}/);
-  assert.match(styles, /body:has\(\.workbench:not\(\[hidden\]\)\) \.map-control-column \.subject-orbit,[\s\S]*?visibility:\s*hidden; pointer-events:\s*none;/);
+  assert.match(styles, /body:has\(\.workbench:not\(\[hidden\]\)\) \.map-control-column \.subject-cluster,[\s\S]*?visibility:\s*hidden; pointer-events:\s*none;/);
   assert.match(styles, /\.workbench-body \{[\s\S]*?scroll-padding-bottom:\s*calc\(var\(--mobile-dock-clearance\) \+ 24px\);/);
   assert.match(styles, /\.scrim \{ position: fixed; z-index: 79;/);
   assert.match(styles, /\.workbench \{[\s\S]*?z-index: 80;/);

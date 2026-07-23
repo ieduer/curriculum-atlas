@@ -526,7 +526,7 @@ export class CurriculumCosmos {
     const related = this.activeSelectionIds.has(node.id);
     const selectionActive = this.activeSelectionIds.size > 0;
     const muted = selectionActive && !related;
-    const visualAlpha = muted ? .14 : 1;
+    const visualAlpha = muted ? .34 : 1;
     const hovered = node.id === this.hovered?.id;
     const emphasized = selected || related;
     const depthScale = clamp(projected.scale, .42, 1.55);

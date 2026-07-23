@@ -46,6 +46,8 @@ test('OCR candidates use the original star material, motion, labels, and interac
 
 test('subjects and concepts are controlled inside the star map', () => {
   assert.match(html, /id="subject-orbit"/);
+  assert.match(html, /id="subject-status">12\/12 · 全部显示/);
+  assert.match(html, /id="show-all-subjects"/);
   assert.match(html, /data-map-mode="cross"/);
   assert.match(html, /data-map-mode="structure"/);
   assert.match(html, /id="concept-layers"/);
@@ -97,7 +99,8 @@ test('the left rail consolidates subjects, years, search, modes, research, and e
   'left rail order must be subjects -> years -> search -> modes -> workspaces -> evidence');
   assert.equal((rail.match(/data-workspace=/g) || []).length, 2);
   assert.match(styles, /\.map-control-column \{[^}]*left:/);
-  assert.match(styles, /\.subject-orbit \{[^}]*flex:\s*1 1 auto;[^}]*overflow-y:\s*auto;/);
+  assert.match(styles, /\.map-control-column \{[^}]*overflow-y:\s*auto;/);
+  assert.match(styles, /\.subject-orbit \{[^}]*grid-template-columns:\s*repeat\(2,minmax\(0,1fr\)\);/);
   assert.match(styles, /\.search-orbit \{[^}]*position:\s*relative;/);
   assert.match(styles, /\.mode-switch \{[^}]*position:\s*relative;/);
   assert.match(styles, /\.year-scrubber input \{[^}]*writing-mode:\s*vertical-lr;[^}]*direction:\s*rtl;/);
@@ -135,7 +138,8 @@ test('the graph fits its data bounds inside responsive safe areas', () => {
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?\.map-control-column \{[^}]*left:\s*7px;/);
   assert.doesNotMatch(styles, /timeline-library-column/);
   assert.doesNotMatch(styles, /\.subject-orbit > \.subject-button:nth-of-type/);
-  assert.match(styles, /\.subject-orbit \{[^}]*overflow-y: auto;/);
+  assert.match(styles, /\.subject-orbit \{[^}]*grid-template-columns:\s*repeat\(2,minmax\(0,1fr\)\);/);
+  assert.match(styles, /\.map-control-column \{[^}]*overflow-y:\s*auto;/);
 });
 
 test('deep concept exploration remains inside the star map and preserves evidence boundaries', () => {

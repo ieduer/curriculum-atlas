@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v22';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v23';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -6,7 +6,7 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260723v22';
+} from './subject-facets.js?v=20260723v23';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -35,6 +35,9 @@ const mount = document.querySelector('#cosmos-mount');
 const inspector = document.querySelector('#star-inspector');
 const tooltip = document.querySelector('#atlas-tooltip');
 const subjectOrbit = document.querySelector('#subject-orbit');
+const subjectModeLabel = document.querySelector('#subject-mode-label');
+const subjectStatus = document.querySelector('#subject-status');
+const showAllSubjects = document.querySelector('#show-all-subjects');
 const conceptLayers = document.querySelector('#concept-layers');
 const eraButtons = document.querySelector('#era-buttons');
 const yearRange = document.querySelector('#year-range');
@@ -80,6 +83,12 @@ const state = {
 };
 
 const CORE_SUBJECTS = DISPLAY_SUBJECT_FACETS;
+const SUBJECT_SHORT_LABELS = new Map([
+  ['思想政治与道德法治', '思政·道法'],
+  ['历史与社会', '历史·社会'],
+  ['科学类', '科学'],
+  ['体育与健康', '体育·健康'],
+]);
 const ERAS = [
   { label: '近代学制初建', start: 1902, end: 1949 },
   { label: '国家课程起点', start: 1950, end: 1977 },
@@ -111,10 +120,10 @@ async function api(path, options) {
 async function loadBase() {
   if (state.meta) return;
   const [conceptGraph, ocrLayer, centuryLayer, evolutionLayer, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v22'),
-    api('/data/ocr-observation-layer.json?v=20260723v22'),
-    api('/data/century-observation-layer.json?v=20260723v22'),
-    api('/data/concept-evolution-families.json?v=20260723v22'),
+    api('/data/concept-evolution.json?v=20260723v23'),
+    api('/data/ocr-observation-layer.json?v=20260723v23'),
+    api('/data/century-observation-layer.json?v=20260723v23'),
+    api('/data/concept-evolution-families.json?v=20260723v23'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -671,7 +680,8 @@ function subjectButton(subject, count, panel = false) {
   const controlledSubjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
   const onlyVisible = visible && controlledSubjects.filter((name) => !state.hiddenSubjects.has(name)).length === 1;
   const action = onlyVisible ? '恢复全部分面' : `只看${subject}；Shift 点击可多选`;
-  return `<button class="subject-button ${visible ? 'active' : ''}" type="button" data-subject="${escapeHtml(subject)}" aria-pressed="${visible}" style="--subject-color:${subjectColor(subject)}" title="${escapeHtml(action)}">${escapeHtml(subject)}${panel ? ` · ${count}` : ''}</button>`;
+  const label = SUBJECT_SHORT_LABELS.get(subject) || subject;
+  return `<button class="subject-button ${visible ? 'active' : ''}" type="button" data-subject="${escapeHtml(subject)}" aria-label="${escapeHtml(subject)}" aria-pressed="${visible}" style="--subject-color:${subjectColor(subject)}" title="${escapeHtml(action)}"><span>${escapeHtml(label)}${panel ? ` · ${count}` : ''}</span></button>`;
 }
 
 function controlledSubjectFacetCounts(conceptGraph) {
@@ -681,6 +691,10 @@ function controlledSubjectFacetCounts(conceptGraph) {
 function renderSubjectControls() {
   const { subjects, counts } = controlledSubjectFacetCounts(state.conceptGraph);
   const core = CORE_SUBJECTS.filter((subject) => counts.has(subject));
+  const visible = state.hideAllSubjects ? [] : core.filter((subject) => !state.hiddenSubjects.has(subject));
+  subjectModeLabel.textContent = visible.length === core.length ? '全学科星图' : visible.length === 1 ? visible[0] : '多学科筛选';
+  subjectStatus.textContent = `${visible.length}/${core.length} · ${visible.length === core.length ? '全部显示' : '已筛选'}`;
+  showAllSubjects.disabled = visible.length === core.length;
   subjectOrbit.innerHTML = core.map((subject) => subjectButton(subject, counts.get(subject))).join('');
   subjectOrbit.querySelectorAll('[data-subject]').forEach((button) => button.addEventListener('click', (event) => {
     const subject = button.dataset.subject;
@@ -704,6 +718,13 @@ function renderSubjectControls() {
     renderSubjectControls();
     updateMapStatus({ fitVisible: !event.shiftKey });
   }));
+}
+
+function restoreAllSubjects() {
+  state.hideAllSubjects = false;
+  state.hiddenSubjects.clear();
+  renderSubjectControls();
+  updateMapStatus({ fitVisible: true });
 }
 
 function renderEraControls() {
@@ -1259,6 +1280,7 @@ document.addEventListener('click', (event) => {
 });
 
 document.querySelectorAll('[data-map-mode]').forEach((button) => button.addEventListener('click', () => setMapMode(button.dataset.mapMode)));
+showAllSubjects.addEventListener('click', restoreAllSubjects);
 yearRange.addEventListener('input', () => {
   state.maxYear = Number(yearRange.value);
   yearValue.textContent = String(state.maxYear);
