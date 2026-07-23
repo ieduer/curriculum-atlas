@@ -74,6 +74,27 @@ export function selectedEvolutionNodeIds(nodes, selectedId) {
     .map((node) => node.id));
 }
 
+export function selectedRelationshipNodeIds(nodes, edges, selectedId) {
+  const vertical = selectedEvolutionNodeIds(nodes, selectedId);
+  if (!vertical.size) return vertical;
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const horizontal = edges.filter((edge) =>
+    ['cross', 'discipline'].includes(edge.mode)
+    && (vertical.has(edge.source) || vertical.has(edge.target)));
+  const selected = new Set(vertical);
+  for (const edge of horizontal) {
+    selected.add(edge.source);
+    selected.add(edge.target);
+  }
+  const peerFamilies = new Set([...selected]
+    .map((id) => nodeById.get(id)?.evolutionFamilyId)
+    .filter(Boolean));
+  for (const node of nodes) {
+    if (node.evolutionFamilyId && peerFamilies.has(node.evolutionFamilyId)) selected.add(node.id);
+  }
+  return selected;
+}
+
 export function episodeSubjectFacet(episode) {
   const subject = episode?.subject;
   return ['subject', 'assessment_subject'].includes(subject?.entity_kind) && subject?.facet_eligible === true && typeof subject?.facet === 'string' && subject.facet.trim()
@@ -209,7 +230,10 @@ export class CurriculumCosmos {
     this.nodes = [];
     this.lineageEdges = [];
     this.crossEdges = [];
+    this.disciplineEdges = [];
     this.evolutionEdges = [];
+    this.relationshipEdges = [];
+    this.selectionRelationshipEdges = [];
     this.screenNodes = [];
     this.subjects = [];
     this.tracks = [];
@@ -280,7 +304,9 @@ export class CurriculumCosmos {
       .filter((edge) => edge.sourceNode && edge.targetNode);
     this.lineageEdges = resolved.filter((edge) => edge.mode === 'lineage' && edge.type === 'next_observed');
     this.crossEdges = resolved.filter((edge) => edge.mode === 'cross');
+    this.disciplineEdges = resolved.filter((edge) => edge.mode === 'discipline');
     this.evolutionEdges = resolved.filter((edge) => edge.mode === 'evolution');
+    this.relationshipEdges = [...this.crossEdges, ...this.disciplineEdges];
   }
 
   setFilters(next, { fitVisible = false, maxZoom = 1.32 } = {}) {
@@ -302,8 +328,21 @@ export class CurriculumCosmos {
     this.selectedId = id || null;
     const selected = this.nodes.find((node) => node.id === this.selectedId);
     this.selectedFamilyId = selected?.evolutionFamilyId || null;
-    this.activeSelectionIds = selectedEvolutionNodeIds(this.nodes, this.selectedId);
+    const vertical = selectedEvolutionNodeIds(this.nodes, this.selectedId);
+    this.selectionRelationshipEdges = this.relationshipEdges.filter((edge) =>
+      vertical.has(edge.source) || vertical.has(edge.target));
+    this.activeSelectionIds = selectedRelationshipNodeIds(this.nodes, this.relationshipEdges, this.selectedId);
     this.draw();
+  }
+
+  focusSelection() {
+    if (!this.activeSelectionIds.size) return false;
+    this.hasUserCamera = true;
+    return this.fitToGraph({
+      nodes: this.nodes.filter((node) => this.activeSelectionIds.has(node.id) && this.visible(node)),
+      maxZoom: 1.78,
+      preserveOrientation: true,
+    });
   }
 
   reset() {
@@ -313,6 +352,7 @@ export class CurriculumCosmos {
 
   visible(node) {
     if (node.year > this.filters.maxYear || !episodeVisibleForSubjectFilter(node.episode, this.filters.hiddenSubjects, this.filters.hideAll, this.subjects)) return false;
+    if (this.activeSelectionIds.size) return this.activeSelectionIds.has(node.id);
     if (!this.filters.query) return true;
     const episode = node.episode;
     return `${episode.label} ${(episode.aliases || []).join(' ')} ${node.entityLabel} ${node.year} ${episode.category} ${episode.curriculum_line?.stage}`
@@ -344,12 +384,12 @@ export class CurriculumCosmos {
 
   safeViewport() {
     if (this.width <= 640) {
-      return { left: Math.min(118, this.width * .31), top: 78, right: this.width - 8, bottom: this.height - 10 };
+      return { left: 8, top: 68, right: this.width - 8, bottom: this.height - 98 };
     }
     if (this.width <= 980) {
-      return { left: 176, top: 96, right: this.width - 18, bottom: this.height - 18 };
+      return { left: 34, top: 86, right: this.width - 18, bottom: this.height - 84 };
     }
-    return { left: 254, top: 108, right: this.width - 24, bottom: this.height - 24 };
+    return { left: 54, top: 96, right: this.width - 24, bottom: this.height - 84 };
   }
 
   fitToGraph({ immediate = false, nodes = this.nodes, maxZoom = 1, preserveOrientation = false } = {}) {
@@ -632,8 +672,9 @@ export class CurriculumCosmos {
     if (!this.width || !this.height) return;
     this.drawBackground(time);
     this.drawEraGates();
-    if (this.selectedFamilyId) {
-      for (const edge of this.evolutionEdges.filter((item) => item.family_id === this.selectedFamilyId)) {
+    if (this.activeSelectionIds.size) {
+      for (const edge of this.evolutionEdges.filter((item) =>
+        this.activeSelectionIds.has(item.source) && this.activeSelectionIds.has(item.target))) {
         const span = Math.abs(Number(edge.target_year) - Number(edge.source_year));
         const relationLabel = edge.type === 'editorial_correspondence' || span >= 12
           ? `${edge.source_year}→${edge.target_year} · ${edge.label}`
@@ -646,18 +687,18 @@ export class CurriculumCosmos {
           label: relationLabel,
         });
       }
-      if (this.mode === 'cross') {
-        for (const edge of this.crossEdges.filter((item) =>
-          this.activeSelectionIds.has(item.source) && this.activeSelectionIds.has(item.target))) {
-          this.drawEdge(edge.sourceNode, edge.targetNode, 'rgba(118,223,255,.24)', .8);
-        }
-      }
-    } else if (this.selectedId) {
-      const edges = this.mode === 'cross' ? this.crossEdges : this.lineageEdges;
-      for (const edge of edges.filter((item) => item.source === this.selectedId || item.target === this.selectedId)) {
-        this.drawEdge(edge.sourceNode, edge.targetNode, this.mode === 'cross'
-          ? 'rgba(239,204,126,.62)'
-          : rgba(edge.sourceNode.color, .56), 1.45);
+      for (const edge of this.selectionRelationshipEdges) {
+        const discipline = edge.mode === 'discipline';
+        this.drawEdge(
+          edge.sourceNode,
+          edge.targetNode,
+          discipline ? 'rgba(118,223,255,.82)' : 'rgba(239,204,126,.58)',
+          discipline ? 1.65 : 1.08,
+          {
+            arrow: discipline,
+            label: discipline ? `学科分合 · ${edge.source_year}` : null,
+          },
+        );
       }
     }
     this.screenNodes = this.nodes.filter((node) => this.visible(node)).map((node) => ({ node, projected: this.project(node) }))

@@ -14,9 +14,9 @@
   <meta property="og:image" content="https://img.bdfz.net/20250503004.webp">
   <link rel="icon" href="https://img.bdfz.net/20250503004.webp" type="image/webp">
   <link rel="apple-touch-icon" href="https://img.bdfz.net/20250503004.webp">
-  <link rel="stylesheet" href="/styles.css?v=20260723v25">
-  <link rel="modulepreload" href="/subject-facets.js?v=20260723v25">
-  <script type="module" src="/app.js?v=20260723v25"></script>
+  <link rel="stylesheet" href="/styles.css?v=20260723v26">
+  <link rel="modulepreload" href="/subject-facets.js?v=20260723v26">
+  <script type="module" src="/app.js?v=20260723v26"></script>
 </head>
 <body>
   <a class="skip-link" href="#cosmos-stage">跳到课程星图</a>
@@ -32,7 +32,10 @@
       <div class="cosmos-loading" id="cosmos-loading"><span></span><p>正在生成概念演进星图</p></div>
       <div class="cosmos-mount" id="cosmos-mount"></div>
 
-      <aside class="map-control-column" aria-label="学科与谱系工具">
+      <button class="map-tools-toggle" id="map-tools-toggle" type="button" aria-expanded="false" aria-controls="map-controls">
+        <span aria-hidden="true">☰</span><b>学科 · 检索</b>
+      </button>
+      <aside class="map-control-column is-collapsed" id="map-controls" aria-label="学科与谱系工具" aria-hidden="true">
         <section class="subject-cluster" aria-label="学科显隐">
           <header class="control-section-title">
             <b id="subject-mode-label">全学科星图</b>
@@ -40,18 +43,6 @@
             <button id="show-all-subjects" type="button">全开</button>
           </header>
           <div class="subject-orbit" id="subject-orbit"></div>
-        </section>
-        <section class="era-cluster" aria-label="年代筛选">
-          <header class="control-section-title"><b>百年纵轴</b><span>1902—2022</span></header>
-          <div class="era-rail">
-            <div class="era-buttons" id="era-buttons"></div>
-            <div class="year-scrubber">
-              <span id="year-start">1902</span>
-              <label class="sr-only" for="year-range">显示至年份</label>
-              <input id="year-range" type="range" min="1902" max="2022" value="2022" step="1">
-              <strong id="year-value">2022</strong>
-            </div>
-          </div>
         </section>
         <form class="search-orbit" id="cosmos-search" role="search">
           <label class="sr-only" for="cosmos-query">在星图中搜索概念、术语与能力</label>
@@ -70,9 +61,19 @@
         </nav>
         <a class="ocr-layer-status" id="ocr-layer-status" href="/archive" data-link hidden></a>
         <div class="map-key" id="map-key">
-          <span><i class="key-evolution"></i>点选概念：照亮整条百年演进链</span>
+          <span><i class="key-evolution"></i>纵向：同层概念跨年演进</span>
+          <span><i class="key-discipline"></i>横向：来源明示的学科分合</span>
         </div>
       </aside>
+      <section class="cosmos-year-control" aria-label="星图内年份显隐">
+        <div class="era-buttons" id="era-buttons"></div>
+        <div class="year-scrubber">
+          <span id="year-start">1902</span>
+          <label class="sr-only" for="year-range">显示至年份</label>
+          <input id="year-range" type="range" min="1902" max="2022" value="2022" step="1">
+          <strong id="year-value">2022</strong>
+        </div>
+      </section>
       <section class="concept-layers" id="concept-layers" aria-label="学科概念层级星图" hidden></section>
 
       <aside class="star-inspector" id="star-inspector" aria-live="polite" aria-label="概念演进详情" hidden></aside>

@@ -9,7 +9,7 @@ const [html, styles, appJs] = await Promise.all([
   readFile(new URL('public/app.js', root), 'utf8'),
 ]);
 
-const assetVersion = '20260723v25';
+const assetVersion = '20260723v26';
 
 function block(source, opening, closing = '}') {
   const start = source.indexOf(opening);
@@ -45,14 +45,15 @@ test('the compare workspace contains intrinsic width while leaving the version r
   assert.match(styles, /@media \(max-width: 980px\)[\s\S]*?\.workspace-grid, \.reader-grid, \.ai-grid \{ grid-template-columns: minmax\(0,1fr\); \}/);
 });
 
-test('mobile inspector and workbench preserve the two-entry dock in the consolidated left rail', () => {
-  const rail = block(html, '<aside class="map-control-column"', '</aside>');
+test('mobile inspector and workbench preserve the two-entry dock in the collapsed tool drawer', () => {
+  const rail = block(html, '<aside class="map-control-column is-collapsed"', '</aside>');
   assert.equal((rail.match(/data-workspace=/g) || []).length, 2);
   assert.match(rail, /data-workspace="library"/);
   assert.match(rail, /data-workspace="research"/);
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*--mobile-dock-clearance:\s*96px;/);
   assert.match(styles, /\.star-inspector \{[\s\S]*?inset:\s*auto 9px calc\(var\(--mobile-dock-clearance\) \+ env\(safe-area-inset-bottom\)\) 9px;/);
   assert.match(styles, /body:has\(\.workbench:not\(\[hidden\]\)\) \.map-control-column \{ z-index: 82; \}/);
+  assert.match(styles, /body:has\(\.workbench:not\(\[hidden\]\)\) \.map-tools-toggle,[\s\S]*?\.cosmos-year-control \{ visibility:\s*hidden; pointer-events:\s*none; \}/);
   assert.match(styles, /body:has\(\.workbench:not\(\[hidden\]\)\) \.map-control-column \.subject-cluster,[\s\S]*?visibility:\s*hidden; pointer-events:\s*none;/);
   assert.match(styles, /\.workbench-body \{[\s\S]*?scroll-padding-bottom:\s*calc\(var\(--mobile-dock-clearance\) \+ 24px\);/);
   assert.match(styles, /\.scrim \{ position: fixed; z-index: 79;/);

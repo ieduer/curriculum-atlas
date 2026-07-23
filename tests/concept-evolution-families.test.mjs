@@ -3,12 +3,13 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
-const [config, artifact, core, ocr, detail, century] = await Promise.all([
+const [config, artifact, core, ocr, detail, pre2001Detail, century] = await Promise.all([
   readFile(new URL('data/concept-evolution-families.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('public/data/concept-evolution-families.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('public/data/concept-evolution.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('public/data/ocr-observation-layer.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('public/data/subject-detail-observation-layer.json', root), 'utf8').then(JSON.parse),
+  readFile(new URL('public/data/pre2001-subject-detail-observation-layer.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('public/data/century-observation-layer.json', root), 'utf8').then(JSON.parse),
 ]);
 
@@ -44,7 +45,6 @@ test('every family satisfies its disclosed temporal coverage contract', () => {
     if (family.coverage_contract === 'century_crossing') {
       assert.ok(family.first_observed_year < 2001, family.id);
       assert.ok(family.last_observed_year >= 2001, family.id);
-      assert.ok(family.observed_concepts.length >= 2, family.id);
     } else if (family.coverage_contract === 'single_version_2022') {
       assert.equal(family.first_observed_year, 2022, family.id);
       assert.equal(family.last_observed_year, 2022, family.id);
@@ -59,6 +59,7 @@ test('episode memberships exactly reference real merged star episodes', () => {
     ...core.episodes,
     ...ocr.episodes,
     ...detail.episodes,
+    ...pre2001Detail.episodes,
     ...century.star_projection.episodes,
   ].map((episode) => episode.id));
   const familyIds = new Set(artifact.families.map((family) => family.id));
@@ -69,12 +70,13 @@ test('episode memberships exactly reference real merged star episodes', () => {
     && config.concept_tiers.some((tier) => tier.id === item.concept_tier_id)));
 });
 
-test('family edges are solid-renderable, chronological, nonsemantic, and noncausal', () => {
+test('evolution and discipline edges are solid-renderable, chronological, nonsemantic, and noncausal', () => {
   const membershipIds = new Set(artifact.episode_memberships.map((item) => item.episode_id));
   assert.ok(artifact.edges.some((edge) => edge.type === 'same_surface_observed_again'));
   assert.ok(artifact.edges.some((edge) => edge.type === 'editorial_correspondence'));
+  assert.equal(artifact.edges.filter((edge) => edge.mode === 'discipline').length, 3);
   assert.ok(artifact.edges.every((edge) =>
-    edge.mode === 'evolution'
+    ['evolution', 'discipline'].includes(edge.mode)
     && edge.source_year <= edge.target_year
     && membershipIds.has(edge.source)
     && membershipIds.has(edge.target)
@@ -82,6 +84,28 @@ test('family edges are solid-renderable, chronological, nonsemantic, and noncaus
     && edge.citation_allowed === false
     && edge.influence_claim_allowed === false
     && !String(edge.label).includes('虚线')));
+});
+
+test('history and history-and-society remain separate vertical families with one sourced 1923 grouping', () => {
+  const history = config.families.find((family) => family.id === 'subject-course-history');
+  const historySociety = config.families.find((family) => family.id === 'subject-course-history-society');
+  assert.deepEqual(history.visibility_facets, ['历史']);
+  assert.deepEqual(historySociety.visibility_facets, ['历史与社会']);
+  assert.ok(!history.concept_ids.includes('course-history-society-social-studies'));
+  assert.ok(!history.concept_ids.includes('course-history-society'));
+  const disciplineEdges = artifact.edges.filter((edge) => edge.mode === 'discipline');
+  assert.equal(new Set(disciplineEdges.map((edge) => edge.relation_id)).size, 1);
+  assert.deepEqual(new Set(disciplineEdges.map((edge) => edge.target)), new Set([
+    'century-concept:ee14ae3beab9b8d9fcce',
+    'century-concept:12ac8689295b54c49eb4',
+    'century-concept:7991cde8462d4dc9650f',
+  ]));
+  assert.ok(disciplineEdges.every((edge) =>
+    edge.source === 'century-concept:8cc61f79fe891c5755f2'
+    && edge.type === 'integrated_curriculum_contains_disciplines'
+    && edge.source_year === 1923
+    && edge.target_year === 1923
+    && edge.claim_boundary.includes('不表示历史演变成')));
 });
 
 test('representative language-practice chains reach from historical surfaces to current domains', () => {

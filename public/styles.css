@@ -81,11 +81,27 @@ button { color: inherit; }
 .map-control-column {
   position: absolute; z-index: 12; top: 92px; bottom: 22px; display: flex; flex-direction: column; gap: 7px;
   overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; pointer-events: none;
+  transition: opacity .22s ease, transform .22s ease, visibility .22s;
 }
 .map-control-column { left: clamp(18px, 3.8vw, 58px); width: var(--left-rail-w); }
 .map-control-column::-webkit-scrollbar { display: none; }
+.map-control-column.is-collapsed {
+  visibility: hidden; opacity: 0; transform: translateX(calc(-100% - 28px)); pointer-events: none;
+}
+.map-tools-toggle {
+  position: absolute; z-index: 14; left: clamp(18px, 3.8vw, 58px); top: 92px; display: inline-flex; align-items: center; gap: 7px;
+  min-height: 34px; padding: 0 11px; border: 1px solid rgba(198,210,244,.17); border-radius: 999px;
+  color: rgba(232,237,249,.88); background: rgba(5,8,20,.7); backdrop-filter: blur(14px); cursor: pointer;
+  box-shadow: 0 12px 36px rgba(0,0,0,.2); transition: color .18s, border-color .18s, background .18s;
+}
+.map-tools-toggle:hover, .map-tools-toggle:focus-visible, .map-tools-toggle[aria-expanded="true"] {
+  color: #f4d78e; border-color: rgba(231,189,97,.55); background: rgba(12,15,29,.88); outline: 0;
+}
+.map-tools-toggle span { color: var(--gold); font-size: 12px; }
+.map-tools-toggle b { font: 600 10px var(--serif); letter-spacing: .04em; }
+.map-tools-toggle[aria-expanded="true"] { transform: translateX(calc(var(--left-rail-w) + 10px)); }
 
-.subject-cluster, .era-cluster {
+.subject-cluster {
   position: relative; flex: 0 0 auto; width: 100%; padding: 4px;
   border: 1px solid rgba(198,210,244,.13); border-radius: 14px;
   background: rgba(4,7,17,.62); backdrop-filter: blur(16px); pointer-events: auto;
@@ -198,20 +214,22 @@ button { color: inherit; }
 .ontology-relations button { display: block; width: 100%; padding: 7px 0; border: 0; color: #e4e9f6; background: transparent; cursor: pointer; text-align: left; font: 11px/1.45 var(--serif); }
 .ontology-relations button span { display: inline-block; min-width: 76px; margin-right: 7px; color: var(--gold); font: 8px var(--sans); }
 
-.era-rail {
-  position: relative; display: flex; height: 102px; min-height: 0; gap: 6px; width: 100%;
-  padding: 1px 2px 2px; pointer-events: none;
+.cosmos-year-control {
+  position: absolute; z-index: 11; left: 50%; bottom: 20px; display: grid; grid-template-columns: minmax(0,1fr) auto;
+  gap: 12px; width: min(760px, calc(100% - 40px)); padding: 7px 10px;
+  border: 1px solid rgba(198,210,244,.13); border-radius: 16px;
+  background: rgba(4,7,17,.6); backdrop-filter: blur(16px); transform: translateX(-50%); pointer-events: auto;
 }
-.era-buttons { display: grid; flex: 1 1 auto; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 2px; min-width: 0; pointer-events: auto; }
+.era-buttons { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 3px; min-width: 0; pointer-events: auto; }
 .era-buttons button {
-  min-width: 0; padding: 3px 4px; border: 0; border-left: 1px solid rgba(198,210,244,.16); color: rgba(202,212,237,.82); background: rgba(4,7,17,.2); cursor: pointer;
-  font-size: 7px; font-weight: 550; line-height: 1.3; letter-spacing: .01em; text-align: left;
+  min-width: 0; min-height: 30px; padding: 3px 6px; border: 0; border-bottom: 1px solid rgba(198,210,244,.16); color: rgba(202,212,237,.82); background: rgba(4,7,17,.2); cursor: pointer;
+  font-size: 8px; font-weight: 550; line-height: 1.3; letter-spacing: .01em; text-align: center;
   text-shadow: 0 1px 5px rgba(0,0,0,.95);
 }
-.era-buttons button:hover, .era-buttons button:focus-visible, .era-buttons button.active { color: #f2cd7c; border-left-color: var(--gold); background: rgba(231,189,97,.06); }
-.year-scrubber { display: flex; flex: 0 0 26px; flex-direction: column-reverse; align-items: center; justify-content: space-between; gap: 4px; color: var(--muted); font-size: 7px; pointer-events: auto; }
+.era-buttons button:hover, .era-buttons button:focus-visible, .era-buttons button.active { color: #f2cd7c; border-bottom-color: var(--gold); background: rgba(231,189,97,.06); }
+.year-scrubber { display: grid; grid-template-columns: auto minmax(110px,190px) auto; align-items: center; gap: 8px; color: var(--muted); font-size: 8px; pointer-events: auto; }
 .year-scrubber strong { color: var(--ink); font: 600 11px var(--serif); }
-.year-scrubber input { width: 3px; height: 70px; margin: 0; accent-color: var(--gold); cursor: ns-resize; writing-mode: vertical-lr; direction: rtl; }
+.year-scrubber input { width: 100%; height: 18px; margin: 0; accent-color: var(--gold); cursor: ew-resize; }
 
 .map-key {
   position: relative; display: flex; flex: 0 0 auto; flex-wrap: wrap; gap: 7px 10px; padding: 3px 1px;
@@ -221,6 +239,7 @@ button { color: inherit; }
 .map-key span { display: inline-flex; align-items: flex-start; line-height: 1.45; }
 .map-key i { width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
 .map-key .key-evolution { flex: 0 0 auto; margin-top: 3px; background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+.map-key .key-discipline { flex: 0 0 auto; margin-top: 3px; border-radius: 1px; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); transform: rotate(45deg); }
 
 .research-dock {
   position: relative; display: grid; flex: 0 0 auto; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 3px; width: 100%; padding: 3px;
@@ -274,7 +293,14 @@ button { color: inherit; }
 .evolution-concept-list span { display: grid; gap: 2px; padding: 5px 7px; border: 1px solid rgba(198,210,244,.15); border-radius: 8px; color: rgba(230,236,249,.82); font: 600 10px var(--serif); }
 .evolution-concept-list span.current { border-color: rgba(231,189,97,.62); color: #f3d995; background: rgba(231,189,97,.08); }
 .evolution-concept-list small { color: rgba(174,190,220,.66); font: 7px var(--sans); }
-.inspector-actions { display: flex; gap: 8px; margin-top: 18px; }
+.discipline-relation-summary { margin: 10px 0 2px; padding: 14px; border: 1px solid rgba(118,223,255,.27); border-radius: 14px; background: rgba(7,27,39,.62); }
+.discipline-relation-summary .discipline-relation-kicker { margin: 0 0 5px; color: var(--cyan); font-size: 9px; font-weight: 750; letter-spacing: .08em; }
+.discipline-relation-summary h3 { margin: 0 0 9px; font: 600 15px/1.35 var(--serif); }
+.discipline-relation-summary div { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items: center; gap: 6px; padding: 7px 0; border-top: 1px solid rgba(118,223,255,.12); }
+.discipline-relation-summary div b { font: 600 10px/1.35 var(--serif); }
+.discipline-relation-summary div span { color: var(--cyan); font-size: 8px; white-space: nowrap; }
+.discipline-relation-summary div small { grid-column: 1 / -1; color: rgba(190,208,230,.7); font-size: 8px; line-height: 1.5; }
+.inspector-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .action-button {
   display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 13px; border: 1px solid var(--line);
   border-radius: 999px; color: var(--ink); background: rgba(255,255,255,.035); text-decoration: none; cursor: pointer; font-size: 11px;
@@ -427,6 +453,7 @@ button { color: inherit; }
   :root { --header-h: 68px; --left-rail-w: 140px; }
   .map-control-column { top: 78px; bottom: 16px; }
   .map-control-column { left: 14px; }
+  .map-tools-toggle { left: 14px; top: 78px; }
   .control-section-title { gap: 4px; }
   .mode-switch button { padding-inline: 3px; font-size: 8px; }
   .subject-button { min-height: 27px; padding-inline: 7px 9px; font-size: 10px; }
@@ -448,6 +475,8 @@ button { color: inherit; }
   .brand small { font-size: 8px; }
   .map-control-column { top: 68px; bottom: max(8px, env(safe-area-inset-bottom)); }
   .map-control-column { left: 7px; }
+  .map-tools-toggle { left: 7px; top: 68px; min-height: 31px; padding-inline: 9px; }
+  .map-tools-toggle[aria-expanded="true"] { transform: translateX(calc(var(--left-rail-w) + 5px)); }
   .control-section-title { grid-template-columns: minmax(0,1fr) auto; }
   .control-section-title span { display: none; }
   .search-orbit { height: 35px; padding-inline: 7px; }
@@ -478,13 +507,16 @@ button { color: inherit; }
   .ontology-stage.dense .ontology-star {
     position: relative; left: auto; top: auto; width: 100%; min-height: 52px; transform: none;
   }
-  .era-rail { height: 92px; gap: 3px; padding: 1px 2px 2px; }
-  .era-buttons { gap: 1px; }
-  .era-buttons button { padding: 3px 2px; font-size: 7px; }
-  .era-buttons button:nth-child(2), .era-buttons button:nth-child(4) { display: none; }
-  .year-scrubber { flex-basis: 20px; gap: 4px; font-size: 7px; }
+  .cosmos-year-control {
+    bottom: calc(8px + env(safe-area-inset-bottom)); grid-template-columns: minmax(0,1fr); gap: 5px;
+    width: calc(100% - 14px); padding: 5px 7px; border-radius: 13px;
+  }
+  .era-buttons { gap: 1px; overflow-x: auto; scrollbar-width: none; }
+  .era-buttons::-webkit-scrollbar { display: none; }
+  .era-buttons button { min-width: 76px; min-height: 24px; padding: 3px 4px; font-size: 7px; }
+  .year-scrubber { grid-template-columns: auto minmax(0,1fr) auto; gap: 5px; font-size: 7px; }
   .year-scrubber strong { font-size: 9px; }
-  .year-scrubber input { height: 70px; }
+  .year-scrubber input { height: 15px; }
   .star-inspector {
     inset: auto 9px calc(var(--mobile-dock-clearance) + env(safe-area-inset-bottom)) 9px; width: auto;
     max-height: min(50svh, calc(100svh - var(--header-h) - var(--mobile-dock-clearance) - 24px));
@@ -505,8 +537,9 @@ button { color: inherit; }
     scroll-padding-bottom: calc(var(--mobile-dock-clearance) + 24px);
   }
   body:has(.workbench:not([hidden])) .map-control-column { z-index: 82; }
+  body:has(.workbench:not([hidden])) .map-tools-toggle,
+  body:has(.workbench:not([hidden])) .cosmos-year-control { visibility: hidden; pointer-events: none; }
   body:has(.workbench:not([hidden])) .map-control-column .subject-cluster,
-  body:has(.workbench:not([hidden])) .map-control-column .era-cluster,
   body:has(.workbench:not([hidden])) .map-control-column .search-orbit,
   body:has(.workbench:not([hidden])) .map-control-column .mode-switch,
   body:has(.workbench:not([hidden])) .map-control-column .map-key,

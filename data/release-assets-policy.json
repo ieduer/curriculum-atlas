@@ -58,6 +58,8 @@
       { "path": "data/concept-ontology.json", "disposition": "static_build_input", "consumers": ["concept_builder"] },
       { "path": "data/century-observation-source.json", "disposition": "candidate_fail_closed", "consumers": ["century_builder"] },
       { "path": "data/subject-detail-observation-source.json", "disposition": "candidate_fail_closed", "consumers": ["subject_detail_builder", "concept_family_builder"] },
+      { "path": "data/pre2001-specialist-bounded-source.json", "disposition": "candidate_fail_closed", "consumers": ["pre2001_specialist_builder"] },
+      { "path": "data/pre2001-specialist-bounded-items.json", "disposition": "candidate_fail_closed", "consumers": ["pre2001_specialist_builder", "archive_and_star_projection"] },
       { "path": "data/document-sources.json", "disposition": "d1_build_input", "consumers": ["catalog_builder", "corpus_builder"] },
       { "path": "data/downloads-asset-audit-receipt.json", "disposition": "release_governance_receipt", "consumers": ["release_manifest", "deploy_gate"] },
       { "path": "data/ingest-manifest.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "source_manifest_api"] },

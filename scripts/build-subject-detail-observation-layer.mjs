@@ -255,6 +255,8 @@ async function buildArtifact(sourceConfig, familyConfig, catalog) {
   requireValue(Number.isInteger(maximumEvidencePages) && maximumEvidencePages > 0,
     'maximum evidence pages must be a positive integer');
   const catalogById = new Map(catalog.documents.map((document) => [document.id, document]));
+  const currentDetailedConcepts = familyConfig.detailed_concepts
+    .filter((concept) => !concept.id.startsWith('detail-pre2001-'));
   const sources = [];
   for (const sourceRow of sourceConfig.version_sources) {
     sources.push(await loadSourceDocument(sourceRow, catalogById, maximumEvidencePages));
@@ -262,7 +264,7 @@ async function buildArtifact(sourceConfig, familyConfig, catalog) {
 
   const episodes = [];
   const evidence = [];
-  for (const concept of familyConfig.detailed_concepts) {
+  for (const concept of currentDetailedConcepts) {
     requireValue(
       concept.id
         && concept.label
@@ -331,7 +333,7 @@ async function buildArtifact(sourceConfig, familyConfig, catalog) {
     || left.id.localeCompare(right.id, 'en'));
 
   const observedConceptIds = new Set(episodes.map((episode) => episode.concept_id));
-  const missingConcepts = familyConfig.detailed_concepts
+  const missingConcepts = currentDetailedConcepts
     .filter((concept) => !observedConceptIds.has(concept.id))
     .map((concept) => concept.id);
   requireValue(missingConcepts.length === 0,
@@ -377,7 +379,7 @@ async function buildArtifact(sourceConfig, familyConfig, catalog) {
       || left.year - right.year
       || left.document_id.localeCompare(right.document_id, 'en')),
     facet_counts: facetCounts,
-    concepts: familyConfig.detailed_concepts.map((concept) => ({
+    concepts: currentDetailedConcepts.map((concept) => ({
       id: concept.id,
       label: concept.label,
       category: concept.category,
@@ -395,7 +397,7 @@ async function buildArtifact(sourceConfig, familyConfig, catalog) {
       source_documents: sources.length,
       source_pages: sources.reduce((sum, source) => sum + source.state.page_count, 0),
       meaningful_characters: sources.reduce((sum, source) => sum + source.meaningfulCharacters, 0),
-      controlled_concepts: familyConfig.detailed_concepts.length,
+      controlled_concepts: currentDetailedConcepts.length,
       observed_concepts: observedConceptIds.size,
       episodes: episodes.length,
       evidence: evidence.length,

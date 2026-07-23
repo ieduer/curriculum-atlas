@@ -1,0 +1,264 @@
+{
+  "schema_version": 1,
+  "artifact_profile": "curriculum-pre2001-specialist-bounded-source-v1",
+  "snapshot_id": "20260723-specialist-bounded-v1",
+  "assertion_boundary": "本层只陈述汇编内可由目录或相邻篇名页闭合的物理页段，以及这些页段内精确词面的观察。它不证明文件颁行效力、版本替代、概念连续性、影响或因果；不得据此主张首次出现、消失或历史强弱。",
+  "projection_policy": {
+    "grain": "one_exact_surface_observation_per_concept_bounded_item",
+    "display_level": "uniform_star",
+    "maximum_evidence_pages_per_observation": 3,
+    "citation_allowed": false,
+    "semantic_claim_allowed": false,
+    "negative_claim_eligible": false
+  },
+  "additional_capture_concept_ids": [
+    "detail-history-society-social-life"
+  ],
+  "embedded_sources": [
+    {
+      "document_id": "legacy-compendium-chinese",
+      "visibility_facets": [
+        "语文"
+      ],
+      "item_manifest": "data/embedded-items-century-v1.json",
+      "ocr_profile": "frozen_readback_20260718_b3_final"
+    },
+    {
+      "document_id": "legacy-compendium-plans",
+      "visibility_facets": [
+        "体育与健康"
+      ],
+      "item_manifest": "data/embedded-items-century-v1.json",
+      "ocr_profile": "frozen_readback_20260718_b3_final"
+    },
+    {
+      "document_id": "legacy-compendium-plans",
+      "visibility_facets": [
+        "历史与社会"
+      ],
+      "item_ids": [
+        "embedded-century:legacy-compendium-plans:56be277a62104e97"
+      ],
+      "item_manifest": "data/embedded-items-century-v1.json",
+      "ocr_profile": "frozen_readback_20260718_b3_final"
+    }
+  ],
+  "toc_sources": [
+    {
+      "document_id": "legacy-compendium-mathematics",
+      "visibility_facets": [
+        "数学"
+      ],
+      "ocr_profile": "local_production_snapshot",
+      "toc_pages": [
+        10,
+        11,
+        12
+      ],
+      "printed_to_physical_offset": 12
+    },
+    {
+      "document_id": "legacy-compendium-geography",
+      "visibility_facets": [
+        "地理"
+      ],
+      "ocr_profile": "local_production_snapshot",
+      "toc_pages": [
+        9,
+        10
+      ],
+      "printed_to_physical_offset": 10
+    },
+    {
+      "document_id": "legacy-compendium-politics",
+      "visibility_facets": [
+        "思想政治与道德法治"
+      ],
+      "ocr_profile": "local_production_snapshot",
+      "toc_pages": [
+        11,
+        12,
+        13
+      ],
+      "printed_to_physical_offset": 13
+    },
+    {
+      "document_id": "legacy-compendium-history",
+      "visibility_facets": [
+        "历史"
+      ],
+      "ocr_profile": "frozen_readback_20260718_b3_final",
+      "toc_pages": [
+        8,
+        9
+      ],
+      "printed_to_physical_offset": 9
+    },
+    {
+      "document_id": "legacy-compendium-chemistry",
+      "visibility_facets": [
+        "科学类"
+      ],
+      "ocr_profile": "frozen_readback_20260718_b3_final",
+      "toc_pages": [
+        10,
+        11
+      ],
+      "printed_to_physical_offset": 11
+    }
+  ],
+  "heading_sources": [
+    {
+      "document_id": "legacy-compendium-english",
+      "visibility_facets": [
+        "外语"
+      ],
+      "ocr_profile": "local_production_snapshot",
+      "boundary_basis": "adjacent_primary_heading_pages_with_year_crosschecked_to_compendium_chronology",
+      "starts": [
+        { "page": 14, "year": 1923, "title_contains": "初级中学外国语课程纲要" },
+        { "page": 17, "year": 1923, "title_contains": "高级中学公共必修的外国语课程纲要" },
+        { "page": 20, "year": 1929, "title_contains": "初级中学英语暂行课程标准" },
+        { "page": 25, "year": 1929, "title_contains": "高级中学普通科英语暂行课程标准" },
+        { "page": 31, "year": 1932, "title_contains": "初级中学英语课程标准" },
+        { "page": 36, "year": 1932, "title_contains": "高级中学英语课程标准" },
+        { "page": 41, "year": 1936, "title_contains": "初级中学英语课程标准" },
+        { "page": 46, "year": 1936, "title_contains": "高级中学英语课程标准" },
+        { "page": 52, "year": 1941, "title_contains": "六年制中学英语课程标准草案" },
+        { "page": 60, "year": 1941, "title_contains": "修正初级中学英语课程标准" },
+        { "page": 65, "year": 1941, "title_contains": "修正高级中学英语课程标准" },
+        { "page": 71, "year": 1948, "title_contains": "修订初级中学英语课程标准" },
+        { "page": 75, "year": 1948, "title_contains": "修订高级中学英语课程标准" },
+        { "page": 80, "include": false, "title_contains": "英语科课程标准草案" }
+      ]
+    },
+    {
+      "document_id": "legacy-compendium-biology",
+      "visibility_facets": [
+        "科学类"
+      ],
+      "ocr_profile": "local_production_snapshot",
+      "boundary_basis": "adjacent_primary_heading_pages_with_year_crosschecked_to_compendium_chronology",
+      "starts": [
+        { "page": 9, "year": 1923, "title_contains": "初级中学自然课程纲要" },
+        { "page": 11, "year": 1923, "title_contains": "生物学课程纲要" },
+        { "page": 12, "year": 1929, "title_contains": "初级中学自然科暂行课程标准" },
+        { "page": 16, "year": 1929, "title_contains": "初级中学植物学暂行课程标准" },
+        { "page": 20, "year": 1929, "title_contains": "初级中学动物学暂行课程标准" },
+        { "page": 24, "year": 1929, "title_contains": "初级中学生理卫生暂行课程标准" },
+        { "page": 27, "year": 1929, "title_contains": "高级中学普通科生物学暂行课程标准" },
+        { "page": 31, "year": 1932, "title_contains": "初级中学植物学课程标准" },
+        { "page": 34, "year": 1932, "title_contains": "初级中学动物学课程标准" },
+        { "page": 39, "year": 1932, "title_contains": "初级中学卫生课程标准" },
+        { "page": 48, "include": false, "title_contains": "高级中学生物学课程标准" }
+      ]
+    },
+    {
+      "document_id": "legacy-compendium-physics",
+      "visibility_facets": [
+        "科学类"
+      ],
+      "ocr_profile": "frozen_readback_20260718_b3_final",
+      "boundary_basis": "adjacent_primary_heading_pages_with_year_crosschecked_to_compendium_chronology",
+      "starts": [
+        { "page": 7, "year": 1923, "title_contains": "初级中学自然课程纲要" },
+        { "page": 9, "year": 1923, "title_contains": "高级中学公共必修的科学概论课程纲要" },
+        { "page": 11, "year": 1923, "title_contains": "物理学课程纲要" },
+        { "page": 15, "year": 1929, "title_contains": "初级中学自然科暂行课程标准" },
+        { "page": 19, "year": 1929, "title_contains": "初级中学理化暂行课程标准" },
+        { "page": 27, "year": 1929, "title_contains": "高级中学普通科物理暂行课程标准" },
+        { "page": 31, "year": 1932, "title_contains": "初级中学物理课程标准" },
+        { "page": 35, "year": 1932, "title_contains": "高级中学物理课程标准" },
+        { "page": 41, "year": 1936, "title_contains": "初级中学物理课程标准" },
+        { "page": 44, "year": 1936, "title_contains": "高级中学物理课程标准" },
+        { "page": 49, "year": 1941, "title_contains": "修正初级中学物理课程标准" },
+        { "page": 52, "year": 1941, "title_contains": "修正高级中学物理课程标准" },
+        { "page": 58, "year": 1941, "title_contains": "六年制中学物理课程标准草案" },
+        { "page": 64, "year": 1948, "title_contains": "修订初级中学理化课程标准" },
+        { "page": 68, "year": 1948, "title_contains": "修订高级中学物理课程标准" },
+        { "page": 73, "include": false, "title_contains": "物理精简纲要" }
+      ]
+    },
+    {
+      "document_id": "legacy-compendium-general-primary",
+      "visibility_facets": [
+        "科学类"
+      ],
+      "ocr_profile": "local_production_snapshot",
+      "boundary_basis": "adjacent_primary_heading_pages_with_year_crosschecked_to_compendium_chronology",
+      "starts": [
+        { "page": 11, "year": 1923, "title_contains": "小学自然" },
+        { "page": 14, "year": 1929, "title_contains": "小学课程暂行标准" },
+        { "page": 21, "year": 1932, "title_contains": "小学课程标准" },
+        { "page": 26, "year": 1936, "title_contains": "小学高年级自然课程标准" },
+        { "page": 30, "year": 1936, "title_contains": "小学高级自然科课程标准" },
+        { "page": 42, "year": 1941, "title_contains": "高年级自然课程标准" },
+        { "page": 46, "year": 1948, "title_contains": "小学高年级自然课程暂行标准初稿" },
+        { "page": 53, "include": false, "title_contains": "小学自然教学大纲" }
+      ]
+    },
+    {
+      "document_id": "legacy-compendium-general-primary",
+      "visibility_facets": [
+        "历史与社会"
+      ],
+      "ocr_profile": "targeted_tesseract_20260723",
+      "boundary_basis": "adjacent_primary_heading_pages_with_year_crosschecked_to_compendium_chronology",
+      "starts": [
+        { "page": 142, "year": 1923, "title_contains": "小学初级四年社会课程" },
+        { "page": 144, "year": 1929, "title_contains": "小学社会" },
+        { "page": 150, "include": false, "title_contains": "小学课程标准" }
+      ]
+    },
+    {
+      "document_id": "legacy-compendium-arts-labor",
+      "ocr_profile": "frozen_readback_20260718_b3_final",
+      "boundary_basis": "adjacent_primary_heading_pages_with_year_crosschecked_to_compendium_section_chronology",
+      "starts": [
+        { "page": 195, "year": 1923, "visibility_facets": ["艺术"], "title_contains": "小学形象艺术课程纲要" },
+        { "page": 199, "year": 1923, "visibility_facets": ["艺术"], "title_contains": "初级中学图画课程纲要" },
+        { "page": 202, "year": 1929, "visibility_facets": ["艺术"], "title_contains": "小学美术" },
+        { "page": 207, "year": 1929, "visibility_facets": ["艺术"], "title_contains": "初级中学图画暂行课程标准" },
+        { "page": 210, "year": 1932, "visibility_facets": ["艺术"], "title_contains": "小学课程标准美术" },
+        { "page": 214, "year": 1932, "visibility_facets": ["艺术"], "title_contains": "初级中学图画课程标准" },
+        { "page": 217, "include": false, "title_contains": "高级中学图画课程标准" },
+        { "page": 328, "year": 1923, "visibility_facets": ["技术", "劳动"], "title_contains": "小学工用艺术课程纲要" },
+        { "page": 331, "year": 1923, "visibility_facets": ["技术", "劳动"], "title_contains": "初级中学手工（男生）课程纲要" },
+        { "page": 333, "year": 1923, "visibility_facets": ["技术", "劳动"], "title_contains": "初级中学手工（女生）课程纲要" },
+        { "page": 335, "year": 1929, "visibility_facets": ["技术", "劳动"], "title_contains": "小学工作" },
+        { "page": 341, "year": 1929, "visibility_facets": ["劳动"], "title_contains": "初级中学农业暂行课程标准" },
+        { "page": 344, "year": 1929, "visibility_facets": ["技术", "劳动"], "title_contains": "初级中学工业暂行课程标准" },
+        { "page": 348, "year": 1929, "visibility_facets": ["劳动"], "title_contains": "初级中学家事暂行课程标准" },
+        { "page": 351, "year": 1932, "visibility_facets": ["技术", "劳动"], "title_contains": "小学课程标准劳作" },
+        { "page": 356, "year": 1932, "visibility_facets": ["技术", "劳动"], "title_contains": "初级中学劳作（工艺）课程标准" },
+        { "page": 361, "year": 1932, "visibility_facets": ["劳动"], "title_contains": "初级中学劳作（农业）课程标准" },
+        { "page": 363, "year": 1932, "visibility_facets": ["劳动"], "title_contains": "初级中学劳作（家事）课程标准" },
+        { "page": 366, "include": false, "title_contains": "小学低年级工作课程标准" }
+      ]
+    }
+  ],
+  "discipline_relation_assertions": [
+    {
+      "id": "discipline-grouping-social-studies-1923",
+      "year": 1923,
+      "relation_type": "integrated_curriculum_contains_disciplines",
+      "hub_concept_id": "course-history-society-social-studies",
+      "member_concept_ids": [
+        "course-civics-citizenship",
+        "course-history",
+        "course-geography"
+      ],
+      "label": "社会科合科：公民、历史、地理",
+      "bounded_item_id": "embedded-century:legacy-compendium-plans:56be277a62104e97",
+      "evidence_pages": [
+        123,
+        124
+      ],
+      "required_surfaces": [
+        "社会科（公民，历史，地理）",
+        "卫生，公民，历史，地理，属社会科"
+      ],
+      "claim_boundary": "只表示1923年该课程纲要总说明把公民、历史、地理编组为社会科；不表示历史演变成、被替代为或从属于后来的历史与社会课程。"
+    }
+  ]
+}

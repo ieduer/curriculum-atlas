@@ -11,6 +11,7 @@ import {
   episodeVisibilityFacets,
   episodeVisibleForSubjectFilter,
   selectedEvolutionNodeIds,
+  selectedRelationshipNodeIds,
   starAutoLabelEligible,
   starEffectProfile,
   subjectColor,
@@ -87,6 +88,29 @@ test('selecting one family member activates every corresponding century node and
   );
   assert.deepEqual([...selectedEvolutionNodeIds(nodes, 'unmapped-2001')], ['unmapped-2001']);
   assert.equal(selectedEvolutionNodeIds(nodes, 'missing').size, 0);
+});
+
+test('selection expands one horizontal step and then the vertical families of those peers', () => {
+  const nodes = [
+    { id: 'social-studies-1923', evolutionFamilyId: 'history-society' },
+    { id: 'history-society-2011', evolutionFamilyId: 'history-society' },
+    { id: 'history-1923', evolutionFamilyId: 'history' },
+    { id: 'history-2022', evolutionFamilyId: 'history' },
+    { id: 'geography-1923', evolutionFamilyId: 'geography' },
+    { id: 'unrelated', evolutionFamilyId: 'mathematics' },
+  ];
+  const edges = [
+    { source: 'social-studies-1923', target: 'history-1923', mode: 'discipline' },
+    { source: 'social-studies-1923', target: 'geography-1923', mode: 'discipline' },
+    { source: 'geography-1923', target: 'unrelated', mode: 'cross' },
+  ];
+  assert.deepEqual(
+    new Set(selectedRelationshipNodeIds(nodes, edges, 'history-society-2011')),
+    new Set([
+      'social-studies-1923', 'history-society-2011',
+      'history-1923', 'history-2022', 'geography-1923',
+    ]),
+  );
 });
 
 test('D1 schema v2 preserves raw taxonomy identity and constrains twelve public facets', async () => {

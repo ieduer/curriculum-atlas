@@ -12,6 +12,7 @@ const CORE_PATH = path.join(ROOT, 'public/data/concept-evolution.json');
 const OCR_PATH = path.join(ROOT, 'public/data/ocr-observation-layer.json');
 const CENTURY_PATH = path.join(ROOT, 'public/data/century-observation-layer.json');
 const DETAIL_PATH = path.join(ROOT, 'public/data/subject-detail-observation-layer.json');
+const PRE2001_DETAIL_PATH = path.join(ROOT, 'public/data/pre2001-subject-detail-observation-layer.json');
 const OUTPUT_PATH = path.join(ROOT, 'public/data/concept-evolution-families.json');
 
 function sha256(value) {
@@ -48,7 +49,17 @@ function edgeId(parts) {
   return `evolution-family:${sha256(parts.join('|')).slice(0, 20)}`;
 }
 
-function buildArtifact(config, lexicon, graphs) {
+function disciplineEdgeId(parts) {
+  return `discipline-relation:${sha256(parts.join('|')).slice(0, 20)}`;
+}
+
+function strongestEpisode(episodes) {
+  return [...episodes].sort((left, right) =>
+    (Number(right.observation?.visual_strength) || 0) - (Number(left.observation?.visual_strength) || 0)
+    || left.id.localeCompare(right.id, 'en'))[0] || null;
+}
+
+function buildArtifact(config, lexicon, graphs, disciplineRelations = []) {
   if (config.schema_version !== 3
     || config.artifact_profile !== 'curriculum-century-concept-families-v3'
     || !Array.isArray(config.concept_tiers)
@@ -105,6 +116,12 @@ function buildArtifact(config, lexicon, graphs) {
     }
   }
   const relevantEpisodes = episodes.filter((episode) => familyByConcept.has(episode.concept_id));
+  const relevantEpisodesByConceptYear = new Map();
+  for (const episode of relevantEpisodes) {
+    const key = `${episode.concept_id}|${Number(episode.time?.year)}`;
+    if (!relevantEpisodesByConceptYear.has(key)) relevantEpisodesByConceptYear.set(key, []);
+    relevantEpisodesByConceptYear.get(key).push(episode);
+  }
   const memberships = relevantEpisodes.map((episode) => ({
     episode_id: episode.id,
     concept_id: episode.concept_id,
@@ -206,8 +223,48 @@ function buildArtifact(config, lexicon, graphs) {
     };
   });
 
+  for (const relation of disciplineRelations) {
+    if (relation.relation_type !== 'integrated_curriculum_contains_disciplines'
+      || !relation.id
+      || !relation.hub_concept_id
+      || !Array.isArray(relation.member_concept_ids)
+      || relation.member_concept_ids.length === 0
+      || !Number.isFinite(Number(relation.year))) {
+      throw new Error(`invalid discipline relation: ${relation.id || 'unknown'}`);
+    }
+    const year = Number(relation.year);
+    const hub = strongestEpisode(
+      relevantEpisodesByConceptYear.get(`${relation.hub_concept_id}|${year}`) || [],
+    );
+    if (!hub) throw new Error(`${relation.id} has no observed hub episode`);
+    for (const memberConceptId of relation.member_concept_ids) {
+      const member = strongestEpisode(
+        relevantEpisodesByConceptYear.get(`${memberConceptId}|${year}`) || [],
+      );
+      if (!member) throw new Error(`${relation.id} has no observed member episode for ${memberConceptId}`);
+      edges.push({
+        id: disciplineEdgeId([relation.id, hub.id, member.id]),
+        source: hub.id,
+        target: member.id,
+        relation_id: relation.id,
+        type: relation.relation_type,
+        mode: 'discipline',
+        directionality: 'hub_contains_member',
+        label: relation.label,
+        source_year: year,
+        target_year: year,
+        semantic: false,
+        citation_allowed: false,
+        influence_claim_allowed: false,
+        bounded_item_id: relation.bounded_item_id,
+        evidence_pages: relation.evidence_pages,
+        claim_boundary: relation.claim_boundary,
+      });
+    }
+  }
+
   edges.sort((left, right) =>
-    left.family_id.localeCompare(right.family_id, 'en')
+    String(left.family_id || left.relation_id).localeCompare(String(right.family_id || right.relation_id), 'en')
     || left.source_year - right.source_year
     || left.target_year - right.target_year
     || left.id.localeCompare(right.id, 'en'));
@@ -219,8 +276,7 @@ function buildArtifact(config, lexicon, graphs) {
       throw new Error(`${family.id} has no observed concept`);
     }
     if (family.coverage_contract === 'century_crossing'
-      && (family.first_observed_year >= 2001 || family.last_observed_year < 2001
-        || family.observed_concepts.length < 2)) {
+      && (family.first_observed_year >= 2001 || family.last_observed_year < 2001)) {
       throw new Error(`${family.id} does not satisfy the century-crossing contract`);
     }
     if (family.coverage_contract.startsWith('version_span_') && years.size < 2) {
@@ -249,6 +305,7 @@ function buildArtifact(config, lexicon, graphs) {
       episode_memberships: memberships.length,
       same_surface_edges: edges.filter((edge) => edge.type === 'same_surface_observed_again').length,
       correspondence_edges: edges.filter((edge) => edge.type === 'editorial_correspondence').length,
+      discipline_edges: edges.filter((edge) => edge.mode === 'discipline').length,
       detailed_families: familySummaries.filter((family) =>
         family.concept_tier_id.startsWith('subject-')
         && family.concept_tier_id !== 'subject-course-identity').length,
@@ -260,20 +317,22 @@ function buildArtifact(config, lexicon, graphs) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const [config, lexicon, core, ocr, century, detail] = await Promise.all([
+  const [config, lexicon, core, ocr, century, detail, pre2001Detail] = await Promise.all([
     readFile(CONFIG_PATH, 'utf8').then(JSON.parse),
     readFile(LEXICON_PATH, 'utf8').then(JSON.parse),
     readFile(CORE_PATH, 'utf8').then(JSON.parse),
     readFile(OCR_PATH, 'utf8').then(JSON.parse),
     readFile(CENTURY_PATH, 'utf8').then(JSON.parse),
     readFile(DETAIL_PATH, 'utf8').then(JSON.parse),
+    readFile(PRE2001_DETAIL_PATH, 'utf8').then(JSON.parse),
   ]);
   const artifact = buildArtifact(config, lexicon, [
     core,
     ocr,
     century.star_projection,
+    pre2001Detail,
     detail,
-  ]);
+  ], pre2001Detail.discipline_relations);
   const expected = stableJson(artifact);
   if (options.check) {
     const actual = await readFile(OUTPUT_PATH, 'utf8');

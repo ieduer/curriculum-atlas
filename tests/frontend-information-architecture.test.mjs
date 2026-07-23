@@ -68,9 +68,14 @@ test('subject hide-all clears every node and edge without a redundant count read
 test('the map loads validated concept episodes and fails closed instead of drawing document stars', () => {
   assert.match(app, /data\/concept-evolution\.json/);
   assert.match(app, /data\/century-observation-layer\.json/);
+  assert.match(app, /data\/pre2001-subject-detail-observation-layer\.json/);
   assert.match(app, /data\/concept-evolution-families\.json/);
   assert.match(app, /episode\.evolution_family_id = membership\.family_id/);
   assert.match(atlas, /selectedEvolutionNodeIds\(this\.nodes, this\.selectedId\)/);
+  assert.match(atlas, /selectedRelationshipNodeIds\(this\.nodes, this\.relationshipEdges, this\.selectedId\)/);
+  assert.match(atlas, /if \(this\.activeSelectionIds\.size\) return this\.activeSelectionIds\.has\(node\.id\)/);
+  assert.match(atlas, /focusSelection\(\)/);
+  assert.match(atlas, /edge\.mode === 'discipline'/);
   assert.match(atlas, /this\.evolutionEdges\.filter/);
   assert.match(app, /概念星图数据未通过结构校验/);
   assert.match(app, /setData\(state\.conceptGraph\)/);
@@ -78,32 +83,40 @@ test('the map loads validated concept episodes and fails closed instead of drawi
   assert.doesNotMatch(app, /setData\(centuryLayer\.items/);
 });
 
-test('the left rail consolidates subjects, years, search, modes, research, and evidence', () => {
-  const rail = elementBlock(html, '<aside class="map-control-column"', '</aside>');
+test('left tools default collapsed while year visibility lives horizontally inside the cosmos', () => {
+  const rail = elementBlock(html, '<aside class="map-control-column is-collapsed"', '</aside>');
   const subjectIndex = rail.indexOf('id="subject-orbit"');
-  const eraIndex = rail.indexOf('id="era-buttons"');
-  const scrubberIndex = rail.indexOf('id="year-range"');
   const searchIndex = rail.indexOf('id="cosmos-search"');
   const modeIndex = rail.indexOf('class="mode-switch"');
   const libraryIndex = rail.indexOf('data-workspace="library"');
   const researchIndex = rail.indexOf('data-workspace="research"');
   const evidenceIndex = rail.indexOf('id="ocr-layer-status"');
   assert.ok(subjectIndex >= 0
-    && subjectIndex < eraIndex
-    && eraIndex < scrubberIndex
-    && scrubberIndex < searchIndex
+    && subjectIndex < searchIndex
     && searchIndex < modeIndex
     && modeIndex < libraryIndex
     && libraryIndex < researchIndex
     && researchIndex < evidenceIndex,
-  'left rail order must be subjects -> years -> search -> modes -> workspaces -> evidence');
+  'collapsed tool drawer order must be subjects -> search -> modes -> workspaces -> evidence');
+  assert.equal(rail.includes('id="era-buttons"'), false);
+  assert.equal(rail.includes('id="year-range"'), false);
+  const years = elementBlock(html, '<section class="cosmos-year-control"', '</section>');
+  assert.match(years, /id="era-buttons"/);
+  assert.match(years, /id="year-range"/);
+  assert.doesNotMatch(html, /百年纵轴|class="era-cluster"/);
+  assert.match(html, /id="map-tools-toggle"[^>]*aria-expanded="false"/);
+  assert.match(html, /id="map-controls"[^>]*aria-hidden="true"/);
   assert.equal((rail.match(/data-workspace=/g) || []).length, 2);
   assert.match(styles, /\.map-control-column \{[^}]*left:/);
   assert.match(styles, /\.map-control-column \{[^}]*overflow-y:\s*auto;/);
   assert.match(styles, /\.subject-orbit \{[^}]*grid-template-columns:\s*repeat\(2,minmax\(0,1fr\)\);/);
   assert.match(styles, /\.search-orbit \{[^}]*position:\s*relative;/);
   assert.match(styles, /\.mode-switch \{[^}]*position:\s*relative;/);
-  assert.match(styles, /\.year-scrubber input \{[^}]*writing-mode:\s*vertical-lr;[^}]*direction:\s*rtl;/);
+  assert.match(styles, /\.map-control-column\.is-collapsed \{/);
+  assert.match(styles, /\.cosmos-year-control \{[^}]*left:\s*50%;[^}]*bottom:/);
+  assert.match(styles, /\.year-scrubber input \{[^}]*width:\s*100%;[^}]*cursor:\s*ew-resize;/);
+  assert.doesNotMatch(styles, /writing-mode:\s*vertical-lr|cursor:\s*ns-resize/);
+  assert.match(app, /function setMapControlsExpanded\(expanded\)/);
   assert.match(styles, /\.research-dock \{[^}]*position:\s*relative;/);
   assert.doesNotMatch(html, /timeline-library-column/);
   assert.doesNotMatch(styles, /\.research-dock \{[^}]*inset:\s*auto\s+0\s+0/);

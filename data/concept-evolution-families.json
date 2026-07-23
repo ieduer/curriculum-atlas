@@ -633,7 +633,45 @@
     {"id": "detail-technology-innovation-ability", "label": "创新能力", "aliases": [], "subjects": ["技术"], "category": "能力与素养表现", "visibility_facets": ["技术"]},
     {"id": "detail-labor-ability", "label": "劳动能力", "aliases": [], "subjects": ["劳动"], "category": "能力与素养表现", "visibility_facets": ["劳动"]},
     {"id": "artistic-expression", "label": "艺术表现", "aliases": [], "subjects": ["艺术"], "category": "能力与素养表现", "visibility_facets": ["艺术"]},
-    {"id": "sports-ability", "label": "运动能力", "aliases": [], "subjects": ["体育与健康"], "category": "能力与素养表现", "visibility_facets": ["体育与健康"]}
+    {"id": "sports-ability", "label": "运动能力", "aliases": [], "subjects": ["体育与健康"], "category": "能力与素养表现", "visibility_facets": ["体育与健康"]},
+
+    {"id": "detail-pre2001-chinese-composition", "label": "作文", "aliases": [], "subjects": ["语文"], "category": "实践与学习活动", "visibility_facets": ["语文"]},
+    {"id": "detail-pre2001-mathematics-calculation", "label": "演算", "aliases": [], "subjects": ["数学"], "category": "实践与学习活动", "visibility_facets": ["数学"]},
+    {"id": "detail-pre2001-foreign-conversation", "label": "会话", "aliases": [], "subjects": ["外语"], "category": "实践与学习活动", "visibility_facets": ["外语"]},
+    {"id": "detail-pre2001-civics-discussion", "label": "讨论", "aliases": [], "subjects": ["思想政治与道德法治"], "category": "实践与学习活动", "visibility_facets": ["思想政治与道德法治"]},
+    {"id": "detail-pre2001-history-fieldwork", "label": "实际考察", "aliases": [], "subjects": ["历史"], "category": "实践与学习活动", "visibility_facets": ["历史"]},
+    {"id": "detail-pre2001-history-society-visit-discussion", "label": "参观讨论", "aliases": [], "subjects": ["历史与社会"], "category": "实践与学习活动", "visibility_facets": ["历史与社会"]},
+    {"id": "detail-pre2001-geography-field-observation", "label": "实地观察", "aliases": [], "subjects": ["地理"], "category": "实践与学习活动", "visibility_facets": ["地理"]},
+    {"id": "detail-pre2001-science-experiment", "label": "实验", "aliases": [], "subjects": ["科学类"], "category": "实践与学习活动", "visibility_facets": ["科学类"]},
+    {"id": "detail-pre2001-technology-operation", "label": "实地操作", "aliases": [], "subjects": ["技术"], "category": "实践与学习活动", "visibility_facets": ["技术"]},
+    {"id": "detail-pre2001-labor-practicum", "label": "实习", "aliases": [], "subjects": ["劳动"], "category": "实践与学习活动", "visibility_facets": ["劳动"]},
+    {"id": "detail-pre2001-art-appreciation", "label": "欣赏", "aliases": [], "subjects": ["艺术"], "category": "实践与学习活动", "visibility_facets": ["艺术"]},
+    {"id": "detail-pre2001-sports-games", "label": "游戏及运动", "aliases": [], "subjects": ["体育与健康"], "category": "实践与学习活动", "visibility_facets": ["体育与健康"]},
+
+    {"id": "detail-pre2001-chinese-reading", "label": "读书", "aliases": [], "subjects": ["语文"], "category": "课程内容与组织", "visibility_facets": ["语文"]},
+    {"id": "detail-pre2001-mathematics-arithmetic", "label": "算术", "aliases": [], "subjects": ["数学"], "category": "课程内容与组织", "visibility_facets": ["数学"]},
+    {"id": "detail-pre2001-foreign-grammar", "label": "文法", "aliases": [], "subjects": ["外语"], "category": "课程内容与组织", "visibility_facets": ["外语"]},
+    {"id": "detail-pre2001-civics-cultivation", "label": "公民修养", "aliases": [], "subjects": ["思想政治与道德法治"], "category": "课程内容与组织", "visibility_facets": ["思想政治与道德法治"]},
+    {"id": "detail-pre2001-history-national-history", "label": "本国史", "aliases": [], "subjects": ["历史"], "category": "课程内容与组织", "visibility_facets": ["历史"]},
+    {"id": "detail-pre2001-geography-local", "label": "乡土地理", "aliases": [], "subjects": ["地理"], "category": "课程内容与组织", "visibility_facets": ["地理"]},
+    {"id": "detail-pre2001-science-biology", "label": "生物学", "aliases": [], "subjects": ["科学类"], "category": "课程内容与组织", "visibility_facets": ["科学类"]},
+    {"id": "detail-pre2001-technology-craft", "label": "工艺", "aliases": [], "subjects": ["技术"], "category": "课程内容与组织", "visibility_facets": ["技术"]},
+    {"id": "detail-pre2001-labor-home-economics", "label": "家事", "aliases": [], "subjects": ["劳动"], "category": "课程内容与组织", "visibility_facets": ["劳动"]},
+    {"id": "detail-pre2001-art-drawing", "label": "图画", "aliases": [], "subjects": ["艺术"], "category": "课程内容与组织", "visibility_facets": ["艺术"]},
+    {"id": "detail-pre2001-sports-gymnastics", "label": "体操", "aliases": [], "subjects": ["体育与健康"], "category": "课程内容与组织", "visibility_facets": ["体育与健康"]},
+
+    {"id": "detail-pre2001-chinese-expression-ability", "label": "发表能力", "aliases": [], "subjects": ["语文"], "category": "能力与素养表现", "visibility_facets": ["语文"]},
+    {"id": "detail-pre2001-mathematics-calculation-ability", "label": "计算能力", "aliases": [], "subjects": ["数学"], "category": "能力与素养表现", "visibility_facets": ["数学"]},
+    {"id": "detail-pre2001-foreign-conversation-ability", "label": "会话能力", "aliases": [], "subjects": ["外语"], "category": "能力与素养表现", "visibility_facets": ["外语"]},
+    {"id": "detail-pre2001-civics-responsibility", "label": "公民的责任", "aliases": [], "subjects": ["思想政治与道德法治"], "category": "能力与素养表现", "visibility_facets": ["思想政治与道德法治"]},
+    {"id": "detail-pre2001-history-research-ability", "label": "研究问题的能力", "aliases": [], "subjects": ["历史"], "category": "能力与素养表现", "visibility_facets": ["历史"]},
+    {"id": "detail-pre2001-history-society-investigation-collection", "label": "调查搜集", "aliases": [], "subjects": ["历史与社会"], "category": "能力与素养表现", "visibility_facets": ["历史与社会"]},
+    {"id": "detail-pre2001-geography-research", "label": "调查研究", "aliases": [], "subjects": ["地理"], "category": "能力与素养表现", "visibility_facets": ["地理"]},
+    {"id": "detail-pre2001-science-observation-ability", "label": "观察能力", "aliases": [], "subjects": ["科学类"], "category": "能力与素养表现", "visibility_facets": ["科学类"]},
+    {"id": "detail-pre2001-technology-design-ability", "label": "设计创造之思想与能力", "aliases": [], "subjects": ["技术"], "category": "能力与素养表现", "visibility_facets": ["技术"]},
+    {"id": "detail-pre2001-labor-capacity", "label": "劳动的身手", "aliases": [], "subjects": ["劳动"], "category": "能力与素养表现", "visibility_facets": ["劳动"]},
+    {"id": "detail-pre2001-art-creative-ability", "label": "创作力", "aliases": [], "subjects": ["艺术"], "category": "能力与素养表现", "visibility_facets": ["艺术"]},
+    {"id": "detail-pre2001-sports-agility", "label": "动作敏捷", "aliases": [], "subjects": ["体育与健康"], "category": "能力与素养表现", "visibility_facets": ["体育与健康"]}
   ],
   "families": [
     {
@@ -946,7 +984,7 @@
     {
       "id": "subject-course-history",
       "label": "历史课程名称",
-      "definition": "本国史、中国史、世界史与历史课程名称词面的分支观察。",
+      "definition": "本国史、中国史、世界史与历史课程名称词面的学科纵向观察；不把综合社会课程当作历史课程的后继名称。",
       "concept_tier_id": "subject-course-identity",
       "visibility_facets": ["历史"],
       "concept_ids": [
@@ -976,7 +1014,7 @@
     {
       "id": "subject-course-history-society",
       "label": "历史与社会课程名称",
-      "definition": "社会科与历史与社会课程名称词面的可比较观察。",
+      "definition": "社会科与历史与社会课程名称词面的综合课程纵向观察；其与历史学科只在有来源明示的分合关系上横向连接。",
       "concept_tier_id": "subject-course-identity",
       "visibility_facets": ["历史与社会"],
       "concept_ids": [
@@ -987,7 +1025,7 @@
         {
           "source_concept_id": "course-history-society-social-studies",
           "target_concept_id": "course-history-society",
-          "label": "综合社会课程名称转写"
+          "label": "综合社会课程名称跨期对应"
         }
       ]
     },
@@ -1201,370 +1239,436 @@
     {
       "id": "subject-practice-chinese",
       "label": "语文综合学习与实践",
-      "definition": "综合性学习与语文实践活动作为同一实践层的版本词面并列观察。",
+      "definition": "作文、综合性学习与语文实践活动作为同一实践层的跨期词面并列观察。",
       "concept_tier_id": "subject-practice-domain",
       "visibility_facets": ["语文"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-chinese-integrated-learning", "detail-chinese-language-practice"],
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-chinese-composition", "detail-chinese-integrated-learning", "detail-chinese-language-practice"],
       "transitions": [
+        {"source_concept_id": "detail-pre2001-chinese-composition", "target_concept_id": "detail-chinese-integrated-learning", "label": "单项表达实践到综合学习组织"},
         {"source_concept_id": "detail-chinese-integrated-learning", "target_concept_id": "detail-chinese-language-practice", "label": "实践组织词面转写"}
       ]
     },
     {
       "id": "subject-practice-mathematics",
       "label": "数学活动",
-      "definition": "数学活动在实验稿、2011 年版和 2022 年版中的同词观察。",
+      "definition": "演算与数学活动在同一实践层的跨期词面观察。",
       "concept_tier_id": "subject-practice-domain",
       "visibility_facets": ["数学"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-mathematics-activities"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-mathematics-calculation", "detail-mathematics-activities"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-mathematics-calculation", "target_concept_id": "detail-mathematics-activities", "label": "演算实践到数学活动"}
+      ]
     },
     {
       "id": "subject-practice-foreign-language",
       "label": "外语语言实践活动",
-      "definition": "语言实践活动在英语课标版本中的同词观察。",
+      "definition": "会话与语言实践活动在同一实践层的跨期词面观察。",
       "concept_tier_id": "subject-practice-domain",
       "visibility_facets": ["外语"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-foreign-language-practice"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-foreign-conversation", "detail-foreign-language-practice"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-foreign-conversation", "target_concept_id": "detail-foreign-language-practice", "label": "会话实践到语言实践活动"}
+      ]
     },
     {
       "id": "subject-practice-civics",
       "label": "思政与道德法治社会实践",
-      "definition": "社会实践在思想品德及道德与法治课标中的同词观察。",
+      "definition": "讨论与社会实践在同一实践层的跨期词面观察。",
       "concept_tier_id": "subject-practice-domain",
       "visibility_facets": ["思想政治与道德法治"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-civics-social-practice"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-civics-discussion", "detail-civics-social-practice"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-civics-discussion", "target_concept_id": "detail-civics-social-practice", "label": "讨论活动到社会实践"}
+      ]
     },
     {
       "id": "subject-practice-history",
       "label": "历史学习实践",
-      "definition": "历史学习作为学生实践活动词面在三个课标版本中的观察。",
+      "definition": "实际考察与历史学习在同一实践层的跨期词面观察。",
       "concept_tier_id": "subject-practice-domain",
       "visibility_facets": ["历史"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-history-learning"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-history-fieldwork", "detail-history-learning"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-history-fieldwork", "target_concept_id": "detail-history-learning", "label": "实际考察到历史学习实践"}
+      ]
     },
     {
       "id": "subject-practice-history-society",
       "label": "历史与社会调查",
-      "definition": "社会调查在历史与社会实验稿和 2011 年版中的同词观察。",
+      "definition": "参观讨论与社会调查在综合社会课程实践层的跨期词面观察。",
       "concept_tier_id": "subject-practice-domain",
       "visibility_facets": ["历史与社会"],
-      "coverage_contract": "version_span_2001_2011",
-      "concept_ids": ["detail-history-society-survey"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-history-society-visit-discussion", "detail-history-society-survey"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-history-society-visit-discussion", "target_concept_id": "detail-history-society-survey", "label": "参观讨论到社会调查"}
+      ]
     },
     {
       "id": "subject-practice-geography",
       "label": "地理实践",
-      "definition": "地理实践在实验稿、2011 年版和 2022 年版中的同词观察。",
+      "definition": "实地观察与地理实践在同一实践层的跨期词面观察。",
       "concept_tier_id": "subject-practice-domain",
       "visibility_facets": ["地理"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-geography-practice"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-geography-field-observation", "detail-geography-practice"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-geography-field-observation", "target_concept_id": "detail-geography-practice", "label": "实地观察到地理实践"}
+      ]
     },
     {
       "id": "subject-practice-science",
       "label": "科学探究实践",
-      "definition": "科学探究在科学课标三个版本中的同词观察。",
+      "definition": "实验与科学探究在同一实践层的跨期词面观察。",
       "concept_tier_id": "subject-practice-domain",
       "visibility_facets": ["科学类"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["scientific-inquiry"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-science-experiment", "scientific-inquiry"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-science-experiment", "target_concept_id": "scientific-inquiry", "label": "实验活动到科学探究"}
+      ]
     },
     {
       "id": "subject-practice-technology",
       "label": "技术设计学习",
-      "definition": "设计学习在高中技术实验稿与义务教育信息科技 2022 年版中的同词观察。",
+      "definition": "实地操作与设计学习在同一实践层的跨期词面观察。",
       "concept_tier_id": "subject-practice-domain",
       "visibility_facets": ["技术"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-technology-design-learning"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-technology-operation", "detail-technology-design-learning"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-technology-operation", "target_concept_id": "detail-technology-design-learning", "label": "实地操作到设计学习"}
+      ]
     },
     {
       "id": "subject-practice-labor",
       "label": "劳动项目实践",
-      "definition": "项目实践在当前已完成的 2022 年劳动课标中的单版本观察。",
+      "definition": "实习与项目实践在劳动课程实践层的跨期词面观察。",
       "concept_tier_id": "subject-practice-domain",
       "visibility_facets": ["劳动"],
-      "coverage_contract": "single_version_2022",
-      "concept_ids": ["detail-labor-project-practice"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-labor-practicum", "detail-labor-project-practice"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-labor-practicum", "target_concept_id": "detail-labor-project-practice", "label": "实习作业到项目实践"}
+      ]
     },
     {
       "id": "subject-practice-art",
       "label": "艺术实践",
-      "definition": "艺术实践在实验稿、2011 年版和 2022 年版中的同词观察。",
+      "definition": "欣赏与艺术实践在同一实践层的跨期词面观察。",
       "concept_tier_id": "subject-practice-domain",
       "visibility_facets": ["艺术"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-art-practice"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-art-appreciation", "detail-art-practice"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-art-appreciation", "target_concept_id": "detail-art-practice", "label": "欣赏活动到艺术实践"}
+      ]
     },
     {
       "id": "subject-practice-sports-health",
       "label": "体育活动实践",
-      "definition": "体育活动在实验稿、2011 年版和 2022 年版中的同词观察。",
+      "definition": "游戏及运动与体育活动在同一实践层的跨期词面观察。",
       "concept_tier_id": "subject-practice-domain",
       "visibility_facets": ["体育与健康"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-sports-activities"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-sports-games", "detail-sports-activities"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-sports-games", "target_concept_id": "detail-sports-activities", "label": "游戏及运动到体育活动"}
+      ]
     },
     {
       "id": "subject-content-chinese",
       "label": "语文阅读内容",
-      "definition": "阅读在语文课标三个版本中的同词内容观察。",
+      "definition": "读书与阅读在同一课程内容层的跨期词面观察。",
       "concept_tier_id": "subject-content-domain",
       "visibility_facets": ["语文"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-chinese-reading"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-chinese-reading", "detail-chinese-reading"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-chinese-reading", "target_concept_id": "detail-chinese-reading", "label": "读书到阅读内容"}
+      ]
     },
     {
       "id": "subject-content-mathematics",
       "label": "数学数与代数",
-      "definition": "数与代数在数学课标三个版本中的同词内容观察。",
+      "definition": "算术与数与代数在同一课程内容层的跨期词面观察。",
       "concept_tier_id": "subject-content-domain",
       "visibility_facets": ["数学"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-mathematics-number-algebra"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-mathematics-arithmetic", "detail-mathematics-number-algebra"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-mathematics-arithmetic", "target_concept_id": "detail-mathematics-number-algebra", "label": "算术内容到数与代数"}
+      ]
     },
     {
       "id": "subject-content-foreign-language",
       "label": "外语话题与主题",
-      "definition": "话题和主题作为外语课程内容组织词面的版本并列观察。",
+      "definition": "文法、话题和主题作为同一课程内容层的跨期词面并列观察。",
       "concept_tier_id": "subject-content-domain",
       "visibility_facets": ["外语"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-foreign-topic", "detail-foreign-theme"],
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-foreign-grammar", "detail-foreign-topic", "detail-foreign-theme"],
       "transitions": [
+        {"source_concept_id": "detail-pre2001-foreign-grammar", "target_concept_id": "detail-foreign-topic", "label": "文法内容到话题组织"},
         {"source_concept_id": "detail-foreign-topic", "target_concept_id": "detail-foreign-theme", "label": "内容组织词面转写"}
       ]
     },
     {
       "id": "subject-content-civics",
       "label": "思政与道德法治国情教育",
-      "definition": "国情教育在思想品德实验稿和道德与法治 2022 年版中的同词内容观察。",
+      "definition": "公民修养与国情教育在同一课程内容层的跨期词面观察。",
       "concept_tier_id": "subject-content-domain",
       "visibility_facets": ["思想政治与道德法治"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-civics-national-conditions"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-civics-cultivation", "detail-civics-national-conditions"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-civics-cultivation", "target_concept_id": "detail-civics-national-conditions", "label": "公民修养到国情教育"}
+      ]
     },
     {
       "id": "subject-content-history",
       "label": "历史中国古代史",
-      "definition": "中国古代史在历史课标三个版本中的同词内容观察。",
+      "definition": "本国史与中国古代史在历史课程内容层的跨期词面观察。",
       "concept_tier_id": "subject-content-domain",
       "visibility_facets": ["历史"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-history-ancient-china"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-history-national-history", "detail-history-ancient-china"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-history-national-history", "target_concept_id": "detail-history-ancient-china", "label": "本国史范围到中国古代史内容"}
+      ]
     },
     {
       "id": "subject-content-history-society",
       "label": "历史与社会生活",
-      "definition": "社会生活在历史与社会实验稿和 2011 年版中的同词内容观察。",
+      "definition": "社会生活在1923年社会课程纲要与历史与社会课标中的跨期同词观察。",
       "concept_tier_id": "subject-content-domain",
       "visibility_facets": ["历史与社会"],
-      "coverage_contract": "version_span_2001_2011",
+      "coverage_contract": "century_crossing",
       "concept_ids": ["detail-history-society-social-life"],
       "transitions": []
     },
     {
       "id": "subject-content-geography",
       "label": "地理区域地理",
-      "definition": "区域地理在地理课标三个版本中的同词内容观察。",
+      "definition": "乡土地理与区域地理在地理课程内容层的跨期词面观察。",
       "concept_tier_id": "subject-content-domain",
       "visibility_facets": ["地理"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-geography-regional"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-geography-local", "detail-geography-regional"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-geography-local", "target_concept_id": "detail-geography-regional", "label": "乡土地理到区域地理"}
+      ]
     },
     {
       "id": "subject-content-science",
       "label": "科学生命科学",
-      "definition": "生命科学在科学课标三个版本中的同词内容观察。",
+      "definition": "生物学与生命科学在科学课程内容层的跨期词面观察。",
       "concept_tier_id": "subject-content-domain",
       "visibility_facets": ["科学类"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-science-life"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-science-biology", "detail-science-life"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-science-biology", "target_concept_id": "detail-science-life", "label": "生物学到生命科学内容"}
+      ]
     },
     {
       "id": "subject-content-technology",
       "label": "技术信息技术与信息科技",
-      "definition": "信息技术与信息科技作为同一内容层级的版本词面并列观察。",
+      "definition": "工艺、信息技术与信息科技作为同一课程内容层的跨期词面观察。",
       "concept_tier_id": "subject-content-domain",
       "visibility_facets": ["技术"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-technology-information", "detail-technology-information-science"],
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-technology-craft", "detail-technology-information", "detail-technology-information-science"],
       "transitions": [
+        {"source_concept_id": "detail-pre2001-technology-craft", "target_concept_id": "detail-technology-information", "label": "工艺内容到信息技术内容"},
         {"source_concept_id": "detail-technology-information", "target_concept_id": "detail-technology-information-science", "label": "内容领域名称转写"}
       ]
     },
     {
       "id": "subject-content-labor",
       "label": "劳动日常生活劳动",
-      "definition": "日常生活劳动在当前已完成的 2022 年劳动课标中的单版本内容观察。",
+      "definition": "家事与日常生活劳动在劳动课程内容层的跨期词面观察。",
       "concept_tier_id": "subject-content-domain",
       "visibility_facets": ["劳动"],
-      "coverage_contract": "single_version_2022",
-      "concept_ids": ["detail-labor-daily-life"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-labor-home-economics", "detail-labor-daily-life"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-labor-home-economics", "target_concept_id": "detail-labor-daily-life", "label": "家事到日常生活劳动"}
+      ]
     },
     {
       "id": "subject-content-art",
       "label": "艺术造型表现",
-      "definition": "造型表现作为艺术内容领域词面在 2011 年版和 2022 年版中的观察。",
+      "definition": "图画与造型表现在艺术课程内容层的跨期词面观察。",
       "concept_tier_id": "subject-content-domain",
       "visibility_facets": ["艺术"],
-      "coverage_contract": "version_span_2011_2022",
-      "concept_ids": ["detail-art-modeling-expression"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-art-drawing", "detail-art-modeling-expression"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-art-drawing", "target_concept_id": "detail-art-modeling-expression", "label": "图画内容到造型表现"}
+      ]
     },
     {
       "id": "subject-content-sports-health",
       "label": "体育与健康运动技能",
-      "definition": "运动技能在体育与健康课标三个版本中的同词内容观察。",
+      "definition": "体操与运动技能在体育与健康课程内容层的跨期词面观察。",
       "concept_tier_id": "subject-content-domain",
       "visibility_facets": ["体育与健康"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-sports-motor-skills"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-sports-gymnastics", "detail-sports-motor-skills"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-sports-gymnastics", "target_concept_id": "detail-sports-motor-skills", "label": "体操内容到运动技能"}
+      ]
     },
     {
       "id": "subject-ability-chinese",
       "label": "语文阅读能力",
-      "definition": "阅读能力在语文课标三个版本中的同词能力观察。",
+      "definition": "发表能力与阅读能力在语文能力层的跨期词面观察。",
       "concept_tier_id": "subject-ability-domain",
       "visibility_facets": ["语文"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-chinese-reading-ability"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-chinese-expression-ability", "detail-chinese-reading-ability"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-chinese-expression-ability", "target_concept_id": "detail-chinese-reading-ability", "label": "发表能力与阅读能力的同层对应"}
+      ]
     },
     {
       "id": "subject-ability-mathematics",
       "label": "数学推理能力",
-      "definition": "推理能力在数学课标三个版本中的同词能力观察。",
+      "definition": "计算能力与推理能力在数学能力层的跨期词面观察。",
       "concept_tier_id": "subject-ability-domain",
       "visibility_facets": ["数学"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-mathematics-reasoning-ability"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-mathematics-calculation-ability", "detail-mathematics-reasoning-ability"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-mathematics-calculation-ability", "target_concept_id": "detail-mathematics-reasoning-ability", "label": "计算能力与推理能力的同层对应"}
+      ]
     },
     {
       "id": "subject-ability-foreign-language",
       "label": "外语语言能力",
-      "definition": "语言能力在英语课标三个版本及既有正式课标图谱中的同词能力观察。",
+      "definition": "会话能力与语言能力在外语能力层的跨期词面观察。",
       "concept_tier_id": "subject-ability-domain",
       "visibility_facets": ["外语"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["english-language-ability"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-foreign-conversation-ability", "english-language-ability"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-foreign-conversation-ability", "target_concept_id": "english-language-ability", "label": "会话能力到语言能力"}
+      ]
     },
     {
       "id": "subject-ability-civics",
       "label": "思政与道德法治责任意识",
-      "definition": "责任意识在思想品德及道德与法治课标中的同词能力观察。",
+      "definition": "公民的责任与责任意识在公民教育能力和品格层的跨期词面观察。",
       "concept_tier_id": "subject-ability-domain",
       "visibility_facets": ["思想政治与道德法治"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["responsibility-awareness"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-civics-responsibility", "responsibility-awareness"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-civics-responsibility", "target_concept_id": "responsibility-awareness", "label": "公民责任到责任意识"}
+      ]
     },
     {
       "id": "subject-ability-history",
       "label": "历史思维能力",
-      "definition": "历史思维能力在历史课标三个版本中的同词能力观察。",
+      "definition": "研究问题的能力与历史思维能力在历史能力层的跨期词面观察。",
       "concept_tier_id": "subject-ability-domain",
       "visibility_facets": ["历史"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-history-thinking-ability"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-history-research-ability", "detail-history-thinking-ability"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-history-research-ability", "target_concept_id": "detail-history-thinking-ability", "label": "研究问题的能力到历史思维能力"}
+      ]
     },
     {
       "id": "subject-ability-history-society",
       "label": "历史与社会获取信息能力",
-      "definition": "获取信息在历史与社会实验稿和 2011 年版中的同词能力观察。",
+      "definition": "调查搜集与获取信息在综合社会课程能力层的跨期词面观察。",
       "concept_tier_id": "subject-ability-domain",
       "visibility_facets": ["历史与社会"],
-      "coverage_contract": "version_span_2001_2011",
-      "concept_ids": ["detail-history-society-information"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-history-society-investigation-collection", "detail-history-society-information"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-history-society-investigation-collection", "target_concept_id": "detail-history-society-information", "label": "调查搜集到获取信息"}
+      ]
     },
     {
       "id": "subject-ability-geography",
       "label": "地理实践能力与地理实践力",
-      "definition": "地理实践能力与地理实践力作为同一能力层级的版本词面并列观察。",
+      "definition": "调查研究、地理实践能力与地理实践力作为同一能力层的跨期词面观察。",
       "concept_tier_id": "subject-ability-domain",
       "visibility_facets": ["地理"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-geography-practice-ability", "geographical-practice"],
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-geography-research", "detail-geography-practice-ability", "geographical-practice"],
       "transitions": [
+        {"source_concept_id": "detail-pre2001-geography-research", "target_concept_id": "detail-geography-practice-ability", "label": "调查研究到地理实践能力"},
         {"source_concept_id": "detail-geography-practice-ability", "target_concept_id": "geographical-practice", "label": "能力词面凝练"}
       ]
     },
     {
       "id": "subject-ability-science",
       "label": "科学探究能力",
-      "definition": "探究能力在科学课标三个版本中的同词能力观察。",
+      "definition": "观察能力与探究能力在科学能力层的跨期词面观察。",
       "concept_tier_id": "subject-ability-domain",
       "visibility_facets": ["科学类"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-science-inquiry-ability"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-science-observation-ability", "detail-science-inquiry-ability"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-science-observation-ability", "target_concept_id": "detail-science-inquiry-ability", "label": "观察能力到探究能力"}
+      ]
     },
     {
       "id": "subject-ability-technology",
       "label": "技术创新能力",
-      "definition": "创新能力在高中技术实验稿与义务教育信息科技 2022 年版中的同词能力观察。",
+      "definition": "设计能力与创新能力在技术能力层的跨期词面观察。",
       "concept_tier_id": "subject-ability-domain",
       "visibility_facets": ["技术"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["detail-technology-innovation-ability"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-technology-design-ability", "detail-technology-innovation-ability"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-technology-design-ability", "target_concept_id": "detail-technology-innovation-ability", "label": "设计能力到创新能力"}
+      ]
     },
     {
       "id": "subject-ability-labor",
       "label": "劳动能力",
-      "definition": "劳动能力在当前已完成的 2022 年劳动课标中的单版本能力观察。",
+      "definition": "劳动的身手与劳动能力在劳动能力层的跨期词面观察。",
       "concept_tier_id": "subject-ability-domain",
       "visibility_facets": ["劳动"],
-      "coverage_contract": "single_version_2022",
-      "concept_ids": ["detail-labor-ability"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-labor-capacity", "detail-labor-ability"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-labor-capacity", "target_concept_id": "detail-labor-ability", "label": "劳动的身手到劳动能力"}
+      ]
     },
     {
       "id": "subject-ability-art",
       "label": "艺术表现能力",
-      "definition": "艺术表现在艺术课标三个版本及既有正式课标图谱中的同词能力观察。",
+      "definition": "创作力与艺术表现在艺术能力层的跨期词面观察。",
       "concept_tier_id": "subject-ability-domain",
       "visibility_facets": ["艺术"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["artistic-expression"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-art-creative-ability", "artistic-expression"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-art-creative-ability", "target_concept_id": "artistic-expression", "label": "创作力到艺术表现"}
+      ]
     },
     {
       "id": "subject-ability-sports-health",
       "label": "体育与健康运动能力",
-      "definition": "运动能力在体育与健康课标三个版本及既有正式课标图谱中的同词能力观察。",
+      "definition": "动作敏捷与运动能力在体育与健康能力层的跨期词面观察。",
       "concept_tier_id": "subject-ability-domain",
       "visibility_facets": ["体育与健康"],
-      "coverage_contract": "version_span_2001_2022",
-      "concept_ids": ["sports-ability"],
-      "transitions": []
+      "coverage_contract": "century_crossing",
+      "concept_ids": ["detail-pre2001-sports-agility", "sports-ability"],
+      "transitions": [
+        {"source_concept_id": "detail-pre2001-sports-agility", "target_concept_id": "sports-ability", "label": "动作敏捷到运动能力"}
+      ]
     }
   ]
 }
