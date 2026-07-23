@@ -51,6 +51,7 @@
     "files": [
       { "path": "data/artifact-registry.json", "disposition": "r2_public_metadata", "consumers": ["asset_audit", "release_manifest"] },
       { "path": "data/catalog.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "concept_builder", "d1_import"] },
+      { "path": "data/concept-evolution-families.json", "disposition": "static_build_input", "consumers": ["concept_family_builder"] },
       { "path": "data/concept-evolution-quality.json", "disposition": "static_build_input", "consumers": ["concept_validator"] },
       { "path": "data/concept-lexicon.json", "disposition": "static_build_input", "consumers": ["concept_builder"] },
       { "path": "data/concept-model-v2.json", "disposition": "static_build_input", "consumers": ["concept_builder"] },

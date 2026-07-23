@@ -14,9 +14,9 @@
   <meta property="og:image" content="https://img.bdfz.net/20250503004.webp">
   <link rel="icon" href="https://img.bdfz.net/20250503004.webp" type="image/webp">
   <link rel="apple-touch-icon" href="https://img.bdfz.net/20250503004.webp">
-  <link rel="stylesheet" href="/styles.css?v=20260723v21">
-  <link rel="modulepreload" href="/subject-facets.js?v=20260723v21">
-  <script type="module" src="/app.js?v=20260723v21"></script>
+  <link rel="stylesheet" href="/styles.css?v=20260723v22">
+  <link rel="modulepreload" href="/subject-facets.js?v=20260723v22">
+  <script type="module" src="/app.js?v=20260723v22"></script>
 </head>
 <body>
   <a class="skip-link" href="#cosmos-stage">跳到课程星图</a>
@@ -34,6 +34,15 @@
 
       <aside class="map-control-column" aria-label="学科与谱系工具">
         <div class="subject-orbit" id="subject-orbit" aria-label="学科显隐"></div>
+        <div class="era-rail" aria-label="年代筛选">
+          <div class="era-buttons" id="era-buttons"></div>
+          <div class="year-scrubber">
+            <span id="year-start">1902</span>
+            <label class="sr-only" for="year-range">显示至年份</label>
+            <input id="year-range" type="range" min="1902" max="2022" value="2022" step="1">
+            <strong id="year-value">2022</strong>
+          </div>
+        </div>
         <form class="search-orbit" id="cosmos-search" role="search">
           <label class="sr-only" for="cosmos-query">在星图中搜索概念、术语与能力</label>
           <span aria-hidden="true">⌕</span>
@@ -41,9 +50,17 @@
           <button type="button" id="clear-query" aria-label="清除搜索" hidden>×</button>
         </form>
         <div class="mode-switch" aria-label="星图关系模式">
-          <button class="active" type="button" data-map-mode="lineage">历代谱系</button>
-          <button type="button" data-map-mode="cross">跨学科</button>
+          <button class="active" type="button" data-map-mode="lineage">百年演进</button>
+          <button type="button" data-map-mode="cross">概念关系</button>
           <button type="button" data-map-mode="structure">概念深挖</button>
+        </div>
+        <nav class="research-dock" aria-label="资料与研究工作台">
+          <a href="/compare" data-link data-workspace="library"><b>版本 · 资料</b><small>比较、全文与百年证据</small></a>
+          <a href="/ai" data-link data-workspace="research"><b>研究 · 讨论</b><small>证据 AI 与教师讨论</small></a>
+        </nav>
+        <a class="ocr-layer-status" id="ocr-layer-status" href="/archive" data-link hidden></a>
+        <div class="map-key" id="map-key">
+          <span><i class="key-evolution"></i>点选概念：照亮整条百年演进链</span>
         </div>
       </aside>
       <section class="concept-layers" id="concept-layers" aria-label="学科概念层级星图" hidden></section>
@@ -51,27 +68,6 @@
       <aside class="star-inspector" id="star-inspector" aria-live="polite" aria-label="概念演进详情" hidden></aside>
       <div class="atlas-tooltip" id="atlas-tooltip" hidden></div>
 
-      <aside class="timeline-library-column" aria-label="年代与研究入口">
-        <div class="era-rail" aria-label="年代筛选">
-          <div class="era-buttons" id="era-buttons"></div>
-          <div class="year-scrubber">
-            <span id="year-start">1950</span>
-            <label class="sr-only" for="year-range">显示至年份</label>
-            <input id="year-range" type="range" min="1950" max="2022" value="2022" step="1">
-            <strong id="year-value">2022</strong>
-          </div>
-        </div>
-        <nav class="research-dock" aria-label="资料与研究工作台">
-          <a href="/compare" data-link data-workspace="library"><b>版本 · 资料</b><small>比较与全文检索</small></a>
-          <a href="/ai" data-link data-workspace="research"><b>研究 · 讨论</b><small>证据 AI 与教师讨论</small></a>
-        </nav>
-        <a class="ocr-layer-status" id="ocr-layer-status" href="/archive" data-link hidden></a>
-        <div class="map-key" id="map-key">
-          <span><i class="key-standard"></i>引文级</span>
-          <span><i class="key-evaluation"></i>观察</span>
-          <span><i class="key-unverified"></i>待核</span>
-        </div>
-      </aside>
     </section>
 
     <section class="workbench" id="workbench" aria-live="polite" hidden>

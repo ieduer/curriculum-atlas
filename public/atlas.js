@@ -57,19 +57,21 @@ const SHARED_STAR_EFFECTS = Object.freeze({
   labelOpacity: 1,
 });
 
-export function starEffectProfile(display = 'candidate_dashed') {
-  const evidenceRing = display === 'solid'
-    ? 'none'
-    : display === 'reviewed_ring'
-      ? 'reviewed'
-      : display === 'warning_ring'
-        ? 'warning_dashed'
-        : 'candidate_dashed';
-  return { ...SHARED_STAR_EFFECTS, evidenceRing };
+export function starEffectProfile() {
+  return { ...SHARED_STAR_EFFECTS, evidenceRing: 'none' };
 }
 
 export function starAutoLabelEligible(node) {
-  return node?.display === 'reviewed_ring' || Number(node?.strength) >= .55;
+  return Number(node?.strength) >= .55;
+}
+
+export function selectedEvolutionNodeIds(nodes, selectedId) {
+  const selected = nodes.find((node) => node.id === selectedId);
+  if (!selected) return new Set();
+  if (!selected.evolutionFamilyId) return new Set([selected.id]);
+  return new Set(nodes
+    .filter((node) => node.evolutionFamilyId === selected.evolutionFamilyId)
+    .map((node) => node.id));
 }
 
 export function episodeSubjectFacet(episode) {
@@ -207,12 +209,15 @@ export class CurriculumCosmos {
     this.nodes = [];
     this.lineageEdges = [];
     this.crossEdges = [];
+    this.evolutionEdges = [];
     this.screenNodes = [];
     this.subjects = [];
     this.tracks = [];
     this.filters = { hiddenSubjects: new Set(), hideAll: false, maxYear: 2022, query: '' };
     this.mode = 'lineage';
     this.selectedId = null;
+    this.selectedFamilyId = null;
+    this.activeSelectionIds = new Set();
     this.hovered = null;
     this.width = 0;
     this.height = 0;
@@ -252,10 +257,12 @@ export class CurriculumCosmos {
       const conceptDrift = randomFrom(hash(episode.concept_id));
       const lineDrift = randomFrom(hash(episode.curriculum_line?.id));
       const radius = 255 + (slot % 5) * 15 + (conceptDrift() - .5) * 54;
-      const display = episode.claim_policy?.display_level || 'candidate_dashed';
+      const display = episode.claim_policy?.display_level || 'uniform_star';
       return {
         kind: 'concept', episode, id: episode.id, subject, visibilityFacets, course: course?.canonical || null, entityLabel, facetEligible: Boolean(subject), year: Number(episode.time.year),
         conceptId: episode.concept_id, color: episodeColor(episode),
+        evolutionFamilyId: episode.evolution_family_id || null,
+        evolutionTierId: episode.evolution_tier_id || null,
         x: yearX(Math.max(1902, Math.min(2022, Number(episode.time.year)))),
         y: Math.sin(angle) * radius + (conceptDrift() - .5) * 68 + (lineDrift() - .5) * 24,
         z: Math.cos(angle) * radius * .8 + (conceptDrift() - .5) * 52 + (lineDrift() - .5) * 24,
@@ -273,6 +280,7 @@ export class CurriculumCosmos {
       .filter((edge) => edge.sourceNode && edge.targetNode);
     this.lineageEdges = resolved.filter((edge) => edge.mode === 'lineage' && edge.type === 'next_observed');
     this.crossEdges = resolved.filter((edge) => edge.mode === 'cross');
+    this.evolutionEdges = resolved.filter((edge) => edge.mode === 'evolution');
   }
 
   setFilters(next, { fitVisible = false, maxZoom = 1.32 } = {}) {
@@ -292,6 +300,9 @@ export class CurriculumCosmos {
 
   setSelected(id) {
     this.selectedId = id || null;
+    const selected = this.nodes.find((node) => node.id === this.selectedId);
+    this.selectedFamilyId = selected?.evolutionFamilyId || null;
+    this.activeSelectionIds = selectedEvolutionNodeIds(this.nodes, this.selectedId);
     this.draw();
   }
 
@@ -333,12 +344,12 @@ export class CurriculumCosmos {
 
   safeViewport() {
     if (this.width <= 640) {
-      return { left: Math.min(106, this.width * .28), top: 78, right: this.width - Math.min(88, this.width * .23), bottom: this.height - 10 };
+      return { left: Math.min(118, this.width * .31), top: 78, right: this.width - 8, bottom: this.height - 10 };
     }
     if (this.width <= 980) {
-      return { left: 154, top: 96, right: this.width - 154, bottom: this.height - 18 };
+      return { left: 176, top: 96, right: this.width - 18, bottom: this.height - 18 };
     }
-    return { left: 228, top: 108, right: this.width - 228, bottom: this.height - 24 };
+    return { left: 254, top: 108, right: this.width - 24, bottom: this.height - 24 };
   }
 
   fitToGraph({ immediate = false, nodes = this.nodes, maxZoom = 1, preserveOrientation = false } = {}) {
@@ -461,45 +472,81 @@ export class CurriculumCosmos {
     context.restore();
   }
 
-  drawEdge(source, target, color, width = 1, dash = []) {
+  drawEdge(source, target, color, width = 1, options = {}) {
     if (!source || !target || !this.visible(source) || !this.visible(target)) return;
     const a = this.project(source);
     const b = this.project(target);
     if ((a.x < -40 && b.x < -40) || (a.x > this.width + 40 && b.x > this.width + 40)) return;
     const context = this.context;
+    const curve = Math.min(90, Math.abs(b.x - a.x) * .18);
+    const c1 = { x: a.x + curve, y: a.y };
+    const c2 = { x: b.x - curve, y: b.y };
     context.beginPath();
     context.moveTo(a.x, a.y);
-    const curve = Math.min(90, Math.abs(b.x - a.x) * .18);
-    context.bezierCurveTo(a.x + curve, a.y, b.x - curve, b.y, b.x, b.y);
-    context.setLineDash(dash);
+    context.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, b.x, b.y);
     context.lineWidth = width;
     context.strokeStyle = color;
     context.stroke();
-    context.setLineDash([]);
+    if (options.arrow) {
+      const angle = Math.atan2(b.y - c2.y, b.x - c2.x);
+      const size = 4.5 + width;
+      context.save();
+      context.translate(b.x, b.y);
+      context.rotate(angle);
+      context.fillStyle = color;
+      context.beginPath();
+      context.moveTo(0, 0);
+      context.lineTo(-size, -size * .56);
+      context.lineTo(-size, size * .56);
+      context.closePath();
+      context.fill();
+      context.restore();
+    }
+    if (options.label) {
+      const t = .5;
+      const mt = 1 - t;
+      const x = mt ** 3 * a.x + 3 * mt ** 2 * t * c1.x + 3 * mt * t ** 2 * c2.x + t ** 3 * b.x;
+      const y = mt ** 3 * a.y + 3 * mt ** 2 * t * c1.y + 3 * mt * t ** 2 * c2.y + t ** 3 * b.y;
+      context.save();
+      context.font = '650 9px ui-sans-serif, system-ui, sans-serif';
+      const textWidth = context.measureText(options.label).width;
+      context.fillStyle = 'rgba(4,7,17,.9)';
+      context.fillRect(x - textWidth / 2 - 5, y - 8, textWidth + 10, 16);
+      context.fillStyle = 'rgba(244,220,165,.92)';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText(options.label, x, y);
+      context.restore();
+    }
   }
 
   drawNode(node, projected, time) {
     const context = this.context;
     const selected = node.id === this.selectedId;
+    const related = this.activeSelectionIds.has(node.id);
+    const selectionActive = this.activeSelectionIds.size > 0;
+    const muted = selectionActive && !related;
+    const visualAlpha = muted ? .14 : 1;
     const hovered = node.id === this.hovered?.id;
+    const emphasized = selected || related;
     const depthScale = clamp(projected.scale, .42, 1.55);
-    const radius = Math.max(1.05, (1.45 + node.strength * 3.15) * depthScale) + (selected ? 2.35 : hovered ? 1.45 : 0);
+    const radius = Math.max(1.05, (1.45 + node.strength * 3.15) * depthScale) + (selected ? 2.35 : related ? 1.15 : hovered ? 1.45 : 0);
     const pulse = this.stable ? 0 : Math.sin(time * .0017 + node.phase) * .72 * node.effects.pulseAmplitude;
     const depthAlpha = clamp(.48 + projected.scale * .38, .5, 1);
-    const halo = radius * (selected ? 6.2 : hovered ? 5.4 : 4.4) + pulse;
+    const halo = radius * (selected ? 6.2 : related ? 5.4 : hovered ? 5.4 : 4.4) + pulse;
     const gradient = context.createRadialGradient(projected.x, projected.y, 0, projected.x, projected.y, halo);
-    gradient.addColorStop(0, rgba(node.color, (selected ? .66 : .32 * depthAlpha) * node.effects.haloOpacity));
-    gradient.addColorStop(.22, rgba(node.color, (selected ? .22 : .13 * depthAlpha) * node.effects.haloOpacity));
+    gradient.addColorStop(0, rgba(node.color, (selected ? .66 : related ? .48 : .32 * depthAlpha) * node.effects.haloOpacity * visualAlpha));
+    gradient.addColorStop(.22, rgba(node.color, (selected ? .22 : related ? .18 : .13 * depthAlpha) * node.effects.haloOpacity * visualAlpha));
     gradient.addColorStop(1, rgba(node.color, 0));
     context.fillStyle = gradient;
     context.beginPath();
     context.arc(projected.x, projected.y, halo, 0, TAU);
     context.fill();
 
-    const spikeLength = (selected ? radius * 5.2 : hovered ? radius * 3.8 : node.strength >= .72 ? radius * 2.25 : 0) * node.effects.spikeScale;
+    const spikeLength = (selected ? radius * 5.2 : related ? radius * 3.3 : hovered ? radius * 3.8 : node.strength >= .72 ? radius * 2.25 : 0) * node.effects.spikeScale;
     if (spikeLength) {
       context.save();
-      context.strokeStyle = rgba(node.color, selected ? .62 : hovered ? .45 : .2 * depthAlpha);
+      context.strokeStyle = rgba(node.color, (selected ? .62 : related ? .4 : hovered ? .45 : .2 * depthAlpha) * visualAlpha);
       context.lineWidth = selected ? 1.1 : .65;
       context.beginPath();
       context.moveTo(projected.x - spikeLength, projected.y);
@@ -510,31 +557,13 @@ export class CurriculumCosmos {
       context.restore();
     }
 
-    if (node.effects.evidenceRing === 'reviewed') {
-      context.strokeStyle = rgba(node.color, selected || hovered ? .9 : .55);
-      context.lineWidth = selected ? 1.5 : 1;
-      context.beginPath();
-      context.arc(projected.x, projected.y, radius + 3 + pulse * .25, 0, TAU);
-      context.stroke();
-    } else if (node.effects.evidenceRing !== 'none') {
-      context.setLineDash([2.5, 2.5]);
-      context.lineDashOffset = this.stable ? 0 : -(time * .008 % 5);
-      context.strokeStyle = node.effects.evidenceRing === 'warning_dashed' ? 'rgba(255,178,102,.82)' : rgba(node.color, selected || hovered ? .9 : .5);
-      context.lineWidth = 1;
-      context.beginPath();
-      context.arc(projected.x, projected.y, radius + 2.6 + pulse * .25, 0, TAU);
-      context.stroke();
-      context.setLineDash([]);
-      context.lineDashOffset = 0;
-    }
-
     context.beginPath();
     context.arc(projected.x, projected.y, radius, 0, TAU);
-    context.fillStyle = rgba(node.color, depthAlpha * node.effects.coreOpacity);
+    context.fillStyle = rgba(node.color, depthAlpha * node.effects.coreOpacity * visualAlpha);
     context.fill();
     context.beginPath();
     context.arc(projected.x - radius * .28, projected.y - radius * .28, Math.max(.55, radius * .27), 0, TAU);
-    context.fillStyle = `rgba(255,255,255,${.68 + depthAlpha * .26})`;
+    context.fillStyle = `rgba(255,255,255,${(.68 + depthAlpha * .26) * visualAlpha})`;
     context.fill();
 
     if (node.course) {
@@ -542,7 +571,7 @@ export class CurriculumCosmos {
       context.save();
       context.translate(projected.x, projected.y);
       context.rotate(Math.PI / 4);
-      context.strokeStyle = rgba(node.color, selected || hovered ? .88 : .56 * depthAlpha);
+      context.strokeStyle = rgba(node.color, (emphasized || hovered ? .88 : .56 * depthAlpha) * visualAlpha);
       context.lineWidth = selected ? 1.35 : .85;
       context.strokeRect(-markerRadius, -markerRadius, markerRadius * 2, markerRadius * 2);
       context.restore();
@@ -550,8 +579,6 @@ export class CurriculumCosmos {
 
     if (selected) {
       context.save();
-      context.setLineDash([8, 5]);
-      context.lineDashOffset = this.stable ? 0 : -(time * .018 % 13);
       context.strokeStyle = rgba(node.color, .82);
       context.lineWidth = 1.15;
       context.beginPath();
@@ -565,11 +592,12 @@ export class CurriculumCosmos {
   drawNodeLabel(item, occupied) {
     const { node, projected, radius } = item;
     const selected = node.id === this.selectedId;
+    const related = this.activeSelectionIds.has(node.id);
     const hovered = node.id === this.hovered?.id;
     const label = `${node.episode.label} · ${node.year}`;
     const context = this.context;
     context.save();
-    context.font = `${selected || hovered ? '650' : '550'} 11px ui-sans-serif, system-ui, sans-serif`;
+    context.font = `${selected || related || hovered ? '650' : '550'} 11px ui-sans-serif, system-ui, sans-serif`;
     const textWidth = context.measureText(label).width;
     const width = textWidth + 14;
     const height = 23;
@@ -584,10 +612,10 @@ export class CurriculumCosmos {
       return;
     }
     occupied.push(box);
-    context.fillStyle = selected ? 'rgba(7,10,22,.94)' : 'rgba(3,6,16,.8)';
+    context.fillStyle = selected ? 'rgba(7,10,22,.94)' : related ? 'rgba(5,9,22,.9)' : 'rgba(3,6,16,.8)';
     context.fillRect(x, y, width, height);
-    if (selected || hovered) {
-      context.strokeStyle = rgba(node.color, selected ? .72 : .45);
+    if (selected || related || hovered) {
+      context.strokeStyle = rgba(node.color, selected ? .72 : related ? .55 : .45);
       context.lineWidth = 1;
       context.strokeRect(x + .5, y + .5, width - 1, height - 1);
     }
@@ -604,25 +632,42 @@ export class CurriculumCosmos {
     if (!this.width || !this.height) return;
     this.drawBackground(time);
     this.drawEraGates();
-    if (this.mode === 'lineage') {
-      for (const edge of this.lineageEdges) {
-        const connected = this.selectedId && (edge.source === this.selectedId || edge.target === this.selectedId);
-        this.drawEdge(edge.sourceNode, edge.targetNode, rgba(edge.sourceNode.color, connected ? .56 : .14), connected ? 1.45 : .8);
+    if (this.selectedFamilyId) {
+      for (const edge of this.evolutionEdges.filter((item) => item.family_id === this.selectedFamilyId)) {
+        const span = Math.abs(Number(edge.target_year) - Number(edge.source_year));
+        const relationLabel = edge.type === 'editorial_correspondence' || span >= 12
+          ? `${edge.source_year}→${edge.target_year} · ${edge.label}`
+          : null;
+        const color = edge.type === 'editorial_correspondence'
+          ? 'rgba(242,198,105,.76)'
+          : rgba(edge.sourceNode.color, .48);
+        this.drawEdge(edge.sourceNode, edge.targetNode, color, edge.type === 'editorial_correspondence' ? 1.55 : 1.08, {
+          arrow: true,
+          label: relationLabel,
+        });
       }
-    } else {
-      for (const edge of this.crossEdges) {
-        const connected = this.selectedId && (edge.source === this.selectedId || edge.target === this.selectedId);
-        this.drawEdge(edge.sourceNode, edge.targetNode, connected ? 'rgba(239,204,126,.62)' : 'rgba(229,195,119,.18)', connected ? 1.5 : .85, [3, 5]);
+      if (this.mode === 'cross') {
+        for (const edge of this.crossEdges.filter((item) =>
+          this.activeSelectionIds.has(item.source) && this.activeSelectionIds.has(item.target))) {
+          this.drawEdge(edge.sourceNode, edge.targetNode, 'rgba(118,223,255,.24)', .8);
+        }
+      }
+    } else if (this.selectedId) {
+      const edges = this.mode === 'cross' ? this.crossEdges : this.lineageEdges;
+      for (const edge of edges.filter((item) => item.source === this.selectedId || item.target === this.selectedId)) {
+        this.drawEdge(edge.sourceNode, edge.targetNode, this.mode === 'cross'
+          ? 'rgba(239,204,126,.62)'
+          : rgba(edge.sourceNode.color, .56), 1.45);
       }
     }
     this.screenNodes = this.nodes.filter((node) => this.visible(node)).map((node) => ({ node, projected: this.project(node) }))
       .filter(({ projected }) => projected.x > -50 && projected.x < this.width + 50 && projected.y > -50 && projected.y < this.height + 50)
       .sort((left, right) => left.projected.z - right.projected.z);
     const drawn = this.screenNodes.map((item) => ({ ...item, radius: this.drawNode(item.node, item.projected, time) }));
-    const labels = drawn.filter(({ node }) => node.id === this.selectedId || node.id === this.hovered?.id
+    const labels = drawn.filter(({ node }) => this.activeSelectionIds.has(node.id) || node.id === this.hovered?.id
       || starAutoLabelEligible(node));
     labels.sort((left, right) => {
-      const priority = ({ node }) => (node.id === this.selectedId ? 100 : node.id === this.hovered?.id ? 90 : 30 + node.strength);
+      const priority = ({ node }) => (node.id === this.selectedId ? 100 : this.activeSelectionIds.has(node.id) ? 94 : node.id === this.hovered?.id ? 90 : 30 + node.strength);
       return priority(right) - priority(left);
     });
     const occupied = [];

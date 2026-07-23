@@ -37,7 +37,9 @@ test('OCR candidates use the original star material, motion, labels, and interac
   assert.match(atlas, /haloOpacity/);
   assert.match(atlas, /spikeScale/);
   assert.match(atlas, /starAutoLabelEligible\(node\)/);
-  assert.match(atlas, /node\.effects\.evidenceRing === 'candidate_dashed'|node\.effects\.evidenceRing !== 'none'/);
+  assert.match(atlas, /evidenceRing: 'none'/);
+  assert.doesNotMatch(atlas, /setLineDash|candidate_dashed|warning_dashed/);
+  assert.doesNotMatch(styles, /dashed|stroke-dasharray/);
   assert.doesNotMatch(atlas, /node\.display === 'solid' \? rgba\(node\.color, depthAlpha\)/);
   assert.doesNotMatch(atlas, /node\.display === 'solid' \? 'rgba\(244,247,255/);
 });
@@ -64,36 +66,43 @@ test('subject hide-all clears every node and edge without a redundant count read
 test('the map loads validated concept episodes and fails closed instead of drawing document stars', () => {
   assert.match(app, /data\/concept-evolution\.json/);
   assert.match(app, /data\/century-observation-layer\.json/);
+  assert.match(app, /data\/concept-evolution-families\.json/);
+  assert.match(app, /episode\.evolution_family_id = membership\.family_id/);
+  assert.match(atlas, /selectedEvolutionNodeIds\(this\.nodes, this\.selectedId\)/);
+  assert.match(atlas, /this\.evolutionEdges\.filter/);
   assert.match(app, /概念星图数据未通过结构校验/);
   assert.match(app, /setData\(state\.conceptGraph\)/);
   assert.doesNotMatch(app, /setData\(state\.documents/);
   assert.doesNotMatch(app, /setData\(centuryLayer\.items/);
 });
 
-test('the left rail orders subjects, search, and lineage modes without crossing the canvas', () => {
+test('the left rail consolidates subjects, years, search, modes, research, and evidence', () => {
   const rail = elementBlock(html, '<aside class="map-control-column"', '</aside>');
   const subjectIndex = rail.indexOf('id="subject-orbit"');
+  const eraIndex = rail.indexOf('id="era-buttons"');
+  const scrubberIndex = rail.indexOf('id="year-range"');
   const searchIndex = rail.indexOf('id="cosmos-search"');
   const modeIndex = rail.indexOf('class="mode-switch"');
-  assert.ok(subjectIndex >= 0 && subjectIndex < searchIndex && searchIndex < modeIndex, 'left rail order must be subjects -> search -> modes');
+  const libraryIndex = rail.indexOf('data-workspace="library"');
+  const researchIndex = rail.indexOf('data-workspace="research"');
+  const evidenceIndex = rail.indexOf('id="ocr-layer-status"');
+  assert.ok(subjectIndex >= 0
+    && subjectIndex < eraIndex
+    && eraIndex < scrubberIndex
+    && scrubberIndex < searchIndex
+    && searchIndex < modeIndex
+    && modeIndex < libraryIndex
+    && libraryIndex < researchIndex
+    && researchIndex < evidenceIndex,
+  'left rail order must be subjects -> years -> search -> modes -> workspaces -> evidence');
+  assert.equal((rail.match(/data-workspace=/g) || []).length, 2);
   assert.match(styles, /\.map-control-column \{[^}]*left:/);
   assert.match(styles, /\.subject-orbit \{[^}]*flex:\s*1 1 auto;[^}]*overflow-y:\s*auto;/);
   assert.match(styles, /\.search-orbit \{[^}]*position:\s*relative;/);
   assert.match(styles, /\.mode-switch \{[^}]*position:\s*relative;/);
-});
-
-test('the right rail orders a vertical era scrubber before exactly two workbench entries', () => {
-  const rail = elementBlock(html, '<aside class="timeline-library-column"', '</aside>');
-  const eraIndex = rail.indexOf('id="era-buttons"');
-  const scrubberIndex = rail.indexOf('id="year-range"');
-  const libraryIndex = rail.indexOf('data-workspace="library"');
-  const researchIndex = rail.indexOf('data-workspace="research"');
-  assert.ok(eraIndex >= 0 && eraIndex < scrubberIndex && scrubberIndex < libraryIndex && libraryIndex < researchIndex,
-    'right rail order must be eras -> vertical slider -> library -> research');
-  assert.equal((rail.match(/data-workspace=/g) || []).length, 2, 'right rail must contain exactly two workbench entries');
-  assert.match(styles, /\.timeline-library-column \{[^}]*right:/);
   assert.match(styles, /\.year-scrubber input \{[^}]*writing-mode:\s*vertical-lr;[^}]*direction:\s*rtl;/);
   assert.match(styles, /\.research-dock \{[^}]*position:\s*relative;/);
+  assert.doesNotMatch(html, /timeline-library-column/);
   assert.doesNotMatch(styles, /\.research-dock \{[^}]*inset:\s*auto\s+0\s+0/);
   assert.doesNotMatch(styles, /--dock-h|height:\s*var\(--dock-h\)/);
 });
@@ -124,7 +133,7 @@ test('the graph fits its data bounds inside responsive safe areas', () => {
   assert.match(atlas, /boxesOverlap\(box, candidate\)/);
   assert.match(atlas, /visibilitychange/);
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?\.map-control-column \{[^}]*left:\s*7px;/);
-  assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?\.timeline-library-column \{[^}]*right:\s*7px;/);
+  assert.doesNotMatch(styles, /timeline-library-column/);
   assert.doesNotMatch(styles, /\.subject-orbit > \.subject-button:nth-of-type/);
   assert.match(styles, /\.subject-orbit \{[^}]*overflow-y: auto;/);
 });

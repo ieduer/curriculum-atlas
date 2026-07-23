@@ -18,9 +18,9 @@ Browser
 
 ## 单一星图投影
 
-前端只渲染一个概念观察图。现行正式观察来自 `public/data/concept-evolution.json`；百年汇编 OCR 候选由 `scripts/build-century-observation-layer.mjs` 从 134 个内嵌篇目生成 `public/data/century-observation-layer.json#star_projection`。应用启动时把两者的 episode、edge 与 evidence 合并后一次性交给 Canvas。
+前端只渲染一个概念观察图。现行正式观察来自 `public/data/concept-evolution.json`；百年汇编 OCR 候选由 `scripts/build-century-observation-layer.mjs` 从 134 个内嵌篇目生成 `public/data/century-observation-layer.json#star_projection`；七条固定粒度的百年概念族由 `scripts/build-concept-evolution-families.mjs` 生成 `public/data/concept-evolution-families.json`。应用启动时合并 episode、evidence、族谱 membership 与非因果关系后一次性交给 Canvas。
 
-时间只是 episode 的 `year` 坐标和右侧筛选条件。文档、汇编篇目、页段与 OCR 运行记录都留在 archive/evidence 层，不成为星体，也不产生独立时间轴。候选 OCR 星恒为非语义、不可引文；只有后续独立核验才能进入更高证据层。
+时间只是 episode 的 `year` 坐标和左侧筛选条件。文档、汇编篇目、页段与 OCR 运行记录都留在 archive/evidence 层，不成为星体，也不产生独立时间轴。候选 OCR 星恒为非语义、不可引文，但外观与正式星完全一致；只有后续独立核验才能进入更高证据层。族谱关系平时不渲染，点击一个概念后才照亮全族并画实线关系，避免长跨度线在未选中状态被误读。
 
 ## 运行时
 

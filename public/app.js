@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v21';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v22';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -6,7 +6,7 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260723v21';
+} from './subject-facets.js?v=20260723v22';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -59,6 +59,8 @@ const state = {
   conceptGraph: null,
   ocrLayer: null,
   centuryLayer: null,
+  evolutionLayer: null,
+  evolutionFamilyById: new Map(),
   centuryItemById: new Map(),
   centuryConceptsByItem: new Map(),
   evidenceById: new Map(),
@@ -108,10 +110,11 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const [conceptGraph, ocrLayer, centuryLayer, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v21'),
-    api('/data/ocr-observation-layer.json?v=20260723v21'),
-    api('/data/century-observation-layer.json?v=20260723v21'),
+  const [conceptGraph, ocrLayer, centuryLayer, evolutionLayer, meta, documents, insights] = await Promise.all([
+    api('/data/concept-evolution.json?v=20260723v22'),
+    api('/data/ocr-observation-layer.json?v=20260723v22'),
+    api('/data/century-observation-layer.json?v=20260723v22'),
+    api('/data/concept-evolution-families.json?v=20260723v22'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -152,10 +155,20 @@ async function loadBase() {
     || !Array.isArray(centuryLayer.star_projection?.edges)
     || !Array.isArray(centuryLayer.star_projection?.evidence)
     || centuryLayer.star_projection.episodes.length !== centuryLayer.concept_observations.length
-    || centuryLayer.star_projection.episodes.some((episode) => episode.claim_policy?.display_level !== 'candidate_dashed'
+    || centuryLayer.star_projection.episodes.some((episode) => episode.claim_policy?.display_level !== 'uniform_star'
       || !episode.evidence_ids?.length)
     || centuryLayer.items.some((item) => item.citation_allowed !== false || item.semantic_claim_allowed !== false)) {
     throw new Error('百年文件候选层未通过结构校验');
+  }
+  if (evolutionLayer.schema_version !== 1
+    || evolutionLayer.artifact_profile !== 'curriculum-concept-evolution-families-v1'
+    || evolutionLayer.concept_tier?.id !== 'language-practice-domain'
+    || evolutionLayer.publication_status !== 'editorial_correspondence_noncausal'
+    || !Array.isArray(evolutionLayer.families)
+    || !Array.isArray(evolutionLayer.episode_memberships)
+    || !Array.isArray(evolutionLayer.edges)
+    || evolutionLayer.edges.some((edge) => edge.semantic !== false || edge.influence_claim_allowed !== false)) {
+    throw new Error('百年概念演进族谱未通过结构校验');
   }
   conceptGraph.episodes = [...conceptGraph.episodes, ...ocrLayer.episodes];
   conceptGraph.edges = [...conceptGraph.edges, ...ocrLayer.edges];
@@ -163,9 +176,19 @@ async function loadBase() {
   conceptGraph.episodes = [...conceptGraph.episodes, ...centuryLayer.star_projection.episodes];
   conceptGraph.edges = [...conceptGraph.edges, ...centuryLayer.star_projection.edges];
   conceptGraph.evidence = [...conceptGraph.evidence, ...centuryLayer.star_projection.evidence];
+  const membershipByEpisode = new Map(evolutionLayer.episode_memberships.map((item) => [item.episode_id, item]));
+  conceptGraph.episodes.forEach((episode) => {
+    const membership = membershipByEpisode.get(episode.id);
+    if (!membership) return;
+    episode.evolution_family_id = membership.family_id;
+    episode.evolution_tier_id = membership.concept_tier_id;
+  });
+  conceptGraph.edges = [...conceptGraph.edges, ...evolutionLayer.edges];
   state.conceptGraph = conceptGraph;
   state.ocrLayer = ocrLayer;
   state.centuryLayer = centuryLayer;
+  state.evolutionLayer = evolutionLayer;
+  state.evolutionFamilyById = new Map(evolutionLayer.families.map((family) => [family.id, family]));
   state.centuryItemById = new Map(centuryLayer.items.map((item) => [item.id, item]));
   state.centuryConceptsByItem = new Map();
   centuryLayer.concept_observations.forEach((observation) => {
@@ -191,7 +214,7 @@ async function loadBase() {
   yearStart.textContent = String(minYear);
   yearValue.textContent = String(maxYear);
   const pipeline = ocrLayer.pipeline_summary;
-  ocrLayerStatus.innerHTML = `<b>OCR 星图持续层</b><span>${escapeHtml(pipeline.complete_documents)} 册 · ${escapeHtml(pipeline.complete_pages)} 页完成</span><small>百年候选 ${escapeHtml(centuryLayer.star_projection.counts.episodes)} 星 · 资料目录 ${escapeHtml(centuryLayer.counts.items)} 项</small>`;
+  ocrLayerStatus.innerHTML = `<b>百年资料与证据</b><span>${escapeHtml(pipeline.complete_documents)} 册 · ${escapeHtml(pipeline.complete_pages)} 页完成</span><small>${escapeHtml(evolutionLayer.counts.families)} 条同层演进族 · ${escapeHtml(centuryLayer.star_projection.counts.episodes)} 个历史观察</small>`;
   ocrLayerStatus.hidden = false;
 }
 
@@ -365,6 +388,16 @@ function showConceptInspector(episode) {
   const subjectFacet = displayFacetForSubject(subject);
   const entityLabel = episodeEntityLabel(episode);
   const entityKind = episodeCourseEntity(episode) ? '课程节点' : '学科概念';
+  const evolutionFamily = state.evolutionFamilyById.get(episode.evolution_family_id);
+  const evolutionHtml = evolutionFamily ? `
+    <section class="evolution-chain-summary">
+      <p class="evolution-chain-kicker">百年演进链 · ${escapeHtml(state.evolutionLayer.concept_tier.label)}</p>
+      <h3>${escapeHtml(evolutionFamily.label)}</h3>
+      <p>${escapeHtml(evolutionFamily.first_observed_year)}—${escapeHtml(evolutionFamily.last_observed_year)} · ${escapeHtml(evolutionFamily.observed_concepts.length)} 个同层概念 · ${escapeHtml(evolutionFamily.episode_count)} 个观察点</p>
+      <div class="evolution-concept-list">${evolutionFamily.observed_concepts.map((concept) =>
+    `<span class="${concept.id === episode.concept_id ? 'current' : ''}">${escapeHtml(concept.label)}<small>${escapeHtml(concept.first_observed_year)}—${escapeHtml(concept.last_observed_year)}</small></span>`).join('')}</div>
+      <small>${escapeHtml(state.evolutionLayer.assertion_boundary)}</small>
+    </section>` : '';
   const evidenceHtml = records.map((item) => `<article class="concept-evidence ${item.citation_allowed ? '' : 'candidate'}">
     ${item.citation_allowed ? `<a href="/document/${encodeURIComponent(item.document_id)}" data-link>${escapeHtml(item.document_title)}</a>` : `<b>${escapeHtml(item.document_title)}</b>`}
     <small>${escapeHtml(item.source_locator)} · ${escapeHtml(item.matched_surface)}${item.citation_allowed ? '' : ' · 不进入引文 AI'}</small>
@@ -380,6 +413,7 @@ function showConceptInspector(episode) {
       <span>${escapeHtml(episode.category)}</span><span>${escapeHtml(episode.curriculum_line.school_type)}</span>
       <span>命中 ${escapeHtml(episode.observation.mention_count)} 次</span><span>${escapeHtml(conceptStatusLabel(status))}</span>
     </div>
+    ${evolutionHtml}
     <div class="inspector-insights">
       <h3>原文证据</h3>
       ${evidenceHtml || '<small>证据定位缺失；该节点不应显示，请报告数据问题。</small>'}

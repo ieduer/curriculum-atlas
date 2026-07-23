@@ -18,6 +18,9 @@ test('the two compendium tables of contents resolve to exactly 134 embedded item
   assert.equal(source.artifact_profile, 'curriculum-century-observation-source-v1');
   assert.equal(source.archive.sha256, 'f0d0521359a7617048d3ef964a4730f2091474447acc56bed0f6de7284c6334f');
   assert.equal(source.archive.citation_allowed, false);
+  assert.equal(source.concept_capture_policy.concept_tier_id, 'language-practice-domain');
+  assert.equal(source.concept_capture_policy.historical_concepts, 15);
+  assert.equal(source.concept_capture_policy.overlap_resolution, 'longest_surface_wins');
   assert.equal(manifest.schema_version, 1);
   assert.equal(manifest.artifact_profile, 'curriculum-embedded-century-items-v1');
   assert.deepEqual(manifest.counts, {
@@ -91,7 +94,7 @@ test('the century candidate layer remains nonsemantic and bounded', () => {
   assert.ok(layer.star_projection.episodes.every((episode) =>
     episode.observation_class === 'ocr_surface_candidate_nonsemantic'
     && episode.citation_allowed === false
-    && episode.claim_policy.display_level === 'candidate_dashed'
+    && episode.claim_policy.display_level === 'uniform_star'
     && episode.evidence_ids.length > 0
     && episode.evidence_ids.every((id) => evidenceIds.has(id))));
   assert.ok(layer.star_projection.edges.every((edge) =>

@@ -1,0 +1,291 @@
+{
+  "schema_version": 1,
+  "artifact_profile": "curriculum-century-concept-families-v1",
+  "concept_tier": {
+    "id": "language-practice-domain",
+    "label": "语文实践领域",
+    "definition": "只比较课程文件中处于同一观察层级的语文学习或实践领域名称，不把课程名称、育人目标、能力指标和具体篇目混入同一演进链。"
+  },
+  "assertion_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。",
+  "historical_concepts": [
+    {
+      "id": "historical-literacy-practice",
+      "label": "识字",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    },
+    {
+      "id": "historical-handwriting-practice",
+      "label": "写字",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    },
+    {
+      "id": "historical-reading-study",
+      "label": "读书",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    },
+    {
+      "id": "historical-guided-reading",
+      "label": "讲读",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    },
+    {
+      "id": "historical-reading-practice",
+      "label": "阅读",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    },
+    {
+      "id": "historical-composition-practice",
+      "label": "作文",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    },
+    {
+      "id": "historical-writing-practice",
+      "label": "写作",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    },
+    {
+      "id": "historical-speaking-practice",
+      "label": "说话",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    },
+    {
+      "id": "historical-listening-practice",
+      "label": "听话",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    },
+    {
+      "id": "historical-oral-communication",
+      "label": "口语交际",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    },
+    {
+      "id": "historical-grammar-study",
+      "label": "文法",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    },
+    {
+      "id": "historical-grammar-practice",
+      "label": "语法",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    },
+    {
+      "id": "historical-rhetoric-practice",
+      "label": "修辞",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    },
+    {
+      "id": "historical-literature-study",
+      "label": "文学",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    },
+    {
+      "id": "historical-practical-text-practice",
+      "label": "实用文",
+      "aliases": [],
+      "subjects": ["语文", "生活语文", "汉语"],
+      "category": "语文实践领域"
+    }
+  ],
+  "families": [
+    {
+      "id": "literacy-and-handwriting",
+      "label": "识字与书写",
+      "definition": "识字、写字及其后续合并领域名称。",
+      "concept_ids": [
+        "historical-literacy-practice",
+        "historical-handwriting-practice",
+        "literacy-writing"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "historical-literacy-practice",
+          "target_concept_id": "literacy-writing",
+          "label": "分项词面进入合并领域"
+        },
+        {
+          "source_concept_id": "historical-handwriting-practice",
+          "target_concept_id": "literacy-writing",
+          "label": "分项词面进入合并领域"
+        }
+      ]
+    },
+    {
+      "id": "reading-and-appreciation",
+      "label": "阅读与鉴赏",
+      "definition": "读书、讲读、阅读及其后续阅读鉴赏领域名称。",
+      "concept_ids": [
+        "historical-reading-study",
+        "historical-guided-reading",
+        "historical-reading-practice",
+        "reading-appreciation"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "historical-reading-study",
+          "target_concept_id": "historical-reading-practice",
+          "label": "同域词面转写"
+        },
+        {
+          "source_concept_id": "historical-guided-reading",
+          "target_concept_id": "historical-reading-practice",
+          "label": "同域词面转写"
+        },
+        {
+          "source_concept_id": "historical-reading-practice",
+          "target_concept_id": "reading-appreciation",
+          "label": "实践领域扩展"
+        }
+      ]
+    },
+    {
+      "id": "expression-and-communication",
+      "label": "表达与交流",
+      "definition": "作文、写作、听说与口语交际在表达交流领域中的词面变化。",
+      "concept_ids": [
+        "historical-composition-practice",
+        "historical-writing-practice",
+        "historical-speaking-practice",
+        "historical-listening-practice",
+        "historical-oral-communication",
+        "expression-communication"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "historical-composition-practice",
+          "target_concept_id": "historical-writing-practice",
+          "label": "书面表达词面转写"
+        },
+        {
+          "source_concept_id": "historical-writing-practice",
+          "target_concept_id": "expression-communication",
+          "label": "书面表达进入综合领域"
+        },
+        {
+          "source_concept_id": "historical-speaking-practice",
+          "target_concept_id": "historical-oral-communication",
+          "label": "口头表达词面转写"
+        },
+        {
+          "source_concept_id": "historical-listening-practice",
+          "target_concept_id": "historical-oral-communication",
+          "label": "听说实践词面转写"
+        },
+        {
+          "source_concept_id": "historical-oral-communication",
+          "target_concept_id": "expression-communication",
+          "label": "口语实践进入综合领域"
+        }
+      ]
+    },
+    {
+      "id": "language-knowledge-and-use",
+      "label": "语言知识与运用",
+      "definition": "文法、语法、修辞及语言文字运用领域的可比较词面。",
+      "concept_ids": [
+        "historical-grammar-study",
+        "historical-grammar-practice",
+        "historical-rhetoric-practice",
+        "language-use"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "historical-grammar-study",
+          "target_concept_id": "historical-grammar-practice",
+          "label": "知识领域词面转写"
+        },
+        {
+          "source_concept_id": "historical-grammar-practice",
+          "target_concept_id": "language-use",
+          "label": "知识转向运用领域"
+        },
+        {
+          "source_concept_id": "historical-rhetoric-practice",
+          "target_concept_id": "language-use",
+          "label": "知识转向运用领域"
+        }
+      ]
+    },
+    {
+      "id": "literature-reading-and-writing",
+      "label": "文学阅读与写作",
+      "definition": "文学、文学作品鉴赏及文学阅读写作领域的可比较词面。",
+      "concept_ids": [
+        "historical-literature-study",
+        "literary-works-appreciation",
+        "literary-reading-writing"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "historical-literature-study",
+          "target_concept_id": "literary-works-appreciation",
+          "label": "内容领域转向鉴赏实践"
+        },
+        {
+          "source_concept_id": "literary-works-appreciation",
+          "target_concept_id": "literary-reading-writing",
+          "label": "鉴赏实践进入任务领域"
+        }
+      ]
+    },
+    {
+      "id": "classics-and-cultural-study",
+      "label": "经典与文化研习",
+      "definition": "读经讲经与中华传统文化经典研习领域的可比较词面。",
+      "concept_ids": [
+        "classics-reading",
+        "traditional-culture-classics-study"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "classics-reading",
+          "target_concept_id": "traditional-culture-classics-study",
+          "label": "经典学习领域重构"
+        }
+      ]
+    },
+    {
+      "id": "practical-text-communication",
+      "label": "实用文本与交流",
+      "definition": "实用文及实用性阅读交流领域的可比较词面。",
+      "concept_ids": [
+        "historical-practical-text-practice",
+        "practical-reading-communication"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "historical-practical-text-practice",
+          "target_concept_id": "practical-reading-communication",
+          "label": "实用文本进入交流领域"
+        }
+      ]
+    }
+  ]
+}

@@ -11,6 +11,12 @@
     "citation_allowed": false,
     "receiver_apply_allowed": false
   },
+  "concept_capture_policy": {
+    "config_sha256": "e1926bfaad7e16af23b0c18a72a61d9322a8b84a5de057461ca9ab0f0127e959",
+    "concept_tier_id": "language-practice-domain",
+    "historical_concepts": 15,
+    "overlap_resolution": "longest_surface_wins"
+  },
   "sources": [
     {
       "document_id": "legacy-compendium-chinese",
@@ -64,7 +70,20 @@
           "toc_index": 2,
           "range_content_sha256": "fe2d98eaf754778d54cfaa80ea38f872de2defef7b6d654879c1fb1e6bdc2941",
           "scanned_pages": 1,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                18
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 3,
@@ -96,6 +115,18 @@
               "observed_surfaces": [
                 "读经讲经"
               ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                20
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
             }
           ]
         },
@@ -115,6 +146,30 @@
               ],
               "observed_surfaces": [
                 "读经讲经"
+              ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                23
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                23
+              ],
+              "observed_surfaces": [
+                "文学"
               ]
             }
           ]
@@ -147,6 +202,95 @@
               "observed_surfaces": [
                 "国语课程"
               ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                28,
+                29
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                27,
+                28,
+                29
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                29
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                28,
+                29
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-practical-text-practice",
+              "label": "实用文",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                28,
+                29
+              ],
+              "observed_surfaces": [
+                "实用文"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                27
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                27
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
             }
           ]
         },
@@ -154,13 +298,315 @@
           "toc_index": 8,
           "range_content_sha256": "032773cefc32b021f3aa557eeb9c9f163b8adb33623a3758276cb323cd691f0a",
           "scanned_pages": 6,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 14,
+              "observed_physical_pages": [
+                31,
+                32,
+                34,
+                35
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                31,
+                34
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                31,
+                34,
+                35
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 11,
+              "observed_physical_pages": [
+                31,
+                32,
+                34,
+                35
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                30,
+                31,
+                33
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-practical-text-practice",
+              "label": "实用文",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                31,
+                32,
+                34,
+                35
+              ],
+              "observed_surfaces": [
+                "实用文"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                30,
+                35
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 15,
+              "observed_physical_pages": [
+                30,
+                31,
+                32,
+                33,
+                34,
+                35
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                31
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                30,
+                32,
+                33,
+                34,
+                35
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                32
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 9,
           "range_content_sha256": "dbde762124b27a72f114fd1092a2f1ed69382305828f2cb39669eb9e7fc69523",
           "scanned_pages": 8,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 9,
+              "observed_physical_pages": [
+                36,
+                38,
+                42,
+                43
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                41,
+                43
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                36,
+                42,
+                43
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 9,
+              "observed_physical_pages": [
+                36,
+                37,
+                38,
+                43
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                36,
+                38,
+                42
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-practical-text-practice",
+              "label": "实用文",
+              "category": "语文实践领域",
+              "mention_count": 11,
+              "observed_physical_pages": [
+                36,
+                37,
+                38,
+                39,
+                43
+              ],
+              "observed_surfaces": [
+                "实用文"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 9,
+              "observed_physical_pages": [
+                36,
+                37,
+                41,
+                42
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 11,
+              "observed_physical_pages": [
+                36,
+                38,
+                39,
+                42
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                36
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                36,
+                38,
+                41,
+                42
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 10,
@@ -177,6 +623,154 @@
               ],
               "observed_surfaces": [
                 "国语课程"
+              ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                45,
+                46,
+                51,
+                52
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                45,
+                49,
+                52
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                45,
+                51,
+                52
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 14,
+              "observed_physical_pages": [
+                45,
+                46,
+                52,
+                53
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                44,
+                46,
+                50
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-practical-text-practice",
+              "label": "实用文",
+              "category": "语文实践领域",
+              "mention_count": 14,
+              "observed_physical_pages": [
+                44,
+                45,
+                46,
+                47,
+                49,
+                52
+              ],
+              "observed_surfaces": [
+                "实用文"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 18,
+              "observed_physical_pages": [
+                44,
+                45,
+                48,
+                50,
+                51
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 17,
+              "observed_physical_pages": [
+                44,
+                45,
+                46,
+                47,
+                50,
+                51
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                45
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                44,
+                46,
+                50
+              ],
+              "observed_surfaces": [
+                "说话"
               ]
             }
           ]
@@ -201,6 +795,166 @@
               "observed_surfaces": [
                 "国语科"
               ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 20,
+              "observed_physical_pages": [
+                55,
+                56,
+                59,
+                60,
+                62,
+                63,
+                68,
+                70,
+                71
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                59,
+                60,
+                69
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                64,
+                68,
+                69,
+                70,
+                71
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 30,
+              "observed_physical_pages": [
+                55,
+                56,
+                59,
+                60,
+                63,
+                68,
+                69,
+                71
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                59,
+                63
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-practical-text-practice",
+              "label": "实用文",
+              "category": "语文实践领域",
+              "mention_count": 22,
+              "observed_physical_pages": [
+                55,
+                56,
+                59,
+                60,
+                63,
+                64,
+                68,
+                70,
+                71
+              ],
+              "observed_surfaces": [
+                "实用文"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 19,
+              "observed_physical_pages": [
+                54,
+                56,
+                60,
+                67,
+                68,
+                70
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 28,
+              "observed_physical_pages": [
+                55,
+                56,
+                59,
+                60,
+                62,
+                63,
+                65,
+                67,
+                68,
+                69,
+                70
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 18,
+              "observed_physical_pages": [
+                54,
+                56,
+                59,
+                60,
+                62,
+                63,
+                67,
+                69
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
             }
           ]
         },
@@ -220,6 +974,106 @@
               "observed_surfaces": [
                 "国语课程"
               ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                75
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                74,
+                75
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                75
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                73
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-practical-text-practice",
+              "label": "实用文",
+              "category": "语文实践领域",
+              "mention_count": 13,
+              "observed_physical_pages": [
+                74,
+                75
+              ],
+              "observed_surfaces": [
+                "实用文"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                73,
+                74
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                74,
+                75
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                75
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
             }
           ]
         },
@@ -227,25 +1081,155 @@
           "toc_index": 13,
           "range_content_sha256": "e7e75192481f155163372a7445fea5ef4b5905adbf8eeec41b4af0c8af637c1e",
           "scanned_pages": 11,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                85
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 11,
+              "observed_physical_pages": [
+                78,
+                79,
+                80,
+                81,
+                82,
+                83,
+                84
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-guided-reading",
+              "label": "讲读",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                82
+              ],
+              "observed_surfaces": [
+                "讲读"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 16,
+              "observed_physical_pages": [
+                76,
+                79,
+                81,
+                85
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                76,
+                79,
+                80,
+                83,
+                85
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 13,
+              "observed_physical_pages": [
+                76,
+                79,
+                82,
+                83,
+                84
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                83,
+                84,
+                85
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 18,
+              "observed_physical_pages": [
+                76,
+                78,
+                79,
+                80,
+                81,
+                83,
+                84
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 34,
+              "observed_physical_pages": [
+                76,
+                78,
+                79,
+                80,
+                81,
+                82,
+                84,
+                85,
+                86
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 14,
           "range_content_sha256": "ed83a42309d8f9d269b9b910e08ad3881b8ea80df5f7891315ece05b81f7b178",
           "scanned_pages": 8,
           "concept_candidates": [
-            {
-              "concept_id": "character-lessons",
-              "label": "字课",
-              "category": "历史课程名称",
-              "mention_count": 1,
-              "observed_physical_pages": [
-                92
-              ],
-              "observed_surfaces": [
-                "字课"
-              ]
-            },
             {
               "concept_id": "chinese-writing-subject",
               "label": "中国文字",
@@ -257,6 +1241,146 @@
               "observed_surfaces": [
                 "中国文字"
               ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 12,
+              "observed_physical_pages": [
+                88,
+                90,
+                92,
+                93
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 17,
+              "observed_physical_pages": [
+                87,
+                88,
+                89,
+                90,
+                92,
+                93,
+                94
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 17,
+              "observed_physical_pages": [
+                88,
+                89
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 23,
+              "observed_physical_pages": [
+                87,
+                88,
+                89,
+                90,
+                92,
+                93,
+                94
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 28,
+              "observed_physical_pages": [
+                87,
+                90,
+                91,
+                93
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 46,
+              "observed_physical_pages": [
+                87,
+                88,
+                89,
+                90,
+                91,
+                92,
+                93,
+                94
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                88,
+                89,
+                90,
+                93
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                92,
+                93
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                91,
+                92,
+                93
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
             }
           ]
         },
@@ -265,23 +1389,6 @@
           "range_content_sha256": "c21775d8b4716a2a8bb2317965862b67ea4b5cbd11134a449a2504923ad06231",
           "scanned_pages": 36,
           "concept_candidates": [
-            {
-              "concept_id": "character-lessons",
-              "label": "字课",
-              "category": "历史课程名称",
-              "mention_count": 11,
-              "observed_physical_pages": [
-                96,
-                97,
-                98,
-                113,
-                114,
-                115
-              ],
-              "observed_surfaces": [
-                "字课"
-              ]
-            },
             {
               "concept_id": "chinese-writing-subject",
               "label": "中国文字",
@@ -293,6 +1400,229 @@
               "observed_surfaces": [
                 "中国文字"
               ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 81,
+              "observed_physical_pages": [
+                95,
+                104,
+                110,
+                111,
+                112,
+                113,
+                114,
+                115,
+                118,
+                119,
+                121,
+                122,
+                124,
+                126,
+                127,
+                129
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 14,
+              "observed_physical_pages": [
+                95,
+                96,
+                106,
+                107,
+                109,
+                111,
+                114,
+                117
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-guided-reading",
+              "label": "讲读",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                98,
+                99,
+                101
+              ],
+              "observed_surfaces": [
+                "讲读"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 45,
+              "observed_physical_pages": [
+                96,
+                98,
+                113,
+                114,
+                115,
+                116,
+                119,
+                122,
+                124,
+                127
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 43,
+              "observed_physical_pages": [
+                96,
+                97,
+                98,
+                102,
+                107,
+                114,
+                115,
+                116,
+                117,
+                119
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 28,
+              "observed_physical_pages": [
+                95,
+                96,
+                98,
+                99,
+                100,
+                101,
+                105,
+                110,
+                112,
+                125,
+                127,
+                128
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 152,
+              "observed_physical_pages": [
+                95,
+                96,
+                97,
+                98,
+                99,
+                100,
+                101,
+                102,
+                103,
+                104,
+                106,
+                107,
+                108,
+                110,
+                111,
+                112,
+                114,
+                115,
+                116,
+                117,
+                118,
+                119,
+                120,
+                121,
+                122,
+                124,
+                125,
+                127,
+                128,
+                130
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                106
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                101,
+                103,
+                104,
+                111
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                96,
+                103,
+                108,
+                111,
+                117
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                111,
+                112,
+                113
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
             }
           ]
         },
@@ -301,19 +1631,6 @@
           "range_content_sha256": "4fe6e959baddc59d0acd155642be4fb2fb569c45d7b1095a1bcc5afe75224ac1",
           "scanned_pages": 36,
           "concept_candidates": [
-            {
-              "concept_id": "character-lessons",
-              "label": "字课",
-              "category": "历史课程名称",
-              "mention_count": 3,
-              "observed_physical_pages": [
-                134,
-                151
-              ],
-              "observed_surfaces": [
-                "字课"
-              ]
-            },
             {
               "concept_id": "chinese-writing-subject",
               "label": "中国文字",
@@ -325,6 +1642,231 @@
               "observed_surfaces": [
                 "中国文字"
               ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 82,
+              "observed_physical_pages": [
+                132,
+                141,
+                146,
+                147,
+                148,
+                149,
+                150,
+                151,
+                155,
+                158,
+                160,
+                161,
+                163,
+                166
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 14,
+              "observed_physical_pages": [
+                132,
+                143,
+                145,
+                147,
+                150,
+                154
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-guided-reading",
+              "label": "讲读",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                135,
+                136
+              ],
+              "observed_surfaces": [
+                "讲读"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 45,
+              "observed_physical_pages": [
+                132,
+                134,
+                149,
+                150,
+                151,
+                152,
+                153,
+                155,
+                158,
+                161,
+                163,
+                166
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 45,
+              "observed_physical_pages": [
+                132,
+                133,
+                134,
+                138,
+                143,
+                151,
+                152,
+                153,
+                154,
+                155,
+                156
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 28,
+              "observed_physical_pages": [
+                131,
+                132,
+                135,
+                136,
+                137,
+                138,
+                141,
+                146,
+                149,
+                161,
+                163,
+                164
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 153,
+              "observed_physical_pages": [
+                131,
+                132,
+                133,
+                134,
+                135,
+                136,
+                137,
+                138,
+                139,
+                140,
+                141,
+                142,
+                143,
+                144,
+                145,
+                146,
+                147,
+                148,
+                149,
+                151,
+                153,
+                154,
+                155,
+                156,
+                158,
+                159,
+                161,
+                163,
+                164,
+                165,
+                166
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                142
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                138,
+                140,
+                147
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                131,
+                132,
+                140,
+                144,
+                148,
+                154,
+                162,
+                164
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                147,
+                148,
+                149,
+                150
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
             }
           ]
         },
@@ -332,13 +1874,377 @@
           "toc_index": 17,
           "range_content_sha256": "84a1921361f9f356f0ea00d722523ed92570f66f7451a0aeb644258141967758",
           "scanned_pages": 23,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 19,
+              "observed_physical_pages": [
+                167,
+                169,
+                170,
+                171
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                169
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-guided-reading",
+              "label": "讲读",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                168,
+                169,
+                171
+              ],
+              "observed_surfaces": [
+                "讲读"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 31,
+              "observed_physical_pages": [
+                167,
+                168,
+                169,
+                170,
+                171,
+                172,
+                173,
+                175,
+                177,
+                178,
+                181,
+                184,
+                187
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-listening-practice",
+              "label": "听话",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                177
+              ],
+              "observed_surfaces": [
+                "听话"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 63,
+              "observed_physical_pages": [
+                167,
+                168,
+                169,
+                170,
+                171,
+                172,
+                173,
+                174,
+                175,
+                176,
+                177,
+                178,
+                180,
+                181,
+                183,
+                184,
+                186,
+                187,
+                188
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                167,
+                168,
+                169,
+                171,
+                182
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 26,
+              "observed_physical_pages": [
+                167,
+                168,
+                169,
+                170,
+                171,
+                172,
+                175,
+                178,
+                181,
+                183,
+                184,
+                187
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                171,
+                172,
+                173,
+                183,
+                187
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                171,
+                172,
+                173,
+                174,
+                176,
+                177
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 32,
+              "observed_physical_pages": [
+                167,
+                168,
+                169,
+                170,
+                171,
+                172,
+                181,
+                183,
+                184,
+                186,
+                187
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 18,
           "range_content_sha256": "69e94be6bbea3cfbf88739d5a89956c17523b43d5c6e76704de6dedffa825585",
           "scanned_pages": 9,
           "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 33,
+              "observed_physical_pages": [
+                190,
+                191,
+                193,
+                194,
+                195,
+                197
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                195
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-guided-reading",
+              "label": "讲读",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                191
+              ],
+              "observed_surfaces": [
+                "讲读"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 18,
+              "observed_physical_pages": [
+                191,
+                192,
+                196,
+                197,
+                198
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 17,
+              "observed_physical_pages": [
+                191,
+                192,
+                195,
+                196,
+                197,
+                198
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                191
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 40,
+              "observed_physical_pages": [
+                191,
+                192,
+                193,
+                194,
+                195,
+                196,
+                197,
+                198
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                194,
+                198
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                195
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                194,
+                195,
+                196,
+                197
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 9,
+              "observed_physical_pages": [
+                191,
+                192,
+                193,
+                194,
+                195,
+                196
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            },
             {
               "concept_id": "problem-solving",
               "label": "解决问题",
@@ -359,6 +2265,167 @@
           "scanned_pages": 9,
           "concept_candidates": [
             {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 33,
+              "observed_physical_pages": [
+                199,
+                202,
+                203,
+                204,
+                206
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                204
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-guided-reading",
+              "label": "讲读",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                200
+              ],
+              "observed_surfaces": [
+                "讲读"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 18,
+              "observed_physical_pages": [
+                199,
+                200,
+                201,
+                205,
+                206
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 19,
+              "observed_physical_pages": [
+                199,
+                200,
+                201,
+                204,
+                205,
+                206
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                200
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 40,
+              "observed_physical_pages": [
+                199,
+                200,
+                201,
+                202,
+                203,
+                205,
+                206,
+                207
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                202,
+                203,
+                207
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                204
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                203,
+                204,
+                205
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 9,
+              "observed_physical_pages": [
+                199,
+                200,
+                202,
+                203,
+                204,
+                205
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            },
+            {
               "concept_id": "problem-solving",
               "label": "解决问题",
               "category": "梳理与探究能力",
@@ -377,6 +2444,218 @@
           "range_content_sha256": "95cc54a50a92bc11f866196ce49793ef4aa9ded86c414c62375ad269983f5652",
           "scanned_pages": 15,
           "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 38,
+              "observed_physical_pages": [
+                208,
+                210,
+                211,
+                212,
+                213,
+                217,
+                218,
+                220,
+                222
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                213
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-guided-reading",
+              "label": "讲读",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                211,
+                214
+              ],
+              "observed_surfaces": [
+                "讲读"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 44,
+              "observed_physical_pages": [
+                208,
+                209,
+                210,
+                215,
+                216,
+                217,
+                218,
+                219,
+                220,
+                221,
+                222
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-listening-practice",
+              "label": "听话",
+              "category": "语文实践领域",
+              "mention_count": 12,
+              "observed_physical_pages": [
+                208,
+                214,
+                216,
+                217,
+                218,
+                220,
+                221,
+                222
+              ],
+              "observed_surfaces": [
+                "听话"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 38,
+              "observed_physical_pages": [
+                208,
+                209,
+                210,
+                214,
+                215,
+                216,
+                217,
+                218,
+                219,
+                220,
+                221,
+                222
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                209,
+                213
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 66,
+              "observed_physical_pages": [
+                208,
+                209,
+                210,
+                211,
+                212,
+                214,
+                215,
+                216,
+                217,
+                218,
+                219,
+                220,
+                221,
+                222
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                210,
+                211,
+                212,
+                218,
+                222
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                213
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 22,
+              "observed_physical_pages": [
+                208,
+                209,
+                212,
+                213,
+                214,
+                215,
+                216,
+                217,
+                218,
+                220,
+                221,
+                222
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                209,
+                211,
+                213
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            },
             {
               "concept_id": "problem-solving",
               "label": "解决问题",
@@ -397,6 +2676,215 @@
           "scanned_pages": 18,
           "concept_candidates": [
             {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 59,
+              "observed_physical_pages": [
+                224,
+                225,
+                226,
+                227,
+                228,
+                231,
+                232,
+                233,
+                234,
+                236,
+                237,
+                238,
+                239,
+                240
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-guided-reading",
+              "label": "讲读",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                226
+              ],
+              "observed_surfaces": [
+                "讲读"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 55,
+              "observed_physical_pages": [
+                223,
+                224,
+                230,
+                231,
+                232,
+                233,
+                234,
+                235,
+                236,
+                237,
+                238,
+                239,
+                240
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-listening-practice",
+              "label": "听话",
+              "category": "语文实践领域",
+              "mention_count": 22,
+              "observed_physical_pages": [
+                225,
+                230,
+                231,
+                232,
+                233,
+                234,
+                235,
+                236,
+                237,
+                238,
+                239,
+                240
+              ],
+              "observed_surfaces": [
+                "听话"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 45,
+              "observed_physical_pages": [
+                223,
+                224,
+                225,
+                230,
+                231,
+                232,
+                233,
+                234,
+                235,
+                236,
+                237,
+                238,
+                239
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                223,
+                229,
+                234,
+                240
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 62,
+              "observed_physical_pages": [
+                223,
+                224,
+                225,
+                226,
+                227,
+                228,
+                230,
+                231,
+                232,
+                233,
+                234,
+                235,
+                236,
+                237,
+                238,
+                239,
+                240
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 11,
+              "observed_physical_pages": [
+                226,
+                228,
+                229,
+                231,
+                234,
+                235,
+                240
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 29,
+              "observed_physical_pages": [
+                224,
+                225,
+                230,
+                231,
+                232,
+                233,
+                234,
+                235,
+                236,
+                237,
+                238,
+                239,
+                240
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                228,
+                233,
+                234,
+                239,
+                240
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            },
+            {
               "concept_id": "problem-solving",
               "label": "解决问题",
               "category": "梳理与探究能力",
@@ -414,7 +2902,45 @@
           "toc_index": 22,
           "range_content_sha256": "86101376f41b836b364b8db32719b61f6330d41d2f25d2108f5b0e1ff29fbc01",
           "scanned_pages": 5,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                241,
+                242
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                245
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                245
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 23,
@@ -422,15 +2948,209 @@
           "scanned_pages": 20,
           "concept_candidates": [
             {
-              "concept_id": "character-lessons",
-              "label": "字课",
-              "category": "历史课程名称",
-              "mention_count": 2,
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 58,
               "observed_physical_pages": [
-                248
+                247,
+                248,
+                249,
+                250,
+                251,
+                252,
+                254,
+                255,
+                256,
+                257,
+                258,
+                259,
+                260,
+                261,
+                262,
+                263,
+                264,
+                265
               ],
               "observed_surfaces": [
-                "字课"
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 59,
+              "observed_physical_pages": [
+                247,
+                248,
+                254,
+                255,
+                256,
+                257,
+                258,
+                259,
+                260,
+                261,
+                262,
+                263,
+                264
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-listening-practice",
+              "label": "听话",
+              "category": "语文实践领域",
+              "mention_count": 21,
+              "observed_physical_pages": [
+                248,
+                249,
+                254,
+                255,
+                256,
+                257,
+                258,
+                259,
+                260,
+                261,
+                262,
+                263,
+                264
+              ],
+              "observed_surfaces": [
+                "听话"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 47,
+              "observed_physical_pages": [
+                246,
+                247,
+                248,
+                249,
+                254,
+                255,
+                256,
+                257,
+                258,
+                259,
+                260,
+                261,
+                262,
+                263,
+                264
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                246,
+                251,
+                253,
+                258,
+                264
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 59,
+              "observed_physical_pages": [
+                246,
+                247,
+                249,
+                250,
+                252,
+                254,
+                255,
+                256,
+                257,
+                258,
+                259,
+                260,
+                261,
+                262,
+                263,
+                264,
+                265
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 10,
+              "observed_physical_pages": [
+                250,
+                252,
+                253,
+                254,
+                259,
+                260,
+                265
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 28,
+              "observed_physical_pages": [
+                247,
+                248,
+                249,
+                254,
+                255,
+                256,
+                257,
+                258,
+                259,
+                260,
+                261,
+                262,
+                263,
+                264
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                251,
+                252,
+                258,
+                264,
+                265
+              ],
+              "observed_surfaces": [
+                "写作"
               ]
             },
             {
@@ -451,13 +3171,167 @@
           "toc_index": 24,
           "range_content_sha256": "c4f83b6b338ca5ed67c0dc1eff7220c7099a23674a5d38c9323b79326a43f8ed",
           "scanned_pages": 3,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                267
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                267
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                267
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 25,
           "range_content_sha256": "3755ccde075efd79ad4e073cd9301a282363c28893e45d426b4ddc9febf06f4b",
           "scanned_pages": 12,
           "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                270,
+                272,
+                274
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 14,
+              "observed_physical_pages": [
+                269,
+                270,
+                271,
+                272,
+                273
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 14,
+              "observed_physical_pages": [
+                270,
+                271,
+                272,
+                273
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 10,
+              "observed_physical_pages": [
+                269,
+                273,
+                274,
+                275
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-oral-communication",
+              "label": "口语交际",
+              "category": "语文实践领域",
+              "mention_count": 11,
+              "observed_physical_pages": [
+                270,
+                271,
+                272,
+                274
+              ],
+              "observed_surfaces": [
+                "口语交际"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 23,
+              "observed_physical_pages": [
+                270,
+                271,
+                272,
+                273,
+                274,
+                275
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                272,
+                274
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                270
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
             {
               "concept_id": "overall-perception",
               "label": "整体感知",
@@ -494,6 +3368,56 @@
               "observed_surfaces": [
                 "读经讲经"
               ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                282,
+                283
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                282
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-guided-reading",
+              "label": "讲读",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                282
+              ],
+              "observed_surfaces": [
+                "讲读"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                282,
+                283
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
             }
           ]
         },
@@ -501,19 +3425,119 @@
           "toc_index": 28,
           "range_content_sha256": "fc925313ffa69fed7ee565cea14f11b01cf8b50176d7a314f20afb8ce607f96b",
           "scanned_pages": 2,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                284
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 12,
+              "observed_physical_pages": [
+                284,
+                285
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 29,
           "range_content_sha256": "2f055d11b5a69f7caea68a9fdfcafb143acc1e66fa7bce086fe89b093c6926f1",
           "scanned_pages": 1,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                286
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                286
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 30,
           "range_content_sha256": "b90c1323fdfeb4e1756faeeb9afc07001493b6e3781ff001971803707e525e65",
           "scanned_pages": 1,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                287
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                287
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-guided-reading",
+              "label": "讲读",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                287
+              ],
+              "observed_surfaces": [
+                "讲读"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                287
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 31,
@@ -530,6 +3554,96 @@
               ],
               "observed_surfaces": [
                 "国语课程"
+              ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 15,
+              "observed_physical_pages": [
+                288,
+                289
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                288,
+                289,
+                290
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                289
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                288,
+                290
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                290
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                288,
+                289,
+                290
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                289
+              ],
+              "observed_surfaces": [
+                "修辞"
               ]
             }
           ]
@@ -549,6 +3663,69 @@
               ],
               "observed_surfaces": [
                 "国语课程"
+              ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                291,
+                292
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                292
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                291,
+                292
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                291,
+                292
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                292
+              ],
+              "observed_surfaces": [
+                "修辞"
               ]
             }
           ]
@@ -582,6 +3759,30 @@
               "observed_surfaces": [
                 "国文课程"
               ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                294
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 11,
+              "observed_physical_pages": [
+                295
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
             }
           ]
         },
@@ -589,7 +3790,103 @@
           "toc_index": 34,
           "range_content_sha256": "eb61d2e20ea9c59619c428db14f301e6240529a80c0bc40b3f82b116126d382b",
           "scanned_pages": 4,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 10,
+              "observed_physical_pages": [
+                296,
+                297,
+                298,
+                299
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 12,
+              "observed_physical_pages": [
+                297,
+                298,
+                299
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                297,
+                299
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                296,
+                297,
+                298,
+                299
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                297,
+                298
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                297,
+                298
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                299
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 35,
@@ -606,6 +3903,113 @@
               ],
               "observed_surfaces": [
                 "中国文字"
+              ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 13,
+              "observed_physical_pages": [
+                300,
+                301,
+                302
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                302
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 18,
+              "observed_physical_pages": [
+                300,
+                301,
+                302
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-guided-reading",
+              "label": "讲读",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                302
+              ],
+              "observed_surfaces": [
+                "讲读"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 11,
+              "observed_physical_pages": [
+                300,
+                301,
+                302
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                300,
+                301,
+                302
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                300,
+                302
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 9,
+              "observed_physical_pages": [
+                300,
+                301,
+                302
+              ],
+              "observed_surfaces": [
+                "修辞"
               ]
             }
           ]
@@ -626,6 +4030,83 @@
               "observed_surfaces": [
                 "国文课程"
               ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                306
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                304,
+                306
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                304,
+                306
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                303,
+                304,
+                305
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                305,
+                306
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                304
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
             }
           ]
         },
@@ -645,6 +4126,82 @@
               "observed_surfaces": [
                 "国文课程"
               ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                308,
+                309
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                308
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                307,
+                308,
+                309
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                308
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                308,
+                309
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                308
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
             }
           ]
         },
@@ -663,6 +4220,82 @@
               ],
               "observed_surfaces": [
                 "国文课程"
+              ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                313,
+                314
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                314
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                311,
+                312,
+                313
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                310,
+                313
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                313
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                312
+              ],
+              "observed_surfaces": [
+                "写作"
               ]
             }
           ]
@@ -684,6 +4317,83 @@
               "observed_surfaces": [
                 "国文课程"
               ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                316,
+                317
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                316,
+                317
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 9,
+              "observed_physical_pages": [
+                315,
+                316,
+                317
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                316
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                317
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                316,
+                317
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
             }
           ]
         },
@@ -702,6 +4412,97 @@
               ],
               "observed_surfaces": [
                 "国文课程"
+              ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                319,
+                321,
+                322
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                322
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                319,
+                320,
+                321
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                318,
+                321
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                321,
+                322
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                321,
+                322
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                319
+              ],
+              "observed_surfaces": [
+                "写作"
               ]
             }
           ]
@@ -722,6 +4523,84 @@
               "observed_surfaces": [
                 "国文课程"
               ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                324,
+                325
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                324,
+                325
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                323,
+                324,
+                325
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                324,
+                325
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                325
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                324,
+                325
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
             }
           ]
         },
@@ -740,6 +4619,117 @@
               ],
               "observed_surfaces": [
                 "国文课程"
+              ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                328,
+                330,
+                331
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                330
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                327,
+                328,
+                330
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 9,
+              "observed_physical_pages": [
+                326,
+                327,
+                328,
+                329,
+                330,
+                331
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                326,
+                328,
+                329,
+                330,
+                331
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                330,
+                331
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                327,
+                330
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                328
+              ],
+              "observed_surfaces": [
+                "写作"
               ]
             }
           ]
@@ -760,6 +4750,56 @@
               "observed_surfaces": [
                 "国文课程"
               ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                332,
+                333
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                333
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 9,
+              "observed_physical_pages": [
+                332,
+                333
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                333
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
             }
           ]
         },
@@ -779,6 +4819,95 @@
               "observed_surfaces": [
                 "国文课程"
               ]
+            },
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                334,
+                335,
+                336
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                335
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-study",
+              "label": "文法",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                335
+              ],
+              "observed_surfaces": [
+                "文法"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                335
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 14,
+              "observed_physical_pages": [
+                334,
+                335,
+                336
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                335
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                334,
+                336
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
             }
           ]
         },
@@ -786,7 +4915,109 @@
           "toc_index": 45,
           "range_content_sha256": "04a9eed1cae3722747499d9323279206b25f349f297f4b1766040cea832acffd",
           "scanned_pages": 10,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                340
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 30,
+              "observed_physical_pages": [
+                338,
+                339,
+                340,
+                341,
+                342,
+                344,
+                346
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                337,
+                339,
+                343
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 9,
+              "observed_physical_pages": [
+                338,
+                339,
+                340,
+                341
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                337,
+                338
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                338,
+                340,
+                342,
+                346
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                338,
+                339,
+                340
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 46,
@@ -794,15 +5025,186 @@
           "scanned_pages": 53,
           "concept_candidates": [
             {
-              "concept_id": "character-lessons",
-              "label": "字课",
-              "category": "历史课程名称",
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 11,
+              "observed_physical_pages": [
+                354,
+                356,
+                357,
+                368,
+                377,
+                383
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                357,
+                358
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
               "mention_count": 1,
               "observed_physical_pages": [
                 366
               ],
               "observed_surfaces": [
-                "字课"
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 324,
+              "observed_physical_pages": [
+                347,
+                348,
+                349,
+                350,
+                351,
+                352,
+                354,
+                355,
+                356,
+                357,
+                358,
+                359,
+                360,
+                361,
+                364,
+                366,
+                368,
+                369,
+                370,
+                371,
+                372,
+                373,
+                374,
+                375,
+                377,
+                378,
+                379,
+                380,
+                381,
+                382,
+                384,
+                385,
+                386,
+                387,
+                389,
+                391,
+                393,
+                395,
+                397,
+                399
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 85,
+              "observed_physical_pages": [
+                347,
+                348,
+                351,
+                352,
+                354,
+                355,
+                356,
+                357,
+                358,
+                359,
+                362,
+                367,
+                368,
+                371,
+                372,
+                373,
+                374,
+                375,
+                377,
+                378,
+                380,
+                381,
+                382,
+                383,
+                384
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 13,
+              "observed_physical_pages": [
+                358,
+                380,
+                381,
+                382
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 9,
+              "observed_physical_pages": [
+                352,
+                354,
+                357,
+                371,
+                392
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 20,
+              "observed_physical_pages": [
+                350,
+                354,
+                357,
+                363,
+                364,
+                369,
+                372,
+                373,
+                374,
+                375,
+                388,
+                396
+              ],
+              "observed_surfaces": [
+                "写作"
               ]
             }
           ]
@@ -811,19 +5213,487 @@
           "toc_index": 47,
           "range_content_sha256": "071c5ebc02453cc5ebf44ddd466789cf41965301917e96259895550a847bb642",
           "scanned_pages": 29,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                406,
+                415,
+                420
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 289,
+              "observed_physical_pages": [
+                400,
+                401,
+                402,
+                403,
+                404,
+                405,
+                406,
+                407,
+                408,
+                410,
+                411,
+                412,
+                414,
+                415,
+                416,
+                417,
+                418,
+                419,
+                420,
+                421,
+                422,
+                423,
+                424,
+                425,
+                426,
+                427,
+                428
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 37,
+              "observed_physical_pages": [
+                400,
+                404,
+                406,
+                407,
+                415,
+                416,
+                417,
+                418,
+                420,
+                421
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                407
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                406
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                406,
+                409,
+                412,
+                426
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 48,
           "range_content_sha256": "6c3e138cc1249a4714451c917e979e49df45185bae5dee1cbc4a0a3668ea14ad",
           "scanned_pages": 22,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 12,
+              "observed_physical_pages": [
+                430,
+                431,
+                433,
+                434
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                431,
+                435,
+                437,
+                440
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-guided-reading",
+              "label": "讲读",
+              "category": "语文实践领域",
+              "mention_count": 14,
+              "observed_physical_pages": [
+                430,
+                431,
+                432,
+                433,
+                434
+              ],
+              "observed_surfaces": [
+                "讲读"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                430,
+                431,
+                432,
+                433,
+                434,
+                435
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 11,
+              "observed_physical_pages": [
+                429,
+                430,
+                431,
+                432,
+                433,
+                434,
+                437,
+                440
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 9,
+              "observed_physical_pages": [
+                429,
+                430,
+                431,
+                433,
+                446,
+                448
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 52,
+              "observed_physical_pages": [
+                430,
+                431,
+                433,
+                434,
+                435,
+                436,
+                437,
+                438,
+                439,
+                440,
+                441,
+                442,
+                443,
+                444,
+                445,
+                446,
+                447,
+                448,
+                449
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                433,
+                434,
+                437,
+                438
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                431,
+                440,
+                441
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                434
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 38,
+              "observed_physical_pages": [
+                430,
+                431,
+                432,
+                433,
+                434,
+                435,
+                436,
+                438,
+                439,
+                440,
+                441,
+                442,
+                443,
+                444,
+                445,
+                446,
+                448,
+                449
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 49,
           "range_content_sha256": "b42a879b094bc90d6f8a607f967cb34f1dd29ef3e9194969de37b4f0fdd59f58",
           "scanned_pages": 21,
           "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 21,
+              "observed_physical_pages": [
+                451,
+                453,
+                454,
+                455,
+                470
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 12,
+              "observed_physical_pages": [
+                453,
+                455,
+                459,
+                461,
+                464,
+                469,
+                470,
+                471
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-guided-reading",
+              "label": "讲读",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                453
+              ],
+              "observed_surfaces": [
+                "讲读"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                455
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                451,
+                453
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 23,
+              "observed_physical_pages": [
+                451,
+                452,
+                453,
+                454,
+                455,
+                464,
+                467,
+                470
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                455,
+                459,
+                463,
+                470,
+                471
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 11,
+              "observed_physical_pages": [
+                453,
+                459,
+                461,
+                464,
+                469,
+                470,
+                471
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                455
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 22,
+              "observed_physical_pages": [
+                452,
+                453,
+                454,
+                455,
+                459,
+                470,
+                471
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            },
             {
               "concept_id": "problem-solving",
               "label": "解决问题",
@@ -844,6 +5714,164 @@
           "scanned_pages": 19,
           "concept_candidates": [
             {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 18,
+              "observed_physical_pages": [
+                472,
+                473,
+                474,
+                475,
+                489
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 11,
+              "observed_physical_pages": [
+                473,
+                474,
+                476,
+                479,
+                481,
+                483,
+                484,
+                489,
+                490
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-guided-reading",
+              "label": "讲读",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                473
+              ],
+              "observed_surfaces": [
+                "讲读"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                475,
+                476
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                472,
+                473,
+                474
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 27,
+              "observed_physical_pages": [
+                472,
+                473,
+                474,
+                475,
+                476,
+                479,
+                484,
+                486,
+                489,
+                490
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                475,
+                483,
+                489,
+                490
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                473,
+                474,
+                479,
+                481,
+                489,
+                490
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                476
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 22,
+              "observed_physical_pages": [
+                472,
+                473,
+                474,
+                475,
+                479,
+                489,
+                490
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            },
+            {
               "concept_id": "problem-solving",
               "label": "解决问题",
               "category": "梳理与探究能力",
@@ -863,6 +5891,146 @@
           "scanned_pages": 15,
           "concept_candidates": [
             {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 17,
+              "observed_physical_pages": [
+                493,
+                494,
+                496
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                492,
+                493,
+                497
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                491,
+                494
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 15,
+              "observed_physical_pages": [
+                491,
+                492,
+                493,
+                497,
+                498,
+                505
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 33,
+              "observed_physical_pages": [
+                491,
+                492,
+                494,
+                495,
+                496,
+                497,
+                498
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                494,
+                496,
+                497
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                492,
+                493,
+                495,
+                497
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                492,
+                494,
+                495,
+                497,
+                498
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 12,
+              "observed_physical_pages": [
+                491,
+                492,
+                493,
+                494,
+                495,
+                496,
+                497,
+                498
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            },
+            {
               "concept_id": "literary-works-appreciation",
               "label": "鉴赏文学作品",
               "category": "学生课程目标",
@@ -880,25 +6048,509 @@
           "toc_index": 52,
           "range_content_sha256": "2c1c6d6865d0b536605255bffafed04ad32a5bf9d6f1473a4319d42e9ed4c78b",
           "scanned_pages": 10,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                508,
+                509,
+                510,
+                511,
+                512
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                507
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-listening-practice",
+              "label": "听话",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                506,
+                507,
+                508,
+                510,
+                511,
+                512
+              ],
+              "observed_surfaces": [
+                "听话"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                507
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                506,
+                507,
+                508,
+                509,
+                510
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 20,
+              "observed_physical_pages": [
+                506,
+                508,
+                509,
+                510,
+                511,
+                512
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                510
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                507,
+                508,
+                511,
+                512
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 9,
+              "observed_physical_pages": [
+                506,
+                507,
+                508,
+                510,
+                511,
+                512
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 7,
+              "observed_physical_pages": [
+                506,
+                508,
+                510,
+                511,
+                512
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 53,
           "range_content_sha256": "0d76573ebe0de75f2d368c234d3f9158dd716f83abf974c3945b01a2d1806db5",
           "scanned_pages": 15,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 18,
+              "observed_physical_pages": [
+                518,
+                519,
+                520,
+                521,
+                523
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                517,
+                518
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                517
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 17,
+              "observed_physical_pages": [
+                516,
+                517,
+                518,
+                522,
+                523,
+                524,
+                530
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 37,
+              "observed_physical_pages": [
+                517,
+                519,
+                520,
+                521,
+                522,
+                523
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                520,
+                521,
+                523
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                517,
+                518,
+                520,
+                521,
+                522
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                517,
+                520,
+                521,
+                522,
+                523,
+                524
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 12,
+              "observed_physical_pages": [
+                517,
+                518,
+                519,
+                520,
+                521,
+                522,
+                523
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 54,
           "range_content_sha256": "836a353320130f46bb64a091f8ca71f7b0323d0bc3591b0a4b65fc25a92de517",
           "scanned_pages": 7,
-          "concept_candidates": []
+          "concept_candidates": [
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                531,
+                532,
+                535
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                537
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                537
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            }
+          ]
         },
         {
           "toc_index": 55,
           "range_content_sha256": "39f79a826c8ff952f5e58e88b8283c63aa7f6a64b22ddadc48268ead20aacfb5",
           "scanned_pages": 9,
           "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                540,
+                542
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                539
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-handwriting-practice",
+              "label": "写字",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                542
+              ],
+              "observed_surfaces": [
+                "写字"
+              ]
+            },
+            {
+              "concept_id": "historical-listening-practice",
+              "label": "听话",
+              "category": "语文实践领域",
+              "mention_count": 5,
+              "observed_physical_pages": [
+                538,
+                539,
+                540,
+                542
+              ],
+              "observed_surfaces": [
+                "听话"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                541
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                538,
+                539,
+                540,
+                542
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 8,
+              "observed_physical_pages": [
+                538,
+                539,
+                540,
+                542
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                538,
+                540,
+                542
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                539,
+                541
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 10,
+              "observed_physical_pages": [
+                538,
+                539,
+                540,
+                541,
+                542
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                538,
+                539,
+                540,
+                542
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            },
             {
               "concept_id": "overall-perception",
               "label": "整体感知",
@@ -924,6 +6576,137 @@
           "range_content_sha256": "ba4687eb04dd3fcb045e1bf1ee2a3d9031964a515f9084784b285a52d0e85ff3",
           "scanned_pages": 6,
           "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                552
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                551
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-listening-practice",
+              "label": "听话",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                552
+              ],
+              "observed_surfaces": [
+                "听话"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 16,
+              "observed_physical_pages": [
+                549,
+                550,
+                551,
+                552,
+                553,
+                554
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-practical-text-practice",
+              "label": "实用文",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                552
+              ],
+              "observed_surfaces": [
+                "实用文"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 13,
+              "observed_physical_pages": [
+                549,
+                550,
+                551,
+                554
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                551
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                551
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-speaking-practice",
+              "label": "说话",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                552
+              ],
+              "observed_surfaces": [
+                "说话"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 11,
+              "observed_physical_pages": [
+                549,
+                550,
+                551,
+                552
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            },
             {
               "concept_id": "literary-works-appreciation",
               "label": "鉴赏文学作品",
@@ -956,6 +6739,125 @@
           "scanned_pages": 7,
           "concept_candidates": [
             {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                556
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-grammar-practice",
+              "label": "语法",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                557
+              ],
+              "observed_surfaces": [
+                "语法"
+              ]
+            },
+            {
+              "concept_id": "historical-literacy-practice",
+              "label": "识字",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                555
+              ],
+              "observed_surfaces": [
+                "识字"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 9,
+              "observed_physical_pages": [
+                555,
+                556,
+                557,
+                558
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-oral-communication",
+              "label": "口语交际",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                555,
+                556
+              ],
+              "observed_surfaces": [
+                "口语交际"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                555,
+                556,
+                557,
+                560
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                556,
+                557
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-rhetoric-practice",
+              "label": "修辞",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                556,
+                557
+              ],
+              "observed_surfaces": [
+                "修辞"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 4,
+              "observed_physical_pages": [
+                555,
+                556,
+                557
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            },
+            {
               "concept_id": "language-use",
               "label": "语言文字运用",
               "category": "育人目标",
@@ -986,6 +6888,83 @@
           "range_content_sha256": "9af4193a8b252642b330d9c3cd769d8cf004414c7c6b5d99c56528e0fd6ff6b3",
           "scanned_pages": 7,
           "concept_candidates": [
+            {
+              "concept_id": "historical-composition-practice",
+              "label": "作文",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                563
+              ],
+              "observed_surfaces": [
+                "作文"
+              ]
+            },
+            {
+              "concept_id": "historical-literature-study",
+              "label": "文学",
+              "category": "语文实践领域",
+              "mention_count": 11,
+              "observed_physical_pages": [
+                562,
+                563,
+                564
+              ],
+              "observed_surfaces": [
+                "文学"
+              ]
+            },
+            {
+              "concept_id": "historical-oral-communication",
+              "label": "口语交际",
+              "category": "语文实践领域",
+              "mention_count": 3,
+              "observed_physical_pages": [
+                562,
+                563
+              ],
+              "observed_surfaces": [
+                "口语交际"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-practice",
+              "label": "阅读",
+              "category": "语文实践领域",
+              "mention_count": 6,
+              "observed_physical_pages": [
+                562,
+                568
+              ],
+              "observed_surfaces": [
+                "阅读"
+              ]
+            },
+            {
+              "concept_id": "historical-reading-study",
+              "label": "读书",
+              "category": "语文实践领域",
+              "mention_count": 1,
+              "observed_physical_pages": [
+                564
+              ],
+              "observed_surfaces": [
+                "读书"
+              ]
+            },
+            {
+              "concept_id": "historical-writing-practice",
+              "label": "写作",
+              "category": "语文实践领域",
+              "mention_count": 2,
+              "observed_physical_pages": [
+                562,
+                563
+              ],
+              "observed_surfaces": [
+                "写作"
+              ]
+            },
             {
               "concept_id": "literary-works-appreciation",
               "label": "鉴赏文学作品",

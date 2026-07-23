@@ -82,8 +82,19 @@ Production current 为 `release-9cb02f77c06ee0535e7981a22b312373`；preview curr
 
 - `items` 保存 1902–2000 的篇目身份、年份与物理页段；
 - `concept_observations` 保存受控词面命中，恒为 `ocr_surface_candidate_nonsemantic`；
-- `star_projection.episodes` 把每次词面观察映射为同一主星图中的虚线候选星；
+- `star_projection.episodes` 把每次词面观察映射为同一主星图中的同效星体；`display_level=uniform_star` 只描述视觉合同，不提升引文或语义状态；
 - `star_projection.evidence` 把候选星反向定位到篇目和扫描物理页；
 - `star_projection.edges` 只允许同源顺序或同篇共现关系，禁止语义、影响和因果主张。
 
 必须满足一星至少一证据定位、边的两端均存在、所有候选均 `citation_allowed=false`。OCR 队列可以连续追加页面和观察，但不得因此改写现行概念模型或自动开放检索/AI 引文。
+
+## 百年同层概念族谱
+
+`data/concept-evolution-families.json` 固定唯一粒度 `language-practice-domain`，把历史受控词面与现行领域名称配置为七个不重叠比较族。`scripts/build-concept-evolution-families.mjs` 合并正式 graph、2022 OCR 层与 1902–2000 century projection，生成 `public/data/concept-evolution-families.json`：
+
+- `episode_memberships` 把每个真实 episode 绑定到一个概念族；
+- `same_surface_observed_again` 只连接同词面的下一个代表年份；
+- `editorial_correspondence` 只连接配置中同层概念的比较关系；
+- 所有边恒为 `semantic=false`、`citation_allowed=false`、`influence_claim_allowed=false`。
+
+前端平时不铺这些关系；点击一个成员后同时点亮该族全部可见 episode，并以实线、箭头、起讫年份和关系标签呈现演进。族谱是比较索引，不是正式替代、语义等同或因果判断。

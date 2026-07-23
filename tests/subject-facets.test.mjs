@@ -10,6 +10,7 @@ import {
   episodeSubjectFacet,
   episodeVisibilityFacets,
   episodeVisibleForSubjectFilter,
+  selectedEvolutionNodeIds,
   starAutoLabelEligible,
   starEffectProfile,
   subjectColor,
@@ -58,21 +59,34 @@ test('star-map facet helper admits controlled subject and assessment-subject ent
   }), '课程方案');
 });
 
-test('candidate stars inherit the complete star effect profile and differ only by evidence ring', () => {
+test('all evidence states share one star effect profile without visual evidence rings', () => {
   const solid = starEffectProfile('solid');
   const candidate = starEffectProfile('candidate_dashed');
   const reviewed = starEffectProfile('reviewed_ring');
-  const sharedKeys = ['coreOpacity', 'haloOpacity', 'pulseAmplitude', 'spikeScale', 'labelOpacity'];
-  assert.deepEqual(
-    Object.fromEntries(sharedKeys.map((key) => [key, candidate[key]])),
-    Object.fromEntries(sharedKeys.map((key) => [key, solid[key]])),
-  );
+  assert.deepEqual(candidate, solid);
+  assert.deepEqual(reviewed, solid);
   assert.equal(solid.evidenceRing, 'none');
-  assert.equal(candidate.evidenceRing, 'candidate_dashed');
-  assert.equal(reviewed.evidenceRing, 'reviewed');
+  assert.equal(candidate.evidenceRing, 'none');
+  assert.equal(reviewed.evidenceRing, 'none');
   assert.equal(starAutoLabelEligible({ display: 'solid', strength: .55 }), true);
   assert.equal(starAutoLabelEligible({ display: 'candidate_dashed', strength: .55 }), true);
   assert.equal(starAutoLabelEligible({ display: 'candidate_dashed', strength: .54 }), false);
+});
+
+test('selecting one family member activates every corresponding century node and no unrelated node', () => {
+  const nodes = [
+    { id: 'reading-1904', evolutionFamilyId: 'reading' },
+    { id: 'reading-1950', evolutionFamilyId: 'reading' },
+    { id: 'reading-2022', evolutionFamilyId: 'reading' },
+    { id: 'writing-2022', evolutionFamilyId: 'writing' },
+    { id: 'unmapped-2001', evolutionFamilyId: null },
+  ];
+  assert.deepEqual(
+    [...selectedEvolutionNodeIds(nodes, 'reading-1950')].sort(),
+    ['reading-1904', 'reading-1950', 'reading-2022'],
+  );
+  assert.deepEqual([...selectedEvolutionNodeIds(nodes, 'unmapped-2001')], ['unmapped-2001']);
+  assert.equal(selectedEvolutionNodeIds(nodes, 'missing').size, 0);
 });
 
 test('D1 schema v2 preserves raw taxonomy identity and constrains twelve public facets', async () => {

@@ -11,6 +11,7 @@ const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const SOURCE_PATH = path.join(ROOT, 'data/century-observation-source.json');
 const MANIFEST_PATH = path.join(ROOT, 'data/embedded-items-century-v1.json');
 const PUBLIC_PATH = path.join(ROOT, 'public/data/century-observation-layer.json');
+const EVOLUTION_FAMILIES_PATH = path.join(ROOT, 'data/concept-evolution-families.json');
 const ARCHIVE_ROOT = 'production-p1-mb16-shard-b-r3';
 const ASSERTION_BOUNDARY = '本层只陈述汇编目录中的条目身份、页段顺序及 OCR 词面共同出现。它不证明原文件颁行效力、版本替代、概念连续性、影响或因果；所有条目与关系均禁止作为引文或 AI 证据。';
 
@@ -336,7 +337,7 @@ function buildCenturyStarProjection(items, conceptObservations, coObservationRel
         negative_claim_eligible: false,
       },
       claim_policy: {
-        display_level: 'candidate_dashed',
+        display_level: 'uniform_star',
         quotation_allowed: false,
         semantic_relation_allowed: false,
         historical_superlative_allowed: false,
@@ -411,7 +412,7 @@ function buildCenturyStarProjection(items, conceptObservations, coObservationRel
           source_evidence_ids: source.evidence_ids,
           target_evidence_ids: target.evidence_ids,
           influence_claim_allowed: false,
-          claim_boundary: '虚线只表示两个词面在同一目录边界篇目中共同出现；不表示语义关系、影响或因果。',
+          claim_boundary: '连线只表示两个词面在同一目录边界篇目中共同出现；不表示语义关系、影响或因果。',
         });
       }
     }
@@ -517,14 +518,43 @@ function sourceTextForMatch(content) {
   return content.replace(/!\[[^\]]*\]\([^)]+\)/g, ' ').replace(/\s+/g, ' ');
 }
 
-function countSurface(content, surface) {
-  let count = 0;
-  let offset = content.indexOf(surface);
-  while (offset !== -1) {
-    count += 1;
-    offset = content.indexOf(surface, offset + surface.length);
+function matchPageConcepts(content, concepts) {
+  const matches = [];
+  for (const concept of concepts) {
+    for (const surface of concept.surfaces) {
+      let offset = content.indexOf(surface);
+      while (offset !== -1) {
+        matches.push({
+          concept,
+          surface,
+          start: offset,
+          end: offset + surface.length,
+        });
+        offset = content.indexOf(surface, offset + surface.length);
+      }
+    }
   }
-  return count;
+  matches.sort((left, right) =>
+    right.surface.length - left.surface.length
+    || left.start - right.start
+    || left.concept.id.localeCompare(right.concept.id, 'en'));
+  const accepted = [];
+  for (const match of matches) {
+    if (accepted.some((candidate) => match.start < candidate.end && match.end > candidate.start)) continue;
+    accepted.push(match);
+  }
+  const byConcept = new Map();
+  for (const match of accepted) {
+    const current = byConcept.get(match.concept.id) || {
+      concept: match.concept,
+      mention_count: 0,
+      surfaces: [],
+    };
+    current.mention_count += 1;
+    current.surfaces.push(match.surface);
+    byConcept.set(match.concept.id, current);
+  }
+  return [...byConcept.values()];
 }
 
 async function captureConceptObservations(extractedRoot, source, items, lexicon) {
@@ -544,17 +574,8 @@ async function captureConceptObservations(extractedRoot, source, items, lexicon)
       const pageHash = sha256(buffer);
       const content = sourceTextForMatch(buffer.toString('utf8'));
       contentHashes.push(`${physicalPage}:${pageHash}`);
-      for (const concept of relevantConcepts) {
-        let mentions = 0;
-        const matchedSurfaces = [];
-        for (const surface of concept.surfaces) {
-          const count = countSurface(content, surface);
-          if (count > 0) {
-            mentions += count;
-            matchedSurfaces.push(surface);
-          }
-        }
-        if (!mentions) continue;
+      for (const match of matchPageConcepts(content, relevantConcepts)) {
+        const concept = match.concept;
         const previous = concepts.get(concept.id) || {
           concept_id: concept.id,
           label: concept.label,
@@ -563,9 +584,9 @@ async function captureConceptObservations(extractedRoot, source, items, lexicon)
           observed_physical_pages: [],
           observed_surfaces: [],
         };
-        previous.mention_count += mentions;
+        previous.mention_count += match.mention_count;
         previous.observed_physical_pages.push(physicalPage);
-        previous.observed_surfaces.push(...matchedSurfaces);
+        previous.observed_surfaces.push(...match.surfaces);
         concepts.set(concept.id, previous);
       }
     }
@@ -586,12 +607,17 @@ async function captureConceptObservations(extractedRoot, source, items, lexicon)
 }
 
 async function captureSource(archivePath) {
-  const [localCompendia, lexicon, inventory, checksums] = await Promise.all([
+  const [localCompendia, lexicon, evolutionFamilies, inventory, checksums] = await Promise.all([
     readFile(path.join(ROOT, 'data/local-compendia.json'), 'utf8').then(JSON.parse),
     readFile(path.join(ROOT, 'data/concept-lexicon.json'), 'utf8').then(JSON.parse),
+    readFile(EVOLUTION_FAMILIES_PATH, 'utf8').then(JSON.parse),
     readFile(path.join(path.dirname(archivePath), 'inventory.json'), 'utf8').then(JSON.parse),
     readFile(path.join(path.dirname(archivePath), 'SHA256SUMS'), 'utf8'),
   ]);
+  const captureLexicon = {
+    ...lexicon,
+    concepts: [...lexicon.concepts, ...evolutionFamilies.historical_concepts],
+  };
   const archiveSha = checksums.match(/^([a-f0-9]{64})\s+output\.tar\.zst$/m)?.[1];
   if (!archiveSha) throw new Error('output.tar.zst checksum missing from SHA256SUMS');
   const tempRoot = await mkdtemp(path.join(tmpdir(), 'curriculum-century-'));
@@ -630,7 +656,7 @@ async function captureSource(archivePath) {
         toc_pages: tocPages,
       };
       const items = parseTocSource(source);
-      source.item_observations = await captureConceptObservations(tempRoot, source, items, lexicon);
+      source.item_observations = await captureConceptObservations(tempRoot, source, items, captureLexicon);
       sources.push(source);
     }
     return {
@@ -646,6 +672,12 @@ async function captureSource(archivePath) {
         citation_allowed: false,
         receiver_apply_allowed: false,
       },
+      concept_capture_policy: {
+        config_sha256: sha256(stableJson(evolutionFamilies)),
+        concept_tier_id: evolutionFamilies.concept_tier.id,
+        historical_concepts: evolutionFamilies.historical_concepts.length,
+        overlap_resolution: 'longest_surface_wins',
+      },
       sources,
     };
   } finally {
@@ -653,12 +685,18 @@ async function captureSource(archivePath) {
   }
 }
 
-function buildArtifacts(sourceEnvelope) {
+function buildArtifacts(sourceEnvelope, evolutionFamilies) {
   if (sourceEnvelope.schema_version !== 1
     || sourceEnvelope.artifact_profile !== 'curriculum-century-observation-source-v1'
     || sourceEnvelope.archive?.citation_allowed !== false
     || sourceEnvelope.sources?.length !== 2) {
     throw new Error('century observation source failed structural validation');
+  }
+  if (sourceEnvelope.concept_capture_policy?.config_sha256 !== sha256(stableJson(evolutionFamilies))
+    || sourceEnvelope.concept_capture_policy?.concept_tier_id !== evolutionFamilies.concept_tier?.id
+    || sourceEnvelope.concept_capture_policy?.historical_concepts !== evolutionFamilies.historical_concepts?.length
+    || sourceEnvelope.concept_capture_policy?.overlap_resolution !== 'longest_surface_wins') {
+    throw new Error('century observation source was not captured with the current concept-family policy');
   }
   const items = [];
   const conceptObservations = [];
@@ -856,6 +894,7 @@ async function assertExact(pathname, expected) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  const evolutionFamilies = JSON.parse(await readFile(EVOLUTION_FAMILIES_PATH, 'utf8'));
   let sourceEnvelope;
   if (options.captureArchive) {
     sourceEnvelope = await captureSource(path.resolve(options.captureArchive));
@@ -863,7 +902,7 @@ async function main() {
   } else {
     sourceEnvelope = JSON.parse(await readFile(SOURCE_PATH, 'utf8'));
   }
-  const { manifest, layer } = buildArtifacts(sourceEnvelope);
+  const { manifest, layer } = buildArtifacts(sourceEnvelope, evolutionFamilies);
   const manifestJson = stableJson(manifest);
   const layerJson = stableJson(layer);
   if (options.check) {
