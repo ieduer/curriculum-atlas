@@ -443,10 +443,7 @@ button { color: inherit; }
   .research-dock a { min-height: 40px; padding: 5px; border-radius: 8px; }
   .research-dock b { font-size: 9px; line-height: 1.35; }
   .research-dock small { display: none; }
-  .ocr-layer-status { gap: 1px; padding: 5px; }
-  .ocr-layer-status b { font-size: 8px; }
-  .ocr-layer-status span { font-size: 7px; line-height: 1.35; }
-  .ocr-layer-status small { display: none; }
+  .ocr-layer-status { display: none; }
   .workbench { height: 82svh; padding-inline: 16px; border-radius: 20px 20px 0 0; }
   .workbench-header { height: 76px; }
   .workbench-header h1 { font-size: 23px; }
