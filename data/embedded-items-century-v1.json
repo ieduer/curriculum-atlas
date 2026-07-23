@@ -1,0 +1,4250 @@
+{
+  "schema_version": 1,
+  "artifact_profile": "curriculum-embedded-century-items-v1",
+  "source_snapshot": "20260718-b3-final",
+  "assertion_boundary": "本层只陈述汇编目录中的条目身份、页段顺序及 OCR 词面共同出现。它不证明原文件颁行效力、版本替代、概念连续性、影响或因果；所有条目与关系均禁止作为引文或 AI 证据。",
+  "source_archive": {
+    "sha256": "f0d0521359a7617048d3ef964a4730f2091474447acc56bed0f6de7284c6334f",
+    "tree_sha256": "9d1947e6f46e206ec50bdc2c7fc9159b1ce01f3d13b30181458e6e2f0c41b0b4",
+    "regular_files": 9771,
+    "source_bytes": 307940697,
+    "citation_allowed": false,
+    "receiver_apply_allowed": false
+  },
+  "source_documents": [
+    {
+      "document_id": "legacy-compendium-chinese",
+      "title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "source_pdf_sha256": "4b4ffd1b45017e437c478ec6dc3419e607621681bb15e9ae7945a5a42200d7f3",
+      "page_count": 568,
+      "toc_physical_pages": [
+        11,
+        12,
+        13
+      ],
+      "toc_content_sha256": "4b3305b59e586b75c9dbf9c3880000062ec301f1346b522991b540beb84a5648",
+      "printed_to_physical_offset": 14,
+      "citation_allowed": false
+    },
+    {
+      "document_id": "legacy-compendium-plans",
+      "title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "source_pdf_sha256": "62a418f15036042d4e8a068f0dab7ef6f564f0f96d4026b917500f08c1b48a65",
+      "page_count": 423,
+      "toc_physical_pages": [
+        11,
+        12,
+        13,
+        14
+      ],
+      "toc_content_sha256": "a4e7d1a252b49e3947697a40b0e64a587e10f2a12ff2f367862c8b16c0c968bc",
+      "printed_to_physical_offset": 14,
+      "citation_allowed": false
+    }
+  ],
+  "items": [
+    {
+      "id": "embedded-century:legacy-compendium-plans:ab0d59effc211331",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1902,
+      "title": "钦定蒙学堂章程",
+      "stage": "小学",
+      "document_type": "学制章程",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "钦定蒙学堂章程"
+      ],
+      "segments": [
+        {
+          "toc_index": 1,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 1,
+          "printed_page_end": 4,
+          "physical_page_start": 15,
+          "physical_page_end": 18
+        }
+      ],
+      "range_content_sha256": "9483ed505f4ff80d97b8bb2e4e3d67879379094ccafb5cbfaa39e2b37ea70a06",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Aab0d59effc211331"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:3908381b2b375d93",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1902,
+      "title": "钦定小学堂章程",
+      "stage": "小学",
+      "document_type": "学制章程",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "钦定小学堂章程"
+      ],
+      "segments": [
+        {
+          "toc_index": 2,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 5,
+          "printed_page_end": 13,
+          "physical_page_start": 19,
+          "physical_page_end": 27
+        }
+      ],
+      "range_content_sha256": "d894c91ee87d7e9b50f71f5b4dd00116912a89bfb69ab041fd56162be745ff1f",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A3908381b2b375d93"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:627f86ead38d50ac",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1902,
+      "title": "钦定中学堂章程",
+      "stage": "中学",
+      "document_type": "学制章程",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "钦定中学堂章程"
+      ],
+      "segments": [
+        {
+          "toc_index": 3,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 14,
+          "printed_page_end": 19,
+          "physical_page_start": 28,
+          "physical_page_end": 33
+        }
+      ],
+      "range_content_sha256": "837c873e6c5fd21ce2f76912ba8c7a2b7b57b65ede71c7659aa0b91b5d3a0340",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A627f86ead38d50ac"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:baaced2d56f2c5c9",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1902,
+      "title": "钦定蒙学堂章程",
+      "stage": "小学",
+      "document_type": "学制章程",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "钦定蒙学堂章程（摘录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 1,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 3,
+          "printed_page_end": 3,
+          "physical_page_start": 17,
+          "physical_page_end": 17
+        }
+      ],
+      "range_content_sha256": "5c2f9494f82e56da36d58dd258ce3f5bf74bdaa9dde169dadb0c013654c44ff5",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Abaaced2d56f2c5c9"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:1fdf4a7860ef8497",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1902,
+      "title": "钦定小学堂章程",
+      "stage": "小学",
+      "document_type": "学制章程",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "钦定小学堂章程（摘录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 2,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 4,
+          "printed_page_end": 4,
+          "physical_page_start": 18,
+          "physical_page_end": 18
+        }
+      ],
+      "range_content_sha256": "2bd17fa1c47e20305d0a20e501074ecdb4f2a24cdb80a4e2d467df0ad9c2e018",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A1fdf4a7860ef8497"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:7ea3021bac96830c",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1902,
+      "title": "钦定中学堂章程",
+      "stage": "中学",
+      "document_type": "学制章程",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "钦定中学堂章程（摘录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 26,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 267,
+          "printed_page_end": 267,
+          "physical_page_start": 281,
+          "physical_page_end": 281
+        }
+      ],
+      "range_content_sha256": "b7592f5e2440c60036b8aff3183de4362043e04d1bd940f7ea192cae6ef8cd42",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A7ea3021bac96830c"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:12a65533e3147834",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1904,
+      "title": "奏定初等小学堂章程",
+      "stage": "小学",
+      "document_type": "学制章程",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "奏定初等小学堂章程"
+      ],
+      "segments": [
+        {
+          "toc_index": 4,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 20,
+          "printed_page_end": 30,
+          "physical_page_start": 34,
+          "physical_page_end": 44
+        }
+      ],
+      "range_content_sha256": "cca522c9fa78a6154e4b560ab029d6391f96999a19cac9887b47188cd78aa202",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A12a65533e3147834"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:defa25bbcb9ee9b7",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1904,
+      "title": "奏定高等小学堂章程",
+      "stage": "小学",
+      "document_type": "学制章程",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "奏定高等小学堂章程"
+      ],
+      "segments": [
+        {
+          "toc_index": 5,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 31,
+          "printed_page_end": 39,
+          "physical_page_start": 45,
+          "physical_page_end": 53
+        }
+      ],
+      "range_content_sha256": "e17a458eb2249e1501a4f7b643119e0168c9046a4d3d8289501fbfd07f6de0ba",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Adefa25bbcb9ee9b7"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:71fcdcf33855157e",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1904,
+      "title": "奏定中学堂章程",
+      "stage": "中学",
+      "document_type": "学制章程",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "奏定中学堂章程"
+      ],
+      "segments": [
+        {
+          "toc_index": 6,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 40,
+          "printed_page_end": 48,
+          "physical_page_start": 54,
+          "physical_page_end": 62
+        }
+      ],
+      "range_content_sha256": "74ec0bb01546b2efcf57980924a05fcead63364d77a57e73266dff5450521ce2",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A71fcdcf33855157e"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:89e310d945972a56",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1904,
+      "title": "奏定初等小学堂章程",
+      "stage": "小学",
+      "document_type": "学制章程",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "奏定初等小学堂章程（摘录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 3,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 5,
+          "printed_page_end": 7,
+          "physical_page_start": 19,
+          "physical_page_end": 21
+        }
+      ],
+      "range_content_sha256": "bc40e2e1e32a1bfa86802c83651d24bc9f6a72cc2b7d3167bc87aa30d52efa0c",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A89e310d945972a56"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:c1e0e60be3dc8dd0",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1904,
+      "title": "奏定高等小学堂章程",
+      "stage": "小学",
+      "document_type": "学制章程",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "奏定高等小学堂章程（摘录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 4,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 8,
+          "printed_page_end": 10,
+          "physical_page_start": 22,
+          "physical_page_end": 24
+        }
+      ],
+      "range_content_sha256": "1a91d568b91ba7cfbf04a800cd07cc76245e1269753d9c30d25847b82696a8f0",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Ac1e0e60be3dc8dd0"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:55b3768fd272d0a9",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1904,
+      "title": "奏定中学堂章程",
+      "stage": "中学",
+      "document_type": "学制章程",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "奏定中学堂章程（摘录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 27,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 268,
+          "printed_page_end": 269,
+          "physical_page_start": 282,
+          "physical_page_end": 283
+        }
+      ],
+      "range_content_sha256": "5793b4188dbf448ee98449491f4a878689dbb69c31eb492fc1a0a304e700f0ac",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A55b3768fd272d0a9"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:6fbfdd6e396537d2",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1909,
+      "title": "江苏教育总会呈学部请变通初小学堂章程文",
+      "stage": "小学",
+      "document_type": "学制章程",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "江苏教育总会呈学部请变通初小学堂章程文"
+      ],
+      "segments": [
+        {
+          "toc_index": 7,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 49,
+          "printed_page_end": 50,
+          "physical_page_start": 63,
+          "physical_page_end": 64
+        }
+      ],
+      "range_content_sha256": "ec44e750146e86b1dc82fedebd057d7db525046f42fc7de06a5f013ea3f6e49e",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A6fbfdd6e396537d2"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:62bd1789629531d4",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1909,
+      "title": "学部奏变通中学堂课程分为文科实科折",
+      "stage": "中学",
+      "document_type": "历史课程文件",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "学部奏变通中学堂课程分为文科实科折"
+      ],
+      "segments": [
+        {
+          "toc_index": 8,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 51,
+          "printed_page_end": 57,
+          "physical_page_start": 65,
+          "physical_page_end": 71
+        }
+      ],
+      "range_content_sha256": "9cbbe7947e91f87016bd408970fecb0674f5662f43ae73fd63935dab6f5946df",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A62bd1789629531d4"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:53d607450395303f",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1909,
+      "title": "学部奏变通中学堂课程分为文科实科折",
+      "stage": "中学",
+      "document_type": "历史课程文件",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "学部奏变通中学堂课程分为文科实科折（摘录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 28,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 270,
+          "printed_page_end": 271,
+          "physical_page_start": 284,
+          "physical_page_end": 285
+        }
+      ],
+      "range_content_sha256": "e238bb9046c511f3eb9fa88dd3055173800b89551097eded2b0ea9096a3dc165",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A53d607450395303f"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:e5ddd375d66eaccd",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1912,
+      "title": "小学校令",
+      "stage": "小学",
+      "document_type": "法令",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "小学校令"
+      ],
+      "segments": [
+        {
+          "toc_index": 9,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 58,
+          "printed_page_end": 62,
+          "physical_page_start": 72,
+          "physical_page_end": 76
+        }
+      ],
+      "range_content_sha256": "4a07838a582359f37ee1dc999fcb4433e0c809b98564624cbea721965de29086",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Ae5ddd375d66eaccd"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:9ab2b3ecbdb0c86d",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1912,
+      "title": "小学校教则及课程表",
+      "stage": "小学",
+      "document_type": "课程表",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "小学校教则及课程表"
+      ],
+      "segments": [
+        {
+          "toc_index": 10,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 63,
+          "printed_page_end": 67,
+          "physical_page_start": 77,
+          "physical_page_end": 81
+        }
+      ],
+      "range_content_sha256": "0eb25ebde3eb95ae1434ae600a44f86474a99fe8151344f8df4a233556f7a5ae",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A9ab2b3ecbdb0c86d"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:a3888cec918b4208",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1912,
+      "title": "中学校令",
+      "stage": "中学",
+      "document_type": "法令",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "中学校令"
+      ],
+      "segments": [
+        {
+          "toc_index": 11,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 68,
+          "printed_page_end": 68,
+          "physical_page_start": 82,
+          "physical_page_end": 82
+        }
+      ],
+      "range_content_sha256": "a194ed1847fc4d1b441629b4dc30596ff19f3abbac2c7087a995165e8da5b905",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Aa3888cec918b4208"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:3e313398ec384232",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1912,
+      "title": "中学校令施行规则",
+      "stage": "中学",
+      "document_type": "法令",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "中学校令施行规则"
+      ],
+      "segments": [
+        {
+          "toc_index": 12,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 69,
+          "printed_page_end": 74,
+          "physical_page_start": 83,
+          "physical_page_end": 88
+        }
+      ],
+      "range_content_sha256": "5122a90096d65ca852e89f8842b9b0bfecec383a847c62a78bb63b4667634ce1",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A3e313398ec384232"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:c7eeef21bec05695",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1912,
+      "title": "小学校教则及课程表",
+      "stage": "小学",
+      "document_type": "课程表",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "小学校教则及课程表（摘录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 5,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 11,
+          "printed_page_end": 11,
+          "physical_page_start": 25,
+          "physical_page_end": 25
+        }
+      ],
+      "range_content_sha256": "606a1611b9ca8ee8b746b96aac7f1d68158ebd9095a8201187ba16dbb1fead0f",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Ac7eeef21bec05695"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:120f55b7567b65fe",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1912,
+      "title": "中学校令施行规则",
+      "stage": "中学",
+      "document_type": "法令",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "中学校令施行规则（摘录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 29,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 272,
+          "printed_page_end": 272,
+          "physical_page_start": 286,
+          "physical_page_end": 286
+        }
+      ],
+      "range_content_sha256": "6639201862da6d24a5c441b5a1c103e254cfbf6c3e1e1ddf626ce1ec5a803045",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A120f55b7567b65fe"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:d814e7c921b587fd",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1913,
+      "title": "中学校课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "中学校课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 13,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 75,
+          "printed_page_end": 76,
+          "physical_page_start": 89,
+          "physical_page_end": 90
+        }
+      ],
+      "range_content_sha256": "3d1fd0f4cc7fa20b3e84a9aca5d0985c31f517f9cb184295380e9408ef9ca1ab",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Ad814e7c921b587fd"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:6b0f850ac87559ef",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1913,
+      "title": "中学校课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "中学校课程标准（摘录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 30,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 273,
+          "printed_page_end": 273,
+          "physical_page_start": 287,
+          "physical_page_end": 287
+        }
+      ],
+      "range_content_sha256": "b0449178fdb543a812100649ca930b8442ebcf2492ef68d5cf60625f4786b23d",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A6b0f850ac87559ef"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:eef797b068c08f86",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1915,
+      "title": "国民学校令",
+      "stage": "小学",
+      "document_type": "法令",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "国民学校令"
+      ],
+      "segments": [
+        {
+          "toc_index": 14,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 77,
+          "printed_page_end": 81,
+          "physical_page_start": 91,
+          "physical_page_end": 95
+        }
+      ],
+      "range_content_sha256": "cdb13b63940a51996b1c4d83fda00d6550eddcbae677bc2eb4bccc1679476769",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Aeef797b068c08f86"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:eded3d7d6c2e913e",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1915,
+      "title": "高等学校令",
+      "stage": "跨学段",
+      "document_type": "法令",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "高等学校令"
+      ],
+      "segments": [
+        {
+          "toc_index": 15,
+          "stage": "跨学段",
+          "role": "primary_item",
+          "printed_page_start": 82,
+          "printed_page_end": 84,
+          "physical_page_start": 96,
+          "physical_page_end": 98
+        }
+      ],
+      "range_content_sha256": "eebb005650b2a8058ae401c85342a6a9a612c718b311864d034a6fb6233d1537",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Aeded3d7d6c2e913e"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:9c5026bc39489d04",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1915,
+      "title": "预备学校令",
+      "stage": "跨学段",
+      "document_type": "法令",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "预备学校令"
+      ],
+      "segments": [
+        {
+          "toc_index": 16,
+          "stage": "跨学段",
+          "role": "primary_item",
+          "printed_page_start": 85,
+          "printed_page_end": 86,
+          "physical_page_start": 99,
+          "physical_page_end": 100
+        }
+      ],
+      "range_content_sha256": "e6e2b675e4d90a99d5277997a3c277e01fbbcbcc03b59592bdd3a7369cc3b3ac",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A9c5026bc39489d04"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:4a092b9c67c0267c",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1916,
+      "title": "国民学校令施行细则",
+      "stage": "小学",
+      "document_type": "法令",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "国民学校令施行细则"
+      ],
+      "segments": [
+        {
+          "toc_index": 17,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 87,
+          "printed_page_end": 95,
+          "physical_page_start": 101,
+          "physical_page_end": 109
+        }
+      ],
+      "range_content_sha256": "0abf9de1dde961867761742f7fc762f52fd3eab9be0e6b43993c8162fe9b7852",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A4a092b9c67c0267c"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:cde8fbf66dfec3e0",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1916,
+      "title": "高等学校令施行细则",
+      "stage": "跨学段",
+      "document_type": "法令",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "高等学校令施行细则"
+      ],
+      "segments": [
+        {
+          "toc_index": 18,
+          "stage": "跨学段",
+          "role": "primary_item",
+          "printed_page_start": 96,
+          "printed_page_end": 101,
+          "physical_page_start": 110,
+          "physical_page_end": 115
+        }
+      ],
+      "range_content_sha256": "69f75f4df957066f8ed682445eae34364aa3c819c087cd690c7e1478670f7cbb",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Acde8fbf66dfec3e0"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:0a598b8f50f90e6c",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1916,
+      "title": "国民学校令施行细则",
+      "stage": "小学",
+      "document_type": "法令",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "国民学校令施行细则（摘录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 6,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 12,
+          "printed_page_end": 12,
+          "physical_page_start": 26,
+          "physical_page_end": 26
+        }
+      ],
+      "range_content_sha256": "6f888dbe6edac9ba46f11698ffa8324af37ee5e260ce37c6dcb9e00d8693ba0c",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A0a598b8f50f90e6c"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:6e7c496890dc7cbb",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1919,
+      "title": "女子中学课程及女子师范学科文（节录）",
+      "stage": "中学",
+      "document_type": "历史课程文件",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "女子中学课程及女子师范学科文（节录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 19,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 102,
+          "printed_page_end": 104,
+          "physical_page_start": 116,
+          "physical_page_end": 118
+        }
+      ],
+      "range_content_sha256": "2ac863d1dd32fa0e078d0a2d6d6e592f2e729e045cb46eb6c0bd481cecf29455",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A6e7c496890dc7cbb"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:f36ca9a5f0b6f87e",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1922,
+      "title": "学校系统改革令",
+      "stage": "跨学段",
+      "document_type": "法令",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "学校系统改革令"
+      ],
+      "segments": [
+        {
+          "toc_index": 20,
+          "stage": "跨学段",
+          "role": "primary_item",
+          "printed_page_start": 105,
+          "printed_page_end": 107,
+          "physical_page_start": 119,
+          "physical_page_end": 121
+        }
+      ],
+      "range_content_sha256": "e496fbb078c3fca5d82d7688c5cbafad8b90f694e16286d4fd6ff74ba9175a9d",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Af36ca9a5f0b6f87e"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:56be277a62104e97",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1923,
+      "title": "新学制课程纲要总说明",
+      "stage": "跨学段",
+      "document_type": "课程纲要",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "新学制课程纲要总说明"
+      ],
+      "segments": [
+        {
+          "toc_index": 21,
+          "stage": "跨学段",
+          "role": "primary_item",
+          "printed_page_start": 108,
+          "printed_page_end": 111,
+          "physical_page_start": 122,
+          "physical_page_end": 125
+        }
+      ],
+      "range_content_sha256": "ec25fc0f19046e028ae1f63814ebc947b07cef1bed3e01d912c91b8efeee6f85",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A56be277a62104e97"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:354cb797267e15ec",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1923,
+      "title": "高级中学课程总纲",
+      "stage": "中学",
+      "document_type": "历史课程文件",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "高级中学课程总纲"
+      ],
+      "segments": [
+        {
+          "toc_index": 22,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 112,
+          "printed_page_end": 115,
+          "physical_page_start": 126,
+          "physical_page_end": 129
+        }
+      ],
+      "range_content_sha256": "4c6bd5a4ac1632b307198a1bd469b9547475403439be3f0391ab1eb9785d71a9",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A354cb797267e15ec"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:6752a48ea8d10fc2",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1923,
+      "title": "新学制课程标准纲要小学国语课程纲要",
+      "stage": "小学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "新学制课程标准纲要小学国语课程纲要"
+      ],
+      "segments": [
+        {
+          "toc_index": 7,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 13,
+          "printed_page_end": 15,
+          "physical_page_start": 27,
+          "physical_page_end": 29
+        }
+      ],
+      "range_content_sha256": "d9a74fa108f407f000783d2e231bb949c8ab08139e677661c75b70ee9a89867b",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A6752a48ea8d10fc2"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:a0983d72c785cfde",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1923,
+      "title": "新学制课程标准初级中学国语课程纲要",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "新学制课程标准初级中学国语课程纲要"
+      ],
+      "segments": [
+        {
+          "toc_index": 31,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 274,
+          "printed_page_end": 276,
+          "physical_page_start": 288,
+          "physical_page_end": 290
+        }
+      ],
+      "range_content_sha256": "b26b3c50d64c239cf5ba918d55f5ecbd361d469cffe947fb993f8edfa1e524de",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Aa0983d72c785cfde"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:6bb888d232e27c8b",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1923,
+      "title": "新学制课程标准纲要高级中学公共必修的国语课程纲要",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "新学制课程标准纲要高级中学公共必修的国语课程纲要"
+      ],
+      "segments": [
+        {
+          "toc_index": 32,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 277,
+          "printed_page_end": 279,
+          "physical_page_start": 291,
+          "physical_page_end": 293
+        }
+      ],
+      "range_content_sha256": "b25d00853841c5cd7923980eec3f3f4afd89640bd36f6290d43009e15fbbff1c",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A6bb888d232e27c8b"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:ded91e51de3912b2",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1923,
+      "title": "高级中学第一组必修的特设国文课程纲要",
+      "stage": "中学",
+      "document_type": "课程纲要",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "高级中学第一组必修的特设国文课程纲要"
+      ],
+      "segments": [
+        {
+          "toc_index": 33,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 280,
+          "printed_page_end": 281,
+          "physical_page_start": 294,
+          "physical_page_end": 295
+        }
+      ],
+      "range_content_sha256": "9c0e2c2c093cf45f7d638c31edb004f57c6cf90cc307b46903bf828eb640a51a",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Aded91e51de3912b2"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:da15a44cfe5efbf6",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1929,
+      "title": "小学课程暂行标准总说明",
+      "stage": "小学",
+      "document_type": "说明",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "小学课程暂行标准总说明"
+      ],
+      "segments": [
+        {
+          "toc_index": 23,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 116,
+          "printed_page_end": 118,
+          "physical_page_start": 130,
+          "physical_page_end": 132
+        }
+      ],
+      "range_content_sha256": "f28d40abff2a8f551c83740cf785cc0c4b3b60a4cee4e2d5edad9b835bcb9d3d",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Ada15a44cfe5efbf6"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:9bd706586ed3d885",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1929,
+      "title": "初级中学暂行课程标准说明",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "初级中学暂行课程标准说明"
+      ],
+      "segments": [
+        {
+          "toc_index": 24,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 119,
+          "printed_page_end": 120,
+          "physical_page_start": 133,
+          "physical_page_end": 134
+        }
+      ],
+      "range_content_sha256": "deaded8a96daf82e555054de4f1c5ae61d89c4a08caabd893619645fa3e81db3",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A9bd706586ed3d885"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:48ee4a6221d0f1cb",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1929,
+      "title": "高级中学普通科暂行课程标准说明",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "高级中学普通科暂行课程标准说明"
+      ],
+      "segments": [
+        {
+          "toc_index": 25,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 121,
+          "printed_page_end": 122,
+          "physical_page_start": 135,
+          "physical_page_end": 136
+        }
+      ],
+      "range_content_sha256": "6522c7ec817172c1e59c0c9c553d258a84073c7c43623484c5217d89d970b0c4",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A48ee4a6221d0f1cb"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:5d2562caa579751f",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1929,
+      "title": "小学课程暂行标准小学国语",
+      "stage": "小学",
+      "document_type": "历史课程文件",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "小学课程暂行标准小学国语"
+      ],
+      "segments": [
+        {
+          "toc_index": 8,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 16,
+          "printed_page_end": 21,
+          "physical_page_start": 30,
+          "physical_page_end": 35
+        }
+      ],
+      "range_content_sha256": "ef338bb61604dc2940c53d3359264d76930064718776656298a17d2912cd3258",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A5d2562caa579751f"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:116e049c71f67bdf",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1929,
+      "title": "初级中学国文暂行课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "初级中学国文暂行课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 34,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 282,
+          "printed_page_end": 285,
+          "physical_page_start": 296,
+          "physical_page_end": 299
+        }
+      ],
+      "range_content_sha256": "e5f9f905e32610530413c2f916a3f8e7ec8939c21f55430b8b39b0e52930550d",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A116e049c71f67bdf"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:3c854116f5df19d5",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1929,
+      "title": "高级中学普通科国文暂行课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "高级中学普通科国文暂行课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 35,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 286,
+          "printed_page_end": 288,
+          "physical_page_start": 300,
+          "physical_page_end": 302
+        }
+      ],
+      "range_content_sha256": "01533cb3a6f1d2ed2977039117dc07452c6234e38df92484ecac043c47d2d1fe",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A3c854116f5df19d5"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:3597a375d10edf82",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1932,
+      "title": "小学课程标准总纲",
+      "stage": "小学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "小学课程标准总纲"
+      ],
+      "segments": [
+        {
+          "toc_index": 26,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 123,
+          "printed_page_end": 126,
+          "physical_page_start": 137,
+          "physical_page_end": 140
+        }
+      ],
+      "range_content_sha256": "40c1f67e077ca02d6c584c0572304ce02340f72c4c927bb3b4fd4e69e6cdb08f",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A3597a375d10edf82"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:854b3a23361bfa66",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1932,
+      "title": "初级中学课程标准总纲",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "初级中学课程标准总纲"
+      ],
+      "segments": [
+        {
+          "toc_index": 27,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 127,
+          "printed_page_end": 131,
+          "physical_page_start": 141,
+          "physical_page_end": 145
+        }
+      ],
+      "range_content_sha256": "adaf495d3081ba049e297fd20d85cd3bb15dd6d4c169582062c8e22848d64d82",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A854b3a23361bfa66"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:1996cefb7064dca7",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1932,
+      "title": "小学课程标准国语",
+      "stage": "小学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "小学课程标准国语"
+      ],
+      "segments": [
+        {
+          "toc_index": 9,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 22,
+          "printed_page_end": 29,
+          "physical_page_start": 36,
+          "physical_page_end": 43
+        }
+      ],
+      "range_content_sha256": "042da51e92641e7378aaeccd95ba481bd01451ac5f2588d8526c21965d5832ed",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A1996cefb7064dca7"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:5d4448315b8363de",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1932,
+      "title": "初级中学国文课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "初级中学国文课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 36,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 289,
+          "printed_page_end": 292,
+          "physical_page_start": 303,
+          "physical_page_end": 306
+        }
+      ],
+      "range_content_sha256": "9ba9dc6ae7d31bf2a08ecf46f6649c28800506557e04391bcde8021e89ddc63c",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A5d4448315b8363de"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:60b216e898689a27",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1932,
+      "title": "高级中学国文课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "高级中学国文课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 37,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 293,
+          "printed_page_end": 295,
+          "physical_page_start": 307,
+          "physical_page_end": 309
+        }
+      ],
+      "range_content_sha256": "bd02ca6120ff8189dacd1f4f330be30b69a9bb6c58ef14aac10ae6e4df88c1fd",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A60b216e898689a27"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:63eb1ebae3444ba0",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1936,
+      "title": "小学课程标准总纲",
+      "stage": "小学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "小学课程标准总纲"
+      ],
+      "segments": [
+        {
+          "toc_index": 28,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 132,
+          "printed_page_end": 136,
+          "physical_page_start": 146,
+          "physical_page_end": 150
+        }
+      ],
+      "range_content_sha256": "56b94241e9d5785f4bc3003e2730f8bdeefb3db72267095727d598bbfbcea410",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A63eb1ebae3444ba0"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:9a159dde9459fb7b",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1936,
+      "title": "修正初级中学课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "revision_named_in_title",
+      "title_variants": [
+        "修正初级中学课程标准",
+        "初中课程标准变更之概况（摘录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 29,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 137,
+          "printed_page_end": 137,
+          "physical_page_start": 151,
+          "physical_page_end": 151
+        },
+        {
+          "toc_index": 30,
+          "stage": "中学",
+          "role": "editorial_context_excerpt",
+          "printed_page_start": 138,
+          "printed_page_end": 139,
+          "physical_page_start": 152,
+          "physical_page_end": 153
+        }
+      ],
+      "range_content_sha256": "2a7116172836713ba114e8fd5eb09d24ab55043b3d1745d6cf67e208fcfdd800",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A9a159dde9459fb7b"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:13a5dd3df1f1f05a",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1936,
+      "title": "修正高级中学课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "revision_named_in_title",
+      "title_variants": [
+        "修正高级中学课程标准",
+        "高中课程标准变更之概况（摘录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 31,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 140,
+          "printed_page_end": 141,
+          "physical_page_start": 154,
+          "physical_page_end": 155
+        },
+        {
+          "toc_index": 32,
+          "stage": "中学",
+          "role": "editorial_context_excerpt",
+          "printed_page_start": 142,
+          "printed_page_end": 143,
+          "physical_page_start": 156,
+          "physical_page_end": 157
+        }
+      ],
+      "range_content_sha256": "d7121ee44d4e68b612d0b5aafac71f85477df264a39c8a7d5839617dd7962a06",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A13a5dd3df1f1f05a"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:b3a12d064173436f",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1936,
+      "title": "小学国语课程标准",
+      "stage": "小学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "小学国语课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 10,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 30,
+          "printed_page_end": 39,
+          "physical_page_start": 44,
+          "physical_page_end": 53
+        }
+      ],
+      "range_content_sha256": "980a753e0a918f24755b0960fb07ec7a12a755fe867e6f7cfd791a324695a496",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Ab3a12d064173436f"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:3115701317e4e024",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1936,
+      "title": "初级中学国文课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "初级中学国文课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 38,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 296,
+          "printed_page_end": 300,
+          "physical_page_start": 310,
+          "physical_page_end": 314
+        }
+      ],
+      "range_content_sha256": "0d368f7a70e49fecb63d921d984bd6e7b2d09a8d6c5991d53856ce7fb143fe13",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A3115701317e4e024"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:7a2cf73351bb3c92",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1936,
+      "title": "高级中学国文课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "高级中学国文课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 39,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 301,
+          "printed_page_end": 303,
+          "physical_page_start": 315,
+          "physical_page_end": 317
+        }
+      ],
+      "range_content_sha256": "24ca67ece8dbde2f370b066a90135e53dc988323c57be33c6994e131639c94b7",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A7a2cf73351bb3c92"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:aeba459f5b741ce4",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1940,
+      "title": "中学课程标准编订之经过",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "中学课程标准编订之经过"
+      ],
+      "segments": [
+        {
+          "toc_index": 33,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 144,
+          "printed_page_end": 148,
+          "physical_page_start": 158,
+          "physical_page_end": 162
+        }
+      ],
+      "range_content_sha256": "59045ce37db26a3e874d381be178ca044aec6b39ad539b91d0c5303e5580b43b",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Aaeba459f5b741ce4"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:90a555925811a4ca",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1940,
+      "title": "初级中学课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "初级中学课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 34,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 149,
+          "printed_page_end": 150,
+          "physical_page_start": 163,
+          "physical_page_end": 164
+        }
+      ],
+      "range_content_sha256": "75553b61e25d384a0dfc5c95feed7b39e17e1e93dec3f09103ed16304d123d94",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A90a555925811a4ca"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:27368cbfb14e4063",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1940,
+      "title": "初中课程标准变更之概况",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "初中课程标准变更之概况"
+      ],
+      "segments": [
+        {
+          "toc_index": 35,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 151,
+          "printed_page_end": 157,
+          "physical_page_start": 165,
+          "physical_page_end": 171
+        }
+      ],
+      "range_content_sha256": "2277009d32359f02fe3d74f4c8a50171c9a263b5f0f6d7de1ddf4c18c7c4447c",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A27368cbfb14e4063"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:53b1f32ef71878ab",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1940,
+      "title": "高级中学课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "高级中学课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 36,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 158,
+          "printed_page_end": 159,
+          "physical_page_start": 172,
+          "physical_page_end": 173
+        }
+      ],
+      "range_content_sha256": "0986dd1d4c347e3399cb79d952af5fbad1b858a96f07277e77a114ad615e8d1d",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A53b1f32ef71878ab"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:7422a49c243cf05b",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1940,
+      "title": "高中课程标准变更之概况",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "高中课程标准变更之概况"
+      ],
+      "segments": [
+        {
+          "toc_index": 37,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 160,
+          "printed_page_end": 168,
+          "physical_page_start": 174,
+          "physical_page_end": 182
+        }
+      ],
+      "range_content_sha256": "a8e6c6acc840505f9f559d5457ff631718a9180b659d932b154b5db30d33ea6b",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A7422a49c243cf05b"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:bb8285fcf0eaff82",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1940,
+      "title": "修正初级中学国文课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "revision_named_in_title",
+      "title_variants": [
+        "修正初级中学国文课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 40,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 304,
+          "printed_page_end": 308,
+          "physical_page_start": 318,
+          "physical_page_end": 322
+        }
+      ],
+      "range_content_sha256": "75c995840a9f46a9829551b44f5181a808eb030433b3327a65c8a4e6208362fa",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Abb8285fcf0eaff82"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:9f8009b7e3962131",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1940,
+      "title": "修正高级中学国文课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "revision_named_in_title",
+      "title_variants": [
+        "修正高级中学国文课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 41,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 309,
+          "printed_page_end": 311,
+          "physical_page_start": 323,
+          "physical_page_end": 325
+        }
+      ],
+      "range_content_sha256": "2c863542b639a1200f965b6a23aa0c9770a7582469749d2159970b94a88cfe84",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A9f8009b7e3962131"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:dda54be9af615b5c",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1941,
+      "title": "六年制中学各科课程标准草案",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "六年制中学各科课程标准草案"
+      ],
+      "segments": [
+        {
+          "toc_index": 38,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 169,
+          "printed_page_end": 173,
+          "physical_page_start": 183,
+          "physical_page_end": 187
+        }
+      ],
+      "range_content_sha256": "10212f5ec0b2f55ccd54f6f41144d75e7718b2b9415227c1ec26e3bbe4c9e2a1",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Adda54be9af615b5c"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:f7a4da0a48401821",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1941,
+      "title": "小学国语科课程标准",
+      "stage": "小学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "小学国语科课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 11,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 40,
+          "printed_page_end": 58,
+          "physical_page_start": 54,
+          "physical_page_end": 72
+        }
+      ],
+      "range_content_sha256": "3f061e3be2f4e42b36a957fd8209ef8e3080098501859ad4da04ef17d6405666",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Af7a4da0a48401821"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:1ca72eb7ad9849a9",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1941,
+      "title": "六年制中学国文课程标准草案",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "六年制中学国文课程标准草案"
+      ],
+      "segments": [
+        {
+          "toc_index": 42,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 312,
+          "printed_page_end": 317,
+          "physical_page_start": 326,
+          "physical_page_end": 331
+        }
+      ],
+      "range_content_sha256": "ea9de615cd5a424c34bc8fbd16ba805a947554069ec2d4d0016ebbc407c165f4",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A1ca72eb7ad9849a9"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:c246c2f96db39bfa",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1942,
+      "title": "小学课程标准第二次修订经过",
+      "stage": "小学",
+      "document_type": "课程标准",
+      "title_status": "revision_named_in_title",
+      "title_variants": [
+        "小学课程标准第二次修订经过"
+      ],
+      "segments": [
+        {
+          "toc_index": 39,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 174,
+          "printed_page_end": 177,
+          "physical_page_start": 188,
+          "physical_page_end": 191
+        }
+      ],
+      "range_content_sha256": "8684ca58c2f376b6dd813f56c71f186f239fa5c80b5cd4181e2abacf24813949",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Ac246c2f96db39bfa"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:2007a3afbdfaa728",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1942,
+      "title": "小学课程标准总纲",
+      "stage": "小学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "小学课程标准总纲"
+      ],
+      "segments": [
+        {
+          "toc_index": 40,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 178,
+          "printed_page_end": 184,
+          "physical_page_start": 192,
+          "physical_page_end": 198
+        }
+      ],
+      "range_content_sha256": "3a5ca1b2d9a120a94cf11887ca1e3644c8fe7f6bfaa940511fb8ae2912423cf5",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A2007a3afbdfaa728"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:c0fb9f66cb22fa37",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1948,
+      "title": "小学课程标准总纲",
+      "stage": "小学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "小学课程标准总纲"
+      ],
+      "segments": [
+        {
+          "toc_index": 41,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 185,
+          "printed_page_end": 188,
+          "physical_page_start": 199,
+          "physical_page_end": 202
+        }
+      ],
+      "range_content_sha256": "9a9b429275fc6161de43c00a621b237a44a76c2a85caec4cee2c971e9bb835db",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Ac0fb9f66cb22fa37"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:40b4651ff84f0184",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1948,
+      "title": "中学课程标准总纲",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "中学课程标准总纲"
+      ],
+      "segments": [
+        {
+          "toc_index": 42,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 189,
+          "printed_page_end": 194,
+          "physical_page_start": 203,
+          "physical_page_end": 208
+        }
+      ],
+      "range_content_sha256": "c6dbd46803dde93e96759b2bc73f1d946c3ad4b2a5dbeeb274ea10291d7c109f",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A40b4651ff84f0184"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:3a26361a3a810da1",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1948,
+      "title": "国语课程标准",
+      "stage": "小学",
+      "document_type": "课程标准",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "国语课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 12,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 59,
+          "printed_page_end": 61,
+          "physical_page_start": 73,
+          "physical_page_end": 75
+        }
+      ],
+      "range_content_sha256": "7385d1a5e6b43eea5e3a2de61e0c535972dec03cea4d92f0cd4b910ecbbbc824",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A3a26361a3a810da1"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:0c2a0bafaddadfe9",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1948,
+      "title": "修订初级中学国文课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "revision_named_in_title",
+      "title_variants": [
+        "修订初级中学国文课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 43,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 318,
+          "printed_page_end": 319,
+          "physical_page_start": 332,
+          "physical_page_end": 333
+        }
+      ],
+      "range_content_sha256": "879fdee4db424e0ae7103ba377c92d96c3887e474032cd0a6c8d0f360b882d37",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A0c2a0bafaddadfe9"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:fc1157739aa7d0f8",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1948,
+      "title": "修订高级中学国文课程标准",
+      "stage": "中学",
+      "document_type": "课程标准",
+      "title_status": "revision_named_in_title",
+      "title_variants": [
+        "修订高级中学国文课程标准"
+      ],
+      "segments": [
+        {
+          "toc_index": 44,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 320,
+          "printed_page_end": 322,
+          "physical_page_start": 334,
+          "physical_page_end": 336
+        }
+      ],
+      "range_content_sha256": "f3d2486ea962e3f9d07884fb7583ba6f65d51fe7acba500aade1c8beab2e5f42",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Afc1157739aa7d0f8"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:62abc464b90dca21",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1950,
+      "title": "颁发中学暂行教学计划（草案）及中等学校暂行校历（草案）",
+      "stage": "中学",
+      "document_type": "教学计划",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "颁发中学暂行教学计划（草案）及中等学校暂行校历（草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 43,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 195,
+          "printed_page_end": 199,
+          "physical_page_start": 209,
+          "physical_page_end": 213
+        }
+      ],
+      "range_content_sha256": "fe29115e381b0988e391d52f9e59f2b5022109ac84151ecd440544fb2cc3431f",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A62abc464b90dca21"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:02547fc15f32307b",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1950,
+      "title": "小学语文课程暂行标准（草案）",
+      "stage": "小学",
+      "document_type": "历史课程文件",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "小学语文课程暂行标准（草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 13,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 62,
+          "printed_page_end": 72,
+          "physical_page_start": 76,
+          "physical_page_end": 86
+        }
+      ],
+      "range_content_sha256": "4aa38e9aef26ec856b515b0d942b7000f926b8634e81a598d7d2d2ed01a626b1",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A02547fc15f32307b"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:5b2cd8d4156a0b03",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1952,
+      "title": "小学暂行规程（草案）",
+      "stage": "小学",
+      "document_type": "学校规程",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "小学暂行规程（草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 44,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 200,
+          "printed_page_end": 205,
+          "physical_page_start": 214,
+          "physical_page_end": 219
+        }
+      ],
+      "range_content_sha256": "7824b8ce80c45d9a997adc997a5eda04e8c23d907e531e6ecebedf31c144e8ad",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A5b2cd8d4156a0b03"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:1e93291d54c3deb5",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1952,
+      "title": "中学暂行规程（草案）",
+      "stage": "中学",
+      "document_type": "学校规程",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "中学暂行规程（草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 45,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 206,
+          "printed_page_end": 212,
+          "physical_page_start": 220,
+          "physical_page_end": 226
+        }
+      ],
+      "range_content_sha256": "2ace203b5712eaa57f14d124bb1443841d2d6d0639e8b3c54281fbe38ad68b6d",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A1e93291d54c3deb5"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:7c9f00886527a0df",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1953,
+      "title": "小学（四二制）教学计划（草案）",
+      "stage": "小学",
+      "document_type": "教学计划",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "小学（四二制）教学计划（草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 46,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 213,
+          "printed_page_end": 215,
+          "physical_page_start": 227,
+          "physical_page_end": 229
+        }
+      ],
+      "range_content_sha256": "020bd41595788a53a5ccb3136550b398efc029342001c5a300285e935ae2b6d6",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A7c9f00886527a0df"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:19e426f4eaf8a559",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1953,
+      "title": "颁发“中学教学计划”（修订草案）及“1953年8月至1954年7月试行中学教学计划（修订草案）的调整办法”",
+      "stage": "中学",
+      "document_type": "教学计划",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "颁发“中学教学计划”（修订草案）及“1953年8月至1954年7月试行中学教学计划（修订草案）的调整办法”"
+      ],
+      "segments": [
+        {
+          "toc_index": 47,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 216,
+          "printed_page_end": 221,
+          "physical_page_start": 230,
+          "physical_page_end": 235
+        }
+      ],
+      "range_content_sha256": "e9d2fcf1938503e9e30e21c1051720b05b6595672b348c49c61c20a69bdf3878",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A19e426f4eaf8a559"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:977ec6390170d601",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1954,
+      "title": "关于颁发小学“四二制”教学计划（修订草案）的通知",
+      "stage": "小学",
+      "document_type": "教学计划",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "关于颁发小学“四二制”教学计划（修订草案）的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 48,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 222,
+          "printed_page_end": 226,
+          "physical_page_start": 236,
+          "physical_page_end": 240
+        }
+      ],
+      "range_content_sha256": "161ed235b7c6f663c7d65e1c046ea64c0a0b1b165e12f8822774e67a07fbc16d",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A977ec6390170d601"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:48964d386dc6a885",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1954,
+      "title": "关于中学部分学科的设置、授课时数的变更及政治教材的通知",
+      "stage": "中学",
+      "document_type": "通知",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "关于中学部分学科的设置、授课时数的变更及政治教材的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 49,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 227,
+          "printed_page_end": 229,
+          "physical_page_start": 241,
+          "physical_page_end": 243
+        }
+      ],
+      "range_content_sha256": "d74361781e1e51bc4298eebc3ebee3e9dba650764d142402386bccc9013a2d29",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A48964d386dc6a885"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:8aefb6fd8df0a059",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1954,
+      "title": "改进小学语文教学的初步意见",
+      "stage": "小学",
+      "document_type": "意见",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "改进小学语文教学的初步意见"
+      ],
+      "segments": [
+        {
+          "toc_index": 14,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 73,
+          "printed_page_end": 80,
+          "physical_page_start": 87,
+          "physical_page_end": 94
+        }
+      ],
+      "range_content_sha256": "bc2cb2966a30ec6728d8305483fc3414cf4c4b9642a88a6100239e77daaffc94",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A8aefb6fd8df0a059"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:52572416ca83db02",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1955,
+      "title": "关于颁发“小学教学计划”及“关于小学课外活动的规定”的命令",
+      "stage": "小学",
+      "document_type": "教学计划",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "关于颁发“小学教学计划”及“关于小学课外活动的规定”的命令"
+      ],
+      "segments": [
+        {
+          "toc_index": 50,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 230,
+          "printed_page_end": 236,
+          "physical_page_start": 244,
+          "physical_page_end": 250
+        }
+      ],
+      "range_content_sha256": "bed3980470ecb42546ae2176634a399c25f54461de8396557b85635b935bb5b4",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A52572416ca83db02"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:1fe0e0abebe41b4c",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1955,
+      "title": "关于制发 1955-1956 学年度中学授课时数表的通知",
+      "stage": "中学",
+      "document_type": "授课时数表",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "关于制发 1955-1956 学年度中学授课时数表的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 51,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 237,
+          "printed_page_end": 240,
+          "physical_page_start": 251,
+          "physical_page_end": 254
+        }
+      ],
+      "range_content_sha256": "6812138daed43ad8545ccb30c43b79fe3bd82062f3bdb4a442142dd98c0d1fa2",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A1fe0e0abebe41b4c"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:991e057c29aa7bc8",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1955,
+      "title": "小学语文教学大纲草案（初稿）",
+      "stage": "小学",
+      "document_type": "教学大纲",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "小学语文教学大纲草案（初稿）"
+      ],
+      "segments": [
+        {
+          "toc_index": 15,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 81,
+          "printed_page_end": 116,
+          "physical_page_start": 95,
+          "physical_page_end": 130
+        }
+      ],
+      "range_content_sha256": "dc0c60dd4301ad676cfbd935643486903b72ceec71c06f4d169798c9adcee282",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A991e057c29aa7bc8"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:ddc0a561ba38f1f9",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1956,
+      "title": "关于颁发小学校历的规定的通知",
+      "stage": "小学",
+      "document_type": "校历",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "关于颁发小学校历的规定的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 52,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 241,
+          "printed_page_end": 242,
+          "physical_page_start": 255,
+          "physical_page_end": 256
+        }
+      ],
+      "range_content_sha256": "ed6504d364d8d534c669eae0cecebf868f5ace9a023a2adf0b072adb949eceb6",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Addc0a561ba38f1f9"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:05ff0c2cacd11dfd",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1956,
+      "title": "关于公布中学校历的命令",
+      "stage": "中学",
+      "document_type": "校历",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "关于公布中学校历的命令"
+      ],
+      "segments": [
+        {
+          "toc_index": 53,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 243,
+          "printed_page_end": 244,
+          "physical_page_start": 257,
+          "physical_page_end": 258
+        }
+      ],
+      "range_content_sha256": "533c947d1045cdbb418072c802e741f2b4728f470faa13d2993823c779b23c6b",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A05ff0c2cacd11dfd"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:92c0f79ebfda1093",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1956,
+      "title": "关于制发1956—1957学年度中学授课时数表的通知",
+      "stage": "中学",
+      "document_type": "授课时数表",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "关于制发1956—1957学年度中学授课时数表的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 54,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 245,
+          "printed_page_end": 248,
+          "physical_page_start": 259,
+          "physical_page_end": 262
+        }
+      ],
+      "range_content_sha256": "3951ea54eee9f6d1fafca8076b9cf979402171a3c4ffd9c44bb95ec9c11f18f4",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A92c0f79ebfda1093"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:6e122c1049a23827",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1956,
+      "title": "关于1956—1957学年度中、小学实施基本生产技术教育的通知",
+      "stage": "小学",
+      "document_type": "通知",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "关于1956—1957学年度中、小学实施基本生产技术教育的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 55,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 249,
+          "printed_page_end": 249,
+          "physical_page_start": 263,
+          "physical_page_end": 263
+        }
+      ],
+      "range_content_sha256": "f767d899bdee6276404b6ed76599733b9c63079cf00f6ae34ffe6aab9c58f87b",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A6e122c1049a23827"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:f54b2be6fca60cf0",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1956,
+      "title": "小学语文教学大纲（草案）",
+      "stage": "小学",
+      "document_type": "教学大纲",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "小学语文教学大纲（草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 16,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 117,
+          "printed_page_end": 152,
+          "physical_page_start": 131,
+          "physical_page_end": 166
+        }
+      ],
+      "range_content_sha256": "9cb138aaca3ae489eee6e72816ceca1d65214539f185f8c777154f0505a7e3dc",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Af54b2be6fca60cf0"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:e933765a287f2ccd",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1956,
+      "title": "初级中学汉语教学大纲（草案）",
+      "stage": "中学",
+      "document_type": "教学大纲",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "初级中学汉语教学大纲（草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 45,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 323,
+          "printed_page_end": 332,
+          "physical_page_start": 337,
+          "physical_page_end": 346
+        }
+      ],
+      "range_content_sha256": "126df7de7e4e6170839ca39a43a0c3edd6a3393ca4bd27c1c552206f00d3886a",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Ae933765a287f2ccd"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:08850b6625690a5c",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1956,
+      "title": "初级中学文学教学大纲（草案）",
+      "stage": "中学",
+      "document_type": "教学大纲",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "初级中学文学教学大纲（草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 46,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 333,
+          "printed_page_end": 385,
+          "physical_page_start": 347,
+          "physical_page_end": 399
+        }
+      ],
+      "range_content_sha256": "09b931dbefc186d2ba9588bf1690bcd65b6e762cb85382689e7a956419de20c5",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A08850b6625690a5c"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:bedc21df785ac230",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1956,
+      "title": "高级中学文学教学大纲（草案）",
+      "stage": "中学",
+      "document_type": "教学大纲",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "高级中学文学教学大纲（草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 47,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 386,
+          "printed_page_end": 414,
+          "physical_page_start": 400,
+          "physical_page_end": 428
+        }
+      ],
+      "range_content_sha256": "990b938a1417c34317d45cd1f193388d271a39ff1d8be7463dbab66683206cb4",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Abedc21df785ac230"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:5fe63cb90c3a539f",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1957,
+      "title": "公布“1957—1958学年度小学教学计划”",
+      "stage": "小学",
+      "document_type": "教学计划",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "公布“1957—1958学年度小学教学计划”"
+      ],
+      "segments": [
+        {
+          "toc_index": 56,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 250,
+          "printed_page_end": 252,
+          "physical_page_start": 264,
+          "physical_page_end": 266
+        }
+      ],
+      "range_content_sha256": "e02f0a2a033910f71d98b58c402e0b08dac00ff38002df3bc050f0519a1a24c2",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A5fe63cb90c3a539f"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:5239b9fe8bacd1c7",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1957,
+      "title": "关于1957—1958学年度中学教学计划的通知",
+      "stage": "中学",
+      "document_type": "教学计划",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "关于1957—1958学年度中学教学计划的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 57,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 253,
+          "printed_page_end": 256,
+          "physical_page_start": 267,
+          "physical_page_end": 270
+        }
+      ],
+      "range_content_sha256": "09f6eab61a043579a0934e0e0a0403d2285a1c0efa30edfd172fbb317aeffb57",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A5239b9fe8bacd1c7"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:995f094d2905b974",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1957,
+      "title": "关于“1957—1958学年度中学教学计划”的补充通知",
+      "stage": "中学",
+      "document_type": "教学计划",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "关于“1957—1958学年度中学教学计划”的补充通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 58,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 257,
+          "printed_page_end": 257,
+          "physical_page_start": 271,
+          "physical_page_end": 271
+        }
+      ],
+      "range_content_sha256": "d6e6765e9d8f34fc56a0f91b91af8686979740029566563a2dc27c1722f1d65c",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A995f094d2905b974"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:89aebcc0b102872b",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1958,
+      "title": "关于1958—1959学年度中学教学计划的通知",
+      "stage": "中学",
+      "document_type": "教学计划",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "关于1958—1959学年度中学教学计划的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 59,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 258,
+          "printed_page_end": 263,
+          "physical_page_start": 272,
+          "physical_page_end": 277
+        }
+      ],
+      "range_content_sha256": "ab4c8a53c384f00a6ab3e867c4aa8ea30267fb599fd96fafde08c842cf3200f6",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A89aebcc0b102872b"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:552e413f1a467aff",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1958,
+      "title": "关于1958—1959学年度中学教学计划的补充通知",
+      "stage": "中学",
+      "document_type": "教学计划",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "关于1958—1959学年度中学教学计划的补充通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 60,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 264,
+          "printed_page_end": 265,
+          "physical_page_start": 278,
+          "physical_page_end": 279
+        }
+      ],
+      "range_content_sha256": "b9ddd99561eaf0d580aea0e433c2e56369e03f79e2cff6f1c77cf4e5bd1a0669",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A552e413f1a467aff"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:ee9d3bd803c2d1b8",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1959,
+      "title": "国务院关于全日制学校的教学、劳动和生活安排的规定（摘录）",
+      "stage": "跨学段",
+      "document_type": "规定",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "国务院关于全日制学校的教学、劳动和生活安排的规定（摘录）"
+      ],
+      "segments": [
+        {
+          "toc_index": 61,
+          "stage": "跨学段",
+          "role": "primary_item",
+          "printed_page_start": 266,
+          "printed_page_end": 268,
+          "physical_page_start": 280,
+          "physical_page_end": 282
+        }
+      ],
+      "range_content_sha256": "a0f28f3af73dca27ee8f50a2f6138bd17a117b9219c11824f782b50c3584ed9c",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Aee9d3bd803c2d1b8"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:4b4d18ab6e9aeeb0",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1963,
+      "title": "中共中央关于讨论试行全日制中小学工作条例草案和对当前中小学教育工作几个问题的指示",
+      "stage": "小学",
+      "document_type": "学校条例",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "中共中央关于讨论试行全日制中小学工作条例草案和对当前中小学教育工作几个问题的指示"
+      ],
+      "segments": [
+        {
+          "toc_index": 62,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 269,
+          "printed_page_end": 291,
+          "physical_page_start": 283,
+          "physical_page_end": 305
+        }
+      ],
+      "range_content_sha256": "a4107cd88c75f7d9d16ed46d487fbab4d71da408db870a9b8a696f2fd6365045",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A4b4d18ab6e9aeeb0"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:f04b4ab601829b53",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1963,
+      "title": "关于实行全日制中小学新教学计划（草案）的通知",
+      "stage": "小学",
+      "document_type": "教学计划",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "关于实行全日制中小学新教学计划（草案）的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 63,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 292,
+          "printed_page_end": 299,
+          "physical_page_start": 306,
+          "physical_page_end": 313
+        }
+      ],
+      "range_content_sha256": "f143d4f8dcb7a28ecb4582a955744fe1d7105ce9e3010d41a5e405ccd8bab7c9",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Af04b4ab601829b53"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:471c78adf0667ff8",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1963,
+      "title": "全日制小学语文教学大纲（草案）",
+      "stage": "小学",
+      "document_type": "教学大纲",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "全日制小学语文教学大纲（草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 17,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 153,
+          "printed_page_end": 175,
+          "physical_page_start": 167,
+          "physical_page_end": 189
+        }
+      ],
+      "range_content_sha256": "225b17f323113719066b06449c3471aae7402dfbdb86a2b08c24749d14864f6e",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A471c78adf0667ff8"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:67fcdf91e9b1a4f2",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1963,
+      "title": "全日制中学语文教学大纲（草案）",
+      "stage": "中学",
+      "document_type": "教学大纲",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "全日制中学语文教学大纲（草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 48,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 415,
+          "printed_page_end": 436,
+          "physical_page_start": 429,
+          "physical_page_end": 450
+        }
+      ],
+      "range_content_sha256": "f9cd325181e230d0379ff3df571d6537b3a1fa37c1d6838ec05ef2b49ac6e695",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A67fcdf91e9b1a4f2"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:deaf90a320117c0f",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1964,
+      "title": "关于调整和精简中小学课程的通知",
+      "stage": "小学",
+      "document_type": "通知",
+      "title_status": "revision_named_in_title",
+      "title_variants": [
+        "关于调整和精简中小学课程的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 64,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 300,
+          "printed_page_end": 302,
+          "physical_page_start": 314,
+          "physical_page_end": 316
+        }
+      ],
+      "range_content_sha256": "6a1f2818e2b9faf59c1000b324c5ba8ef7893c461e2456ae1fb59c752ef74b50",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Adeaf90a320117c0f"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:cf5eb74209118d68",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1978,
+      "title": "关于试行全日制中学暂行工作条例（试行草案）、全日制小学暂行工作条例（试行草案）的通知",
+      "stage": "小学—中学",
+      "document_type": "学校条例",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "关于试行全日制中学暂行工作条例（试行草案）、全日制小学暂行工作条例（试行草案）的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 65,
+          "stage": "小学—中学",
+          "role": "primary_item",
+          "printed_page_start": 303,
+          "printed_page_end": 323,
+          "physical_page_start": 317,
+          "physical_page_end": 337
+        }
+      ],
+      "range_content_sha256": "34ccbea2ccbdd09b87fd59c3425e3ef1f28c2f1260efaae1b488501adba3a7e6",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Acf5eb74209118d68"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:4bdbdb7d0e634df0",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1978,
+      "title": "颁发《全日制十年制中小学教学计划试行草案》的通知",
+      "stage": "小学",
+      "document_type": "教学计划",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "颁发《全日制十年制中小学教学计划试行草案》的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 66,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 324,
+          "printed_page_end": 329,
+          "physical_page_start": 338,
+          "physical_page_end": 343
+        }
+      ],
+      "range_content_sha256": "0e7f54c89272c03bd9cbfc46a80ff58db0ac20250aee2d65724ed9ec753ed1d9",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A4bdbdb7d0e634df0"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:9488ad6837f43cb2",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1978,
+      "title": "全日制十年制学校小学语文教学大纲（试行草案）",
+      "stage": "小学",
+      "document_type": "教学大纲",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "全日制十年制学校小学语文教学大纲（试行草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 18,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 176,
+          "printed_page_end": 184,
+          "physical_page_start": 190,
+          "physical_page_end": 198
+        }
+      ],
+      "range_content_sha256": "4bd0aced31926d0cdef0424cbc35a196c2540842aeaff13d568c0fedfeca762e",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A9488ad6837f43cb2"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:91847d3b87bb9d3d",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1978,
+      "title": "全日制十年制学校中学语文教学大纲（试行草案）",
+      "stage": "中学",
+      "document_type": "教学大纲",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "全日制十年制学校中学语文教学大纲（试行草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 49,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 437,
+          "printed_page_end": 457,
+          "physical_page_start": 451,
+          "physical_page_end": 471
+        }
+      ],
+      "range_content_sha256": "264cec4938567c5afefa0c87449e37876d893e7a69b5603c726714b86f4dcc87",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A91847d3b87bb9d3d"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:b98bdfcbf9d34fe2",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1980,
+      "title": "全日制十年制学校小学语文教学大纲（试行草案）",
+      "stage": "小学",
+      "document_type": "教学大纲",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "全日制十年制学校小学语文教学大纲（试行草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 19,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 185,
+          "printed_page_end": 193,
+          "physical_page_start": 199,
+          "physical_page_end": 207
+        }
+      ],
+      "range_content_sha256": "e0408d0ef749d0c30936b0517e6c7caaa47583c1198f1f8746d244a3ba7e90f4",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Ab98bdfcbf9d34fe2"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:fc2c624b8018f663",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1980,
+      "title": "全日制十年制学校中学语文教学大纲（试行草案）",
+      "stage": "中学",
+      "document_type": "教学大纲",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "全日制十年制学校中学语文教学大纲（试行草案）"
+      ],
+      "segments": [
+        {
+          "toc_index": 50,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 458,
+          "printed_page_end": 476,
+          "physical_page_start": 472,
+          "physical_page_end": 490
+        }
+      ],
+      "range_content_sha256": "92769c09c20872dee02ad26fb977cc62eb6e006e0c462fe098f2e9615657bf2d",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Afc2c624b8018f663"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:8e0654e419250bb0",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1981,
+      "title": "关于在城市试行六年制小学问题的意见",
+      "stage": "小学",
+      "document_type": "意见",
+      "title_status": "trial_named_in_title",
+      "title_variants": [
+        "关于在城市试行六年制小学问题的意见"
+      ],
+      "segments": [
+        {
+          "toc_index": 67,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 330,
+          "printed_page_end": 330,
+          "physical_page_start": 344,
+          "physical_page_end": 344
+        }
+      ],
+      "range_content_sha256": "e85ef581a50a561f67a39de74988dd255402ff62b389bfde3d2d1cd40ba6a93e",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A8e0654e419250bb0"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:7a6bd9d6b44df95a",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1981,
+      "title": "关于颁发《全日制五年制小学教学计划（修订草案）》的通知",
+      "stage": "小学",
+      "document_type": "教学计划",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "关于颁发《全日制五年制小学教学计划（修订草案）》的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 68,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 331,
+          "printed_page_end": 335,
+          "physical_page_start": 345,
+          "physical_page_end": 349
+        }
+      ],
+      "range_content_sha256": "8e6075d18f10b26145aac67b47913e769ea411107264170a2ed153bc85645b49",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A7a6bd9d6b44df95a"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:2a9c6e054708d168",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1981,
+      "title": "颁发《全日制六年制重点中学教学计划试行草案》、《全日制五年制中学教学计划试行草案的修订意见》的通知",
+      "stage": "中学",
+      "document_type": "教学计划",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "颁发《全日制六年制重点中学教学计划试行草案》、《全日制五年制中学教学计划试行草案的修订意见》的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 69,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 336,
+          "printed_page_end": 343,
+          "physical_page_start": 350,
+          "physical_page_end": 357
+        }
+      ],
+      "range_content_sha256": "c1f889c5a5cff30e5651a2cbe360a81bcb99333f62ca05542acac405461d5953",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A2a9c6e054708d168"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:246ef26d0c75a71f",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1984,
+      "title": "关于全日制六年制小学教学计划的安排意见",
+      "stage": "小学",
+      "document_type": "教学计划",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "关于全日制六年制小学教学计划的安排意见"
+      ],
+      "segments": [
+        {
+          "toc_index": 70,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 344,
+          "printed_page_end": 349,
+          "physical_page_start": 358,
+          "physical_page_end": 363
+        }
+      ],
+      "range_content_sha256": "58a60b4108e49a1fa596dfb0932086466fd793fc65450dcc4e3f81ae83ce5a83",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A246ef26d0c75a71f"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:8ab801f1e11f29cd",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1986,
+      "title": "全日制小学语文教学大纲",
+      "stage": "小学",
+      "document_type": "教学大纲",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "全日制小学语文教学大纲"
+      ],
+      "segments": [
+        {
+          "toc_index": 20,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 194,
+          "printed_page_end": 208,
+          "physical_page_start": 208,
+          "physical_page_end": 222
+        }
+      ],
+      "range_content_sha256": "87b328dbf2ad9044ae0c300e8e2f800c203bbed0eb12e0ce13fb7cdd3c4d3a3a",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A8ab801f1e11f29cd"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:2d06bdb38bccb8aa",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1986,
+      "title": "全日制中学语文教学大纲",
+      "stage": "中学",
+      "document_type": "教学大纲",
+      "title_status": "status_not_asserted_from_title",
+      "title_variants": [
+        "全日制中学语文教学大纲"
+      ],
+      "segments": [
+        {
+          "toc_index": 51,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 477,
+          "printed_page_end": 491,
+          "physical_page_start": 491,
+          "physical_page_end": 505
+        }
+      ],
+      "range_content_sha256": "d0c921ada03430110c51ff28b18714400f4a354927eca89053d69a9c61232575",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A2d06bdb38bccb8aa"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:38b04e72b3ebb2fe",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1988,
+      "title": "关于印发《义务教育全日制小学、初级中学教学计划（试行草案）》和二十四个学科教学大纲（初审稿）的通知",
+      "stage": "小学—中学",
+      "document_type": "教学大纲",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "关于印发《义务教育全日制小学、初级中学教学计划（试行草案）》和二十四个学科教学大纲（初审稿）的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 71,
+          "stage": "小学—中学",
+          "role": "primary_item",
+          "printed_page_start": 350,
+          "printed_page_end": 358,
+          "physical_page_start": 364,
+          "physical_page_end": 372
+        }
+      ],
+      "range_content_sha256": "1d53ab85878e75a48e0e419edc393b0aaf452a8f730f88412e1eff7352608532",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A38b04e72b3ebb2fe"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:b77cce9fc4ff4a86",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1988,
+      "title": "九年制义务教育全日制小学语文教学大纲（初审稿）",
+      "stage": "小学",
+      "document_type": "教学大纲",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "九年制义务教育全日制小学语文教学大纲（初审稿）"
+      ],
+      "segments": [
+        {
+          "toc_index": 21,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 209,
+          "printed_page_end": 226,
+          "physical_page_start": 223,
+          "physical_page_end": 240
+        }
+      ],
+      "range_content_sha256": "6b55835667a160f2b2f34812517fe4ceffd88608f26c0762e7d15c318d73df10",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Ab77cce9fc4ff4a86"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:c55a00218d83473f",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1988,
+      "title": "九年制义务教育全日制初级中学语文教学大纲（初审稿）",
+      "stage": "中学",
+      "document_type": "教学大纲",
+      "title_status": "draft_named_in_title",
+      "title_variants": [
+        "九年制义务教育全日制初级中学语文教学大纲（初审稿）"
+      ],
+      "segments": [
+        {
+          "toc_index": 52,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 492,
+          "printed_page_end": 501,
+          "physical_page_start": 506,
+          "physical_page_end": 515
+        }
+      ],
+      "range_content_sha256": "e82756ebb9199735ab59e3cf37ef034873c695c2aa9bd0daf651c5ef04f3a523",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Ac55a00218d83473f"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:361f0d4443c26a7e",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1990,
+      "title": "关于印发《现行普通高中教学计划的调整意见》的通知",
+      "stage": "中学",
+      "document_type": "教学计划",
+      "title_status": "revision_named_in_title",
+      "title_variants": [
+        "关于印发《现行普通高中教学计划的调整意见》的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 72,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 359,
+          "printed_page_end": 364,
+          "physical_page_start": 373,
+          "physical_page_end": 378
+        }
+      ],
+      "range_content_sha256": "e5b7cd6ae60c32b9cc6917b8e450dde67e56b9a9ff6768add5fc85390fd32db0",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A361f0d4443c26a7e"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:d5df414acdfdf2b9",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1990,
+      "title": "全日制中学语文教学大纲（修订本）",
+      "stage": "中学",
+      "document_type": "教学大纲",
+      "title_status": "revision_named_in_title",
+      "title_variants": [
+        "全日制中学语文教学大纲（修订本）"
+      ],
+      "segments": [
+        {
+          "toc_index": 53,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 502,
+          "printed_page_end": 516,
+          "physical_page_start": 516,
+          "physical_page_end": 530
+        }
+      ],
+      "range_content_sha256": "d7eb0c4b46b3bc5089ece654b66aa6cccffb6ebe2795b417d824c2be5e4b3ccd",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Ad5df414acdfdf2b9"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:ef327035ff96e290",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1991,
+      "title": "印发《关于实施〈现行普通高中教学计划的调整意见〉和普通高中毕业会考制度的意见》等两个文件的通知",
+      "stage": "中学",
+      "document_type": "教学计划",
+      "title_status": "revision_named_in_title",
+      "title_variants": [
+        "印发《关于实施〈现行普通高中教学计划的调整意见〉和普通高中毕业会考制度的意见》等两个文件的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 73,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 365,
+          "printed_page_end": 370,
+          "physical_page_start": 379,
+          "physical_page_end": 384
+        }
+      ],
+      "range_content_sha256": "19219d631b4ae956c86396cf63ceba257324fc7d034fe14784e3314bf2be8962",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Aef327035ff96e290"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:c9fec8ed377d969f",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1991,
+      "title": "中小学语文学科思想政治教育纲要",
+      "stage": "小学—中学",
+      "document_type": "历史课程文件",
+      "title_status": "trial_named_in_title",
+      "title_variants": [
+        "中小学语文学科思想政治教育纲要（摘录）（试用）",
+        "中小学语文学科思想政治教育纲要"
+      ],
+      "segments": [
+        {
+          "toc_index": 22,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 227,
+          "printed_page_end": 231,
+          "physical_page_start": 241,
+          "physical_page_end": 245
+        },
+        {
+          "toc_index": 54,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 517,
+          "printed_page_end": 523,
+          "physical_page_start": 531,
+          "physical_page_end": 537
+        }
+      ],
+      "range_content_sha256": "272287eec2817d8294d1dc6a89cec804acdeae5ae7547bae3374f1b7fff4eafc",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Ac9fec8ed377d969f"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:a6113010be5baef6",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1992,
+      "title": "关于印发《九年义务教育全日制小学、初级中学课程计划（试行）》和24个学科教学大纲（试用）的通知",
+      "stage": "小学—中学",
+      "document_type": "教学大纲",
+      "title_status": "trial_named_in_title",
+      "title_variants": [
+        "关于印发《九年义务教育全日制小学、初级中学课程计划（试行）》和24个学科教学大纲（试用）的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 74,
+          "stage": "小学—中学",
+          "role": "primary_item",
+          "printed_page_start": 371,
+          "printed_page_end": 381,
+          "physical_page_start": 385,
+          "physical_page_end": 395
+        }
+      ],
+      "range_content_sha256": "50232dc9d811c676c9ea889a18979c7343b90510ca3fba25c7a4f8a1e70652da",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3Aa6113010be5baef6"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:936e75349791255f",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1992,
+      "title": "关于组织实施《九年义务教育全日制小学、初级中学课程方案（试行）》的意见",
+      "stage": "小学—中学",
+      "document_type": "意见",
+      "title_status": "trial_named_in_title",
+      "title_variants": [
+        "关于组织实施《九年义务教育全日制小学、初级中学课程方案（试行）》的意见"
+      ],
+      "segments": [
+        {
+          "toc_index": 75,
+          "stage": "小学—中学",
+          "role": "primary_item",
+          "printed_page_start": 382,
+          "printed_page_end": 384,
+          "physical_page_start": 396,
+          "physical_page_end": 398
+        }
+      ],
+      "range_content_sha256": "6c5ff31758c895b99b7590f9a0d4cdd7058bd1cf6d41a5f60e37435e135c8204",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A936e75349791255f"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:8e420c44a34580f5",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1992,
+      "title": "九年义务教育全日制小学语文教学大纲",
+      "stage": "小学",
+      "document_type": "教学大纲",
+      "title_status": "trial_named_in_title",
+      "title_variants": [
+        "九年义务教育全日制小学语文教学大纲（试用）"
+      ],
+      "segments": [
+        {
+          "toc_index": 23,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 232,
+          "printed_page_end": 251,
+          "physical_page_start": 246,
+          "physical_page_end": 265
+        }
+      ],
+      "range_content_sha256": "eb69cd384526bacbb1c35cbfc0f9f31e98d066254ba92d607297d6a1d5ecc128",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A8e420c44a34580f5"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:ea237ad2b8a04f9b",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1992,
+      "title": "九年义务教育全日制初级中学语文教学大纲",
+      "stage": "中学",
+      "document_type": "教学大纲",
+      "title_status": "trial_named_in_title",
+      "title_variants": [
+        "九年义务教育全日制初级中学语文教学大纲（试用）"
+      ],
+      "segments": [
+        {
+          "toc_index": 55,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 524,
+          "printed_page_end": 532,
+          "physical_page_start": 538,
+          "physical_page_end": 546
+        }
+      ],
+      "range_content_sha256": "88c720b6d658dfdaf8408cd82efefdbed58bbcb3a6c98b5c90358713fe9981ff",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Aea237ad2b8a04f9b"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:2ed9f0fba7505357",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1994,
+      "title": "关于印发《实行新工时制对全日制小学、初级中学课程（教学）计划进行调整的意见》和《实行新工时制对高中教学计划进行调整的意见》的通知",
+      "stage": "小学—中学",
+      "document_type": "教学计划",
+      "title_status": "revision_named_in_title",
+      "title_variants": [
+        "关于印发《实行新工时制对全日制小学、初级中学课程（教学）计划进行调整的意见》和《实行新工时制对高中教学计划进行调整的意见》的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 76,
+          "stage": "小学—中学",
+          "role": "primary_item",
+          "printed_page_start": 385,
+          "printed_page_end": 392,
+          "physical_page_start": 399,
+          "physical_page_end": 406
+        }
+      ],
+      "range_content_sha256": "27d00cddbd48d4aad28d448a7b220aaa04bf22654d3aa300f2fedbadcdc1fd58",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A2ed9f0fba7505357"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:e9597eb9ac923812",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1994,
+      "title": "关于印发中小学语文等23个学科教学大纲调整意见的通知",
+      "stage": "小学—中学",
+      "document_type": "教学大纲",
+      "title_status": "revision_named_in_title",
+      "title_variants": [
+        "关于印发中小学语文等23个学科教学大纲调整意见的通知",
+        "关于印发中小学语文等 23 个学科教学大纲调整意见的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 24,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 252,
+          "printed_page_end": 254,
+          "physical_page_start": 266,
+          "physical_page_end": 268
+        },
+        {
+          "toc_index": 56,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 533,
+          "printed_page_end": 534,
+          "physical_page_start": 547,
+          "physical_page_end": 548
+        }
+      ],
+      "range_content_sha256": "5a94f8cec9d2050d65e42c01b60cf4ea908cfcdcb649479febb0a6a47b9b2c9b",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Ae9597eb9ac923812"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:33a111ae26a8f8a9",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1995,
+      "title": "关于印发《关于实行每周40小时工作制后调整全日制中小学课程（教学）计划的意见》的通知",
+      "stage": "小学",
+      "document_type": "通知",
+      "title_status": "revision_named_in_title",
+      "title_variants": [
+        "关于印发《关于实行每周40小时工作制后调整全日制中小学课程（教学）计划的意见》的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 77,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 393,
+          "printed_page_end": 395,
+          "physical_page_start": 407,
+          "physical_page_end": 409
+        }
+      ],
+      "range_content_sha256": "16c924d79669beb3983a87dda8877ee965d05664e132f7bf2ea8b0529cb4579c",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A33a111ae26a8f8a9"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:04d4171191a46edb",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 1996,
+      "title": "关于印发《全日制普通高级中学课程计划（试验）》的通知",
+      "stage": "中学",
+      "document_type": "课程计划",
+      "title_status": "trial_named_in_title",
+      "title_variants": [
+        "关于印发《全日制普通高级中学课程计划（试验）》的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 78,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 396,
+          "printed_page_end": 402,
+          "physical_page_start": 410,
+          "physical_page_end": 416
+        }
+      ],
+      "range_content_sha256": "1ecc1859ba78c0dafecebf49b16ee0234bbebf814ce07ad45937f5e00f90cff9",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A04d4171191a46edb"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:e7e06dd92f2a4a53",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 1996,
+      "title": "全日制普通高级中学语文教学大纲（供试验用）",
+      "stage": "中学",
+      "document_type": "教学大纲",
+      "title_status": "trial_named_in_title",
+      "title_variants": [
+        "全日制普通高级中学语文教学大纲（供试验用）"
+      ],
+      "segments": [
+        {
+          "toc_index": 57,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 535,
+          "printed_page_end": 540,
+          "physical_page_start": 549,
+          "physical_page_end": 554
+        }
+      ],
+      "range_content_sha256": "d4847920f88de89a75923afcefaa0b351d689f19a749471b67517eb0a32f4fa4",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Ae7e06dd92f2a4a53"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-plans:296c620f203e5d95",
+      "parent_document_id": "legacy-compendium-plans",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：课程（教学）计划卷",
+      "subject": "课程方案",
+      "year": 2000,
+      "title": "关于印发《全日制普通高级中学课程计划（试验修订稿）》的通知",
+      "stage": "中学",
+      "document_type": "课程计划",
+      "title_status": "trial_named_in_title",
+      "title_variants": [
+        "关于印发《全日制普通高级中学课程计划（试验修订稿）》的通知"
+      ],
+      "segments": [
+        {
+          "toc_index": 79,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 403,
+          "printed_page_end": 409,
+          "physical_page_start": 417,
+          "physical_page_end": 423
+        }
+      ],
+      "range_content_sha256": "396e491c74069a8cbbe784f48c650d9381e7b492105c978ec282857e0dd61068",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A296c620f203e5d95"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:9eb2c7183f804dfd",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 2000,
+      "title": "九年义务教育全日制小学语文教学大纲（试用修订版）",
+      "stage": "小学",
+      "document_type": "教学大纲",
+      "title_status": "trial_named_in_title",
+      "title_variants": [
+        "九年义务教育全日制小学语文教学大纲（试用修订版）"
+      ],
+      "segments": [
+        {
+          "toc_index": 25,
+          "stage": "小学",
+          "role": "primary_item",
+          "printed_page_start": 255,
+          "printed_page_end": 266,
+          "physical_page_start": 269,
+          "physical_page_end": 280
+        }
+      ],
+      "range_content_sha256": "7e5a29800a4b093d1744ce25733963a6704829248bdec50f95ea50579b5132af",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A9eb2c7183f804dfd"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:689a151246022d60",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 2000,
+      "title": "九年义务教育全日制初级中学语文教学大纲（试用修订版）",
+      "stage": "中学",
+      "document_type": "教学大纲",
+      "title_status": "trial_named_in_title",
+      "title_variants": [
+        "九年义务教育全日制初级中学语文教学大纲（试用修订版）"
+      ],
+      "segments": [
+        {
+          "toc_index": 58,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 541,
+          "printed_page_end": 547,
+          "physical_page_start": 555,
+          "physical_page_end": 561
+        }
+      ],
+      "range_content_sha256": "c0a1ef0f92def2e02509c9156bed023f6bf37dbbc4ed71a7ade21b4a31b29b2b",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A689a151246022d60"
+    },
+    {
+      "id": "embedded-century:legacy-compendium-chinese:f3beb21934dae5db",
+      "parent_document_id": "legacy-compendium-chinese",
+      "parent_title": "20世纪中国中小学课程标准·教学大纲汇编：语文卷",
+      "subject": "语文",
+      "year": 2000,
+      "title": "全日制普通高级中学语文教学大纲（试验修订版）",
+      "stage": "中学",
+      "document_type": "教学大纲",
+      "title_status": "trial_named_in_title",
+      "title_variants": [
+        "全日制普通高级中学语文教学大纲（试验修订版）"
+      ],
+      "segments": [
+        {
+          "toc_index": 59,
+          "stage": "中学",
+          "role": "primary_item",
+          "printed_page_start": 548,
+          "printed_page_end": 554,
+          "physical_page_start": 562,
+          "physical_page_end": 568
+        }
+      ],
+      "range_content_sha256": "c0c83c3f9119c36bcf9ac393c305cc61b1578a12bee8a151dcc9e1fb7629d4be",
+      "identity_status": "toc_bound_candidate",
+      "observation_status": "ocr_complete_pending_item_audit",
+      "citation_allowed": false,
+      "semantic_claim_allowed": false,
+      "public_locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3Af3beb21934dae5db"
+    }
+  ],
+  "counts": {
+    "items": 134,
+    "chinese_items": 57,
+    "plan_items": 77,
+    "first_year": 1902,
+    "last_year": 2000
+  }
+}

@@ -22,6 +22,14 @@ test('the primary viewport is the curriculum cosmos rather than a marketing page
   assert.doesNotMatch(html, /class="hero-copy"|class="main-nav"/);
 });
 
+test('the document-first century spine is visible without replacing the concept cosmos', () => {
+  assert.match(html, /id="century-timeline"/);
+  assert.match(html, /百年文件时间轴/);
+  assert.match(app, /centuryVisibleItems/);
+  assert.match(app, /renderHistoricalItem/);
+  assert.match(styles, /\.century-track \{/);
+});
+
 test('subjects and concepts are controlled inside the star map', () => {
   assert.match(html, /id="subject-orbit"/);
   assert.match(html, /data-map-mode="cross"/);
