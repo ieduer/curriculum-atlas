@@ -2,7 +2,7 @@
   "schema_version": 1,
   "contract": "curriculum_release_environment_evidence_v1",
   "generated_by": "scripts/collect-release-environment-evidence.mjs",
-  "observed_at": "2026-07-23T14:28:23.595Z",
+  "observed_at": "2026-07-23T14:30:08.440Z",
   "environments": {
     "preview": {
       "environment": "preview",
@@ -141,30 +141,30 @@
     },
     "production": {
       "environment": "production",
-      "observed_at": "2026-07-23T11:05:03.812Z",
+      "observed_at": "2026-07-23T14:30:08.440Z",
       "worker_name": "bdfz-curriculum-atlas",
-      "worker_version_id": "ecf4fb36-a231-4e9a-97f7-cf3664391e35",
-      "deployment_id": "9cee7cb6-8599-400f-b1c4-0fc75d5761b9",
-      "deployment_created_on": "2026-07-23T11:01:04.258352Z",
-      "asset_git_commit": "380a6f18bc5c23bd035b2130eeac165c8d6431ad",
+      "worker_version_id": "7cedbe95-fed7-432b-85ef-d89a3baf2d6f",
+      "deployment_id": "a965580c-2e09-4b59-be0c-f1303539bb3d",
+      "deployment_created_on": "2026-07-23T14:29:50.571221Z",
+      "asset_git_commit": "b39abba278836305bb031570d06c44767d8e1d1a",
       "asset_parity": {
         "valid": true,
         "method": "five_live_assets_byte_equal_git_commit",
         "assets": [
           {
             "path": "app.js",
-            "sha256": "5560ac540c6819bea0fa7a40131163d27ee36f6c61ccd7d3f170bb6f348aebcb",
-            "bytes": 85551
+            "sha256": "eb929b7e770208131cd29cbc822ad81c361d6764d12467be775000a54895f47c",
+            "bytes": 93774
           },
           {
             "path": "atlas.js",
-            "sha256": "59add0cd43c6660d54bc102045cf269aefb7c0afcaa4b7a03f85235fd356f21d",
-            "bytes": 35698
+            "sha256": "093dcb43c784d74274e75c0b0ca5564357cdc286712c9cd9a989d43a0f014e81",
+            "bytes": 38007
           },
           {
             "path": "styles.css",
-            "sha256": "9a4e8cde831aab9c528ed3c83e5a5abf702719e55f2d76fbe9ce68982a16492f",
-            "bytes": 37300
+            "sha256": "bcd792ec580205ab8a8c05c8e36cf3e82a98093c2e9c582cc2996600ec1bce95",
+            "bytes": 40311
           },
           {
             "path": "data/concept-evolution.json",
@@ -194,8 +194,8 @@
         "http_status": 200,
         "ok": true,
         "version": "2026.07.16-v10",
-        "release_git_commit": "380a6f18bc5c23bd035b2130eeac165c8d6431ad",
-        "body_sha256": "ed7f9a4973389af5157fe6b29b563df0188932f6eb22cb859a788b6f28e87adb",
+        "release_git_commit": "b39abba278836305bb031570d06c44767d8e1d1a",
+        "body_sha256": "fbc8975388e58296f469cee69606529de1c50c655f8c48b66d8e493f992146df",
         "bytes": 2100
       },
       "corpus": {
@@ -240,19 +240,19 @@
           "id": "deployments_status",
           "command": "npx --no-install wrangler deployments status --name bdfz-curriculum-atlas --json",
           "exit_code": 0,
-          "stdout_sha256": "05d0ce817003cd5cce1d275d1af92e686e1aca2665e33d91b69a121fba44afb5",
+          "stdout_sha256": "31a5b72f40f2c61f7d68ed5d7a761ab9450a45dfaf94eeafa5147642753847d1",
           "stdout_bytes": 373,
-          "stderr_sha256": "9e35e9318a9caf9d361df733cb9f6d408cb449b715585da0fe54bacb1f72ddd2",
-          "stderr_bytes": 1100
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_bytes": 0
         },
         {
           "id": "version_view",
-          "command": "npx --no-install wrangler versions view ecf4fb36-a231-4e9a-97f7-cf3664391e35 --name bdfz-curriculum-atlas --json",
+          "command": "npx --no-install wrangler versions view 7cedbe95-fed7-432b-85ef-d89a3baf2d6f --name bdfz-curriculum-atlas --json",
           "exit_code": 0,
-          "stdout_sha256": "dc226627ed7eded712294e65c88f573120d885ed045041bda465d1e9c5fd1a7e",
+          "stdout_sha256": "3920e4ada76905a3f6fd58f4c208b3627e8105c24ac167b92a02bf30c1220d3b",
           "stdout_bytes": 5287,
-          "stderr_sha256": "656a084809a47935625e35ba39b7d88ce3a34af963ce65ee8fd0816f689d2a7a",
-          "stderr_bytes": 1100
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_bytes": 0
         },
         {
           "id": "d1_migrations_list",
@@ -260,8 +260,8 @@
           "exit_code": 0,
           "stdout_sha256": "bb17c0e3adfdae690ff423945f83bb8b4dce52935d6f3bb73f96ed25b71a0bf7",
           "stdout_bytes": 251,
-          "stderr_sha256": "f320eac0e7052210df3ec018c1e992e6d70efe9f07c1678606de0206ed0fd7cf",
-          "stderr_bytes": 1100
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_bytes": 0
         },
         {
           "id": "r2_current_pointer",
@@ -269,11 +269,11 @@
           "exit_code": 0,
           "stdout_sha256": "5142166d000fbf82e6d0a9d135a5340ba3c9d77f3bed803967ad565ff8c2133a",
           "stdout_bytes": 388,
-          "stderr_sha256": "5b4648c15634fe1fad5f191abfd466465b4ee651abee0e67b63faa80b2bb1fcf",
-          "stderr_bytes": 1100
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_bytes": 0
         }
       ]
     }
   },
-  "receipt_sha256": "145c7fa06e2448723337e7b7ba7e64b353beac06827437ee7844807fb1474729"
+  "receipt_sha256": "6e52b06a9d416f0e628fff4ceadc838f9b6e1500dce0e2890793c9bad20fe3af"
 }
