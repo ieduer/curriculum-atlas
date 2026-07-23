@@ -1,12 +1,12 @@
 # Curriculum Atlas 项目运维总账
 
-<!-- curriculum-operations-ledger-snapshot {"schema_version":1,"action_log_line_cutoff":1397,"action_log_prefix_sha256":"7b715fe43a004174090a4f41be475dc4a74477235967d2683d4ca2efbb22a42c","included_event_count":419,"included_task_count":79,"included_event_sha256":"e175c21aad03bc7771f95dd9803b94704dbc0c8ba70249554760cf21bded58ea","included_through":"2026-07-17T06:35:37.437Z"} -->
+<!-- curriculum-operations-ledger-snapshot {"schema_version":1,"action_log_line_cutoff":2204,"action_log_prefix_sha256":"1089feef0cc3a9ccaf277618dd9bc2eafbcdb14488d67f65769e56b47009862e","included_event_count":1126,"included_task_count":201,"included_event_sha256":"2d19ca89315664246695b8f20f7244ec8d572eff31186db1e808beb7c86a7c8a","included_through":"2026-07-23T07:50:03.178Z"} -->
 
-生成时间：`2026-07-18T04:12:14.664Z`（America/Los_Angeles：`2026/07/17 21:12:14`）
+生成时间：`2026-07-23T07:50:08.792Z`（America/Los_Angeles：`2026/07/23 00:50:08`）
 
-覆盖区间：`2026-07-15T02:01:17.143Z` 至 `2026-07-17T06:35:37.437Z`；共 `79` 个任务、`419` 条运维事件。
+覆盖区间：`2026-07-15T02:01:17.143Z` 至 `2026-07-23T07:50:03.178Z`；共 `201` 个任务、`1126` 条运维事件。
 
-本文件是项目内的可重建运维总账快照。事件明细来自 `/Users/ylsuen/CF/reports/agent_action_log.jsonl` 的 append-only 前 1397 行；前缀 SHA-256 为 `7b715fe43a004174090a4f41be475dc4a74477235967d2683d4ca2efbb22a42c`。本地数据数字来自生成时实际文件；Cloudflare 与远端 OCR 数字只引用带时间戳的最后一次只读核验。快照之后新增的日志属于待纳入事件，不会使已冻结发布提交失真；后来的状态不得回写覆盖历史，只能新增事件并在下一发布快照重新生成。
+本文件是项目内的可重建运维总账快照。事件明细来自 `/Users/ylsuen/CF/reports/agent_action_log.jsonl` 的 append-only 前 2204 行；前缀 SHA-256 为 `1089feef0cc3a9ccaf277618dd9bc2eafbcdb14488d67f65769e56b47009862e`。本地数据数字来自生成时实际文件；Cloudflare 与远端 OCR 数字只引用带时间戳的最后一次只读核验。快照之后新增的日志属于待纳入事件，不会使已冻结发布提交失真；后来的状态不得回写覆盖历史，只能新增事件并在下一发布快照重新生成。
 
 ## 读数规则
 
@@ -39,12 +39,12 @@
 
 | 层 | 当前事实 | 状态判定 |
 |---|---|---|
-| Git | branch `codex/ops-docs-release-refresh-20260717`; HEAD `290755749a0257ed720e7b2d26aa6b972c60aebb`; origin/main `290755749a0257ed720e7b2d26aa6b972c60aebb`; modified 8; untracked 1 | 生成器工作树含待提交文档变更；发布证据仍绑定已推送 commit；production environment evidence commit `290755749a0257ed720e7b2d26aa6b972c60aebb` |
+| Git | branch `main`; HEAD `298778d0e6e7f0b03fd31acdd09d5b55b5195dd6`; origin/main `298778d0e6e7f0b03fd31acdd09d5b55b5195dd6`; modified 2; untracked 0 | 生成器工作树含待提交文档变更；发布证据仍绑定已推送 commit；production environment evidence commit `f0e2602294579ef60b7bf75fb4e8bc386a22f95e` |
 | Catalog | 196 records；verified_online 176；local_verified_scan 12；metadata_only 6；citation_ready 101；ocr_review_pending 88 | checked-in generated snapshot |
 | Ingest | 196 entries | 与 catalog ID 集合精确一致；物理文件另由 artifact registry 审计 |
 | Asset registry | 245 PDF paths / 209 unique SHA-256；201 canonical、3 variant、2 derived、3 quarantine | 遗漏 hash、处置冲突、路径/校验和漂移均 fail closed |
 | OCR queue | 名义 86 docs / 11847 pages；唯一实体 85 docs / 11779 pages；blocked 2 | 未完成且全部 fail-closed |
-| Local OCR evidence | 主 OCR/audit 名义 6947/11847，唯一实体 6879/11779；Vision 名义 7012，唯一实体 6944；failed 1 | 2026-07-17T06:22:49.558Z 本机快照；显示/引文合格 0 |
+| Local OCR evidence | 主 OCR/audit 名义 6947/11847，唯一实体 6879/11779；Vision 名义 7012，唯一实体 6944；failed 1 | 2026-07-23T07:50:05.579Z 本机快照；显示/引文合格 0 |
 | OCR publication | 0 accepted documents / 0 accepted pages | 0 页进入显示/引文发布 |
 | Semantic quarantine | aliases 1；page controls 21 | unresolved controls override future page acceptance |
 | Corpus release | `corpus-358471fcce862b2f0ae446fc`；196 documents / 16456 paragraphs / 16456 FTS / 6031 page gates / 16456 displayed / 0 accepted OCR / 91 chunks | preview 与 production evidence 均为 ready；OCR 正文仍未接入 |
@@ -67,18 +67,18 @@
 
 | 环境 | 已核验状态 | 回滚 / 阻断 |
 |---|---|---|
-| Production Worker | `28c7e6d4-1638-42bc-b371-bd8d24210b93` / `baa8a92f-ccc8-4972-b0ad-6d67876cdc84` / `2026.07.16-v10`；Assets Git `57487dc95481391cbcd40e0be0c92ee2d1ed8fdf`；health 200 | coupled rollback：D1 bookmark `0000002b-00002585-000050ab-8645885d977dc9bf5678e6cdf12b084f` + Worker `7d1766b2-32be-4ce1-9528-f6c69bb2a092`，仅在确认无后续用户写入后执行 |
-| Preview Worker | `2d107d38-cf31-49b6-82b1-20b32a32e824` / `32b91e16-302a-4672-b55d-4e73bcedf54a` / `2026.07.16-v10`；Assets Git `40cb114e410e5f2afc886732eb146707edf8477b`；health 200 | rollback：preview D1 bookmark 与 Worker predecessor 由发布任务私有锚点保存 |
+| Production Worker | `d717631e-8b93-40a5-8266-71158f415c22` / `eaa65677-3fc8-4e51-9178-885870a99658` / `2026.07.16-v10`；Assets Git `5a0bfd98dff1cb07740e0a9e04f4252ada0c74e9`；health 200 | coupled rollback：D1 bookmark `0000002b-00002585-000050ab-8645885d977dc9bf5678e6cdf12b084f` + Worker `7d1766b2-32be-4ce1-9528-f6c69bb2a092`，仅在确认无后续用户写入后执行 |
+| Preview Worker | `b1e1c8ba-92c4-4e0b-9161-63b685c4a3a6` / `d4029157-bfa3-4e4d-a9e8-4f2badcd7d2b` / `2026.07.16-v10`；Assets Git `8018b95b9ae170a18e7bb89e5afe9cc993465af6`；health 200 | rollback：preview D1 bookmark 与 Worker predecessor 由发布任务私有锚点保存 |
 | D1 prod + preview | 两端 applied migrations 均为 `0001_initial.sql`、`0002_source_provenance_and_ocr_quality.sql`、`0003_online_verification.sql`、`0004_document_classifications.sql`、`0005_page_publication_gate.sql`、`0006_corpus_import_release.sql`、`0007_document_taxonomy_contract.sql`；pending 0；schema 3 / taxonomy 2 / page 1 | corpus 非 ready 或实时计数漂移时 API fail closed 503 |
 | Corpus prod + preview | `corpus-358471fcce862b2f0ae446fc` ready；196/16456/16456/6031/16456/0/91 | documents / paragraphs / FTS / page gates / displayed / accepted OCR / chunks 必须精确相等 |
 | Production R2（post-evidence） | Pointer stable across two reads at 388 bytes SHA256 5142166d000fbf82e6d0a9d135a5340ba3c9d77f3bed803967ad565ff8c2133a; manifest 107777 bytes SHA256 a6a15ea83cc58b1b84f5587a110c0fddeb414f24c77ff534507ea96868c03964; 17 unique release-prefixed objects total 546648 bytes match manifest and local sources with zero mismatch; API returns exact 55183-byte 196-entry ingest manifest SHA256 0f0fda279b10ef40011ea28477deb528ed5d45b7478dfd93a8b7bf6d0b1cb16e | 删除且只删除 `release/current.json` 可恢复 v10 stable-key fallback；不可变 release objects 保留 |
 | Preview R2（post-evidence） | new pointer 388 bytes SHA256 65395a8b4fbca18f24aa36b37b54c72ae7e7b5f9071635a07e6285822cd0e12f; manifest 109499 bytes SHA256 7891b0989694070ade46686a8b26118fca1f74cc98b025b9252c1616f6277f3d; all 17 objects total 545536 bytes exact; ingest manifest 55183 bytes SHA256 0f0fda279b10ef40011ea28477deb528ed5d45b7478dfd93fc6e49ebd623c2463df296bc43fb73c5；authoritative correction：authoritative post-readback ingest manifest identity is 55183 bytes SHA256 0f0fda279b10ef40011ea28477deb528ed5d45b7478dfd93a8b7bf6d0b1cb16e; the immediately preceding log row contained a manual hash transcription error only | 恢复已备份 predecessor pointer；不可变 successor objects 可不引用保留 |
 | Taxonomy | 159 subject + 1 assessment subject + 16 course + 20 scope；12 facets / 28 query identities | assessment/course/scope 保留身份，不进入普通学科精确筛选 |
 | Local OCR | primary+audit 6947/11847；Vision 7012；accepted 0 | OCR 未完成、未上线；page publication 与 citation 保持 fail closed |
-| DMITPro2 shard B-r1 | Read-only samples were 981131264 and 966483968 bytes MemAvailable, both below the one-GiB stop gate; B had 1259 of 3182 pages, zero failed pages and zero quarantine; explicit user-unit stop left MainPID zero and NRestarts zero while MemAvailable recovered to 2839844 kB | Implement audited seed contract and pass focused plus full local verification before commit；不得无 lineage 复制旧 state |
+| DMITPro2 shard B-r1 | Read-only samples were 981131264 and 966483968 bytes MemAvailable, both below the one-GiB stop gate; B had 1259 of 3182 pages, zero failed pages and zero quarantine; explicit user-unit stop left MainPID zero and NRestarts zero while MemAvailable recovered to 2839844 kB | parent-must-cherry-pick-test-and-run-real-seed；不得无 lineage 复制旧 state |
 | Private encrypted archive | Final exact prefix is 15 objects and 3304581750 bytes; index GET is 8581 bytes SHA256 2ee9d8088dd89f77123c01da67916912f43c65c582c2ba6909fcb2904772bf2f; restored raw set is 246 of 246 files and 3245326023 bytes and OCR evidence is 81318 of 81318 files and 813926562 bytes with zero missing extra or problems; remote-readback contains exactly 15 files and 3304581750 bytes with zero partial or temp files; no browser session was opened and required dry-run found zero cliDaemon processes | index `backups/curriculum-atlas/private-archive/20260717T021000Z/archive-index.json`；远端精确前缀回滚需另行明确授权 |
-| Production browser / API / Pulse | PASS: health 200 v10 Git57487dc schemas3/2/1 five bindings; corpus196/16456/16456/6031/91; taxonomy12 facets 28 identities; browser 1440x1000 1280x720 390x844 full553 lineage214 hide-all0 Chinese143/60 no movement leak no overflow; API negative gates 401/403; D1 user counts 0/0/3/2/0 and canonical digest c4166f451f4b9529bf4221b56fb3017dc51aef7493a699553dc218287e42c430 unchanged; Pulse tracked worker_analytics; task browser sessions closed and CLI list empty, root final ps found no task daemon/profile；event 2026-07-17T06:35:37.437Z；1440x1000 / 1280x720 / 390x844 均无 overflow；full 553 nodes / 214 lineage / 261 cross-subject，hide-all 0/0，Chinese 143/60，sports leak 0；auto zoom 0.864→1.32 与 0.20→0.568；deep links/workbenches/drag/zoom pass；D1 before=after 0/0/3/2/0，canonical digest c4166f451f4b9529bf4221b56fb3017dc51aef7493a699553dc218287e42c430；Pulse 425 requests / 0 errors；first-party console/page errors 0，Turnstile only 2 third-party opaque errors / 5 warnings；named sessions closed、CLI list empty、root ps 无 task daemon/profile，仅 App-owned MCP；orphan dry-run 因平台 usage limit 拒绝提权且未绕过 | 只读 QA 无状态回滚；下一 release 必须重新产生事件。现有 observation 数据止于 2020，accepted OCR 后才能重建 2022 概念观察 |
-| Full governed verify | Immediately before bootstrap pointer was absent; release manifest production readiness true with zero blockers after 380 of 380 tests; publisher staged and verified 17 immutable objects then activated current pointer for release-9cb02f77c06ee0535e7981a22b312373; ingest manifest verified at 55183 bytes SHA256 0f0fda279b10ef40011ea28477deb528ed5d45b7478dfd93a8b7bf6d0b1cb16e | Git evidence commit `290755749a0257ed720e7b2d26aa6b972c60aebb` |
+| Production browser / API / Pulse | Git 298778d0e6e7f0b03fd31acdd09d5b55b5195dd6; Node 561 of 561 and Python 14 of 14; production version 6613ba19-a81d-4c16-aa20-f8657e67275b at 100 percent; 134 items 433 observations 1754 evidence 7 families 427 memberships; desktop and mobile one Canvas 12 of 12 subjects no overlap no horizontal overflow and zero console errors or warnings; health and hubs 200 | 只读 QA 无状态回滚；下一 release 必须重新产生事件。现有 observation 数据止于 2020，accepted OCR 后才能重建 2022 概念观察 |
+| Full governed verify | Immediately before bootstrap pointer was absent; release manifest production readiness true with zero blockers after 380 of 380 tests; publisher staged and verified 17 immutable objects then activated current pointer for release-9cb02f77c06ee0535e7981a22b312373; ingest manifest verified at 55183 bytes SHA256 0f0fda279b10ef40011ea28477deb528ed5d45b7478dfd93a8b7bf6d0b1cb16e | Git evidence commit `f0e2602294579ef60b7bf75fb4e8bc386a22f95e` |
 | Public registration | User Center、Nav、Portal、Companion source、Pulse 已登记；Pulse tracked | Companion 新 APK 因无真实 Android 设备验证而显式延期 |
 
 ## 生命周期里程碑
@@ -122,6 +122,57 @@
 | `40cb114e410e` | 2026-07-16T21:22:22-07:00 | fix: persist curriculum taxonomy contract |
 | `57487dc95481` | 2026-07-16T22:08:24-07:00 | chore: bind corrected preview release evidence |
 | `290755749a02` | 2026-07-16T23:02:35-07:00 | chore: bind production release evidence |
+| `c90567a83c86` | 2026-07-17T21:13:39-07:00 | docs: refresh curriculum v10 operations baseline |
+| `be854e47ef63` | 2026-07-17T22:29:07-07:00 | feat: bind resumable OCR seed lineage |
+| `63e55c04a81c` | 2026-07-17T22:48:31-07:00 | feat: add fail-closed B2 OCR monitor |
+| `ee21a947fc7a` | 2026-07-17T23:03:54-07:00 | fix: bind OCR monitor to PaddleX caches |
+| `d201566fbc4d` | 2026-07-17T23:18:24-07:00 | fix: classify seeded OCR backlog by worker state |
+| `6b75811812c2` | 2026-07-17T23:51:08-07:00 | fix: monitor active OCR serialization states |
+| `f9aeb479d156` | 2026-07-17T23:54:03-07:00 | feat: bind timeout OCR recovery grants |
+| `30ea29bda4e0` | 2026-07-18T00:56:04-07:00 | feat: add fail-closed OCR monitor alerts |
+| `d8db7b97d74b` | 2026-07-18T01:14:57-07:00 | feat: verify p1 OCR seed transitions |
+| `b49a564ce0a7` | 2026-07-18T01:30:48-07:00 | fix: close p1 OCR lineage gaps |
+| `a0fb0d10d92f` | 2026-07-18T01:31:52-07:00 | fix: harden OCR monitor alert delivery |
+| `d836900b69e4` | 2026-07-18T01:35:13-07:00 | fix: suppress unarmed OCR alert preflight |
+| `f73bdb68e439` | 2026-07-18T01:48:49-07:00 | fix: make OCR alert retries durable |
+| `3c24a1e3db88` | 2026-07-18T01:49:02-07:00 | fix: normalize p1 shard cache paths |
+| `37fc893cee43` | 2026-07-18T01:54:21-07:00 | fix: close recovered OCR alert incidents |
+| `d907910d7798` | 2026-07-18T01:57:29-07:00 | fix: suppress idle OCR retry timer preflight |
+| `ba358d6c5da9` | 2026-07-18T02:27:22-07:00 | fix: serialize OCR monitor alert retries |
+| `718d7ecb5240` | 2026-07-18T00:57:25-07:00 | feat: prepare timeout OCR recovery grants |
+| `415f5b3c40a5` | 2026-07-18T02:45:34-07:00 | feat: harden timeout OCR recovery authority |
+| `933b878df51e` | 2026-07-18T02:54:46-07:00 | fix: recover provisioner hard-link crashes |
+| `d6ae37a350d6` | 2026-07-18T03:01:02-07:00 | feat: verify B3 OCR completion cleanup |
+| `7414835b94c8` | 2026-07-18T03:05:44-07:00 | fix: bind B3 cleanup to deploy workspace |
+| `0d36a258f86c` | 2026-07-18T03:08:05-07:00 | fix: authorize B3 cleanup lifecycle lock |
+| `05f3e521cc84` | 2026-07-18T03:12:36-07:00 | ops: pin the B3 OCR runtime bundle |
+| `ccd9fa1100f1` | 2026-07-18T03:18:58-07:00 | fix: hash-bind the OCR alert runtime |
+| `9d8ddc198121` | 2026-07-18T04:54:50-07:00 | Harden OCR timeout recovery evidence |
+| `3011b5892002` | 2026-07-18T05:21:48-07:00 | Enforce granted OCR completion state |
+| `9c5132a57e62` | 2026-07-18T06:26:17-07:00 | feat(ocr): bind B1 seed-aware writer transition |
+| `9d6179dabbc7` | 2026-07-18T06:51:44-07:00 | test(ocr): close B1 transition regression gaps |
+| `1a2f8f34885a` | 2026-07-18T09:36:20-07:00 | fix(frontend): clear cross-subject ontology inspector |
+| `9b84814e4081` | 2026-07-18T09:38:10-07:00 | chore: refresh curriculum Downloads audit |
+| `570cfbe5da3a` | 2026-07-18T09:44:27-07:00 | chore: bind curriculum preview release evidence |
+| `857ed4e7aa5a` | 2026-07-18T09:49:02-07:00 | chore: bind curriculum production release evidence |
+| `116c565a236d` | 2026-07-18T12:33:28-07:00 | ops(ocr): add sealed A2 continuation runtime |
+| `2e6584abed44` | 2026-07-18T14:37:42-07:00 | Revert "ops(ocr): add sealed A2 continuation runtime" |
+| `2c5accbc4de3` | 2026-07-22T19:57:34-07:00 | feat: publish OCR observation layer |
+| `3ff9f65b9dd2` | 2026-07-22T19:58:45-07:00 | chore: refresh curriculum asset audit receipt |
+| `554a8a269c1b` | 2026-07-22T20:04:10-07:00 | fix: keep mobile curriculum controls unobstructed |
+| `3d5efe8ad5e8` | 2026-07-22T20:06:37-07:00 | fix: advance curriculum asset cache version |
+| `f4446c511b43` | 2026-07-22T20:46:34-07:00 | feat: publish century curriculum timeline |
+| `1ffd6d238074` | 2026-07-22T20:50:21-07:00 | chore: bind century preview release evidence |
+| `26cc00374509` | 2026-07-22T20:52:46-07:00 | chore: bind century production release evidence |
+| `9afa6565975b` | 2026-07-22T21:16:43-07:00 | feat: project century OCR into single star map |
+| `38c9c4e9ffdc` | 2026-07-22T21:20:26-07:00 | chore: bind single-star preview evidence |
+| `d497b713e4d1` | 2026-07-22T21:26:01-07:00 | chore: bind single-star production evidence |
+| `0497e86988f2` | 2026-07-22T21:41:25-07:00 | docs: record single-star production release |
+| `8018b95b9ae1` | 2026-07-22T22:02:48-07:00 | fix: unify OCR star effects |
+| `5a0bfd98dff1` | 2026-07-22T22:07:18-07:00 | chore: bind star effect preview evidence |
+| `f0e260229457` | 2026-07-22T22:23:53-07:00 | chore: bind star effect production evidence |
+| `b207ec6638c3` | 2026-07-22T23:21:50-07:00 | feat: illuminate century concept evolution families |
+| `298778d0e6e7` | 2026-07-22T23:47:49-07:00 | fix: keep all subject controls visible |
 
 ## 任务索引
 
@@ -196,7 +247,7 @@
 | 2026-07-16T23:38:16.354Z | 2026-07-17T02:04:06.574Z | `curriculum-ocr-resume-accelerate-20260716` | 7 | start, change, verify, closeout | Publication remains blocked until OCR completion whole-document receipt dual witness online same-version verification and adjudication |
 | 2026-07-17T00:25:26.877Z | 2026-07-17T01:13:20.503Z | `curriculum-atlas-asset-data-integrity-20260716` | 6 | start, change, verify, closeout | A later separately authorized preview window must apply 0005 and 0006 deploy the versioned reader import the corpus activate the R2 pointer and complete browser dependency verification before production can be considered |
 | 2026-07-17T00:28:54.606Z | 2026-07-17T00:51:01.400Z | `curriculum-atlas-release-manifest-20260716` | 4 | start, change, verify, closeout | Do not publish until dist parity passes, 0005 and 0006 are applied, Worker reads versioned manifest pointer, environment snapshot is refreshed and full focused tests pass |
-| 2026-07-17T01:21:35.286Z | 2026-07-17T06:35:37.437Z | `curriculum-atlas-full-release-20260716` | 28 | start, change, verify | Cloudflare Turnstile discussion challenge emitted two third-party opaque console errors and five warnings but zero first-party console errors or page errors; graph observation data currently ends in 2020 while 2022 corpus documents and era rail remain present, pending later accepted OCR concept rebuild |
+| 2026-07-17T01:21:35.286Z | 2026-07-18T23:19:09.460Z | `curriculum-atlas-full-release-20260716` | 133 | start, change, verify, closeout | no-inner-authentication-or-authorized_keys-change-yet |
 | 2026-07-17T02:19:20.193Z | 2026-07-17T02:20:36.984Z | `curriculum-atlas-fixture-core-counts-20260716` | 4 | start, change, verify, closeout | Parent must run the full suite before staging |
 | 2026-07-17T03:03:21.225Z | 2026-07-17T06:05:23.716Z | `curriculum-atlas-private-archive-upload-20260717` | 5 | start, change, verify, closeout | No archive verification defect remains; canonical report section is handed to parent for conflict-free merge; retain raw sources long term and OCR evidence through publication plus at least 90 days; review local preflight rebuilt and superseded evidence only under a future explicit retention cleanup, with no deletion now |
 | 2026-07-17T03:06:27.162Z | 2026-07-17T03:18:04.643Z | `curriculum-chemistry-page84-adjudication-20260716` | 4 | start, change, verify, closeout | Keep citation and display false; resolution needs a same-edition 1941 authoritative witness or human image adjudication plus a validated repair path, preferably complete remote chemistry output received through the existing whole-document gate |
@@ -204,21 +255,167 @@
 | 2026-07-17T03:52:36.862Z | 2026-07-17T04:08:26.895Z | `curriculum-atlas-taxonomy-contract-20260717` | 4 | start, change, verify, closeout | Regenerate corpus artifacts before reimport; collect new preview and production environment evidence instead of reusing historical receipts |
 | 2026-07-17T03:55:25.375Z | 2026-07-17T03:57:15.823Z | `curriculum-ocr-watchdog-reference-audit-20260716` | 3 | start, verify, closeout | Do not restart or kickstart the healthy held watchdog for the stale log; archive or rotate stderr only in a separately authorized maintenance action if desired |
 | 2026-07-17T04:11:48.489Z | 2026-07-17T04:11:48.593Z | `curriculum-atlas-inner-ssh-recovery-audit-20260716` | 2 | verify, closeout | Do not weaken host-key checking; if host keys legitimately rotate, verify out-of-band before replacing known_hosts entries |
-| 2026-07-17T05:56:10.360Z | 2026-07-17T05:56:10.360Z | `curriculum-ocr-b-r2-lineage-implementation-20260717` | 1 | start | Implement audited seed contract and pass focused plus full local verification before commit |
-| 2026-07-17T06:12:16.772Z | 2026-07-17T06:24:15.539Z | `curriculum-atlas-ops-docs-release-refresh-20260717` | 2 | start, change | Regenerate after final production browser D1 console and teardown verification event then run focused and repository checks before commit |
+| 2026-07-17T05:56:10.360Z | 2026-07-18T05:30:46.735Z | `curriculum-ocr-b-r2-lineage-implementation-20260717` | 4 | start, change, verify, closeout | parent-must-cherry-pick-test-and-run-real-seed |
+| 2026-07-17T06:12:16.772Z | 2026-07-18T04:14:23.131Z | `curriculum-atlas-ops-docs-release-refresh-20260717` | 4 | start, change, verify, closeout | Parent must cherry-pick or rebase the commit, regenerate the ledger after later action-log events, and keep OCR quality closure active |
+| 2026-07-18T05:16:26.791Z | 2026-07-18T05:48:46.682Z | `curriculum-ocr-single-shard-monitor-20260717` | 4 | start, change, verify, closeout | parent must cherry-pick and supply actual canonical B1 anchor values before read-only remote monitoring |
+| 2026-07-18T05:32:04.572Z | 2026-07-18T06:54:30.998Z | `curriculum-ocr-a-r2-timeout-recovery-20260718` | 4 | start, change, verify, closeout | before actual A-r2 provision a dedicated execution-host ledger, bind its realpath device inode into a newly generated signed grant, and pass --timeout-recovery-ledger; no remote write deployment or OCR start performed |
+| 2026-07-18T05:53:52.922Z | 2026-07-18T06:04:06.178Z | `curriculum-ocr-single-shard-cache-fix-20260717` | 4 | start, change, verify, closeout | parent must cherry-pick then rerun real read-only prestart before any worker start |
+| 2026-07-18T06:13:50.944Z | 2026-07-18T06:18:36.143Z | `curriculum-ocr-single-shard-classification-fix-20260717` | 4 | start, change, verify, closeout | parent must cherry-pick and rerun real read-only prestart before worker execution |
+| 2026-07-18T06:27:46.594Z | 2026-07-18T06:51:23.793Z | `curriculum-ocr-single-shard-counts-fix-20260717` | 4 | start, change, verify, closeout | Parent must cherry-pick or merge and perform any remote monitor rollout; B2 OCR worker remains stopped. |
+| 2026-07-18T07:31:20.381Z | 2026-07-18T07:56:15.880Z | `curriculum-ocr-alert-only-20260718` | 4 | start, change, verify, closeout | parent owns push B-r3 exact config credential provisioning systemd-analyze live arming two healthy polls and bounded delivery canary |
+| 2026-07-18T07:33:22.781Z | 2026-07-18T07:57:58.333Z | `curriculum-ocr-a-r2-timeout-recovery-preparer-20260718` | 4 | start, change, verify, closeout | canonical-repo-full-suite-needed-after-cherry-pick-because-two-release-manifest-tests-require-host-source-roots |
+| 2026-07-18T07:51:34.725Z | 2026-07-18T08:16:37.887Z | `curriculum-ocr-p1-receiver-monitor-20260718` | 5 | start, change, closeout, verify | Root owns integration deployment and live service checks |
+| 2026-07-18T08:13:52.331Z | 2026-07-18T08:32:18.094Z | `curriculum-ocr-alert-hardening-20260718` | 4 | start, change, verify, closeout | parent-must-cherry-pick-after-current-main-owners-close-then-run-canonical-suite-systemd-analyze-remote-preflight-two-healthy-arm-cycles-and-bounded-Telegram-canary |
+| 2026-07-18T08:16:02.350Z | 2026-07-18T09:46:11.752Z | `curriculum-ocr-grant-runner-hardening-20260718` | 4 | start, change, verify, closeout | root-must-integrate-receiver-monitor-issuance-and-incident-validation-before-remote-run |
+| 2026-07-18T09:33:13.556Z | 2026-07-18T10:01:51.471Z | `curriculum-ocr-b3-completion-cleanup-20260718` | 4 | start, change, verify, closeout | parent-materializes-config-adds-worker-OnSuccess-runs-systemd-analyze-and-canonical-tests |
+| 2026-07-18T09:50:12.028Z | 2026-07-18T09:55:03.495Z | `curriculum-ocr-provisioner-crash-recovery-20260718` | 4 | start, change, verify, closeout | none-within-provisioner-scope |
+| 2026-07-18T09:50:13.351Z | 2026-07-18T09:50:13.351Z | `curriculum-ocr-receiver-monitor-recovery-evidence-20260718` | 1 | start | implement actual artifact validation E2E and complete focused full check build leak gates |
+| 2026-07-18T11:02:57.128Z | 2026-07-18T11:55:06.135Z | `curriculum-timeout-recovery-evidence` | 3 | verify, closeout | parent-agent-must-integrate-commit-no-production-deploy-performed |
+| 2026-07-18T12:00:43.097Z | 2026-07-18T12:21:57.884Z | `curriculum-timeout-recovery-complete-attempt-hardening` | 6 | start, change, verify, closeout | No deploy or production mutation performed |
+| 2026-07-18T12:45:50.404Z | 2026-07-18T13:30:55.090Z | `curriculum-ocr-b1-seed-script-transition-20260718` | 5 | start, change, verify, closeout | no push no remote install no production seed performed |
+| 2026-07-18T13:31:24.199Z | 2026-07-18T14:00:10.138Z | `curriculum-ontology-release-bridge-20260718` | 5 | start, change, verify, closeout | no-candidate-promotion-no-public-data-change-no-remote-write-no-deploy |
+| 2026-07-18T13:39:26.413Z | 2026-07-18T13:53:14.854Z | `curriculum-ocr-b1-seed-script-transition-p2-closure-20260718` | 4 | change, closeout, verify | no-push-no-remote-write-parent-owned-deployment-pending |
+| 2026-07-18T14:12:15.821Z | 2026-07-18T14:42:07.104Z | `curriculum-ontology-release-bridge-remediation-20260718` | 5 | start, change, verify, closeout | parent-integration-and-final-live-release-remain |
+| 2026-07-18T14:32:12.788Z | 2026-07-18T15:15:54.748Z | `curriculum-ocr-a1-completed-status-compat-20260718` | 4 | start, change, verify, closeout | parent may cherry-pick commit; no deploy push remote host or ontology change performed |
+| 2026-07-18T14:35:11.086Z | 2026-07-18T15:42:08.908Z | `curriculum-page-evidence-publication-phase1-20260718` | 4 | start, change, verify, closeout | parent-must-integrate-validator-hook-after-ontology-owner-handoff-and-refresh-bound-hashes-if-governed-data-changes |
+| 2026-07-18T14:58:15.472Z | 2026-07-18T15:30:08.245Z | `curriculum-ontology-release-bridge-remediation2-20260718` | 5 | start, change, verify, closeout | parent-may-integrate-after-independent-review |
+| 2026-07-18T15:06:05.515Z | 2026-07-18T15:13:42.043Z | `curriculum-atlas-alert-delivery-repair-20260718` | 6 | start, change, closeout, verify | none |
+| 2026-07-18T15:31:53.634Z | 2026-07-18T15:57:32.057Z | `curriculum-ocr-a1-monitor-complete-hardening-20260718` | 4 | start, change, verify, closeout | parent must cherry-pick or merge and run its aggregate branch gates; release manifest retains four external blockers |
+| 2026-07-18T15:55:16.395Z | 2026-07-18T16:23:24.221Z | `curriculum-ontology-release-bridge-remediation3-20260718` | 5 | start, change, verify, closeout | parent-independent-review-and-integration-required_release-manifest-has-expected-unpushed-and-stale-environment-blockers |
+| 2026-07-18T16:15:50.240Z | 2026-07-18T17:21:41.116Z | `curriculum-page-evidence-publication-hardening-20260718` | 7 | start, change, verify, closeout | base-7f4f7c2-remains-prohibited-alone-four-release-blockers-and-cross-branch-conflict-serialization-pending |
+| 2026-07-18T16:16:00.351Z | 2026-07-18T16:44:41.827Z | `curriculum-ocr-a1-monitor-complete-hardening-round2-20260718` | 4 | start, change, verify, closeout | parent must integrate and conduct third-round independent review; four external release blockers remain |
+| 2026-07-18T16:19:58.559Z | 2026-07-18T16:53:36.866Z | `curriculum-atlas-subject-inspector-fix-20260718` | 9 | start, change, verify, closeout | full-OCR-evidence-ontology-and-data-publication-remain-under-parent-task |
+| 2026-07-18T16:56:36.234Z | 2026-07-18T17:18:11.457Z | `curriculum-ontology-integration-v4-20260718` | 5 | start, change, verify, closeout | parent-retains-canonical-report-and-final-integration-ownership |
+| 2026-07-18T17:20:10.418Z | 2026-07-18T18:13:49.191Z | `curriculum-ocr-completed-lifecycle-remediation-20260718` | 4 | start, change, verify, closeout | parent owns integration and canonical report consolidation; no push deploy remote write grant issuance or production OCR mutation performed |
+| 2026-07-18T17:29:06.712Z | 2026-07-18T17:40:57.400Z | `curriculum-ontology-full-context-polarity-remediation-20260718` | 4 | start, change, verify, closeout | parent-must-independently-review-and-fast-forward-in-order-to-preserve-baseline-commit-identities |
+| 2026-07-18T17:37:33.262Z | 2026-07-18T18:08:47.773Z | `curriculum-page-evidence-release-correctness-remediation2-20260718` | 4 | start, change, verify, closeout | parent-cherry-pick-integration-and-live-deploy-remain-explicitly-out-of-scope |
+| 2026-07-18T18:01:45.454Z | 2026-07-18T18:54:31.007Z | `curriculum-compendium-item-boundaries-20260718` | 3 | start, change, verify | release manifest correctly reports dirty and not-pushed source until commit and integration |
+| 2026-07-18T18:29:10.776Z | 2026-07-18T19:28:53.359Z | `curriculum-page-evidence-toctou-remediation-20260718` | 5 | start, change, verify, closeout | D1-publication-lease-is-cooperative-and-direct-R2-bypass-remains-forbidden,same-release-D1-import-concurrency-and-cross-plane-final-release-pinning-remain-follow-up-risks,release-not-ready-until-push-fresh-audit-environment-evidence-and-D1-corpus-match |
+| 2026-07-18T18:37:53.787Z | 2026-07-18T19:18:28.047Z | `curriculum-ocr-seed-lineage-contract-remediation-20260718` | 3 | start, verify, closeout | parent owns remote workspace SHA256SUMS integration report and any later release action; A remains frozen and no grant was issued |
+| 2026-07-18T19:04:08.681Z | 2026-07-18T19:04:17.434Z | `curriculum-atlas-ocr-disk-headroom-20260718` | 4 | start, change, verify, closeout | continue observing disk during archive extraction and evidence drain |
+| 2026-07-18T19:07:37.865Z | 2026-07-18T20:24:19.744Z | `curriculum-compendium-publication-remediation-20260718` | 5 | start, change, verify, closeout | parent-agent-must-review-integrate-then-collect-fresh-environment-evidence-apply-0008-import-current-corpus-deploy-and-live-smoke-in-controlled-order |
+| 2026-07-18T19:23:00.085Z | 2026-07-18T19:33:49.428Z | `curriculum-a2-runtime-20260718` | 3 | start, change, verify | Checkpoint is based on blocked A lifecycle commit 5144014 and must be rebased onto remediated, independently reviewed runner before any remote action |
+| 2026-07-18T19:32:18.983Z | 2026-07-18T20:12:08.145Z | `curriculum-ocr-a1-runner-contract-remediation-20260718` | 4 | start, change, verify, closeout | no-remote-grant-authority-service-cloudflare-report-or-main-worktree-action |
+| 2026-07-18T19:58:34.337Z | 2026-07-18T21:41:16.701Z | `curriculum-cross-plane-fenced-publication-remediation-20260718` | 5 | start, change, verify, closeout | parent-integration-and-real-preview-release-sequence-required-with-no-live-state-mutated-by-this-task |
+| 2026-07-18T20:01:50.954Z | 2026-07-18T20:45:14.489Z | `curriculum-ocr-audit-triangulation-v2-20260718` | 3 | start, change, verify | Independent-read-only-review-required-before-integration |
+| 2026-07-18T21:14:28.731Z | 2026-07-18T21:44:10.818Z | `curriculum-ocr-a1-issuance-read-order-remediation-20260718` | 3 | start, change, verify | independent-rereview-A2-review-and-remote-key-install-pending-no-remote-grant-or-service-action |
+| 2026-07-18T21:35:57.279Z | 2026-07-18T22:20:07.158Z | `curriculum-ocr-triangulation-v2-integrity-remediation-20260718` | 4 | start, change, verify, closeout | controlled registry remains empty so no real online citation is unlocked; external asset sequence receipt generation remains review-bound; independent commit rereview required |
+| 2026-07-18T21:36:59.799Z | 2026-07-18T21:50:05.964Z | `curriculum-a2-runtime-rebase-20260718` | 4 | start, change, verify | independent-review-remote-key-install-systemd-analyze-live-canary-and-grant-pending-no-remote-write |
+| 2026-07-18T21:47:16.758Z | 2026-07-18T22:32:59.257Z | `curriculum-compendium-release-integrity-remediation-r2-20260718` | 4 | start, change, verify, closeout | Do not deploy standalone: dual-schema bootstrap receipt and independently reviewed page-evidence fenced staging and CAS coordinator integration are mandatory before migration and activation; independent commit rereview pending. |
+| 2026-07-18T21:58:28.492Z | 2026-07-18T23:10:12.707Z | `curriculum-page-evidence-publication-integrity-r2-20260718` | 5 | start, change, verify, closeout | all-findings-handed-to-combined-compendium-R3-branch-for-test-first-remediation-and-new-independent-review |
+| 2026-07-18T22:12:38.464Z | 2026-07-18T23:04:20.284Z | `curriculum-a2-runtime-release-readiness-remediation-20260718` | 5 | start, change, verify, closeout | separate-independent-agent-review-target-Linux-systemd-analyze-and-governed-cache-gates-still-required-before-remote-install |
+| 2026-07-18T22:35:08.091Z | 2026-07-18T23:10:20.176Z | `curriculum-ocr-triangulation-v2-integrity-remediation-r2-20260718` | 4 | start, change, verify, closeout | do not integrate until independent rereview passes; online source registry contains no approved sources and unlocks no citations |
+| 2026-07-18T22:48:11.007Z | 2026-07-19T00:35:57.696Z | `curriculum-compendium-release-integrity-remediation-r3-20260718` | 8 | start, change, verify, closeout | Independent rereview and integration are pending. Production migrations, release activation, and deploy remain explicitly out of scope. Corpus rows are not physically double-buffered; the implemented safety boundary is fenced release state, exact receipts, stable-row semantics, and fail-closed activation. |
+| 2026-07-18T23:23:32.699Z | 2026-07-18T23:34:10.798Z | `curriculum-a2-runtime-release-readiness-followup-20260718` | 4 | start, change, verify, closeout | Do not execute deployment until independent review and every target runbook stop gate passes. |
+| 2026-07-18T23:37:52.534Z | 2026-07-18T23:44:44.030Z | `curriculum-a2-runtime-rollback-quiescence-remediation-20260718` | 4 | start, change, verify, closeout | Do not execute deployment until independent review and target stop gates pass. |
+| 2026-07-18T23:48:41.029Z | 2026-07-19T00:11:41.344Z | `curriculum-ocr-triangulation-v2-integrity-remediation-r3-20260718` | 4 | start, change, verify, closeout | Do not integrate until a separate agent rereviews exact dc099afa; unrelated existing Playwright MCP and xue-live-r6 session were observed and left untouched |
+| 2026-07-18T23:49:56.868Z | 2026-07-18T23:52:14.003Z | `curriculum-a2-timer-typed-rollback-assertion-20260718` | 4 | start, change, verify, closeout | Do not deploy until independent review and target-host gates pass. |
+| 2026-07-18T23:55:41.225Z | 2026-07-19T02:46:11.036Z | `curriculum-atlas-a2-remote-runtime-20260718` | 12 | start, verify, change | A new reviewed two-phase quiet resume protocol is required before atomic rename; old Step 4A must not be rerun |
+| 2026-07-19T00:21:32.809Z | 2026-07-19T00:32:13.280Z | `curriculum-ontology-v4-release-snapshot-remediation-20260718` | 4 | start, change, verify, closeout | parent-must-independently-review-exact-tip-before-integration |
+| 2026-07-19T00:25:19.871Z | 2026-07-19T00:44:00.751Z | `curriculum-atlas-clean-integration-20260719` | 5 | start, change, verify, closeout | Use v2 merge-preserving integration only |
+| 2026-07-19T00:47:47.024Z | 2026-07-19T01:02:50.559Z | `curriculum-atlas-clean-integration-v2-20260719` | 4 | start, change, verify, closeout | Promotion remains blocked until an authorized push and fresh environment evidence; compendium remains wholly excluded pending its independent PASS; no canonical report body update was made because this was local integration only and concurrent resource ownership remains active |
+| 2026-07-19T00:49:51.401Z | 2026-07-19T01:50:26.349Z | `curriculum-a2-appledouble-forward-repair-20260719` | 6 | start, change, verify, closeout | parent-must-review-integrate-and-establish-exact-upstream-before-any-operator-runs-forward-repair |
+| 2026-07-19T00:51:15.452Z | 2026-07-19T01:05:00.356Z | `curriculum-compendium-gitleaks-fingerprint-allowlist-20260719` | 5 | start, change, verify, closeout | Live validation and production deployment intentionally excluded by scope |
+| 2026-07-19T01:05:33.567Z | 2026-07-19T01:22:43.312Z | `curriculum-compendium-release-gate-independent-review-20260719` | 3 | start, verify, closeout | None |
+| 2026-07-19T01:24:46.100Z | 2026-07-19T02:25:51.395Z | `curriculum-atlas-clean-integration-v2-compendium-20260719` | 7 | start, change, verify, closeout | Exact-upstream release-manifest gate remains intentionally blocked; ignored .wrangler manifest still reflects pre-merge c6d1cde and must not be used; mandated Playwright process-table dry-run was blocked by sandbox and exhausted escalation service though this task opened no browser session; canonical aggregate report handoff remains with parent coordinator |
+| 2026-07-19T02:30:49.743Z | 2026-07-19T03:04:43.810Z | `curriculum-combined-merge-independent-review-20260719` | 4 | start, change, verify, closeout | P2-private-release-byte-bundle-and-push-v2-evidence-migrations-required-before-deploy-mandatory-playwright-process-table-dry-run-could-not-complete-because-sandbox-and-escalation-usage-limit-blocked-no-browser-session-opened-by-this-task |
+| 2026-07-19T02:46:47.854Z | 2026-07-19T03:14:03.258Z | `curriculum-a2-partial-resume-protocol-20260719` | 6 | start, change, closeout, verify | Resume only after platform write capacity returns: add red tests and quiet two-phase Step 4B, independent review, push exact upstream, Phase 1 read-only PREMOVE_READY, then Phase 2 once |
+| 2026-07-22T00:01:45.709Z | 2026-07-22T04:16:11.990Z | `curriculum-a2-partial-resume-protocol-r2-20260721` | 30 | start, change, verify | exact-hash-bound-same-attempt6-forward-continuation-protocol-under-review |
+| 2026-07-22T00:17:44.286Z | 2026-07-22T01:50:56.910Z | `curriculum-private-corpus-bundle-core-20260721` | 6 | start, change, verify, closeout | parent-must-integrate-commit-and-register-schema-in-existing-exact-release-inventory-before-full-suite-can-be-green |
+| 2026-07-22T02:04:55.854Z | 2026-07-22T02:26:28.305Z | `curriculum-a2-completion-notifier-fix-20260722` | 5 | start, change, verify, closeout | parent-must-integrate-reviewed-commit-before-A2-Step8-no-push-deploy-or-remote-mutation-performed |
+| 2026-07-22T02:05:32.654Z | 2026-07-22T03:06:52.858Z | `curriculum-full-release-v2-private-pipeline-integration-20260722` | 7 | start, change, verify, closeout | public-data-release-and-citation-entitlement-remain-separate |
+| 2026-07-22T02:05:58.870Z | 2026-07-22T02:29:37.426Z | `curriculum-private-corpus-bundle-integration-20260722` | 4 | start, change, verify, closeout | actual-content-addressed-private-artifact-and-receipts-remain-post-integration-parent-work |
+| 2026-07-22T02:27:13.918Z | 2026-07-22T02:31:35.940Z | `curriculum-a2-completion-notifier-integration-runtime-20260722` | 3 | start, change | Step8-worker-and-two-monitor-canaries-not-yet-started |
+| 2026-07-22T02:37:59.814Z | 2026-07-22T02:58:29.690Z | `curriculum-a2-monitor-complete-history-fix-20260722` | 5 | start, change, verify, closeout | parent-must-integrate-commit-before-rerunning-A2-canary-no-push-deploy-SSH-or-remote-mutation-performed |
+| 2026-07-22T02:40:31.812Z | 2026-07-22T03:06:52.658Z | `curriculum-private-corpus-real-publication-20260722` | 6 | start, change, verify, closeout | copyright-restricted-derived-corpus-remains-private-and-noncitable-until-independent-evidence-release-gates-pass |
+| 2026-07-22T02:49:45.439Z | 2026-07-22T03:02:51.376Z | `curriculum-private-hydrate-cli-lifecycle-fix-20260722` | 4 | start, change, verify, closeout | real restore smoke belongs to parent integration closeout |
+| 2026-07-22T02:51:11.615Z | 2026-07-22T03:24:56.607Z | `curriculum-ontology-contract-v2-20260722` | 4 | start, change, verify, closeout | parent-independent-review-and-release-inventory-registration-required-before-merge |
+| 2026-07-22T03:00:51.455Z | 2026-07-22T03:57:09.581Z | `curriculum-a2-preinference-interruption-rearm-20260722` | 4 | start, change, verify, closeout | Linux-flock-and-real-A2-systemd-B1-B2-dry-run-gates-must-pass-before-remote-apply |
+| 2026-07-22T03:37:51.027Z | 2026-07-22T04:09:43.635Z | `curriculum-ontology-contract-v2-review-fixes-20260722` | 5 | start, change, verify, closeout | release-inventory-owner-must-register-two-new-data-files |
+| 2026-07-22T04:15:59.372Z | 2026-07-22T04:58:56.775Z | `curriculum-a2-operator-stop-forward-continuation-20260722` | 4 | start, change, verify, closeout | parent-owned-independent-review-and-bounded-remote-takeover |
+| 2026-07-22T04:21:03.633Z | 2026-07-22T05:00:00.159Z | `curriculum-ontology-contract-v2-second-review-fixes-20260722` | 4 | start, change, verify, closeout | cherry-pick-requires-prior-0081c6f-and-b74beaa-plus-separate-release-inventory-owner-registration |
+| 2026-07-22T04:22:26.149Z | 2026-07-22T05:05:42.460Z | `curriculum-zh-2017-2020-evidence-vertical-slice-20260722` | 4 | start, change, verify, closeout | signed-editor-review-required-third-assertion-online-version-conflict-requires-adjudication |
+| 2026-07-22T04:28:05.309Z | 2026-07-22T04:28:05.346Z | `curriculum-original-goal-evidence-integration-20260722` | 2 | verify, change | exact-version-diff-evidence-vertical-slice-remains-pending |
+| 2026-07-22T04:33:21.444Z | 2026-07-22T04:55:27.564Z | `curriculum-2011-junior-science-canonicalization-20260722` | 5 | start, change, verify | independent-review-and-preview-release-remain-pending |
+| 2026-07-22T04:56:12.277Z | 2026-07-22T05:00:10.301Z | `curriculum-original-goal-delivery-matrix-20260722` | 4 | start, change, verify, closeout | live-states-remain-incomplete-by-design-and-must-advance-through-recorded-gates |
+| 2026-07-22T05:12:38.650Z | 2026-07-22T06:39:32.250Z | `curriculum-a2-forward-continuation-review-fixes-20260722` | 4 | start, change, verify, closeout | independent read-only anchor recovery source review Linux inherited-fd flock dry-run and parent-owned integration remain pending |
+| 2026-07-22T05:19:25.844Z | 2026-07-22T06:15:59.765Z | `curriculum-ontology-v2-contract-successor-20260722` | 4 | start, change, verify, closeout | Current ontology remains zero-scope candidate_fail_closed; promotion needs reviewed scopes, canonical publishable page evidence, hydrated corpus, and a clean pushed desired release |
+| 2026-07-22T05:19:54.319Z | 2026-07-22T05:39:13.654Z | `curriculum-zh-2017-2020-evidence-vertical-slice-successor-20260722` | 4 | start, change, verify, closeout | parent-integration-signed-editor-review-and-independent-exact-document-witness-required |
+| 2026-07-22T05:32:11.301Z | 2026-07-22T09:22:40.896Z | `curriculum-original-goal-completion-20260722` | 10 | start, verify, change | do-not-restart-until-A2-forward-continuation-three-P1-remediation-and-independent-review-plus-Linux-real-gates-pass |
+| 2026-07-22T05:50:55.469Z | 2026-07-22T06:25:39.633Z | `curriculum-zh-evidence-independent-review-repair-20260722` | 4 | start, change, verify, closeout | integrate-only-after-independent-review-no-publication-or-production-mutation-was-attempted |
+| 2026-07-22T06:42:55.244Z | 2026-07-22T07:06:37.675Z | `curriculum-ontology-v2-p1-review-remediation-20260722` | 4 | start, change, verify, closeout | no-deploy-candidate-and-cache-untouched-promotion-fail-closed-until-governed-review-data-exist |
+| 2026-07-22T06:58:43.690Z | 2026-07-22T07:44:27.207Z | `curriculum-a2-forward-continuation-successor-20260722` | 4 | start, change, verify, closeout | Linux-real-tests-and-parent-owned-integration-remain-pending-no-SSH-deploy-systemd-or-production-write-performed |
+| 2026-07-22T07:58:15.932Z | 2026-07-22T08:22:15.844Z | `curriculum-ontology-v2-p1-successor-remediation-20260722` | 4 | start, change, verify, closeout | parent-owned-review-and-integration-remain-no-production-state-changed |
+| 2026-07-22T08:01:34.809Z | 2026-07-22T09:58:36.661Z | `curriculum-admin-control-plane-20260722` | 7 | start, change, verify, closeout | preview-real-admin-browser-accessibility-and-live-integration-remain-before-release |
+| 2026-07-22T08:27:42.740Z | 2026-07-22T09:06:24.097Z | `curriculum-a2-forward-continuation-reliability-p1-20260722` | 4 | start, change, verify, closeout | parent-owned-independent-review-and-integration-production-execution-still-blocked-by-five-null-anchors |
+| 2026-07-22T08:39:41.140Z | 2026-07-22T09:25:28.616Z | `curriculum-source-recovery-successor2-20260722` | 5 | start, change, verify, closeout | integrate-with-ontology-research-A2-admin-and-regenerate-once-before-preview |
+| 2026-07-22T09:12:44.959Z | 2026-07-22T09:13:11.148Z | `curriculum-zh-url-delimiter-followup-20260722` | 3 | start, change, verify | independent-review-recheck-full-suite-already-green-at-parent-cdd285e-integration-pending |
+| 2026-07-22T09:18:42.580Z | 2026-07-22T09:53:40.139Z | `curriculum-a2-forward-continuation-p1-remediation-2-20260722` | 5 | start, change, verify, closeout | independent-review-and-linux-execution-remain-before-any-profile-release |
+| 2026-07-22T09:25:53.324Z | 2026-07-22T09:50:38.645Z | `curriculum-final-integration-20260722` | 11 | start, change, verify | B3 and final A2 must pass complete 14-document receiver union; page publication remains zero |
+| 2026-07-22T09:45:07.089Z | 2026-07-22T10:18:31.998Z | `curriculum-ontology-v2-independent-P1-remediation-20260722` | 4 | start, change, verify, closeout | parent-must-review-and-integrate-commit-and-update-canonical-release-record |
+| 2026-07-22T10:04:14.951Z | 2026-07-22T12:16:04.999Z | `curriculum-atlas-final-publication` | 23 | verify, change, start | Fresh independent review pending agent capacity; concept and release derived rebind remain explicitly out of scope; private source cache was not copied into worktree |
+| 2026-07-22T10:06:53.450Z | 2026-07-22T10:21:22.811Z | `curriculum-page-evidence-zero-binding-20260722` | 4 | start, change, verify, closeout | parent-must-merge-then-regenerate-catalog-derived-corpus-and-ontology-bridge-once-and-independently-review-before-preview |
+| 2026-07-22T10:36:21.499Z | 2026-07-22T11:29:49.554Z | `curriculum-derived-ordinary-rebind-20260722` | 4 | start, change, verify, closeout | full-suite-still-fail-closes-on-stale-public-concept-graph-and-legacy-ontology-bridge-Chinese-research-binding-deferred-no-deploy |
+| 2026-07-22T11:27:10.679Z | 2026-07-22T12:07:34.051Z | `curriculum-atlas-A2-sealed-Linux-gate` | 9 | start, change, verify | timestamp-separation-fix-review-Linux-and-double-dry-run-required |
+| 2026-07-22T11:40:28.102Z | 2026-07-22T11:45:09.376Z | `curriculum-a2-evidence-base-inode-fix-20260722` | 3 | start, verify, change | fresh-independent-review-required-no-remote-execution-authorized |
+| 2026-07-22T11:58:41.165Z | 2026-07-22T11:58:47.826Z | `curriculum-a2-ledger-sidecar-identity-fix-20260722` | 2 | change, verify | fresh-independent-review-required-parent-must-rerun-sealed-Linux-and-two-identical-live-dry-runs |
+| 2026-07-22T12:13:34.784Z | 2026-07-22T12:13:46.791Z | `curriculum-a2-timestamp-semantics-fix-20260722` | 2 | change, verify | fresh-independent-review-required-parent-must-rerun-sealed-Linux-and-two-identical-live-dry-runs |
+| 2026-07-22T12:14:00.746Z | 2026-07-22T12:14:00.746Z | `curriculum-a2-profile-anchor-remediation-20260722` | 1 | closeout | fresh-independent-review-sealed-Linux-tests-two-identical-live-dry-runs-and-canary-remain-before-any-apply |
+| 2026-07-22T12:20:58.501Z | 2026-07-22T12:20:58.501Z | `curriculum-atlas-A2-frozen-monitor-20260722` | 1 | verify | A2-exact-canonical-timestamp-gate-P1-under-local-fix-no-sealed-dry-run-or-apply |
+| 2026-07-22T12:21:12.450Z | 2026-07-22T12:21:42.296Z | `curriculum-a2-exact-timestamp-pair-fix-20260722` | 3 | change, verify, closeout | fresh-independent-review-sealed-Linux-tests-two-identical-live-dry-runs-and-canary-remain-before-any-apply |
+| 2026-07-22T12:25:23.415Z | 2026-07-22T12:25:23.415Z | `curriculum-atlas-final-publication-tx-hardening` | 1 | start | No integration, remote, deployment, academic data, or private source mutation authorized |
+| 2026-07-22T12:26:16.641Z | 2026-07-22T12:31:22.515Z | `curriculum-atlas-A2-sealed-4e65975-Linux-gate` | 4 | start, change, verify | actual-hash-bound-state-omits-selected_pages-and-selected_pages_complete-while-validator-required-false-follow-up-review-needed |
+| 2026-07-22T12:36:13.507Z | 2026-07-22T12:36:35.524Z | `curriculum-a2-legacy-selection-state-fix-20260722` | 3 | change, verify, closeout | independent-review-and-live-no-apply-dry-run-remain-before-any-apply |
+| 2026-07-22T12:39:15.973Z | 2026-07-22T12:39:15.973Z | `curriculum-atlas-full-release-handoff-20260722` | 1 | closeout | A2-full-chain-read-only-preflight-research-transaction-v2-review-OCR-receive-evidence-publication-preview-production-E2E-remain |
+| 2026-07-22T12:43:11.852Z | 2026-07-22T12:43:11.852Z | `curriculum-atlas-final-19-section-completion-20260722` | 1 | start | no-sealed-runtime-no-live-dry-run-no-service-start-no-apply-no-deploy-no-shared-hub-write-package-graph-bridge-excluded-until-research-merge |
+| 2026-07-22T13:15:14.423Z | 2026-07-22T15:56:30.858Z | `curriculum-atlas-final-19-live-verified-981394d3` | 21 | start, change, verify | corrected-ca8b2df-apply-requires-new-explicit-user-approval |
+| 2026-07-22T15:56:30.965Z | 2026-07-22T15:56:30.965Z | `curriculum-atlas-A2-approved-aea1368-canary` | 1 | closeout | corrected-ca8b2df-is-a-new-packet-and-needs-new-explicit-approval |
+| 2026-07-22T22:49:54.714Z | 2026-07-22T23:09:19.684Z | `curriculum-atlas-A2-approved-ca8b2df-canary` | 5 | start, change, verify, closeout | real-Linux-systemd-marker-harness-and-claimed-only-recovery-review-required-before-any-further-invocation |
+| 2026-07-23T02:01:58.343Z | 2026-07-23T03:14:56.764Z | `curriculum-atlas-A2-marker-recovery-harness` | 6 | start, change, verify, closeout | formal English OCR remains active |
+| 2026-07-23T02:11:02.682Z | 2026-07-23T03:14:56.874Z | `curriculum-atlas-A2-llama-marker-diagnostic` | 4 | start, change, verify, closeout | none for diagnostic |
+| 2026-07-23T02:35:17.039Z | 2026-07-23T03:14:57.201Z | `curriculum-atlas-fast-secondary-ocr` | 4 | start, change, verify, closeout | three retry-wait documents remain |
+| 2026-07-23T02:42:01.158Z | 2026-07-23T03:14:57.366Z | `curriculum-atlas-ocr-data-frontend-20260723` | 4 | start, change, verify, closeout | formal English and three retry-wait documents continue; no citation-ready claim |
+| 2026-07-23T03:28:17.899Z | 2026-07-23T03:55:16.378Z | `curriculum-atlas-century-timeline-20260723` | 5 | start, change, verify, closeout | Human item audit and later citation or semantic promotion are separate gates |
+| 2026-07-23T04:02:38.379Z | 2026-07-23T04:41:48.529Z | `curriculum-atlas-single-star-manual-20260723` | 5 | start, change, verify, closeout | OCR completion remains separate from citation and semantic release; continue deterministic projection as new bounded inputs finish |
+| 2026-07-23T04:51:17.169Z | 2026-07-23T05:38:48.558Z | `curriculum-atlas-star-effect-parity-20260723` | 5 | start, change, verify, closeout | Continue OCR completion and candidate adjudication through the existing single star map pipeline without weakening evidence gates |
+| 2026-07-23T05:55:58.080Z | 2026-07-23T07:50:03.178Z | `curriculum-atlas-century-concept-evolution-20260723` | 5 | start, change, verify, closeout | Continue adding historical same-tier families when non-Chinese source volumes finish; existing OCR candidates remain nonsemantic noncausal and noncitable until review |
 
-### 未以 closeout 结束的历史任务（4）
+### 未以 closeout 结束的历史任务（28）
 
 这些任务可能已被后续任务 supersede，但 action log 中没有对应 closeout。它们必须保留为治理缺口，不能静默当作已完成。
 
 - `curriculum-course-taxonomy-visual-ocr-throughput`：最后阶段 `verify`，最后时间 `2026-07-15T12:10:29.308Z`；8329-raw-pages-remain-estimated-center-36-point-40-hours-and-all-output-non-citable-until-editorial-review
-- `curriculum-atlas-full-release-20260716`：最后阶段 `verify`，最后时间 `2026-07-17T06:35:37.437Z`；Cloudflare Turnstile discussion challenge emitted two third-party opaque console errors and five warnings but zero first-party console errors or page errors; graph observation data currently ends in 2020 while 2022 corpus documents and era rail remain present, pending later accepted OCR concept rebuild
-- `curriculum-ocr-b-r2-lineage-implementation-20260717`：最后阶段 `start`，最后时间 `2026-07-17T05:56:10.360Z`；Implement audited seed contract and pass focused plus full local verification before commit
-- `curriculum-atlas-ops-docs-release-refresh-20260717`：最后阶段 `change`，最后时间 `2026-07-17T06:24:15.539Z`；Regenerate after final production browser D1 console and teardown verification event then run focused and repository checks before commit
+- `curriculum-atlas-full-release-20260716`：最后阶段 `change`，最后时间 `2026-07-18T23:19:09.460Z`；no-inner-authentication-or-authorized_keys-change-yet
+- `curriculum-ocr-receiver-monitor-recovery-evidence-20260718`：最后阶段 `start`，最后时间 `2026-07-18T09:50:13.351Z`；implement actual artifact validation E2E and complete focused full check build leak gates
+- `curriculum-compendium-item-boundaries-20260718`：最后阶段 `verify`，最后时间 `2026-07-18T18:54:31.007Z`；release manifest correctly reports dirty and not-pushed source until commit and integration
+- `curriculum-a2-runtime-20260718`：最后阶段 `verify`，最后时间 `2026-07-18T19:33:49.428Z`；Checkpoint is based on blocked A lifecycle commit 5144014 and must be rebased onto remediated, independently reviewed runner before any remote action
+- `curriculum-ocr-audit-triangulation-v2-20260718`：最后阶段 `verify`，最后时间 `2026-07-18T20:45:14.489Z`；Independent-read-only-review-required-before-integration
+- `curriculum-ocr-a1-issuance-read-order-remediation-20260718`：最后阶段 `verify`，最后时间 `2026-07-18T21:44:10.818Z`；independent-rereview-A2-review-and-remote-key-install-pending-no-remote-grant-or-service-action
+- `curriculum-a2-runtime-rebase-20260718`：最后阶段 `verify`，最后时间 `2026-07-18T21:50:05.964Z`；independent-review-remote-key-install-systemd-analyze-live-canary-and-grant-pending-no-remote-write
+- `curriculum-a2-runtime-release-readiness-remediation-20260718`：最后阶段 `verify`，最后时间 `2026-07-18T23:04:20.284Z`；separate-independent-agent-review-target-Linux-systemd-analyze-and-governed-cache-gates-still-required-before-remote-install
+- `curriculum-atlas-a2-remote-runtime-20260718`：最后阶段 `verify`，最后时间 `2026-07-19T02:46:11.036Z`；A new reviewed two-phase quiet resume protocol is required before atomic rename; old Step 4A must not be rerun
+- `curriculum-a2-partial-resume-protocol-r2-20260721`：最后阶段 `change`，最后时间 `2026-07-22T04:16:11.990Z`；exact-hash-bound-same-attempt6-forward-continuation-protocol-under-review
+- `curriculum-a2-completion-notifier-integration-runtime-20260722`：最后阶段 `change`，最后时间 `2026-07-22T02:31:35.940Z`；Step8-worker-and-two-monitor-canaries-not-yet-started
+- `curriculum-ontology-contract-v2-review-fixes-20260722`：最后阶段 `verify`，最后时间 `2026-07-22T04:09:43.635Z`；release-inventory-owner-must-register-two-new-data-files
+- `curriculum-original-goal-evidence-integration-20260722`：最后阶段 `change`，最后时间 `2026-07-22T04:28:05.346Z`；exact-version-diff-evidence-vertical-slice-remains-pending
+- `curriculum-2011-junior-science-canonicalization-20260722`：最后阶段 `verify`，最后时间 `2026-07-22T04:55:27.564Z`；independent-review-and-preview-release-remain-pending
+- `curriculum-original-goal-completion-20260722`：最后阶段 `verify`，最后时间 `2026-07-22T09:22:40.896Z`；do-not-restart-until-A2-forward-continuation-three-P1-remediation-and-independent-review-plus-Linux-real-gates-pass
+- `curriculum-zh-url-delimiter-followup-20260722`：最后阶段 `verify`，最后时间 `2026-07-22T09:13:11.148Z`；independent-review-recheck-full-suite-already-green-at-parent-cdd285e-integration-pending
+- `curriculum-final-integration-20260722`：最后阶段 `change`，最后时间 `2026-07-22T09:50:38.645Z`；B3 and final A2 must pass complete 14-document receiver union; page publication remains zero
+- `curriculum-atlas-final-publication`：最后阶段 `verify`，最后时间 `2026-07-22T12:16:04.999Z`；Fresh independent review pending agent capacity; concept and release derived rebind remain explicitly out of scope; private source cache was not copied into worktree
+- `curriculum-atlas-A2-sealed-Linux-gate`：最后阶段 `verify`，最后时间 `2026-07-22T12:07:34.051Z`；timestamp-separation-fix-review-Linux-and-double-dry-run-required
+- `curriculum-a2-evidence-base-inode-fix-20260722`：最后阶段 `change`，最后时间 `2026-07-22T11:45:09.376Z`；fresh-independent-review-required-no-remote-execution-authorized
+- `curriculum-a2-ledger-sidecar-identity-fix-20260722`：最后阶段 `verify`，最后时间 `2026-07-22T11:58:47.826Z`；fresh-independent-review-required-parent-must-rerun-sealed-Linux-and-two-identical-live-dry-runs
+- `curriculum-a2-timestamp-semantics-fix-20260722`：最后阶段 `verify`，最后时间 `2026-07-22T12:13:46.791Z`；fresh-independent-review-required-parent-must-rerun-sealed-Linux-and-two-identical-live-dry-runs
+- `curriculum-atlas-A2-frozen-monitor-20260722`：最后阶段 `verify`，最后时间 `2026-07-22T12:20:58.501Z`；A2-exact-canonical-timestamp-gate-P1-under-local-fix-no-sealed-dry-run-or-apply
+- `curriculum-atlas-final-publication-tx-hardening`：最后阶段 `start`，最后时间 `2026-07-22T12:25:23.415Z`；No integration, remote, deployment, academic data, or private source mutation authorized
+- `curriculum-atlas-A2-sealed-4e65975-Linux-gate`：最后阶段 `verify`，最后时间 `2026-07-22T12:31:22.515Z`；actual-hash-bound-state-omits-selected_pages-and-selected_pages_complete-while-validator-required-false-follow-up-review-needed
+- `curriculum-atlas-final-19-section-completion-20260722`：最后阶段 `start`，最后时间 `2026-07-22T12:43:11.852Z`；no-sealed-runtime-no-live-dry-run-no-service-start-no-apply-no-deploy-no-shared-hub-write-package-graph-bridge-excluded-until-research-merge
+- `curriculum-atlas-final-19-live-verified-981394d3`：最后阶段 `change`，最后时间 `2026-07-22T15:56:30.858Z`；corrected-ca8b2df-apply-requires-new-explicit-user-approval
 
 ## 截止点内完整 append-only 运维事件
 
-事件子集 SHA-256：`e175c21aad03bc7771f95dd9803b94704dbc0c8ba70249554760cf21bded58ea`。以下 419 条按任务首次 UTC 排序，任务内事件再按 UTC 排序；逐条保留 scope、resources、evidence、rollback 和 unresolved。
+事件子集 SHA-256：`2d19ca89315664246695b8f20f7244ec8d572eff31186db1e808beb7c86a7c8a`。以下 1126 条按任务首次 UTC 排序，任务内事件再按 UTC 排序；逐条保留 scope、resources、evidence、rollback 和 unresolved。
 
 <details><summary><code>curriculum-atlas-launch-20260714</code> · 3 events · 2026-07-15T02:01:17.143Z → 2026-07-17T02:04:05.894Z</summary>
 
@@ -3575,10 +3772,10 @@ Resources：`curriculum-atlas/scripts/build-release-manifest.mjs`、`curriculum-
 
 </details>
 
-<details><summary><code>curriculum-atlas-full-release-20260716</code> · 28 events · 2026-07-17T01:21:35.286Z → 2026-07-17T06:35:37.437Z</summary>
+<details><summary><code>curriculum-atlas-full-release-20260716</code> · 133 events · 2026-07-17T01:21:35.286Z → 2026-07-18T23:19:09.460Z</summary>
 
-Agents：`codex-root`、`root`、`codex-production-qa`
-Resources：`curriculum-atlas source and release artifacts`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`bdfz-curriculum-atlas-preview D1`、`bdfz-curriculum-atlas D1`、`bdfz-curriculum-atlas-sources-preview`、`bdfz-curriculum-atlas-sources`、`curriculum.bdfz.net`、`reports/agent_action_log.jsonl`、`backups/curriculum-atlas/2026-07-16/full-release-prechange-20260716T1821PDT`、`backups/reports/2026-07-16/curriculum-atlas-full-release-prechange-20260716T190921PDT`、`reports/cloudflare_business_audit_2026-05-23.md`、`R2 bdfz-ops-backups curriculum-atlas prefix`、`curriculum-atlas`、`data-corpus`、`Downloads-PDF-inventory`、`curriculum-atlas-git`、`bdfz-curriculum-atlas-preview-D1`、`migrations-0005-0006`、`worker:bdfz-curriculum-atlas-preview`、`preview assets and bindings`、`D1:bdfz-curriculum-atlas-preview`、`corpus-f56f6fac3e022bb24ad69265`、`R2:bdfz-curriculum-atlas-sources-preview`、`release-b1c8c31d00e0016ad885ae5c9e92cad1`、`curriculum-atlas/src/ai.ts`、`curriculum-atlas/src/types.ts`、`curriculum-atlas/public/app.js`、`curriculum-atlas/public/subject-facets.js`、`curriculum-atlas/tests`、`curriculum-atlas/docs/data-methodology.md`、`curriculum-atlas/docs/concept-evolution-academic-model.md`、`curriculum-atlas taxonomy and AI contract tests`、`curriculum-atlas in-memory SQLite migration replay`、`migration:0007_document_taxonomy_contract.sql`、`backup:preview-taxonomy-prechange-20260717T042528Z`、`DMITPro2 inner bdfz workstation`、`user-unit:curriculum-ocr-reprocess@b.service`、`run:20260716T1520Z-partial14-reprocess`、`corpus:corpus-358471fcce862b2f0ae446fc`、`release:release-841a528f0086ce69f2f7a6f2d07c0999`、`R2:bdfz-curriculum-atlas-sources-preview/release/current.json`、`R2:releases/release-841a528f0086ce69f2f7a6f2d07c0999`、`R2:releases/release-841a528f0086ce69f2f7a6f2d07c0999/catalog/ingest-manifest.json`、`Playwright:curriculum-preview-api-qa`、`my.bdfz.net`、`nav.bdfz.net`、`apis.bdfz.net`、`pulse.bdfz.net`、`local registration surfaces`、`backup:production-prechange-20260717T052301Z`、`worker:bdfz-curriculum-atlas`、`D1:bdfz-curriculum-atlas`、`R2:bdfz-curriculum-atlas-sources`、`migrations:0005-0007`、`release:release-9cb02f77c06ee0535e7981a22b312373`、`pointer:release/current.json`、`R2:bdfz-curriculum-atlas-sources/release/current.json`、`R2:releases/release-9cb02f77c06ee0535e7981a22b312373`、`https://curriculum.bdfz.net/api/source-manifest`、`backups/reports/2026-07-16/curriculum-atlas-full-release-20260717T061502Z`、`curriculum-ocr-llama.service`、`bdfz-curriculum-atlas-D1`、`Playwright`、`/private/tmp/curriculum-production-qa`
+Agents：`codex-root`、`root`、`codex-production-qa`、`Codex-root`
+Resources：`curriculum-atlas source and release artifacts`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`bdfz-curriculum-atlas-preview D1`、`bdfz-curriculum-atlas D1`、`bdfz-curriculum-atlas-sources-preview`、`bdfz-curriculum-atlas-sources`、`curriculum.bdfz.net`、`reports/agent_action_log.jsonl`、`backups/curriculum-atlas/2026-07-16/full-release-prechange-20260716T1821PDT`、`backups/reports/2026-07-16/curriculum-atlas-full-release-prechange-20260716T190921PDT`、`reports/cloudflare_business_audit_2026-05-23.md`、`R2 bdfz-ops-backups curriculum-atlas prefix`、`curriculum-atlas`、`data-corpus`、`Downloads-PDF-inventory`、`curriculum-atlas-git`、`bdfz-curriculum-atlas-preview-D1`、`migrations-0005-0006`、`worker:bdfz-curriculum-atlas-preview`、`preview assets and bindings`、`D1:bdfz-curriculum-atlas-preview`、`corpus-f56f6fac3e022bb24ad69265`、`R2:bdfz-curriculum-atlas-sources-preview`、`release-b1c8c31d00e0016ad885ae5c9e92cad1`、`curriculum-atlas/src/ai.ts`、`curriculum-atlas/src/types.ts`、`curriculum-atlas/public/app.js`、`curriculum-atlas/public/subject-facets.js`、`curriculum-atlas/tests`、`curriculum-atlas/docs/data-methodology.md`、`curriculum-atlas/docs/concept-evolution-academic-model.md`、`curriculum-atlas taxonomy and AI contract tests`、`curriculum-atlas in-memory SQLite migration replay`、`migration:0007_document_taxonomy_contract.sql`、`backup:preview-taxonomy-prechange-20260717T042528Z`、`DMITPro2 inner bdfz workstation`、`user-unit:curriculum-ocr-reprocess@b.service`、`run:20260716T1520Z-partial14-reprocess`、`corpus:corpus-358471fcce862b2f0ae446fc`、`release:release-841a528f0086ce69f2f7a6f2d07c0999`、`R2:bdfz-curriculum-atlas-sources-preview/release/current.json`、`R2:releases/release-841a528f0086ce69f2f7a6f2d07c0999`、`R2:releases/release-841a528f0086ce69f2f7a6f2d07c0999/catalog/ingest-manifest.json`、`Playwright:curriculum-preview-api-qa`、`my.bdfz.net`、`nav.bdfz.net`、`apis.bdfz.net`、`pulse.bdfz.net`、`local registration surfaces`、`backup:production-prechange-20260717T052301Z`、`worker:bdfz-curriculum-atlas`、`D1:bdfz-curriculum-atlas`、`R2:bdfz-curriculum-atlas-sources`、`migrations:0005-0007`、`release:release-9cb02f77c06ee0535e7981a22b312373`、`pointer:release/current.json`、`R2:bdfz-curriculum-atlas-sources/release/current.json`、`R2:releases/release-9cb02f77c06ee0535e7981a22b312373`、`https://curriculum.bdfz.net/api/source-manifest`、`backups/reports/2026-07-16/curriculum-atlas-full-release-20260717T061502Z`、`curriculum-ocr-llama.service`、`bdfz-curriculum-atlas-D1`、`Playwright`、`/private/tmp/curriculum-production-qa`、`commit-c90567a`、`backups/curriculum-atlas/2026-07-17/remote-ocr-pre-r2-20260718T045824Z`、`DMITPro2-inner-bdfz-A-r1`、`DMITPro2-inner-bdfz-B-r1`、`DMITPro2-inner-bdfz`、`curriculum-ocr-reprocess@a.service`、`curriculum-ocr-reprocess@b.service`、`curriculum-ocr-reprocess-monitor.timer`、`DMITPro2-inner-bdfz-systemd-user-manager`、`commit-be854e4`、`/home/suen/curriculum-ocr-offload/backups/20260718T053204Z-b-r2-prestart`、`DMITPro2-inner-bdfz-prestart-backup`、`github:ieduer/curriculum-atlas:main`、`workspace-b-r2`、`production-p4-mb16-shard-b-r2/paddlex-cache`、`DMITPro2-inner-bdfz-B-r1-B-r2-cache`、`production-p4-mb16-shard-b-r2`、`B-r1`、`B-r2`、`seed-predecessor-evidence`、`commit-63e55c0`、`commit-ee21a94`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-single-shard-monitor.test.mjs`、`curriculum-ocr-reprocess-b-r2.service`、`curriculum-ocr-reprocess-b-r2-monitor.service`、`curriculum-ocr-reprocess-b-r2-monitor.timer`、`monitor-b-r2`、`worker`、`timer`、`llama`、`commit-6b75811`、`DMITPro2-inner-bdfz-workspace-b-r2`、`commit-f9aeb47`、`runner`、`receiver`、`tests`、`systemd-user`、`curriculum-ocr-llama-p1-canary.service`、`loopback-8113`、`backup-20260718T071824Z-p1-canary-install-v2`、`PaddleOCR-VL-1.6-GGUF`、`llama.cpp`、`Chinese-page65`、`A-r1`、`english-log`、`geography-log`、`mathematics-log`、`politics-log`、`backups/curriculum-atlas/2026-07-17/remote-ocr-pre-b-r3-20260718T073400Z`、`B1-Chinese-page32`、`canary-20260718T073800Z`、`p1-canary-page32`、`comparison-report`、`local-backup`、`backup-20260718T074500Z-b-r3-candidate-units`、`curriculum-ocr-llama.service-candidate`、`curriculum-ocr-reprocess-b-r3.service-candidate`、`candidate-curriculum-ocr-llama.service`、`candidate-curriculum-ocr-reprocess-b-r3.service`、`backup-20260718T075300Z-p1-preinstall`、`local-remote-systemd-p1-preinstall-20260718T075300Z`、`curriculum-atlas-commit-d8db7b9`、`curriculum-atlas-main-30ea29b-d8db7b9`、`curriculum-atlas-receiver-monitor-and-tests`、`curriculum-atlas-commit-b49a564`、`curriculum-atlas-commits-a0fb0d1-d836900`、`curriculum-atlas-alert-tests`、`curriculum-atlas-commits-f73bdb6-3c24a1e`、`curriculum-atlas-alert-receiver-tests`、`curriculum-atlas-commit-37fc893`、`b-r3-worker-candidate`、`b-r3-cleanup-candidate`、`curriculum-atlas-main-d907910`、`DMITPro2-inner-bdfz:/tmp/curriculum-b-r3-verify-20260718`、`DMITPro2-inner-bdfz-systemd260`、`curriculum-atlas-alert-notifier-systemd-tests-doc`、`curriculum-atlas-commit-ba358d6`、`DMITPro2-inner-bdfz-user-manager`、`curriculum-atlas-commits-718d7ec-415f5b3`、`curriculum-atlas-provisioner-tests`、`curriculum-atlas-commit-933b878`、`DMITPro2-inner-bdfz-B1-shard-b`、`DMITPro2-GPU-disk-memory`、`curriculum-atlas-commit-d6ae37a`、`curriculum-atlas-cleanup-monitor-alert-tests`、`curriculum-atlas-commit-7414835`、`DMITPro2-inner-bdfz-task-owned-transient-canary`、`curriculum-atlas-commit-0d36a25`、`curriculum-atlas-B3-systemd-tests`、`DMITPro2-tmp-static-stage`、`curriculum-atlas-commit-05f3e52`、`curriculum-atlas-main-05f3e52`、`curriculum-atlas-commit-ccd9fa1`、`curriculum-atlas-local-ocr-supervisor`、`local-data-volume`、`DMITPro2-inner-bdfz-A1-shard-a`、`curriculum-atlas-commits-ee157a2-and-67d222c`、`curriculum-atlas-main-3011b58`、`DMITPro2-inner-bdfz-staging-only`、`DMITPro2-inner-bdfz-user-systemd`、`pre-b3-3011b58-20260718T123217Z`、`DMITPro2-inner-bdfz-B1-b4ea-to-B3-3176`、`curriculum-atlas-data/downloads-asset-audit-receipt.json`、`/private/tmp/curriculum-downloads-inventory-20260718.json`、`curriculum-atlas-backup-branch-backup/curriculum-b3-script-transition-pre-20260718`、`DMITPro2-inner-bdfz-B1-production-p4-mb16-shard-b-r1`、`curriculum-atlas-main`、`commits-26ab73e-and-2fcf327`、`curriculum-atlas-main-9d6179d`、`pre-schema3-9d6179d-20260718T1359Z`、`DMITPro2-inner-bdfz-workspace-b-r3`、`curriculum-ocr-monitor-alert.conf`、`DMITPro2-inner-bdfz-B1-to-B3`、`DMITPro2-inner-bdfz-production-p1-mb16-shard-b-r3`、`DMITPro2-inner-bdfz-curriculum-ocr-reprocess-b-r3`、`curriculum-ocr-reprocess-b-r3-monitor.timer`、`curriculum-ocr-monitor-alert-retry`、`github-ieduer-curriculum-atlas-main-9d6179d`、`DMITPro2-inner-bdfz-legacy-compendium-chemistry`、`curriculum-ocr-reprocess-b-r3.service`、`DMITPro2-inner-bdfz-timeout-recovery-authority-v1`、`curriculum-atlas-clean-patch-equivalent-worktrees`、`curriculum-atlas-local-GGUF-cache`、`private-tmp-generated-validation-fixtures`、`curriculum-atlas clean patch-equivalent worktrees`、`curriculum-atlas local GGUF cache`、`private-tmp generated validation fixtures`、`curriculum-atlas .cache venv-paddleocr`、`curriculum-atlas .cache paddlex model cache`、`curriculum-atlas local cache`、`ocr supervisor status`、`MuPDF renderer`、`report rollback copy`、`curriculum-atlas-data-downloads-asset-audit-receipt`、`operator-Downloads-read-only-scan`、`reports-cloudflare-business-audit`、`dated-report-rollback-copy`、`DMITPro2-inner-bdfz-B3-final-archive`、`curriculum-atlas-.cache-remote-ocr-offload-20260718-b3-final`、`local-key-curriculum_ocr_dmitpro2_inner_ed25519`、`local-known-hosts-alias-DMITPro2-inner-bdfz`
 
 ### 2026-07-17T01:21:35.286Z · start · codex-root
 
@@ -3803,6 +4000,846 @@ Resources：`curriculum-atlas source and release artifacts`、`bdfz-curriculum-a
 - Evidence：PASS: health 200 v10 Git57487dc schemas3/2/1 five bindings; corpus196/16456/16456/6031/91; taxonomy12 facets 28 identities; browser 1440x1000 1280x720 390x844 full553 lineage214 hide-all0 Chinese143/60 no movement leak no overflow; API negative gates 401/403; D1 user counts 0/0/3/2/0 and canonical digest c4166f451f4b9529bf4221b56fb3017dc51aef7493a699553dc218287e42c430 unchanged; Pulse tracked worker_analytics; task browser sessions closed and CLI list empty, root final ps found no task daemon/profile
 - Rollback：read-only-QA-no-rollback-required
 - Unresolved：Cloudflare Turnstile discussion challenge emitted two third-party opaque console errors and five warnings but zero first-party console errors or page errors; graph observation data currently ends in 2020 while 2022 corpus documents and era rail remain present, pending later accepted OCR concept rebuild
+
+### 2026-07-18T04:16:54.850Z · change · codex-root
+
+- Scope：curriculum-atlas-main-ops-docs
+- Resources：`curriculum-atlas`、`commit-c90567a`
+- Evidence：ops-docs-branch-ab93beec-tests-381-of-381-build-check-gitleaks-pass
+- Rollback：git-revert-c90567a
+- Unresolved：regenerate-project-operations-ledger-after-final-action-log-events
+
+### 2026-07-18T05:08:45.443Z · change · codex-root
+
+- Scope：remote-OCR-pre-r2-immutable-local-snapshot
+- Resources：`backups/curriculum-atlas/2026-07-17/remote-ocr-pre-r2-20260718T045824Z`、`DMITPro2-inner-bdfz-A-r1`、`DMITPro2-inner-bdfz-B-r1`
+- Evidence：8611-source-files-copied-A4790-54153480B-B3812-48513370B-shared9-296209B-SHA256SUMS-a24a320add8d74f69bf9111472e43c2646e90cf98eea0a7a0d63479b42ae46a4
+- Rollback：additive-backup-only-no-remote-state-changed-preserve-or-remove-only-after-explicit-retention-review
+- Unresolved：seed-transaction-raw-predecessor-evidence-P1-fix-still-in-progress
+
+### 2026-07-18T05:11:06.889Z · verify · codex-root
+
+- Scope：remote-OCR-pre-r2-local-snapshot-readback
+- Resources：`backups/curriculum-atlas/2026-07-17/remote-ocr-pre-r2-20260718T045824Z`
+- Evidence：rsync-checksum-dry-run-zero-differences-for-A-and-B-and-sha256sum-check-8611-of-8611-pass
+- Rollback：no-rollback-required-read-only-source-additive-local-evidence
+- Unresolved：code-seed-raw-predecessor-evidence-P1-and-r2-monitor-remain-before-worker-start
+
+### 2026-07-18T05:14:05.040Z · change · codex-root
+
+- Scope：disable-stale-r1-OCR-autostart-and-failing-two-shard-monitor
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-reprocess@a.service`、`curriculum-ocr-reprocess@b.service`、`curriculum-ocr-reprocess-monitor.timer`
+- Evidence：prechange-all-three-enabled-workers-MainPID0-monitor-active-failing-every-two-minutes-installed-unit-backup-added-to-8614-file-manifest-SHA4305c7e6b85db886d13f07d10713433707b8c9578d381d80dc97621a18736863
+- Rollback：systemctl-user-enable-curriculum-ocr-reprocess@a.service-curriculum-ocr-reprocess@b.service-curriculum-ocr-reprocess-monitor.timer-then-start-monitor-timer-only-if-deliberately-restoring-r1
+- Unresolved：install-tested-single-shard-r2-monitor-before-new-worker-start
+
+### 2026-07-18T05:14:05.144Z · verify · codex-root
+
+- Scope：stale-r1-OCR-unit-disable-readback
+- Resources：`DMITPro2-inner-bdfz-systemd-user-manager`
+- Evidence：A-disabled-MainPID0-B-disabled-MainPID0-monitor-timer-disabled-inactive-zero-listed-timers-and-no-project-OCR-or-llama-process
+- Rollback：exact-enable-command-recorded-in-preceding-change-row
+- Unresolved：existing-failed-state-is-historical-and-intentionally-not-reset-until-r2-unit-install
+
+### 2026-07-18T05:30:46.822Z · change · codex-root
+
+- Scope：merge-audited-B-r2-lineage-into-main
+- Resources：`curriculum-atlas`、`commit-be854e4`
+- Evidence：cherry-picked-c0e0358-onto-c90567a-full-main-397-of-397-Python-13-of-13-check-build-pass
+- Rollback：git-revert-be854e4-before-any-incompatible-successor-data-if-required
+- Unresolved：push-and-real-B-r2-seed-await-single-shard-monitor
+
+### 2026-07-18T05:34:03.626Z · change · codex-root
+
+- Scope：create-remote-prestart-backup-before-B-r2-upload
+- Resources：`DMITPro2-inner-bdfz`、`/home/suen/curriculum-ocr-offload/backups/20260718T053204Z-b-r2-prestart`
+- Evidence：additive-backup-A-r1-B-r1-workspace-manifests-and-installed-units-8626-source-files-112903450-bytes-SHA256SUMS-51dd5be76454b79a71d7e0232e762e9eb6b1035ea7a26e0993a1c190a2620b3e
+- Rollback：preserve-backup-no-production-state-to-rollback-remove-only-after-explicit-retention-review
+- Unresolved：B-r2-code-monitor-upload-and-seed-pending
+
+### 2026-07-18T05:34:03.729Z · verify · codex-root
+
+- Scope：remote-prestart-backup-exact-readback
+- Resources：`DMITPro2-inner-bdfz-prestart-backup`
+- Evidence：sha256sum-all-8626-pass-rsync-checksum-dry-run-A-and-B-zero-diff-original-to-backup-inode-intersection-zero
+- Rollback：no-rollback-read-only-verification
+- Unresolved：none-for-backup
+
+### 2026-07-18T05:35:21.134Z · change · codex-root
+
+- Scope：push-audited-v10-docs-and-B-r2-lineage-source
+- Resources：`github:ieduer/curriculum-atlas:main`、`commit-be854e4`
+- Evidence：origin-main-readback-be854e47ef63e1a4f89baad79a05b9d0b284e677
+- Rollback：git-revert-successor-commit-and-push-only-if-source-regression-proven-do-not-force-push
+- Unresolved：remote-B-r2-workspace-and-seed-pending
+
+### 2026-07-18T05:38:54.774Z · change · codex-root
+
+- Scope：stage-frozen-B-r2-workspace-and-isolated-cache-without-execution
+- Resources：`DMITPro2-inner-bdfz`、`workspace-b-r2`、`production-p4-mb16-shard-b-r2/paddlex-cache`
+- Evidence：source-be854e4-runner9843d0a7-ocr3176d267-lib560aaf41-workspace-manifest665181c5-cache136-files-182088750B-audited-tree737684d6-no-links
+- Rollback：preserve-evidence-or-remove-only-new-W2-B2-before-seed-after-explicit-review-B1-untouched
+- Unresolved：monitor-and-real-seed-not-yet-installed-or-run
+
+### 2026-07-18T05:38:54.873Z · verify · codex-root
+
+- Scope：B-r2-staging-readback-and-B-r1-immutability
+- Resources：`DMITPro2-inner-bdfz-B-r1-B-r2-cache`
+- Evidence：workspace-SHA-check-pass-cache-rsync-checksum-zero-diff-inode-intersection0-B1-identity83d9-runstatus5a98-statef98e-statusa271-artifacte962-unchanged
+- Rollback：no-rollback-read-only-verification
+- Unresolved：none-for-staging
+
+### 2026-07-18T05:44:31.857Z · change · codex-root
+
+- Scope：execute-B-r2-hash-bound-seed-dry-run-and-commit-without-OCR
+- Resources：`DMITPro2-inner-bdfz`、`production-p4-mb16-shard-b-r2`、`curriculum-ocr-llama.service`
+- Evidence：dry-run-and-two-seed-only-replays-exit0-seed-d557306ac5605bfac45ec96cc12972034b89dc608c42fc621bf603c28c7060be-receipt636f843e20033acade109139fafb534efd16705648afe696ce6da333d4730595-inherited1259-six-docs-raw-controls16-files
+- Rollback：stop-worker-if-ever-started-preserve-B2-audit-evidence-open-new-root-if-contract-changes-B1-remains-anchor
+- Unresolved：install-tested-single-shard-monitor-before-actual-worker-start
+
+### 2026-07-18T05:44:31.969Z · verify · codex-root
+
+- Scope：B-r2-seed-immutability-idempotence-and-resource-closeout
+- Resources：`B-r1`、`B-r2`、`seed-predecessor-evidence`、`curriculum-ocr-llama.service`
+- Evidence：marker-existing-idempotent-same-seed-receipt-runstatusfd3abcbd-sidecars-pass-pages-byte-equal-inode-intersection0-no-links-B1-all-hashes-unchanged-llama-stopped-MainPID0-GPU12MiB
+- Rollback：no-rollback-read-only-verification-B2-preserved
+- Unresolved：OCR-not-started
+
+### 2026-07-18T05:50:29.857Z · change · codex-root
+
+- Scope：merge-and-push-fail-closed-B-r2-single-shard-monitor
+- Resources：`curriculum-atlas`、`github:ieduer/curriculum-atlas:main`、`commit-63e55c0`
+- Evidence：cherry-picked-625453d-full-main-407-of-407-check-build-pass-origin-main-pushed
+- Rollback：git-revert-63e55c0-and-push-only-if-monitor-defect-proven
+- Unresolved：upload-monitor-compute-canonical-real-B1-anchors-install-units-and-run-prestart-critical-probe
+
+### 2026-07-18T06:06:06.405Z · change · codex-root
+
+- Scope：merge-and-push-B-r2-monitor-cache-P0-fix
+- Resources：`curriculum-atlas`、`github:ieduer/curriculum-atlas:main`、`commit-ee21a94`
+- Evidence：cherry-pick-dcec258-two-files-full-main-410-of-410-check-build-pass-origin-readback-ee21a947
+- Rollback：git-revert-ee21a94-and-push-only-if-monitor-regression-proven
+- Unresolved：upload-fixed-monitor-recompute-real-B1-canonical-anchors-and-run-prestart-gate
+
+### 2026-07-18T06:06:06.433Z · verify · codex-root
+
+- Scope：B-r2-monitor-cache-contract-local-verification
+- Resources：`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：exact-root-cache-realpath-runtime-identity-and-cross-tree-fingerprint-gates-full410-check-build-clean
+- Rollback：no-rollback-read-only-verification
+- Unresolved：real-remote-read-only-gate-pending
+
+### 2026-07-18T06:13:45.184Z · change · codex-root
+
+- Scope：install-new-disabled-B-r2-worker-monitor-units-and-monitor-output
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-reprocess-b-r2.service`、`curriculum-ocr-reprocess-b-r2-monitor.service`、`curriculum-ocr-reprocess-b-r2-monitor.timer`、`monitor-b-r2`
+- Evidence：all-three-units-previously-absent-hash-readback-systemd-analyze-pass-disabled-inactive-no-OCR-start
+- Rollback：disable-and-remove-only-three-new-units-daemon-reload-preserve-B1-B2-and-monitor-evidence
+- Unresolved：classification-P0-from-real-prestart-must-be-fixed-before-start
+
+### 2026-07-18T06:13:45.212Z · verify · codex-root
+
+- Scope：real-B-r2-cache-bound-prestart-monitor-gate
+- Resources：`B-r1`、`B-r2`、`monitor-b-r2`
+- Evidence：B1-anchors-match-B2-read-ok-cache17-files171142109B-tree737684d6-pages1259-of3182-failed0-disk304GiB-memory12GiB-GPU47C-exit12
+- Rollback：no-rollback-read-only-monitor-output-only
+- Unresolved：seeded-interrupted-and-stopped-no-progress-classification-requires-local-fix
+
+### 2026-07-18T06:27:05.284Z · change · codex-root
+
+- Scope：start-B-r2-canary-then-gracefully-stop-on-active-monitor-contract-failure
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-reprocess-b-r2.service`、`curriculum-ocr-llama.service`、`curriculum-ocr-reprocess-b-r2-monitor.timer`、`B-r2`
+- Evidence：worker-active-MainPID2233007-child-chemistry-attempt3-monitor-B2_READ_FAILED-root-cause-run-status-counts-stale-during-active-write-graceful-exit75-MainPID0-timer-disabled-llama-stopped
+- Rollback：restart-only-after-monitor-models-active-serialization-and-gates-exit10-no-data-deletion
+- Unresolved：monitor-must-derive-active-counts-and-fail-drift-at-rest-before-restart
+
+### 2026-07-18T06:27:05.314Z · verify · codex-root
+
+- Scope：B-r2-graceful-stop-and-consistent-at-rest-readback
+- Resources：`B-r2`、`worker`、`timer`、`llama`
+- Evidence：chemistry-interrupted-attempt3-run-counts-consistent-1complete-1interrupted-2retry-2pending-worker-exit75-no-restart-no-child-llama-inactive-GPU12MiB
+- Rollback：no-rollback-read-only-verification
+- Unresolved：monitor-active-counts-P0
+
+### 2026-07-18T07:01:28.817Z · change · codex-root
+
+- Scope：merge-push-and-install-active-serialization-monitor-fix
+- Resources：`curriculum-atlas`、`github:ieduer/curriculum-atlas:main`、`commit-6b75811`、`DMITPro2-inner-bdfz-workspace-b-r2`
+- Evidence：build-then-full422-of422-check-pass-origin-readback-6b758118-monitor-hash4b359f3f-workspace-manifest-bcffdeef-B1-anchors-unchanged
+- Rollback：git-revert-6b75811-and-restore-remote-monitor-backup-20260718T065500Z-only-if-regression-proven-stop-worker-first
+- Unresolved：none-for-monitor-code
+
+### 2026-07-18T07:01:28.847Z · change · codex-root
+
+- Scope：restart-enable-and-monitor-B-r2-production-OCR
+- Resources：`curriculum-ocr-reprocess-b-r2.service`、`curriculum-ocr-llama.service`、`curriculum-ocr-reprocess-b-r2-monitor.timer`、`B-r2`
+- Evidence：stopped-gate-exit12-read-ok1275-then-active-manual-exit10-and-automatic-exit10-pages1291-failed0-restarts0-timer-next-visible-linger-yes
+- Rollback：systemctl-user-disable-now-worker-and-monitor-timer-then-stop-llama-preserve-B2-open-new-root-on-code-change
+- Unresolved：B-r2-completion-and-receiver-pending
+
+### 2026-07-18T07:01:28.876Z · verify · codex-root
+
+- Scope：B-r2-live-periodic-monitor-and-reboot-survival
+- Resources：`DMITPro2-inner-bdfz`、`B-r1`、`B-r2`、`monitor-b-r2`
+- Evidence：B1-anchors-match-derived-progress1275-to1291-timer-recurs-2min-worker-llama-active-no-restarts-GPU59C-memory8.3GiB-disk304GiB-linger-yes
+- Rollback：no-rollback-read-only-verification
+- Unresolved：monitor-until-complete
+
+### 2026-07-18T07:03:06.168Z · change · codex-root
+
+- Scope：merge-and-push-A-r2-one-shot-timeout-recovery-contract
+- Resources：`curriculum-atlas`、`github:ieduer/curriculum-atlas:main`、`commit-f9aeb47`
+- Evidence：four-scoped-files-build-main-full-test-exit0-check-pass-origin-readback-f9aeb479-ledger-claim-prevents-fresh-root-replay
+- Rollback：git-revert-f9aeb47-and-push-only-if-contract-regression-proven-no-force-push
+- Unresolved：remote-ledger-identity-grant-generation-seed-and-prestart-gate-pending
+
+### 2026-07-18T07:03:06.196Z · verify · codex-root
+
+- Scope：A-r2-timeout-grant-main-integration
+- Resources：`runner`、`receiver`、`tests`
+- Evidence：exact-attempt6-only-no-attempt7-global-max5-independent-receiver-archive-idempotence-and-6364-mixed-union-tests-main-full-pass
+- Rollback：no-rollback-read-only-verification
+- Unresolved：remote-A-r2-not-started
+
+### 2026-07-18T07:17:57.976Z · change · codex-root
+
+- Scope：gracefully-stop-B-r2-on-memory-hard-gate-and-disable-reboot-autostart
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-reprocess-b-r2.service`、`curriculum-ocr-llama.service`、`curriculum-ocr-reprocess-b-r2-monitor.timer`、`B-r2`
+- Evidence：MemAvailable-1.7GiB-below-2GiB-hard-gate-llama-RSS-9.6GB-worker-exit75-progress1365-of3182-failed-pages0-post-stop-MemAvailable-13GiB-unit-now-disabled-MainPID0
+- Rollback：resume-only-via-reviewed-new-lineage-after-p1-canary-or-explicit-resource-gate-change-preserve-B2
+- Unresolved：B-r2-incomplete-parallel4-memory-profile-not-approved-for-autostart
+
+### 2026-07-18T07:17:58.000Z · verify · codex-root
+
+- Scope：B-r2-memory-gate-at-rest
+- Resources：`DMITPro2-inner-bdfz`、`B-r2`、`systemd-user`
+- Evidence：worker-failed-inactive-MainPID0-disabled-timer-disabled-llama-inactive-memory-returned-13GiB-current-output-preserved
+- Rollback：no-rollback-read-only-verification
+- Unresolved：run-isolated-parallel1-canary-before-new-lineage-decision
+
+### 2026-07-18T07:18:24.766Z · start · codex-root
+
+- Scope：isolated-llama-parallel1-memory-canary-no-OCR-writes
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-llama-p1-canary.service`、`loopback-8113`
+- Evidence：original-parallel4-profile-stopped-port8113-free-canary-unit-absent-local-unit-sha-b0c0a099
+- Rollback：stop-disable-remove-canary-unit-daemon-reload-preserve-all-OCR-output
+- Unresolved：measure-idle-RSS-GPU-MemAvailable-and-stop-before-lineage-decision
+
+### 2026-07-18T07:27:00.574Z · change · codex-root
+
+- Scope：install-run-and-stop-isolated-parallel1-llama-memory-canary
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-llama-p1-canary.service`、`loopback-8113`、`backup-20260718T071824Z-p1-canary-install-v2`
+- Evidence：unit-sha-8ece389c-static-not-enabled-port-isolated-same-model-mmproj-ctx32768-parallel1-two-real-page-requests-no-production-OCR-output
+- Rollback：canary-stopped-static-unit-may-be-removed-after-B-r3-unit-is-installed-backup-preserved
+- Unresolved：B-r3-lineage-code-and-unit-required-before-resume
+
+### 2026-07-18T07:27:00.608Z · verify · codex-root
+
+- Scope：parallel1-llama-real-page-memory-canary
+- Resources：`DMITPro2-inner-bdfz`、`PaddleOCR-VL-1.6-GGUF`、`llama.cpp`、`Chinese-page65`
+- Evidence：HTTP200-identical-content-sha-381ec918-two-runs-peak-RSS870012KiB-final839356KiB-GPU2550MiB-min-MemAvailable13195784KiB-swap-stable-PSI-zero-no-restarts
+- Rollback：no-rollback-read-only-canary-result-unit-stopped-port8113-closed-GPU12MiB
+- Unresolved：replace-parallel4-with-hash-bound-parallel1-B-r3-not-in-place-mutate-B-r2
+
+### 2026-07-18T07:27:00.633Z · closeout · codex-root
+
+- Scope：parallel1-llama-canary-closeout
+- Resources：`curriculum-ocr-llama-p1-canary.service`
+- Evidence：inactive-dead-MainPID0-static-port8113-free-MemAvailable13.1GiB
+- Rollback：none-required
+- Unresolved：implement-B-r3-and-alert-only-monitor-before-production-resume
+
+### 2026-07-18T07:31:35.700Z · verify · codex-root
+
+- Scope：A-r1-timeout-evidence-log-preflight
+- Resources：`DMITPro2-inner-bdfz`、`A-r1`、`english-log`、`geography-log`、`mathematics-log`、`politics-log`
+- Evidence：run-identity-a345d2b1-run-status-25392642-sidecar-ok-four-timeout-logs-regular-nonsymlink-mode600-bytes-and-sha-computed-no-content-readback
+- Rollback：no-rollback-read-only-verification
+- Unresolved：production-generator-must-recompute-and-bind-all-log-evidence-before-grant-apply
+
+### 2026-07-18T07:32:50.983Z · change · codex-root
+
+- Scope：disable-parallel4-llama-reboot-autostart-after-memory-gate
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-llama.service`
+- Evidence：unit-was-enabled-but-inactive-removed-default-target-link-now-disabled-MainPID0
+- Rollback：enable-only-if-reviewed-parallel4-rollback-is-explicitly-selected-and-memory-gate-is-adjusted-with-evidence
+- Unresolved：new-parallel1-llama-unit-must-own-port8112-before-B-r3-start
+
+### 2026-07-18T07:34:57.660Z · verify · codex-root
+
+- Scope：freeze-and-back-up-B-r2-control-evidence-before-B-r3
+- Resources：`B-r2`、`backups/curriculum-atlas/2026-07-17/remote-ocr-pre-b-r3-20260718T073400Z`
+- Evidence：40-files-3.4MiB-all-control-state-status-log-seed-sidecars-sha-check-pass-SHA256SUMS-d3cae690-page-artifact-tree-left-immutable-in-remote-B2
+- Rollback：restore-control-evidence-for-audit-only-never-overwrite-live-output-without-separate-reviewed-recovery
+- Unresolved：B-r2-page-artifacts-remain-single-remote-copy-but-regenerable-and-B-r3-will-start-from-immutable-B1
+
+### 2026-07-18T07:37:59.151Z · start · codex-root
+
+- Scope：p4-to-p1-full-pipeline-semantic-equivalence-canary
+- Resources：`DMITPro2-inner-bdfz`、`B1-Chinese-page32`、`curriculum-ocr-llama-p1-canary.service`、`canary-20260718T073800Z`
+- Evidence：production-units-disabled-and-inactive-existing-page32-is-p4-inherited-evidence-canary-is-disjoint-and-citation-forbidden
+- Rollback：stop-p1-canary-preserve-or-remove-only-dedicated-canary-root-never-touch-B1-B2
+- Unresolved：require-exact-rendered-result-markdown-hash-comparison-before-permitting-server-parallel-delta
+
+### 2026-07-18T07:43:25.753Z · verify · codex-root
+
+- Scope：p4-to-p1-full-PaddleOCR-pipeline-semantic-equivalence
+- Resources：`B1-Chinese-page32`、`p1-canary-page32`、`comparison-report`、`local-backup`
+- Evidence：rendered-image-sha-b5522b38-content-md-and-page-md-byte-identical-sha-0eacf41e-result-diff-only-temp-input-path-plus-five-layout-score-floats-max2.086e-7-normalized-sha-efd0f9d4-equal-comparison-report-sha31cd9209-local-SHA256SUMS-3b4cea9a
+- Rollback：no-production-mutation-B1-B2-read-only-canary-output-citation-forbidden
+- Unresolved：encode-only-exact-p4-to-p1-attestation-and-worker-delta-in-runner-monitor-receiver-tests
+
+### 2026-07-18T07:43:25.779Z · closeout · codex-root
+
+- Scope：p4-to-p1-full-pipeline-canary-closeout
+- Resources：`curriculum-ocr-llama-p1-canary.service`、`canary-20260718T073800Z`
+- Evidence：full-pipeline-page-finished-HTTP200-content-identical-canary-unit-inactive-MainPID0-NRestarts0-port8113-free-GPU12MiB-PSI0-swap-stable
+- Rollback：canary-root-and-local-56KiB-evidence-preserved-no-production-rollback-needed
+- Unresolved：deploy-tested-p1-lineage-contract-before-resuming-OCR
+
+### 2026-07-18T07:45:45.662Z · change · codex-root
+
+- Scope：stage-not-install-parallel1-production-llama-candidate
+- Resources：`DMITPro2-inner-bdfz`、`backup-20260718T074500Z-b-r3-candidate-units`、`curriculum-ocr-llama.service-candidate`
+- Evidence：candidate-sha-da82a437-systemd-analyze-user-verify-pass-static-no-Install-port8112-parallel1-production-unit-unchanged-and-disabled
+- Rollback：remove-only-candidate-staging-file-if-no-longer-needed-no-systemd-daemon-state-changed
+- Unresolved：install-only-after-p1-lineage-contract-tests-and-prestart-backup
+
+### 2026-07-18T07:51:07.831Z · change · codex-root
+
+- Scope：stage-not-install-B-r3-parallel1-worker-candidate
+- Resources：`DMITPro2-inner-bdfz`、`backup-20260718T074500Z-b-r3-candidate-units`、`curriculum-ocr-reprocess-b-r3.service-candidate`
+- Evidence：candidate-sha-4d2bab54-systemd-analyze-user-verify-pass-seed-from-immutable-B1-output-new-B3-server-parallel1-no-live-unit-installed
+- Rollback：remove-only-candidate-staging-file-no-systemd-state-changed
+- Unresolved：runner-receiver-monitor-schema2-tests-and-seed-commit-required-before-install
+
+### 2026-07-18T07:51:55.898Z · verify · codex-root
+
+- Scope：B-r3-candidate-unit-pair-static-validation
+- Resources：`candidate-curriculum-ocr-llama.service`、`candidate-curriculum-ocr-reprocess-b-r3.service`
+- Evidence：systemd-analyze-user-verify-pass-llama-sha5be338a3-worker-sha4d2bab54-p1-static-StopWhenUnneeded-canary-conflict-no-live-install
+- Rollback：no-live-state-candidate-only
+- Unresolved：final-unit-hashes-may-change-after-alert-monitor-integration-and-must-be-reverified
+
+### 2026-07-18T07:54:40.438Z · verify · codex-root
+
+- Scope：p1-preinstall-systemd-backup-and-state-readback
+- Resources：`DMITPro2-inner-bdfz`、`backup-20260718T075300Z-p1-preinstall`、`local-remote-systemd-p1-preinstall-20260718T075300Z`
+- Evidence：five-units-plus-unit-states-sidecars-readback-pass-SHA256SUMS-88d5e120-old-p4-disabled-inactive-B2-disabled-failed-monitor-timer-disabled-local-copy-verified
+- Rollback：restore-exact-backed-up-unit-files-daemon-reload-keep-disabled-unless-separate-reviewed-p4-rollback
+- Unresolved：no-live-replacement-until-schema2-contract-merged-tested
+
+### 2026-07-18T08:18:44.531Z · verify · codex-root
+
+- Scope：p1-receiver-monitor-contract-and-remote-stop-gate
+- Resources：`curriculum-atlas-commit-d8db7b9`、`DMITPro2-inner-bdfz`
+- Evidence：receiver-monitor-focused-94of94-tsc-build-pass-remote-13GiB-MemAvailable-GPU47C-no-8112-or-8113-listener-p4-and-B2-disabled-inactive
+- Rollback：revert-d8db7b9-locally-no-remote-mutation
+- Unresolved：independent-contract-review-runner-schema2-alert-hardening-before-B3-seed
+
+### 2026-07-18T08:23:50.226Z · verify · codex-root
+
+- Scope：canonical-main-preintegration-regression
+- Resources：`curriculum-atlas-main-30ea29b-d8db7b9`
+- Evidence：full-Node-suite-451of451-pass-133115ms-tsc-build-pass-gitleaks-two-commits-92845B-zero-leaks
+- Rollback：no-mutation-test-only
+- Unresolved：alert-hardening-and-runner-grant-integration-not-yet-cherry-picked
+
+### 2026-07-18T08:30:31.773Z · change · codex-root
+
+- Scope：harden-p1-receiver-monitor-after-independent-review
+- Resources：`curriculum-atlas-receiver-monitor-and-tests`
+- Evidence：bind-exact-OCR-and-successor-runner-identity-require-identical-p1-shard-execution-contract-reject-unclean-completed-worker
+- Rollback：git-revert-eventual-dedicated-commit
+- Unresolved：runner-must-exactly-bind-raw-llama-argv-and-emit-matching-schema2
+
+### 2026-07-18T08:31:08.589Z · verify · codex-root
+
+- Scope：p1-lineage-review-fixes-committed
+- Resources：`curriculum-atlas-commit-b49a564`
+- Evidence：receiver-monitor-focused-95of95-node-check-diff-check-staged-gitleaks-zero-leaks
+- Rollback：git-revert-b49a564
+- Unresolved：canonical-suite-after-alert-runner-cherry-picks
+
+### 2026-07-18T08:35:30.016Z · change · codex-root
+
+- Scope：integrate-and-close-alert-preflight-restart-gap
+- Resources：`curriculum-atlas-commits-a0fb0d1-d836900`
+- Evidence：schema2-alert-flock-pending-envelope-recovery-epoch-fingerprint-and-null-worker-suppressed-disarmed
+- Rollback：git-revert-d836900-and-a0fb0d1-or-remove-alert-layer-only
+- Unresolved：canonical-full-suite-systemd-analyze-credential-canary-live-two-cycle-arm
+
+### 2026-07-18T08:35:30.044Z · verify · codex-root
+
+- Scope：alert-hardening-canonical-focused-regression
+- Resources：`curriculum-atlas-alert-tests`
+- Evidence：focused-alert-16of16-tsc-build-diff-check-staged-gitleaks-zero
+- Rollback：no-remote-state
+- Unresolved：live-deployment-deferred-until-B3-seed-preflight
+
+### 2026-07-18T08:49:23.208Z · change · codex-root
+
+- Scope：close-alert-liveness-and-p1-cross-shard-cache-contract
+- Resources：`curriculum-atlas-commits-f73bdb6-3c24a1e`
+- Evidence：pending-retry-now-evaluates-current-failure-two-minute-retry-timer-adds-reboot-provider-outage-liveness-p1-union-normalizes-only-shard-local-cache-path
+- Rollback：revert-f73bdb6-and-3c24a1e
+- Unresolved：systemd-analyze-live-retry-timer-verification-and-final-runner-integration
+
+### 2026-07-18T08:49:23.236Z · verify · codex-root
+
+- Scope：alert-and-receiver-postreview-focused-regression
+- Resources：`curriculum-atlas-alert-receiver-tests`
+- Evidence：alert16of16-receiver68of68-total84of84-tsc-build-diff-check-gitleaks-zero
+- Rollback：no-remote-state
+- Unresolved：canonical-full-suite-after-runner-merge
+
+### 2026-07-18T08:54:45.539Z · change · codex-root
+
+- Scope：close-pending-alert-recovery-epoch-gap
+- Resources：`curriculum-atlas-commit-37fc893`
+- Evidence：alert-mode-healthy-branch-closes-newly-sent-pending-incident-and-advances-epoch
+- Rollback：git-revert-37fc893
+- Unresolved：canonical-full-suite-and-live-systemd-timer-canary
+
+### 2026-07-18T08:54:45.566Z · verify · codex-root
+
+- Scope：recovered-alert-recurrence-regression
+- Resources：`curriculum-atlas-alert-tests`
+- Evidence：focused-alert-17of17-tsc-diff-check-gitleaks-zero
+- Rollback：no-remote-state
+- Unresolved：final-integration
+
+### 2026-07-18T08:59:44.813Z · change · codex-root
+
+- Scope：add-clean-B3-success-llama-shutdown-candidate
+- Resources：`b-r3-worker-candidate`、`b-r3-cleanup-candidate`
+- Evidence：worker-OnSuccess-separate-oneshot-stops-llama-only-after-inactive-success-preserves-manual-seed-window
+- Rollback：remove-OnSuccess-line-and-cleanup-candidate-before-install
+- Unresolved：remote-systemd-analyze-and-live-cleanup-canary-required
+
+### 2026-07-18T09:08:01.268Z · verify · codex-root
+
+- Scope：canonical-main-post-alert-pre-runner-regression
+- Resources：`curriculum-atlas-main-d907910`
+- Evidence：full-Node-suite-461of461-pass-129212ms-clean-worktree
+- Rollback：no-mutation-test-only
+- Unresolved：grant-runner-issuance-and-incident-archive-hardening-still-in-review
+
+### 2026-07-18T09:10:11.008Z · change · codex-root
+
+- Scope：stage-B3-units-for-static-remote-verification-only
+- Resources：`DMITPro2-inner-bdfz:/tmp/curriculum-b-r3-verify-20260718`
+- Evidence：five-candidate-unit-files-copied-to-ephemeral-tmp-no-install-no-daemon-reload-no-service-start
+- Rollback：remove-task-owned-ephemeral-directory-after-final-validation
+- Unresolved：final-runner-contract-may-require-reverify
+
+### 2026-07-18T09:10:11.111Z · verify · codex-root
+
+- Scope：B3-five-unit-remote-static-parse
+- Resources：`DMITPro2-inner-bdfz-systemd260`
+- Evidence：local-and-remote-five-SHA256-match-systemd-analyze-user-verify-exit-zero
+- Rollback：no-installed-state-no-runtime-impact
+- Unresolved：repeat-after-final-runner-and-alert-bundle
+
+### 2026-07-18T09:12:46.776Z · change · codex-root
+
+- Scope：extend-B3-worker-mutual-exclusion-candidate
+- Resources：`b-r3-worker-candidate`
+- Evidence：Conflicts-now-covers-legacy-a-b-and-frozen-b-r2-workers-symmetrically-new-sha256-080f0726
+- Rollback：restore-conflicts-to-b-r2-only-before-install
+- Unresolved：repeat-remote-systemd-analyze-with-final-bundle
+
+### 2026-07-18T09:26:28.909Z · change · codex-root
+
+- Scope：close-alert-monitor-concurrency-races
+- Resources：`curriculum-atlas-alert-notifier-systemd-tests-doc`
+- Evidence：terminal-monitor-state-allowlist-defers-inflight-retry-and-60s-observe-lock-budget-covers-two-bounded-sends
+- Rollback：git-revert-eventual-dedicated-alert-concurrency-commit
+- Unresolved：remote-systemd-runtime-concurrency-canary-still-required
+
+### 2026-07-18T09:27:29.672Z · verify · codex-root
+
+- Scope：alert-monitor-concurrency-regression
+- Resources：`curriculum-atlas-commit-ba358d6`
+- Evidence：focused-alert-19of19-diff-check-staged-gitleaks-zero
+- Rollback：git-revert-ba358d6
+- Unresolved：remote-active-activating-defer-and-lock-contention-canary
+
+### 2026-07-18T09:39:18.759Z · verify · codex-root
+
+- Scope：B3-boot-and-legacy-unit-preflight
+- Resources：`DMITPro2-inner-bdfz-user-manager`
+- Evidence：Linger-yes-runtime-active-legacy-a-b-B2-disabled-failed-inactive-no-B2-timer-installed-no-OCR-timers
+- Rollback：no-mutation-read-only
+- Unresolved：targeted-reset-failed-and-runtime-masks-before-B3-start-final-disable-after-completion
+
+### 2026-07-18T09:48:52.393Z · change · codex-root
+
+- Scope：integrate-timeout-authority-runner-hardening
+- Resources：`curriculum-atlas-commits-718d7ec-415f5b3`
+- Evidence：cherry-picked-reviewed-preparer-provisioner-exact-p1-runner-issuance-incident-self-contained-resume
+- Rollback：git-revert-415f5b3-and-718d7ec
+- Unresolved：receiver-monitor-E2E-and-provisioner-stale-hardlink-followup-before-remote
+
+### 2026-07-18T09:56:36.009Z · verify · codex-root
+
+- Scope：live-systemd-terminal-property-format-and-provisioner-regression
+- Resources：`DMITPro2-inner-bdfz-systemd260`、`curriculum-atlas-provisioner-tests`
+- Evidence：live-ExecMainCode-CLD_EXITED-is-numeric-1-InvocationID-retained-focused-provisioner-12of12
+- Rollback：no-remote-mutation
+- Unresolved：cleanup-agent-updated-to-exact-numeric-code-full-gates-pending
+
+### 2026-07-18T09:56:36.055Z · change · codex-root
+
+- Scope：integrate-provisioner-hardlink-crash-recovery
+- Resources：`curriculum-atlas-commit-933b878`
+- Evidence：raw-and-sidecar-linked-temp-recovery-strict-inactive-pid-dev-ino-mode-owner-nlink-bounds
+- Rollback：git-revert-933b878
+- Unresolved：receiver-monitor-and-cleanup-integration-before-remote
+
+### 2026-07-18T10:00:06.035Z · verify · codex-root
+
+- Scope：refresh-B1-anchor-and-B3-capacity-before-write
+- Resources：`DMITPro2-inner-bdfz-B1-shard-b`、`DMITPro2-GPU-disk-memory`
+- Evidence：identity-83d9b65f-status-5a98d8ee-manifest-305ff84e-six-docs-3182-pages-305GiB-free-13GiB-available-GPU47C-idle
+- Rollback：no-mutation-read-only
+- Unresolved：final-workspace-and-units-not-installed
+
+### 2026-07-18T10:02:48.414Z · change · codex-root
+
+- Scope：integrate-fail-closed-B3-completion-cleanup
+- Resources：`curriculum-atlas-commit-d6ae37a`
+- Evidence：terminal-success-double-read-disable-worker-stop-llama-under-shared-lifecycle-flock
+- Rollback：git-revert-d6ae37a
+- Unresolved：materialize-worker-flock-and-remote-canary-after-receiver-monitor
+
+### 2026-07-18T10:02:48.433Z · verify · codex-root
+
+- Scope：B3-cleanup-live-format-focused-regression
+- Resources：`curriculum-atlas-cleanup-monitor-alert-tests`
+- Evidence：74of74-pass-systemd260-CLD_EXITED1-tsc-build-diff-check-pass
+- Rollback：no-remote-mutation
+- Unresolved：canonical-full-suite-after-receiver-monitor-integration
+
+### 2026-07-18T10:05:57.371Z · change · codex-root
+
+- Scope：close-B3-cleanup-sandbox-and-workspace-integrity-gaps
+- Resources：`curriculum-atlas-commit-7414835`
+- Evidence：cleanup-preflights-exact-workspace-SHA256SUMS-and-authorizes-only-default-target-wants-write
+- Rollback：git-revert-7414835
+- Unresolved：remote-ProtectHome-disable-canary-and-worker-lifecycle-flock-pending
+
+### 2026-07-18T10:08:24.305Z · verify · codex-root
+
+- Scope：remote-cleanup-ProtectHome-disable-sandbox-canary
+- Resources：`DMITPro2-inner-bdfz-task-owned-transient-canary`
+- Evidence：ProtectHome-read-only-ReadWritePaths-default-target-wants-systemctl-disable-succeeded-unit-cleanly-removed-and-not-found
+- Rollback：exact-canary-file-and-symlink-removed-daemon-reloaded
+- Unresolved：real-B3-cleanup-canary-after-final-bundle
+
+### 2026-07-18T10:08:24.326Z · change · codex-root
+
+- Scope：bind-cleanup-flock-write-sandbox
+- Resources：`curriculum-atlas-commit-0d36a25`
+- Evidence：exact-lifecycle-lock-is-only-additional-ReadWritePath-focused-cleanup-27of27
+- Rollback：git-revert-0d36a25
+- Unresolved：final-worker-must-use-same-lock
+
+### 2026-07-18T10:12:47.835Z · verify · codex-root
+
+- Scope：B3-runtime-bundle-local-and-remote-static-parse
+- Resources：`curriculum-atlas-B3-systemd-tests`、`DMITPro2-tmp-static-stage`
+- Evidence：focused30of30-local-remote-SHA256-match-systemd-analyze-user-verify-exit0-gitleaks-zero
+- Rollback：temporary-staging-only-no-installed-state
+- Unresolved：repeat-after-final-main-and-copy-cleanup-dropin-config
+
+### 2026-07-18T10:12:47.861Z · change · codex-root
+
+- Scope：track-exact-B3-runtime-systemd-bundle
+- Resources：`curriculum-atlas-commit-05f3e52`
+- Evidence：parallel1-llama-worker-lifecycle-flock-B1-anchor-monitor-disabled-manual-start-contract
+- Rollback：git-revert-05f3e52
+- Unresolved：final-monitor-mask-support-and-remote-install-pending
+
+### 2026-07-18T10:16:25.457Z · verify · codex-root
+
+- Scope：canonical-main-post-cleanup-and-B3-bundle-regression
+- Resources：`curriculum-atlas-main-05f3e52`
+- Evidence：full-Node-suite-537of537-pass-102620ms-including-real-B1-1259-page-and-6364-page-union-fixtures
+- Rollback：no-mutation-test-only
+- Unresolved：receiver-monitor-schema2-merge-will-require-final-rerun
+
+### 2026-07-18T10:19:05.617Z · change · codex-root
+
+- Scope：bind-alert-notifier-to-deploy-hash-manifest
+- Resources：`curriculum-atlas-commit-ccd9fa1`
+- Evidence：both-alert-entrypoints-check-absolute-path-SHA256SUMS-focused19of19-gitleaks-zero
+- Rollback：git-revert-ccd9fa1
+- Unresolved：generate-final-absolute-alert-runtime-manifest-and-remote-canary
+
+### 2026-07-18T10:20:12.468Z · verify · codex-root
+
+- Scope：refresh-local-OCR-and-receiver-capacity-baseline
+- Resources：`curriculum-atlas-local-ocr-supervisor`、`local-data-volume`
+- Evidence：primary-6947of11847-Vision7012-audit6947-one-quarantined-page-zero-citation-watchdog-held-51.43GiB-free
+- Rollback：no-mutation-read-only
+- Unresolved：receiver-import-needs-disk-headroom-plan-before-remote-artifact-copy
+
+### 2026-07-18T10:21:14.682Z · verify · codex-root
+
+- Scope：refresh-A1-timeout-predecessor-baseline
+- Resources：`DMITPro2-inner-bdfz-A1-shard-a`
+- Evidence：identity-a345d2b1-status-25392642-manifest-8b583fd5-eight-docs-3182-pages-four-complete-four-exact-attempt5-idle-timeout-quarantines
+- Rollback：no-mutation-read-only
+- Unresolved：authority-provision-and-schema2-grant-must-wait-for-B3-and-final-receiver-monitor
+
+### 2026-07-18T12:23:49.323Z · change · codex-root
+
+- Scope：merge-final-schema2-remote-ocr-receiver-and-monitor-evidence
+- Resources：`curriculum-atlas-commits-ee157a2-and-67d222c`
+- Evidence：independent-final-review-no-P0-P1-P2-and-6364-page-E2E-pass
+- Rollback：git-revert-new-cherry-picks-before-remote-install
+- Unresolved：main-full-regression-and-push-pending
+
+### 2026-07-18T12:26:28.221Z · verify · codex-root
+
+- Scope：main-schema2-receiver-monitor-regression
+- Resources：`curriculum-atlas-main-3011b58`
+- Evidence：Node535of535-TypeScript-pass-Python13of13-build-pass-6364-E2E-pass-independent-no-P0-P1-P2-gitleaks-zero
+- Rollback：no-production-mutation-yet-git-revert-3011b58-and-9d8ddc1
+- Unresolved：push-and-final-B3-bundle-install-pending
+
+### 2026-07-18T12:29:51.193Z · change · codex-root
+
+- Scope：stage-final-B3-runtime-bundle-for-remote-static-verification
+- Resources：`curriculum-atlas-main-3011b58`、`DMITPro2-inner-bdfz-staging-only`
+- Evidence：local-workspace-SHA256SUMS-exact-alert-notifier-absolute-hash-bound
+- Rollback：remove-staging-only-after-verification-no-installed-state
+- Unresolved：remote-hash-systemd-verify-backup-and-install-pending
+
+### 2026-07-18T12:33:43.150Z · change · codex-root
+
+- Scope：begin-B3-remote-backup-and-install-transaction
+- Resources：`DMITPro2-inner-bdfz-user-systemd`、`pre-b3-3011b58-20260718T123217Z`
+- Evidence：final-bundle-remote-SHA256-exact-systemd-analyze-verify-pass-B1-five-anchors-exact
+- Rollback：stop-disable-new-B3-unmask-old-without-restart-restore-original-llama-preserve-all-evidence
+- Unresolved：backup-readback-install-seed-canary-worker-start-pending
+
+### 2026-07-18T12:46:04.938Z · verify · codex-root
+
+- Scope：B3-seed-dry-run-fail-closed-script-identity-drift
+- Resources：`DMITPro2-inner-bdfz-B1-b4ea-to-B3-3176`
+- Evidence：seed-dry-run-exit2-before-successor-write-B1-five-anchors-stable-output-only-physical-cache
+- Rollback：no-seed-state-written-worker-disabled-llama-can-be-stopped-with-systemctl-user-stop
+- Unresolved：exact-hash-pair-seed-aware-transition-code-review-and-redeploy-pending
+
+### 2026-07-18T12:52:42.036Z · verify · codex-root
+
+- Scope：fresh-Downloads-PDF-asset-reconciliation
+- Resources：`curriculum-atlas-data/downloads-asset-audit-receipt.json`、`/private/tmp/curriculum-downloads-inventory-20260718.json`
+- Evidence：237-PDFs-15-curriculum-relevant-hashes-exactly-match-recorded-canonical-plus-variant-registry-no-new-or-missing-assets
+- Rollback：read-only-audit-no-project-or-production-state-changed
+- Unresolved：OCR-and-evidence-publication-gates-still-pending
+
+### 2026-07-18T13:08:28.469Z · change · codex-root
+
+- Scope：create-local-rollback-anchor-before-B1-to-B3-script-transition
+- Resources：`curriculum-atlas-backup-branch-backup/curriculum-b3-script-transition-pre-20260718`
+- Evidence：points-exactly-to-main-3011b589200209b4e477f9ac076b20c4f024d81c
+- Rollback：delete-local-backup-branch-only-after-final-release-and-independent-verification
+- Unresolved：transition-commit-still-under-test-and-review
+
+### 2026-07-18T13:40:55.001Z · verify · codex-root
+
+- Scope：pre-schema3-install-live-B1-anchor-recomputation
+- Resources：`DMITPro2-inner-bdfz-B1-production-p4-mb16-shard-b-r1`
+- Evidence：6-documents-1259-pages-all-five-anchors-recomputed-exact-identity-83d9-status-5a98-state-c61c-statusset-1b41-artifacts-3287
+- Rollback：read-only-B1-inspection-no-state-change
+- Unresolved：schema3-P2-test-closure-review-and-install-pending
+
+### 2026-07-18T13:55:19.998Z · change · codex-root
+
+- Scope：integrate-reviewed-schema3-B1-seed-transition
+- Resources：`curriculum-atlas-main`、`commits-26ab73e-and-2fcf327`
+- Evidence：independent-review-no-P0-P1-P2-full-545-of-545-Python14-of14
+- Rollback：revert-integrated-commits-before-remote-install
+- Unresolved：main-full-gates-push-and-remote-seed-pending
+
+### 2026-07-18T13:58:45.353Z · verify · codex-root
+
+- Scope：main-schema3-B1-seed-transition-regression
+- Resources：`curriculum-atlas-main-9d6179d`
+- Evidence：Node545of545-TypeScript-pass-Python14of14-build-pass-gitleaks-two-commits-zero-independent-no-P0-P1-P2-clean-tree-exact-script-hashes
+- Rollback：revert-9d6179d-and-9c5132a-before-remote-install
+- Unresolved：origin-push-final-bundle-install-and-live-seed-pending
+
+### 2026-07-18T14:05:00.745Z · change · codex-root
+
+- Scope：create-and-readback-pre-schema3-remote-rollback-anchor
+- Resources：`DMITPro2-inner-bdfz`、`pre-schema3-9d6179d-20260718T1359Z`
+- Evidence：workspace7-alert2-successor136-config2-systemd8-byte-identical-and-independent-inodes
+- Rollback：restore-backed-up-workspace-config-units-and-preserve-successor-evidence
+- Unresolved：schema3-install-and-seed-gates-pending
+
+### 2026-07-18T14:07:48.132Z · change · codex-root
+
+- Scope：atomically-install-schema3-B3-workspace-and-alert-binding
+- Resources：`DMITPro2-inner-bdfz-workspace-b-r3`、`curriculum-ocr-monitor-alert.conf`
+- Evidence：preinstall-five-B1-anchors-exact-workspace-SHA256SUMS-exact-services-remain-disabled-inactive
+- Rollback：restore-workspace-b-r3-pre-schema3-9d6179d-and-backed-up-alert-config
+- Unresolved：two-seed-dry-runs-seed-commit-idempotence-and-worker-canary-pending
+
+### 2026-07-18T14:11:38.792Z · verify · codex-root
+
+- Scope：schema3-B3-deterministic-seed-dry-run-pair
+- Resources：`DMITPro2-inner-bdfz-B1-to-B3`
+- Evidence：two-exact-seed-id-a15303-receipt-98f198-runstatus-78dab4-counts6-pages1259-and-successor-only-cache
+- Rollback：no-persistent-seed-written-worker-remains-disabled
+- Unresolved：seed-only-commit-and-idempotent-repeat-pending
+
+### 2026-07-18T14:18:02.952Z · change · codex-root
+
+- Scope：commit-and-idempotently-reverify-schema3-B3-seed
+- Resources：`DMITPro2-inner-bdfz-production-p1-mb16-shard-b-r3`
+- Evidence：seed-a15303-receipt98f198-runstatus78dab4-tree51aac5-sidecars-pass-monitor-and-receiver-delta-pass-cache136-independent-B1-five-anchors-stable
+- Rollback：seal-successor-and-restore-pre-schema3-workspace-config-without-patching-committed-seed
+- Unresolved：manual-worker-start-first-document-canary-and-monitor-arming-pending
+
+### 2026-07-18T14:20:49.393Z · change · codex-root
+
+- Scope：start-B3-worker-and-enable-armed-monitoring
+- Resources：`DMITPro2-inner-bdfz-curriculum-ocr-reprocess-b-r3`、`curriculum-ocr-reprocess-b-r3-monitor.timer`、`curriculum-ocr-monitor-alert-retry`
+- Evidence：worker-active-disabled-Invocation62af-NRestarts0-two-distinct-exit10-observations-warming-then-armed-no-alert-timers-two-minute
+- Rollback：disable-timers-stop-worker-preserve-successor-and-logs-restore-pre-schema3-anchor
+- Unresolved：first-new-whole-document-atomic-canary-and-full-B-shard-completion-pending
+
+### 2026-07-18T14:23:42.330Z · change · codex-root
+
+- Scope：publish-reviewed-schema3-source-to-origin-main
+- Resources：`github-ieduer-curriculum-atlas-main-9d6179d`
+- Evidence：fast-forward-from-3011b58-after-main-545of545-and-independent-review
+- Rollback：git-revert-9d6179d-and-9c5132a-no-force-push
+- Unresolved：remote-B3-OCR-and-full-data-release-still-running
+
+### 2026-07-18T14:33:37.022Z · change · codex-root
+
+- Scope：accept-first-B3-whole-document-canary-and-enable-reboot-resume
+- Resources：`DMITPro2-inner-bdfz-legacy-compendium-chemistry`、`curriculum-ocr-reprocess-b-r3.service`
+- Evidence：chemistry458of458-attempt3-sidecar-and-artifacts-bound-citation-false-worker-same-Invocation-NRestarts0-unit-enabled
+- Rollback：disable-worker-and-timers-stop-preserve-successor-restore-pre-schema3-runtime
+- Unresolved：remaining-B-pages-and-A1-exact-status-compatibility-pending
+
+### 2026-07-18T14:33:47.203Z · change · codex-root
+
+- Scope：provision-canonical-A-timeout-recovery-authority
+- Resources：`DMITPro2-inner-bdfz-timeout-recovery-authority-v1`
+- Evidence：preview-no-write-then-apply-ledger-c0a38c-and-idempotent-rerun-modes700-600-single-link-sidecar-pass
+- Rollback：no-rollback-by-design-never-delete-copy-or-recreate-authority
+- Unresolved：A-grant-not-issued-real-complete-status-compatibility-fail-closed-pending
+
+### 2026-07-18T14:45:37.377Z · change · codex-root
+
+- Scope：reclaim-local-disk-for-50GiB-receiver-and-evidence-gate
+- Resources：`curriculum-atlas-clean-patch-equivalent-worktrees`、`curriculum-atlas-local-GGUF-cache`、`private-tmp-generated-validation-fixtures`
+- Evidence：old-worktrees-clean-and-git-cherry-minus-against-main
+- Rollback：未记录
+- Unresolved：无
+
+### 2026-07-18T14:45:46.847Z · change · codex-root
+
+- Scope：corrected reclaim local disk for 50GiB receiver and evidence gate
+- Resources：`curriculum-atlas clean patch-equivalent worktrees`、`curriculum-atlas local GGUF cache`、`private-tmp generated validation fixtures`
+- Evidence：old worktrees clean and git-cherry minus against main; GGUF SHA prefixes f3ae46 and 204d75 recorded; remote sealed copy preserved
+- Rollback：branches retained; recreate worktrees from branches; redownload exact HF revision 511b096 with recorded SHA
+- Unresolved：previous row was shell-truncated after semicolon; verify free space and supervisor gate after cleanup
+
+### 2026-07-18T14:49:39.452Z · change · codex-root
+
+- Scope：extend local disk margin above 50GiB for receiver staging and Apple Vision backfill
+- Resources：`curriculum-atlas .cache venv-paddleocr`、`curriculum-atlas .cache paddlex model cache`
+- Evidence：evidence-only backfill requires Swift and pinned MuPDF; remote sealed primary runtime remains active; global fixed venv untouched
+- Rollback：recreate local cache venv and redownload pinned Paddle models from repo scripts before any local primary OCR
+- Unresolved：verify disk margin and evidence-only supervisor remains readable
+
+### 2026-07-18T14:59:06.428Z · verify · codex-root
+
+- Scope：local disk receiver and evidence gate recovered without touching source or evidence assets
+- Resources：`curriculum-atlas local cache`、`ocr supervisor status`、`MuPDF renderer`
+- Evidence：free 52.36GiB warning false; source PDFs 224 and 3.0GiB; primary OCR 1.6GiB; witness audit 6.2GiB unchanged; mutool 1.28.0 SHA b7ee6e exact; main clean
+- Rollback：retained branches and cache receipts allow exact regeneration; no source evidence rollback required
+- Unresolved：receiver and new witness batches will consume space; reproducible-render cleanup requires all-page deterministic dry-run first
+
+### 2026-07-18T15:19:47.658Z · change · codex-root
+
+- Scope：append verified B3 alert delivery incident to canonical Cloudflare operations report
+- Resources：`reports/cloudflare_business_audit_2026-05-23.md`、`report rollback copy`
+- Evidence：entry records scope root cause redacted verification OCR continuity and rollback without secret values
+- Rollback：restore backups/reports/2026-07-18/curriculum-alert-delivery-prechange-20260718T0813PDT/cloudflare_business_audit_2026-05-23.md
+- Unresolved：full OCR evidence and site release remain in progress
+
+### 2026-07-18T15:19:47.768Z · verify · codex-root
+
+- Scope：verify canonical report alert incident append and rollback anchor
+- Resources：`reports/cloudflare_business_audit_2026-05-23.md`、`report rollback copy`
+- Evidence：no whitespace-check output; report contains exact alert fingerprint service result B3 invocation progress and two remote rollback directories; backup SHA eb4b1bd0 recorded
+- Rollback：restore the dated report backup only
+- Unresolved：regenerate project operations ledger after final release closeout
+
+### 2026-07-18T16:38:05.752Z · change · codex-root
+
+- Scope：refresh-hash-bound-Downloads-asset-audit-receipt-for-deployment-source-gate
+- Resources：`curriculum-atlas-data-downloads-asset-audit-receipt`、`operator-Downloads-read-only-scan`
+- Evidence：237-PDFs-scanned-15-relevant-15-unique-all-ingested-zero-errors-two-known-publication-blocked-derived-lineage-warnings-receipt-f2a9938a
+- Rollback：revert-receipt-refresh-commit-without-changing-any-source-PDF
+- Unresolved：preview-production-environment-evidence-still-stale
+
+### 2026-07-18T16:53:36.641Z · change · codex-root
+
+- Scope：append-verified-cross-subject-inspector-release-to-canonical-operations-report
+- Resources：`reports-cloudflare-business-audit`、`dated-report-rollback-copy`
+- Evidence：report-records-source-gates-preview-production-versions-browser-API-QA-OCR-and-ontology-open-risks-without-secrets-final-SHA-ef8d587d
+- Rollback：restore-curriculum-inspector-fix-prechange-20260718T0950PDT-copy-SHA-a2f3f60f
+- Unresolved：regenerate-project-operations-ledger-after-final-OCR-data-release
+
+### 2026-07-18T16:53:45.025Z · verify · codex-root
+
+- Scope：verify-canonical-report-append-and-rollback-anchor-for-frontend-release
+- Resources：`reports-cloudflare-business-audit`、`dated-report-rollback-copy`
+- Evidence：appended-section-present-no-trailing-whitespace-or-conflict-markers-current-SHA-ef8d587d-backup-SHA-a2f3f60f
+- Rollback：restore-dated-report-copy-only
+- Unresolved：full-release-task-remains-active-until-OCR-and-data-publication-complete
+
+### 2026-07-18T19:20:11.506Z · change · codex-root
+
+- Scope：Seal completed B3 OCR shard into owner-only immutable archive after automatic cleanup
+- Resources：`DMITPro2-inner-bdfz-production-p1-mb16-shard-b-r3`、`DMITPro2-inner-bdfz-B3-final-archive`
+- Evidence：3182 of 3182 pages, six documents complete, zero failed, zero restarts, worker disabled inactive, llama inactive, cleanup success; source tree 9771 files and 6442 directories; archive 173212283 bytes
+- Rollback：archive is additive and source tree retained unchanged; omit archive or preserve it for receiver dry-run; no local OCR or publication state changed
+- Unresolved：A shard and independent A lifecycle review remain required before paired receiver apply
+
+### 2026-07-18T19:20:11.536Z · verify · codex-root
+
+- Scope：Download and independently read back sealed B3 archive on local Mac
+- Resources：`curriculum-atlas-.cache-remote-ocr-offload-20260718-b3-final`
+- Evidence：archive SHA f0d05213, tree SHA 9d1947e6, run-status SHA 3afe10ca; zstd pass; 9696 portable files exact; 75 archived AppleDouble model-cache files, 33 extracted and 42 materialized as macOS metadata; all 42 are scoped cache noise excluded by runtime fingerprint policy; final citation false and receiver apply false
+- Rollback：remove only local ignored readback after paired receiver receipt exists; remote archive and source remain retained
+- Unresolved：do not apply B alone; wait for A exact archive and paired receiver dry-run
+
+### 2026-07-18T23:17:54.796Z · change · Codex-root
+
+- Scope：created-dedicated-local-SSH-key-for-authorized-inner-OCR-host-without-remote-install
+- Resources：`local-key-curriculum_ocr_dmitpro2_inner_ed25519`
+- Evidence：new-nonoverwriting-Ed25519-key-private-mode-0600-public-fingerprint-HVrd-Mnmgfw4s793IzXRp2J8G-93oNpR99iKdKa-OB8
+- Rollback：remove-only-the-new-dedicated-keypair-if-abandoned-after-confirming-it-was-never-authorized-remotely
+- Unresolved：remote-authorized_keys-unchanged-pending-A2-independent-review-and-hidden-password-interactive-install
+
+### 2026-07-18T23:19:09.460Z · change · Codex-root
+
+- Scope：pinned-authorized-inner-OCR-host-key-under-dedicated-local-alias-before-authentication
+- Resources：`local-known-hosts-alias-DMITPro2-inner-bdfz`
+- Evidence：live-outer-keyscan-and-existing-local-pin-and-new-alias-all-match-Ed25519-fingerprint-xiNrEyyKHiOKqV3xQxFfPrDk4Gk9tW4NfktYVkZkjr8
+- Rollback：ssh-keygen-remove-only-alias-DMITPro2-inner-bdfz-if-task-abandoned
+- Unresolved：no-inner-authentication-or-authorized_keys-change-yet
 
 </details>
 
@@ -4087,10 +5124,10 @@ Resources：`DMITPro2 outer jump host`、`DMITPro2 inner bdfz workstation SSH en
 
 </details>
 
-<details><summary><code>curriculum-ocr-b-r2-lineage-implementation-20260717</code> · 1 events · 2026-07-17T05:56:10.360Z → 2026-07-17T05:56:10.360Z</summary>
+<details><summary><code>curriculum-ocr-b-r2-lineage-implementation-20260717</code> · 4 events · 2026-07-17T05:56:10.360Z → 2026-07-18T05:30:46.735Z</summary>
 
 Agents：`/root/ocr_b_r2_lineage_implementation`
-Resources：`curriculum-atlas/scripts/lib/remote-ocr-local-snapshot.mjs`、`curriculum-atlas/scripts/ocr-pdf-paddle.py`、`curriculum-atlas/scripts/run-remote-ocr-offload.mjs`、`curriculum-atlas/scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas/tests/remote-ocr-offload-runner.test.mjs`、`curriculum-atlas/tests/remote-ocr-offload-receiver.test.mjs`、`curriculum-atlas/tests/test_ocr_pdf_paddle.py`、`curriculum-atlas/tests/ocr-pdf-paddle-microbatch.test.mjs`、`curriculum-atlas/tests/remote-ocr-reprocess-monitor.test.mjs`、`curriculum-atlas/package.json`
+Resources：`curriculum-atlas/scripts/lib/remote-ocr-local-snapshot.mjs`、`curriculum-atlas/scripts/ocr-pdf-paddle.py`、`curriculum-atlas/scripts/run-remote-ocr-offload.mjs`、`curriculum-atlas/scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas/tests/remote-ocr-offload-runner.test.mjs`、`curriculum-atlas/tests/remote-ocr-offload-receiver.test.mjs`、`curriculum-atlas/tests/test_ocr_pdf_paddle.py`、`curriculum-atlas/tests/ocr-pdf-paddle-microbatch.test.mjs`、`curriculum-atlas/tests/remote-ocr-reprocess-monitor.test.mjs`、`curriculum-atlas/package.json`、`curriculum-atlas-10-scoped-OCR-source-test-files`、`commit-c0e0358`、`curriculum-atlas-OCR-runner-receiver-tests`
 
 ### 2026-07-17T05:56:10.360Z · start · /root/ocr_b_r2_lineage_implementation
 
@@ -4100,12 +5137,36 @@ Resources：`curriculum-atlas/scripts/lib/remote-ocr-local-snapshot.mjs`、`curr
 - Rollback：Delete isolated /private/tmp worktree and branch or revert only eventual scoped commit; no remote rollback because no deploy or remote call is authorized
 - Unresolved：Implement audited seed contract and pass focused plus full local verification before commit
 
+### 2026-07-18T05:30:46.544Z · change · /root/ocr_b_r2_lineage_implementation
+
+- Scope：local-hash-bound-B-r2-seed-and-raw-predecessor-evidence-contract
+- Resources：`curriculum-atlas-10-scoped-OCR-source-test-files`、`commit-c0e0358`
+- Evidence：immutable-predecessor-controls-installed-marker-bound-and-receiver-independently-recomputed-from-raw-bytes-no-remote-state
+- Rollback：revert-c0e0358-or-omit-from-main
+- Unresolved：formal-real-B-r1-seed-not-yet-executed
+
+### 2026-07-18T05:30:46.646Z · verify · /root/ocr_b_r2_lineage_implementation
+
+- Scope：local-B-r2-lineage-adversarial-and-full-six-state-verification
+- Resources：`curriculum-atlas-OCR-runner-receiver-tests`
+- Evidence：focused-97-of-97-plus-Python-13-of-13-six-state-1259-to-3182-receiver-dry-run-valid-gitleaks-clean-diff-check-pass
+- Rollback：no-remote-rollback-local-commit-only
+- Unresolved：full-main-suite-to-be-run-by-parent
+
+### 2026-07-18T05:30:46.735Z · closeout · /root/ocr_b_r2_lineage_implementation
+
+- Scope：committed-local-B-r2-lineage-handoff
+- Resources：`commit-c0e0358`
+- Evidence：exactly-10-authorized-files-committed-worktree-clean-node-modules-task-symlink-removed
+- Rollback：git-revert-c0e0358
+- Unresolved：parent-must-cherry-pick-test-and-run-real-seed
+
 </details>
 
-<details><summary><code>curriculum-atlas-ops-docs-release-refresh-20260717</code> · 2 events · 2026-07-17T06:12:16.772Z → 2026-07-17T06:24:15.539Z</summary>
+<details><summary><code>curriculum-atlas-ops-docs-release-refresh-20260717</code> · 4 events · 2026-07-17T06:12:16.772Z → 2026-07-18T04:14:23.131Z</summary>
 
 Agents：`/root/ops_docs_release_refresh`
-Resources：`curriculum-atlas/CHANGELOG.md`、`curriculum-atlas/docs/deployment.md`、`curriculum-atlas/docs/operations.md`、`curriculum-atlas/docs/ai-handoff.md`、`curriculum-atlas/docs/data-model.md`、`curriculum-atlas/scripts/build-project-operations-ledger.mjs`、`curriculum-atlas/tests/project-operations-ledger.test.mjs`、`curriculum-atlas/docs/project-operations-ledger.md`
+Resources：`curriculum-atlas/CHANGELOG.md`、`curriculum-atlas/docs/deployment.md`、`curriculum-atlas/docs/operations.md`、`curriculum-atlas/docs/ai-handoff.md`、`curriculum-atlas/docs/data-model.md`、`curriculum-atlas/scripts/build-project-operations-ledger.mjs`、`curriculum-atlas/tests/project-operations-ledger.test.mjs`、`curriculum-atlas/docs/project-operations-ledger.md`、`curriculum-atlas docs`、`operations ledger generator`、`operations ledger tests`、`commit ab93beec7ff16b3a860ffb979e707d8fc447224c`、`eight delegated files`
 
 ### 2026-07-17T06:12:16.772Z · start · /root/ops_docs_release_refresh
 
@@ -4122,6 +5183,5652 @@ Resources：`curriculum-atlas/CHANGELOG.md`、`curriculum-atlas/docs/deployment.
 - Evidence：Removed stale current v7 v8 v9 D1-0004 and stable-key blockers; documented exact v10 Worker D1 corpus taxonomy R2 rollback and encrypted archive facts while keeping OCR at 6947 primary 7012 Vision zero accepted and B-r1 frozen 1259 of 3182; production visual remains gated on final owner event
 - Rollback：Revert only the isolated branch commit or delete the temporary worktree; no production Cloudflare OCR or canonical report state changed
 - Unresolved：Regenerate after final production browser D1 console and teardown verification event then run focused and repository checks before commit
+
+### 2026-07-18T04:14:23.048Z · verify · /root/ops_docs_release_refresh
+
+- Scope：Validate v10 operations documentation and deterministic ledger in isolated worktree
+- Resources：`curriculum-atlas docs`、`operations ledger generator`、`operations ledger tests`
+- Evidence：Focused ledger tests 3 of 3 pass; npm run check pass; npm run build pass; full Node suite 381 of 381 pass; generator and test syntax checks pass; git diff check pass; staged gitleaks 8.30.1 scanned 119670 bytes with no leaks
+- Rollback：Revert commit ab93beec7ff16b3a860ffb979e707d8fc447224c or omit it from main; no production or remote resource changed
+- Unresolved：OCR accepted remains zero and concept observations end in 2020; parent must merge only after reviewing concurrent OCR work
+
+### 2026-07-18T04:14:23.131Z · closeout · /root/ops_docs_release_refresh
+
+- Scope：Hand off committed v10 operations documentation from isolated worktree
+- Resources：`commit ab93beec7ff16b3a860ffb979e707d8fc447224c`、`eight delegated files`
+- Evidence：Exactly eight owned files committed; branch worktree clean; task-created untracked node_modules symlink was proven exact and removed without touching target; production QA event 2026-07-17T06:35:37.437Z and fail-closed OCR caveats are documented
+- Rollback：Revert only commit ab93beec7ff16b3a860ffb979e707d8fc447224c after review; no Cloudflare D1 R2 Worker OCR host or canonical report mutation occurred
+- Unresolved：Parent must cherry-pick or rebase the commit, regenerate the ledger after later action-log events, and keep OCR quality closure active
+
+</details>
+
+<details><summary><code>curriculum-ocr-single-shard-monitor-20260717</code> · 4 events · 2026-07-18T05:16:26.791Z → 2026-07-18T05:48:46.682Z</summary>
+
+Agents：`/root/ocr_single_shard_monitor`
+Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-single-shard-monitor.test.mjs`
+
+### 2026-07-18T05:16:26.791Z · start · /root/ocr_single_shard_monitor
+
+- Scope：Local-only B-r2 single-shard fail-closed monitor in an isolated worktree; own only two new delegated files; no remote host, service, production, package, or existing monitor mutation
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：Main c90567a clean and ahead one docs commit; active lineage agent owns ten disjoint existing files in a separate worktree; no overlapping source ownership
+- Rollback：Remove isolated worktree and branch or revert only the eventual two-file commit; no remote rollback because remote access and deployment are excluded
+- Unresolved：Implement exact B2-to-B1 lineage and service/resource/hash/stall gates, then pass focused full check build and gitleaks before commit
+
+### 2026-07-18T05:47:56.980Z · change · /root/ocr_single_shard_monitor
+
+- Scope：curriculum-atlas isolated worktree; add fail-closed read-only B2 single-shard monitor and deterministic tests only
+- Resources：`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：strict B1 anchor recomputation and B2 seed identity sidecar artifact service resource and privacy invariants implemented
+- Rollback：revert the dedicated monitor commit
+- Unresolved：none
+
+### 2026-07-18T05:48:28.705Z · verify · /root/ocr_single_shard_monitor
+
+- Scope：curriculum-atlas B2 single-shard monitor verification
+- Resources：`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：monitor tests 10 of 10; merged OCR chain tests 104 of 104; full suite 407 of 407; npm check and build passed; gitleaks 8.30.1 found no leaks in either new file; staged diff check clean
+- Rollback：revert the dedicated monitor commit
+- Unresolved：remote B2 observation and installation remain parent-owned
+
+### 2026-07-18T05:48:46.682Z · closeout · /root/ocr_single_shard_monitor
+
+- Scope：curriculum-atlas isolated B2 monitor worktree completed in commit 625453d5afac07698bc5b7b18c5ac2d2bf0c18d9
+- Resources：`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：clean worktree; exactly two tracked files; all focused merged full check build and leak validations passed
+- Rollback：git revert 625453d5afac07698bc5b7b18c5ac2d2bf0c18d9
+- Unresolved：parent must cherry-pick and supply actual canonical B1 anchor values before read-only remote monitoring
+
+</details>
+
+<details><summary><code>curriculum-ocr-a-r2-timeout-recovery-20260718</code> · 4 events · 2026-07-18T05:32:04.572Z → 2026-07-18T06:54:30.998Z</summary>
+
+Agents：`/root/ocr_a_r2_design`
+Resources：`curriculum-atlas/scripts/run-remote-ocr-offload.mjs`、`curriculum-atlas/scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas/tests/remote-ocr-offload-runner.test.mjs`、`curriculum-atlas/tests/remote-ocr-offload-receiver.test.mjs`、`scripts/run-remote-ocr-offload.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`tests/remote-ocr-offload-runner.test.mjs`、`tests/remote-ocr-offload-receiver.test.mjs`
+
+### 2026-07-18T05:32:04.572Z · start · /root/ocr_a_r2_design
+
+- Scope：Implement local-only A-r2 timeout-only attempt-six grant from exact main be854e4 in an isolated worktree
+- Resources：`curriculum-atlas/scripts/run-remote-ocr-offload.mjs`、`curriculum-atlas/scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas/tests/remote-ocr-offload-runner.test.mjs`、`curriculum-atlas/tests/remote-ocr-offload-receiver.test.mjs`
+- Evidence：Parent assigned exact four-file ownership; prior B-r2 owner is closed; main is clean at be854e4; remote OCR and publication resources are excluded
+- Rollback：Delete only the isolated worktree and branch before handoff, or revert the final task commit after handoff; no remote state is in scope
+- Unresolved：Need implement exact timeout grant, pass focused/full/check/build/gitleaks, and commit before handoff
+
+### 2026-07-18T05:57:59.736Z · change · /root/ocr_a_r2_design
+
+- Scope：local-timeout-only-A-r2-seed-and-receiver-contract
+- Resources：`curriculum-atlas/scripts/run-remote-ocr-offload.mjs`、`curriculum-atlas/scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas/tests/remote-ocr-offload-runner.test.mjs`、`curriculum-atlas/tests/remote-ocr-offload-receiver.test.mjs`
+- Evidence：exact-four-document-immutable-grant-binds-A-r1-quarantine-controls-logs-frontiers-and-one-attempt-6-ceiling
+- Rollback：revert-the-independent-A-r2-commit-before-any-remote-use
+- Unresolved：verification-and-independent-commit-pending
+
+### 2026-07-18T06:53:35.272Z · verify · /root/ocr_a_r2_design
+
+- Scope：local-A-r2-timeout-recovery-verification
+- Resources：`scripts/run-remote-ocr-offload.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`tests/remote-ocr-offload-runner.test.mjs`、`tests/remote-ocr-offload-receiver.test.mjs`
+- Evidence：runner33 receiver62 focused11 exactA1568to3182 union6364 check build python13 gitleaks-no-leaks full407pass2environment-only-release-fail main-release9pass final-bigint-lightweight-pass
+- Rollback：revert independent commit before remote use
+- Unresolved：remote ledger and grant must be provisioned before use; no remote write deployment or OCR start performed
+
+### 2026-07-18T06:54:30.998Z · closeout · /root/ocr_a_r2_design
+
+- Scope：local-A-r2-timeout-recovery-commit
+- Resources：`scripts/run-remote-ocr-offload.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`tests/remote-ocr-offload-runner.test.mjs`、`tests/remote-ocr-offload-receiver.test.mjs`
+- Evidence：commit ae74f40f35ffd4b56463e7d0a7e3655d85c92fc0 on codex/ocr-a-r2-timeout-recovery-20260718; worktree clean; reviewer no findings
+- Rollback：git revert ae74f40f35ffd4b56463e7d0a7e3655d85c92fc0
+- Unresolved：before actual A-r2 provision a dedicated execution-host ledger, bind its realpath device inode into a newly generated signed grant, and pass --timeout-recovery-ledger; no remote write deployment or OCR start performed
+
+</details>
+
+<details><summary><code>curriculum-ocr-single-shard-cache-fix-20260717</code> · 4 events · 2026-07-18T05:53:52.922Z → 2026-07-18T06:04:06.178Z</summary>
+
+Agents：`/root/ocr_single_shard_monitor`
+Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+
+### 2026-07-18T05:53:52.922Z · start · /root/ocr_single_shard_monitor
+
+- Scope：Local-only P0 monitor cache contract repair in isolated worktree at main 63e55c0; own only monitor and its test; no remote writes
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：real prestart rejected required top-level paddlex-cache; parent explicitly delegated same two files; main clean at 63e55c0
+- Rollback：remove isolated branch or revert only the dedicated cache-fix commit
+- Unresolved：must bind cache path and audited layout hash without making two-minute monitor prohibitively expensive
+
+### 2026-07-18T06:03:28.606Z · change · /root/ocr_single_shard_monitor
+
+- Scope：Repair exact B1 and B2 root contracts and bind audited PaddleX cache trees in the single-shard monitor only
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：only paddlex-cache added to both exact root allowlists; each canonical own-root path and real directory enforced; runner fingerprint recomputed for both identities and cross-compared; adversarial fixtures added
+- Rollback：revert the dedicated cache-fix commit
+- Unresolved：none in local implementation; parent owns remote installation and prestart
+
+### 2026-07-18T06:03:48.671Z · verify · /root/ocr_single_shard_monitor
+
+- Scope：Local P0 single-shard monitor cache-contract verification
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：focused 13 of 13; merged OCR chain 107 of 107; full suite 410 of 410; npm check and build passed; syntax and staged diff clean; gitleaks no leaks
+- Rollback：revert the dedicated cache-fix commit
+- Unresolved：remote read-only prestart remains parent-owned
+
+### 2026-07-18T06:04:06.178Z · closeout · /root/ocr_single_shard_monitor
+
+- Scope：P0 monitor cache-contract repair committed as dcec258df184ae3c05771d07551b7b0407cf048e from main 63e55c0
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：clean isolated worktree and exactly two modified tracked files with all requested validations green
+- Rollback：git revert dcec258df184ae3c05771d07551b7b0407cf048e
+- Unresolved：parent must cherry-pick then rerun real read-only prestart before any worker start
+
+</details>
+
+<details><summary><code>curriculum-ocr-single-shard-classification-fix-20260717</code> · 4 events · 2026-07-18T06:13:50.944Z → 2026-07-18T06:18:36.143Z</summary>
+
+Agents：`/root/ocr_single_shard_monitor`
+Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+
+### 2026-07-18T06:13:50.944Z · start · /root/ocr_single_shard_monitor
+
+- Scope：Local-only P0 B2 status classification repair from main ee21a94 in isolated worktree; own only monitor and its test; no remote writes
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：real prestart passes strict lineage and cache inspection but seeded interrupted backlog and stale stopped timestamp expose state-machine mismatch
+- Rollback：remove isolated branch or revert only dedicated classification commit
+- Unresolved：must preserve all failed quarantined page-failure worker and active-stall fail-closed gates
+
+### 2026-07-18T06:17:55.004Z · change · /root/ocr_single_shard_monitor
+
+- Scope：Repair B2 interrupted-backlog and no-progress classification semantics only
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：strict worker state now requires active running and positive safe PID; interrupted backlog is recoverable only while strict worker runs; stall applies only to incomplete strict-active execution; all failure and quarantine gates unchanged
+- Rollback：revert dedicated classification commit
+- Unresolved：none in local implementation; parent owns real prestart and worker start
+
+### 2026-07-18T06:18:19.162Z · verify · /root/ocr_single_shard_monitor
+
+- Scope：Local B2 classification regression verification
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：focused 14 of 14; merged OCR chain 108 of 108; full suite 411 of 411; npm check and build passed; syntax staged diff and gitleaks clean
+- Rollback：revert dedicated classification commit
+- Unresolved：remote validation remains parent-owned
+
+### 2026-07-18T06:18:36.143Z · closeout · /root/ocr_single_shard_monitor
+
+- Scope：P0 B2 monitor classification repair committed as ee836cb99bbd3a56ce9b06a54af41adbc1f21421 from main ee21a94
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：clean isolated worktree; exactly two modified tracked files; all requested local verification green
+- Rollback：git revert ee836cb99bbd3a56ce9b06a54af41adbc1f21421
+- Unresolved：parent must cherry-pick and rerun real read-only prestart before worker execution
+
+</details>
+
+<details><summary><code>curriculum-ocr-single-shard-counts-fix-20260717</code> · 4 events · 2026-07-18T06:27:46.594Z → 2026-07-18T06:51:23.793Z</summary>
+
+Agents：`/root/ocr_single_shard_monitor`、`codex-ocr-single-shard-monitor`
+Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+
+### 2026-07-18T06:27:46.594Z · start · /root/ocr_single_shard_monitor
+
+- Scope：Local-only B2 active-run derived-count classification repair from main d201566; own only monitor and its test; no remote writes
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：real active runner serializes document status before refreshing aggregate counts; parent stopped worker gracefully and disabled timer before delegation
+- Rollback：remove isolated branch or revert only dedicated counts-fix commit
+- Unresolved：keep B1 strict and finished settled completion gates fail-closed while allowing only active transient B2 count lag
+
+### 2026-07-18T06:50:56.021Z · change · codex-ocr-single-shard-monitor
+
+- Scope：Make the single-shard observer derive exact B2 counts from live document progress and validate only the runner exact restart normalization while keeping B1 and settled flags fail-closed.
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：Two-file local worktree diff only; no remote host service or OCR output mutation.
+- Rollback：Revert the task commit after commit; B2 worker remains stopped under parent ownership.
+- Unresolved：None in this bounded monitor patch.
+
+### 2026-07-18T06:50:56.113Z · verify · codex-ocr-single-shard-monitor
+
+- Scope：Verify the two-file single-shard monitor patch.
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：Focused 25 of 25 pass; OCR chain 119 of 119 pass; sequential build then full 422 of 422 pass; TypeScript check pass; node syntax and diff checks pass; gitleaks no findings in each changed file.
+- Rollback：Revert the task commit after commit; no production rollback required.
+- Unresolved：Full tests require build output first because release-manifest tests inspect dist; generated scaffolding removed after verification.
+
+### 2026-07-18T06:51:23.793Z · closeout · codex-ocr-single-shard-monitor
+
+- Scope：Commit the bounded two-file single-shard observer correction.
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：Commit e4b7b82630b6fc8848afefa1a88a2a568ed3a19f; worktree clean; focused 25, OCR 119, full 422, build and check all pass.
+- Rollback：git revert e4b7b82630b6fc8848afefa1a88a2a568ed3a19f; no remote deployment was performed.
+- Unresolved：Parent must cherry-pick or merge and perform any remote monitor rollout; B2 OCR worker remains stopped.
+
+</details>
+
+<details><summary><code>curriculum-ocr-alert-only-20260718</code> · 4 events · 2026-07-18T07:31:20.381Z → 2026-07-18T07:56:15.880Z</summary>
+
+Agents：`/root/ocr_alert_only`
+Resources：`curriculum-atlas/scripts/notify-remote-ocr-monitor-alert.mjs`、`curriculum-atlas/ops/systemd/curriculum-ocr-reprocess-b-r2-monitor.service.d/alert-only.conf`、`curriculum-atlas/ops/systemd/curriculum-ocr-monitor-alert@.service`、`curriculum-atlas/tests/remote-ocr-monitor-alert.test.mjs`、`curriculum-atlas/scripts/notify-remote-ocr-single-shard-monitor.mjs`、`curriculum-atlas/ops/systemd/curriculum-ocr-monitor-alert.conf.example`、`curriculum-atlas/ops/systemd/curriculum-ocr-reprocess-b-r3-monitor.service.d/alert-only.conf`、`curriculum-atlas-alert-layer-five-new-files`、`curriculum-atlas-full-Node-test-suite`、`curriculum-atlas-commit-30ea29bda4e0732fc2843e0903c041dcd73939d9`
+
+### 2026-07-18T07:31:20.381Z · start · /root/ocr_alert_only
+
+- Scope：Local-only fail-closed OCR monitor alert layer using new isolated notifier systemd templates and tests; no remote deploy service control secret access or Telegram send
+- Resources：`curriculum-atlas/scripts/notify-remote-ocr-monitor-alert.mjs`、`curriculum-atlas/ops/systemd/curriculum-ocr-reprocess-b-r2-monitor.service.d/alert-only.conf`、`curriculum-atlas/ops/systemd/curriculum-ocr-monitor-alert@.service`、`curriculum-atlas/tests/remote-ocr-monitor-alert.test.mjs`
+- Evidence：main f9aeb47 clean; active parent owns remote OCR and existing lineage files; new file ownership is disjoint
+- Rollback：revert only the dedicated local alert-layer commit; no remote rollback because remote mutation is excluded
+- Unresolved：implement arm-after-two-exit10 binding dedupe retry generic execution failure and isolated dummy sender tests
+
+### 2026-07-18T07:55:27.813Z · change · /root/ocr_alert_only
+
+- Scope：Add local-only reusable B-r3 alert layer with dedicated non-secret lineage config fixed external state and BDFZ-only credential path
+- Resources：`curriculum-atlas/scripts/notify-remote-ocr-single-shard-monitor.mjs`、`curriculum-atlas/ops/systemd/curriculum-ocr-monitor-alert.conf.example`、`curriculum-atlas/ops/systemd/curriculum-ocr-monitor-alert@.service`、`curriculum-atlas/ops/systemd/curriculum-ocr-reprocess-b-r3-monitor.service.d/alert-only.conf`、`curriculum-atlas/tests/remote-ocr-monitor-alert.test.mjs`
+- Evidence：two-distinct-exit10 arming binds run boot worker InvocationID monitor SHA; exit0 and exit10 never send; disarmed exit12 suppresses; armed issues dedupe and retry; stale missing and precheck evidence maps only to MONITOR_EXECUTION_FAILED; no OCR stop action
+- Rollback：revert only the dedicated alert-layer commit; no remote state exists
+- Unresolved：parent must populate exact post-seed B-r3 run ID and monitor SHA provision audited bdfz_bot credentials and deploy preview-style only after review
+
+### 2026-07-18T07:55:37.052Z · verify · /root/ocr_alert_only
+
+- Scope：Local alert state machine systemd contract full regression and staged secret scan
+- Resources：`curriculum-atlas-alert-layer-five-new-files`、`curriculum-atlas-full-Node-test-suite`
+- Evidence：focused alert 10 of 10 release manifest 9 of 9 full dot suite all pass npm check and build exit0 staged diff check clean gitleaks 45.08KB no leaks
+- Rollback：no production rollback local verification only
+- Unresolved：systemd-analyze and live send remain intentionally deferred to parent deployment gate because this task forbids remote and secret actions
+
+### 2026-07-18T07:56:15.880Z · closeout · /root/ocr_alert_only
+
+- Scope：Committed local-only reusable B-r3 OCR monitor alert layer without push remote deploy credential access or Telegram send
+- Resources：`curriculum-atlas-commit-30ea29bda4e0732fc2843e0903c041dcd73939d9`
+- Evidence：exactly five new files committed worktree clean alert10 release9 fullNode check build and gitleaks clean
+- Rollback：git revert 30ea29bda4e0732fc2843e0903c041dcd73939d9 before deployment or disable remove only the new alert unit and B-r3 drop-in after deployment while preserving OCR data
+- Unresolved：parent owns push B-r3 exact config credential provisioning systemd-analyze live arming two healthy polls and bounded delivery canary
+
+</details>
+
+<details><summary><code>curriculum-ocr-a-r2-timeout-recovery-preparer-20260718</code> · 4 events · 2026-07-18T07:33:22.781Z → 2026-07-18T07:57:58.333Z</summary>
+
+Agents：`/root/a_grant_preparer`
+Resources：`curriculum-atlas/scripts/run-remote-ocr-offload.mjs`、`curriculum-atlas/scripts/prepare-timeout-recovery-grant.mjs`、`curriculum-atlas/tests/remote-ocr-timeout-recovery-preparer.test.mjs`、`curriculum-atlas/package.json`、`curriculum-atlas-preparer-tests`、`curriculum-atlas-remote-OCR-tests`、`curriculum-atlas-build-check`、`gitleaks`、`curriculum-atlas-commit-61a048099cb38c8892c241257df5530088624008`
+
+### 2026-07-18T07:33:22.781Z · start · /root/a_grant_preparer
+
+- Scope：local-only-A-r2-timeout-recovery-ledger-and-grant-preparer-in-isolated-worktree
+- Resources：`curriculum-atlas/scripts/run-remote-ocr-offload.mjs`、`curriculum-atlas/scripts/prepare-timeout-recovery-grant.mjs`、`curriculum-atlas/tests/remote-ocr-timeout-recovery-preparer.test.mjs`、`curriculum-atlas/package.json`
+- Evidence：main-f9aeb47-clean-remote-A1-read-only-log-gate-parent-proven
+- Rollback：remove-isolated-worktree-or-revert-dedicated-commit
+- Unresolved：no-remote-write-no-deploy-no-monitor-or-receiver-touch
+
+### 2026-07-18T07:56:35.027Z · change · /root/a_grant_preparer
+
+- Scope：add-local-production-safe-A-r2-timeout-recovery-ledger-and-grant-preparer
+- Resources：`curriculum-atlas/scripts/run-remote-ocr-offload.mjs`、`curriculum-atlas/scripts/prepare-timeout-recovery-grant.mjs`、`curriculum-atlas/tests/remote-ocr-timeout-recovery-preparer.test.mjs`
+- Evidence：default-preview-explicit-apply-random32-nonce-O_EXCL-0700-0600-fsync-exact-idempotence-safe-sidecar-repair-direct-predecessor-state-page-log-inspection
+- Rollback：revert-dedicated-preparer-commit
+- Unresolved：no-remote-execution-or-deployment
+
+### 2026-07-18T07:57:18.709Z · verify · /root/a_grant_preparer
+
+- Scope：local-preparer-runner-and-OCR-chain-verification
+- Resources：`curriculum-atlas-preparer-tests`、`curriculum-atlas-remote-OCR-tests`、`curriculum-atlas-build-check`、`gitleaks`
+- Evidence：focused17of17-runner12of12-monitor-repair-preparer66of66-full-OCR-chain-named-tests-pass-build-pass-tsc-pass-gitleaks54840B-zero-leaks-full-suite-only-two-known-isolated-worktree-source-root-release-manifest-environment-failures
+- Rollback：revert-dedicated-preparer-commit
+- Unresolved：parent-should-run-canonical-full-suite-after-cherry-pick-where-source-roots-exist
+
+### 2026-07-18T07:57:58.333Z · closeout · /root/a_grant_preparer
+
+- Scope：committed-local-A-r2-timeout-recovery-preparer-and-released-runner-ownership
+- Resources：`curriculum-atlas-commit-61a048099cb38c8892c241257df5530088624008`
+- Evidence：clean-isolated-worktree-three-owned-files-no-push-no-deploy-no-remote-write
+- Rollback：git-revert-61a048099cb38c8892c241257df5530088624008-after-parent-cherry-pick
+- Unresolved：canonical-repo-full-suite-needed-after-cherry-pick-because-two-release-manifest-tests-require-host-source-roots
+
+</details>
+
+<details><summary><code>curriculum-ocr-p1-receiver-monitor-20260718</code> · 5 events · 2026-07-18T07:51:34.725Z → 2026-07-18T08:16:37.887Z</summary>
+
+Agents：`/root/b_r3_lineage_audit`
+Resources：`curriculum-atlas/scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-offload-receiver.test.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`、`curriculum-atlas@d8db7b97d74bdab9b82c4623404734878ede26a0`
+
+### 2026-07-18T07:51:34.725Z · start · /root/b_r3_lineage_audit
+
+- Scope：Local-only exact single-generation legacy-p4-to-p1 receiver and single-shard monitor contract; preserve schema-v1 behavior
+- Resources：`curriculum-atlas/scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-offload-receiver.test.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：Main f9aeb47; four owned files clean; alert-layer dirty files belong to disjoint sibling; root assigned receiver-monitor ownership
+- Rollback：Revert only eventual scoped commit or restore four task-owned files; no remote or production mutation
+- Unresolved：Implement exact schema-v2 p4-to-p1 contract and adversarial tests; runner remains owned by a_grant_preparer; no push or deploy
+
+### 2026-07-18T08:14:18.509Z · change · /root/b_r3_lineage_audit
+
+- Scope：Implement exact single-generation p4-to-p1 receiver and monitor acceptance while preserving schema-v1 B1-to-B2 behavior
+- Resources：`curriculum-atlas/scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-offload-receiver.test.mjs`、`curriculum-atlas/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：Exact schema-v2 transition, recomputed attestation and runtime hashes, final union equality, p1 service lifecycle, and repeatable inactive-worker checks implemented; no remote mutation
+- Rollback：Revert the eventual task commit; no production or remote state changed
+- Unresolved：Full repository gates remain for post-commit verification
+
+### 2026-07-18T08:16:27.107Z · closeout · /root/b_r3_lineage_audit
+
+- Scope：Close disjoint receiver and monitor implementation at committed source
+- Resources：`curriculum-atlas@d8db7b97d74bdab9b82c4623404734878ede26a0`
+- Evidence：Exact four-file commit is clean and handed to root with receiver SHA 7450364198aa71e0b811a33b5dd73595297517dc91817b49eb3e92d460f917e9 and monitor SHA 17448e31cf8ec77fd3a026d255aa3845b581ad91382de8eccccd9421d311e7ef
+- Rollback：git revert d8db7b97d74bdab9b82c4623404734878ede26a0; no push or deployment performed by this task
+- Unresolved：Integration deployment and live service verification remain with root
+
+### 2026-07-18T08:16:27.130Z · verify · /root/b_r3_lineage_audit
+
+- Scope：Verify exact p4-to-p1 receiver and monitor transition controls
+- Resources：`curriculum-atlas@d8db7b97d74bdab9b82c4623404734878ede26a0`
+- Evidence：Focused receiver and single-shard monitor suites pass 94 of 94; OCR Node and Python test command exits zero; syntax and diff checks pass; staged gitleaks reports no leaks
+- Rollback：Revert d8db7b97d74bdab9b82c4623404734878ede26a0; no remote state changed
+- Unresolved：Root agent owns integration deployment and live B-r3 verification
+
+### 2026-07-18T08:16:37.887Z · closeout · /root/b_r3_lineage_audit
+
+- Scope：Final closeout after verification entry
+- Resources：`curriculum-atlas@d8db7b97d74bdab9b82c4623404734878ede26a0`
+- Evidence：Focused 94 of 94 and OCR Node plus Python suites pass; source worktree clean; root handoff complete
+- Rollback：git revert d8db7b97d74bdab9b82c4623404734878ede26a0; no push or deployment performed
+- Unresolved：Root owns integration deployment and live service checks
+
+</details>
+
+<details><summary><code>curriculum-ocr-alert-hardening-20260718</code> · 4 events · 2026-07-18T08:13:52.331Z → 2026-07-18T08:32:18.094Z</summary>
+
+Agents：`/root/alert_hardening`
+Resources：`curriculum-atlas-commit-30ea29b`、`alert-five-files`、`alert-focused-tests`、`alert-notifier`、`alert-systemd-templates`、`remote-ocr-monitor-alert-tests`、`docs-ocr-monitor-alerting`、`alert-six-file-staged-diff`、`OCR-Node-suite`、`TypeScript`、`dist-build`、`gitleaks`、`curriculum-atlas-commit-39c1e6deddcf538a6b17f401a2cd1421dd4e0029`
+
+### 2026-07-18T08:13:52.331Z · start · /root/alert_hardening
+
+- Scope：Isolated-worktree repair of committed OCR monitor alert layer only; no shared-main remote production Telegram credential or OCR mutations
+- Resources：`curriculum-atlas-commit-30ea29b`、`alert-five-files`、`alert-focused-tests`
+- Evidence：shared-main-dirty-owned-by-B-r3-agent-base-commit-30ea29b-exists-task-scope-disjoint
+- Rollback：remove isolated worktree and revert eventual dedicated hardening commit
+- Unresolved：implement accepted P0-P3 findings and verify locally before handoff
+
+### 2026-07-18T08:26:04.258Z · change · /root/alert_hardening
+
+- Scope：Repair local OCR alert state machine templates tests and dedicated contract documentation in isolated worktree
+- Resources：`alert-notifier`、`alert-systemd-templates`、`remote-ocr-monitor-alert-tests`、`docs-ocr-monitor-alerting`
+- Evidence：schema-v2-binding-adds-worker-unit-null-worker-exact-receipt-recovery-bounded-kernel-flock-immutable-pending-envelope-recovery-epoch-visible-fingerprint-correct-workspace-script-path
+- Rollback：revert only dedicated hardening commit based on 30ea29b; no remote state exists
+- Unresolved：run full OCR tests check build gitleaks and review final diff
+
+### 2026-07-18T08:31:40.030Z · verify · /root/alert_hardening
+
+- Scope：Local alert hardening adversarial focused OCR build type and secret-scan verification
+- Resources：`alert-six-file-staged-diff`、`OCR-Node-suite`、`TypeScript`、`dist-build`、`gitleaks`
+- Evidence：focused-alert-16of16-full-OCR-252-pass-1-cache-skip-0-fail-duration110415ms-build-pass-tsc-pass-staged-diff-check-pass-gitleaks-24699B-zero-leaks
+- Rollback：revert eventual dedicated hardening commit; no production rollback needed
+- Unresolved：release-manifest-isolated-worktree-still-has-two-known-host-source-root-environment-failures-parent-canonical-run-required-after-integration
+
+### 2026-07-18T08:32:18.094Z · closeout · /root/alert_hardening
+
+- Scope：Commit isolated local OCR monitor alert hardening and release file ownership to parent
+- Resources：`curriculum-atlas-commit-39c1e6deddcf538a6b17f401a2cd1421dd4e0029`
+- Evidence：clean-isolated-worktree-six-files-focused16-fullOCR252pass1skip-build-tsc-diff-and-postcommit-gitleaks-clean-no-push-no-remote-write
+- Rollback：git revert 39c1e6deddcf538a6b17f401a2cd1421dd4e0029 after parent integration or omit commit
+- Unresolved：parent-must-cherry-pick-after-current-main-owners-close-then-run-canonical-suite-systemd-analyze-remote-preflight-two-healthy-arm-cycles-and-bounded-Telegram-canary
+
+</details>
+
+<details><summary><code>curriculum-ocr-grant-runner-hardening-20260718</code> · 4 events · 2026-07-18T08:16:02.350Z → 2026-07-18T09:46:11.752Z</summary>
+
+Agents：`/root/grant_runner_hardening`
+Resources：`curriculum-atlas:scripts/run-remote-ocr-offload.mjs`、`curriculum-atlas:scripts/prepare-timeout-recovery-grant.mjs`、`curriculum-atlas:tests/remote-ocr-offload-runner.test.mjs`、`curriculum-atlas:tests/remote-ocr-timeout-recovery-preparer.test.mjs`、`curriculum-atlas:runner-preparer-provisioner-tests-doc`、`curriculum-atlas:commit-f3619aac7a8de29511b4bac47d1467644c83abf6`
+
+### 2026-07-18T08:16:02.350Z · start · /root/grant_runner_hardening
+
+- Scope：Isolated-worktree-only hardening of timeout recovery grant authority and exact p4-to-p1 runner schema-v2; shared main and all remote OCR state excluded
+- Resources：`curriculum-atlas:scripts/run-remote-ocr-offload.mjs`、`curriculum-atlas:scripts/prepare-timeout-recovery-grant.mjs`、`curriculum-atlas:tests/remote-ocr-offload-runner.test.mjs`、`curriculum-atlas:tests/remote-ocr-timeout-recovery-preparer.test.mjs`
+- Evidence：Base commit 61a048099cb38c8892c241257df5530088624008; receiver-monitor reference d8db7b97d74bdab9b82c4623404734878ede26a0; shared main remains owned by root
+- Rollback：Delete isolated worktree or revert task-scoped commits; no remote mutation or deployment
+- Unresolved：Implement five grant-review controls plus exact single-generation schema-v2 and run full validation
+
+### 2026-07-18T09:45:14.781Z · change · /root/grant_runner_hardening
+
+- Scope：isolated-worktree-timeout-recovery-authority-runner-schema-v2-hardening
+- Resources：`curriculum-atlas:runner-preparer-provisioner-tests-doc`
+- Evidence：exact-p4-to-p1-argv-OCR-lineage-structured-incidents-deterministic-issuance-no-replace-publication-self-contained-resume
+- Rollback：revert-dedicated-local-commit-after-cherry-pick-or-delete-isolated-worktree
+- Unresolved：receiver-monitor-consumer-integration-owned-by-root-no-remote-or-production-mutation
+
+### 2026-07-18T09:46:11.647Z · verify · /root/grant_runner_hardening
+
+- Scope：local-regression-security-and-build-verification
+- Resources：`curriculum-atlas:commit-f3619aac7a8de29511b4bac47d1467644c83abf6`
+- Evidence：npm-test-481-of-481-focused-timeout-suite-72-of-72-python-13-of-13-tsc-build-diff-check-and-gitleaks-zero
+- Rollback：git-revert-f3619aac7a8de29511b4bac47d1467644c83abf6-after-integration
+- Unresolved：receiver-monitor-full-schema-v2-consumer-E2E-remains-owned-by-root
+
+### 2026-07-18T09:46:11.752Z · closeout · /root/grant_runner_hardening
+
+- Scope：committed-isolated-worktree-handoff-only
+- Resources：`curriculum-atlas:commit-f3619aac7a8de29511b4bac47d1467644c83abf6`
+- Evidence：exact-seven-file-commit-clean-worktree-no-push-no-deploy-no-remote-mutation
+- Rollback：cherry-pick-can-be-aborted-or-dedicated-commit-reverted
+- Unresolved：root-must-integrate-receiver-monitor-issuance-and-incident-validation-before-remote-run
+
+</details>
+
+<details><summary><code>curriculum-ocr-b3-completion-cleanup-20260718</code> · 4 events · 2026-07-18T09:33:13.556Z → 2026-07-18T10:01:51.471Z</summary>
+
+Agents：`/root/b3_completion_cleanup`
+Resources：`curriculum-atlas:scripts/curriculum-ocr-b3-completion-cleanup.mjs`、`curriculum-atlas:tests/remote-ocr-b3-completion-cleanup.test.mjs`、`curriculum-atlas:ops/systemd/curriculum-ocr-reprocess-b-r3-cleanup.service`、`curriculum-atlas:scripts/cleanup-remote-ocr-completion.mjs`、`curriculum-atlas:tests/remote-ocr-completion-cleanup.test.mjs`、`curriculum-atlas:ops/systemd/curriculum-ocr-reprocess-b-r3-cleanup.conf.example`、`curriculum-atlas-commit-3f12adc9f2a6cfd6c86413165222576edb571063`
+
+### 2026-07-18T09:33:13.556Z · start · /root/b3_completion_cleanup
+
+- Scope：local-only-B3-completion-cleanup-verifier-in-isolated-worktree-based-on-ba358d6
+- Resources：`curriculum-atlas:scripts/curriculum-ocr-b3-completion-cleanup.mjs`、`curriculum-atlas:tests/remote-ocr-b3-completion-cleanup.test.mjs`、`curriculum-atlas:ops/systemd/curriculum-ocr-reprocess-b-r3-cleanup.service`
+- Evidence：main-ba358d6-clean-task-files-new-and-disjoint
+- Rollback：remove-isolated-worktree-or-revert-dedicated-commit
+- Unresolved：no-shared-main-no-remote-no-alert-runner-receiver-monitor-mutation
+
+### 2026-07-18T09:55:58.069Z · change · /root/b3_completion_cleanup
+
+- Scope：add-local-fail-closed-B3-completion-verifier-and-bounded-lifecycle-flock-template
+- Resources：`curriculum-atlas:scripts/cleanup-remote-ocr-completion.mjs`、`curriculum-atlas:tests/remote-ocr-completion-cleanup.test.mjs`、`curriculum-atlas:ops/systemd/curriculum-ocr-reprocess-b-r3-cleanup.service`、`curriculum-atlas:ops/systemd/curriculum-ocr-reprocess-b-r3-cleanup.conf.example`
+- Evidence：two-identical-owner-mode0600-hash-bound-status-reads-two-identical-systemd260-CLD_EXITED1-worker-probes-disable-verify-stop-final-verify
+- Rollback：revert-eventual-dedicated-commit
+- Unresolved：parent-materializes-template-and-runs-remote-systemd-analyze-before-install
+
+### 2026-07-18T10:01:51.443Z · verify · /root/b3_completion_cleanup
+
+- Scope：verify-fail-closed-B3-completion-cleanup-and-systemd-lifecycle-template
+- Resources：`curriculum-atlas-commit-3f12adc9f2a6cfd6c86413165222576edb571063`
+- Evidence：focused27of27-integration74of74-tsc-build-syntax-diff-check-pass-gitleaks-one-commit-38812B-zero-leaks-full-suite-only-two-known-isolated-source-root-release-manifest-failures
+- Rollback：git-revert-3f12adc9f2a6cfd6c86413165222576edb571063
+- Unresolved：canonical-main-full-suite-and-remote-systemd-analyze-required-after-parent-cherry-pick
+
+### 2026-07-18T10:01:51.471Z · closeout · /root/b3_completion_cleanup
+
+- Scope：commit-four-file-local-only-B3-completion-cleanup-verifier-and-release-ownership
+- Resources：`curriculum-atlas-commit-3f12adc9f2a6cfd6c86413165222576edb571063`
+- Evidence：clean-isolated-worktree-parent-ba358d6-no-node_modules-symlink-no-shared-main-remote-or-candidate-bundle-write
+- Rollback：git-revert-3f12adc9f2a6cfd6c86413165222576edb571063
+- Unresolved：parent-materializes-config-adds-worker-OnSuccess-runs-systemd-analyze-and-canonical-tests
+
+</details>
+
+<details><summary><code>curriculum-ocr-provisioner-crash-recovery-20260718</code> · 4 events · 2026-07-18T09:50:12.028Z → 2026-07-18T09:55:03.495Z</summary>
+
+Agents：`/root/grant_runner_hardening`
+Resources：`curriculum-atlas:scripts/provision-timeout-recovery-authority.mjs`、`curriculum-atlas:tests/remote-ocr-timeout-recovery-provisioner.test.mjs`、`curriculum-atlas:provisioner-and-focused-tests`、`curriculum-atlas:commit-cbb9a3cc8b9832cd2f4fe6a272eee8327a0cd32f`
+
+### 2026-07-18T09:50:12.028Z · start · /root/grant_runner_hardening
+
+- Scope：isolated-worktree-only-provisioner-hardlink-crash-recovery
+- Resources：`curriculum-atlas:scripts/provision-timeout-recovery-authority.mjs`、`curriculum-atlas:tests/remote-ocr-timeout-recovery-provisioner.test.mjs`
+- Evidence：base-f3619aac7a8de29511b4bac47d1467644c83abf6-clean-review-gap-confirmed
+- Rollback：revert-dedicated-followup-commit-or-delete-isolated-worktree
+- Unresolved：no-schema-runner-receiver-monitor-or-remote-mutation
+
+### 2026-07-18T09:54:37.926Z · change · /root/grant_runner_hardening
+
+- Scope：add-bounded-inactive-provision-hardlink-recovery
+- Resources：`curriculum-atlas:provisioner-and-focused-tests`
+- Evidence：exact-temp-pattern-same-dev-inode-owner-mode0600-nlink2-inactive-pid-dir-fsync-raw-sidecar-crash-fixtures
+- Rollback：revert-dedicated-followup-commit
+- Unresolved：active-or-ambiguous-hardlinks-deliberately-fail-closed
+
+### 2026-07-18T09:55:03.390Z · verify · /root/grant_runner_hardening
+
+- Scope：focused-provisioner-crash-and-rejection-regression
+- Resources：`curriculum-atlas:commit-cbb9a3cc8b9832cd2f4fe6a272eee8327a0cd32f`
+- Evidence：node-test-12-of-12-node-check-diff-check-staged-gitleaks-zero
+- Rollback：git-revert-cbb9a3cc8b9832cd2f4fe6a272eee8327a0cd32f
+- Unresolved：no-remote-runtime-test-requested
+
+### 2026-07-18T09:55:03.495Z · closeout · /root/grant_runner_hardening
+
+- Scope：clean-two-file-followup-commit-handoff
+- Resources：`curriculum-atlas:commit-cbb9a3cc8b9832cd2f4fe6a272eee8327a0cd32f`
+- Evidence：no-push-no-deploy-clean-worktree
+- Rollback：cherry-pick-can-be-aborted-or-commit-reverted
+- Unresolved：none-within-provisioner-scope
+
+</details>
+
+<details><summary><code>curriculum-ocr-receiver-monitor-recovery-evidence-20260718</code> · 1 events · 2026-07-18T09:50:13.351Z → 2026-07-18T09:50:13.351Z</summary>
+
+Agents：`/root/receiver_monitor_recovery_evidence`
+Resources：`curriculum-atlas:scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas:scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas:tests/remote-ocr-offload-receiver.test.mjs`、`curriculum-atlas:tests/remote-ocr-single-shard-monitor.test.mjs`
+
+### 2026-07-18T09:50:13.351Z · start · /root/receiver_monitor_recovery_evidence
+
+- Scope：isolated-worktree schema-v2 timeout-recovery evidence closure from main 415f5b3; receiver monitor tests only
+- Resources：`curriculum-atlas:scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas:scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas:tests/remote-ocr-offload-receiver.test.mjs`、`curriculum-atlas:tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：parent delegated exact disjoint scope; main clean at 415f5b3; runner preparer remote cleanup alert and shared main excluded
+- Rollback：delete isolated worktree or revert eventual dedicated commit; no remote or production mutation
+- Unresolved：implement actual artifact validation E2E and complete focused full check build leak gates
+
+</details>
+
+<details><summary><code>curriculum-timeout-recovery-evidence</code> · 3 events · 2026-07-18T11:02:57.128Z → 2026-07-18T11:55:06.135Z</summary>
+
+Agents：`codex-receiver-monitor-recovery-evidence`
+Resources：`curriculum-atlas:scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas:scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas:tests/remote-ocr-offload-runner.test.mjs`、`curriculum-atlas:tests/remote-ocr-offload-receiver.test.mjs`、`curriculum-atlas:tests/remote-ocr-single-shard-monitor.test.mjs`、`curriculum-atlas-commit-ee157a2eb4ee37eaad4057ac4f459b1d484ebf4e`
+
+### 2026-07-18T11:02:57.128Z · verify · codex-receiver-monitor-recovery-evidence
+
+- Scope：receiver-and-single-shard-monitor-schema-v2-recovery-evidence
+- Resources：`curriculum-atlas:scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas:scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas:tests/remote-ocr-offload-runner.test.mjs`、`curriculum-atlas:tests/remote-ocr-offload-receiver.test.mjs`、`curriculum-atlas:tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：Receiver 58/58 pass; monitor 29/29 pass; exact real-preparer and runner A timeout-recovery plus no-grant B union 6364-page E2E 1/1 pass in 85.6 seconds after stable authority-read hardening; schema-v1 timeout fails closed at transition gate
+- Rollback：Isolated worktree branch only; no production mutation or deploy; rollback by deleting branch after review
+- Unresolved：Pending final diff review, syntax checks, targeted schema-v2 tamper-coverage audit, and commit
+
+### 2026-07-18T11:54:25.891Z · verify · codex-receiver-monitor-recovery-evidence
+
+- Scope：receiver-and-single-shard-monitor-final-gates
+- Resources：`curriculum-atlas:scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas:scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas:tests/remote-ocr-offload-runner.test.mjs`、`curriculum-atlas:tests/remote-ocr-offload-receiver.test.mjs`、`curriculum-atlas:tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：runner-35-of-35-receiver-62-of-62-monitor-29-of-29-full-npm-496-of-496-typescript-build-python-13-of-13-diff-and-secret-scan-clean-two-readonly-review-passes-no-P1-or-P2
+- Rollback：isolated-worktree-branch-only-no-production-or-deploy
+- Unresolved：same-UID-precise-ABA-theoretical-residual-only
+
+### 2026-07-18T11:55:06.135Z · closeout · codex-receiver-monitor-recovery-evidence
+
+- Scope：commit-final-receiver-monitor-timeout-recovery-evidence
+- Resources：`curriculum-atlas-commit-ee157a2eb4ee37eaad4057ac4f459b1d484ebf4e`
+- Evidence：clean-isolated-worktree-two-independent-review-passes-no-P1-or-P2-all-final-gates-green
+- Rollback：git-revert-ee157a2eb4ee37eaad4057ac4f459b1d484ebf4e-before-integration
+- Unresolved：parent-agent-must-integrate-commit-no-production-deploy-performed
+
+</details>
+
+<details><summary><code>curriculum-timeout-recovery-complete-attempt-hardening</code> · 6 events · 2026-07-18T12:00:43.097Z → 2026-07-18T12:21:57.884Z</summary>
+
+Agents：`codex-receiver-monitor-recovery-evidence`、`receiver-monitor-recovery-evidence`
+Resources：`curriculum-atlas:scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas:tests/remote-ocr-single-shard-monitor.test.mjs`、`curriculum-atlas:tests/remote-ocr-offload-runner.test.mjs`、`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-offload-runner.test.mjs`、`curriculum-atlas monitor tests`、`curriculum-atlas runner tests`、`curriculum-atlas full node test suite`、`curriculum-atlas targeted real timeout recovery E2E`、`commit 67d222cad63dd9dae6f8ccb26a1bfab941634eb6`、`branch codex/receiver-monitor-recovery-evidence-20260718`
+
+### 2026-07-18T12:00:43.097Z · start · codex-receiver-monitor-recovery-evidence
+
+- Scope：monitor-granted-complete-attempt-and-lineage-contract
+- Resources：`curriculum-atlas:scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas:tests/remote-ocr-single-shard-monitor.test.mjs`、`curriculum-atlas:tests/remote-ocr-offload-runner.test.mjs`
+- Evidence：independent-final-review-P2-reproduction-contract
+- Rollback：isolated-branch-followup-commit-revert
+- Unresolved：no-production-deploy-or-push
+
+### 2026-07-18T12:06:32.513Z · change · receiver-monitor-recovery-evidence
+
+- Scope：Harden monitor validation for granted OCR completion and add resealed tamper regression cases
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-offload-runner.test.mjs`
+- Evidence：Recovery status lineage is now mandatory and exact; complete states must consume attempt 6
+- Rollback：Revert the follow-up commit on codex/receiver-monitor-recovery-evidence
+- Unresolved：Verification pending
+
+### 2026-07-18T12:14:47.115Z · verify · receiver-monitor-recovery-evidence
+
+- Scope：Verify exact granted attempt completion hardening in isolated branch
+- Resources：`curriculum-atlas monitor tests`、`curriculum-atlas runner tests`、`curriculum-atlas full node test suite`
+- Evidence：Targeted real 6364-page test 3/3; monitor 29/29; runner 37/37; full npm 498/498; syntax and diff checks passed
+- Rollback：Revert the follow-up commit on codex/receiver-monitor-recovery-evidence
+- Unresolved：Independent read-only review pending
+
+### 2026-07-18T12:21:39.746Z · change · receiver-monitor-recovery-evidence
+
+- Scope：Reject coherent resealed downgrade of physically complete timeout-recovery output
+- Resources：`curriculum-atlas/scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas/tests/remote-ocr-offload-runner.test.mjs`
+- Evidence：Full page-artifact completion with no failed pages now requires complete progress and status
+- Rollback：Revert the follow-up commit on codex/receiver-monitor-recovery-evidence
+- Unresolved：None
+
+### 2026-07-18T12:21:39.746Z · verify · receiver-monitor-recovery-evidence
+
+- Scope：Verify complete-state downgrade closure
+- Resources：`curriculum-atlas monitor tests`、`curriculum-atlas targeted real timeout recovery E2E`
+- Evidence：Monitor 29/29; targeted real 6364-page E2E 4/4 including three resealed tamper cases; syntax diff and leak checks passed
+- Rollback：Revert the follow-up commit on codex/receiver-monitor-recovery-evidence
+- Unresolved：None
+
+### 2026-07-18T12:21:57.884Z · closeout · receiver-monitor-recovery-evidence
+
+- Scope：Committed monitor timeout-recovery completion hardening on isolated branch
+- Resources：`commit 67d222cad63dd9dae6f8ccb26a1bfab941634eb6`、`branch codex/receiver-monitor-recovery-evidence-20260718`
+- Evidence：Worktree clean; monitor 29/29; runner 37/37 before final downgrade closure; full npm 498/498; final targeted 6364-page E2E 4/4
+- Rollback：Revert 67d222cad63dd9dae6f8ccb26a1bfab941634eb6 or omit it when integrating
+- Unresolved：No deploy or production mutation performed
+
+</details>
+
+<details><summary><code>curriculum-ocr-b1-seed-script-transition-20260718</code> · 5 events · 2026-07-18T12:45:50.404Z → 2026-07-18T13:30:55.090Z</summary>
+
+Agents：`/root/b1_seed_script_transition`
+Resources：`curriculum-atlas:scripts/ocr-pdf-paddle.py`、`curriculum-atlas:runner-receiver-monitor-tests`、`curriculum-atlas:immutable-B1-audit-asset`、`scripts/run-remote-ocr-offload.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/fixtures/remote-ocr/b1`、`commit-26ab73e`、`runner`、`receiver`、`single-monitor`、`legacy-B1-fixture`、`branch-codex/b1-seed-script-transition-20260718`
+
+### 2026-07-18T12:45:50.404Z · start · /root/b1_seed_script_transition
+
+- Scope：isolate-exact-B1-to-current-seed-aware-OCR-script-transition
+- Resources：`curriculum-atlas:scripts/ocr-pdf-paddle.py`、`curriculum-atlas:runner-receiver-monitor-tests`、`curriculum-atlas:immutable-B1-audit-asset`
+- Evidence：main-3011b58-clean-exact-B1-and-current-script-hashes-provided-and-to-be-reverified
+- Rollback：isolated-worktree-local-commit-only-no-push-no-remote-write
+- Unresolved：inspect-current-transition-schema-and-implement-exact-pair-fail-closed
+
+### 2026-07-18T13:25:53.854Z · change · /root/b1_seed_script_transition
+
+- Scope：curriculum-atlas isolated B1 legacy to seed-aware OCR seed contract implementation
+- Resources：`scripts/run-remote-ocr-offload.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/fixtures/remote-ocr/b1`
+- Evidence：schema-v3 exact hash pair and common suffix contract implemented with resume union monitor and provenance gates
+- Rollback：revert the isolated commit before cherry-pick
+- Unresolved：no remote deployment or production mutation performed
+
+### 2026-07-18T13:29:56.748Z · verify · /root/b1_seed_script_transition
+
+- Scope：isolated transition commit validation
+- Resources：`commit-26ab73e`、`runner`、`receiver`、`single-monitor`、`legacy-B1-fixture`
+- Evidence：clean-tree npm-test 542-of-542 check-pass build-pass Python-14-of-14 gitleaks-one-commit-zero-leaks diff-check-pass hashes-exact suffix-11430-byte-identical
+- Rollback：git revert 26ab73e before any deployment
+- Unresolved：remote B3 bundle reconstruction seed dry-run and deployment remain parent-owned
+
+### 2026-07-18T13:29:56.790Z · closeout · /root/b1_seed_script_transition
+
+- Scope：local isolated commit complete no remote mutation
+- Resources：`branch-codex/b1-seed-script-transition-20260718`、`commit-26ab73e`
+- Evidence：working-tree-clean exact schema-v3 transition and schema-v1-v2 compatibility verified
+- Rollback：git revert 26ab73e or omit cherry-pick
+- Unresolved：no push no remote install no production seed performed
+
+### 2026-07-18T13:30:55.090Z · closeout · /root/b1_seed_script_transition
+
+- Scope：corrected final local closeout evidence
+- Resources：`branch-codex/b1-seed-script-transition-20260718`、`commit-26ab73e`
+- Evidence：first focused runner exposed retry-wait fixture misclassification and first full gates exposed missing isolated local assets and dependency resolution; fixture and test setup corrected; final clean-tree npm-542-of-542 check build Python-14-of-14 gitleaks-zero diff-check and exact hashes all pass
+- Rollback：git revert 26ab73e or omit cherry-pick
+- Unresolved：no push no remote install no production seed performed
+
+</details>
+
+<details><summary><code>curriculum-ontology-release-bridge-20260718</code> · 5 events · 2026-07-18T13:31:24.199Z → 2026-07-18T14:00:10.138Z</summary>
+
+Agents：`/root/ocr_script_transition_audit`
+Resources：`curriculum-atlas:data/ontology-release.schema.json`、`curriculum-atlas:data/ontology-releases`、`curriculum-atlas:scripts/validate-ontology-release.mjs`、`curriculum-atlas:tests/ontology-release-bridge.test.mjs`、`curriculum-atlas:package.json`、`curriculum-atlas:data/ontology-release-manifest.json`、`curriculum-atlas:data/release-assets-policy.json`、`commit-20a901a8c89727c0de70110e60c79addf40a69d8`、`branch-codex/ontology-release-bridge-20260718`
+
+### 2026-07-18T13:31:24.199Z · start · /root/ocr_script_transition_audit
+
+- Scope：isolated local-only ontology release bridge contract; no candidate promotion and no public graph count change
+- Resources：`curriculum-atlas:data/ontology-release.schema.json`、`curriculum-atlas:data/ontology-releases`、`curriculum-atlas:scripts/validate-ontology-release.mjs`、`curriculum-atlas:tests/ontology-release-bridge.test.mjs`、`curriculum-atlas:package.json`
+- Evidence：main 3011b58 clean; delegated disjoint scope; active root owns remote OCR installation only
+- Rollback：omit or revert isolated commit; no push deploy remote Cloudflare D1 R2 or public data mutation
+- Unresolved：builder integration only if required by tests and must preserve 169 public ontology nodes
+
+### 2026-07-18T13:47:32.269Z · change · /root/ocr_script_transition_audit
+
+- Scope：add local-only strict ontology release schema validator empty fail-closed manifest and negative contract tests
+- Resources：`curriculum-atlas:data/ontology-release.schema.json`、`curriculum-atlas:data/ontology-release-manifest.json`、`curriculum-atlas:scripts/validate-ontology-release.mjs`、`curriculum-atlas:tests/ontology-release-bridge.test.mjs`、`curriculum-atlas:package.json`
+- Evidence：canonical validation valid but publishable false; focused bridge tests 36 of 36; public ontology remains 169
+- Rollback：omit or revert isolated commit; builder and public graph files are untouched
+- Unresolved：full suite build check release manifest and leak scan pending
+
+### 2026-07-18T13:59:12.766Z · change · /root/ocr_script_transition_audit
+
+- Scope：register-ontology-release-artifacts-in-complete-data-inventory-as-candidate-fail-closed
+- Resources：`curriculum-atlas:data/release-assets-policy.json`
+- Evidence：release-manifest-tests-now-9-of-9-and-artifacts-excluded-from-r2-public-metadata
+- Rollback：omit-or-revert-isolated-commit
+- Unresolved：commit-and-final-clean-status-pending
+
+### 2026-07-18T14:00:02.777Z · verify · /root/ocr_script_transition_audit
+
+- Scope：committed-local-only-ontology-release-contract-validation
+- Resources：`commit-20a901a8c89727c0de70110e60c79addf40a69d8`、`branch-codex/ontology-release-bridge-20260718`
+- Evidence：Node571of571-Python13of13-release-manifest9of9-TypeScript-build-concept-validation-gitleaks-zero-public-hashes-unchanged-ontology169
+- Rollback：git-revert-20a901a-or-omit-cherry-pick
+- Unresolved：parent-integration-only-no-push-no-deploy
+
+### 2026-07-18T14:00:10.138Z · closeout · /root/ocr_script_transition_audit
+
+- Scope：isolated-ontology-release-bridge-complete-clean-worktree
+- Resources：`commit-20a901a8c89727c0de70110e60c79addf40a69d8`、`branch-codex/ontology-release-bridge-20260718`
+- Evidence：schema-validator-tests-and-inventory-registration-only-canonical-release-valid-nonpublishable-builder-isolated-public-count169-clean-status
+- Rollback：git-revert-20a901a-or-omit-cherry-pick
+- Unresolved：no-candidate-promotion-no-public-data-change-no-remote-write-no-deploy
+
+</details>
+
+<details><summary><code>curriculum-ocr-b1-seed-script-transition-p2-closure-20260718</code> · 4 events · 2026-07-18T13:39:26.413Z → 2026-07-18T13:53:14.854Z</summary>
+
+Agents：`/root/b1_seed_script_transition`
+Resources：`tests/remote-ocr-offload-runner.test.mjs`、`tests/remote-ocr-single-shard-monitor.test.mjs`、`branch-codex/b1-seed-script-transition-20260718`、`commit-2fcf32708c85cd8649da869ffc4e06d156e810f4`、`runner-test`、`single-monitor-test`
+
+### 2026-07-18T13:39:26.413Z · change · /root/b1_seed_script_transition
+
+- Scope：add-test-only-schema-v3-1259-resume-and-v2-v3-completion-cleanup-regressions
+- Resources：`tests/remote-ocr-offload-runner.test.mjs`、`tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：production-logic-excluded-two-independent-P2-review-gaps-targeted
+- Rollback：revert-new-local-test-commit-or-omit-cherry-pick
+- Unresolved：targeted-and-full-gates-pending
+
+### 2026-07-18T13:53:01.590Z · closeout · /root/b1_seed_script_transition
+
+- Scope：local-test-only-P2-closure-complete-clean-worktree
+- Resources：`branch-codex/b1-seed-script-transition-20260718`、`commit-2fcf32708c85cd8649da869ffc4e06d156e810f4`
+- Evidence：initial-full-run-exposed-only-missing-gitignored-local-assets-final-rerun-545-of-545-test-assets-removed-status-clean
+- Rollback：git-revert-2fcf327-or-omit-cherry-pick
+- Unresolved：no-production-logic-change-no-push-no-remote-mutation
+
+### 2026-07-18T13:53:01.590Z · verify · /root/b1_seed_script_transition
+
+- Scope：committed-test-only-P2-closure-full-validation
+- Resources：`commit-2fcf32708c85cd8649da869ffc4e06d156e810f4`、`runner-test`、`single-monitor-test`
+- Evidence：new-targeted-4-of-4-related-files-73-of-73-full-545-of-545-check-build-Python14-of14-release-manifest9-of9-gitleaks-new-commit-zero-diff-check-pass-production-hashes-unchanged
+- Rollback：git-revert-2fcf327-before-deployment
+- Unresolved：no-push-no-remote-write-parent-owned-deployment-pending
+
+### 2026-07-18T13:53:14.854Z · closeout · /root/b1_seed_script_transition
+
+- Scope：corrected-ordered-local-test-only-P2-closeout
+- Resources：`branch-codex/b1-seed-script-transition-20260718`、`commit-2fcf32708c85cd8649da869ffc4e06d156e810f4`
+- Evidence：verify-row-precedes-this-corrected-closeout-final-545-of-545-gitleaks-zero-status-clean
+- Rollback：git-revert-2fcf327-or-omit-cherry-pick
+- Unresolved：no-push-no-remote-write-parent-owned-deployment-pending
+
+</details>
+
+<details><summary><code>curriculum-ontology-release-bridge-remediation-20260718</code> · 5 events · 2026-07-18T14:12:15.821Z → 2026-07-18T14:42:07.104Z</summary>
+
+Agents：`/root/ocr_script_transition_audit`
+Resources：`curriculum-atlas:ontology-release-schema-validator-tests`、`curriculum-atlas:deploy-worker-gates`、`curriculum-atlas:data/ontology-release.schema.json`、`curriculum-atlas:data/ontology-release-manifest.json`、`curriculum-atlas:scripts/validate-ontology-release.mjs`、`curriculum-atlas:scripts/deploy-worker.mjs`、`curriculum-atlas:scripts/build-corpus.mjs`、`curriculum-atlas:tests/ontology-release-bridge.test.mjs`、`curriculum-atlas:tests/release-source-gate.test.mjs`、`curriculum-atlas:package.json`、`curriculum-atlas:scripts/canonical-paragraph-text.mjs`、`curriculum-atlas:8bb06d5b93f3958d09831387777b395b3e3edf49`、`curriculum-atlas:codex/ontology-release-bridge-20260718`
+
+### 2026-07-18T14:12:15.821Z · start · /root/ocr_script_transition_audit
+
+- Scope：remediate-independent-review-two-P1-one-P2-in-isolated-worktree
+- Resources：`curriculum-atlas:ontology-release-schema-validator-tests`、`curriculum-atlas:deploy-worker-gates`
+- Evidence：worktree-clean-at-20a901a-review-finds-provenance-deploy-and-baseline-attack-gaps
+- Rollback：omit-or-revert-followup-commit
+- Unresolved：no-candidate-promotion-no-public-change-no-push-no-deploy
+
+### 2026-07-18T14:18:17.246Z · change · /root/ocr_script_transition_audit
+
+- Scope：harden-provenance-canonical-text-deploy-mode-and-baseline-integrity-gates
+- Resources：`curriculum-atlas:data/ontology-release.schema.json`、`curriculum-atlas:data/ontology-release-manifest.json`、`curriculum-atlas:scripts/validate-ontology-release.mjs`、`curriculum-atlas:scripts/deploy-worker.mjs`、`curriculum-atlas:scripts/build-corpus.mjs`、`curriculum-atlas:tests/ontology-release-bridge.test.mjs`、`curriculum-atlas:tests/release-source-gate.test.mjs`、`curriculum-atlas:package.json`
+- Evidence：planned-P1-P1-P2-remediation-with-negative-regressions
+- Rollback：revert-followup-commit-or-omit-integration
+- Unresolved：full-gates-pending
+
+### 2026-07-18T14:40:04.008Z · change · /root/ocr_script_transition_audit
+
+- Scope：complete-P1-P1-P2-local-remediation-with-shared-canonical-paragraph-contract
+- Resources：`curriculum-atlas:scripts/canonical-paragraph-text.mjs`、`curriculum-atlas:scripts/build-corpus.mjs`、`curriculum-atlas:scripts/deploy-worker.mjs`、`curriculum-atlas:scripts/validate-ontology-release.mjs`、`curriculum-atlas:data/ontology-release.schema.json`、`curriculum-atlas:data/ontology-release-manifest.json`、`curriculum-atlas:tests/ontology-release-bridge.test.mjs`、`curriculum-atlas:tests/release-source-gate.test.mjs`、`curriculum-atlas:package.json`
+- Evidence：canonical-substring-node-relation-provenance-deploy-mode-and-immutable-baseline-attacks-covered
+- Rollback：revert-followup-commit-or-omit-integration
+- Unresolved：stage-commit-postcommit-scan-pending
+
+### 2026-07-18T14:42:06.995Z · verify · /root/ocr_script_transition_audit
+
+- Scope：committed-P1-P1-P2-remediation-and-postcommit-integrity-verification
+- Resources：`curriculum-atlas:8bb06d5b93f3958d09831387777b395b3e3edf49`
+- Evidence：node-586of586-focused-53of53-release-9of9-python-13of13-check-build-corpus-concepts-pass-candidate0-public169-core0d14b71f-academic65d8ab26-coordinated-mutation-and-deploy-bypass-attacks-rejected-gitleaks-zero
+- Rollback：revert-8bb06d5-after-reverting-or-omitting-dependent-integration
+- Unresolved：parent-must-serially-integrate-after-20a901a-and-coordinate-with-page-evidence-owner
+
+### 2026-07-18T14:42:07.104Z · closeout · /root/ocr_script_transition_audit
+
+- Scope：local-followup-ready-for-parent-cherry-pick-no-remote-mutation
+- Resources：`curriculum-atlas:codex/ontology-release-bridge-20260718`、`curriculum-atlas:8bb06d5b93f3958d09831387777b395b3e3edf49`
+- Evidence：clean-worktree-temp-links-removed-candidate-promotions0-public-count169-no-push-no-deploy-no-remote-write
+- Rollback：omit-or-revert-followup-commit-8bb06d5
+- Unresolved：parent-integration-and-final-live-release-remain
+
+</details>
+
+<details><summary><code>curriculum-ocr-a1-completed-status-compat-20260718</code> · 4 events · 2026-07-18T14:32:12.788Z → 2026-07-18T15:15:54.748Z</summary>
+
+Agents：`/root/a1_completed_status_compat`、`codex-a1-completed-status-compat`
+Resources：`curriculum-atlas:scripts/run-remote-ocr-offload.mjs`、`curriculum-atlas:scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas:scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas:tests/remote-ocr-*`、`curriculum-atlas runner`、`receiver`、`monitor`、`tests`、`curriculum-atlas commit 1e85e0f`
+
+### 2026-07-18T14:32:12.788Z · start · /root/a1_completed_status_compat
+
+- Scope：isolated-local-only A1 exact complete predecessor status and directed A+B runner compatibility contract
+- Resources：`curriculum-atlas:scripts/run-remote-ocr-offload.mjs`、`curriculum-atlas:scripts/receive-remote-ocr-offload.mjs`、`curriculum-atlas:scripts/monitor-remote-ocr-single-shard.mjs`、`curriculum-atlas:tests/remote-ocr-*`
+- Evidence：base main 9d6179d; real A1 complete keys and mismatch described by parent; remote B3 fixed runner excluded
+- Rollback：omit or revert isolated commit; no remote write deploy push or running B3 mutation
+- Unresolved：reproduce blocker implement fail-closed exact schema and directed compatibility then full gates
+
+### 2026-07-18T15:13:42.306Z · change · codex-a1-completed-status-compat
+
+- Scope：implement exact A1 completed status acceptance and directed successor runner compatibility locally only
+- Resources：`curriculum-atlas runner`、`receiver`、`monitor`、`tests`
+- Evidence：exact completed status binds attempt page runtime source timestamp atomic state and page artifacts; mixed runner union restricted to exact A-new and B-fixed pair; same-runner union preserved
+- Rollback：revert the task commit after review; no remote state changed
+- Unresolved：final commit and handoff pending
+
+### 2026-07-18T15:15:54.644Z · verify · codex-a1-completed-status-compat
+
+- Scope：close local A1 completed status compatibility implementation
+- Resources：`curriculum-atlas commit 1e85e0f`
+- Evidence：npm test 545 of 545; TypeScript check passed; Python OCR 14 of 14; build and release manifest passed; gitleaks scanned commit with no leaks; diff check clean; runner hash c11a7da6 and OCR writer hash 3176d267
+- Rollback：revert commit 1e85e0f; no remote state changed
+- Unresolved：none in local compatibility scope
+
+### 2026-07-18T15:15:54.748Z · closeout · codex-a1-completed-status-compat
+
+- Scope：close local A1 completed status compatibility implementation
+- Resources：`curriculum-atlas commit 1e85e0f`
+- Evidence：commit 1e85e0f on isolated branch; worktree clean; same-runner A plus B union and directed mixed-runner union both verified; retry_wait format cannot satisfy completed-only guards
+- Rollback：revert commit 1e85e0f; no remote state changed
+- Unresolved：parent may cherry-pick commit; no deploy push remote host or ontology change performed
+
+</details>
+
+<details><summary><code>curriculum-page-evidence-publication-phase1-20260718</code> · 4 events · 2026-07-18T14:35:11.086Z → 2026-07-18T15:42:08.908Z</summary>
+
+Agents：`/root/post_ocr_release_chain_audit`
+Resources：`curriculum-atlas:new-evidence-schema-validator-fail-closed-manifest-tests`、`curriculum-atlas:scripts/page-evidence-publication.mjs`、`curriculum-atlas:scripts/page-evidence/`、`curriculum-atlas:tests/page-evidence-publication.test.mjs`、`curriculum-atlas:docs/page-evidence-publication.md`、`curriculum-atlas:commit-7f4f7c2e68269fd269284e8d05fa9eabdf6e08a1`、`curriculum-atlas:page-evidence-validator`、`curriculum-atlas:public-corpus-concept-assets`、`curriculum-atlas:branch-codex/page-evidence-publication-phase1-20260718`
+
+### 2026-07-18T14:35:11.086Z · start · /root/post_ocr_release_chain_audit
+
+- Scope：isolated-worktree-local-only-immutable-page-evidence-bundle-and-publication-binding-from-main-9d6179d
+- Resources：`curriculum-atlas:new-evidence-schema-validator-fail-closed-manifest-tests`
+- Evidence：main-9d6179d-clean-ontology-release-owner-holds-package-deploy-worker-build-corpus-and-overlap-frozen
+- Rollback：omit-or-revert-dedicated-local-commit-or-delete-isolated-worktree
+- Unresolved：no-promotion-public-count-change-remote-write-deploy-push-or-overlap-files
+
+### 2026-07-18T15:30:21.389Z · change · /root/post_ocr_release_chain_audit
+
+- Scope：implement-additive-immutable-page-evidence-validator-zero-release-manifest-and-adversarial-tests
+- Resources：`curriculum-atlas:scripts/page-evidence-publication.mjs`、`curriculum-atlas:scripts/page-evidence/`、`curriculum-atlas:tests/page-evidence-publication.test.mjs`、`curriculum-atlas:docs/page-evidence-publication.md`
+- Evidence：real-MuPDF-rerender-object-rehash-Ed25519-external-authority-pin-version-aware-independent-online-adjudication-and-zero-publication
+- Rollback：revert-local-phase1-commit-after-created
+- Unresolved：deploy-hook-owned-by-ontology-agent-and-not-edited
+
+### 2026-07-18T15:41:59.714Z · verify · /root/post_ocr_release_chain_audit
+
+- Scope：verify-immutable-page-evidence-phase1-and-zero-publication-invariants
+- Resources：`curriculum-atlas:commit-7f4f7c2e68269fd269284e8d05fa9eabdf6e08a1`、`curriculum-atlas:page-evidence-validator`、`curriculum-atlas:public-corpus-concept-assets`
+- Evidence：node-tests-565of565-python-14of14-focused-attacks-20of20-tsc-build-assets-corpus-concepts-online-release-manifest-wrangler-dry-run-clean-source-and-hash-invariance
+- Rollback：git-revert-7f4f7c2e68269fd269284e8d05fa9eabdf6e08a1
+- Unresolved：deployment-hook-integration-owned-by-ontology-agent-current-release-remains-zero
+
+### 2026-07-18T15:42:08.908Z · closeout · /root/post_ocr_release_chain_audit
+
+- Scope：close-local-isolated-page-evidence-phase1-with-no-publication-or-remote-mutation
+- Resources：`curriculum-atlas:branch-codex/page-evidence-publication-phase1-20260718`、`curriculum-atlas:commit-7f4f7c2e68269fd269284e8d05fa9eabdf6e08a1`
+- Evidence：clean-worktree-zero-documents-zero-pages-zero-display-zero-citation-zero-resolved-controls-and-temporary-gate-assets-removed
+- Rollback：git-revert-7f4f7c2e68269fd269284e8d05fa9eabdf6e08a1
+- Unresolved：parent-must-integrate-validator-hook-after-ontology-owner-handoff-and-refresh-bound-hashes-if-governed-data-changes
+
+</details>
+
+<details><summary><code>curriculum-ontology-release-bridge-remediation2-20260718</code> · 5 events · 2026-07-18T14:58:15.472Z → 2026-07-18T15:30:08.245Z</summary>
+
+Agents：`/root/ocr_script_transition_audit`
+Resources：`curriculum-atlas:codex/ontology-release-bridge-20260718`、`curriculum-atlas:scripts/validate-ontology-release.mjs`、`curriculum-atlas:data/ontology-release.schema.json`、`curriculum-atlas:tests/ontology-release-bridge.test.mjs`、`curriculum-atlas:scripts/deploy-worker.mjs`、`curriculum-atlas:data/release-baselines/ontology-public-v2.json`、`curriculum-atlas:data/ontology-candidates/candidate-layer.schema.json`、`curriculum-atlas:tests/release-source-gate.test.mjs`、`curriculum-atlas:commit-488122c81cc7c173a4b28bfdaa82e74cc1b6f8be`、`curriculum-atlas:ontology-release-validator`、`curriculum-atlas:immutable-baseline-v2`、`curriculum-atlas:branch-codex-ontology-release-bridge-20260718`、`curriculum-atlas:commits-75f1d1d-through-488122c`
+
+### 2026-07-18T14:58:15.472Z · start · /root/ocr_script_transition_audit
+
+- Scope：isolated-followup-for-adversarial-review-sha36678ff7-online-semantic-parent-relation-baseline-gates
+- Resources：`curriculum-atlas:codex/ontology-release-bridge-20260718`、`curriculum-atlas:scripts/validate-ontology-release.mjs`、`curriculum-atlas:data/ontology-release.schema.json`、`curriculum-atlas:tests/ontology-release-bridge.test.mjs`、`curriculum-atlas:scripts/deploy-worker.mjs`
+- Evidence：adversarial-PoC-currently-accepts-all-four-forgeries
+- Rollback：revert-new-followup-commit-or-omit-parent-integration
+- Unresolved：implement-run-full-gates-self-review-no-push-deploy-or-remote-write
+
+### 2026-07-18T15:20:03.357Z · change · /root/ocr_script_transition_audit
+
+- Scope：implement-four-adversarial-remediations-and-immutable-git-object-baseline
+- Resources：`curriculum-atlas:data/release-baselines/ontology-public-v2.json`、`curriculum-atlas:data/ontology-release.schema.json`、`curriculum-atlas:data/ontology-candidates/candidate-layer.schema.json`、`curriculum-atlas:scripts/validate-ontology-release.mjs`、`curriculum-atlas:tests/ontology-release-bridge.test.mjs`、`curriculum-atlas:tests/release-source-gate.test.mjs`
+- Evidence：original-PoC-four-cases-now-invalid-and-field-complete-negative-regressions72of72
+- Rollback：revert-remediation2-commit-series-after-8bb06d5
+- Unresolved：full-node-python-build-release-gates-gitleaks-self-review-pending
+
+### 2026-07-18T15:29:54.417Z · verify · /root/ocr_script_transition_audit
+
+- Scope：verify-adversarial-ontology-release-trust-boundaries-and-complete-local-gates
+- Resources：`curriculum-atlas:commit-488122c81cc7c173a4b28bfdaa82e74cc1b6f8be`、`curriculum-atlas:ontology-release-validator`、`curriculum-atlas:immutable-baseline-v2`
+- Evidence：external-four-PoCs-invalid
+- Rollback：未记录
+- Unresolved：无
+
+### 2026-07-18T15:30:08.210Z · verify · /root/ocr_script_transition_audit
+
+- Scope：verify-adversarial-ontology-release-trust-boundaries-and-complete-local-gates
+- Resources：`curriculum-atlas:commit-488122c81cc7c173a4b28bfdaa82e74cc1b6f8be`、`curriculum-atlas:ontology-release-validator`、`curriculum-atlas:immutable-baseline-v2`
+- Evidence：four-external-PoCs-invalid,field-complete-substitution-regressions-pass,npm-test-596-of-596,python-13-of-13,TypeScript-build-concepts-online-candidate-release-manifest-pass,candidate-zero-promoted-public-169,gitleaks-five-commits-no-leaks,tree-clean
+- Rollback：revert-local-commit-range-75f1d1d-through-488122c,no-remote-state-changed
+- Unresolved：parent-review-and-integration-only
+
+### 2026-07-18T15:30:08.245Z · closeout · /root/ocr_script_transition_audit
+
+- Scope：close-local-adversarial-remediation-without-push-deploy-or-remote-write
+- Resources：`curriculum-atlas:branch-codex-ontology-release-bridge-20260718`、`curriculum-atlas:commits-75f1d1d-through-488122c`
+- Evidence：immutable-baseline-anchor-462231b-source-3011b58,ordinary-deploy-valid-only-and-promotion-publishable-gates-preserved,temporary-build-artifacts-and-symlinks-removed
+- Rollback：revert-local-commit-range-after-8bb06d5
+- Unresolved：parent-may-integrate-after-independent-review
+
+</details>
+
+<details><summary><code>curriculum-atlas-alert-delivery-repair-20260718</code> · 6 events · 2026-07-18T15:06:05.515Z → 2026-07-18T15:13:42.043Z</summary>
+
+Agents：`codex-root`
+Resources：`DMITPro2 inner bdfz workstation`、`alert credential file`、`alert delivery handler`、`DMITPro2 inner bdfz alert credential file`、`DMITPro2 inner bdfz alert credential contract and durable delivery state`、`DMITPro2 inner bdfz alert state`、`alert handler`、`OCR B3 worker`
+
+### 2026-07-18T15:06:05.515Z · start · codex-root
+
+- Scope：repair isolated OCR monitor alert credential-key contract without OCR restart
+- Resources：`DMITPro2 inner bdfz workstation`、`alert credential file`、`alert delivery handler`
+- Evidence：read-only inspection confirmed expected names differ from provisioned names; OCR worker invocation unchanged
+- Rollback：restore mode-600 timestamped credential backup and restart only alert handler
+- Unresolved：pending alert delivery must be verified after atomic rename
+
+### 2026-07-18T15:07:19.672Z · change · codex-root
+
+- Scope：atomically align OCR monitor alert credential key names with notifier contract
+- Resources：`DMITPro2 inner bdfz alert credential file`
+- Evidence：mode remained 600; exactly two expected key names present; normalized backup comparison proved values and file content otherwise unchanged
+- Rollback：restore /home/suen/curriculum-ocr-offload/backups/pre-alert-credential-key-rename-20260718T150713Z/curriculum-ocr-monitor-telegram.env and restart only the alert handler
+- Unresolved：trigger pending delivery and verify durable record sent
+
+### 2026-07-18T15:11:34.629Z · change · codex-root
+
+- Scope：atomically remove matching shell quotes rejected by strict notifier credential parser
+- Resources：`DMITPro2 inner bdfz alert credential file`
+- Evidence：both values had matching quotes; quote-free values independently matched strict token and numeric chat shapes; mode 600 and exact normalized comparison preserved content
+- Rollback：restore /home/suen/curriculum-ocr-offload/backups/pre-alert-credential-unquote-20260718T151127Z/curriculum-ocr-monitor-telegram.env or earlier key-rename backup, then restart only alert handler
+- Unresolved：run durable pending delivery and confirm sent state
+
+### 2026-07-18T15:13:22.594Z · closeout · codex-root
+
+- Scope：close isolated alert delivery incident without OCR interruption
+- Resources：`DMITPro2 inner bdfz alert credential contract and durable delivery state`
+- Evidence：credential mode 600; strict shapes pass; stable alert fingerprint delivered and closed; handler service result success; OCR invocation and restart count unchanged
+- Rollback：restore either pre-unquote or pre-key-rename backup and restart only alert handler
+- Unresolved：none
+
+### 2026-07-18T15:13:22.622Z · verify · codex-root
+
+- Scope：verify durable Telegram alert delivery and isolated handler recovery
+- Resources：`DMITPro2 inner bdfz alert state`、`alert handler`、`OCR B3 worker`
+- Evidence：provider HTTP 200; pending fingerprint f93b8a closed at attempt 23; handler inactive success exit 0 with zero restarts; B3 worker invocation 62af94ce unchanged and progress 1621 of 3182 healthy
+- Rollback：two timestamped mode-600 backups retained; alert-only rollback does not touch OCR
+- Unresolved：none for alert delivery; continue OCR monitoring
+
+### 2026-07-18T15:13:42.043Z · closeout · codex-root
+
+- Scope：ordered closeout after verified alert recovery
+- Resources：`DMITPro2 inner bdfz alert credential contract and durable delivery state`
+- Evidence：this row follows verify; earlier closeout row and verify were submitted concurrently and timestamped in reverse order; provider HTTP 200 and service exit 0 remain authoritative
+- Rollback：restore timestamped mode-600 backup and restart only alert handler
+- Unresolved：none
+
+</details>
+
+<details><summary><code>curriculum-ocr-a1-monitor-complete-hardening-20260718</code> · 4 events · 2026-07-18T15:31:53.634Z → 2026-07-18T15:57:32.057Z</summary>
+
+Agents：`codex-a1-completed-status-compat`
+Resources：`curriculum-atlas monitor`、`monitor tests`、`runner regression tests`、`/private/tmp/curriculum-a1-completed-status-compat`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-offload-runner.test.mjs`、`codex/a1-completed-status-compat-20260718`
+
+### 2026-07-18T15:31:53.634Z · start · codex-a1-completed-status-compat
+
+- Scope：offline monitor fail-closed validation for inherited exact completed status
+- Resources：`curriculum-atlas monitor`、`monitor tests`
+- Evidence：base commit 1e85e0f; independent review identified monitor acceptance of resealed malformed inherited complete status
+- Rollback：revert follow-up commit; no remote state will change
+- Unresolved：add focused regressions implement exact bindings then full local gates
+
+### 2026-07-18T15:48:12.094Z · change · codex-a1-completed-status-compat
+
+- Scope：make monitor inherited and full complete status validation exact and receipt bound
+- Resources：`curriculum-atlas monitor`、`runner regression tests`
+- Evidence：initial complete now requires exact status lineage artifacts receipt status SHA and receipt state SHA; full complete has a separate exact writer-shape validator; five focused malformed-input regressions added
+- Rollback：revert follow-up commit; no remote state changed
+- Unresolved：stage scan commit and clean closeout pending
+
+### 2026-07-18T15:57:25.617Z · verify · codex-a1-completed-status-compat
+
+- Scope：isolated curriculum-atlas A1 completed-status monitor hardening verification
+- Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-offload-runner.test.mjs`
+- Evidence：commit 3e59fa7; npm test 552/552; focused monitor 32/32; Python 14/14; npm run check, build, release manifest, diff checks, and gitleaks passed; runner receiver and OCR writer hashes unchanged
+- Rollback：revert 3e59fa7 after 1e85e0f if integration rejects the hardening
+- Unresolved：release manifest reports four pre-existing blockers; no deploy performed
+
+### 2026-07-18T15:57:32.057Z · closeout · codex-a1-completed-status-compat
+
+- Scope：isolated curriculum-atlas A1 completed-status monitor hardening handoff
+- Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`codex/a1-completed-status-compat-20260718`
+- Evidence：commits 1e85e0f and 3e59fa7 ready for parent integration; worktree clean; no remote writes push deploy or ontology changes
+- Rollback：parent can omit or revert 3e59fa7 independently from the compatibility commit 1e85e0f
+- Unresolved：parent must cherry-pick or merge and run its aggregate branch gates; release manifest retains four external blockers
+
+</details>
+
+<details><summary><code>curriculum-ontology-release-bridge-remediation3-20260718</code> · 5 events · 2026-07-18T15:55:16.395Z → 2026-07-18T16:23:24.221Z</summary>
+
+Agents：`/root/ocr_script_transition_audit`
+Resources：`curriculum-atlas:branch-codex-ontology-release-bridge-20260718`、`curriculum-atlas:ontology-release-validator`、`curriculum-atlas:ontology-release-tests`、`curriculum-atlas:promotion-baseline-v1`、`curriculum-atlas:ontology-release-schema`、`curriculum-atlas:ontology-adversarial-tests`、`curriculum-atlas:commit-2511d2b`、`curriculum-atlas:release-gates`、`curriculum-atlas:public-graph-hashes`、`/private/tmp/curriculum-ontology-release-bridge`、`codex/ontology-release-bridge-20260718`、`commits-b8080a3-5619041-2511d2b`
+
+### 2026-07-18T15:55:16.395Z · start · /root/ocr_script_transition_audit
+
+- Scope：reproduce-and-fix-two-independent-review-P1-trust-boundary-failures-offline
+- Resources：`curriculum-atlas:branch-codex-ontology-release-bridge-20260718`、`curriculum-atlas:ontology-release-validator`、`curriculum-atlas:ontology-release-tests`
+- Evidence：clean-worktree-at-488122c,independent-review-reports-six-coordinated-self-certification-forgeries-and-two-relation-clause-forgeries
+- Rollback：revert-follow-up-local-commits-after-488122c
+- Unresolved：no-integration-promotion-push-deploy-or-public-graph-change
+
+### 2026-07-18T16:15:31.579Z · change · /root/ocr_script_transition_audit
+
+- Scope：bind-reviewed-ontology-promotion-to-immutable-source-and-evidence-bytes-and-exact-relation-clauses
+- Resources：`curriculum-atlas:promotion-baseline-v1`、`curriculum-atlas:ontology-release-schema`、`curriculum-atlas:ontology-release-validator`、`curriculum-atlas:ontology-adversarial-tests`
+- Evidence：reviewer-six-coordinated-forgeries-and-two-relation-sentences-reproduced-publishable-before-fix-and-now-rejected,source-specific-online-quote-reuse-also-rejected
+- Rollback：revert-local-commits-b8080a3-through-2511d2b
+- Unresolved：complete-full-local-gates-secret-scan-and-independent-review
+
+### 2026-07-18T16:23:02.821Z · verify · /root/ocr_script_transition_audit
+
+- Scope：offline-local-verification-of-immutable-promotion-boundary-and-exact-positive-relation-clauses
+- Resources：`curriculum-atlas:commit-2511d2b`、`curriculum-atlas:release-gates`、`curriculum-atlas:public-graph-hashes`
+- Evidence：before-fix-eight-adversarial-PoCs-self-certified-after-fix-all-rejected-plus-cross-source-quote-reuse-rejected
+- Rollback：未记录
+- Unresolved：无
+
+### 2026-07-18T16:23:16.824Z · verify · /root/ocr_script_transition_audit
+
+- Scope：offline-local-verification-correction-complete-evidence
+- Resources：`curriculum-atlas:commit-2511d2b`、`curriculum-atlas:release-gates`、`curriculum-atlas:public-graph-hashes`
+- Evidence：before-eight-adversarial-PoCs-self-certified-after-all-rejected-plus-cross-source-quote-reuse-rejected_focused-83of83_full-node-607of607_python-13of13_check-build-concepts-online-release-wrangler-dryrun-pass_require-publishable-exit2_public-hashes-unchanged_gitleaks-zero
+- Rollback：revert-local-commits-b8080a3-through-2511d2b
+- Unresolved：previous-verify-row-was-truncated-by-shell-separators-this-row-supersedes-it_candidate-64-unpublished_public-graph-169
+
+### 2026-07-18T16:23:24.221Z · closeout · /root/ocr_script_transition_audit
+
+- Scope：isolated-branch-handoff-after-clean-local-verification
+- Resources：`/private/tmp/curriculum-ontology-release-bridge`、`codex/ontology-release-bridge-20260718`、`commits-b8080a3-5619041-2511d2b`
+- Evidence：worktree-clean_three-commits-ready_for_parent-review_no-public-graph-drift_no-push-deploy-or-remote-write
+- Rollback：parent-can-omit-or-revert-commits-b8080a3-through-2511d2b
+- Unresolved：parent-independent-review-and-integration-required_release-manifest-has-expected-unpushed-and-stale-environment-blockers
+
+</details>
+
+<details><summary><code>curriculum-page-evidence-publication-hardening-20260718</code> · 7 events · 2026-07-18T16:15:50.240Z → 2026-07-18T17:21:41.116Z</summary>
+
+Agents：`/root/post_ocr_release_chain_audit`
+Resources：`curriculum-atlas:page-evidence-validator`、`tests:page-evidence-publication`、`hook-files:last-separate-commit`、`curriculum-atlas:scripts/page-evidence-publication.mjs`、`curriculum-atlas:scripts/page-evidence-schemas`、`curriculum-atlas:tests/page-evidence-publication.test.mjs`、`curriculum-atlas:docs/page-evidence-publication.md`、`curriculum-atlas:commit-e5ea6f4`、`curriculum-atlas:page-evidence-tests`、`curriculum-atlas:package.json`、`curriculum-atlas:release-entrypoints`、`curriculum-atlas:page-evidence-release-hook`、`curriculum-atlas:scripts/build-release-manifest.mjs`、`curriculum-atlas:tests/release-manifest.test.mjs`、`curriculum-atlas:commits-7f4f7c2-e5ea6f4-58f0bef-3270086`、`curriculum-atlas:canonical-verify`、`curriculum-atlas:release-determinism`、`/private/tmp/curriculum-page-evidence-publication-phase1`、`codex/page-evidence-publication-phase1-20260718`、`tip-3270086`
+
+### 2026-07-18T16:15:50.240Z · start · /root/post_ocr_release_chain_audit
+
+- Scope：isolated-local-followup-malformed-fixture-red-before-evidence-hardening-then-separate-hook-integration
+- Resources：`curriculum-atlas:page-evidence-validator`、`tests:page-evidence-publication`、`hook-files:last-separate-commit`
+- Evidence：clean-branch-at-7f4f7c2-prohibited-from-integration-ontology-owner-overlap-known-and-serialized-by-parent
+- Rollback：omit-or-revert-followup-commits-no-remote-impact
+- Unresolved：no-push-deploy-publication-or-main-repo-asset-change
+
+### 2026-07-18T16:43:00.067Z · change · /root/post_ocr_release_chain_audit
+
+- Scope：replace-self-certified-page-evidence-with-raw-byte-recomputation-external-identities-fixed-inode-render-and-full-semantic-signature
+- Resources：`curriculum-atlas:scripts/page-evidence-publication.mjs`、`curriculum-atlas:scripts/page-evidence-schemas`、`curriculum-atlas:tests/page-evidence-publication.test.mjs`、`curriculum-atlas:docs/page-evidence-publication.md`
+- Evidence：red-before-20-pass-11-fail-now-focused-36-of-36-and-zero-release-valid-nonpublishable
+- Rollback：revert-followup-evidence-hardening-commit-after-7f4f7c2
+- Unresolved：full-repo-gates-and-separate-hook-commit-pending
+
+### 2026-07-18T16:45:33.279Z · verify · /root/post_ocr_release_chain_audit
+
+- Scope：commit-evidence-trust-boundary-remediation-with-red-before-and-focused-green-after
+- Resources：`curriculum-atlas:commit-e5ea6f4`、`curriculum-atlas:page-evidence-tests`
+- Evidence：red-before-20-pass-11-fail-focused-after-36-of-36-zero-manifest-valid-nonpublishable-git-diff-check-node-check-json-syntax-gitleaks-one-commit-zero
+- Rollback：revert-e5ea6f4-after-7f4f7c2-or-omit-whole-unreviewed-range
+- Unresolved：separate-hook-integration-and-full-suite-pending
+
+### 2026-07-18T16:54:53.289Z · change · /root/post_ocr_release_chain_audit
+
+- Scope：wire-page-evidence-gate-into-verify-corpus-build-import-release-manifest-and-deploy-entrypoints
+- Resources：`curriculum-atlas:package.json`、`curriculum-atlas:release-entrypoints`、`curriculum-atlas:page-evidence-release-hook`
+- Evidence：red-before-five-of-five-failed-now-hook-five-of-five-and-evidence-thirty-six-of-thirty-six-ordinary-valid-nonpublishable-promotion-fails-closed
+- Rollback：revert-separate-hook-integration-commit-without-removing-evidence-hardening
+- Unresolved：full-repository-gates-and-hook-commit-pending
+
+### 2026-07-18T17:16:51.165Z · change · /root/post_ocr_release_chain_audit
+
+- Scope：make-release-identity-deterministic-across-identical-corpus-build-audit-timestamps
+- Resources：`curriculum-atlas:scripts/build-release-manifest.mjs`、`curriculum-atlas:tests/release-manifest.test.mjs`
+- Evidence：red-before-helper-absent-and-two-real-builds-different-release-ids-now-real-double-build-same-release-id-with-distinct-raw-envelope-hashes-and-raw-hash-byte-tamper-rejection
+- Rollback：revert-third-release-determinism-commit-only
+- Unresolved：full-suite-after-third-commit-pending
+
+### 2026-07-18T17:21:16.826Z · verify · /root/post_ocr_release_chain_audit
+
+- Scope：final-independent-release-chain-verification
+- Resources：`curriculum-atlas:commits-7f4f7c2-e5ea6f4-58f0bef-3270086`、`curriculum-atlas:canonical-verify`、`curriculum-atlas:release-determinism`
+- Evidence：canonical-verify-exit-zero-node-588-of-588-python-14-of-14-typescript-build-assets-corpus-concepts-online-wrangler-dry-run-clean-source-double-build-same-release-id-distinct-raw-envelopes-raw-tamper-rejected-gitleaks-four-commits-zero-public-hashes-exact
+- Rollback：omit-whole-four-commit-range-or-revert-3270086-then-58f0bef-then-e5ea6f4-then-7f4f7c2
+- Unresolved：four-external-release-blockers-remain-and-parent-must-serialize-conflict-file-integration
+
+### 2026-07-18T17:21:41.116Z · closeout · /root/post_ocr_release_chain_audit
+
+- Scope：isolated-page-evidence-publication-hardening-handoff
+- Resources：`/private/tmp/curriculum-page-evidence-publication-phase1`、`codex/page-evidence-publication-phase1-20260718`、`tip-3270086`
+- Evidence：worktree-clean-no-push-no-deploy-no-remote-write-three-remediation-commits-after-prohibited-base-ready-for-parent-review
+- Rollback：omit-entire-range-or-revert-in-reverse-order
+- Unresolved：base-7f4f7c2-remains-prohibited-alone-four-release-blockers-and-cross-branch-conflict-serialization-pending
+
+</details>
+
+<details><summary><code>curriculum-ocr-a1-monitor-complete-hardening-round2-20260718</code> · 4 events · 2026-07-18T16:16:00.351Z → 2026-07-18T16:44:41.827Z</summary>
+
+Agents：`codex-a1-completed-status-compat`
+Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-offload-runner.test.mjs`、`bfd55d1`、`codex/a1-completed-status-compat-20260718`
+
+### 2026-07-18T16:16:00.351Z · start · codex-a1-completed-status-compat
+
+- Scope：isolated second-round A1 completed-status monitor regressions and minimal hardening
+- Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-offload-runner.test.mjs`
+- Evidence：starting from clean tip 3e59fa7 after independent review identified three P2 validation gaps
+- Rollback：new changes remain in isolated branch and can be omitted or reverted independently
+- Unresolved：no remote writes push deploy or ontology changes; parent retains integration ownership
+
+### 2026-07-18T16:34:07.236Z · change · codex-a1-completed-status-compat
+
+- Scope：second-round monitor integrity hardening in isolated curriculum worktree
+- Resources：`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-offload-runner.test.mjs`
+- Evidence：added failing regressions first, then exact complete progress schemas, retained timestamp binding, predecessor-complete state receipt SHA binding, and exact grant/no-grant state seed lineage validation; focused B 8/8 and A union 20/20 pass
+- Rollback：revert the forthcoming follow-up commit without changing 1e85e0f or 3e59fa7
+- Unresolved：full repository gates and third-round parent review remain
+
+### 2026-07-18T16:44:35.611Z · verify · codex-a1-completed-status-compat
+
+- Scope：second-round A1 completed lifecycle integrity verification
+- Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`bfd55d1`
+- Evidence：Node 568/568; focused monitor 32/32; B six-state regressions 8/8; A attempt-6 and 6364-page union regressions 20/20; Python 14/14; TypeScript, build, release manifest, diff checks, and gitleaks passed; runner receiver and OCR writer hashes unchanged
+- Rollback：revert bfd55d1 while retaining prior commits 1e85e0f and 3e59fa7
+- Unresolved：release manifest retains four pre-existing blockers; parent third-round review remains
+
+### 2026-07-18T16:44:41.827Z · closeout · codex-a1-completed-status-compat
+
+- Scope：isolated second-round A1 monitor hardening handoff
+- Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`codex/a1-completed-status-compat-20260718`
+- Evidence：tip bfd55d1; worktree clean; exact completed progress schemas and grant/no-grant state lineage sealed; no remote writes push deploy ontology or B3 changes
+- Rollback：parent may omit or revert bfd55d1 independently
+- Unresolved：parent must integrate and conduct third-round independent review; four external release blockers remain
+
+</details>
+
+<details><summary><code>curriculum-atlas-subject-inspector-fix-20260718</code> · 9 events · 2026-07-18T16:19:58.559Z → 2026-07-18T16:53:36.866Z</summary>
+
+Agents：`codex-root`
+Resources：`curriculum-atlas-public-app-js`、`curriculum-atlas-frontend-tests`、`curriculum-atlas-public-index-html`、`curriculum-atlas-frontend-regression-tests`、`curriculum-atlas-commit-1a2f8f3`、`GitHub-main`、`Cloudflare-Worker-bdfz-curriculum-atlas-preview`、`preview-Assets`、`preview-version-7689c470`、`preview-deployment-4c3fd103`、`preview-health`、`preview-browser-QA`、`curriculum-atlas-release-environment-evidence`、`Cloudflare-Worker-bdfz-curriculum-atlas`、`production-Assets`、`production-version-d9b35eea`、`production-deployment-c1da8f33`、`release-evidence`、`canonical-report`、`curriculum-atlas-main-857ed4e`
+
+### 2026-07-18T16:19:58.559Z · start · codex-root
+
+- Scope：isolate-cross-subject-ontology-inspector-state-fix
+- Resources：`curriculum-atlas-public-app-js`、`curriculum-atlas-frontend-tests`
+- Evidence：live-production-Playwright-reproduction-math-deep-empty-state-with-stale-Chinese-inspector
+- Rollback：omit-or-revert-dedicated-local-commit
+- Unresolved：local-test-browser-preview-and-main-integration-pending
+
+### 2026-07-18T16:36:00.471Z · change · codex-root
+
+- Scope：clear-stale-cross-subject-ontology-inspector-and-bump-unified-static-asset-version
+- Resources：`curriculum-atlas-public-app-js`、`curriculum-atlas-public-index-html`、`curriculum-atlas-frontend-regression-tests`
+- Evidence：live-Chinese-to-mathematics-reproduction-fixed-local-browser-546-of-546-node-14-of-14-python-tsc-build-pass
+- Rollback：revert-dedicated-frontend-commit
+- Unresolved：commit-push-preview-production-and-live-QA-pending
+
+### 2026-07-18T16:37:10.633Z · change · codex-root
+
+- Scope：integrate-and-push-scoped-frontend-fix-to-main
+- Resources：`curriculum-atlas-commit-1a2f8f3`、`GitHub-main`
+- Evidence：cherry-pick-tree-byte-equivalent-focused-16-of-16-tsc-build-pass-origin-main-updated
+- Rollback：git-revert-1a2f8f3-and-redeploy-prior-worker-version
+- Unresolved：preview-and-production-deploy-live-QA-pending
+
+### 2026-07-18T16:39:29.677Z · change · codex-root
+
+- Scope：deploy-scoped-frontend-fix-to-preview-only
+- Resources：`Cloudflare-Worker-bdfz-curriculum-atlas-preview`、`preview-Assets`
+- Evidence：version-7689c470-uploaded-index-html-and-app-js-D1-R2-APIS-User-Center-bindings-unchanged
+- Rollback：deploy-preview-version-2d107d38-at-100-percent
+- Unresolved：preview-live-browser-QA-and-production-promotion-pending
+
+### 2026-07-18T16:43:38.926Z · verify · codex-root
+
+- Scope：verify-preview-deployment-API-assets-and-browser-state-isolation
+- Resources：`preview-version-7689c470`、`preview-deployment-4c3fd103`、`preview-health`、`preview-browser-QA`
+- Evidence：health-200-git-9b84814-five-bindings-true-12-facets-Chinese-language-use-open-sports-leak-zero-math-empty-stale-inspector-zero-console-page-errors-zero-1440-no-overflow
+- Rollback：deploy-preview-version-2d107d38-at-100-percent
+- Unresolved：bind-preview-environment-evidence-before-production
+
+### 2026-07-18T16:45:25.128Z · change · codex-root
+
+- Scope：collect-validate-commit-and-push-preview-environment-evidence
+- Resources：`curriculum-atlas-release-environment-evidence`、`GitHub-main`
+- Evidence：preview-worker-7689c470-deployment-4c3fd103-assets-byte-equal-9b84814-seven-migrations-corpus-ready-R2-pointer-readback-receipt-72500f1a-tests-10-of-10
+- Rollback：revert-570cfbe-without-changing-preview-runtime
+- Unresolved：production-deploy-and-evidence-pending
+
+### 2026-07-18T16:46:33.556Z · change · codex-root
+
+- Scope：promote-scoped-frontend-fix-to-production-after-preview-QA
+- Resources：`Cloudflare-Worker-bdfz-curriculum-atlas`、`production-Assets`
+- Evidence：version-d9b35eea-uploaded-index-html-and-app-js-D1-R2-APIS-User-Center-bindings-unchanged
+- Rollback：deploy-production-version-28c7e6d4-at-100-percent
+- Unresolved：production-live-QA-and-environment-evidence-pending
+
+### 2026-07-18T16:53:36.760Z · verify · codex-root
+
+- Scope：verify-production-promotion-environment-evidence-API-browser-and-clean-source-gates
+- Resources：`production-version-d9b35eea`、`production-deployment-c1da8f33`、`release-evidence`、`canonical-report`
+- Evidence：health-200-git-570cfbe-five-bindings-true-desktop-mobile-stale-inspector-zero-errors-zero-overflow-search-12-source-entries-196-release-manifest-zero-blockers-orphan-dry-run-acted-zero
+- Rollback：production-version-28c7e6d4-and-preview-version-2d107d38-at-100-percent
+- Unresolved：none-in-scoped-frontend-fix
+
+### 2026-07-18T16:53:36.866Z · closeout · codex-root
+
+- Scope：close-scoped-cross-subject-inspector-fix-after-preview-production-verification
+- Resources：`curriculum-atlas-main-857ed4e`、`preview-version-7689c470`、`production-version-d9b35eea`
+- Evidence：GitHub-main-clean-runtime-evidence-bound-named-browsers-closed-other-owned-browser-processes-preserved
+- Rollback：revert-1a2f8f3-and-deploy-recorded-old-versions
+- Unresolved：full-OCR-evidence-ontology-and-data-publication-remain-under-parent-task
+
+</details>
+
+<details><summary><code>curriculum-ontology-integration-v4-20260718</code> · 5 events · 2026-07-18T16:56:36.234Z → 2026-07-18T17:18:11.457Z</summary>
+
+Agents：`/root/ontology_integration_v4`
+Resources：`curriculum-atlas-new-worktree`、`curriculum-atlas-new-local-branch`、`ontology-release-validator-tests-evidence`、`curriculum-atlas:branch-codex-ontology-integration-v4-20260718`、`curriculum-atlas:commits-7fe8f62-through-93674c4`、`curriculum-atlas:ontology-promotion-baseline`、`curriculum-atlas:scripts-validate-ontology-release`、`curriculum-atlas:ontology-release-regressions`、`curriculum-atlas:commit-91a13e9`、`curriculum-atlas:branch-tip-91a13e9`、`curriculum-atlas:release-manifest-release-b68a4c6f`、`curriculum-atlas:public-and-candidate-graphs`、`/private/tmp/curriculum-ontology-integration-v4`、`codex/ontology-integration-v4-20260718`、`commit-91a13e906fca72595cfa25ce53d329c26f8aa6f2`
+
+### 2026-07-18T16:56:36.234Z · start · /root/ontology_integration_v4
+
+- Scope：fresh-offline-integration-from-main-857ed4e-and-complete-clause-hardening
+- Resources：`curriculum-atlas-new-worktree`、`curriculum-atlas-new-local-branch`、`ontology-release-validator-tests-evidence`
+- Evidence：main-clean-at-857ed4e-prior-ontology-owner-closed-stale-smoke-worktree-excluded
+- Rollback：omit-or-delete-new-local-branch-and-worktree-no-main-or-remote-state-changes
+- Unresolved：cherry-pick-regenerate-baseline-implement-clause-regressions-run-full-local-gates
+
+### 2026-07-18T17:18:11.168Z · change · /root/ontology_integration_v4
+
+- Scope：integrate-specified-ontology-candidate-range-and-freeze-exact-branch-predecessor-baseline
+- Resources：`curriculum-atlas:branch-codex-ontology-integration-v4-20260718`、`curriculum-atlas:commits-7fe8f62-through-93674c4`、`curriculum-atlas:ontology-promotion-baseline`
+- Evidence：fresh-base-857ed4e_candidate-tip-e6aa740_direct-baseline-parent_baseline-ce19406_source-tree-f6309bc3_eight-governed-hashes-and-source-bytes-match_later-5619041-and-2511d2b-payloads-byte-identical
+- Rollback：omit-local-branch-or-revert-ce19406-through-93674c4-no-main-or-remote-impact
+- Unresolved：none-in-baseline-integration
+
+### 2026-07-18T17:18:11.263Z · change · /root/ontology_integration_v4
+
+- Scope：bind-relation-statements-to-complete-canonical-controlled-clauses
+- Resources：`curriculum-atlas:scripts-validate-ontology-release`、`curriculum-atlas:ontology-release-regressions`、`curriculum-atlas:commit-91a13e9`
+- Evidence：red-before-negative-prefix-and-suffix-accepted_wrapped-complete-clauses-rejected_after-fix-complete-punctuation-clause-edge-whitespace-negation-predicate-direction-and-wrapper-tests-pass
+- Rollback：revert-91a13e9-no-public-data-or-remote-impact
+- Unresolved：none
+
+### 2026-07-18T17:18:11.363Z · verify · /root/ontology_integration_v4
+
+- Scope：full-offline-integration-gates-and-public-graph-invariance
+- Resources：`curriculum-atlas:branch-tip-91a13e9`、`curriculum-atlas:release-manifest-release-b68a4c6f`、`curriculum-atlas:public-and-candidate-graphs`
+- Evidence：focused-87of87_full-node-631of631_python-14of14_tsc-catalog-assets-corpus-16456-in-91-concepts-553-475-online-candidate-64-unpublished-ontology-build-release-manifest-wrangler-dryrun-diff-clean-gitleaks-11-commits-zero_public-hashes-byte-identical-to-main
+- Rollback：omit-local-branch-no-runtime-state-changed
+- Unresolved：release-manifest-only-blocker-git-head-not-pushed-is-required-by-no-push-scope
+
+### 2026-07-18T17:18:11.457Z · closeout · /root/ontology_integration_v4
+
+- Scope：handoff-clean-local-ontology-integration-without-main-or-remote-mutation
+- Resources：`/private/tmp/curriculum-ontology-integration-v4`、`codex/ontology-integration-v4-20260718`、`commit-91a13e906fca72595cfa25ce53d329c26f8aa6f2`
+- Evidence：integration-git-status-clean_main-remains-857ed4e_no-push-deploy-promotion-or-remote-write_public-graph-unchanged_candidate-fail-closed
+- Rollback：delete-or-ignore-isolated-worktree-and-local-branch-or-revert-logical-commits
+- Unresolved：parent-retains-canonical-report-and-final-integration-ownership
+
+</details>
+
+<details><summary><code>curriculum-ocr-completed-lifecycle-remediation-20260718</code> · 4 events · 2026-07-18T17:20:10.418Z → 2026-07-18T18:13:49.191Z</summary>
+
+Agents：`/root/a1_completed_status_review4`
+Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`scripts/run-remote-ocr-offload.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-*`、`/private/tmp/curriculum-a1-completed-status-compat/scripts/lib/remote-ocr-lifecycle-contract.mjs`、`9e794ccd4d1da7913b25d36195ecd7e9c7a1f3ed`、`codex/a1-completed-status-compat-20260718`
+
+### 2026-07-18T17:20:10.418Z · start · /root/a1_completed_status_review4
+
+- Scope：isolated local-only lifecycle remediation from clean bfd55d1 with failing tests first
+- Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`scripts/run-remote-ocr-offload.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-*`
+- Evidence：prior owner closeout at action-log row 1641; branch clean at exact bfd55d1; independent fixtures reproduced five gaps
+- Rollback：revert dedicated local remediation commit or omit parent integration
+- Unresolved：no main push deploy remote write grant issuance or production OCR mutation; canonical report remains root-owned
+
+### 2026-07-18T17:42:22.099Z · change · /root/a1_completed_status_review4
+
+- Scope：add red-first lifecycle regressions and implement shared strict completion contract plus final-attempt restart sealing
+- Resources：`/private/tmp/curriculum-a1-completed-status-compat/scripts/lib/remote-ocr-lifecycle-contract.mjs`、`scripts/run-remote-ocr-offload.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-*`
+- Evidence：red fixtures reproduced attempt5-and6 exit12 malformed receiver acceptance legacy timestamp acceptance and impossible chronology; fast targeted fixes now pass and attempt6 seal reached before existing negative subtests
+- Rollback：revert dedicated remediation commit after creation; no main remote production or authority state changed
+- Unresolved：full focused and repository-wide gates pending
+
+### 2026-07-18T18:13:49.162Z · verify · /root/a1_completed_status_review4
+
+- Scope：verify dedicated local lifecycle remediation commit
+- Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`9e794ccd4d1da7913b25d36195ecd7e9c7a1f3ed`
+- Evidence：focused OCR suite 171 of 171 plus isolated receipt subtests 3 of 3; final npm test 580 of 580; Python 14 of 14; tsc build release manifest diff checks and staged plus commit gitleaks passed; runner SHA c562ee6363cfac390454700be92dc7a38b4c08946520d0e7b4991c792c23b34c
+- Rollback：revert commit 9e794ccd4d1da7913b25d36195ecd7e9c7a1f3ed or omit parent integration
+- Unresolved：four external release blockers remain: local HEAD not upstream plus stale downloads preview and production evidence
+
+### 2026-07-18T18:13:49.191Z · closeout · /root/a1_completed_status_review4
+
+- Scope：close isolated local remediation ownership with a clean candidate branch
+- Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`codex/a1-completed-status-compat-20260718`、`9e794ccd4d1da7913b25d36195ecd7e9c7a1f3ed`
+- Evidence：six authorized files committed cleanly; no main branch remote production authority or runtime state changed; shared lifecycle validator remains covered by the runner hash
+- Rollback：revert commit 9e794ccd4d1da7913b25d36195ecd7e9c7a1f3ed or omit parent integration
+- Unresolved：parent owns integration and canonical report consolidation; no push deploy remote write grant issuance or production OCR mutation performed
+
+</details>
+
+<details><summary><code>curriculum-ontology-full-context-polarity-remediation-20260718</code> · 4 events · 2026-07-18T17:29:06.712Z → 2026-07-18T17:40:57.400Z</summary>
+
+Agents：`/root/ontology_v4_review`
+Resources：`/private/tmp/curriculum-ontology-integration-v4`、`scripts/validate-ontology-release.mjs`、`tests/ontology-release-bridge.test.mjs`、`curriculum-atlas-ontology-release-validator`、`curriculum-atlas-ontology-release-regressions`、`curriculum-atlas-commit-6daad1c`、`curriculum-atlas-release-manifest-release-cf4acb3f`、`curriculum-atlas-public-graph-hashes`、`codex/ontology-integration-v4-20260718`、`commit-6daad1cefffb0b6ded0ba64e6e48d1cf357e95e3`
+
+### 2026-07-18T17:29:06.712Z · start · /root/ontology_v4_review
+
+- Scope：isolated-local-failing-test-first-repair-of-relation-full-context-polarity-boundary
+- Resources：`/private/tmp/curriculum-ontology-integration-v4`、`scripts/validate-ontology-release.mjs`、`tests/ontology-release-bridge.test.mjs`
+- Evidence：clean-branch-at-91a13e9-independent-review-reproduced-negative-governor-truncation
+- Rollback：revert-dedicated-local-remediation-commit-or-omit-it-before-parent-fast-forward
+- Unresolved：no-main-push-deploy-remote-write-public-data-or-canonical-report-changes
+
+### 2026-07-18T17:39:21.608Z · change · /root/ontology_v4_review
+
+- Scope：replace-punctuation-clause-truncation-with-canonical-full-paragraph-controlled-relation-context
+- Resources：`curriculum-atlas-ontology-release-validator`、`curriculum-atlas-ontology-release-regressions`
+- Evidence：red-before-focused-78-pass-22-fail_then-green-115-of-115_full-node-exit-zero_python-14-of-14-tsc-build-concepts-553-475-online-and-empty-ontology-gates-pass
+- Rollback：revert-forthcoming-dedicated-local-commit
+- Unresolved：release-manifest-wrangler-diff-gitleaks-and-commit-pending
+
+### 2026-07-18T17:40:41.811Z · verify · /root/ontology_v4_review
+
+- Scope：final-local-verification-of-full-context-relation-polarity-remediation
+- Resources：`curriculum-atlas-commit-6daad1c`、`curriculum-atlas-release-manifest-release-cf4acb3f`、`curriculum-atlas-public-graph-hashes`
+- Evidence：red-before-78-pass-22-fail_green-focused-115-of-115_full-node-exit-zero_python-14-of-14_tsc-build-concepts-553-475-online-ontology-empty-fail-closed-release-manifest-wrangler-dryrun-diff-check-gitleaks-12-commits-zero_public-graph-object-ids-unchanged
+- Rollback：revert-6daad1cefffb0b6ded0ba64e6e48d1cf357e95e3
+- Unresolved：only-release-blocker-is-required-git-head-not-pushed-under-no-push-scope_parent-independent-rereview-required
+
+### 2026-07-18T17:40:57.400Z · closeout · /root/ontology_v4_review
+
+- Scope：handoff-clean-isolated-ontology-remediation-without-main-or-runtime-mutation
+- Resources：`/private/tmp/curriculum-ontology-integration-v4`、`codex/ontology-integration-v4-20260718`、`commit-6daad1cefffb0b6ded0ba64e6e48d1cf357e95e3`
+- Evidence：worktree-clean-no-main-push-deploy-remote-write-or-public-graph-change_p1-regressions-and-gates-green
+- Rollback：parent-may-omit-or-revert-dedicated-commit-6daad1c
+- Unresolved：parent-must-independently-review-and-fast-forward-in-order-to-preserve-baseline-commit-identities
+
+</details>
+
+<details><summary><code>curriculum-page-evidence-release-correctness-remediation2-20260718</code> · 4 events · 2026-07-18T17:37:33.262Z → 2026-07-18T18:08:47.773Z</summary>
+
+Agents：`/root/post_ocr_release_chain_audit`、`codex-page-evidence-audit`
+Resources：`/private/tmp/curriculum-page-evidence-publication-phase1`、`codex/page-evidence-publication-phase1-20260718`、`scripts/import-corpus.mjs`、`scripts/build-corpus.mjs`、`scripts/build-release-manifest.mjs`、`scripts/publish-metadata.mjs`、`scripts/deploy-worker.mjs`、`package.json`、`docs/page-evidence-publication.md`、`commit-e3096ca`、`npm-verify`、`node-tests`、`python-tests`、`wrangler-dry-run`、`gitleaks`
+
+### 2026-07-18T17:37:33.262Z · start · /root/post_ocr_release_chain_audit
+
+- Scope：isolated-failing-test-first-raw-corpus-envelope-and-r2-promotion-hardening
+- Resources：`/private/tmp/curriculum-page-evidence-publication-phase1`、`codex/page-evidence-publication-phase1-20260718`、`scripts/import-corpus.mjs`、`scripts/build-corpus.mjs`、`scripts/build-release-manifest.mjs`、`scripts/publish-metadata.mjs`
+- Evidence：clean-branch-at-3270086-parent-authorized-two-independent-review-findings
+- Rollback：revert-dedicated-local-followup-commits-or-omit-before-parent-integration
+- Unresolved：no-main-push-deploy-remote-write-or-production-metadata-publication
+
+### 2026-07-18T18:00:37.535Z · change · codex-page-evidence-audit
+
+- Scope：isolated-worktree-corpus-envelope-and-r2-publication-hardening
+- Resources：`/private/tmp/curriculum-page-evidence-publication-phase1`、`scripts/import-corpus.mjs`、`scripts/build-corpus.mjs`、`scripts/build-release-manifest.mjs`、`scripts/publish-metadata.mjs`、`scripts/deploy-worker.mjs`、`package.json`、`docs/page-evidence-publication.md`
+- Evidence：exact-schema-sealed-corpus-manifest-source-recomputation-raw-byte-binding-and-default-off-page-evidence-promotion-added-no-remote-mutation
+- Rollback：revert-follow-up-commit-after-created
+- Unresolved：full-verification-and-independent-review-pending
+
+### 2026-07-18T18:08:47.773Z · verify · codex-page-evidence-audit
+
+- Scope：isolated-worktree-full-release-verification
+- Resources：`commit-e3096ca`、`npm-verify`、`node-tests`、`python-tests`、`wrangler-dry-run`、`gitleaks`
+- Evidence：npm-verify-exit-zero-595-node-tests-14-python-tests-tsc-build-page-evidence-corpus-concepts-release-manifest-wrangler-dry-run-clean-source-raw-corpus-sha-and-release-id-repeat-stable-gitleaks-no-leaks
+- Rollback：revert-e3096ca
+- Unresolved：no-deploy-no-push
+
+### 2026-07-18T18:08:47.773Z · closeout · codex-page-evidence-audit
+
+- Scope：isolated-worktree-follow-up-commit-complete
+- Resources：`/private/tmp/curriculum-page-evidence-publication-phase1`、`commit-e3096ca`
+- Evidence：exact-envelope-source-recompute-r2-page-mode-and-renderer-revalidation-complete-worktree-clean-temporary-links-removed
+- Rollback：git-revert-e3096ca-after-parent-review
+- Unresolved：parent-cherry-pick-integration-and-live-deploy-remain-explicitly-out-of-scope
+
+</details>
+
+<details><summary><code>curriculum-compendium-item-boundaries-20260718</code> · 3 events · 2026-07-18T18:01:45.454Z → 2026-07-18T18:54:31.007Z</summary>
+
+Agents：`codex-root`
+Resources：`/Users/ylsuen/CF/curriculum-atlas`、`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`scripts/build-concept-evolution.mjs`、`scripts/validate-concept-evolution.mjs`、`new item-boundary data schema and tests`、`data/compendium-item-boundaries.json`、`public/data/concept-evolution.json`、`public/data/concept-evolution-academic.json`
+
+### 2026-07-18T18:01:45.454Z · start · codex-root
+
+- Scope：Build isolated fail-closed multi-page compendium item boundary contract and Chinese TOC candidate ledger; no publication until body-heading and version-aware evidence close
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`scripts/build-concept-evolution.mjs`、`scripts/validate-concept-evolution.mjs`、`new item-boundary data schema and tests`
+- Evidence：main clean at 857ed4e; overlapping agents own ontology release, page publication, and remote OCR lifecycle files only; Chinese TOC pages 11-13 contain 61 entries with printed-to-physical offset plus 14
+- Rollback：omit isolated branch/worktree or revert its dedicated commits; published graph, D1, R2, Worker, OCR cache, remote shards, main and canonical report unchanged
+- Unresolved：full OCR body heading evidence and same-edition online verification remain required before any item becomes display or citation eligible
+
+### 2026-07-18T18:54:30.968Z · change · codex-root
+
+- Scope：Added fail-closed 61-item Chinese compendium boundary ledger, schema, validators, publication helpers, graph integration, governed release assets, tests, and methodology documentation on isolated branch
+- Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`data/compendium-item-boundaries.json`、`scripts/build-concept-evolution.mjs`、`public/data/concept-evolution.json`、`public/data/concept-evolution-academic.json`
+- Evidence：TOC remains navigation-only; display 0 citation 0 semantic 0; generated graph identity counts unchanged at 553 episodes, 475 relations, 5228 evidence
+- Rollback：revert the dedicated branch commit or omit the branch; main, D1, R2, Worker and remote OCR state remain unchanged
+- Unresolved：independent review and full OCR heading/page/online evidence are still required before integration or publication
+
+### 2026-07-18T18:54:31.007Z · verify · codex-root
+
+- Scope：Validated isolated compendium boundary implementation and rebuilt graph/site outputs
+- Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`
+- Evidence：compendium tests 19 of 19; full Node suite pass; Python 14 of 14; TypeScript pass; concepts validator pass; Wrangler production dry-run pass; JSON parse pass; git diff check pass; staged gitleaks pass
+- Rollback：no production state changed; remove or revert isolated commit
+- Unresolved：release manifest correctly reports dirty and not-pushed source until commit and integration
+
+</details>
+
+<details><summary><code>curriculum-page-evidence-toctou-remediation-20260718</code> · 5 events · 2026-07-18T18:29:10.776Z → 2026-07-18T19:28:53.359Z</summary>
+
+Agents：`/root/page_evidence_toctou_remediation`
+Resources：`/private/tmp/curriculum-page-evidence-publication-phase1`、`scripts-release-entrypoints`、`tests-page-evidence-release`、`curriculum-atlas-scripts`、`curriculum-atlas-tests`、`curriculum-atlas-docs`、`commit-302ebd5`、`focused-tests`、`full-npm-verify`、`wrangler-snapshot-dry-run`、`gitleaks`、`branch-codex-page-evidence-publication-phase1-20260718`
+
+### 2026-07-18T18:29:10.776Z · start · /root/page_evidence_toctou_remediation
+
+- Scope：isolated-failing-test-first-remediation-of-release-input-snapshot-and-concurrent-promotion-boundaries
+- Resources：`/private/tmp/curriculum-page-evidence-publication-phase1`、`scripts-release-entrypoints`、`tests-page-evidence-release`
+- Evidence：clean-branch-at-e3096ca-independent-review-reproduced-five-P1-and-one-P2
+- Rollback：revert-dedicated-local-remediation-commit-or-omit-parent-integration
+- Unresolved：no-main-push-deploy-remote-write-production-data-or-canonical-report-mutation
+
+### 2026-07-18T19:07:28.711Z · change · /root/page_evidence_toctou_remediation
+
+- Scope：isolated-worktree-only-publication-integrity-remediation
+- Resources：`curriculum-atlas-scripts`、`curriculum-atlas-tests`、`curriculum-atlas-docs`
+- Evidence：full-builder-fingerprint-private-fixed-snapshots-D1-publication-lease-predecessor-readback-and-real-boundary-tests-added
+- Rollback：revert-dedicated-isolated-branch-commit
+- Unresolved：no-main-remote-preview-or-production-mutation
+
+### 2026-07-18T19:28:28.201Z · verify · /root/page_evidence_toctou_remediation
+
+- Scope：isolated-worktree-only-publication-integrity-remediation
+- Resources：`commit-302ebd5`、`focused-tests`、`full-npm-verify`、`wrangler-snapshot-dry-run`、`gitleaks`
+- Evidence：focused-60-of-60-full-node-605-of-605-python-14-of-14-typescript-build-corpus-concepts-assets-wrangler-dry-run-clean-source-and-gitleaks-all-pass
+- Rollback：revert-commit-302ebd5-on-isolated-branch
+- Unresolved：release-manifest-remains-fail-closed-until-pushed-and-fresh-remote-evidence-corpus-alignment
+
+### 2026-07-18T19:28:37.749Z · closeout · /root/page_evidence_toctou_remediation
+
+- Scope：isolated-worktree-only-publication-integrity-remediation
+- Resources：`branch-codex-page-evidence-publication-phase1-20260718`、`commit-302ebd5`
+- Evidence：five-P1-and-P2-remediations-landed-in-one-clean-commit-with-no-main-remote-preview-production-or-canonical-report-write
+- Rollback：git-revert-302ebd5-or-drop-isolated-branch-before-integration
+- Unresolved：D1-publication-lease-is-cooperative-so-direct-R2-bypass-remains-forbidden
+
+### 2026-07-18T19:28:53.359Z · closeout · /root/page_evidence_toctou_remediation
+
+- Scope：isolated-worktree-only-publication-integrity-remediation
+- Resources：`branch-codex-page-evidence-publication-phase1-20260718`、`commit-302ebd5`
+- Evidence：corrected-complete-closeout-after-shell-delimiter-truncated-the-prior-unresolved-field-no-extra-mutation-occurred
+- Rollback：git-revert-302ebd5-or-drop-isolated-branch-before-integration
+- Unresolved：D1-publication-lease-is-cooperative-and-direct-R2-bypass-remains-forbidden,same-release-D1-import-concurrency-and-cross-plane-final-release-pinning-remain-follow-up-risks,release-not-ready-until-push-fresh-audit-environment-evidence-and-D1-corpus-match
+
+</details>
+
+<details><summary><code>curriculum-ocr-seed-lineage-contract-remediation-20260718</code> · 3 events · 2026-07-18T18:37:53.787Z → 2026-07-18T19:18:28.047Z</summary>
+
+Agents：`/root/a1_completed_status_review4`
+Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`scripts/run-remote-ocr-offload.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-offload-runner.test.mjs`、`tests/remote-ocr-offload-receiver.test.mjs`、`tests/remote-ocr-single-shard-monitor.test.mjs`、`commit 5144014d4f0345a46a9d7dd0cc829d08eb3763f3`
+
+### 2026-07-18T18:37:53.787Z · start · /root/a1_completed_status_review4
+
+- Scope：local-only follow-up for canonical identity and run-status seed-lineage plus monotonic legacy reverify
+- Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`scripts/run-remote-ocr-offload.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-offload-runner.test.mjs`、`tests/remote-ocr-offload-receiver.test.mjs`、`tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：clean isolated branch at 9e794cc; parent explicitly re-opened same disjoint ownership after independent freeze review
+- Rollback：revert forthcoming dedicated follow-up commit or omit parent integration
+- Unresolved：no main push deploy remote write A start grant issuance or production OCR mutation; canonical report remains parent-owned
+
+### 2026-07-18T19:18:28.009Z · verify · /root/a1_completed_status_review4
+
+- Scope：local contract and lifecycle remediation verification
+- Resources：`scripts/run-remote-ocr-offload.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-offload-runner.test.mjs`、`tests/remote-ocr-offload-receiver.test.mjs`
+- Evidence：red proof exposed 16 contract failures; green OCR suite 190 of 190; npm test 597 of 597; Python 14 of 14; TypeScript check and build passed; staged and commit gitleaks passed; runner sha256 5fef39bc67a0114f71b44f47cadc23391ecd02b9c3054847ee47621fa1b1760c
+- Rollback：revert local commit 5144014d4f0345a46a9d7dd0cc829d08eb3763f3
+- Unresolved：release manifest intentionally blocked by unpushed local head and stale download preview production evidence; no remote or A mutation
+
+### 2026-07-18T19:18:28.047Z · closeout · /root/a1_completed_status_review4
+
+- Scope：clean isolated local commit for parent independent review
+- Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`commit 5144014d4f0345a46a9d7dd0cc829d08eb3763f3`
+- Evidence：clean branch; canonical grant and no-grant lineage exact keys enforced at runner monitor receiver; legacy completion timestamps monotonic; release manifest has four external blockers
+- Rollback：revert 5144014d4f0345a46a9d7dd0cc829d08eb3763f3 or omit integration
+- Unresolved：parent owns remote workspace SHA256SUMS integration report and any later release action; A remains frozen and no grant was issued
+
+</details>
+
+<details><summary><code>curriculum-atlas-ocr-disk-headroom-20260718</code> · 4 events · 2026-07-18T19:04:08.681Z → 2026-07-18T19:04:17.434Z</summary>
+
+Agents：`codex-root`
+Resources：`/Users/ylsuen/.npm/_cacache`、`/Users/ylsuen/.npm/_npx`、`/Users/ylsuen/Library/Caches/Homebrew/downloads`、`/Users/ylsuen/Library/Caches/pip`、`/Users/ylsuen/Library/Caches/node-gyp`、`/Users/ylsuen/Library/Caches/antigravity-updater`、`/System/Volumes/Data`
+
+### 2026-07-18T19:04:08.681Z · start · codex-root
+
+- Scope：Reclaim only previously documented regenerable Tier-1 caches required for remaining OCR witness work; exclude browser sessions, Playwright cache, project OCR, Downloads, source trees and business data
+- Resources：`/Users/ylsuen/.npm/_cacache`、`/Users/ylsuen/.npm/_npx`、`/Users/ylsuen/Library/Caches/Homebrew/downloads`、`/Users/ylsuen/Library/Caches/pip`、`/Users/ylsuen/Library/Caches/node-gyp`、`/Users/ylsuen/Library/Caches/antigravity-updater`
+- Evidence：pre-cleanup Data volume approximately 51 GiB available; exact targets totaled approximately 4.6 GiB and were already classified Tier-1 in the canonical cleanup checklist
+- Rollback：regenerable caches are redownloaded by npm, Homebrew, pip, node-gyp or Antigravity when next required
+- Unresolved：start log was appended immediately after the user-approved deletion command rather than before it; no protected or business path was included
+
+### 2026-07-18T19:04:08.715Z · change · codex-root
+
+- Scope：Deleted only six exact regenerable cache directories to preserve OCR disk headroom
+- Resources：`/Users/ylsuen/.npm/_cacache`、`/Users/ylsuen/.npm/_npx`、`/Users/ylsuen/Library/Caches/Homebrew/downloads`、`/Users/ylsuen/Library/Caches/pip`、`/Users/ylsuen/Library/Caches/node-gyp`、`/Users/ylsuen/Library/Caches/antigravity-updater`
+- Evidence：command completed successfully; ms-playwright and browser caches excluded
+- Rollback：tools recreate these caches on demand
+- Unresolved：none
+
+### 2026-07-18T19:04:08.743Z · verify · codex-root
+
+- Scope：Verified exact target absence and reclaimed Data volume headroom
+- Resources：`/System/Volumes/Data`
+- Evidence：all six targets absent; Data volume now reports 56 GiB available and 88 percent used
+- Rollback：not applicable; caches remain reproducible
+- Unresolved：remaining OCR evidence may still consume several GiB and disk guard remains active
+
+### 2026-07-18T19:04:17.434Z · closeout · codex-root
+
+- Scope：Completed bounded Tier-1 cache cleanup with no browser or project-data impact
+- Resources：`/System/Volumes/Data`
+- Evidence：approximately 5 GiB additional free space verified; OCR hard and warning guards remain unchanged
+- Rollback：caches will regenerate automatically; no production or project state rollback required
+- Unresolved：continue observing disk during archive extraction and evidence drain
+
+</details>
+
+<details><summary><code>curriculum-compendium-publication-remediation-20260718</code> · 5 events · 2026-07-18T19:07:37.865Z → 2026-07-18T20:24:19.744Z</summary>
+
+Agents：`/root/compendium_boundary_review`
+Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`data-compendium-boundaries`、`concept-graph`、`cross-D1-corpus-retrieval`、`tests`、`scripts/compendium-evidence-receipt.mjs`、`scripts/build-compendium-item-boundary-candidates.mjs`、`scripts/validate-compendium-item-boundaries.mjs`、`scripts/compendium-item-publication.mjs`、`scripts/build-concept-evolution.mjs`、`scripts/build-corpus.mjs`、`scripts/import-corpus.mjs`、`migrations/0008_compendium_embedded_items.sql`、`data/compendium-item-boundaries.json`、`public/data/concept-evolution.json`、`public/data/concept-evolution-academic.json`、`public/data/graph-shards`、`public/graph-loader.js`、`public/app.js`、`scripts/graph-shards.mjs`、`scripts/build-release-manifest.mjs`、`scripts/collect-release-environment-evidence.mjs`、`src/index.ts`、`src/retrieval.ts`、`d43bfd8339492de557a5421a6e80adcf16e1c024`、`branch-codex-compendium-item-boundaries-20260718`、`commit-d43bfd8339492de557a5421a6e80adcf16e1c024`
+
+### 2026-07-18T19:07:37.865Z · start · /root/compendium_boundary_review
+
+- Scope：isolated-worktree-remediation-of-reviewed-compendium-publication-contracts
+- Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`data-compendium-boundaries`、`concept-graph`、`cross-D1-corpus-retrieval`、`tests`
+- Evidence：independent-review-found-five-P1-and-one-P2-at-ee3c895-worktree-clean-main-remote-production-excluded
+- Rollback：revert-dedicated-local-remediation-commit-or-omit-parent-integration
+- Unresolved：no-main-push-deploy-remote-OCR-D1-R2-preview-production-or-canonical-report-mutation
+
+### 2026-07-18T19:26:31.022Z · change · /root/compendium_boundary_review
+
+- Scope：evidence-receipts-item-scoped-citation-and-embedded-item-d1-projection
+- Resources：`scripts/compendium-evidence-receipt.mjs`、`scripts/build-compendium-item-boundary-candidates.mjs`、`scripts/validate-compendium-item-boundaries.mjs`、`scripts/compendium-item-publication.mjs`、`scripts/build-concept-evolution.mjs`、`scripts/build-corpus.mjs`、`scripts/import-corpus.mjs`、`migrations/0008_compendium_embedded_items.sql`、`data/compendium-item-boundaries.json`
+- Evidence：actual-pdf-render-image-primary-vision-receipts-bound-toc-and-pages-item-identity-projection-added-current-real-published-count-remains-zero
+- Rollback：revert-dedicated-local-remediation-commit-or-omit-parent-integration
+- Unresolved：local-tests-api-retrieval-graph-sharding-and-generated-artifacts-pending
+
+### 2026-07-18T20:23:47.922Z · change · /root/compendium_boundary_review
+
+- Scope：graph-sharding-lazy-frontend-and-release-binding
+- Resources：`public/data/concept-evolution.json`、`public/data/concept-evolution-academic.json`、`public/data/graph-shards`、`public/graph-loader.js`、`public/app.js`、`scripts/graph-shards.mjs`、`scripts/build-release-manifest.mjs`、`scripts/collect-release-environment-evidence.mjs`、`src/index.ts`、`src/retrieval.ts`
+- Evidence：immutable-content-addressed-78-shards-max-512KiB-revision-08ded4f06c7af0bdc1658ab2035959a5c3fa97e1322445e5e4f57490de4ee9ee-lazy-scope-load-hash-byte-count-revision-checks-and-item-parent-discussion-boundary
+- Rollback：revert-dedicated-local-remediation-commit-or-omit-parent-integration
+- Unresolved：no-main-push-deploy-remote-OCR-D1-R2-preview-production-or-canonical-report-mutation
+
+### 2026-07-18T20:24:19.743Z · verify · /root/compendium_boundary_review
+
+- Scope：isolated-worktree-full-publication-contract-validation
+- Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`d43bfd8339492de557a5421a6e80adcf16e1c024`
+- Evidence：corpus-build-16456-paragraphs-91-chunks-concepts-validate-pass-553-episodes-475-relations-78-shards-graph-revision-08ded4f06c7af0bdc1658ab2035959a5c3fa97e1322445e5e4f57490de4ee9ee-site-build-pass-full-npm-test-pass-tsc-pass-diff-check-pass
+- Rollback：revert-d43bfd8339492de557a5421a6e80adcf16e1c024-or-do-not-integrate-branch
+- Unresolved：preview-production-D1-R2-release-environment-and-live-browser-not-touched
+
+### 2026-07-18T20:24:19.744Z · closeout · /root/compendium_boundary_review
+
+- Scope：committed-isolated-remediation-handoff
+- Resources：`branch-codex-compendium-item-boundaries-20260718`、`commit-d43bfd8339492de557a5421a6e80adcf16e1c024`
+- Evidence：current-real-compendium-counts-remain-61-candidates-0-display-0-citation-0-semantic-no-main-push-deploy-or-remote-mutation
+- Rollback：revert-d43bfd8339492de557a5421a6e80adcf16e1c024-or-omit-cherry-pick
+- Unresolved：parent-agent-must-review-integrate-then-collect-fresh-environment-evidence-apply-0008-import-current-corpus-deploy-and-live-smoke-in-controlled-order
+
+</details>
+
+<details><summary><code>curriculum-a2-runtime-20260718</code> · 3 events · 2026-07-18T19:23:00.085Z → 2026-07-18T19:33:49.428Z</summary>
+
+Agents：`codex-root`
+Resources：`/private/tmp/curriculum-a2-runtime-20260718`、`ops/systemd/curriculum-ocr-reprocess-a-r2.service`、`ops/systemd/curriculum-ocr-reprocess-a-r2-monitor.service`、`ops/systemd/curriculum-ocr-reprocess-a-r2-cleanup.service`、`tests/remote-ocr-a2-systemd.test.mjs`、`/private/tmp/curriculum-a2-runtime-20260718/ops/systemd`、`/private/tmp/curriculum-a2-runtime-20260718/tests/remote-ocr-a2-systemd.test.mjs`、`commit be457be`、`OCR monitor and cleanup focused suites`
+
+### 2026-07-18T19:23:00.085Z · start · codex-root
+
+- Scope：Build isolated fail-closed A2 parallel-1 worker, monitor, cleanup and tests from reviewed-candidate A lifecycle commit; no runner changes and no remote/main/deploy mutation
+- Resources：`/private/tmp/curriculum-a2-runtime-20260718`、`ops/systemd/curriculum-ocr-reprocess-a-r2.service`、`ops/systemd/curriculum-ocr-reprocess-a-r2-monitor.service`、`ops/systemd/curriculum-ocr-reprocess-a-r2-cleanup.service`、`tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：main clean at 857ed4e; A lifecycle branch clean at 5144014 and under independent read-only review; B3 complete and remote runtime idle
+- Rollback：remove isolated worktree/branch or revert its dedicated commit; remote units, A predecessor, authority, main and production unchanged
+- Unresolved：A independent review and exact live A1 anchor computation remain mandatory before install or grant
+
+### 2026-07-18T19:32:50.172Z · change · codex-root
+
+- Scope：Created isolated A2 parallel-1 worker, sealed-anchor monitor, alert binding, completion cleanup, and focused contract tests; no remote install or service mutation
+- Resources：`/private/tmp/curriculum-a2-runtime-20260718/ops/systemd`、`/private/tmp/curriculum-a2-runtime-20260718/tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：A2 requires committed seed, grant, and consumption evidence; lifecycle flock shared with cleanup; alert config binds only A2; predecessor workers conflict and remain inactive
+- Rollback：Revert the dedicated A2 runtime commit or delete the isolated branch; no remote, main, data, authority, or production state changed
+- Unresolved：A runner remediation and fresh independent review remain mandatory before rebasing, remote installation, grant issuance, or start
+
+### 2026-07-18T19:33:49.428Z · verify · codex-root
+
+- Scope：Verified isolated A2 runtime checkpoint be457be without remote installation
+- Resources：`commit be457be`、`tests/remote-ocr-a2-systemd.test.mjs`、`OCR monitor and cleanup focused suites`
+- Evidence：85 of 85 focused tests passed; diff check clean; remote read-only baseline confirms all predecessor workers inactive or masked, B3 disabled success, llama inactive, A1 four complete and four quarantined, 13 GiB memory and 304 GiB disk available
+- Rollback：Revert be457be or delete isolated branch; remote remains untouched
+- Unresolved：Checkpoint is based on blocked A lifecycle commit 5144014 and must be rebased onto remediated, independently reviewed runner before any remote action
+
+</details>
+
+<details><summary><code>curriculum-ocr-a1-runner-contract-remediation-20260718</code> · 4 events · 2026-07-18T19:32:18.983Z → 2026-07-18T20:12:08.145Z</summary>
+
+Agents：`/root/a1_runner_contract_remediation`
+Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`scripts/run-remote-ocr-offload.mjs`、`scripts/monitor-remote-ocr-single-shard.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`tests/remote-ocr-offload-runner.test.mjs`、`branch-codex-a1-completed-status-compat-20260718`、`commit-c010f571a275f681c026bd29a9caea34e5218b38`
+
+### 2026-07-18T19:32:18.983Z · start · /root/a1_runner_contract_remediation
+
+- Scope：isolated-local-remediation-of-audited-transition-recomputation-and-authority-dir-inode-pinning
+- Resources：`/private/tmp/curriculum-a1-completed-status-compat`、`scripts/run-remote-ocr-offload.mjs`、`scripts/monitor-remote-ocr-single-shard.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`tests/remote-ocr-offload-runner.test.mjs`
+- Evidence：clean-branch-at-5144014-and-prior-owner-closeout-at-row-1690
+- Rollback：revert-dedicated-local-commit-or-omit-parent-integration
+- Unresolved：no-main-remote-host-grant-authority-service-cloudflare-report-or-other-worktree-mutation
+
+### 2026-07-18T20:05:04.941Z · change · /root/a1_runner_contract_remediation
+
+- Scope：close-three-independent-review-blockers-in-isolated-a1-runner-contract
+- Resources：`scripts/run-remote-ocr-offload.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`tests/remote-ocr-offload-runner.test.mjs`
+- Evidence：unaudited-grant-transition-preflight-before-successor-create-and-authority-use-pinned-directory-inode-through-claim-and-full-committed-predecessor-seed-basis-runstatus-attempt-recomputation
+- Rollback：revert-forthcoming-isolated-commit
+- Unresolved：full-gates-and-clean-commit-pending-no-remote-action
+
+### 2026-07-18T20:12:08.005Z · verify · /root/a1_runner_contract_remediation
+
+- Scope：isolated-a1-timeout-recovery-contract-regression-gates
+- Resources：`scripts/run-remote-ocr-offload.mjs`、`scripts/monitor-remote-ocr-single-shard.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`tests/remote-ocr-offload-runner.test.mjs`
+- Evidence：npm-test-597-of-597-python-14-of-14-tsc-build-diff-check-gitleaks-one-commit-clean-final-hashes-recorded
+- Rollback：revert-commit-c010f571a275f681c026bd29a9caea34e5218b38
+- Unresolved：release-manifest-generated-with-five-existing-publication-blockers-no-deploy
+
+### 2026-07-18T20:12:08.145Z · closeout · /root/a1_runner_contract_remediation
+
+- Scope：deliver-clean-isolated-commit-for-parent-integration-with-a-frozen
+- Resources：`branch-codex-a1-completed-status-compat-20260718`、`commit-c010f571a275f681c026bd29a9caea34e5218b38`
+- Evidence：exact-transition-gate-full-resume-recomputation-pinned-authority-directory-and-directory-swap-regressions-verified
+- Rollback：omit-parent-integration-or-revert-c010f571a275f681c026bd29a9caea34e5218b38
+- Unresolved：no-remote-grant-authority-service-cloudflare-report-or-main-worktree-action
+
+</details>
+
+<details><summary><code>curriculum-cross-plane-fenced-publication-remediation-20260718</code> · 5 events · 2026-07-18T19:58:34.337Z → 2026-07-18T21:41:16.701Z</summary>
+
+Agents：`/root/page_evidence_toctou_remediation`、`codex-page-evidence`
+Resources：`/private/tmp/curriculum-page-evidence-publication-phase1`、`codex/page-evidence-publication-phase1-20260718`、`scripts-release-pipeline`、`worker-r2-coordinator`、`d1-import-ledger`、`tests-docs`、`curriculum-atlas-isolated-branch`、`migration-0008`、`desired-release-v2`、`corpus-importer`、`Worker-release-coordinator`、`R2-publication-tests`、`corpus-import-fencing`、`r2-coordinator`、`branch-codex-page-evidence-publication-phase1-20260718`、`commit-5b056d8a516cfc6bd4714b243ce90981ec7f3904`
+
+### 2026-07-18T19:58:34.337Z · start · /root/page_evidence_toctou_remediation
+
+- Scope：isolated-worktree-release-identity-owner-fencing-git-blob-build-and-atomic-r2-activation-remediation
+- Resources：`/private/tmp/curriculum-page-evidence-publication-phase1`、`codex/page-evidence-publication-phase1-20260718`、`scripts-release-pipeline`、`worker-r2-coordinator`、`d1-import-ledger`、`tests-docs`
+- Evidence：clean-branch-at-302ebd5,prior-task-closed,independent-review-P1-P2-reopened
+- Rollback：revert-new-local-remediation-commit-or-omit-branch-before-parent-integration
+- Unresolved：no-main-remote-cloudflare-preview-production-or-canonical-report-mutation
+
+### 2026-07-18T21:23:07.398Z · change · codex-page-evidence
+
+- Scope：isolated-worktree-release-integrity-remediation-no-live-mutation
+- Resources：`curriculum-atlas-isolated-branch`、`migration-0008`、`desired-release-v2`、`corpus-importer`、`Worker-release-coordinator`、`R2-publication-tests`
+- Evidence：exact-Git-blob-materialization-shared-corpus-snapshot-D1-owner-fences-conditional-R2-activation-and-v2-runbooks-added-without-remote-deploy
+- Rollback：revert-the-single-local-remediation-commit-after-review-no-live-rollback-required
+- Unresolved：final-commit-and-independent-handoff-pending
+
+### 2026-07-18T21:40:05.431Z · verify · /root/page_evidence_toctou_remediation
+
+- Scope：isolated-worktree-release-integrity-final-gates
+- Resources：`curriculum-atlas-isolated-branch`、`migration-0008`、`desired-release-v2`、`corpus-import-fencing`、`r2-coordinator`
+- Evidence：npm-test-613-total-612-pass-0-fail-1-existing-cache-skip
+- Rollback：未记录
+- Unresolved：无
+
+### 2026-07-18T21:40:14.169Z · verify · /root/page_evidence_toctou_remediation
+
+- Scope：isolated-worktree-release-integrity-final-gates
+- Resources：`curriculum-atlas-isolated-branch`、`migration-0008`、`desired-release-v2`、`corpus-import-fencing`、`r2-coordinator`
+- Evidence：npm-test-613-total-612-pass-0-fail-1-existing-cache-skip,targeted-88-pass,python-14-pass,tsc-pass,build-pass,wrangler-production-dry-run-pass,diff-check-pass
+- Rollback：revert-local-remediation-commit-after-review
+- Unresolved：no-cloudflare-main-remote-canonical-report-mutation-and-prepare-release-live-gate-intentionally-not-run-on-unpushed-isolated-branch
+
+### 2026-07-18T21:41:16.701Z · closeout · /root/page_evidence_toctou_remediation
+
+- Scope：isolated-worktree-release-integrity-remediation-complete
+- Resources：`branch-codex-page-evidence-publication-phase1-20260718`、`commit-5b056d8a516cfc6bd4714b243ce90981ec7f3904`
+- Evidence：clean-tree,post-commit-critical-89-pass,full-suite-612-pass-0-fail-1-existing-cache-skip,python-14-pass,tsc-build-wrangler-dry-run-pass
+- Rollback：git-revert-5b056d8a516cfc6bd4714b243ce90981ec7f3904-after-integration-or-drop-isolated-branch-before-integration
+- Unresolved：parent-integration-and-real-preview-release-sequence-required-with-no-live-state-mutated-by-this-task
+
+</details>
+
+<details><summary><code>curriculum-ocr-audit-triangulation-v2-20260718</code> · 3 events · 2026-07-18T20:01:50.954Z → 2026-07-18T20:45:14.489Z</summary>
+
+Agents：`/root`
+Resources：`/private/tmp/curriculum-ocr-audit-triangulation-v2`、`scripts-ocr-triangulation`、`tests-ocr-triangulation`、`docs-ocr-quality`、`/private/tmp/curriculum-ocr-audit-triangulation-v2/data/ocr-page-furniture-activation.json`、`/private/tmp/curriculum-ocr-audit-triangulation-v2/scripts/build-ocr-triangulation-audit.mjs`、`/private/tmp/curriculum-ocr-audit-triangulation-v2/tests/ocr-triangulation-audit.test.mjs`、`/private/tmp/curriculum-ocr-audit-triangulation-v2/docs/ocr-quality.md`、`curriculum-atlas-local-branch`、`/private/tmp/moe-2022-03-triangulation-v2-final.json`
+
+### 2026-07-18T20:01:50.954Z · start · /root
+
+- Scope：Isolated-test-first-addition-of-source-bound-furniture-and-version-aware-online-triangulation-consumer-without-relaxing-existing-OCR-gates
+- Resources：`/private/tmp/curriculum-ocr-audit-triangulation-v2`、`scripts-ocr-triangulation`、`tests-ocr-triangulation`、`docs-ocr-quality`
+- Evidence：main-clean-at-857ed4e-and-no-overlapping-owner-for-new-consumer-files
+- Rollback：Omit-or-revert-dedicated-local-branch
+- Unresolved：No-main-remote-OCR-D1-R2-preview-production-or-canonical-report-mutation
+
+### 2026-07-18T20:45:04.873Z · change · /root
+
+- Scope：Added-source-PDF-byte-bound-page-triangulation-audit-and-comparison-only-footer-activation-without-publication-effect
+- Resources：`/private/tmp/curriculum-ocr-audit-triangulation-v2/data/ocr-page-furniture-activation.json`、`/private/tmp/curriculum-ocr-audit-triangulation-v2/scripts/build-ocr-triangulation-audit.mjs`、`/private/tmp/curriculum-ocr-audit-triangulation-v2/tests/ocr-triangulation-audit.test.mjs`、`/private/tmp/curriculum-ocr-audit-triangulation-v2/docs/ocr-quality.md`
+- Evidence：Raw-PDF-Paddle-Vision-PNG-and-local-online-snapshots-are-recomputed-and-unresolved-pages-remain-citation-false
+- Rollback：Revert-dedicated-branch-commit
+- Unresolved：Await-independent-review-before-integration
+
+### 2026-07-18T20:45:14.489Z · verify · /root
+
+- Scope：Verified-full-regression-and-real-109-page-source-bound-triangulation-run
+- Resources：`curriculum-atlas-local-branch`、`/private/tmp/moe-2022-03-triangulation-v2-final.json`
+- Evidence：Node-559-of-559-Python-14-of-14-tsc-build-diff-check-and-gitleaks-pass-real-run-auto-0-manual-15-unresolved-94-citation-0-mode-0600
+- Rollback：No-main-or-production-state-mutated
+- Unresolved：Independent-read-only-review-required-before-integration
+
+</details>
+
+<details><summary><code>curriculum-ocr-a1-issuance-read-order-remediation-20260718</code> · 3 events · 2026-07-18T21:14:28.731Z → 2026-07-18T21:44:10.818Z</summary>
+
+Agents：`codex-root`
+Resources：`curriculum-atlas:scripts/run-remote-ocr-offload.mjs`、`curriculum-atlas:tests/remote-ocr-offload-runner.test.mjs`、`curriculum-atlas:commit-ed93e44`
+
+### 2026-07-18T21:14:28.731Z · start · codex-root
+
+- Scope：isolated-local-fix-for-deterministic-fail-closed-timeout-issuance-missing-artifact-error
+- Resources：`curriculum-atlas:scripts/run-remote-ocr-offload.mjs`、`curriculum-atlas:tests/remote-ocr-offload-runner.test.mjs`
+- Evidence：independent-review-reproduced-219-of-220-joint-suite-pass-at-exact-929109c
+- Rollback：omit-or-revert-dedicated-remediation-commit
+- Unresolved：reviewer-still-finishing-broader-read-only-audit-no-remote-write-grant-service-or-deploy
+
+### 2026-07-18T21:27:25.036Z · change · codex-root
+
+- Scope：accept-either-fail-closed-missing-member-of-concurrently-read-issuance-pair-in-test-contract-only
+- Resources：`curriculum-atlas:tests/remote-ocr-offload-runner.test.mjs`
+- Evidence：runner-and-receiver-bytes-restored-exact-runner-sha-0fbf3d28-joint-suite-220-of-220
+- Rollback：revert-dedicated-one-line-test-commit
+- Unresolved：full-repository-gates-and-independent-rereview-pending-no-remote-action
+
+### 2026-07-18T21:44:10.818Z · verify · codex-root
+
+- Scope：exact-test-only-remediation-full-local-gates
+- Resources：`curriculum-atlas:commit-ed93e44`、`curriculum-atlas:tests/remote-ocr-offload-runner.test.mjs`
+- Evidence：joint-OCR-suite-220-of-220-full-node-597-of-597-python-14-of-14-tsc-build-catalog-assets-corpus-concepts-online-validator-release-manifest-wrangler-dry-run-diff-check-gitleaks-clean-runner-sha-remains-0fbf3d28
+- Rollback：revert-ed93e44-after-929109c
+- Unresolved：independent-rereview-A2-review-and-remote-key-install-pending-no-remote-grant-or-service-action
+
+</details>
+
+<details><summary><code>curriculum-ocr-triangulation-v2-integrity-remediation-20260718</code> · 4 events · 2026-07-18T21:35:57.279Z → 2026-07-18T22:20:07.158Z</summary>
+
+Agents：`/root/ocr_triangulation_v2_integrity_remediation`
+Resources：`/private/tmp/curriculum-ocr-audit-triangulation-v2`、`scripts/build-ocr-triangulation-audit.mjs`、`tests/ocr-triangulation-audit.test.mjs`、`scripts/validate-ocr-page-furniture-approvals.mjs`、`docs/ocr-quality.md`、`scripts/lib/safe-local-evidence.mjs`、`data/ocr-online-source-registry.json`、`data/release-assets-policy.json`、`tests/safe-local-evidence.test.mjs`、`38f063f2f0f2337c79bbe48d12ca9f9727a0f2db`、`/private/tmp/moe-2022-03-triangulation-v2-remediated.json`、`branch codex/ocr-audit-triangulation-v2-20260718`、`commit 38f063f2f0f2337c79bbe48d12ca9f9727a0f2db`
+
+### 2026-07-18T21:35:57.279Z · start · /root/ocr_triangulation_v2_integrity_remediation
+
+- Scope：isolated-local-remediation-of-independent-review-release-integrity-blockers
+- Resources：`/private/tmp/curriculum-ocr-audit-triangulation-v2`、`scripts/build-ocr-triangulation-audit.mjs`、`tests/ocr-triangulation-audit.test.mjs`、`scripts/validate-ocr-page-furniture-approvals.mjs`、`docs/ocr-quality.md`
+- Evidence：clean-exact-299617b-parent-handoff-no-overlapping-mutator-identified
+- Rollback：omit-or-revert-dedicated-local-remediation-commit
+- Unresolved：no-main-remote-deploy-report-body-raw-OCR-evidence-D1-R2-preview-or-production-mutation
+
+### 2026-07-18T22:17:33.133Z · change · /root/ocr_triangulation_v2_integrity_remediation
+
+- Scope：isolated-worktree OCR triangulation integrity remediation
+- Resources：`/private/tmp/curriculum-ocr-audit-triangulation-v2`、`scripts/build-ocr-triangulation-audit.mjs`、`scripts/lib/safe-local-evidence.mjs`、`scripts/validate-ocr-page-furniture-approvals.mjs`、`data/ocr-online-source-registry.json`、`data/release-assets-policy.json`、`docs/ocr-quality.md`、`tests/ocr-triangulation-audit.test.mjs`、`tests/safe-local-evidence.test.mjs`
+- Evidence：added fail-closed source registry secure reads output alias protection artifact identity and table gates with no raw OCR or production writes
+- Rollback：revert the single isolated remediation commit after independent review
+- Unresolved：controlled registry intentionally empty and independent rereview required before integration
+
+### 2026-07-18T22:19:48.169Z · verify · /root/ocr_triangulation_v2_integrity_remediation
+
+- Scope：isolated OCR triangulation remediation commit verification
+- Resources：`38f063f2f0f2337c79bbe48d12ca9f9727a0f2db`、`/private/tmp/moe-2022-03-triangulation-v2-remediated.json`
+- Evidence：focused Node 47 of 47 full Node 593 of 593 Python 14 of 14 TypeScript build syntax diff and one-commit gitleaks passed; real 109-page audit citation allowed zero SHA256 affbcb4b50120fc97b63d72c1dcd4bcb5121f0101a1667060b2ab91426372e95 mode 0600
+- Rollback：revert commit 38f063f2f0f2337c79bbe48d12ca9f9727a0f2db in the isolated branch
+- Unresolved：full-history gitleaks reports five pre-existing findings while the single remediation commit is clean
+
+### 2026-07-18T22:20:07.158Z · closeout · /root/ocr_triangulation_v2_integrity_remediation
+
+- Scope：isolated OCR triangulation integrity remediation complete for independent rereview
+- Resources：`branch codex/ocr-audit-triangulation-v2-20260718`、`commit 38f063f2f0f2337c79bbe48d12ca9f9727a0f2db`
+- Evidence：single commit over exact parent 299617b08e464b0fd6018ba0cb1214362aa57676 and clean worktree with no remote deploy production or raw OCR writes
+- Rollback：revert the isolated commit or discard this unintegrated worktree
+- Unresolved：controlled registry remains empty so no real online citation is unlocked; external asset sequence receipt generation remains review-bound; independent commit rereview required
+
+</details>
+
+<details><summary><code>curriculum-a2-runtime-rebase-20260718</code> · 4 events · 2026-07-18T21:36:59.799Z → 2026-07-18T21:50:05.964Z</summary>
+
+Agents：`codex-root`
+Resources：`curriculum-atlas:commit-ed93e44`、`curriculum-atlas:commit-be457be`、`curriculum-atlas:ops/systemd/curriculum-ocr-reprocess-a-r2`、`curriculum-atlas:tests/remote-ocr-a2-systemd.test.mjs`、`curriculum-atlas:local-main-commit-116c565`、`curriculum-atlas:commit-00ea805`
+
+### 2026-07-18T21:36:59.799Z · start · codex-root
+
+- Scope：rebase-local-A2-systemd-runtime-onto-A1-tip-with-test-only-race-contract-fix
+- Resources：`curriculum-atlas:commit-ed93e44`、`curriculum-atlas:commit-be457be`、`curriculum-atlas:ops/systemd/curriculum-ocr-reprocess-a-r2`、`curriculum-atlas:tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：A1-independent-review-found-only-nondeterministic-test-contract-and-joint-suite-now-220-of-220
+- Rollback：omit-new-integration-branch-or-revert-A2-cherry-pick
+- Unresolved：full-A1-suite-running-A2-independent-review-and-remote-auth-key-required-before-install
+
+### 2026-07-18T21:37:39.116Z · change · codex-root
+
+- Scope：rollback-accidental-local-main-cherry-pick-before-any-push-or-deploy
+- Resources：`curriculum-atlas:local-main-commit-116c565`
+- Evidence：cherry-pick-ran-in-parent-worktree-not-new-isolated-worktree-main-still-clean-files-and-unpushed
+- Rollback：git-revert-116c565-no-remote-impact
+- Unresolved：isolated-A2-cherry-pick-still-required
+
+### 2026-07-18T21:50:05.933Z · change · codex-root
+
+- Scope：cherry-pick-A2-runtime-onto-reviewed-A1-plus-test-only-race-fix-in-isolated-branch
+- Resources：`curriculum-atlas:commit-00ea805`、`curriculum-atlas:ops/systemd/curriculum-ocr-reprocess-a-r2`、`curriculum-atlas:tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：correct-worktree-cherry-pick-clean-eight-files-no-runner-byte-change
+- Rollback：revert-00ea805-or-drop-isolated-branch
+- Unresolved：independent-A2-review-and-remote-install-pending
+
+### 2026-07-18T21:50:05.964Z · verify · codex-root
+
+- Scope：full-local-A1-plus-A2-runtime-gates
+- Resources：`curriculum-atlas:commit-00ea805`、`curriculum-atlas:commit-ed93e44`
+- Evidence：focused-A2-monitor-cleanup-82-of-82-full-node-600-of-600-python-14-of-14-tsc-build-catalog-assets-corpus-concepts-online-validator-release-manifest-production-wrangler-dry-run-diff-gitleaks-clean
+- Rollback：revert-00ea805-then-ed93e44
+- Unresolved：independent-review-remote-key-install-systemd-analyze-live-canary-and-grant-pending-no-remote-write
+
+</details>
+
+<details><summary><code>curriculum-compendium-release-integrity-remediation-r2-20260718</code> · 4 events · 2026-07-18T21:47:16.758Z → 2026-07-18T22:32:59.257Z</summary>
+
+Agents：`/root/compendium_release_integrity_remediation_r2`、`codex-compendium-r2`
+Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`branch-codex-compendium-item-boundaries-20260718`、`compendium data corpus graph Worker frontend tests docs`、`0008_compendium_embedded_items.sql`、`public frontend`、`commit-95247ce4f7d317d7adc5020410f9b5b54da73ac8`、`release-5eaf7a2258a2f41bdad1777f12924adb`
+
+### 2026-07-18T21:47:16.758Z · start · /root/compendium_release_integrity_remediation_r2
+
+- Scope：isolated test-first repair from exact bffd9a4 for compendium citation gates release lifecycle stable item identity pagination deep links replies and runbooks
+- Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`branch-codex-compendium-item-boundaries-20260718`、`compendium data corpus graph Worker frontend tests docs`
+- Evidence：parent-confirmed handoff from completed prior owner at exact bffd9a4 with tracked tree clean; old owner action rows for bffd9a4 absent; only existing untracked cache and node_modules symlinks; page-evidence commit 5b056d and all other worktrees read-only
+- Rollback：revert dedicated local remediation commit or omit branch before parent integration
+- Unresolved：no main remote D1 R2 deploy preview production canonical report body or other worktree mutation authorized
+
+### 2026-07-18T22:13:26.532Z · change · codex-compendium-r2
+
+- Scope：local isolated compendium release-integrity source/data/test/documentation changes
+- Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`0008_compendium_embedded_items.sql`、`public frontend`
+- Evidence：Exact paragraph-page-identity citation gates, content-derived item IDs, referenced-item tombstones, cursor pagination, item evidence deep links, reply hierarchy, and prepare/steady deployment phase contract implemented; 591 Node tests ran with 589 pass and only two expected pre-build dist parity failures.
+- Rollback：Revert the eventual dedicated branch commit; no live rollback needed.
+- Unresolved：Generated dist/corpus/graph artifacts and final full verification remain; page-evidence coordinator commit integration remains explicit and unmerged.
+
+### 2026-07-18T22:32:59.133Z · verify · codex-compendium-r2
+
+- Scope：isolated-compendium-release-integrity-commit-verification
+- Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`commit-95247ce4f7d317d7adc5020410f9b5b54da73ac8`
+- Evidence：npm run verify passed including Node 592 of 592 Python 14 of 14 corpus graph boundary online build TypeScript release-manifest Wrangler dry-run and clean-source gates; preview and production explicit Wrangler dry-runs passed; exact-commit gitleaks clean; 61 candidates remain display citation semantic 0 0 0
+- Rollback：Revert commit 95247ce4f7d317d7adc5020410f9b5b54da73ac8 or discard isolated branch; no live resource changed.
+- Unresolved：Independent rereview and page-evidence coordinator integration remain required; manifest is intentionally blocked by unpushed source migration stale evidence graph parity and corpus mismatch.
+
+### 2026-07-18T22:32:59.257Z · closeout · codex-compendium-r2
+
+- Scope：isolated-compendium-release-integrity-remediation-complete-for-independent-rereview
+- Resources：`branch-codex-compendium-item-boundaries-20260718`、`commit-95247ce4f7d317d7adc5020410f9b5b54da73ac8`、`release-5eaf7a2258a2f41bdad1777f12924adb`
+- Evidence：Clean committed worktree; complete deterministic verification passed; no main remote deploy D1 R2 OCR or canonical-report mutation.
+- Rollback：Revert the isolated commit or omit this branch from integration; live rollback is not applicable.
+- Unresolved：Do not deploy standalone: dual-schema bootstrap receipt and independently reviewed page-evidence fenced staging and CAS coordinator integration are mandatory before migration and activation; independent commit rereview pending.
+
+</details>
+
+<details><summary><code>curriculum-page-evidence-publication-integrity-r2-20260718</code> · 5 events · 2026-07-18T21:58:28.492Z → 2026-07-18T23:10:12.707Z</summary>
+
+Agents：`/root`、`Codex-root`
+Resources：`/private/tmp/curriculum-page-evidence-publication-phase1`、`scripts/import-corpus.mjs`、`src/release-coordinator.ts`、`scripts/publish-metadata.mjs`、`tests`、`docs`、`curriculum-atlas isolated worktree`、`migrations/0008_release_ownership_fences.sql`、`release tests and docs`、`curriculum-atlas commit 3e1424a07500f59219987ba6aebca274f7778252`、`curriculum-atlas commit 0ac86ad07ecead242e2414237a8543392caa3433`、`commits 3e1424a and 5c7bb4d`、`curriculum-atlas-commit-0ac86ad07ecead242e2414237a8543392caa3433`
+
+### 2026-07-18T21:58:28.492Z · start · /root
+
+- Scope：isolated-test-first-remediation-of-independent-release-review-blockers
+- Resources：`/private/tmp/curriculum-page-evidence-publication-phase1`、`scripts/import-corpus.mjs`、`src/release-coordinator.ts`、`scripts/publish-metadata.mjs`、`tests`、`docs`
+- Evidence：exact-5b056d8-clean-and-independent-review-P1x3-P2x2-reproduced
+- Rollback：revert-dedicated-local-remediation-commit-or-drop-isolated-branch
+- Unresolved：no-main-remote-D1-R2-Cloudflare-report-or-OCR-mutation-until-rereview
+
+### 2026-07-18T22:26:50.238Z · change · Codex-root
+
+- Scope：Hardened desired-release corpus binding, exact-ready no-op, D1 activation claim, exact R2 content type parity, and coordinator-only higher-fence rollback in the isolated page-evidence publication worktree
+- Resources：`curriculum-atlas isolated worktree`、`scripts/import-corpus.mjs`、`scripts/publish-metadata.mjs`、`src/release-coordinator.ts`、`migrations/0008_release_ownership_fences.sql`、`release tests and docs`
+- Evidence：Focused publication tests 55 of 55 and corpus tests 31 of 31 passed; full Node suite 617 passed with one intentional skip; Python 14 of 14, TypeScript and build passed; source-only changes with no remote mutation
+- Rollback：Revert only the pending isolated-worktree integrity commit before integration; no D1 R2 Worker Pages OCR cache or production rollback is required
+- Unresolved：Private source cache is intentionally absent from the isolated worktree, so asset and corpus generation fail closed there; rerun those gates from the clean integration release tree with governed cache before deployment; independent rereview and commit remain pending
+
+### 2026-07-18T22:28:59.026Z · verify · Codex-root
+
+- Scope：Committed the isolated page-evidence publication integrity remediation for independent rereview
+- Resources：`curriculum-atlas commit 3e1424a07500f59219987ba6aebca274f7778252`
+- Evidence：Parent 5b056d8a516cfc6bd4714b243ce90981ec7f3904; worktree clean; focused publication 55 of 55, corpus 31 of 31, full Node 617 pass one intentional skip, Python 14 of 14, TypeScript and build pass; exact commit gitleaks clean
+- Rollback：Revert commit 3e1424a07500f59219987ba6aebca274f7778252 before integration if rereview rejects it; no live resource changed
+- Unresolved：Independent commit rereview remains required; governed private source cache gates will be rerun only after clean integration, before any preview mutation
+
+### 2026-07-18T22:45:43.666Z · verify · Codex-root
+
+- Scope：Revalidated final isolated page-evidence publication integrity tip after bounded claim cleanup and ready-preflight owner release hardening
+- Resources：`curriculum-atlas commit 0ac86ad07ecead242e2414237a8543392caa3433`、`commits 3e1424a and 5c7bb4d`
+- Evidence：Final full Node suite 619 pass with one intentional private-cache skip; focused publication suite 57 of 57; Python 14 of 14, TypeScript and build passed on this branch lineage; every exact follow-up commit gitleaks clean; worktree clean
+- Rollback：Revert the three integrity commits through parent 5b056d8 before integration if independent review rejects the package; no live resource changed
+- Unresolved：Independent rereview of exact tip 0ac86ad remains required; isolated worktree lacks governed private cache so asset and corpus generation must rerun in clean integration before preview
+
+### 2026-07-18T23:10:12.707Z · closeout · Codex-root
+
+- Scope：independent-review-rejected-exact-source-tip-and-froze-standalone-integration
+- Resources：`curriculum-atlas-commit-0ac86ad07ecead242e2414237a8543392caa3433`、`/private/tmp/curriculum-page-evidence-publication-phase1`
+- Evidence：independent-review-reproduced-reentrant-claim-shared-delete-unbounded-owner-historical-ready-noop-unsealed-prefix-create-race-and-fixture-gitleaks-findings
+- Rollback：omit-0ac86ad-from-integration-no-live-state-was-mutated
+- Unresolved：all-findings-handed-to-combined-compendium-R3-branch-for-test-first-remediation-and-new-independent-review
+
+</details>
+
+<details><summary><code>curriculum-a2-runtime-release-readiness-remediation-20260718</code> · 5 events · 2026-07-18T22:12:38.464Z → 2026-07-18T23:04:20.284Z</summary>
+
+Agents：`/root/a2_runtime_release_readiness_remediation`、`Codex-root`
+Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`ops/systemd/curriculum-ocr-reprocess-a-r2.service`、`tests/remote-ocr-a2-systemd.test.mjs`、`scripts/cleanup-remote-ocr-completion.mjs`、`docs`、`docs/remote-ocr-a2-deployment.md`、`docs/operations.md`、`commit-a6ccbc76814f2f560a9dd554d4dafa0923549ac3`、`branch-codex-a2-runtime-integrated-20260718`
+
+### 2026-07-18T22:12:38.464Z · start · /root/a2_runtime_release_readiness_remediation
+
+- Scope：Isolated test-first remediation of A2 deployment readiness, hard-failing worker prerequisites, and runtime-neutral cleanup diagnostics
+- Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`ops/systemd/curriculum-ocr-reprocess-a-r2.service`、`tests/remote-ocr-a2-systemd.test.mjs`、`scripts/cleanup-remote-ocr-completion.mjs`、`docs`
+- Evidence：Exact clean branch codex/a2-runtime-integrated-20260718 at 00ea805; parent handed off independent findings; no overlapping active owner on this worktree
+- Rollback：Revert dedicated local remediation commit or omit branch before integration
+- Unresolved：No main, remote host, systemd runtime, authority grant or claim, Cloudflare, canonical report body, OCR evidence, D1, or R2 mutation authorized
+
+### 2026-07-18T22:43:19.226Z · change · /root/a2_runtime_release_readiness_remediation
+
+- Scope：isolated-a2-runtime-release-readiness-remediation
+- Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`ops/systemd/curriculum-ocr-reprocess-a-r2.service`、`scripts/cleanup-remote-ocr-completion.mjs`、`tests/remote-ocr-a2-systemd.test.mjs`、`docs/remote-ocr-a2-deployment.md`、`docs/operations.md`
+- Evidence：Replaced silent systemd path conditions with exact failing startup prerequisites; added runtime-neutral cleanup label and test-first executable deployment authority seed monitor archive readback rollback runbook.
+- Rollback：Revert the dedicated local commit or omit the isolated branch; no live host authority service Cloudflare or remote state changed.
+- Unresolved：Full repository gates and independent rereview remain pending.
+
+### 2026-07-18T22:54:46.530Z · verify · /root/a2_runtime_release_readiness_remediation
+
+- Scope：exact-commit-a2-runtime-release-readiness-verification
+- Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`commit-a6ccbc76814f2f560a9dd554d4dafa0923549ac3`
+- Evidence：A2 contract 6 of 6; focused OCR A2 suite 285 of 285; all Node tests except two cache-dependent release-manifest cases passed; Python 14 of 14, tsc, build, 16 shell blocks syntax, diff check, changed-file and exact-commit gitleaks passed. Full npm test reproduced only two source/archive/queue cache absence failures in unchanged release-manifest code.
+- Rollback：Revert commit a6ccbc76814f2f560a9dd554d4dafa0923549ac3 or omit the isolated branch; no live resource changed.
+- Unresolved：Target Linux systemd-analyze verify remains a mandatory predeploy gate because systemd-analyze is unavailable on the Mac; two release-manifest tests require canonical local source/archive/queue cache.
+
+### 2026-07-18T22:54:46.651Z · closeout · /root/a2_runtime_release_readiness_remediation
+
+- Scope：isolated-a2-runtime-release-readiness-remediation-complete
+- Resources：`branch-codex-a2-runtime-integrated-20260718`、`commit-a6ccbc76814f2f560a9dd554d4dafa0923549ac3`
+- Evidence：Clean committed worktree; test-first A2 release protocol and hard-failing prerequisites ready for independent review. No main remote host service authority grant claim Cloudflare or report-body mutation.
+- Rollback：Revert the isolated commit or omit it from integration; live rollback is not applicable.
+- Unresolved：Do not deploy standalone until independent review, canonical cache-backed release gates, and target-host systemd-analyze plus runbook preflight pass.
+
+### 2026-07-18T23:04:20.284Z · verify · Codex-root
+
+- Scope：independent-root-rerun-of-exact-A2-OCR-runtime-and-receiver-contract-suite
+- Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`commit-a6ccbc76814f2f560a9dd554d4dafa0923549ac3`
+- Evidence：293-of-293-Node-tests-pass-including-exact-A-timeout-grant-A-plus-B-union-seed-lineage-lock-monitor-cleanup-and-receiver-adversarial-cases
+- Rollback：source-only-no-live-runtime-state-changed
+- Unresolved：separate-independent-agent-review-target-Linux-systemd-analyze-and-governed-cache-gates-still-required-before-remote-install
+
+</details>
+
+<details><summary><code>curriculum-ocr-triangulation-v2-integrity-remediation-r2-20260718</code> · 4 events · 2026-07-18T22:35:08.091Z → 2026-07-18T23:10:20.176Z</summary>
+
+Agents：`/root/ocr_triangulation_v2_integrity_remediation`
+Resources：`/private/tmp/curriculum-ocr-audit-triangulation-v2`、`commit 38f063f2f0f2337c79bbe48d12ca9f9727a0f2db`、`scripts/build-ocr-triangulation-audit.mjs`、`scripts/lib/safe-local-evidence.mjs`、`tests/ocr-triangulation-audit.test.mjs`、`tests/safe-local-evidence.test.mjs`、`data/ocr-online-source-registry.json`、`docs/ocr-quality.md`、`commit 9438dbe6881f9f89cf39acc688155db6e58d7f45`、`parent 38f063f2f0f2337c79bbe48d12ca9f9727a0f2db`、`/private/tmp/moe-2022-03-triangulation-v2-r2-final.json`、`branch codex/ocr-audit-triangulation-v2-20260718`、`tip 9438dbe6881f9f89cf39acc688155db6e58d7f45`
+
+### 2026-07-18T22:35:08.091Z · start · /root/ocr_triangulation_v2_integrity_remediation
+
+- Scope：second isolated test-first remediation of independent review integrity blockers
+- Resources：`/private/tmp/curriculum-ocr-audit-triangulation-v2`、`commit 38f063f2f0f2337c79bbe48d12ca9f9727a0f2db`、`scripts/build-ocr-triangulation-audit.mjs`、`scripts/lib/safe-local-evidence.mjs`、`tests/ocr-triangulation-audit.test.mjs`、`tests/safe-local-evidence.test.mjs`
+- Evidence：clean exact reviewed commit and parent supplied reproducible hardlink document-identity artifact-sequence table-escape and TOCTOU attacks
+- Rollback：revert second dedicated local commit or omit branch before integration
+- Unresolved：no cache main remote deploy report-body raw-OCR D1 R2 preview or production mutation authorized
+
+### 2026-07-18T22:58:55.574Z · change · /root/ocr_triangulation_v2_integrity_remediation
+
+- Scope：isolated second-round OCR triangulation integrity source test and documentation remediation
+- Resources：`/private/tmp/curriculum-ocr-audit-triangulation-v2`、`scripts/build-ocr-triangulation-audit.mjs`、`tests/ocr-triangulation-audit.test.mjs`、`data/ocr-online-source-registry.json`、`docs/ocr-quality.md`
+- Evidence：added reproducible hardlink future-version null-receipt forged-sequence manual-grid build-TOCTOU writer-window and scoped-ID negative tests then implemented fail-closed controls
+- Rollback：revert pending second-round local commit or omit branch before integration
+- Unresolved：full gates independent rereview and exact commit still pending with no cache main remote or deploy writes
+
+### 2026-07-18T23:10:12.187Z · verify · /root/ocr_triangulation_v2_integrity_remediation
+
+- Scope：second-round isolated OCR evidence integrity exact-commit verification
+- Resources：`commit 9438dbe6881f9f89cf39acc688155db6e58d7f45`、`parent 38f063f2f0f2337c79bbe48d12ca9f9727a0f2db`、`/private/tmp/moe-2022-03-triangulation-v2-r2-final.json`
+- Evidence：focused Node 71 of 71 full Node 617 of 617 Python 14 of 14 TypeScript build syntax diff and exact-commit gitleaks passed; real 109-page audit citation zero SHA256 7d30e4115a446d073716326c6a4ee85c84e7b1330b534352f81ddbfb0e62efea mode 0600
+- Rollback：revert commit 9438dbe6881f9f89cf39acc688155db6e58d7f45 or omit unintegrated branch
+- Unresolved：controlled online registry intentionally empty; independent exact-tip rereview required; Poppler pdftoppm is a fail-closed runtime prerequisite
+
+### 2026-07-18T23:10:20.176Z · closeout · /root/ocr_triangulation_v2_integrity_remediation
+
+- Scope：second-round isolated OCR evidence integrity remediation ready for independent rereview
+- Resources：`branch codex/ocr-audit-triangulation-v2-20260718`、`tip 9438dbe6881f9f89cf39acc688155db6e58d7f45`
+- Evidence：all handed-off PoCs now fail closed with clean worktree and no task-owned test or Poppler process remaining; no cache main remote deploy report-body raw-OCR D1 R2 preview or production write
+- Rollback：revert only second commit 9438dbe6881f9f89cf39acc688155db6e58d7f45 after integration or discard branch before integration
+- Unresolved：do not integrate until independent rereview passes; online source registry contains no approved sources and unlocks no citations
+
+</details>
+
+<details><summary><code>curriculum-compendium-release-integrity-remediation-r3-20260718</code> · 8 events · 2026-07-18T22:48:11.007Z → 2026-07-19T00:35:57.696Z</summary>
+
+Agents：`codex-compendium-r3`
+Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`commit-95247ce4f7d317d7adc5020410f9b5b54da73ac8`、`page-evidence-tip-0ac86ad07ecead242e2414237a8543392caa3433`、`migrations-0008-0009`、`worker-release-coordinator`、`corpus-importer`、`metadata-publisher`、`frontend-pagination`、`tests`、`GitHub branch origin/codex/compendium-item-boundaries-20260718`、`curriculum-atlas/.gitignore`、`curriculum-atlas/data/corpus-chunks/manifest.json`、`curriculum-atlas/scripts/prepare-release.mjs`、`GitHub feature branch`、`curriculum-atlas/scripts/lib/git-release-source.mjs`、`curriculum-atlas/tests/git-release-source-race.test.mjs`、`curriculum-atlas npm verification`、`release manifest`、`Wrangler dry-run`、`dual-schema bootstrap`、`fenced coordinator tests`、`gitleaks`、`origin/codex/compendium-item-boundaries-20260718`、`curriculum-atlas release-integrity and compendium boundary subsystem`
+
+### 2026-07-18T22:48:11.007Z · start · codex-compendium-r3
+
+- Scope：isolated-third-round-test-first-compendium-release-integrity-remediation
+- Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`commit-95247ce4f7d317d7adc5020410f9b5b54da73ac8`、`page-evidence-tip-0ac86ad07ecead242e2414237a8543392caa3433`
+- Evidence：Independent rereview failed exact prior commit with reproducible bridge receipt migration ordering pagination comment-thread and reply-parent scope gaps; exact worktree is clean and prior owner completed page-evidence tip.
+- Rollback：Revert the new dedicated local R3 commit or omit isolated branch from integration.
+- Unresolved：No main remote D1 R2 OCR deploy or canonical report body mutation authorized; independent rereview required after repair.
+
+### 2026-07-19T00:08:12.968Z · change · codex-compendium-r3
+
+- Scope：integrated-dual-schema-fenced-release-and-compendium-runtime-remediation
+- Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`migrations-0008-0009`、`worker-release-coordinator`、`corpus-importer`、`metadata-publisher`、`frontend-pagination`、`tests`
+- Evidence：executable-dual-schema-receipt-generated
+- Rollback：未记录
+- Unresolved：无
+
+### 2026-07-19T00:08:22.302Z · change · codex-compendium-r3
+
+- Scope：integrated-dual-schema-fenced-release-and-compendium-runtime-remediation
+- Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`migrations-0008-0009`、`worker-release-coordinator`、`corpus-importer`、`metadata-publisher`、`frontend-pagination`、`tests`
+- Evidence：Executable dual-schema receipt generated; D1-R2 CAS and exact predecessor byte restore implemented; release-bound document item comment pagination and parent-chain exhaustion tested; gitleaks zero.
+- Rollback：Revert the final isolated branch commit; no production state changed.
+- Unresolved：Preview and production remain legacy v10; 61 compendium candidates remain zero display zero citation zero semantic; independent rereview required.
+
+### 2026-07-19T00:20:13.645Z · change · codex-compendium-r3
+
+- Scope：Pushed the exact reviewed feature-branch tip solely to satisfy the truthful upstream-equality release gate; no main update or deploy.
+- Resources：`GitHub branch origin/codex/compendium-item-boundaries-20260718`
+- Evidence：Remote branch created at 84bed47d140cff8d8d9b5059af840fe96e6f414f and local upstream configured exact.
+- Rollback：Delete only the remote feature branch after integration or abandonment; local commits remain recoverable.
+- Unresolved：None for remote branch publication; production remains untouched.
+
+### 2026-07-19T00:25:48.580Z · change · codex-compendium-r3
+
+- Scope：Closed the exact-Git corpus release gap by tracking the generated corpus manifest and hash-materializing ignored SQL chunks into the immutable release snapshot.
+- Resources：`curriculum-atlas/.gitignore`、`curriculum-atlas/data/corpus-chunks/manifest.json`、`curriculum-atlas/scripts/prepare-release.mjs`、`GitHub feature branch`
+- Evidence：Focused release/corpus/Git tests passed 19 of 19; corpus manifest SHA-256 fb1060a65d78a20e74973a9f861fb6195f820cb689c6ad357bbb10f1998f7ca6; remote tip 6e776416a3c7595e3989648dc4ceab7e3b104b0f.
+- Rollback：Revert commit 6e776416a3c7595e3989648dc4ceab7e3b104b0f on the feature branch; production remains unchanged.
+- Unresolved：Full verify must be rerun twice from the new exact upstream tip.
+
+### 2026-07-19T00:28:38.967Z · change · codex-compendium-r3
+
+- Scope：Preserved raw UTF-8 Git paths in exact release snapshots and corrected the preceding action-log commit-hash typo.
+- Resources：`curriculum-atlas/scripts/lib/git-release-source.mjs`、`curriculum-atlas/tests/git-release-source-race.test.mjs`、`GitHub feature branch`
+- Evidence：Unicode regression plus release/corpus tests passed 19 of 19; authoritative prior corpus-seal commit is 6e77641304611e2f96b67bb66b072ad0be7ae1c3, replacing the mistaken full hash in the preceding row; current exact upstream tip is e7338bf262046087d0d440415cc6bf695d7fcd93.
+- Rollback：Revert e7338bf262046087d0d440415cc6bf695d7fcd93 on the feature branch; no production rollback applies.
+- Unresolved：Direct release-manifest preflight and two full verifies remain.
+
+### 2026-07-19T00:35:57.564Z · verify · codex-compendium-r3
+
+- Scope：Verified the exact upstream feature-branch release twice without production mutation.
+- Resources：`curriculum-atlas npm verification`、`release manifest`、`Wrangler dry-run`、`dual-schema bootstrap`、`fenced coordinator tests`、`gitleaks`
+- Evidence：At e7338bf262046087d0d440415cc6bf695d7fcd93 both full npm run verify executions exited 0; each passed 680 Node and 14 Python tests, emitted release-db62fb1c3296d919539f891a51a007fd with manifest SHA-256 47fa8336d0612cf51d264762a2edb3eba5db3d699a4718fd35356546e9981283, bundled 134 assets in dry-run, and left a clean tree. Focused coordinator tests passed 7 of 7, dual-schema receipt 68bcebec2c923c44f4abee1981451450893a19d660de3f0e10ee6f36213e020b verified, and gitleaks found zero leaks.
+- Rollback：No production rollback applies; feature work can be reverted by its commits or the remote feature branch can be removed.
+- Unresolved：No production deploy was performed; 61 compendium candidates intentionally remain display, citation, and semantic closed at zero.
+
+### 2026-07-19T00:35:57.696Z · closeout · codex-compendium-r3
+
+- Scope：Closed R3 release-integrity remediation on an exact pushed feature-branch tip; production remains unchanged.
+- Resources：`origin/codex/compendium-item-boundaries-20260718`、`curriculum-atlas release-integrity and compendium boundary subsystem`
+- Evidence：HEAD and upstream both equal e7338bf262046087d0d440415cc6bf695d7fcd93; worktree is clean; exact predecessor R2 bytes restore after forced D1 activation failure and next owner fence increments to 4 are asserted and green.
+- Rollback：Revert commits through e7338bf262046087d0d440415cc6bf695d7fcd93 or remove only the feature branch; no Cloudflare, D1, R2, or live-site state changed.
+- Unresolved：Independent rereview and integration are pending. Production migrations, release activation, and deploy remain explicitly out of scope. Corpus rows are not physically double-buffered; the implemented safety boundary is fenced release state, exact receipts, stable-row semantics, and fail-closed activation.
+
+</details>
+
+<details><summary><code>curriculum-a2-runtime-release-readiness-followup-20260718</code> · 4 events · 2026-07-18T23:23:32.699Z → 2026-07-18T23:34:10.798Z</summary>
+
+Agents：`/root/a2_runtime_release_readiness_remediation`
+Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`commit-a6ccbc76814f2f560a9dd554d4dafa0923549ac3`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`、`commit-12c1a3c1e17423e302b705602bfd9209d42c9026`、`branch-codex-a2-runtime-integrated-20260718`
+
+### 2026-07-18T23:23:32.699Z · start · /root/a2_runtime_release_readiness_remediation
+
+- Scope：isolated-second-review-a2-runbook-remediation
+- Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`commit-a6ccbc76814f2f560a9dd554d4dafa0923549ac3`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：Second independent review identified missing precreated monitor output directory and incomplete exact alert handler retry chain materialization backup install verify rollback contract.
+- Rollback：Revert dedicated follow-up commit or omit branch; no live resource mutation authorized.
+- Unresolved：Tests must first reproduce both review findings; no remote main deploy systemd authority grant claim or report body actions.
+
+### 2026-07-18T23:32:09.677Z · change · /root/a2_runtime_release_readiness_remediation
+
+- Scope：test-first-second-review-runbook-hardening
+- Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：Added failing tests then implemented new private monitor directory before worker start and exact reviewed notifier alert handler retry timer backup materialization install compare hash-seal verify quiescence and rollback chain.
+- Rollback：Revert the dedicated follow-up commit or omit it; no live host or authority state changed.
+- Unresolved：Final related regression, shell syntax, diff and gitleaks gates remain.
+
+### 2026-07-18T23:34:10.691Z · verify · /root/a2_runtime_release_readiness_remediation
+
+- Scope：exact-followup-commit-second-review-verification
+- Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`commit-12c1a3c1e17423e302b705602bfd9209d42c9026`
+- Evidence：Test-first red 6 pass 2 fail became A2 8 of 8; full relevant alert monitor cleanup suite 87 of 87; TypeScript, build, 16 shell blocks, diff check, changed-file and exact-commit gitleaks all passed.
+- Rollback：Revert commit 12c1a3c1e17423e302b705602bfd9209d42c9026 or omit it; no live resource changed.
+- Unresolved：Target-host systemd-analyze remains an explicit predeploy hard gate; independent rereview still required.
+
+### 2026-07-18T23:34:10.798Z · closeout · /root/a2_runtime_release_readiness_remediation
+
+- Scope：second-review-a2-runbook-remediation-complete
+- Resources：`branch-codex-a2-runtime-integrated-20260718`、`commit-12c1a3c1e17423e302b705602bfd9209d42c9026`
+- Evidence：Clean committed tip with new private monitor output precondition and complete exact reviewed alert handler retry runtime backup install hash verify and rollback chain. No remote auth key systemd authority grant claim deploy main or report-body mutation.
+- Rollback：Revert the isolated follow-up commit or omit it from integration; live rollback is not applicable.
+- Unresolved：Do not execute deployment until independent review and every target runbook stop gate passes.
+
+</details>
+
+<details><summary><code>curriculum-a2-runtime-rollback-quiescence-remediation-20260718</code> · 4 events · 2026-07-18T23:37:52.534Z → 2026-07-18T23:44:44.030Z</summary>
+
+Agents：`/root/a2_runtime_release_readiness_remediation`
+Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`commit-12c1a3c1e17423e302b705602bfd9209d42c9026`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`、`commit-a754321f2bd542bc5d95c87ee52d1f69c8424a19`、`branch-codex-a2-runtime-integrated-20260718`
+
+### 2026-07-18T23:37:52.534Z · start · /root/a2_runtime_release_readiness_remediation
+
+- Scope：isolated-third-review-strict-rollback-quiescence
+- Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`commit-12c1a3c1e17423e302b705602bfd9209d42c9026`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：Third independent review found rollback tolerated arbitrary stop failures and restored shared runtime before proving every A2 timer service and cleanup unit quiescent.
+- Rollback：Revert dedicated follow-up commit or omit branch; no live state mutation authorized.
+- Unresolved：Test-first strict ordering and explicit reviewed-absence semantics required before implementation.
+
+### 2026-07-18T23:41:36.185Z · change · /root/a2_runtime_release_readiness_remediation
+
+- Scope：test-first-strict-rollback-quiescence-contract
+- Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：Added failing regression then replaced broad stop tolerance with explicit reviewed-absent mapping, strict timer worker service cleanup quiescence assertions, quiescence evidence marker, and restoration ordering fence.
+- Rollback：Revert dedicated follow-up commit or omit branch; no live state changed.
+- Unresolved：Focused related tests, diff and gitleaks remain before commit.
+
+### 2026-07-18T23:44:43.910Z · verify · /root/a2_runtime_release_readiness_remediation
+
+- Scope：exact-third-followup-commit-verification
+- Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`commit-a754321f2bd542bc5d95c87ee52d1f69c8424a19`
+- Evidence：Test-first A2 8 pass 1 fail became 9 of 9; full relevant alert monitor cleanup suite 88 of 88; 16 shell blocks, diff check, changed-file and exact-commit gitleaks passed.
+- Rollback：Revert commit a754321f2bd542bc5d95c87ee52d1f69c8424a19 or omit it; no live state changed.
+- Unresolved：Independent rereview and target-host runbook execution gates remain.
+
+### 2026-07-18T23:44:44.030Z · closeout · /root/a2_runtime_release_readiness_remediation
+
+- Scope：strict-a2-rollback-quiescence-remediation-complete
+- Resources：`branch-codex-a2-runtime-integrated-20260718`、`commit-a754321f2bd542bc5d95c87ee52d1f69c8424a19`
+- Evidence：Clean committed tip; rollback now permits not-found only with exact predeployment absent proof and proves both timers worker monitor alert handler cleanup and llama quiescent before restoration or daemon reload. No remote main systemd authority grant claim deploy or report-body action.
+- Rollback：Revert isolated follow-up commit or omit from integration; live rollback is not applicable.
+- Unresolved：Do not execute deployment until independent review and target stop gates pass.
+
+</details>
+
+<details><summary><code>curriculum-ocr-triangulation-v2-integrity-remediation-r3-20260718</code> · 4 events · 2026-07-18T23:48:41.029Z → 2026-07-19T00:11:41.344Z</summary>
+
+Agents：`/root/ocr_triangulation_v2_integrity_remediation`
+Resources：`/private/tmp/curriculum-ocr-audit-triangulation-v2`、`commit-9438dbe6881f9f89cf39acc688155db6e58d7f45`、`scripts/build-ocr-triangulation-audit.mjs`、`tests/ocr-triangulation-audit.test.mjs`、`data/ocr-online-source-registry.json`、`scripts/lib/safe-local-evidence.mjs`、`scripts/validate-ocr-page-furniture-approvals.mjs`、`data/ocr-triangulation-entitlement-policy.json`、`data/release-assets-policy.json`、`docs/ocr-quality.md`、`commit-dc099afa080f3a4a748286c7cc5cfe4e7e7eaa0e`、`/private/tmp/moe-2022-03-triangulation-v2-r3-final.json`、`branch-codex/ocr-audit-triangulation-v2-20260718`
+
+### 2026-07-18T23:48:41.029Z · start · /root/ocr_triangulation_v2_integrity_remediation
+
+- Scope：isolated-third-round-test-first-ocr-triangulation-integrity-remediation
+- Resources：`/private/tmp/curriculum-ocr-audit-triangulation-v2`、`commit-9438dbe6881f9f89cf39acc688155db6e58d7f45`、`scripts/build-ocr-triangulation-audit.mjs`、`tests/ocr-triangulation-audit.test.mjs`、`data/ocr-online-source-registry.json`
+- Evidence：Independent rereview reproduced canonical-entitlement cited-page-independence no-outer-pipe-table cross-document-source and root-swap gaps on the exact clean parent
+- Rollback：Revert only the dedicated R3 follow-up commit or omit the isolated branch
+- Unresolved：No main cache raw-OCR remote deploy D1 R2 or canonical report-body writes authorized
+
+### 2026-07-19T00:02:44.026Z · change · /root/ocr_triangulation_v2_integrity_remediation
+
+- Scope：isolated-third-round-ocr-triangulation-integrity-source-tests-policy-and-docs
+- Resources：`/private/tmp/curriculum-ocr-audit-triangulation-v2`、`scripts/build-ocr-triangulation-audit.mjs`、`scripts/lib/safe-local-evidence.mjs`、`scripts/validate-ocr-page-furniture-approvals.mjs`、`tests/ocr-triangulation-audit.test.mjs`、`data/ocr-triangulation-entitlement-policy.json`、`data/release-assets-policy.json`、`docs/ocr-quality.md`
+- Evidence：Added red regressions then canonical digest entitlement cited-page mapping no-outer-pipe table current-document resolution and root-realpath controls; focused suite now passes
+- Rollback：Revert the pending dedicated R3 commit or omit the isolated branch
+- Unresolved：Full repository gates real 109-page citation-zero rerun commit and independent rereview remain
+
+### 2026-07-19T00:11:33.587Z · verify · /root/ocr_triangulation_v2_integrity_remediation
+
+- Scope：exact-third-round-ocr-triangulation-integrity-verification
+- Resources：`/private/tmp/curriculum-ocr-audit-triangulation-v2`、`commit-dc099afa080f3a4a748286c7cc5cfe4e7e7eaa0e`、`/private/tmp/moe-2022-03-triangulation-v2-r3-final.json`
+- Evidence：Focused 78 of 78 adjacent 89 of 89 full Node 628 of 628 Python 14 of 14 TypeScript build syntax diff and exact-commit gitleaks passed; deterministic real 109-page audit citation zero SHA256 c67b9d5d36e903e88b27b7847855c0f955fdc288d5358a47b4baa76257d86e51 mode 0600 bytes 642120
+- Rollback：Revert commit dc099afa080f3a4a748286c7cc5cfe4e7e7eaa0e or omit the isolated branch; no live resource changed
+- Unresolved：Independent exact-tip rereview remains mandatory; entitlement policy intentionally approves zero production decision ledgers
+
+### 2026-07-19T00:11:41.344Z · closeout · /root/ocr_triangulation_v2_integrity_remediation
+
+- Scope：isolated-third-round-ocr-triangulation-integrity-remediation-complete
+- Resources：`branch-codex/ocr-audit-triangulation-v2-20260718`、`commit-dc099afa080f3a4a748286c7cc5cfe4e7e7eaa0e`
+- Evidence：Exact parent 9438dbe6881f9f89cf39acc688155db6e58d7f45; clean worktree; no task-owned Node Poppler OCR or browser process; mandatory Playwright dry-run acted on zero processes
+- Rollback：Revert the single R3 follow-up commit or omit the isolated branch; no main cache raw-OCR remote D1 R2 deploy or report-body mutation occurred
+- Unresolved：Do not integrate until a separate agent rereviews exact dc099afa; unrelated existing Playwright MCP and xue-live-r6 session were observed and left untouched
+
+</details>
+
+<details><summary><code>curriculum-a2-timer-typed-rollback-assertion-20260718</code> · 4 events · 2026-07-18T23:49:56.868Z → 2026-07-18T23:52:14.003Z</summary>
+
+Agents：`/root/a2_runtime_release_readiness_remediation`
+Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`commit-a754321f2bd542bc5d95c87ee52d1f69c8424a19`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`、`commit-d4360775194aaf8593a9fa5db10cf7465b222534`、`branch-codex-a2-runtime-integrated-20260718`
+
+### 2026-07-18T23:49:56.868Z · start · /root/a2_runtime_release_readiness_remediation
+
+- Scope：isolated-fourth-review-timer-type-correctness
+- Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`commit-a754321f2bd542bc5d95c87ee52d1f69c8424a19`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：Independent review identified timer rollback assertion incorrectly queried service-only MainPID.
+- Rollback：Revert dedicated follow-up commit or omit branch; no live execution authorized.
+- Unresolved：Add executable test first, split timer and process-unit assertions, then rerun gates.
+
+### 2026-07-18T23:51:24.448Z · change · /root/a2_runtime_release_readiness_remediation
+
+- Scope：test-first-timer-process-unit-assertion-split
+- Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：Added executable fake-systemctl regression then split timer ActiveState-only assertion from worker and service ActiveState plus MainPID assertion across initial stop and final re-proof.
+- Rollback：Revert dedicated follow-up commit or omit branch; no live state changed.
+- Unresolved：Focused related tests, shell syntax, diff and gitleaks pending.
+
+### 2026-07-18T23:52:13.885Z · verify · /root/a2_runtime_release_readiness_remediation
+
+- Scope：exact-fourth-followup-commit-verification
+- Resources：`/private/tmp/curriculum-a2-runtime-integrated-20260718`、`commit-d4360775194aaf8593a9fa5db10cf7465b222534`
+- Evidence：Test-first A2 9 pass 1 fail became 10 of 10; full relevant suite 89 of 89; executable fake systemctl proves timer assertion succeeds when MainPID is unavailable; 16 shell blocks, diff check, changed-file and exact-commit gitleaks passed.
+- Rollback：Revert commit d4360775194aaf8593a9fa5db10cf7465b222534 or omit it; no live execution occurred.
+- Unresolved：Independent rereview remains before runbook execution.
+
+### 2026-07-18T23:52:14.003Z · closeout · /root/a2_runtime_release_readiness_remediation
+
+- Scope：timer-type-correct-rollback-assertion-complete
+- Resources：`branch-codex-a2-runtime-integrated-20260718`、`commit-d4360775194aaf8593a9fa5db10cf7465b222534`
+- Evidence：Clean committed tip; timers now assert ActiveState only while worker and services assert ActiveState plus MainPID across first stop and second re-proof. No remote main systemd deployment authority or report mutation.
+- Rollback：Revert isolated follow-up commit or omit from integration; live rollback is not applicable.
+- Unresolved：Do not deploy until independent review and target-host gates pass.
+
+</details>
+
+<details><summary><code>curriculum-atlas-a2-remote-runtime-20260718</code> · 12 events · 2026-07-18T23:55:41.225Z → 2026-07-19T02:46:11.036Z</summary>
+
+Agents：`Codex-root`
+Resources：`DMITPro2-inner-bdfz`、`restricted-dedicated-SSH-key`、`curriculum-ocr-A2-user-runtime`、`existing-operator-key-fingerprint-e73pr-prefix`、`A1`、`B3`、`A2-absent-paths`、`pre-a2-release-20260719T003812Z`、`a2-deploy-evidence-20260719T003812Z`、`A1-pregrant-tree`、`DMITPro2-inner-bdfz-pre-a2-backup-and-evidence`、`DMITPro2-inner-bdfz-workspace-a-r2`、`commit-d4360775194aaf8593a9fa5db10cf7465b222534`、`DMITPro2-inner-bdfz-timeout-recovery-authority-v1`、`A1-timeout-recovery-grant`、`DMITPro2-inner-bdfz-grant-readback`、`curriculum-atlas`、`codex/a2-appledouble-repair-20260719`、`GitHub feature ref`、`A2 repair worktree`、`origin feature ref`、`runbook and test blobs`、`DMITPro2 inner bdfz`、`workspace-a-r2`、`a2-deploy-evidence/20260719T003812Z/incidents/appledouble-preclaim-d4360775`、`appledouble-preclaim-d4360775`、`authority`
+
+### 2026-07-18T23:55:41.225Z · start · Codex-root
+
+- Scope：Authorized A2 continuation on DMITPro2 inner bdfz workstation; dedicated key install then read-only stop gates before exact reviewed runtime mutation
+- Resources：`DMITPro2-inner-bdfz`、`restricted-dedicated-SSH-key`、`curriculum-ocr-A2-user-runtime`
+- Evidence：Exact reviewed Git commit d4360775194aaf8593a9fa5db10cf7465b222534 independently passed 89 related tests 16 shell syntax blocks diff and gitleaks; current outer tunnel alive
+- Rollback：Before grant issuance restore task-scoped authorized_keys backup and reviewed runtime presentation only; after issuance freeze lineage and never rewind authority or OCR evidence
+- Unresolved：Inner password prompt and batch key verification remain; no systemd grant seed worker or OCR mutation yet
+
+### 2026-07-19T00:37:46.216Z · verify · Codex-root
+
+- Scope：Recovered existing authorized OCR operator identity and completed A2 pre-mutation inner-host stop gates
+- Resources：`DMITPro2-inner-bdfz`、`existing-operator-key-fingerprint-e73pr-prefix`、`A1`、`B3`、`A2-absent-paths`
+- Evidence：BatchMode strict pinned-host login succeeded; inner disk 304 GiB free memory 13 GiB GPU 48 C failed-units zero; B3 3182 of 3182 complete worker disabled inactive zero restarts; A1 settled four complete four quarantined; A2 workspace monitor lock backup and evidence paths absent; authority identity sidecar passes
+- Rollback：Read-only verification has no remote rollback; unused new local key remains uninstalled and can be reviewed separately
+- Unresolved：B3 completion monitor timer still repeats expected observe-mode status 75 while data monitor is completed issue-free; exact runbook disables old monitor and retry chain before replacement
+
+### 2026-07-19T00:38:58.504Z · change · Codex-root
+
+- Scope：Created exact pre-A2 runtime backup and pre-grant A1 hash evidence on inner bdfz before any authority issuance
+- Resources：`DMITPro2-inner-bdfz`、`pre-a2-release-20260719T003812Z`、`a2-deploy-evidence-20260719T003812Z`、`A1-pregrant-tree`
+- Evidence：Reviewed runbook exact lines executed; authority identity passed; backup and evidence owner-only paths created; 12 scoped runtime file states and prior B3 timer states captured
+- Rollback：Before grant issuance restore only files listed by backup file-state and previous B3 timer states; preserve additive hash evidence; no OCR authority or A2 inode exists yet
+- Unresolved：Exact reviewed Git workspace materialization remains next; no grant seed worker or new timer started
+
+### 2026-07-19T00:38:58.531Z · verify · Codex-root
+
+- Scope：Read back pre-A2 backup and evidence markers
+- Resources：`DMITPro2-inner-bdfz-pre-a2-backup-and-evidence`
+- Evidence：Marker paths exact; both directories mode 700 real; A1 pregrant SHA sidecar passed; file-state row count 12; B3 monitor and alert retry prior states both enabled
+- Rollback：Read-only verification has no rollback
+- Unresolved：none for backup stage
+
+### 2026-07-19T00:40:44.385Z · change · Codex-root
+
+- Scope：Materialized exact independently reviewed A2 Git archive into new immutable-by-convention remote workspace without in-place update
+- Resources：`DMITPro2-inner-bdfz-workspace-a-r2`、`commit-d4360775194aaf8593a9fa5db10cf7465b222534`
+- Evidence：48 reviewed files archived from exact Git commit; local and remote SOURCE_SHA256SUMS checks passed; workspace created by stage then atomic rename; upload removed
+- Rollback：Before grant issuance restore backed runtime presentation and remove only new workspace after preserving evidence if release is abandoned; no authority grant seed A2 inode or systemd change yet
+- Unresolved：Authority and grant double previews remain; no irreversible boundary crossed
+
+### 2026-07-19T00:40:44.411Z · verify · Codex-root
+
+- Scope：Exact A2 workspace remote readback
+- Resources：`DMITPro2-inner-bdfz-workspace-a-r2`
+- Evidence：Real owner-only mode 700 workspace; SOURCE_COMMIT exact d4360775; source manifest SHA 66945b189a6ead9b5864afc340b9e93cd1cafac69d5f0469c91d755815d32902; 48 files; staging tar count zero
+- Rollback：Read-only verification no rollback
+- Unresolved：none for materialization stage
+
+### 2026-07-19T00:41:59.704Z · change · Codex-root
+
+- Scope：Issued the one canonical A2 timeout-recovery grant after byte-identical double authority and grant previews
+- Resources：`DMITPro2-inner-bdfz-timeout-recovery-authority-v1`、`A1-timeout-recovery-grant`、`a2-deploy-evidence-20260719T003812Z`
+- Evidence：Two authority previews identical; two grant previews identical; single apply exited zero; pre-existing A1 full hash list remained exact; canonical grant sidecar passed; one issuance exists and claim count remains zero
+- Rollback：Irreversible boundary crossed: never restore copy delete or recreate authority predecessor issuance or grant; any later failure freezes this lineage and only restores runtime presentation
+- Unresolved：A2 output inode claim and seed not yet created; do not reissue or rerun grant apply
+
+### 2026-07-19T00:41:59.736Z · verify · Codex-root
+
+- Scope：Read back canonical A2 grant evidence and authority issuance
+- Resources：`DMITPro2-inner-bdfz-grant-readback`
+- Evidence：Grant sidecar and three evidence SHA manifests pass; authority preview SHA 0e12e996 grant preview SHA 8f346b9d grant apply SHA d0b0942b; exact one issuance pair; A1 grant pair present; authority claim count zero
+- Rollback：Read-only verification; irreversible no-authority-rollback rule remains active
+- Unresolved：none for grant stage
+
+### 2026-07-19T02:23:30.314Z · change · Codex-root
+
+- Scope：Published independently reviewed A2 forward-repair protocol to a non-force feature ref and established exact upstream tracking
+- Resources：`curriculum-atlas`、`codex/a2-appledouble-repair-20260719`、`GitHub feature ref`
+- Evidence：Local and remote feature refs both resolve to 38f2e5bce7d7782163619782a8ce181cb40417b6; main unchanged
+- Rollback：Delete only the feature ref if abandoned after remote repair is frozen and evidence retained; never rewrite authority or grant state
+- Unresolved：Remote forward repair not yet executed
+
+### 2026-07-19T02:23:30.345Z · verify · Codex-root
+
+- Scope：Re-ran exact-upstream protocol preflight after feature publication
+- Resources：`A2 repair worktree`、`origin feature ref`、`runbook and test blobs`
+- Evidence：Clean HEAD and upstream exact at 38f2e5b; d436 ancestor; remote ref exact; runbook blob 11a1275a230705627e3ab5cb9394e51b74fe05fa; test blob 0e3bff25c79aa8664195d253f33dbed40f2087a9
+- Rollback：No runtime state changed; retain reviewed feature ref as audit anchor
+- Unresolved：Proceed only through reviewed forward-repair runbook; do not reapply grant
+
+### 2026-07-19T02:29:18.844Z · change · Codex-root
+
+- Scope：Forward-repair pre-move evidence phase partially completed and then stopped fail-closed before workspace quarantine
+- Resources：`DMITPro2 inner bdfz`、`workspace-a-r2`、`a2-deploy-evidence/20260719T003812Z/incidents/appledouble-preclaim-d4360775`
+- Evidence：Six owner-only noclobber evidence files exist; original workspace remains dev 66306 inode 41854512 mode 0500; quarantine target absent; A2 output monitor lock and authority claims absent
+- Rollback：No rollback or deletion permitted; retain partial incident and original workspace unchanged for independent forensic review
+- Unresolved：Do not rerun or continue mv until a new reviewed resumable protocol validates and seals the partial pre-move state; likely output-flood interruption under investigation
+
+### 2026-07-19T02:46:11.036Z · verify · Codex-root
+
+- Scope：Independently classified and sealed the A2 forward-repair partial pre-move incident state read-only
+- Resources：`DMITPro2 inner bdfz`、`workspace-a-r2`、`appledouble-preclaim-d4360775`、`authority`、`A1`
+- Evidence：Six exact owner-only files recompute byte-identically; workspace dev 66306 inode 41854512 unchanged; 27 AppleDouble; one issuance zero claims; A2 monitor lock seed runtime absent; likely SSH output-channel closure before rename
+- Rollback：No rollback or deletion; preserve original workspace and six evidence files exactly
+- Unresolved：A new reviewed two-phase quiet resume protocol is required before atomic rename; old Step 4A must not be rerun
+
+</details>
+
+<details><summary><code>curriculum-ontology-v4-release-snapshot-remediation-20260718</code> · 4 events · 2026-07-19T00:21:32.809Z → 2026-07-19T00:32:13.280Z</summary>
+
+Agents：`/root/ontology_v4_release_snapshot_remediation`
+Resources：`/private/tmp/curriculum-ontology-integration-v4`、`scripts/deploy-worker.mjs`、`scripts/build-release-manifest.mjs`、`tests`、`docs-schema-fixtures`、`scripts/validate-ontology-release.mjs`、`data/ontology-preview-acceptance-receipt.schema.json`、`data/release-assets-policy.json`、`docs/deployment.md`、`commit-0434b100cbbbefd000f6c4871c5be39dc732512e`、`parent-6ee5429208fb8d7dfe7cf85dff6c649c14603ac4`、`branch-codex-ontology-integration-v4-20260718`
+
+### 2026-07-19T00:21:32.809Z · start · /root/ontology_v4_release_snapshot_remediation
+
+- Scope：isolated-test-first-hardening-of-deploy-snapshot-coherence-and-production-ontology-preview-acceptance-gate
+- Resources：`/private/tmp/curriculum-ontology-integration-v4`、`scripts/deploy-worker.mjs`、`scripts/build-release-manifest.mjs`、`tests`、`docs-schema-fixtures`
+- Evidence：exact-clean-tip-6ee5429208fb8d7dfe7cf85dff6c649c14603ac4-parent-6daad1cefffb0b6ded0ba64e6e48d1cf357e95e3-no-overlapping-active-owner-found
+- Rollback：revert-dedicated-local-commit-or-omit-it-before-integration
+- Unresolved：no-target-cache-main-remote-cloudflare-deploy-or-canonical-report-body-mutation-authorized
+
+### 2026-07-19T00:30:32.541Z · change · /root/ontology_v4_release_snapshot_remediation
+
+- Scope：test-first-release-snapshot-and-production-ontology-preview-acceptance-hardening
+- Resources：`scripts/deploy-worker.mjs`、`scripts/build-release-manifest.mjs`、`scripts/validate-ontology-release.mjs`、`data/ontology-preview-acceptance-receipt.schema.json`、`data/release-assets-policy.json`、`tests`、`docs/deployment.md`
+- Evidence：red-0-of-2-module-gates-then-green-146-of-146-targeted-tests-tsc-build-pass-manifest-read-window-and-production-only-receipt-gate
+- Rollback：revert-forthcoming-dedicated-local-commit
+- Unresolved：exact-commit-gitleaks-and-post-commit-clean-rerun-pending
+
+### 2026-07-19T00:32:03.298Z · verify · /root/ontology_v4_release_snapshot_remediation
+
+- Scope：exact-commit-local-release-snapshot-and-receipt-gate-verification
+- Resources：`commit-0434b100cbbbefd000f6c4871c5be39dc732512e`、`parent-6ee5429208fb8d7dfe7cf85dff6c649c14603ac4`、`/private/tmp/curriculum-ontology-integration-v4`
+- Evidence：red-0-of-2-then-green-146-of-146-targeted-tests-tsc-build-node-syntax-json-fixture-exact-diff-check-and-exact-commit-gitleaks-one-commit-zero-leaks
+- Rollback：revert-0434b100cbbbefd000f6c4871c5be39dc732512e
+- Unresolved：no-live-preview-receipt-created-current-ontology-bridge-remains-empty-fail-closed
+
+### 2026-07-19T00:32:13.280Z · closeout · /root/ontology_v4_release_snapshot_remediation
+
+- Scope：handoff-clean-isolated-snapshot-and-production-ontology-promotion-remediation
+- Resources：`branch-codex-ontology-integration-v4-20260718`、`commit-0434b100cbbbefd000f6c4871c5be39dc732512e`
+- Evidence：clean-worktree-no-target-main-remote-cloudflare-wrangler-deploy-or-production-mutation-playwright-dry-run-acted-zero-existing-xue-live-r6-and-MCP-left-untouched
+- Rollback：revert-dedicated-commit-0434b100cbbbefd000f6c4871c5be39dc732512e-or-omit-before-integration
+- Unresolved：parent-must-independently-review-exact-tip-before-integration
+
+</details>
+
+<details><summary><code>curriculum-atlas-clean-integration-20260719</code> · 5 events · 2026-07-19T00:25:19.871Z → 2026-07-19T00:44:00.751Z</summary>
+
+Agents：`Codex-root`
+Resources：`curriculum-atlas-git`、`/private/tmp/curriculum-full-release-20260719`、`branch-codex-curriculum-full-release-20260719`、`17-local-commits`、`A2-runbook`、`OCR-triangulation-policy`、`ontology-validator`
+
+### 2026-07-19T00:25:19.871Z · start · Codex-root
+
+- Scope：Clean release integration worktree from exact origin main with independently approved OCR runtime and evidence commits only
+- Resources：`curriculum-atlas-git`、`/private/tmp/curriculum-full-release-20260719`、`branch-codex-curriculum-full-release-20260719`
+- Evidence：origin main 857ed4e7aa5a561c21dc94d2ea1a6a9b14910ea1; A2 exact d4360775 and triangulation exact dc099afa independently passed; overlapping compendium and ontology branches explicitly excluded until later review
+- Rollback：Delete only the new unpushed integration worktree and branch after preserving any integration diff if abandoned; origin main and live resources remain unchanged
+- Unresolved：Cherry-pick conflict audit and full gates remain; no deploy D1 R2 OCR cache or production mutation authorized by this step
+
+### 2026-07-19T00:26:13.622Z · change · Codex-root
+
+- Scope：Cherry-picked only independently reviewed A1 A2 runtime lineage and OCR triangulation integrity lineage onto clean origin-main integration branch
+- Resources：`branch-codex-curriculum-full-release-20260719`、`17-local-commits`、`A2-runbook`、`OCR-triangulation-policy`
+- Evidence：No cherry-pick conflicts; branch now 17 commits ahead of exact origin main; compendium page-evidence ontology still excluded
+- Rollback：Revert the 17 integration-only commits or discard the unpushed worktree; live and origin main unchanged
+- Unresolved：Full merged verification and remaining reviewed branches pending; no remote or Cloudflare mutation
+
+### 2026-07-19T00:26:13.658Z · verify · Codex-root
+
+- Scope：Post-cherry-pick focused integration validation
+- Resources：`branch-codex-curriculum-full-release-20260719`
+- Evidence：git diff check clean; worktree clean; combined A2 triangulation and safe-local-evidence Node tests 92 of 92 passed
+- Rollback：Discard unpushed integration branch if later cross-branch verification fails
+- Unresolved：Do not deploy until compendium ontology full governed cache gates preview acceptance and production release pass
+
+### 2026-07-19T00:44:00.711Z · verify · Codex-root
+
+- Scope：Rejected cherry-pick integration topology because immutable ontology promotion baseline requires original reviewed commits as ancestors
+- Resources：`branch-codex-curriculum-full-release-20260719`、`ontology-validator`
+- Evidence：Combined targeted suite passed 100 and failed exactly one at immutable promotion baseline source ancestor check; no source diff corruption and all pre-ontology tests remained green
+- Rollback：Preserve v1 branch as evidence and omit from release; create a new origin-main worktree using non-fast-forward merges of reviewed branches; do not reset or rewrite history
+- Unresolved：v1 is superseded and must never deploy
+
+### 2026-07-19T00:44:00.751Z · closeout · Codex-root
+
+- Scope：Closed first integration topology as intentionally rejected without deployment
+- Resources：`branch-codex-curriculum-full-release-20260719`
+- Evidence：No origin push Cloudflare D1 R2 OCR cache or production state changed; failure was caught before compendium integration and before deploy
+- Rollback：Leave unpushed branch untouched or remove only after explicit retention review
+- Unresolved：Use v2 merge-preserving integration only
+
+</details>
+
+<details><summary><code>curriculum-atlas-clean-integration-v2-20260719</code> · 4 events · 2026-07-19T00:47:47.024Z → 2026-07-19T01:02:50.559Z</summary>
+
+Agents：`/root/integration_v2_lineage`
+Resources：`/Users/ylsuen/CF/curriculum-atlas`、`/private/tmp/curriculum-full-release-v2-20260719`、`codex/curriculum-full-release-v2-20260719`、`codex/a2-runtime-integrated-20260718`、`codex/ocr-audit-triangulation-v2-20260718`、`codex/ontology-integration-v4-20260718`、`merge-14e34c9098f076f17670eaab72bc1aed7b6dc96f`、`merge-1405c1c2ac532895f1c9071827ef82483ff9aa3a`、`merge-c6d1cde7c7cfd7c14d1b854aa27f8315cc453fb9`、`HEAD-c6d1cde7c7cfd7c14d1b854aa27f8315cc453fb9`、`release-0bd7671da1f9ad131ac03d981e4977ea`、`origin/main-857ed4e7aa5a561c21dc94d2ea1a6a9b14910ea1`
+
+### 2026-07-19T00:47:47.024Z · start · /root/integration_v2_lineage
+
+- Scope：Create a clean local-only v2 integration worktree from exact origin/main and merge only the approved A2 runtime, OCR triangulation v2, and ontology v4 branches with lineage-preserving no-fast-forward merges
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`/private/tmp/curriculum-full-release-v2-20260719`、`codex/curriculum-full-release-v2-20260719`、`codex/a2-runtime-integrated-20260718`、`codex/ocr-audit-triangulation-v2-20260718`、`codex/ontology-integration-v4-20260718`
+- Evidence：Main worktree clean at 2e6584a and exact remote origin/main independently read back as 857ed4e; target local and remote branch plus worktree absent; three source worktrees clean at d4360775 dc099afa and 0434b100; v1 integration closed rejected; active A2 remote runtime ownership is disjoint from this local integration worktree
+- Rollback：If integration is abandoned, preserve evidence then remove only the new unpushed v2 worktree and branch; origin/main, source branches, main worktree, remote runtime and live resources remain unchanged
+- Unresolved：Abort and freeze on any merge conflict; full focused and release verification plus exact-range gitleaks remain pending; compendium is explicitly excluded until independent PASS
+
+### 2026-07-19T00:48:34.388Z · change · /root/integration_v2_lineage
+
+- Scope：Created the isolated v2 worktree from exact origin/main and preserved original branch topology through three ordered no-fast-forward merges without conflict
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`codex/curriculum-full-release-v2-20260719`、`merge-14e34c9098f076f17670eaab72bc1aed7b6dc96f`、`merge-1405c1c2ac532895f1c9071827ef82483ff9aa3a`、`merge-c6d1cde7c7cfd7c14d1b854aa27f8315cc453fb9`
+- Evidence：Started at exact origin/main 857ed4e; merged A2 d4360775 then OCR dc099afa then ontology 0434b100 with ort and no conflicts; all three exact source tips are ancestors of HEAD; compendium e7338bf is not an ancestor; branch is 34 commits ahead and clean
+- Rollback：Preserve merge evidence then delete only the unpushed v2 worktree and branch if any downstream gate fails; source branches, main worktree, origin/main and live resources are unchanged
+- Unresolved：Focused suites, full Node and Python tests, TypeScript, build, release/source gates, diff check and exact-range gitleaks remain pending; no deploy authorized
+
+### 2026-07-19T01:02:37.365Z · verify · /root/integration_v2_lineage
+
+- Scope：Verified exact merge lineage, focused and full local regression, generated release inputs, source cleanliness, dry-run bundling, and exact-range secret scan without remote mutation
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`HEAD-c6d1cde7c7cfd7c14d1b854aa27f8315cc453fb9`、`release-0bd7671da1f9ad131ac03d981e4977ea`、`origin/main-857ed4e7aa5a561c21dc94d2ea1a6a9b14910ea1`
+- Evidence：All three exact tips are ancestors and zero compendium-unique commits are ancestors; assets audit passed; corpus 16456 paragraphs and 91 chunks; concepts 553 episodes 475 relations 7821 occurrences 5228 evidence; focused gates passed after required ignored sources corpus and dist were present; full Node 815 of 815 and Python 14 of 14 passed; tsc noEmit build clean-source assertion Wrangler dry-run and exact origin/main..HEAD diff check passed; gitleaks 8.30.1 scanned 31 commits and 702968 bytes with zero leaks; integration and main worktrees clean
+- Rollback：No production rollback applies; if this local integration is rejected, preserve evidence then remove only the unpushed v2 worktree and branch
+- Unresolved：Release manifest intentionally has git_head_not_pushed plus stale preview and production environment evidence blockers; remote target branch is absent; no deploy D1 R2 OCR cache or live mutation was performed
+
+### 2026-07-19T01:02:50.559Z · closeout · /root/integration_v2_lineage
+
+- Scope：Closed the clean local-only v2 lineage-preserving integration for parent handoff with no deployment or push
+- Resources：`codex/curriculum-full-release-v2-20260719`、`merge-14e34c9098f076f17670eaab72bc1aed7b6dc96f`、`merge-1405c1c2ac532895f1c9071827ef82483ff9aa3a`、`merge-c6d1cde7c7cfd7c14d1b854aa27f8315cc453fb9`
+- Evidence：HEAD c6d1cde is clean and 34 commits ahead of unchanged origin/main; remote main still 857ed4e and remote v2 branch absent; main worktree remains clean ahead two; mandatory Playwright cleanup dry-run matched one pre-existing xue-live-r6 candidate and acted zero while existing MCP processes were left untouched; task opened no browser
+- Rollback：Delete only /private/tmp/curriculum-full-release-v2-20260719 and local codex/curriculum-full-release-v2-20260719 after explicit retention decision; source branches origin/main main worktree remote runtime and production require no rollback
+- Unresolved：Promotion remains blocked until an authorized push and fresh environment evidence; compendium remains wholly excluded pending its independent PASS; no canonical report body update was made because this was local integration only and concurrent resource ownership remains active
+
+</details>
+
+<details><summary><code>curriculum-a2-appledouble-forward-repair-20260719</code> · 6 events · 2026-07-19T00:49:51.401Z → 2026-07-19T01:50:26.349Z</summary>
+
+Agents：`/root/a2_runtime_final_independent_review`
+Resources：`curriculum-atlas:docs/remote-ocr-a2-deployment.md`、`curriculum-atlas:tests/remote-ocr-a2-systemd.test.mjs`、`/private/tmp/curriculum-a2-appledouble-repair-20260719`、`codex/a2-appledouble-repair-20260719`、`curriculum-atlas:commit-d4360775194aaf8593a9fa5db10cf7465b222534`、`commit-38f2e5bce7d7782163619782a8ce181cb40417b6`、`parent-d4360775194aaf8593a9fa5db10cf7465b222534`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`
+
+### 2026-07-19T00:49:51.401Z · start · /root/a2_runtime_final_independent_review
+
+- Scope：local-test-first-runbook-repair-from-exact-d436-in-isolated-worktree
+- Resources：`curriculum-atlas:docs/remote-ocr-a2-deployment.md`、`curriculum-atlas:tests/remote-ocr-a2-systemd.test.mjs`、`/private/tmp/curriculum-a2-appledouble-repair-20260719`、`codex/a2-appledouble-repair-20260719`
+- Evidence：source-tip-d4360775194aaf8593a9fa5db10cf7465b222534-clean-target-worktree-and-branch-absent-ownership-reviewed
+- Rollback：delete-only-new-unpushed-worktree-and-branch-after-preserving-task-diff-if-abandoned
+- Unresolved：remote-DMITPro2-authority-A1-grant-systemd-OCR-runtime-deploy-and-other-worktrees-explicitly-excluded
+
+### 2026-07-19T00:50:07.675Z · change · /root/a2_runtime_final_independent_review
+
+- Scope：created-isolated-local-worktree-and-branch-from-exact-reviewed-A2-tip
+- Resources：`/private/tmp/curriculum-a2-appledouble-repair-20260719`、`codex/a2-appledouble-repair-20260719`、`curriculum-atlas:commit-d4360775194aaf8593a9fa5db10cf7465b222534`
+- Evidence：HEAD-and-parent-ancestry-pinned-to-d436-source-worktree-unchanged
+- Rollback：remove-only-new-worktree-and-delete-only-new-unpushed-branch
+- Unresolved：tests-and-runbook-edits-pending-no-remote-action
+
+### 2026-07-19T01:11:06.542Z · change · /root/a2_runtime_final_independent_review
+
+- Scope：local-test-first-A2-runbook-hardening-and-forward-repair-protocol
+- Resources：`curriculum-atlas:docs/remote-ocr-a2-deployment.md`、`curriculum-atlas:tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：three-new-tests-failed-before-doc-change-then-13-of-13-passed-local-exact-d436-archive-roundtrip-proved-20-source-files-no-AppleDouble-no-xattr-and-byte-identical-fileset
+- Rollback：revert-the-dedicated-local-commit-after-preserving-review-evidence
+- Unresolved：full-related-regression-current-runner-gitleaks-and-commit-pending-no-SSH-SCP-remote-systemd-OCR-or-deploy-action
+
+### 2026-07-19T01:50:26.102Z · change · /root/a2_runtime_final_independent_review
+
+- Scope：committed-local-only-A2-AppleDouble-hardening-and-protocol-bound-forward-repair
+- Resources：`/private/tmp/curriculum-a2-appledouble-repair-20260719`、`codex/a2-appledouble-repair-20260719`、`commit-38f2e5bce7d7782163619782a8ce181cb40417b6`
+- Evidence：single-commit-parent-d4360775194aaf8593a9fa5db10cf7465b222534-only-runbook-and-test-changed-protocol-blobs-11a1275a-and-0e3bff25
+- Rollback：git-revert-38f2e5bce7d7782163619782a8ce181cb40417b6-after-preserving-review-evidence
+- Unresolved：local-branch-intentionally-has-no-upstream-so-future-forward-repair-exact-upstream-gate-remains-fail-closed-until-separately-reviewed-and-published-no-remote-action
+
+### 2026-07-19T01:50:26.232Z · verify · /root/a2_runtime_final_independent_review
+
+- Scope：verified-final-local-commit-and-complete-A2-regression-boundary
+- Resources：`commit-38f2e5bce7d7782163619782a8ce181cb40417b6`、`parent-d4360775194aaf8593a9fa5db10cf7465b222534`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：full-Node-610-of-610-A2-related-92-of-92-runner-85-of-85-authority-grant-43-of-43-Python-14-of-14-shell-blocks-18-syntax-pass-exact-d436-local-archive-roundtrip-20-files-byte-identical-no-AppleDouble-no-xattr-gitleaks-one-commit-zero-leaks
+- Rollback：no-live-rollback-required-local-revert-commit-only
+- Unresolved：protocol-commit-upstream-gate-not-satisfied-by-design-because-push-and-remote-repair-were-out-of-scope
+
+### 2026-07-19T01:50:26.349Z · closeout · /root/a2_runtime_final_independent_review
+
+- Scope：closed-clean-local-A2-forward-repair-branch-for-parent-handoff
+- Resources：`codex/a2-appledouble-repair-20260719`、`commit-38f2e5bce7d7782163619782a8ce181cb40417b6`
+- Evidence：worktree-clean-only-one-commit-over-exact-d436-no-SSH-SCP-systemd-OCR-runtime-authority-A1-grant-Cloudflare-push-or-deploy-mutation
+- Rollback：preserve-branch-for-integration-or-revert-38f2e5bce7d7782163619782a8ce181cb40417b6
+- Unresolved：parent-must-review-integrate-and-establish-exact-upstream-before-any-operator-runs-forward-repair
+
+</details>
+
+<details><summary><code>curriculum-compendium-gitleaks-fingerprint-allowlist-20260719</code> · 5 events · 2026-07-19T00:51:15.452Z → 2026-07-19T01:05:00.356Z</summary>
+
+Agents：`/root/compendium_r3_independent_review`
+Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`.gitleaksignore`、`gitleaks-precision-regression`、`/private/tmp/curriculum-compendium-item-boundaries-20260718/.gitleaksignore`、`/private/tmp/curriculum-compendium-item-boundaries-20260718/SECURITY.md`、`/private/tmp/curriculum-compendium-item-boundaries-20260718/tests/gitleaks-ignore-precision.test.mjs`、`origin/codex/compendium-item-boundaries-20260718`、`commit-a2f55090b9a2e684b7e291e8ef09f35d9d54433b`、`repo=/private/tmp/curriculum-compendium-item-boundaries-20260718; branch=codex/compendium-item-boundaries-20260718; commit=a2f55090b9a2e684b7e291e8ef09f35d9d54433b`、`repo=/private/tmp/curriculum-compendium-item-boundaries-20260718; origin/codex/compendium-item-boundaries-20260718=a2f55090b9a2e684b7e291e8ef09f35d9d54433b`
+
+### 2026-07-19T00:51:15.452Z · start · /root/compendium_r3_independent_review
+
+- Scope：exact-five-fingerprint-gitleaks-fixture-allowlist-on-feature-branch
+- Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718`、`.gitleaksignore`、`gitleaks-precision-regression`
+- Evidence：clean-e7338bf-tip-matches-upstream-prior-r3-owner-closed-no-overlapping-worktree-owner-found
+- Rollback：revert-dedicated-follow-up-commit-no-history-rewrite
+- Unresolved：no-deploy-D1-R2-Cloudflare-main-or-production-write-authorized
+
+### 2026-07-19T00:54:58.750Z · change · /root/compendium_r3_independent_review
+
+- Scope：added-exact-five-fingerprint-ignore-security-rationale-and-precision-regression
+- Resources：`/private/tmp/curriculum-compendium-item-boundaries-20260718/.gitleaksignore`、`/private/tmp/curriculum-compendium-item-boundaries-20260718/SECURITY.md`、`/private/tmp/curriculum-compendium-item-boundaries-20260718/tests/gitleaks-ignore-precision.test.mjs`
+- Evidence：regression-failed-before-ignore-passed-after-ignore-original-exact-range-now-zero-findings
+- Rollback：revert-dedicated-follow-up-commit
+- Unresolved：full-verify-commit-and-upstream-push-pending-no-live-state-changed
+
+### 2026-07-19T01:00:53.992Z · change · /root/compendium_r3_independent_review
+
+- Scope：pushed-dedicated-follow-up-to-existing-feature-branch-without-force
+- Resources：`origin/codex/compendium-item-boundaries-20260718`、`commit-a2f55090b9a2e684b7e291e8ef09f35d9d54433b`
+- Evidence：remote-feature-branch-fast-forwarded-from-e7338bf-to-a2f5509
+- Rollback：revert-commit-a2f55090b9a2e684b7e291e8ef09f35d9d54433b-no-production-rollback
+- Unresolved：full-verify-rerun-required-after-upstream-equality-gate
+
+### 2026-07-19T01:05:00.237Z · verify · /root/compendium_r3_independent_review
+
+- Scope：verified-exact-five-fingerprint-release-gate-on-pushed-feature-tip
+- Resources：`repo=/private/tmp/curriculum-compendium-item-boundaries-20260718; branch=codex/compendium-item-boundaries-20260718; commit=a2f55090b9a2e684b7e291e8ef09f35d9d54433b`
+- Evidence：exact-range gitleaks scanned 19 commits and 129.92 MB with zero findings; future-location synthetic control remained detectable; npm run verify passed 681 Node tests and 14 Python tests, release manifest, Wrangler dry-run, and clean release source
+- Rollback：git revert a2f55090b9a2e684b7e291e8ef09f35d9d54433b
+- Unresolved：No deploy, D1, R2, Cloudflare, main-branch, or live-site write was performed
+
+### 2026-07-19T01:05:00.356Z · closeout · /root/compendium_r3_independent_review
+
+- Scope：closed-exact-fingerprint-remediation-on-clean-upstream-equal-feature-tip
+- Resources：`repo=/private/tmp/curriculum-compendium-item-boundaries-20260718; origin/codex/compendium-item-boundaries-20260718=a2f55090b9a2e684b7e291e8ef09f35d9d54433b`
+- Evidence：HEAD equals upstream; worktree and index clean; five exact historical fingerprints locked by regression test; original exact-range finding set no longer reproduces
+- Rollback：git revert a2f55090b9a2e684b7e291e8ef09f35d9d54433b
+- Unresolved：Live validation and production deployment intentionally excluded by scope
+
+</details>
+
+<details><summary><code>curriculum-compendium-release-gate-independent-review-20260719</code> · 3 events · 2026-07-19T01:05:33.567Z → 2026-07-19T01:22:43.312Z</summary>
+
+Agents：`/root/integration_v2_lineage`、`integration_v2_lineage`
+Resources：`/Users/ylsuen/CF/curriculum-atlas`、`/private/tmp/curriculum-compendium-release-gate-review-a2f55090-20260719`、`a2f55090b9a2e684b7e291e8ef09f35d9d54433b`、`e7338bf262046087d0d440415cc6bf695d7fcd93`、`scan artifact a2f55090_20260719T010640Z`
+
+### 2026-07-19T01:05:33.567Z · start · /root/integration_v2_lineage
+
+- Scope：Independent read-only security and release-gate review of exact compendium follow-up commit a2f55090 against parent e7338bf in a fresh isolated clone; no source edits push deploy or live mutation
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`/private/tmp/curriculum-compendium-release-gate-review-a2f55090-20260719`、`a2f55090b9a2e684b7e291e8ef09f35d9d54433b`、`e7338bf262046087d0d440415cc6bf695d7fcd93`
+- Evidence：Exact commit and parent resolve locally; author worktree is clean and upstream-equal; prior allowlist owner has verify and closeout rows; independent clone and scan paths are absent; security diff-scan capability preflight ready
+- Rollback：Remove only the fresh review clone and temporary scan artifacts after preserving the review result; source branch main remote Cloudflare D1 R2 and production remain unchanged
+- Unresolved：Exact five-fingerprint mapping SECURITY rationale final-tree literal absence future-finding control range gitleaks tests diff check and functional-diff classification remain to be independently verified
+
+### 2026-07-19T01:22:43.284Z · verify · integration_v2_lineage
+
+- Scope：Independent read-only review of exact commit a2f55090 against parent e7338bf
+- Resources：`/private/tmp/curriculum-compendium-release-gate-review-a2f55090-20260719`、`scan artifact a2f55090_20260719T010640Z`
+- Evidence：Five historical findings reproduced and matched byte-exact; current literal absent; future same-rule and same-location PoCs detected; exact 857ed4e..a2f5509 Gitleaks zero; Node test 1/1; diff check clean; functional tree unchanged outside three review files
+- Rollback：No source production deployment or remote mutation occurred; no rollback needed
+- Unresolved：None
+
+### 2026-07-19T01:22:43.312Z · closeout · integration_v2_lineage
+
+- Scope：Close independent Compendium release-gate review
+- Resources：`/private/tmp/curriculum-compendium-release-gate-review-a2f55090-20260719`、`scan artifact a2f55090_20260719T010640Z`
+- Evidence：PASS with P0 0 P1 0 P2 0; canonical Codex Security scan contract sealed and revalidated; detached review tree clean; remote refs unchanged
+- Rollback：Read-only review; temporary clones and temporary scan artifacts may be discarded without affecting repository or remote state
+- Unresolved：None
+
+</details>
+
+<details><summary><code>curriculum-atlas-clean-integration-v2-compendium-20260719</code> · 7 events · 2026-07-19T01:24:46.100Z → 2026-07-19T02:25:51.395Z</summary>
+
+Agents：`/root/integration_v2_lineage`
+Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`codex/curriculum-full-release-v2-20260719`、`codex/compendium-item-boundaries-20260718`、`a2f55090b9a2e684b7e291e8ef09f35d9d54433b`、`MERGE_HEAD-a2f55090b9a2e684b7e291e8ef09f35d9d54433b`、`data/release-assets-policy.json`、`docs/deployment.md`、`package.json`、`scripts/build-corpus.mjs`、`scripts/build-release-manifest.mjs`、`scripts/deploy-worker.mjs`、`tests/release-manifest.test.mjs`、`tests/release-source-gate.test.mjs`、`Compendium partial-range corpus binding tests`、`scripts/import-corpus.mjs`、`tests/compendium-activated-publication.test.mjs`、`tests/git-release-source-race.test.mjs`、`8e25c6b7017999cbb5621d4615daeaf95cda837d`、`data/corpus-chunks/manifest.json`、`data/ontology-release-manifest.json`、`public/data/concept-evolution.json`、`public/data/concept-evolution-academic.json`
+
+### 2026-07-19T01:24:46.100Z · start · /root/integration_v2_lineage
+
+- Scope：Extend the clean local-only v2 integration by one lineage-preserving no-fast-forward merge of the independently approved Compendium exact tip
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`codex/curriculum-full-release-v2-20260719`、`codex/compendium-item-boundaries-20260718`、`a2f55090b9a2e684b7e291e8ef09f35d9d54433b`
+- Evidence：v2 worktree clean at c6d1cde; feature worktree clean and local upstream remote all exact a2f55090; prior Compendium author and independent review tasks closed PASS; active AppleDouble repair owns two disjoint A2 files and is explicitly excluded
+- Rollback：On conflict abort and freeze; after a clean merge preserve evidence then revert only the new merge with mainline parent 1 or discard only the unpushed v2 integration branch after explicit retention decision
+- Unresolved：Merge conflict and post-merge targeted build diff and exact-range Gitleaks gates remain; no push deploy Cloudflare D1 R2 OCR runtime or AppleDouble repair integration authorized
+
+### 2026-07-19T01:25:23.279Z · change · /root/integration_v2_lineage
+
+- Scope：Attempted the authorized lineage-preserving Compendium no-fast-forward merge and froze the unresolved merge exactly as instructed
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`MERGE_HEAD-a2f55090b9a2e684b7e291e8ef09f35d9d54433b`、`data/release-assets-policy.json`、`docs/deployment.md`、`package.json`、`scripts/build-corpus.mjs`、`scripts/build-release-manifest.mjs`、`scripts/deploy-worker.mjs`、`tests/release-manifest.test.mjs`、`tests/release-source-gate.test.mjs`
+- Evidence：git merge --no-ff --no-edit returned content conflicts in exactly eight files; HEAD and ORIG_HEAD remain c6d1cde7c7cfd7c14d1b854aa27f8315cc453fb9; MERGE_HEAD is exact independently approved a2f55090; no conflict resolution edit commit test push or deploy performed
+- Rollback：Merge remains frozen in progress; do not abort or resolve until an explicit coordinated conflict-resolution decision preserves both ontology and Compendium release contracts
+- Unresolved：Eight conflicts block ancestor tests and all post-merge gates; AppleDouble repair remains excluded and untouched
+
+### 2026-07-19T01:41:03.783Z · start · /root/integration_v2_lineage
+
+- Scope：Continue the frozen v2 Compendium merge after completed read-only three-way review; semantically resolve eight conflicts and add cross-branch regressions before committing the merge
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`data/release-assets-policy.json`、`docs/deployment.md`、`package.json`、`scripts/build-corpus.mjs`、`scripts/build-release-manifest.mjs`、`scripts/deploy-worker.mjs`、`tests/release-manifest.test.mjs`、`tests/release-source-gate.test.mjs`、`Compendium partial-range corpus binding tests`
+- Evidence：Explicit continuation authorization received; HEAD c6d1cde and MERGE_HEAD a2f55090 remain pinned; three-way audit completed; conflict state preserved; active AppleDouble repair is disjoint and excluded
+- Rollback：Do not abort reset or whole-file checkout; if a new semantic ambiguity cannot be resolved from tests and the reviewed contracts freeze the merge and preserve index/worktree evidence
+- Unresolved：Eight semantic conflicts plus prepare blocker graph inventory cleanup combined promotion and partial-range binding regressions must be resolved before merge commit; no push deploy or AppleDouble repair merge authorized
+
+### 2026-07-19T02:05:47.827Z · change · /root/integration_v2_lineage
+
+- Scope：Semantically resolved the eight Compendium merge conflicts and added fail-closed cross-branch release regressions before staging
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`data/release-assets-policy.json`、`docs/deployment.md`、`package.json`、`scripts/build-corpus.mjs`、`scripts/build-release-manifest.mjs`、`scripts/deploy-worker.mjs`、`scripts/import-corpus.mjs`、`tests/release-manifest.test.mjs`、`tests/release-source-gate.test.mjs`、`tests/compendium-activated-publication.test.mjs`、`tests/git-release-source-race.test.mjs`
+- Evidence：Conflict markers zero; release-source-gate 15 of 15 passes; partial-range 5 of 5 passes; red-first tests reproduced and fixed prepare reader allowlist graph-shard inventory and exact cleanup; environment evidence excluded from governed source and R2; no production command ran
+- Rollback：Merge remains uncommitted and unstaged at this checkpoint; preserve MERGE_HEAD and use task-scoped patch reversal only if a semantic regression is found
+- Unresolved：Tracked corpus manifest currently names Compendium chunk hashes while ignored v2 chunks are stale main-worktree bytes; regenerate and hash-verify before release-manifest tests and merge commit
+
+### 2026-07-19T02:18:52.963Z · change · /root/integration_v2_lineage
+
+- Scope：Created the authorized lineage-preserving Compendium merge commit after all conflict and staged-diff gates passed
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`8e25c6b7017999cbb5621d4615daeaf95cda837d`、`a2f55090b9a2e684b7e291e8ef09f35d9d54433b`
+- Evidence：Merge commit 8e25c6b has exactly parents c6d1cde and a2f55090; all four required A2 OCR ontology and Compendium tips are ancestors; no push deploy or production mutation occurred
+- Rollback：If later rejected and explicitly authorized, revert merge 8e25c6b with mainline parent 1; the branch remains local and unpushed
+- Unresolved：Full npm test check build release manifest and clean-source expected-blocker verification remain
+
+### 2026-07-19T02:25:38.653Z · verify · /root/integration_v2_lineage
+
+- Scope：Verified the committed four-lineage curriculum integration through full tests builds and fail-closed release validators
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`8e25c6b7017999cbb5621d4615daeaf95cda837d`、`data/corpus-chunks/manifest.json`、`data/ontology-release-manifest.json`、`public/data/concept-evolution.json`、`public/data/concept-evolution-academic.json`
+- Evidence：All four required tips are ancestors; npm test 955 of 955; TypeScript check pass; Python OCR tests 14 of 14; build pass; Compendium concepts ontology and page-evidence validators pass; worktree and index clean; corpus 16456 paragraphs in 91 SQL chunks
+- Rollback：No production state changed; if explicit rollback is later required revert merge 8e25c6b with mainline parent 1 on the local branch
+- Unresolved：Release manifest preparation is correctly blocked until exact HEAD is pushed to upstream; no push or deploy authorized
+
+### 2026-07-19T02:25:51.395Z · closeout · /root/integration_v2_lineage
+
+- Scope：Closed the local-only Compendium integration at a clean tested two-parent merge with no remote or production mutation
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`codex/curriculum-full-release-v2-20260719`、`8e25c6b7017999cbb5621d4615daeaf95cda837d`
+- Evidence：HEAD has parents c6d1cde and exact approved Compendium a2f55090; branch is ahead of origin main and remains unpushed; full verification passed; no Cloudflare D1 R2 OCR runtime AppleDouble repair push or deploy action occurred
+- Rollback：Retain local merge for review; if explicitly rejected use a mainline-1 revert of 8e25c6b or discard only this unpushed task branch after ownership review
+- Unresolved：Exact-upstream release-manifest gate remains intentionally blocked; ignored .wrangler manifest still reflects pre-merge c6d1cde and must not be used; mandated Playwright process-table dry-run was blocked by sandbox and exhausted escalation service though this task opened no browser session; canonical aggregate report handoff remains with parent coordinator
+
+</details>
+
+<details><summary><code>curriculum-combined-merge-independent-review-20260719</code> · 4 events · 2026-07-19T02:30:49.743Z → 2026-07-19T03:04:43.810Z</summary>
+
+Agents：`/root/a2_runtime_final_independent_review`
+Resources：`/Users/ylsuen/CF/curriculum-atlas`、`/private/tmp/curriculum-combined-merge-review-8e25c6b-20260719`、`commit-8e25c6b7017999cbb5621d4615daeaf95cda837d`、`parents-c6d1cde7-and-a2f55090`、`codex-security-scan-8e25c6b`、`/private/var/folders/5x/cdy6jdc139j__zt_pk567x7c0000gn/T/codex-security-scans/curriculum-combined-merge-review-8e25c6b-20260719/8e25c6b7017999cbb5621d4615daeaf95cda837d_20260719T023337Z`
+
+### 2026-07-19T02:30:49.743Z · start · /root/a2_runtime_final_independent_review
+
+- Scope：independent-read-only-review-of-exact-two-parent-combined-merge-in-fresh-detached-clone
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`/private/tmp/curriculum-combined-merge-review-8e25c6b-20260719`、`commit-8e25c6b7017999cbb5621d4615daeaf95cda837d`、`parents-c6d1cde7-and-a2f55090`
+- Evidence：exact-commit-and-parents-resolve-target-clone-absent-author-integration-task-closed-security-diff-preflight-ready
+- Rollback：remove-only-fresh-audit-clone-and-scan-artifacts-after-preserving-review-result
+- Unresolved：semantic-conflict-resolution-corpus-release-manifest-deploy-ontology-gitleaks-and-full-verification-not-yet-independently-proven-no-source-remote-or-production-writes-authorized
+
+### 2026-07-19T02:31:08.429Z · change · /root/a2_runtime_final_independent_review
+
+- Scope：created-object-independent-fresh-detached-audit-clone-at-exact-merge
+- Resources：`/private/tmp/curriculum-combined-merge-review-8e25c6b-20260719`、`commit-8e25c6b7017999cbb5621d4615daeaf95cda837d`
+- Evidence：no-local-clone-has-no-object-alternates-detached-HEAD-exact-two-parents-and-clean-index-worktree
+- Rollback：remove-only-fresh-audit-clone-after-review
+- Unresolved：review-and-tests-pending-no-source-branch-push-deploy-or-cache-mutation
+
+### 2026-07-19T03:04:06.287Z · verify · /root/a2_runtime_final_independent_review
+
+- Scope：exact-merge-independent-read-only-verification-complete
+- Resources：`/private/tmp/curriculum-combined-merge-review-8e25c6b-20260719`、`commit-8e25c6b7017999cbb5621d4615daeaf95cda837d`、`codex-security-scan-8e25c6b`
+- Evidence：topology-and-eight-conflicts-pass-four-tips-ancestors-no-markers-diff-clean-check-build-python-wrangler-dry-run-pass-targeted-release-36-of-36-ontology-118-of-118-full-node-950-of-955-four-fail-only-absent-91-private-sql-one-cache-skip-gitleaks-19-commits-clean
+- Rollback：audit-only-no-source-or-production-mutations-remove-fresh-clone-and-scan-after-handoff-if-desired
+- Unresolved：P2-independent-release-reproducibility-blocked-by-91-untracked-sql-and-101-private-text-assets-commit-not-on-github-main-tracked-evidence-v1-and-0008-0009-not-evidenced-applied
+
+### 2026-07-19T03:04:43.810Z · closeout · /root/a2_runtime_final_independent_review
+
+- Scope：independent-review-handoff-complete-no-source-push-deploy-or-production-mutation
+- Resources：`/private/tmp/curriculum-combined-merge-review-8e25c6b-20260719`、`/private/var/folders/5x/cdy6jdc139j__zt_pk567x7c0000gn/T/codex-security-scans/curriculum-combined-merge-review-8e25c6b-20260719/8e25c6b7017999cbb5621d4615daeaf95cda837d_20260719T023337Z`
+- Evidence：sealed-scan-zero-security-findings-partial-coverage-final-report-generated-clean-detached-tree-current-github-main-still-857ed4e
+- Rollback：no-rollback-required-audit-only-artifacts-may-be-removed-after-parent-handoff
+- Unresolved：P2-private-release-byte-bundle-and-push-v2-evidence-migrations-required-before-deploy-mandatory-playwright-process-table-dry-run-could-not-complete-because-sandbox-and-escalation-usage-limit-blocked-no-browser-session-opened-by-this-task
+
+</details>
+
+<details><summary><code>curriculum-a2-partial-resume-protocol-20260719</code> · 6 events · 2026-07-19T02:46:47.854Z → 2026-07-19T03:14:03.258Z</summary>
+
+Agents：`/root/a2_partial_incident_forensics`、`Codex-root`
+Resources：`/Users/ylsuen/CF/curriculum-atlas`、`/private/tmp/curriculum-a2-partial-resume-protocol-20260719`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`、`codex/a2-partial-resume-protocol-20260719`、`commit-38f2e5bce7d7782163619782a8ce181cb40417b6`、`A2 partial-resume worktree`、`DMITPro2 inner bdfz PREMOVE incident`、`production and preview health`、`local OCR watchdog`、`commit 38f2e5b`、`DMITPro2 inner bdfz`
+
+### 2026-07-19T02:46:47.854Z · start · /root/a2_partial_incident_forensics
+
+- Scope：local-test-first-partial-state-aware-A2-forward-resume-protocol-from-exact-38f2e5b
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`/private/tmp/curriculum-a2-partial-resume-protocol-20260719`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：Exact parent 38f2e5b and target branch/worktree absence verified; current partial incident forensic audit is PASS and prior owner is closed
+- Rollback：Remove only the new unpushed worktree and branch after preserving task diff, or revert the dedicated local commit
+- Unresolved：No SSH SCP remote authority grant seed systemd OCR runtime deploy push main Cloudflare D1 R2 or canonical report body mutation authorized
+
+### 2026-07-19T02:47:36.889Z · change · /root/a2_partial_incident_forensics
+
+- Scope：created-isolated-local-worktree-and-branch-from-exact-reviewed-forward-repair-tip
+- Resources：`/private/tmp/curriculum-a2-partial-resume-protocol-20260719`、`codex/a2-partial-resume-protocol-20260719`、`commit-38f2e5bce7d7782163619782a8ce181cb40417b6`
+- Evidence：HEAD exact 38f2e5b; parent branch and worktree remain untouched; only runbook and minimal A2 tests are owned
+- Rollback：Remove only this unpushed worktree and branch after preserving evidence
+- Unresolved：Tests must fail before runbook implementation; no network or live state action authorized
+
+### 2026-07-19T02:54:23.600Z · closeout · /root/a2_partial_incident_forensics
+
+- Scope：closed-unmodified-local-partial-resume-worktree-after-platform-apply-patch-rejection
+- Resources：`/private/tmp/curriculum-a2-partial-resume-protocol-20260719`、`codex/a2-partial-resume-protocol-20260719`、`commit-38f2e5bce7d7782163619782a8ce181cb40417b6`
+- Evidence：Three apply_patch attempts including one after explicit approval were rejected by the platform usage gate; worktree remains clean and byte-identical to exact parent with no test or runbook changes
+- Rollback：No source rollback required; retain or remove only the empty unpushed worktree and branch after ownership review
+- Unresolved：Step 4B implementation and red tests remain wholly pending; no SSH SCP remote write deploy push or live mutation occurred
+
+### 2026-07-19T02:55:58.980Z · start · Codex-root
+
+- Scope：Resume local-only test-first partial-state-aware A2 AppleDouble incident protocol from exact 38f2e5b after prior writer closed cleanly
+- Resources：`/private/tmp/curriculum-a2-partial-resume-protocol-20260719`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：Prior owner closeout present; branch clean at exact 38f2e5b; current remote state remains read-only PREMOVE with six sealed evidence files, original workspace inode preserved, one issuance and zero claims
+- Rollback：Revert only the dedicated local commit after preserving evidence; no SSH, remote write, push, deploy, authority, grant, OCR, Cloudflare, D1 or R2 mutation is part of this local implementation step
+- Unresolved：Red tests, implementation, full regression, independent review, exact-upstream publication and separate remote PREMOVE classification remain pending
+
+### 2026-07-19T03:14:03.121Z · verify · Codex-root
+
+- Scope：Read-only verification after platform rejected local Step 4B patch
+- Resources：`A2 partial-resume worktree`、`DMITPro2 inner bdfz PREMOVE incident`、`production and preview health`、`local OCR watchdog`
+- Evidence：Local branch remains clean at 38f2e5b with no diff; remote workspace remains dev 66306 inode 41854512 mode 0500 with 27 AppleDouble and exact six SHA-verified evidence files; one issuance zero claims; A2 output monitor lock and units absent; local OCR held 6947/11847 with one quarantined page; preview and production health ok and accepted OCR remains zero
+- Rollback：No mutation occurred; preserve current incident, authority, grant, worktree and live releases exactly
+- Unresolved：Platform usage gate still rejects apply_patch even after explicit user approval; Step 4B is unimplemented and remote A2 must stay frozen
+
+### 2026-07-19T03:14:03.258Z · closeout · Codex-root
+
+- Scope：Close unmodified local partial-resume implementation ownership while retaining the active parent release goal
+- Resources：`/private/tmp/curriculum-a2-partial-resume-protocol-20260719`、`codex/a2-partial-resume-protocol-20260719`、`commit 38f2e5b`、`DMITPro2 inner bdfz`
+- Evidence：Failed apply_patch produced no partial file; git status clean and diff-check pass; exact PREMOVE state independently re-read; no SSH write SCP push deploy systemd OCR authority grant Cloudflare D1 or R2 mutation
+- Rollback：No rollback needed; retain clean worktree and branch as the restart anchor
+- Unresolved：Resume only after platform write capacity returns: add red tests and quiet two-phase Step 4B, independent review, push exact upstream, Phase 1 read-only PREMOVE_READY, then Phase 2 once
+
+</details>
+
+<details><summary><code>curriculum-a2-partial-resume-protocol-r2-20260721</code> · 30 events · 2026-07-22T00:01:45.709Z → 2026-07-22T04:16:11.990Z</summary>
+
+Agents：`Codex-root`
+Resources：`/private/tmp/curriculum-a2-partial-resume-protocol-20260719`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`、`/private/tmp/curriculum-a2-partial-resume-protocol-20260719/docs/remote-ocr-a2-deployment.md`、`/private/tmp/curriculum-a2-partial-resume-protocol-20260719/tests/remote-ocr-a2-systemd.test.mjs`、`/private/tmp/curriculum-a2-partial-resume-protocol-20260719/scripts/resume-a2-appledouble-quarantine.sh`、`/tmp/task-owned-ephemeral-a2-atomic-selftest-on-inner-bdfz`、`DMITPro2-inner-bdfz-workstation-read-only-A2-state`、`codex/a2-partial-resume-protocol-20260719@0689843620bfb512e1cdfff3a482c96b4c2415c1`、`/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2`、`/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/a2-deploy-evidence/20260719T003812Z/incidents/appledouble-preclaim-d4360775`、`DMITPro2-inner-bdfz-workspace-a-r2`、`task-owned-same-filesystem-mv-probes`、`codex/a2-partial-resume-protocol-20260719@c2462fa84b0416dabd7ea692654aeccc389b4d50`、`appledouble-preclaim-d4360775`、`DMITPro2-inner-bdfz-appledouble-preclaim-d4360775`、`codex/a2-appledouble-repair-20260719@38f2e5bce7d7782163619782a8ce181cb40417b6`、`FORWARD_REPAIR_SHA256SUMS`、`timeout-recovery-authority-v1`、`DMITPro2-inner-bdfz-A2-inode-45748776`、`monitor-inode-42336296`、`lifecycle-lock-inode-41590544`、`DMITPro2-inner-bdfz-B3-monitor-timer`、`B3-alert-retry-timer`、`B3-monitor-service`、`DMITPro2-inner-bdfz-seed-preview-1`、`seed-preview-2`、`DMITPro2-inner-bdfz-user-systemd`、`A2-alert-runtime`、`A2-monitor-config`、`seed-commit`、`seed-receipt`、`codex/curriculum-full-release-v2-20260719@9f250f2`、`commit-b7d86aa28c2aecffdcd2f9dea19766b7a7de5fee`、`DMITPro2-inner-bdfz`、`monitor-runtime-a-r2-eab9872df842f496`、`monitor-sha-eab9872d`、`monitor-runtime-inode42336299`、`curriculum-ocr-reprocess-a-r2.service`、`curriculum-ocr-reprocess-a-r2-monitor.timer`、`runtime-overlay-sha-158d5f1e`、`alert-config-sha-620f67a5`、`evidence-monitor-overlay-eab9872d-20260722T0315Z`、`systemd-effective-ExecStart-eab9872d`、`A2-services`、`monitor-runtime-eab9872d`、`curriculum-ocr-llama.service`、`/private/tmp/curriculum-full-release-v2-20260719@c47cd1a`、`scripts/repair-remote-ocr-preinference-interruption.mjs`、`tests/remote-ocr-preinference-interruption-repair.test.mjs`、`docs/remote-ocr-preinference-interruption-repair.md`、`repair-runtime-a-r2-101890724df54f2c`、`A2-inode-45748776`、`A2-repair-evidence-a08b53ee`、`repair-id-a08b53ee`、`A2-incident-evidence-inode42336297`、`A2-output-inode45748776`、`worker-invocation-cea41604`、`incident-operator-freeze-monitor-jq-20260722T041335Z`
+
+### 2026-07-22T00:01:45.709Z · start · Codex-root
+
+- Scope：local-test-first-quiet-two-phase-resume-protocol-from-exact-clean-38f2e5b
+- Resources：`/private/tmp/curriculum-a2-partial-resume-protocol-20260719`、`docs/remote-ocr-a2-deployment.md`、`tests/remote-ocr-a2-systemd.test.mjs`
+- Evidence：prior-owner-closed-clean-branch-clean-exact-parent-38f2e5b-no-overlapping-active-writer
+- Rollback：revert-only-the-dedicated-local-commit-after-preserving-evidence
+- Unresolved：no-SSH-remote-write-authority-grant-seed-systemd-OCR-push-deploy-D1-R2-or-report-body-mutation-authorized-until-tests-independent-review-and-exact-upstream-pass
+
+### 2026-07-22T00:23:12.447Z · change · Codex-root
+
+- Scope：added-red-tests-and-quiet-two-phase-incident-specific-A2-resume-state-machine
+- Resources：`/private/tmp/curriculum-a2-partial-resume-protocol-20260719/docs/remote-ocr-a2-deployment.md`、`/private/tmp/curriculum-a2-partial-resume-protocol-20260719/tests/remote-ocr-a2-systemd.test.mjs`、`/private/tmp/curriculum-a2-partial-resume-protocol-20260719/scripts/resume-a2-appledouble-quarantine.sh`
+- Evidence：focused-suite-red-13-pass-2-fail-before-implementation-then-green-15-of-15-bash-syntax-and-diff-check-pass
+- Rollback：revert-the-eventual-dedicated-local-commit-no-remote-state-has-changed
+- Unresolved：independent-review-full-regression-exact-commit-push-and-read-only-live-inspect-required-before-any-seal
+
+### 2026-07-22T01:03:53.579Z · change · Codex-root
+
+- Scope：strengthened-local-resume-protocol-and-bounded-remote-linux-atomic-selftest
+- Resources：`/private/tmp/curriculum-a2-partial-resume-protocol-20260719`、`/tmp/task-owned-ephemeral-a2-atomic-selftest-on-inner-bdfz`
+- Evidence：exact-remote-inodes-metadata-hashes-and-double-preview-identities-read-only-local-focused-suite-15-pass-1-platform-skip
+- Rollback：local-files-remain-uncommitted-and-remote-selftest-trap-removes-only-its-mktemp-directory
+- Unresolved：remote-selftest-independent-rereview-and-exact-upstream-read-only-inspect-still-required
+
+### 2026-07-22T01:32:07.826Z · verify · Codex-root
+
+- Scope：frozen-three-file-A2-resume-candidate-independent-review-and-live-read-only-validation
+- Resources：`/private/tmp/curriculum-a2-partial-resume-protocol-20260719`、`DMITPro2-inner-bdfz-workstation-read-only-A2-state`
+- Evidence：independent-rereview-PASS-exact-sha256s-local-15-pass-1-linux-skip-Kali-Linux-1-pass-zero-scratch-live-inspect-PREMOVE_READY-tsc-python14-gitleaks-clean
+- Rollback：no-production-state-changed-candidate-can-be-reverted-by-single-dedicated-commit
+- Unresolved：exact-commit-push-and-committed-Phase1-remain-before-one-time-Phase2
+
+### 2026-07-22T01:33:48.457Z · change · Codex-root
+
+- Scope：one-time-A2-AppleDouble-quarantine-seal-on-DMITPro2-inner-bdfz
+- Resources：`codex/a2-partial-resume-protocol-20260719@0689843620bfb512e1cdfff3a482c96b4c2415c1`、`/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/workspace-a-r2`、`/home/suen/curriculum-ocr-offload/runs/20260716T1520Z-partial14-reprocess/a2-deploy-evidence/20260719T003812Z/incidents/appledouble-preclaim-d4360775`
+- Evidence：pushed-exact-upstream-and-formal-committed-Phase1-PREMOVE_READY-after-independent-PASS
+- Rollback：preserve-quarantined-inode-and-evidence-then-rematerialize-exact-d436-workspace-never-restore-authority-or-grant
+- Unresolved：Phase2-result-and-post-state-must-be-read-only-revalidated-before-Step2
+
+### 2026-07-22T01:43:55.885Z · verify · Codex-root
+
+- Scope：first-Phase2-safe-failure-and-read-only-root-cause-isolation
+- Resources：`DMITPro2-inner-bdfz-workspace-a-r2`、`task-owned-same-filesystem-mv-probes`
+- Evidence：initial-mv-denied-before-rename-post-failure-committed-Phase1-PREMOVE_READY-no-marker-files-mode500-cross-parent-rename-fails-mode700-succeeds-sudo-n-mv-preserves-exact-dev-inode-mode-uid-gid
+- Rollback：no-live-path-change-probe-traps-removed-only-task-created-scratch-directories
+- Unresolved：sudo-mv-three-file-delta-needs-independent-PASS-new-commit-push-and-formal-Phase1-before-any-new-seal
+
+### 2026-07-22T01:45:34.116Z · change · Codex-root
+
+- Scope：reviewed-sudo-bound-one-time-A2-quarantine-seal-retry
+- Resources：`codex/a2-partial-resume-protocol-20260719@c2462fa84b0416dabd7ea692654aeccc389b4d50`、`DMITPro2-inner-bdfz-workspace-a-r2`、`appledouble-preclaim-d4360775`
+- Evidence：independent-delta-review-PASS-exact-sudo-mv-scratch-preserved-metadata-new-exact-upstream-formal-Phase1-PREMOVE_READY
+- Rollback：preserve-quarantine-evidence-and-rematerialize-d436-never-chmod-or-reverse-move-live-inode
+- Unresolved：exact-Phase2-and-post-Phase1-result-pending
+
+### 2026-07-22T01:50:07.282Z · verify · Codex-root
+
+- Scope：exact-sudo-bound-Phase2-quarantine-and-committed-post-inspect
+- Resources：`codex/a2-partial-resume-protocol-20260719@c2462fa84b0416dabd7ea692654aeccc389b4d50`、`DMITPro2-inner-bdfz-appledouble-preclaim-d4360775`
+- Evidence：formal-Phase2-SEALED-and-formal-post-inspect-SEALED-original-workspace-absent-quarantined-device-inode-mode-owner-preserved-four-seal-files-hash-verified-zero-authority-claims
+- Rollback：preserve-quarantined-inode-and-all-seals-never-reverse-move-or-reissue-grant
+- Unresolved：rerun-only-Step2-once-then-Step4C-before-any-successor-inode-or-runtime-install
+
+### 2026-07-22T01:55:33.904Z · change · Codex-root
+
+- Scope：one-time-clean-A2-workspace-rematerialization-and-forward-repair-evidence-seal
+- Resources：`DMITPro2-inner-bdfz-workspace-a-r2`、`appledouble-preclaim-d4360775`、`codex/a2-appledouble-repair-20260719@38f2e5bce7d7782163619782a8ce181cb40417b6`
+- Evidence：reran-only-Step2-once-from-exact-d436-tree-then-exact-38f-Step4C-no-Step1-Step3-authority-or-grant-write
+- Rollback：preserve-both-sealed-workspaces-and-forward-repair-evidence-do-not-delete-reverse-move-or-reissue
+- Unresolved：Step5-successor-inode-monitor-directory-and-cache-not-created-yet
+
+### 2026-07-22T01:55:34.028Z · verify · Codex-root
+
+- Scope：post-Step4C-clean-workspace-and-evidence-boundary
+- Resources：`DMITPro2-inner-bdfz-workspace-a-r2`、`FORWARD_REPAIR_SHA256SUMS`、`timeout-recovery-authority-v1`
+- Evidence：Step4C-SEALED-workspace-mode500-23-files-zero-AppleDouble-incident-mode500-66-line-forward-seal-zero-claims-A2-monitor-lock-absent-source-manifest-identical-to-quarantine
+- Rollback：no-rollback-mutation-needed-preserve-current-sealed-state
+- Unresolved：execute-Step5-once-before-seed-preview
+
+### 2026-07-22T01:56:16.878Z · change · Codex-root
+
+- Scope：created-one-time-A2-successor-inode-monitor-directory-lock-and-byte-equal-stable-cache
+- Resources：`DMITPro2-inner-bdfz-A2-inode-45748776`、`monitor-inode-42336296`、`lifecycle-lock-inode-41590544`
+- Evidence：exact-Step5-success-paddlex-cache-sha256-check-passed-device66306-mode700-600-700-owner1000
+- Rollback：do-not-remove-or-recreate-successor-inode-preserve-on-any-later-failure
+- Unresolved：systemd-units-not-installed-seed-not-previewed-or-applied-authority-still-unclaimed
+
+### 2026-07-22T01:59:12.828Z · change · Codex-root
+
+- Scope：quiesced-completed-B3-monitor-and-cleared-terminal-failed-latch-before-A2-alert-rebind
+- Resources：`DMITPro2-inner-bdfz-B3-monitor-timer`、`B3-alert-retry-timer`、`B3-monitor-service`
+- Evidence：latest-json-completed-exit0-zero-issues-3182-of-3182-alert-inactive-pid0-then-both-timers-disabled-and-monitor-reset-failed-to-inactive
+- Rollback：B3-output-and-monitor-evidence-preserved-timers-can-be-reenabled-only-if-A2-handoff-aborts-after-review
+- Unresolved：notifier-completion-transition-loses-worker-InvocationID-agent-diagnosis-running-and-must-be-fixed-before-A2-completion
+
+### 2026-07-22T02:02:44.687Z · verify · Codex-root
+
+- Scope：A2-seed-double-dry-run-before-one-time-claim
+- Resources：`DMITPro2-inner-bdfz-seed-preview-1`、`seed-preview-2`、`timeout-recovery-authority-v1`
+- Evidence：byte-identical-previews-seed-id-d3b9638c-total8-complete4-retry_wait4-zero-failed-interrupted-quarantined-authority-claims0
+- Rollback：no-seed-or-claim-written-preview-evidence-preserved
+- Unresolved：one-time-seed-only-apply-and-idempotence-readback-pending
+
+### 2026-07-22T02:02:44.701Z · change · Codex-root
+
+- Scope：installed-hash-sealed-A2-units-alert-runtime-and-binding-then-daemon-reloaded
+- Resources：`DMITPro2-inner-bdfz-user-systemd`、`A2-alert-runtime`、`A2-monitor-config`
+- Evidence：systemd-analyze-user-verify-pass-notifier-sha-7f27b8d1-monitor-sha-72e3dae2-no-ConditionPath-gate
+- Rollback：use-preserved-B3-timer-state-and-A2-evidence-before-any-rebind-rollback-do-not-delete-successor-inode
+- Unresolved：known-completion-transition-notifier-bug-must-be-reviewed-and-fixed-before-Step8
+
+### 2026-07-22T02:04:22.717Z · change · Codex-root
+
+- Scope：one-time-A2-timeout-recovery-claim-and-seed-commit-with-idempotence-readback
+- Resources：`DMITPro2-inner-bdfz-A2-inode-45748776`、`timeout-recovery-authority-v1`、`seed-commit`、`seed-receipt`
+- Evidence：exact-seed-preview-id-d3b9638c-applied-once-second-seed-only-byte-identical-five-sidecars-valid-exactly-one-authority-claim-total8-complete4-retry_wait4-zero-failed-quarantined
+- Rollback：never-recreate-successor-or-claim-preserve-receipts-sidecars-stage-and-command-evidence-on-any-failure
+- Unresolved：worker-and-monitor-not-started-Step8-waits-for-reviewed-completion-notifier-fix
+
+### 2026-07-22T02:59:58.991Z · change · Codex-root
+
+- Scope：integrated-independently-reviewed-monitor-complete-history-compatibility-into-full-release-candidate
+- Resources：`codex/curriculum-full-release-v2-20260719@9f250f2`、`commit-b7d86aa28c2aecffdcd2f9dea19766b7a7de5fee`
+- Evidence：frozen-monitor-sha-eab9872d-focused-38-of-38-types-build-syntax-gitleaks-independent-review-pass
+- Rollback：git-revert-9f250f2-after-preserving-later-work
+- Unresolved：remote-monitor-overlay-and-interrupted-attempt6-audited-rearm-remain-pending
+
+### 2026-07-22T03:13:18.889Z · change · Codex-root
+
+- Scope：staged-additive-read-only-hash-sealed-A2-monitor-runtime-without-service-switch
+- Resources：`DMITPro2-inner-bdfz`、`monitor-runtime-a-r2-eab9872df842f496`、`monitor-sha-eab9872d`
+- Evidence：five-absolute-path-checksums-source-commit-f4c41e7-no-symlinks-owner-modes400-dirs500
+- Rollback：leave-unused-or-remove-only-task-owned-runtime-after-service-remains-on-sealed-workspace
+- Unresolved：systemd-drop-in-alert-binding-canaries-and-worker-restart-pending
+
+### 2026-07-22T03:13:18.986Z · verify · Codex-root
+
+- Scope：verified-staged-monitor-runtime-and-no-impact-to-frozen-A2-services
+- Resources：`monitor-runtime-inode42336299`、`curriculum-ocr-reprocess-a-r2.service`、`curriculum-ocr-reprocess-a-r2-monitor.timer`
+- Evidence：sha256sum-strict-five-of-five-OK-worker-failed-disabled-monitor-timer-inactive-disabled-output-untouched
+- Rollback：no-active-consumer-current-unit-still-points-sealed-workspace
+- Unresolved：attempt6-rearm-must-complete-before-service-switch
+
+### 2026-07-22T03:17:36.728Z · change · Codex-root
+
+- Scope：installed-inactive-systemd-monitor-runtime-overlay-and-rebound-nonsecret-alert-config
+- Resources：`runtime-overlay-sha-158d5f1e`、`alert-config-sha-620f67a5`、`evidence-monitor-overlay-eab9872d-20260722T0315Z`
+- Evidence：prechange-unit-dropin-alert-config-backed-owner-only-effective-unit-captured
+- Rollback：restore-before-monitor-alert.conf-and-rename-runtime-overlay.conf-away-then-daemon-reload
+- Unresolved：services-intentionally-disabled-until-audited-attempt6-rearm
+
+### 2026-07-22T03:17:43.022Z · verify · Codex-root
+
+- Scope：verified-effective-A2-monitor-overlay-with-no-service-or-output-activation
+- Resources：`systemd-effective-ExecStart-eab9872d`、`monitor-runtime-inode42336299`、`A2-services`
+- Evidence：systemd-analyze-user-verify-exit0-installed-hashes-exact-effective-ExecStart-new-runtime-worker-disabled-monitor-timer-disabled
+- Rollback：backup-evidence-under-a2-deploy-evidence-20260719T003812Z
+- Unresolved：two-healthy-canaries-and-new-A2-alert-arming-pending
+
+### 2026-07-22T03:38:32.640Z · verify · Codex-root
+
+- Scope：repeated-pre-rearm-live-read-only-A2-incident-and-capacity-validation
+- Resources：`DMITPro2-inner-bdfz-A2-inode-45748776`、`monitor-runtime-eab9872d`、`curriculum-ocr-llama.service`
+- Evidence：frozen-run-status-1efe4267-status-3cf11008-log-2a55211f-state-d16de657-tree-0ecee600-units-process-free-timers-disabled-runtime-five-hashes-strict-llama-active-health-ok-disk298G-memory12GiB-GPU42C
+- Rollback：no-state-change-read-only-preflight
+- Unresolved：old-rearm-commit-rejected-by-independent-review-remote-remains-frozen-until-replacement-PASS
+
+### 2026-07-22T03:55:51.289Z · change · Codex-root
+
+- Scope：integrated-independently-rereviewed-fail-closed-preinference-rearm-tool-into-full-release-candidate
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719@c47cd1a`、`scripts/repair-remote-ocr-preinference-interruption.mjs`、`tests/remote-ocr-preinference-interruption-repair.test.mjs`、`docs/remote-ocr-preinference-interruption-repair.md`
+- Evidence：source-commit-a238294-frozen-three-file-hashes-five-original-review-blockers-closed-related177-pass
+- Rollback：git-revert-c47cd1a-after-preserving-later-work
+- Unresolved：full-candidate-regression-and-real-Linux-production-boundary-gates-required-before-remote-apply
+
+### 2026-07-22T04:01:34.761Z · verify · Codex-root
+
+- Scope：integrated-replacement-full-candidate-regression-before-any-remote-apply
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719@c47cd1a`
+- Evidence：full-suite-1020-pass-zero-fail-two-linux-only-skips-duration-211574ms-check-build-python14-and-independent-rereview-pass
+- Rollback：no-remote-state-change-revert-c47cd1a-if-later-gate-fails
+- Unresolved：real-Linux-flock-and-production-A2-dry-run-gates-next
+
+### 2026-07-22T04:04:35.317Z · change · Codex-root
+
+- Scope：staged-additive-content-addressed-A2-repair-runtime-without-output-or-service-change
+- Resources：`DMITPro2-inner-bdfz`、`repair-runtime-a-r2-101890724df54f2c`
+- Evidence：source-commit-c47cd1a-eight-owner-only-files-runtime-inode42336315-atomic-stage-rename
+- Rollback：leave-unused-or-remove-only-task-owned-runtime-after-confirming-no-consumer
+- Unresolved：Linux-focused-and-real-production-dry-run-gates-next
+
+### 2026-07-22T04:04:35.329Z · verify · Codex-root
+
+- Scope：verified-hash-sealed-A2-repair-runtime-and-frozen-incident-before-Linux-tests
+- Resources：`repair-runtime-a-r2-101890724df54f2c`、`A2-inode-45748776`
+- Evidence：SHA256SUMS-strict-eight-files-all-modes400-dirs500-run-status-status-log-state-hashes-unchanged-five-units-process-free
+- Rollback：no-output-service-or-authority-state-changed
+- Unresolved：real-Linux-focused-and-production-boundary-tests-pending
+
+### 2026-07-22T04:06:37.478Z · verify · Codex-root
+
+- Scope：real-Linux-production-boundary-and-double-CLI-dry-run-before-one-time-repair-apply
+- Resources：`DMITPro2-inner-bdfz`、`repair-runtime-a-r2-101890724df54f2c`、`A2-inode-45748776`
+- Evidence：Linux-28-of-28-including-flock-and-real-B1-B2-systemd-gate-two-previews-byte-identical-sha-67be080e-repair-id-a08b53ee-frozen-four-hashes-unchanged
+- Rollback：no-live-output-service-authority-or-evidence-mutation-yet
+- Unresolved：one-time-four-control-apply-and-idempotence-next
+
+### 2026-07-22T04:11:15.334Z · verify · Codex-root
+
+- Scope：verified-repair-receipt-idempotence-authority-uniqueness-and-post-apply-B1-B2
+- Resources：`A2-repair-evidence-a08b53ee`、`repair-runtime-a-r2-101890724df54f2c`
+- Evidence：receipt-sidecar-strict-owner-only-13-files-counts-complete4-retry_wait4-interrupted0-grant1-issuance1-consumption1-page-state-log-tree-unchanged-post-apply-Linux28-of28
+- Rollback：preserve-immutable-receipt-claim-grant-ledger-issuance
+- Unresolved：controlled-worker-restart-and-two-monitor-canaries-next
+
+### 2026-07-22T04:11:15.350Z · change · Codex-root
+
+- Scope：one-time-reviewed-A2-preinference-interruption-four-control-atomic-repair
+- Resources：`DMITPro2-inner-bdfz-A2-inode-45748776`、`repair-id-a08b53ee`
+- Evidence：first-apply-four-replacements-sha-7ccc39a5-second-apply-already-applied-zero-replacements-target-status-sha-5a797bc6-run-status-sha-bea326f6
+- Rollback：before-worker-restart-only-restore-four-receipt-bound-before-files-under-lifecycle-lock-after-start-forward-only-freeze
+- Unresolved：worker-monitor-alert-still-process-free-and-disabled-pending-restart-canaries
+
+### 2026-07-22T04:16:11.961Z · verify · Codex-root
+
+- Scope：preserved-owner-only-second-interruption-evidence-and-confirmed-page-state-immutability
+- Resources：`A2-incident-evidence-inode42336297`、`A2-output-inode45748776`
+- Evidence：run-sha-1daf1ab5-status-sha-28921af4-log-sha-470d7b4e-11585bytes-state-sha-d16de657-tree-sha-0ecee600-579files-zero-page-or-state-drift-services-process-free
+- Rollback：preserve-evidence-and-current-output-no-delete-no-recreate-no-attempt-reset
+- Unresolved：implement-review-test-forward-resume-without-new-grant-or-attempt
+
+### 2026-07-22T04:16:11.990Z · change · Codex-root
+
+- Scope：started-A2-worker-after-reviewed-rearm-then-safety-trap-froze-on-operator-monitor-assertion-error
+- Resources：`DMITPro2-inner-bdfz-A2-inode-45748776`、`worker-invocation-cea41604`、`incident-operator-freeze-monitor-jq-20260722T041335Z`
+- Evidence：worker-was-active-pid2521450-zero-restarts-monitor-actually-healthy-running-exit10-zero-issues-but-parent-jq-queried-absent-successor-citation-field-and-triggered-freeze
+- Rollback：forward-only-old-four-file-rollback-forbidden-after-log-growth-worker-monitor-timers-disabled-llama-stopped
+- Unresolved：exact-hash-bound-same-attempt6-forward-continuation-protocol-under-review
+
+</details>
+
+<details><summary><code>curriculum-private-corpus-bundle-core-20260721</code> · 6 events · 2026-07-22T00:17:44.286Z → 2026-07-22T01:50:56.910Z</summary>
+
+Agents：`/root/private_bundle_core`
+Resources：`/private/tmp/curriculum-private-corpus-bundle-core-20260721`、`scripts/lib/private-corpus-bundle.mjs`、`scripts/build-private-corpus-bundle.mjs`、`scripts/publish-private-corpus-bundle.mjs`、`scripts/hydrate-corpus.mjs`、`scripts/verify-hydrated-corpus.mjs`、`data/corpus-artifact.schema.json`、`tests/private-corpus-bundle.test.mjs`、`tests/release-manifest.test.mjs`、`9f0d2fc`
+
+### 2026-07-22T00:17:44.286Z · start · /root/private_bundle_core
+
+- Scope：isolated-test-first-private-corpus-bundle-core-from-exact-8e25c6b
+- Resources：`/private/tmp/curriculum-private-corpus-bundle-core-20260721`、`scripts/lib/private-corpus-bundle.mjs`、`scripts/build-private-corpus-bundle.mjs`、`scripts/publish-private-corpus-bundle.mjs`、`scripts/hydrate-corpus.mjs`、`scripts/verify-hydrated-corpus.mjs`、`data/corpus-artifact.schema.json`、`tests/private-corpus-bundle.test.mjs`
+- Evidence：exact-base-8e25c6b7017999cbb5621d4615daeaf95cda837d-verified-and-no-overlapping-private-corpus-owner-found
+- Rollback：remove-only-the-new-unpushed-worktree-and-local-branch-after-preserving-any-needed-evidence
+- Unresolved：no-package-doc-descriptor-network-r2-keychain-cloudflare-github-or-existing-file-mutations-authorized
+
+### 2026-07-22T00:35:43.234Z · change · /root/private_bundle_core
+
+- Scope：implemented-private-corpus-bundle-core-and-five-fail-closed-operator-surfaces
+- Resources：`scripts/lib/private-corpus-bundle.mjs`、`scripts/build-private-corpus-bundle.mjs`、`scripts/publish-private-corpus-bundle.mjs`、`scripts/hydrate-corpus.mjs`、`scripts/verify-hydrated-corpus.mjs`、`data/corpus-artifact.schema.json`、`tests/private-corpus-bundle.test.mjs`
+- Evidence：red-module-not-found-then-12-focused-tests-green-full-node-suite-green-tsc-build-python14-green-real-91-sql-and-101-text-hash-parity-confirmed
+- Rollback：revert-the-forthcoming-single-local-commit-or-omit-the-isolated-branch
+- Unresolved：exact-commit-scan-and-post-commit-clean-rerun-pending-no-network-r2-keychain-github-cloudflare-or-descriptor-mutation-performed
+
+### 2026-07-22T00:43:36.523Z · verify · /root/private_bundle_core
+
+- Scope：corrected-verification-status-for-frozen-private-bundle-candidate
+- Resources：`/private/tmp/curriculum-private-corpus-bundle-core-20260721`、`tests/private-corpus-bundle.test.mjs`、`tests/release-manifest.test.mjs`
+- Evidence：focused-private-bundle-12-of-12-tsc-build-python-14-of-14-and-real-194-member-age-replay-pass-full-Node-has-4-of-4-release-manifest-failures-solely-because-new-mandated-schema-is-not-yet-registered-in-existing-exact-data-inventory
+- Rollback：no-production-state-changed-revert-or-omit-forthcoming-local-commit
+- Unresolved：this-row-corrects-earlier-change-row-full-node-green-wording-parent-integration-must-register-data-corpus-artifact-schema-json-in-existing-release-inventory-outside-this-owner-scope
+
+### 2026-07-22T01:50:56.713Z · change · /root/private_bundle_core
+
+- Scope：isolated-private-corpus-bundle-core-seven-new-files-local-only
+- Resources：`/private/tmp/curriculum-private-corpus-bundle-core-20260721`、`9f0d2fc`、`scripts/lib/private-corpus-bundle.mjs`、`scripts/build-private-corpus-bundle.mjs`、`scripts/publish-private-corpus-bundle.mjs`、`scripts/hydrate-corpus.mjs`、`scripts/verify-hydrated-corpus.mjs`、`data/corpus-artifact.schema.json`、`tests/private-corpus-bundle.test.mjs`
+- Evidence：independent-HOLD-remediations-complete-single-native-age-recipient-public-identity-bound-through-bundle-build-receipt-descriptor-pre-fetch-A-vs-B-drift-rejected-zero-network-bounded-no-follow-local-and-streamed-remote-reads-controlled-EPIPE-terminal-output-and-child-reaping
+- Rollback：revert-local-commit-9f0d2fc-or-omit-it-from-parent-integration
+- Unresolved：parent-integration-must-register-data-corpus-artifact-schema-json-in-existing-release-inventory
+
+### 2026-07-22T01:50:56.814Z · verify · /root/private_bundle_core
+
+- Scope：isolated-private-corpus-bundle-core-seven-new-files-local-only
+- Resources：`/private/tmp/curriculum-private-corpus-bundle-core-20260721`、`9f0d2fc`、`scripts/lib/private-corpus-bundle.mjs`、`scripts/build-private-corpus-bundle.mjs`、`scripts/publish-private-corpus-bundle.mjs`、`scripts/hydrate-corpus.mjs`、`scripts/verify-hydrated-corpus.mjs`、`data/corpus-artifact.schema.json`、`tests/private-corpus-bundle.test.mjs`
+- Evidence：independent-final-PASS-focused-26-of-26-tsc-python-14-of-14-build-gitleaks-and-diff-check-pass-real-91-SQL-101-text-194-member-56603136-byte-tar-age-encrypt-decrypt-replay-pass-full-Node-only-four-known-release-inventory-failures
+- Rollback：revert-local-commit-9f0d2fc-or-omit-it-from-parent-integration
+- Unresolved：four-release-manifest-tests-remain-red-until-parent-registers-the-new-schema-outside-this-seven-file-owner-scope
+
+### 2026-07-22T01:50:56.910Z · closeout · /root/private_bundle_core
+
+- Scope：isolated-private-corpus-bundle-core-seven-new-files-local-only
+- Resources：`/private/tmp/curriculum-private-corpus-bundle-core-20260721`、`9f0d2fc`、`scripts/lib/private-corpus-bundle.mjs`、`scripts/build-private-corpus-bundle.mjs`、`scripts/publish-private-corpus-bundle.mjs`、`scripts/hydrate-corpus.mjs`、`scripts/verify-hydrated-corpus.mjs`、`data/corpus-artifact.schema.json`、`tests/private-corpus-bundle.test.mjs`
+- Evidence：local-clean-commit-9f0d2fc-seven-new-files-only-no-network-R2-Keychain-GitHub-Cloudflare-upload-push-or-deploy-post-commit-focused-26-of-26-and-gitleaks-pass
+- Rollback：revert-local-commit-9f0d2fc-or-omit-it-from-parent-integration
+- Unresolved：parent-must-integrate-commit-and-register-schema-in-existing-exact-release-inventory-before-full-suite-can-be-green
+
+</details>
+
+<details><summary><code>curriculum-a2-completion-notifier-fix-20260722</code> · 5 events · 2026-07-22T02:04:55.854Z → 2026-07-22T02:26:28.305Z</summary>
+
+Agents：`/root/a2_notifier_completion_fix`
+Resources：`/private/tmp/curriculum-a2-completion-notifier-fix-20260722`、`scripts/notify-remote-ocr-single-shard-monitor.mjs`、`tests/remote-ocr-monitor-alert.test.mjs`、`/private/tmp/curriculum-a2-completion-notifier-fix-20260722/tests/remote-ocr-monitor-alert.test.mjs`、`/private/tmp/curriculum-a2-completion-notifier-fix-20260722/scripts/notify-remote-ocr-single-shard-monitor.mjs`、`codex/a2-completion-notifier-fix-20260722`、`commit-050892e799d14750db179c79295134879d579581`
+
+### 2026-07-22T02:04:55.854Z · start · /root/a2_notifier_completion_fix
+
+- Scope：isolated-test-first-completion-binding-fix-from-exact-38f2e5b
+- Resources：`/private/tmp/curriculum-a2-completion-notifier-fix-20260722`、`scripts/notify-remote-ocr-single-shard-monitor.mjs`、`tests/remote-ocr-monitor-alert.test.mjs`
+- Evidence：exact-base-38f2e5b-verified-target-worktree-and-branch-absent-no-overlapping-active-file-owner
+- Rollback：remove-only-new-local-worktree-and-branch-after-preserving-evidence
+- Unresolved：no-SSH-push-deploy-systemd-runbook-or-other-file-mutations-authorized
+
+### 2026-07-22T02:06:39.537Z · change · /root/a2_notifier_completion_fix
+
+- Scope：added-red-completion-receipt-and-no-alert-fallback-tests
+- Resources：`/private/tmp/curriculum-a2-completion-notifier-fix-20260722/tests/remote-ocr-monitor-alert.test.mjs`
+- Evidence：focused-suite-20-pass-2-fail-before-implementation-exact-completion-recovery-and-alert-fallback-contract
+- Rollback：revert-eventual-dedicated-local-commit
+- Unresolved：notifier-implementation-focused-and-regression-tests-independent-review-pending
+
+### 2026-07-22T02:08:13.514Z · change · /root/a2_notifier_completion_fix
+
+- Scope：implemented-fail-closed-completion-only-armed-binding-recovery
+- Resources：`/private/tmp/curriculum-a2-completion-notifier-fix-20260722/scripts/notify-remote-ocr-single-shard-monitor.mjs`、`/private/tmp/curriculum-a2-completion-notifier-fix-20260722/tests/remote-ocr-monitor-alert.test.mjs`
+- Evidence：focused-suite-green-22-of-22-live-worker-precedence-completion-only-recovery-static-binding-match-exit10-and-alert-no-fallback-disarm-proven
+- Rollback：revert-eventual-dedicated-local-commit-no-live-state-changed
+- Unresolved：full-related-regression-types-build-gitleaks-independent-frozen-byte-review-pending
+
+### 2026-07-22T02:25:50.016Z · verify · /root/a2_notifier_completion_fix
+
+- Scope：frozen-two-file-completion-notifier-candidate-independent-review-and-regression
+- Resources：`/private/tmp/curriculum-a2-completion-notifier-fix-20260722`、`scripts/notify-remote-ocr-single-shard-monitor.mjs`、`tests/remote-ocr-monitor-alert.test.mjs`
+- Evidence：independent-main-agent-PASS-frozen-hashes-6f256691-and-9ef0af26-focused22-related-A2-exit0-targeted43-full-suite-only-two-known-release-manifest-baseline-failures-tsc-build-syntax-diff-gitleaks-pass
+- Rollback：revert-dedicated-local-commit-after-preserving-review-evidence
+- Unresolved：no-push-deploy-SSH-systemd-or-runtime-action-in-this-task
+
+### 2026-07-22T02:26:28.305Z · closeout · /root/a2_notifier_completion_fix
+
+- Scope：committed-reviewed-local-only-completion-notifier-fix
+- Resources：`codex/a2-completion-notifier-fix-20260722`、`commit-050892e799d14750db179c79295134879d579581`
+- Evidence：exact-parent-38f2e5b-two-path-commit-clean-tree-frozen-hashes-6f256691-and-9ef0af26-exact-commit-gitleaks-clean
+- Rollback：git-revert-050892e799d14750db179c79295134879d579581-or-omit-branch-from-integration
+- Unresolved：parent-must-integrate-reviewed-commit-before-A2-Step8-no-push-deploy-or-remote-mutation-performed
+
+</details>
+
+<details><summary><code>curriculum-full-release-v2-private-pipeline-integration-20260722</code> · 7 events · 2026-07-22T02:05:32.654Z → 2026-07-22T03:06:52.858Z</summary>
+
+Agents：`Codex-root`
+Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`codex/curriculum-full-release-v2-20260719`、`9f0d2fc91c952453ee03140037fee87b15822bec`、`codex/curriculum-full-release-v2-20260719@9f0d2fc91c952453ee03140037fee87b15822bec`、`seven-private-bundle-core-files`、`codex/curriculum-full-release-v2-20260719@26622dd`、`commit-59fdcd471e7e73900fc30b85ae43f8a4aacd126e`、`private-corpus-policy-package-doc-tests`、`private-corpus-focused-suite`、`codex/curriculum-full-release-v2-20260719@f4c41e7`、`commit-5592eb4d2c0bf4bbb780ef438cab2f3054f94e7b`、`/private/tmp/curriculum-private-corpus-restore-cli-20260722T0304Z`、`commit-9f0d2fc`、`commit-26622dd`、`commit-f4c41e7`、`owner-only-proof-bundle`
+
+### 2026-07-22T02:05:32.654Z · start · Codex-root
+
+- Scope：integrate-independently-reviewed-private-corpus-pipeline-into-clean-full-release-v2
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`codex/curriculum-full-release-v2-20260719`、`9f0d2fc91c952453ee03140037fee87b15822bec`
+- Evidence：target-clean-exact-8e25c6b-parent-of-reviewed-core-prior-v2-owner-closed-private-core-owner-closed-integration-doc-agent-files-disjoint
+- Rollback：restore-branch-pointer-to-documented-8e25c6b-only-after-preserving-any-new-commits-or-revert-new-integration-commits
+- Unresolved：no-push-R2-D1-Cloudflare-deploy-or-live-publication-until-full-gates-exact-private-artifact-upload-and-release-evidence
+
+### 2026-07-22T02:05:50.256Z · change · Codex-root
+
+- Scope：fast-forwarded-full-release-v2-to-exact-independently-reviewed-private-corpus-core
+- Resources：`codex/curriculum-full-release-v2-20260719@9f0d2fc91c952453ee03140037fee87b15822bec`、`seven-private-bundle-core-files`
+- Evidence：exact-parent-8e25c6b-fast-forward-no-conflicts-seven-owned-new-files-only
+- Rollback：revert-9f0d2fc-or-restore-to-8e25c6b-after-preserving-later-work-no-live-state-changed
+- Unresolved：schema-inventory-package-doc-integration-agent-running-full-suite-known-four-manifest-failures-until-merge
+
+### 2026-07-22T02:38:08.925Z · change · Codex-root
+
+- Scope：cherry-picked-independently-reviewed-private-corpus-governance-and-operator-integration
+- Resources：`codex/curriculum-full-release-v2-20260719@26622dd`、`commit-59fdcd471e7e73900fc30b85ae43f8a4aacd126e`、`private-corpus-policy-package-doc-tests`
+- Evidence：exact-four-file-commit-integrated-after-notifier-fix-focused-core-governance-release-49-of-49-pass
+- Rollback：git-revert-26622dd-after-preserving-later-work
+- Unresolved：real-age-identity-build-R2-publish-readback-isolated-hydrate-verify-still-pending
+
+### 2026-07-22T02:38:08.954Z · verify · Codex-root
+
+- Scope：verified-integrated-private-corpus-governance-after-cherry-pick
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`private-corpus-focused-suite`
+- Evidence：49-of-49-pass-agent-full-suite-982-pass-zero-fail-one-intentional-skip-tsc-build-python14-gitleaks-pass
+- Rollback：no-live-state-changed-revert-26622dd-or-9f0d2fc
+- Unresolved：real-private-artifact-publication-and-restore-proof-pending
+
+### 2026-07-22T03:03:34.346Z · change · Codex-root
+
+- Scope：integrated-reviewed-standalone-hydrate-cli-lifecycle-fix
+- Resources：`codex/curriculum-full-release-v2-20260719@f4c41e7`、`commit-5592eb4d2c0bf4bbb780ef438cab2f3054f94e7b`
+- Evidence：node22-exit13-before-exit0-after-byte-exact-private27-full988-pass-zero-fail-independent-review
+- Rollback：git-revert-f4c41e7-after-preserving-later-work
+- Unresolved：fresh-real-descriptor-standalone-restore-proof-remains-pending
+
+### 2026-07-22T03:06:52.758Z · verify · Codex-root
+
+- Scope：verified-integrated-hydrate-cli-fix-against-real-private-object-in-fresh-checkout
+- Resources：`codex/curriculum-full-release-v2-20260719@f4c41e7`、`/private/tmp/curriculum-private-corpus-restore-cli-20260722T0304Z`
+- Evidence：standalone-node22-exit0-idempotent-exit0-valid-true-192-files-restore-tree-git-clean
+- Rollback：git-revert-f4c41e7-then-use-programmatic-restore-only-as-diagnostic-not-production
+- Unresolved：none-for-private-pipeline-code
+
+### 2026-07-22T03:06:52.858Z · closeout · Codex-root
+
+- Scope：closed-private-corpus-governance-and-standalone-operator-pipeline-in-full-candidate
+- Resources：`commit-9f0d2fc`、`commit-26622dd`、`commit-f4c41e7`、`owner-only-proof-bundle`
+- Evidence：core-policy-governance-tests-full-suite-and-real-disaster-restore-pass
+- Rollback：revert-f4c41e7-26622dd-9f0d2fc-in-reverse-after-preserving-later-work
+- Unresolved：public-data-release-and-citation-entitlement-remain-separate
+
+</details>
+
+<details><summary><code>curriculum-private-corpus-bundle-integration-20260722</code> · 4 events · 2026-07-22T02:05:58.870Z → 2026-07-22T02:29:37.426Z</summary>
+
+Agents：`/root/private_bundle_integration`
+Resources：`/private/tmp/curriculum-private-bundle-integration-20260722`、`data/release-assets-policy.json`、`package.json`、`docs/private-corpus-bundle.md`、`/private/tmp/curriculum-private-bundle-integration-20260722/data/release-assets-policy.json`、`/private/tmp/curriculum-private-bundle-integration-20260722/package.json`、`/private/tmp/curriculum-private-bundle-integration-20260722/docs/private-corpus-bundle.md`、`/private/tmp/curriculum-private-bundle-integration-20260722/tests/private-corpus-bundle-governance.test.mjs`、`59fdcd471e7e73900fc30b85ae43f8a4aacd126e`、`tests/private-corpus-bundle-governance.test.mjs`、`codex/private-bundle-integration-20260722@59fdcd471e7e73900fc30b85ae43f8a4aacd126e`
+
+### 2026-07-22T02:05:58.870Z · start · /root/private_bundle_integration
+
+- Scope：isolated release-governance package-script and operator-document integration from exact private-bundle-core commit
+- Resources：`/private/tmp/curriculum-private-bundle-integration-20260722`、`data/release-assets-policy.json`、`package.json`、`docs/private-corpus-bundle.md`
+- Evidence：exact-base-9f0d2fc91c952453ee03140037fee87b15822bec-verified-no-overlapping-active-owner-on-authorized-files
+- Rollback：revert-or-omit-the-dedicated-local-commit-and-remove-only-the-task-owned-worktree-after-handoff
+- Unresolved：no-network-R2-Cloudflare-GitHub-keychain-or-seven-core-file-mutations-authorized
+
+### 2026-07-22T02:19:43.076Z · change · /root/private_bundle_integration
+
+- Scope：registered private descriptor schema and added exact operator package scripts documentation and governance tests
+- Resources：`/private/tmp/curriculum-private-bundle-integration-20260722/data/release-assets-policy.json`、`/private/tmp/curriculum-private-bundle-integration-20260722/package.json`、`/private/tmp/curriculum-private-bundle-integration-20260722/docs/private-corpus-bundle.md`、`/private/tmp/curriculum-private-bundle-integration-20260722/tests/private-corpus-bundle-governance.test.mjs`
+- Evidence：test-first-two-red-then-two-green-schema-is-quality_evidence_private-four-npm-scripts-map-one-to-one-docs-contain-exact-no-help-operator-invocations
+- Rollback：revert-or-omit-the-forthcoming-dedicated-local-commit-no-production-or-network-state-changed
+- Unresolved：independent-frozen-byte-review-and-post-commit-rerun-pending
+
+### 2026-07-22T02:29:37.380Z · verify · /root/private_bundle_integration
+
+- Scope：frozen private corpus governance integration exact local commit
+- Resources：`59fdcd471e7e73900fc30b85ae43f8a4aacd126e`、`data/release-assets-policy.json`、`package.json`、`docs/private-corpus-bundle.md`、`tests/private-corpus-bundle-governance.test.mjs`
+- Evidence：independent-final-PASS-post-commit-private-core-governance-release-49-of-49-full-suite-prior-982-pass-zero-fail-one-skip-tsc-build-python14-gitleaks-json-syntax-diff-check-pass-seven-core-files-byte-unchanged
+- Rollback：revert-local-commit-59fdcd471e7e73900fc30b85ae43f8a4aacd126e-or-omit-it-from-parent-integration
+- Unresolved：parent-must-integrate-commit-then-perform-reviewed-private-build-publish-readback-descriptor-archive-and-isolated-hydration-no-network-was-used-here
+
+### 2026-07-22T02:29:37.426Z · closeout · /root/private_bundle_integration
+
+- Scope：local-only private corpus release-governance handoff
+- Resources：`codex/private-bundle-integration-20260722@59fdcd471e7e73900fc30b85ae43f8a4aacd126e`
+- Evidence：clean-worktree-four-owned-files-only-independent-PASS-no-generated-descriptor-no-R2-Cloudflare-GitHub-keychain-network-push-or-deploy
+- Rollback：revert-dedicated-local-commit-or-do-not-cherry-pick
+- Unresolved：actual-content-addressed-private-artifact-and-receipts-remain-post-integration-parent-work
+
+</details>
+
+<details><summary><code>curriculum-a2-completion-notifier-integration-runtime-20260722</code> · 3 events · 2026-07-22T02:27:13.918Z → 2026-07-22T02:31:35.940Z</summary>
+
+Agents：`Codex-root`
+Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`commit-050892e799d14750db179c79295134879d579581`、`DMITPro2-inner-bdfz-A2-alert-runtime`、`codex/curriculum-full-release-v2-20260719@62ea35d`、`scripts/notify-remote-ocr-single-shard-monitor.mjs`、`tests/remote-ocr-monitor-alert.test.mjs`、`DMITPro2-inner-bdfz-alert-runtime`、`notifier-runtime-before-7f27b8d1`、`notifier-runtime-after-6f256691`、`A2-evidence-directory`
+
+### 2026-07-22T02:27:13.918Z · start · Codex-root
+
+- Scope：integrate-reviewed-completion-notifier-and-rebind-A2-runtime-before-Step8
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`commit-050892e799d14750db179c79295134879d579581`、`DMITPro2-inner-bdfz-A2-alert-runtime`
+- Evidence：candidate-clean-at-9f0d2fc-A2-worker-monitor-timers-inactive-successor-seed-sidecars-valid-old-notifier-hash-7f27b8d1
+- Rollback：revert-integration-commit-and-restore-preserved-old-runtime-script-plus-SHA256SUMS-before-any-worker-start
+- Unresolved：no-worker-or-timer-start-until-remote-linux-test-hash-readback-systemd-verify-and-runtime-canary-pass
+
+### 2026-07-22T02:27:20.041Z · change · Codex-root
+
+- Scope：cherry-picked-reviewed-two-file-notifier-fix-into-full-release-v2
+- Resources：`codex/curriculum-full-release-v2-20260719@62ea35d`、`scripts/notify-remote-ocr-single-shard-monitor.mjs`、`tests/remote-ocr-monitor-alert.test.mjs`
+- Evidence：exact-source-commit-050892e-replayed-cleanly-frozen-hashes-6f256691-and-9ef0af26
+- Rollback：git-revert-62ea35d-after-preserving-later-work
+- Unresolved：remote-runtime-still-old-and-worker-held
+
+### 2026-07-22T02:31:35.940Z · change · Codex-root
+
+- Scope：backed-up-and-atomically-rebound-A2-alert-runtime-to-reviewed-completion-notifier
+- Resources：`DMITPro2-inner-bdfz-alert-runtime`、`notifier-runtime-before-7f27b8d1`、`notifier-runtime-after-6f256691`、`A2-evidence-directory`
+- Evidence：remote-linux-five-focused-tests-pass-old-and-new-hashes-exact-runtime-manifest-strict-check-node-check-systemd-analyze-user-verify-pass-all-A2-units-held-inactive-during-swap
+- Rollback：stop-disable-A2-worker-monitor-and-alert-units-then-restore-preserved-old-script-and-SHA256SUMS-exact-bytes
+- Unresolved：Step8-worker-and-two-monitor-canaries-not-yet-started
+
+</details>
+
+<details><summary><code>curriculum-a2-monitor-complete-history-fix-20260722</code> · 5 events · 2026-07-22T02:37:59.814Z → 2026-07-22T02:58:29.690Z</summary>
+
+Agents：`/root/a2_notifier_completion_fix`
+Resources：`/private/tmp/curriculum-a2-monitor-complete-history-fix-20260722`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-single-shard-monitor.test.mjs`、`/private/tmp/curriculum-a2-monitor-complete-history-fix-20260722/scripts/monitor-remote-ocr-single-shard.mjs`、`/private/tmp/curriculum-a2-monitor-complete-history-fix-20260722/tests/remote-ocr-single-shard-monitor.test.mjs`
+
+### 2026-07-22T02:37:59.814Z · start · /root/a2_notifier_completion_fix
+
+- Scope：isolated-test-first-monitor-complete-history-compat-from-exact-38f2e5b
+- Resources：`/private/tmp/curriculum-a2-monitor-complete-history-fix-20260722`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：exact-base-38f2e5b-verified-target-worktree-and-branch-absent-no-overlapping-active-file-owner
+- Rollback：remove-only-new-local-worktree-and-branch-after-preserving-evidence
+- Unresolved：no-SSH-push-deploy-runbook-unit-runner-seed-authority-or-remote-mutation-authorized
+
+### 2026-07-22T02:41:18.367Z · change · /root/a2_notifier_completion_fix
+
+- Scope：exported-behavior-neutral-monitor-wrapper-and-added-red-history-contract-tests
+- Resources：`/private/tmp/curriculum-a2-monitor-complete-history-fix-20260722/scripts/monitor-remote-ocr-single-shard.mjs`、`/private/tmp/curriculum-a2-monitor-complete-history-fix-20260722/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：baseline33-of-33-then-red35-pass-2-fail-on-legitimate-initial-and-full-retained-complete-history
+- Rollback：revert-eventual-dedicated-local-commit
+- Unresolved：wrapper-history-normalization-implementation-and-all-regression-review-gates-pending
+
+### 2026-07-22T02:42:55.325Z · change · /root/a2_notifier_completion_fix
+
+- Scope：implemented-monitor-local-modern-complete-history-wrapper
+- Resources：`/private/tmp/curriculum-a2-monitor-complete-history-fix-20260722/scripts/monitor-remote-ocr-single-shard.mjs`、`/private/tmp/curriculum-a2-monitor-complete-history-fix-20260722/tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：focused-suite-green-38-of-38-exact-initial-full-failed-interrupted-signal-and-verified-history-plus-adversarial-gates
+- Rollback：revert-eventual-dedicated-local-commit-no-live-state-changed
+- Unresolved：relevant-full-regression-types-build-diff-gitleaks-and-independent-review-pending
+
+### 2026-07-22T02:57:03.465Z · verify · /root/a2_notifier_completion_fix
+
+- Scope：frozen-two-file-monitor-complete-history-candidate-independent-review-and-regression
+- Resources：`/private/tmp/curriculum-a2-monitor-complete-history-fix-20260722`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：independent-main-agent-PASS-frozen-hashes-eab9872d-and-64442708-focused38-relevant-suite-exit0-full-suite-only-two-known-release-manifest-baseline-failures-tsc-build-syntax-diff-gitleaks-pass
+- Rollback：revert-dedicated-local-commit-after-preserving-review-evidence
+- Unresolved：no-push-deploy-SSH-systemd-runner-seed-authority-or-remote-action-in-this-task
+
+### 2026-07-22T02:58:29.690Z · closeout · /root/a2_notifier_completion_fix
+
+- Scope：committed-isolated-monitor-complete-history-compatibility-fix
+- Resources：`/private/tmp/curriculum-a2-monitor-complete-history-fix-20260722`、`scripts/monitor-remote-ocr-single-shard.mjs`、`tests/remote-ocr-single-shard-monitor.test.mjs`
+- Evidence：commit-b7d86aa28c2aecffdcd2f9dea19766b7a7de5fee-parent-38f2e5bce7d7782163619782a8ce181cb40417b6-clean-tree-exact-two-files-hashes-eab9872d-and-64442708-focused38-of-38-relevant-suite-tsc-build-syntax-diff-and-gitleaks-pass-independent-review-PASS
+- Rollback：git-revert-b7d86aa28c2aecffdcd2f9dea19766b7a7de5fee-after-parent-integration
+- Unresolved：parent-must-integrate-commit-before-rerunning-A2-canary-no-push-deploy-SSH-or-remote-mutation-performed
+
+</details>
+
+<details><summary><code>curriculum-private-corpus-real-publication-20260722</code> · 6 events · 2026-07-22T02:40:31.812Z → 2026-07-22T03:06:52.658Z</summary>
+
+Agents：`Codex-root`
+Resources：`/private/tmp/curriculum-private-bundle-integration-20260722`、`bdfz-ops-backups/curriculum-atlas/corpus-bundles/v1`、`/Users/ylsuen/CF/backups/curriculum-atlas/private-corpus-bundles/v1/20260722T024011Z`、`macOS-Keychain-service-curriculum-atlas-archive-age-v1`、`corpus-bundle-148f756d8af29a9cf55e16c8`、`corpus-3bddf69855aba5d096c7d975`、`bdfz-ops-backups/curriculum-atlas/corpus-bundles/v1/objects/sha256/3a6ba362.tar.zst.age`、`bdfz-ops-backups/curriculum-atlas/corpus-bundles/v1/receipts/sha256/61940807.json`、`/Users/ylsuen/CF/backups/curriculum-atlas/private-corpus-bundles/v1/20260722T024011Z/corpus-artifact.json`、`bdfz-ops-backups/curriculum-atlas/corpus-bundles/v1/objects/sha256/3a6ba362ffab0a7b258da8fb37821029b579a94a128742e0ee537220cbafe1ac.tar.zst.age`、`bdfz-ops-backups/curriculum-atlas/corpus-bundles/v1/receipts/sha256/619408073a9b9520f417e7f4560aa8ac127bfc3b54755ff6da99604d03648799.json`、`/private/tmp/curriculum-private-corpus-restore-20260722T024011Z`、`/private/tmp/curriculum-private-corpus-restore-cli-20260722T0304Z`、`standalone-cli-proof-sha-1f59d3d6`、`descriptor-sha-3db1bac0`、`standalone-proof-sha-1f59d3d6`
+
+### 2026-07-22T02:40:31.812Z · start · Codex-root
+
+- Scope：build-encrypt-conditionally-publish-readback-and-isolatedly-restore-current-private-corpus-bundle
+- Resources：`/private/tmp/curriculum-private-bundle-integration-20260722`、`bdfz-ops-backups/curriculum-atlas/corpus-bundles/v1`、`/Users/ylsuen/CF/backups/curriculum-atlas/private-corpus-bundles/v1/20260722T024011Z`、`macOS-Keychain-service-curriculum-atlas-archive-age-v1`
+- Evidence：source-worktree-clean-manifest-matches-full-candidate-91-SQL-101-text-existing-Keychain-identity-present-R2-credentials-set-without-values
+- Rollback：immutable-content-addressed-objects-have-no-pointer-do-not-delete-keep-descriptor-and-receipts-revert-local-code-separately
+- Unresolved：no-public-runtime-public-bucket-Git-data-or-citation-gate-change-authorized
+
+### 2026-07-22T02:42:06.389Z · change · Codex-root
+
+- Scope：built-and-locally-decrypted-replayed-owner-only-private-corpus-bundle
+- Resources：`/Users/ylsuen/CF/backups/curriculum-atlas/private-corpus-bundles/v1/20260722T024011Z`、`corpus-bundle-148f756d8af29a9cf55e16c8`、`corpus-3bddf69855aba5d096c7d975`
+- Evidence：91-SQL-101-text-bundle-local-replay-ok-ciphertext-7852530-bytes-sha-3a6ba362-build-receipt-1359-bytes-sha-b68d4c0a-Keychain-identity-materialized-owner-only-and-deleted
+- Rollback：keep-owner-only-local-artifact-and-receipt-or-delete-only-this-task-owned-unpublished-copy-after-remote-restore-proof
+- Unresolved：private-R2-conditional-publish-readback-descriptor-and-isolated-hydrate-pending
+
+### 2026-07-22T02:45:44.692Z · change · Codex-root
+
+- Scope：conditionally-published-and-fully-read-back-private-corpus-object-and-receipt
+- Resources：`bdfz-ops-backups/curriculum-atlas/corpus-bundles/v1/objects/sha256/3a6ba362.tar.zst.age`、`bdfz-ops-backups/curriculum-atlas/corpus-bundles/v1/receipts/sha256/61940807.json`、`/Users/ylsuen/CF/backups/curriculum-atlas/private-corpus-bundles/v1/20260722T024011Z/corpus-artifact.json`
+- Evidence：official-API-token-derived-S3-credentials-minimal-child-env-conditional-PUT-GET-exact-ciphertext-readback-decrypt-replay-receipt-readback-descriptor-sha-3db1bac0
+- Rollback：no-pointer-or-overwrite-immutable-objects-retained-local-descriptor-select-previous-descriptor-for-restore
+- Unresolved：isolated-clean-checkout-hydrate-and-verify-pending
+
+### 2026-07-22T02:48:46.050Z · verify · Codex-root
+
+- Scope：exact-key-correction-and-fresh-isolated-hydrate-idempotence-verify
+- Resources：`bdfz-ops-backups/curriculum-atlas/corpus-bundles/v1/objects/sha256/3a6ba362ffab0a7b258da8fb37821029b579a94a128742e0ee537220cbafe1ac.tar.zst.age`、`bdfz-ops-backups/curriculum-atlas/corpus-bundles/v1/receipts/sha256/619408073a9b9520f417e7f4560aa8ac127bfc3b54755ff6da99604d03648799.json`、`/private/tmp/curriculum-private-corpus-restore-20260722T024011Z`
+- Evidence：descriptor-sha-3db1bac0-fresh-empty-checkout-installed-192-files-91-SQL-101-text-tracked-manifest-preserved-second-readback-already_hydrated-final-valid-true-rebuild-false-receipt-sha-bd85f2cd-git-status-clean
+- Rollback：immutable-no-pointer-select-prior-descriptor-for-restore-preserve-Keychain-service-curriculum-atlas-archive-age-v1
+- Unresolved：standalone-hydrate-CLI-exits-13-with-unsettled-top-level-await-without-lifecycle-guard-programmatic-path-proves-data-correct-code-fix-required-before-closeout
+
+### 2026-07-22T03:06:52.558Z · verify · Codex-root
+
+- Scope：fresh-standalone-node22-remote-readback-decrypt-hydrate-idempotence-and-verify
+- Resources：`bdfz-ops-backups/curriculum-atlas/corpus-bundles/v1`、`/private/tmp/curriculum-private-corpus-restore-cli-20260722T0304Z`、`standalone-cli-proof-sha-1f59d3d6`
+- Evidence：first-exit0-hydrated192-second-exit0-already-hydrated-valid-true-rebuild-false-91-SQL-101-text-owner-only-git-clean
+- Rollback：immutable-no-pointer-select-prior-descriptor-for-restore-local-proof-retained-owner-only
+- Unresolved：none-for-private-bundle-restore-chain-public-corpus-activation-remains-separate-fail-closed-task
+
+### 2026-07-22T03:06:52.658Z · closeout · Codex-root
+
+- Scope：closed-private-corpus-build-encrypt-conditional-publish-readback-and-disaster-restore-proof
+- Resources：`corpus-bundle-148f756d8af29a9cf55e16c8`、`corpus-3bddf69855aba5d096c7d975`、`descriptor-sha-3db1bac0`、`standalone-proof-sha-1f59d3d6`
+- Evidence：ciphertext-and-receipt-immutable-exact-readback-local-and-standalone-restore-both-proven-no-secret-values-recorded
+- Rollback：retain-content-addressed-object-without-pointer-use-previous-approved-descriptor
+- Unresolved：copyright-restricted-derived-corpus-remains-private-and-noncitable-until-independent-evidence-release-gates-pass
+
+</details>
+
+<details><summary><code>curriculum-private-hydrate-cli-lifecycle-fix-20260722</code> · 4 events · 2026-07-22T02:49:45.439Z → 2026-07-22T03:02:51.376Z</summary>
+
+Agents：`/root/private_bundle_integration`
+Resources：`/private/tmp/curriculum-private-hydrate-cli-lifecycle-fix-20260722`、`scripts/hydrate-corpus.mjs`、`tests/private-corpus-bundle.test.mjs`、`5592eb4d2c0bf4bbb780ef438cab2f3054f94e7b`、`codex/private-hydrate-cli-lifecycle-fix-20260722@5592eb4d2c0bf4bbb780ef438cab2f3054f94e7b`
+
+### 2026-07-22T02:49:45.439Z · start · /root/private_bundle_integration
+
+- Scope：isolated test-first standalone hydrate CLI lifecycle fix from exact integrated private pipeline commit
+- Resources：`/private/tmp/curriculum-private-hydrate-cli-lifecycle-fix-20260722`、`scripts/hydrate-corpus.mjs`、`tests/private-corpus-bundle.test.mjs`
+- Evidence：exact-base-26622ddbcc8858beaf4771fcc504ac84af0377a2-real-exported-call-succeeds-but-standalone-CLI-node22-exits13-unsettled-top-level-await
+- Rollback：revert-or-omit-dedicated-local-commit-and-remove-only-task-owned-worktree-after-handoff
+- Unresolved：no-network-R2-SSH-push-deploy-package-doc-real-restore-or-descriptor-mutation-authorized
+
+### 2026-07-22T02:55:00.725Z · change · /root/private_bundle_integration
+
+- Scope：replaced deadlocking entrypoint-time dynamic reverse import with statically linked helper and added real standalone Node22 regression
+- Resources：`/private/tmp/curriculum-private-hydrate-cli-lifecycle-fix-20260722`、`scripts/hydrate-corpus.mjs`、`tests/private-corpus-bundle.test.mjs`
+- Evidence：pre-fix-standalone-exit13-unsettled-top-level-await-at-main-post-fix-node22-exit0-two-files-byte-exact-focused-27-of-27-both-module-import-orders-pass-no-timer-no-network
+- Rollback：revert dedicated local commit after creation or restore both files from exact base 26622ddbcc8858beaf4771fcc504ac84af0377a2
+- Unresolved：full repository validation and independent frozen-byte review pending
+
+### 2026-07-22T03:02:51.275Z · verify · /root/private_bundle_integration
+
+- Scope：frozen-byte standalone hydrate CLI lifecycle repair on exact integrated private corpus base
+- Resources：`5592eb4d2c0bf4bbb780ef438cab2f3054f94e7b`、`scripts/hydrate-corpus.mjs`、`tests/private-corpus-bundle.test.mjs`
+- Evidence：independent-review-PASS-hashes-b367a432-and-c25f7b03-node22-standalone-exit0-private-27-of-27-full-988-pass-zero-fail-one-skip-tsc-build-python14-gitleaks-diff-check-import-both-orders-pass
+- Rollback：revert local commit 5592eb4d2c0bf4bbb780ef438cab2f3054f94e7b or omit it from parent integration
+- Unresolved：parent must cherry-pick and rerun the real standalone restore CLI; no network R2 SSH push deploy descriptor or real restore mutation performed
+
+### 2026-07-22T03:02:51.376Z · closeout · /root/private_bundle_integration
+
+- Scope：local-only two-file hydrate CLI fix handoff and slot release
+- Resources：`codex/private-hydrate-cli-lifecycle-fix-20260722@5592eb4d2c0bf4bbb780ef438cab2f3054f94e7b`
+- Evidence：clean-worktree-exact-parent-26622dd-two-owned-files-only-no-production-or-private-artifact-state-change
+- Rollback：revert dedicated local commit or do not cherry-pick
+- Unresolved：real restore smoke belongs to parent integration closeout
+
+</details>
+
+<details><summary><code>curriculum-ontology-contract-v2-20260722</code> · 4 events · 2026-07-22T02:51:11.615Z → 2026-07-22T03:24:56.607Z</summary>
+
+Agents：`/root/original_goal_gap_audit`
+Resources：`/private/tmp/curriculum-ontology-contract-v2-20260722`、`codex/ontology-contract-v2-20260722`、`data/schemas/subject-ontology-v2.schema.json`、`data/ontologies/index.json`、`scripts/validate-subject-ontology-v2.mjs`、`tests/subject-ontology-v2-contract.test.mjs`、`docs/subject-ontology-v2-contract.md`、`docs/ONTOLOGY_CONTRACT_V2.md`、`commit-0081c6f`、`branch-codex-ontology-contract-v2-20260722`、`commit-0081c6f52eb9dd15ad7d995dad881093d711890e`、`worktree-/private/tmp/curriculum-ontology-contract-v2-20260722`
+
+### 2026-07-22T02:51:11.615Z · start · /root/original_goal_gap_audit
+
+- Scope：isolated-new-file-only-subject-ontology-v2-data-contract-from-exact-26622dd
+- Resources：`/private/tmp/curriculum-ontology-contract-v2-20260722`、`codex/ontology-contract-v2-20260722`、`data/schemas/subject-ontology-v2.schema.json`、`data/ontologies/index.json`、`scripts/validate-subject-ontology-v2.mjs`、`tests/subject-ontology-v2-contract.test.mjs`、`docs/subject-ontology-v2-contract.md`
+- Evidence：exact-source-clean-at-26622dd-no-overlapping-active-owner-on-new-paths-read-required-matrix-architecture-backend-and-canonical-index
+- Rollback：revert-or-omit-dedicated-local-commit-and-remove-only-task-owned-worktree-branch-after-preserving-evidence
+- Unresolved：no-current-ontology-builder-release-manifest-source-api-ui-ocr-cloudflare-report-or-package-mutation-authorized
+
+### 2026-07-22T03:19:07.435Z · change · /root/original_goal_gap_audit
+
+- Scope：added-fail-closed-subject-ontology-v2-contract-only-no-production-data-or-runtime-integration
+- Resources：`data/schemas/subject-ontology-v2.schema.json`、`data/ontologies/index.json`、`scripts/validate-subject-ontology-v2.mjs`、`tests/subject-ontology-v2-contract.test.mjs`、`docs/ONTOLOGY_CONTRACT_V2.md`
+- Evidence：12-facets-zero-scopes-all-gates-closed-cross-scope-dual-end-evidence-and-same-edition-online-human-review-enforced
+- Rollback：revert-task-commit-before-any-builder-integration
+- Unresolved：release-manifest-inventory-integration-owned-by-parent-review
+
+### 2026-07-22T03:24:25.249Z · verify · /root/original_goal_gap_audit
+
+- Scope：verified-fail-closed-ontology-v2-contract-at-commit-0081c6f
+- Resources：`commit-0081c6f`、`branch-codex-ontology-contract-v2-20260722`
+- Evidence：focused-14-of-14-validator-valid-zero-production-scopes-build-tsc-python-tests-non-release-manifest-node-suite-and-gitleaks-pass
+- Rollback：revert-0081c6f-before-release-inventory-integration
+- Unresolved：existing-release-manifest-inventory-rejects-two-new-data-files-until-parent-integrates-owned-manifest
+
+### 2026-07-22T03:24:56.607Z · closeout · /root/original_goal_gap_audit
+
+- Scope：closed-isolated-ontology-contract-package-with-clean-worktree-no-push-no-deploy
+- Resources：`commit-0081c6f52eb9dd15ad7d995dad881093d711890e`、`worktree-/private/tmp/curriculum-ontology-contract-v2-20260722`
+- Evidence：exactly-five-new-owned-files-clean-head-14-focused-tests-and-all-non-release-manifest-node-tests-pass
+- Rollback：git-revert-0081c6f-after-integration-or-drop-unmerged-branch
+- Unresolved：parent-independent-review-and-release-inventory-registration-required-before-merge
+
+</details>
+
+<details><summary><code>curriculum-a2-preinference-interruption-rearm-20260722</code> · 4 events · 2026-07-22T03:00:51.455Z → 2026-07-22T03:57:09.581Z</summary>
+
+Agents：`/root/a2_preinference_rearm`
+Resources：`/private/tmp/curriculum-a2-preinference-rearm-20260722`、`codex/a2-preinference-rearm-20260722`、`scripts/repair-remote-ocr-preinference-interruption.mjs`、`tests/remote-ocr-preinference-interruption-repair.test.mjs`、`docs/remote-ocr-preinference-interruption-repair.md`、`a238294178e234f0f007796e14a993215584ec72`
+
+### 2026-07-22T03:00:51.455Z · start · /root/a2_preinference_rearm
+
+- Scope：isolated-test-first-one-time-A2-preinference-interruption-rearm-from-exact-full-candidate
+- Resources：`/private/tmp/curriculum-a2-preinference-rearm-20260722`、`codex/a2-preinference-rearm-20260722`、`scripts/repair-remote-ocr-preinference-interruption.mjs`、`tests/remote-ocr-preinference-interruption-repair.test.mjs`、`docs/remote-ocr-preinference-interruption-repair.md`
+- Evidence：exact-base-9f250f236e25e7a6d3def46acb9114c528bd51f7-verified-no-overlapping-owner-on-new-paths
+- Rollback：remove-only-task-owned-worktree-and-branch-after-preserving-evidence
+- Unresolved：no-SSH-remote-write-systemd-runner-monitor-unit-seed-authority-grant-claim-push-deploy-or-existing-file-mutation-authorized
+
+### 2026-07-22T03:33:41.993Z · change · /root/a2_preinference_rearm
+
+- Scope：local-only-exact-A2-preinference-rearm-tool-test-and-runbook
+- Resources：`scripts/repair-remote-ocr-preinference-interruption.mjs`、`tests/remote-ocr-preinference-interruption-repair.test.mjs`、`docs/remote-ocr-preinference-interruption-repair.md`
+- Evidence：hard-bound-A2-incident-owner-only-receipt-four-atomic-controls-idempotent-mixed-crash-recovery
+- Rollback：cherry-pick-revert-single-task-commit
+- Unresolved：no-remote-mutation-or-worker-restart-performed
+
+### 2026-07-22T03:57:09.544Z · verify · /root/a2_preinference_rearm
+
+- Scope：replacement-commit-local-verification-and-independent-rereview
+- Resources：`a238294178e234f0f007796e14a993215584ec72`、`scripts/repair-remote-ocr-preinference-interruption.mjs`、`tests/remote-ocr-preinference-interruption-repair.test.mjs`、`docs/remote-ocr-preinference-interruption-repair.md`
+- Evidence：child-review-PASS-focused-26-pass-2-linux-skip-related-177-pass-2-linux-skip-tsc-build-gitleaks-pass
+- Rollback：revert-a238294-before-any-remote-install
+- Unresolved：full-suite-local-release-manifest-four-failures-only-because-91-generated-corpus-SQL-chunks-absent
+
+### 2026-07-22T03:57:09.581Z · closeout · /root/a2_preinference_rearm
+
+- Scope：local-only-A2-preinference-rearm-handoff
+- Resources：`a238294178e234f0f007796e14a993215584ec72`、`codex/a2-preinference-rearm-20260722`
+- Evidence：exactly-three-new-files-clean-worktree-frozen-sha256-handed-to-root
+- Rollback：cherry-pick-revert-a238294-no-output-page-state-log-authority-or-remote-state-was-mutated
+- Unresolved：Linux-flock-and-real-A2-systemd-B1-B2-dry-run-gates-must-pass-before-remote-apply
+
+</details>
+
+<details><summary><code>curriculum-ontology-contract-v2-review-fixes-20260722</code> · 5 events · 2026-07-22T03:37:51.027Z → 2026-07-22T04:09:43.635Z</summary>
+
+Agents：`/root/original_goal_gap_audit`
+Resources：`/private/tmp/curriculum-ontology-contract-v2-20260722`、`commit-0081c6f`、`data-schemas-data-ontologies-validator-test-docs`、`data/ontologies/index.json`、`data/schemas/subject-ontology-v2.schema.json`、`scripts/validate-subject-ontology-v2.mjs`、`tests/subject-ontology-v2-contract.test.mjs`、`docs/ONTOLOGY_CONTRACT_V2.md`、`b74beaa8f52a9e8f8bfde5a70506376bff2f01b2`、`ontology-v2-five-file-contract`、`codex/ontology-contract-v2-20260722`、`0081c6f52eb9dd15ad7d995dad881093d711890e`、`b74beaa6b3775edcbc36ecd072a8d395789b1068`
+
+### 2026-07-22T03:37:51.027Z · start · /root/original_goal_gap_audit
+
+- Scope：revise-rejected-ontology-v2-contract-in-existing-isolated-branch
+- Resources：`/private/tmp/curriculum-ontology-contract-v2-20260722`、`commit-0081c6f`、`data-schemas-data-ontologies-validator-test-docs`
+- Evidence：independent-review-findings-received-worktree-clean-no-overlapping-owner-on-five-existing-task-files
+- Rollback：second-review-fix-commit-can-be-reverted-without-dropping-original-contract
+- Unresolved：red-tests-and-implementation-pending-no-production-data-push-or-deploy-authorized
+
+### 2026-07-22T04:08:59.598Z · change · /root/original_goal_gap_audit
+
+- Scope：local-only-fail-closed-ontology-contract-review-fixes
+- Resources：`/private/tmp/curriculum-ontology-contract-v2-20260722`、`data/ontologies/index.json`、`data/schemas/subject-ontology-v2.schema.json`、`scripts/validate-subject-ontology-v2.mjs`、`tests/subject-ontology-v2-contract.test.mjs`、`docs/ONTOLOGY_CONTRACT_V2.md`
+- Evidence：pinned-taxonomy-independent-scope-lineage-exact-span-bundle-diff-hash-unresolved-universe-relation-gates
+- Rollback：revert-local-review-fix-commit-after-preserving-later-work
+- Unresolved：release-manifest-inventory-needs-separate-owner-registration-for-two-new-data-files
+
+### 2026-07-22T04:09:29.469Z · verify · /root/original_goal_gap_audit
+
+- Scope：frozen-local-ontology-v2-contract-at-b74beaa
+- Resources：`b74beaa8f52a9e8f8bfde5a70506376bff2f01b2`、`ontology-v2-five-file-contract`
+- Evidence：focused-31-of-31-full-excluding-release-manifest-1006-of-1006-build-tsc-python14-gitleaks-validator-git-diff-check-all-pass-initial-index-12-facets-zero-data-all-gates-closed
+- Rollback：git-revert-b74beaa-then-0081c6f-if-removing-the-whole-local-contract
+- Unresolved：four-release-manifest-tests-fail-only-on-unregistered-new-index-and-schema-data-inventory
+
+### 2026-07-22T04:09:29.576Z · closeout · /root/original_goal_gap_audit
+
+- Scope：local-only-ontology-v2-review-fix-handoff
+- Resources：`codex/ontology-contract-v2-20260722`、`b74beaa8f52a9e8f8bfde5a70506376bff2f01b2`、`0081c6f52eb9dd15ad7d995dad881093d711890e`
+- Evidence：clean-worktree-five-files-only-no-production-data-no-push-no-deploy
+- Rollback：revert-b74beaa-and-0081c6f-after-preserving-later-work
+- Unresolved：release-inventory-owner-must-register-two-new-data-files-before-full-suite-can-be-all-green
+
+### 2026-07-22T04:09:43.635Z · verify · /root/original_goal_gap_audit
+
+- Scope：corrective-exact-commit-identity-for-prior-two-log-rows
+- Resources：`b74beaa6b3775edcbc36ecd072a8d395789b1068`
+- Evidence：authoritative-full-review-fix-commit-sha-replaces-the-incorrect-expanded-b74beaa-value-in-immediately-prior-verify-and-closeout-rows
+- Rollback：git-revert-b74beaa6b3775edcbc36ecd072a8d395789b1068
+- Unresolved：release-inventory-owner-must-register-two-new-data-files
+
+</details>
+
+<details><summary><code>curriculum-a2-operator-stop-forward-continuation-20260722</code> · 4 events · 2026-07-22T04:15:59.372Z → 2026-07-22T04:58:56.775Z</summary>
+
+Agents：`/root/a2_operator_stop_forward_resume`
+Resources：`/private/tmp/curriculum-a2-forward-continuation-20260722`、`scripts/run-remote-ocr-offload.mjs`、`new-forward-continuation-tool-tests-runbook`、`/private/tmp/curriculum-a2-forward-continuation-20260722/tests/remote-ocr-operator-interruption-continuation.test.mjs`
+
+### 2026-07-22T04:15:59.372Z · start · /root/a2_operator_stop_forward_resume
+
+- Scope：isolated-test-first-forward-continuation-protocol-from-exact-c47cd1a
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-20260722`、`scripts/run-remote-ocr-offload.mjs`、`new-forward-continuation-tool-tests-runbook`
+- Evidence：parent-reported-exact-A2-attempt6-operator-SIGTERM-incident-no-overlapping-active-owner-on-target-new-files-and-runner-read-only-until-design
+- Rollback：revert-or-omit-dedicated-local-commit-no-live-state-changed
+- Unresolved：no-SSH-production-systemd-authority-grant-claim-or-output-mutation-authorized
+
+### 2026-07-22T04:23:48.980Z · change · /root/a2_operator_stop_forward_resume
+
+- Scope：added-red-local-contract-tests-for-same-attempt6-forward-continuation
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-20260722/tests/remote-ocr-operator-interruption-continuation.test.mjs`
+- Evidence：focused-test-fails-ERR_MODULE_NOT_FOUND-before-implementation-exact-interrupted-controls-and-one-time-claim-contract
+- Rollback：revert-eventual-dedicated-local-commit
+- Unresolved：implementation-runbook-regressions-independent-review-pending-no-remote-state-change
+
+### 2026-07-22T04:58:56.685Z · verify · /root/a2_operator_stop_forward_resume
+
+- Scope：frozen-local-forward-continuation-controls
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-20260722`
+- Evidence：commit-686e047c94dd56a217f7e44e616fefd5cff916f0-focused-14-pass-related-pass-full-1034-pass-0-fail-2-skip-typescript-build-python-14-pass-gitleaks-diff-check-clean
+- Rollback：git-revert-686e047c94dd56a217f7e44e616fefd5cff916f0
+- Unresolved：independent-review-and-remote-linux-stage-dry-run-apply-pending
+
+### 2026-07-22T04:58:56.775Z · closeout · /root/a2_operator_stop_forward_resume
+
+- Scope：local-control-plane-ready-remote-a2-still-frozen
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-20260722`
+- Evidence：single-commit-686e047c94dd56a217f7e44e616fefd5cff916f0-clean-worktree-no-ssh-no-production-mutation
+- Rollback：git-revert-686e047c94dd56a217f7e44e616fefd5cff916f0
+- Unresolved：parent-owned-independent-review-and-bounded-remote-takeover
+
+</details>
+
+<details><summary><code>curriculum-ontology-contract-v2-second-review-fixes-20260722</code> · 4 events · 2026-07-22T04:21:03.633Z → 2026-07-22T05:00:00.159Z</summary>
+
+Agents：`/root/original_goal_gap_audit`
+Resources：`/private/tmp/curriculum-ontology-contract-v2-20260722`、`data/ontologies/index.json`、`data/schemas/subject-ontology-v2.schema.json`、`scripts/validate-subject-ontology-v2.mjs`、`tests/subject-ontology-v2-contract.test.mjs`、`docs/ONTOLOGY_CONTRACT_V2.md`、`b66296778fd3f4552970f9cf5033bdc2f9b7f173`、`ontology-v2-four-file-second-review-fix`、`codex/ontology-contract-v2-20260722`
+
+### 2026-07-22T04:21:03.633Z · start · /root/original_goal_gap_audit
+
+- Scope：same-isolated-branch-second-review-red-tests-then-read-only-resolvers
+- Resources：`/private/tmp/curriculum-ontology-contract-v2-20260722`、`data/ontologies/index.json`、`data/schemas/subject-ontology-v2.schema.json`、`scripts/validate-subject-ontology-v2.mjs`、`tests/subject-ontology-v2-contract.test.mjs`、`docs/ONTOLOGY_CONTRACT_V2.md`
+- Evidence：b74beaa-clean-worktree-second-review-FAIL-received
+- Rollback：revert-future-local-second-review-commit
+- Unresolved：exact-corpus-online-inventory-resolvers-endpoint-release-lineage-role-universe-completeness-diff-identity
+
+### 2026-07-22T04:58:24.097Z · change · /root/original_goal_gap_audit
+
+- Scope：local-only-read-only-resolver-and-release-gate-hardening
+- Resources：`/private/tmp/curriculum-ontology-contract-v2-20260722`、`data/schemas/subject-ontology-v2.schema.json`、`scripts/validate-subject-ontology-v2.mjs`、`tests/subject-ontology-v2-contract.test.mjs`、`docs/ONTOLOGY_CONTRACT_V2.md`
+- Evidence：corpus-page-publication-online-snapshot-coverage-inventory-lineage-role-and-relation-endpoint-gates-implemented
+- Rollback：revert-future-local-second-review-commit
+- Unresolved：release-manifest-owner-must-register-existing-ontology-index-and-schema-before-integration
+
+### 2026-07-22T05:00:00.150Z · verify · /root/original_goal_gap_audit
+
+- Scope：frozen-local-ontology-v2-second-review-at-b662967
+- Resources：`b66296778fd3f4552970f9cf5033bdc2f9b7f173`、`ontology-v2-four-file-second-review-fix`
+- Evidence：focused-41-of-41-final-non-release-manifest-suite-exit-zero-1009-pass-one-cache-skip-build-tsc-python14-validator-diff-check-and-gitleaks-diff-pass
+- Rollback：git-revert-b66296778fd3f4552970f9cf5033bdc2f9b7f173
+- Unresolved：four-release-manifest-tests-remain-fail-closed-on-two-unregistered-preexisting-ontology-data-files
+
+### 2026-07-22T05:00:00.159Z · closeout · /root/original_goal_gap_audit
+
+- Scope：local-only-second-review-handoff-clean-worktree-no-push-no-deploy
+- Resources：`codex/ontology-contract-v2-20260722`、`b66296778fd3f4552970f9cf5033bdc2f9b7f173`
+- Evidence：four-files-only-no-production-data-zero-scope-index-remains-all-gates-closed
+- Rollback：revert-b662967-then-b74beaa-and-0081c6f-if-removing-full-contract
+- Unresolved：cherry-pick-requires-prior-0081c6f-and-b74beaa-plus-separate-release-inventory-owner-registration
+
+</details>
+
+<details><summary><code>curriculum-zh-2017-2020-evidence-vertical-slice-20260722</code> · 4 events · 2026-07-22T04:22:26.149Z → 2026-07-22T05:05:42.460Z</summary>
+
+Agents：`/root/zh_2017_2020_vertical_slice`、`zh_2017_2020_vertical_slice`
+Resources：`/private/tmp/curriculum-zh-vertical-slice-20260722`、`c47cd1a`、`new-evidence-schema-validator-projection-tests`、`commit-7a301d84f916e9d6cd326e0c313a6977985f6bf4`
+
+### 2026-07-22T04:22:26.149Z · start · /root/zh_2017_2020_vertical_slice
+
+- Scope：local-only-test-first-fail-closed-Chinese-senior-high-2017-to-2020-evidence-primitive-no-runtime-deploy
+- Resources：`/private/tmp/curriculum-zh-vertical-slice-20260722`、`c47cd1a`、`new-evidence-schema-validator-projection-tests`
+- Evidence：parent-supplied-six-page-verified-UTF16-spans-official-version-identities-and-independent-online-witnesses
+- Rollback：drop-isolated-worktree-or-revert-single-task-commit
+- Unresolved：exact-local-corpus-online-snapshot-page-publication-and-review-resolvers-must-pass-before-any-public-projection
+
+### 2026-07-22T05:03:40.739Z · change · zh_2017_2020_vertical_slice
+
+- Scope：isolated-local-research-evidence-slice
+- Resources：`/private/tmp/curriculum-zh-vertical-slice-20260722`
+- Evidence：added-six-exact-spans-three-assertions-validator-schema-tests-docs-and-explicit-three-way-public-release-gates
+- Rollback：revert-frozen-commit-after-handoff
+- Unresolved：signed-editor-review-pending-and-one-online-version-conflict
+
+### 2026-07-22T05:05:07.901Z · verify · zh_2017_2020_vertical_slice
+
+- Scope：isolated-local-research-evidence-slice
+- Resources：`/private/tmp/curriculum-zh-vertical-slice-20260722`
+- Evidence：real-input-validation-exit0-focused-7of7-full-node-suite-exit0-typescript-build-python-14of14-gitleaks-clean-strict-publication-gate-exit3-as-designed
+- Rollback：revert-frozen-commit-after-handoff
+- Unresolved：signed-editor-review-pending-and-2017-community-transcription-conflict
+
+### 2026-07-22T05:05:42.460Z · closeout · zh_2017_2020_vertical_slice
+
+- Scope：isolated-local-research-evidence-slice
+- Resources：`commit-7a301d84f916e9d6cd326e0c313a6977985f6bf4`
+- Evidence：frozen-clean-worktree-no-deploy-no-ssh-public-graph-compare-api-ai-citation-all-closed
+- Rollback：git-revert-7a301d84f916e9d6cd326e0c313a6977985f6bf4-after-integration
+- Unresolved：signed-editor-review-required-third-assertion-online-version-conflict-requires-adjudication
+
+</details>
+
+<details><summary><code>curriculum-original-goal-evidence-integration-20260722</code> · 2 events · 2026-07-22T04:28:05.309Z → 2026-07-22T04:28:05.346Z</summary>
+
+Agents：`Codex-root`
+Resources：`frontend-information-architecture-test`、`/private/tmp/curriculum-full-release-v2-20260719@5b835df`、`public/app.js`、`tests/frontend-information-architecture.test.mjs`
+
+### 2026-07-22T04:28:05.309Z · verify · Codex-root
+
+- Scope：focused-frontend-fail-closed-language-regression
+- Resources：`frontend-information-architecture-test`
+- Evidence：16-of-16-pass-zero-fail-git-diff-check-pass
+- Rollback：no-live-state-changed
+- Unresolved：preview-production-not-deployed
+
+### 2026-07-22T04:28:05.346Z · change · Codex-root
+
+- Scope：fail-closed-compare-copy-for-unanchored-insights
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719@5b835df`、`public/app.js`、`tests/frontend-information-architecture.test.mjs`
+- Evidence：subject-insights-now-explicitly-labelled-research-leads-not-verified-version-diffs
+- Rollback：git-revert-5b835df-after-preserving-later-work
+- Unresolved：exact-version-diff-evidence-vertical-slice-remains-pending
+
+</details>
+
+<details><summary><code>curriculum-2011-junior-science-canonicalization-20260722</code> · 5 events · 2026-07-22T04:33:21.444Z → 2026-07-22T04:55:27.564Z</summary>
+
+Agents：`Codex-root`、`root`
+Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`scripts/source-manifest.mjs`、`scripts/build-supplemental-catalog.mjs`、`data/catalog.json`、`data/supplemental-sources.json`、`data/document-sources.json`、`data/ingest-manifest.json`、`data/ocr-queue.json`、`data/artifact-registry.json`、`/private/tmp/curriculum-full-release-v2-20260719@working-tree`、`data-catalog-ingest-ocr-queue-artifact-registry`、`corpus-and-concept-generated-assets`、`source-work-identity-tests`、`project-asset-audit`、`corpus-4fe2f31344f52706de761788`、`concept-build-68a83d88`、`release-manifest-tests`、`data/ontology-release-manifest.json`、`public-data-concept-evolution-transports`、`curriculum-full-release-v2-candidate`
+
+### 2026-07-22T04:33:21.444Z · start · Codex-root
+
+- Scope：canonicalize-the-verified-2011-junior-secondary-science-work-as-one-document-with-two-source-artifacts
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`scripts/source-manifest.mjs`、`scripts/build-supplemental-catalog.mjs`、`data/catalog.json`、`data/supplemental-sources.json`、`data/document-sources.json`、`data/ingest-manifest.json`、`data/ocr-queue.json`、`data/artifact-registry.json`
+- Evidence：clean-worktree-head-5b835df-official-MOE-directory-and-rendered-title-both-say-junior-secondary-science-ICTR-is-same-edition-different-scan
+- Rollback：revert-task-commit-after-preserving-later-work
+- Unresolved：generated-counts-and-downstream-corpus-taxonomy-health-contracts-must-be-revalidated
+
+### 2026-07-22T04:44:55.887Z · change · Codex-root
+
+- Scope：corrected-2011-junior-secondary-science-work-identity-and-demoted-ICTR-scan-to-nonpublication-variant
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719@working-tree`、`data-catalog-ingest-ocr-queue-artifact-registry`、`corpus-and-concept-generated-assets`
+- Evidence：MOE-title-corrected-one-canonical-work-two-preserved-PDF-artifacts-catalog195-queue85-11759-unique84-11691
+- Rollback：revert-task-commit-after-preserving-later-work
+- Unresolved：not-deployed-preview-production-remain-v10-196-document-baseline
+
+### 2026-07-22T04:44:55.993Z · verify · Codex-root
+
+- Scope：validated-source-work-identity-asset-ledger-corpus-taxonomy-concept-and-release-contracts
+- Resources：`source-work-identity-tests`、`project-asset-audit`、`corpus-4fe2f31344f52706de761788`、`concept-build-68a83d88`、`release-manifest-tests`
+- Evidence：focused32-pass-asset-audit-ok-195-documents-16456-paragraphs-91-chunks-concepts-validator-pass-release-manifest19-pass
+- Rollback：no-production-state-changed-local-generated-assets-can-be-rebuilt-from-previous-commit
+- Unresolved：full-suite-and-independent-review-before-integration
+
+### 2026-07-22T04:55:27.564Z · change · root
+
+- Scope：rebound-ontology-release-artifact-fingerprints-after-legitimate-catalog-and-transport-regeneration
+- Resources：`data/ontology-release-manifest.json`、`public-data-concept-evolution-transports`
+- Evidence：immutable-169-node-baseline-unchanged-and-ontology-bridge-118-of-118
+- Rollback：revert-the-task-commit
+- Unresolved：preview-production-remain-live-v10-at-196-documents
+
+### 2026-07-22T04:55:27.564Z · verify · root
+
+- Scope：full-local-regression-of-canonical-work-and-generated-downstream-state
+- Resources：`curriculum-full-release-v2-candidate`
+- Evidence：node-tests-1023-pass-0-fail-2-platform-skips-python-14-pass-tsc-build-wrangler-dry-run-assets-audit-gitleaks-clean
+- Rollback：revert-the-task-commit
+- Unresolved：independent-review-and-preview-release-remain-pending
+
+</details>
+
+<details><summary><code>curriculum-original-goal-delivery-matrix-20260722</code> · 4 events · 2026-07-22T04:56:12.277Z → 2026-07-22T05:00:10.301Z</summary>
+
+Agents：`root`
+Resources：`/private/tmp/curriculum-full-release-v2-20260719/docs/original-goal-delivery-matrix.md`、`/private/tmp/curriculum-full-release-v2-20260719/README.md`、`docs/original-goal-delivery-matrix.md`、`README.md`、`docs/ai-handoff.md`、`curriculum-full-release-v2-candidate`、`commit-ba9fa6a`
+
+### 2026-07-22T04:56:12.277Z · start · root
+
+- Scope：create-a-durable-evidence-backed-completion-matrix-for-the-original-19-section-brief
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719/docs/original-goal-delivery-matrix.md`、`/private/tmp/curriculum-full-release-v2-20260719/README.md`
+- Evidence：original-user-brief-and-current-live-v10-candidate-ledgers
+- Rollback：revert-the-documentation-commit
+- Unresolved：no-production-runtime-data-or-cloudflare-mutation-in-this-task
+
+### 2026-07-22T05:00:00.172Z · change · root
+
+- Scope：codified-the-original-nineteen-sections-as-two-axis-live-candidate-blocked-completion-gates
+- Resources：`docs/original-goal-delivery-matrix.md`、`README.md`、`docs/ai-handoff.md`
+- Evidence：current-live-v10-local-6cdbdc8-and-A2-frozen-state-separated
+- Rollback：revert-the-documentation-commit
+- Unresolved：matrix-must-be-updated-after-every-OCR-release-or-live-state-change
+
+### 2026-07-22T05:00:00.188Z · verify · root
+
+- Scope：validated-documentation-links-release-inventory-types-and-secret-scan
+- Resources：`curriculum-full-release-v2-candidate`
+- Evidence：diff-check-release-tests-20-of-20-tsc-and-gitleaks-clean
+- Rollback：revert-the-documentation-commit
+- Unresolved：no-production-deployment-in-this-documentation-task
+
+### 2026-07-22T05:00:10.301Z · closeout · root
+
+- Scope：froze-the-original-goal-delivery-contract-at-ba9fa6a
+- Resources：`commit-ba9fa6a`、`docs/original-goal-delivery-matrix.md`
+- Evidence：19-sections-have-explicit-current-state-exit-gate-critical-path-and-final-close-condition
+- Rollback：git-revert-ba9fa6a
+- Unresolved：live-states-remain-incomplete-by-design-and-must-advance-through-recorded-gates
+
+</details>
+
+<details><summary><code>curriculum-a2-forward-continuation-review-fixes-20260722</code> · 4 events · 2026-07-22T05:12:38.650Z → 2026-07-22T06:39:32.250Z</summary>
+
+Agents：`/root/fix_a2_forward_continuation`
+Resources：`/private/tmp/curriculum-a2-forward-continuation-fix-20260722`、`codex/a2-forward-continuation-fix-20260722`、`scripts-continuation-monitor-receiver-tests-docs`、`scripts/continue-remote-ocr-operator-interruption.mjs`、`scripts/lib/remote-ocr-operator-continuation.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`tests/remote-ocr-operator-interruption-continuation.test.mjs`、`tests/remote-ocr-offload-receiver.test.mjs`、`docs/remote-ocr-operator-interruption-continuation.md`、`bede155`、`aadd29c`
+
+### 2026-07-22T05:12:38.650Z · start · /root/fix_a2_forward_continuation
+
+- Scope：isolated-test-first-hardening-of-exact-A2-attempt6-forward-continuation-after-independent-review-fail
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-fix-20260722`、`codex/a2-forward-continuation-fix-20260722`、`scripts-continuation-monitor-receiver-tests-docs`
+- Evidence：exact-clean-base-ba9fa6a-and-failed-candidate-686e047-inspected-no-overlapping-owner-on-new-isolated-branch
+- Rollback：drop-unintegrated-branch-or-revert-dedicated-fix-commits
+- Unresolved：no-SSH-systemd-start-deploy-production-output-grant-claim-or-remote-mutation-authorized
+
+### 2026-07-22T06:04:55.814Z · change · /root/fix_a2_forward_continuation
+
+- Scope：isolated-worktree scripts-and-tests only
+- Resources：`scripts/continue-remote-ocr-operator-interruption.mjs`、`scripts/lib/remote-ocr-operator-continuation.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`tests/remote-ocr-operator-interruption-continuation.test.mjs`、`tests/remote-ocr-offload-receiver.test.mjs`、`docs/remote-ocr-operator-interruption-continuation.md`
+- Evidence：disjoint continuation evidence, shared lifecycle flock, five-unit quiescence, crash-resumable claim journal and terminal transaction, receiver archive readback
+- Rollback：revert isolated branch commits; no remote or production mutation
+- Unresolved：production profile remains fail-closed pending independently recovered incident tree and rearm receipt claim tree hashes
+
+### 2026-07-22T06:39:32.217Z · verify · /root/fix_a2_forward_continuation
+
+- Scope：isolated-A2-attempt6-forward-continuation-and-receiver-evidence-gates
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-fix-20260722`、`bede155`、`aadd29c`
+- Evidence：focused-111-tests-110-pass-0-fail-1-linux-skip-full-1061-tests-1058-pass-0-fail-3-skip-build-typescript-python14-gitleaks-diff-check-clean
+- Rollback：git revert bede155 then aadd29c after integration or drop the isolated branch before integration
+- Unresolved：production profile remains fail-closed pending four independently recovered A2 incident and rearm anchors; no SSH systemd service mutation deploy or production output write performed
+
+### 2026-07-22T06:39:32.250Z · closeout · /root/fix_a2_forward_continuation
+
+- Scope：committed-local-control-plane-only
+- Resources：`codex/a2-forward-continuation-fix-20260722`、`bede155`、`aadd29c`
+- Evidence：clean-worktree-two-commit-range-ba9fa6a-to-bede155-no-remote-mutation
+- Rollback：drop unintegrated branch or revert bede155 then aadd29c
+- Unresolved：independent read-only anchor recovery source review Linux inherited-fd flock dry-run and parent-owned integration remain pending
+
+</details>
+
+<details><summary><code>curriculum-ontology-v2-contract-successor-20260722</code> · 4 events · 2026-07-22T05:19:25.844Z → 2026-07-22T06:15:59.765Z</summary>
+
+Agents：`/root/fix_ontology_v2_contract`
+Resources：`/private/tmp/curriculum-ontology-v2-successor-20260722`、`codex/ontology-v2-successor-20260722`、`data/schemas/subject-ontology-v2.schema.json`、`data/ontologies/index.json`、`scripts/validate-subject-ontology-v2.mjs`、`tests/subject-ontology-v2-contract.test.mjs`、`data/release-assets-policy.json`、`package.json`、`commit:24fa1e7310413fe0b5a3142c26bc72ac2d371407`、`parent:ba9fa6a2c6641d45e49bfc13d38c7d3a76dc575d`
+
+### 2026-07-22T05:19:25.844Z · start · /root/fix_ontology_v2_contract
+
+- Scope：isolated-local-successor-contract-from-ba9fa6a-no-deploy
+- Resources：`/private/tmp/curriculum-ontology-v2-successor-20260722`、`codex/ontology-v2-successor-20260722`、`data/schemas/subject-ontology-v2.schema.json`、`data/ontologies/index.json`、`scripts/validate-subject-ontology-v2.mjs`、`tests/subject-ontology-v2-contract.test.mjs`、`data/release-assets-policy.json`、`package.json`
+- Evidence：target-candidate-clean-at-ba9fa6a-and-prior-failed-stack-rejected-not-owned
+- Rollback：revert-or-omit-single-successor-commit-and-remove-only-this-worktree
+- Unresolved：implementation-and-independent-review-pending-no-push-no-deploy
+
+### 2026-07-22T06:09:09.231Z · change · /root/fix_ontology_v2_contract
+
+- Scope：isolated successor worktree only: subject ontology v2 contract, validator, release identity, tests, documentation
+- Resources：`/private/tmp/curriculum-ontology-v2-successor-20260722`、`data/ontologies/index.json`、`data/schemas/subject-ontology-v2.schema.json`、`scripts/validate-subject-ontology-v2.mjs`
+- Evidence：No production mutation; 195-record frozen catalog projection retains four curriculum-plan works as non-facet scope_plan_evidence; ordinary state remains zero-scope candidate_fail_closed
+- Rollback：Revert the single successor commit after review; candidate main and live resources are untouched
+- Unresolved：No ontology scope is publishable; explicit promotion remains blocked on canonical publishable page evidence, clean pushed release, and hydrated corpus
+
+### 2026-07-22T06:15:59.656Z · verify · /root/fix_ontology_v2_contract
+
+- Scope：isolated successor commit 24fa1e7310413fe0b5a3142c26bc72ac2d371407
+- Resources：`/private/tmp/curriculum-ontology-v2-successor-20260722`、`codex/ontology-v2-successor-20260722`
+- Evidence：npm test 1040 tests: 1037 pass, 0 fail, 3 skip; focused ontology 14 pass; release manifest tests 20 pass; Python 14 pass; TypeScript check/build/ontology validator pass; gitleaks one-commit range no leaks; parent is exact ba9fa6a
+- Rollback：Revert commit 24fa1e7310413fe0b5a3142c26bc72ac2d371407 or discard this isolated branch; no production rollback needed
+- Unresolved：npm run release:manifest is intentionally blocked because this isolated review branch has no upstream; no publish/deploy attempted
+
+### 2026-07-22T06:15:59.765Z · closeout · /root/fix_ontology_v2_contract
+
+- Scope：handoff-only successor; candidate main and live Cloudflare/R2/D1 untouched
+- Resources：`commit:24fa1e7310413fe0b5a3142c26bc72ac2d371407`、`parent:ba9fa6a2c6641d45e49bfc13d38c7d3a76dc575d`
+- Evidence：Worktree clean; single commit; all scoped and full tests green; plan-document anti-promotion regression included
+- Rollback：Do not integrate or revert the isolated single commit after review
+- Unresolved：Current ontology remains zero-scope candidate_fail_closed; promotion needs reviewed scopes, canonical publishable page evidence, hydrated corpus, and a clean pushed desired release
+
+</details>
+
+<details><summary><code>curriculum-zh-2017-2020-evidence-vertical-slice-successor-20260722</code> · 4 events · 2026-07-22T05:19:54.319Z → 2026-07-22T05:39:13.654Z</summary>
+
+Agents：`/root/fix_zh_vertical_slice`
+Resources：`/private/tmp/curriculum-zh-vertical-slice-successor-20260722`、`codex/zh-2017-2020-evidence-successor-20260722`、`5c2232677b96ac1976023538b6717842613b6fb5`、`/private/tmp/curriculum-zh-ba9fa6a-4fe2f-r2.sqlite`、`/private/tmp/curriculum-zh-ba9fa6a-validation-strict-final.json`
+
+### 2026-07-22T05:19:54.319Z · start · /root/fix_zh_vertical_slice
+
+- Scope：isolated-local-successor-from-ba9fa6a-rebinding-current-corpus-and-unified-release-gates-no-deploy
+- Resources：`/private/tmp/curriculum-zh-vertical-slice-successor-20260722`、`codex/zh-2017-2020-evidence-successor-20260722`
+- Evidence：candidate-ba9fa6a-clean-original-7a301d84-content-reviewed-but-stale-parent-and-corpus
+- Rollback：drop-unintegrated-worktree-or-revert-single-successor-commit
+- Unresolved：current-corpus-span-rebinding-consumer-gates-and-independent-review-pending
+
+### 2026-07-22T05:39:13.444Z · change · /root/fix_zh_vertical_slice
+
+- Scope：isolated-local-single-successor-commit-current-corpus-rebind-and-shared-five-consumer-fail-closed-gate
+- Resources：`/private/tmp/curriculum-zh-vertical-slice-successor-20260722`、`codex/zh-2017-2020-evidence-successor-20260722`、`5c2232677b96ac1976023538b6717842613b6fb5`
+- Evidence：eight-tracked-files-only-parent-ba9fa6a-corpus-4fe2f-six-exact-spans-three-assertions-five-consumers
+- Rollback：revert-5c2232677b96ac1976023538b6717842613b6fb5-before-any-integration
+- Unresolved：signed-editor-review-and-one-online-transcription-conflict-remain
+
+### 2026-07-22T05:39:13.556Z · verify · /root/fix_zh_vertical_slice
+
+- Scope：local-successor-regression-evidence-integrity-and-secret-scan
+- Resources：`5c2232677b96ac1976023538b6717842613b6fb5`、`/private/tmp/curriculum-zh-ba9fa6a-4fe2f-r2.sqlite`、`/private/tmp/curriculum-zh-ba9fa6a-validation-strict-final.json`
+- Evidence：node-1029-pass-zero-fail-three-skip-python-14-pass-focused-33-pass-tsc-build-pass-validator-valid-strict-exit3-expected-six-poppler-rerenders-byte-identical-gitleaks-clean
+- Rollback：no-production-state-changed
+- Unresolved：strict-publication-eligibility-intentionally-closed
+
+### 2026-07-22T05:39:13.654Z · closeout · /root/fix_zh_vertical_slice
+
+- Scope：clean-local-successor-handoff-no-deploy-no-push-no-ssh
+- Resources：`codex/zh-2017-2020-evidence-successor-20260722`、`5c2232677b96ac1976023538b6717842613b6fb5`
+- Evidence：clean-worktree-single-commit-parent-ba9fa6a-all-five-consumer-gates-closed-third-claim-conflict-fail-closed
+- Rollback：drop-unintegrated-branch-or-revert-single-commit-after-integration
+- Unresolved：parent-integration-signed-editor-review-and-independent-exact-document-witness-required
+
+</details>
+
+<details><summary><code>curriculum-original-goal-completion-20260722</code> · 10 events · 2026-07-22T05:32:11.301Z → 2026-07-22T09:22:40.896Z</summary>
+
+Agents：`root`、`Codex-root`
+Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`curriculum.bdfz.net`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas-sources`、`/Users/ylsuen/Downloads`、`/private/tmp/curriculum-full-release-v2-20260719/data`、`curriculum-atlas`、`MOE-2017-standards-RAR`、`MOE-2003-English-PDF`、`ICTR-quarantine-payloads`、`ICTR-2017-standard-set`、`MOE-2003-notice`、`MOE-2003-16-PDF-set`、`ICTR-experimental-standard-set`、`MOE-2004-political-notice`、`MOE-official-DOC`、`MOE-2025-DOC`、`ICTR-2008-DOC`、`/private/tmp/curriculum-source-recovery-20260722`、`data/source-recovery-proofs.json`、`data/catalog.json`、`data/ocr-queue.json`、`data/corpus-chunks/manifest.json`、`public/data/graph-shards`、`MOE-2017-RAR`、`MOE-2003-English-current-and-legacy`、`MOE-and-ICTR-political-DOC`、`DMITPro2-inner-bdfz-workstation`、`curriculum-ocr-reprocess-a-r2.service`、`A2-output-inode-45748776`
+
+### 2026-07-22T05:32:11.301Z · start · root
+
+- Scope：freeze-single-candidate-and-complete-evidence-OCR-ontology-preview-production-chain
+- Resources：`/private/tmp/curriculum-full-release-v2-20260719`、`curriculum.bdfz.net`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas-sources`
+- Evidence：candidate-ba9fa6a-production-v10-read-only-baseline-original-19-section-delivery-matrix
+- Rollback：preserve-production-v10-and-revert-only-task-scoped-candidate-commits
+- Unresolved：A2-forward-continuation-ontology-v2-zh-evidence-independent-reviews-OCR-editorial-acceptance-preview-production
+
+### 2026-07-22T05:32:19.697Z · verify · root
+
+- Scope：read-only-Downloads-and-source-asset-completeness-audit
+- Resources：`/Users/ylsuen/Downloads`、`/private/tmp/curriculum-full-release-v2-20260719/data`
+- Evidence：audit-2026-07-22T05-31-42Z-ok-237-PDF-15-relevant-all-ingested-195-canonical-works-84-unique-OCR-artifacts-11691-pages
+- Rollback：no-live-or-candidate-data-change
+- Unresolved：two-blocked-documents-two-derived-OCR-layer-lineages-and-all-OCR-editorial-acceptance-remain-fail-closed
+
+### 2026-07-22T05:44:37.657Z · verify · root
+
+- Scope：curriculum-source-recovery-proof-read-only
+- Resources：`curriculum-atlas`、`MOE-2017-standards-RAR`、`MOE-2003-English-PDF`、`ICTR-quarantine-payloads`
+- Evidence：Official MOE RAR physics member hash 50b77ebb... equals ECNU mirror exactly; official MOE English hash a38f7b47...; each ICTR payload has exactly 8192 leading zero bytes and is byte-identical to the official valid PDF afterward; no candidate or production mutation
+- Rollback：No production state changed; temporary downloads remain under /private/tmp and can be discarded after tracked recovery integration
+- Unresolved：Do not add recovered PDFs to shared cache until parallel branches finish; then rebuild catalog queue corpus and rebind evidence slices
+
+### 2026-07-22T05:46:32.019Z · verify · root
+
+- Scope：2017-high-school-version-cross-validation
+- Resources：`curriculum-atlas`、`MOE-2017-standards-RAR`、`ICTR-2017-standard-set`
+- Evidence：Education Ministry RAR contains course plan plus 20 subject standards; 20 existing ICTR PDFs are byte-identical to official members, and the blocked physics payload is identical from byte 8192 onward with only an 8192-byte zero prefix replacing valid PDF header bytes
+- Rollback：Read-only verification; no candidate or live resource changed
+- Unresolved：Track official archive and 21 member proofs in source recovery contract after parallel branches finish
+
+### 2026-07-22T05:48:52.981Z · verify · root
+
+- Scope：2003-high-school-version-cross-validation
+- Resources：`curriculum-atlas`、`MOE-2003-notice`、`MOE-2003-16-PDF-set`、`ICTR-experimental-standard-set`
+- Evidence：Current MOE notice exposes course plan plus 15 subject PDFs; all 16 titles and page counts exactly match catalog works. Their bytes differ from ICTR scans, so they are independent same-work candidates requiring page/text adjudication rather than hash equivalence. Official English has 144 pages and removes the missing-file condition.
+- Rollback：Read-only verification; official files staged only under /private/tmp
+- Unresolved：Register official variants and page/text version-witness checks; do not silently replace in-flight OCR source hashes
+
+### 2026-07-22T05:52:18.512Z · verify · root
+
+- Scope：2004-political-standard-source-recovery
+- Resources：`curriculum-atlas`、`MOE-2004-political-notice`、`MOE-official-DOC`
+- Evidence：Official MOE notice now links a 210432-byte Word document, SHA-256 8198140c..., containing the full 609-line 66259-byte extract of 普通高中思想政治课程标准（实验）; catalog work is currently metadata-only, so this is a real recoverable source rather than a missing title
+- Rollback：Read-only external retrieval staged under /private/tmp; candidate and production unchanged
+- Unresolved：Add original-DOC asset lineage and reproducible text extraction; citations must use paragraph/span anchors because office pagination is not stable
+
+### 2026-07-22T05:54:53.607Z · verify · root
+
+- Scope：political-standard-version-conflict
+- Resources：`curriculum-atlas`、`MOE-2025-DOC`、`ICTR-2008-DOC`
+- Evidence：Both official/institute DOC extracts are 609 lines and 66259 bytes; exact diff has one character at section 5.11: ICTR older attachment 司法调节 versus current MOE attachment 司法调解. Treat as same-work attachment revision conflict, not OCR error.
+- Rollback：Read-only comparison; no tracked or live state changed
+- Unresolved：Preserve both hashes and dated attachments; bind quotes to exact artifact/version and adjudicate semantic interpretation separately
+
+### 2026-07-22T07:11:47.199Z · change · root
+
+- Scope：exact-official-source-recovery-candidate
+- Resources：`/private/tmp/curriculum-source-recovery-20260722`、`data/source-recovery-proofs.json`、`data/catalog.json`、`data/ocr-queue.json`、`data/corpus-chunks/manifest.json`、`public/data/graph-shards`
+- Evidence：source-recovery-overlay-registers-two-corrupt-endpoints-one-2017-official-RAR-21-members-sixteen-2003-scans-five-Office-artifacts-forty-two-work-version-bindings-and-regenerated-195-document-corpus-16711-paragraphs-93-chunks
+- Rollback：discard-or-revert-only-codex-curriculum-source-recovery-20260722-before-integration-production-v10-untouched
+- Unresolved：independent-source-recovery-review-required-before-commit-and-integration
+
+### 2026-07-22T07:11:47.286Z · verify · root
+
+- Scope：exact-source-recovery-local-and-live-byte-validation
+- Resources：`/private/tmp/curriculum-source-recovery-20260722`、`MOE-2017-RAR`、`MOE-2003-English-current-and-legacy`、`MOE-and-ICTR-political-DOC`
+- Evidence：full-Node-1036-pass-2-linux-skip-zero-fail-TypeScript-Python14-build-asset-audit-deep-RAR-member-page-recount-Office-text-reextraction-gitleaks-clean-and-five-live-official-download-hashes-exactly-match-governed-local-artifacts
+- Rollback：read-only-online-verification-and-revert-task-scoped-source-recovery-commit-if-independent-review-fails
+- Unresolved：source-recovery-independent-review-in-progress-no-preview-or-production-write
+
+### 2026-07-22T09:22:40.896Z · verify · Codex-root
+
+- Scope：remote-A2-read-only-post-restart-authoritative-health-and-checkpoint-audit
+- Resources：`DMITPro2-inner-bdfz-workstation`、`curriculum-ocr-reprocess-a-r2.service`、`A2-output-inode-45748776`
+- Evidence：proxyjump-key-auth-restored-host-up-six-days-disk-298GiB-free-GPU-38C-idle-service-process-free-lock-unheld-four-of-eight-documents-complete-1568-of3182-pages-durable-zero-failed-pages-one-interrupted-three-retry-wait-action-log-confirms-intentional-freeze-after-parent-monitor-query-error
+- Rollback：no-state-change-read-only
+- Unresolved：do-not-restart-until-A2-forward-continuation-three-P1-remediation-and-independent-review-plus-Linux-real-gates-pass
+
+</details>
+
+<details><summary><code>curriculum-zh-evidence-independent-review-repair-20260722</code> · 4 events · 2026-07-22T05:50:55.469Z → 2026-07-22T06:25:39.633Z</summary>
+
+Agents：`/root/fix_zh_vertical_slice`
+Resources：`/private/tmp/curriculum-zh-vertical-slice-successor-20260722`、`codex/zh-2017-2020-evidence-successor-20260722`、`data/research-evidence`、`scripts/research-evidence`、`tests/research-evidence`、`commit:25d2e1cf74911ac128bf22a06d883d8b3ce95756`、`parent:5c2232677b96ac1976023538b6717842613b6fb5`、`branch:codex/zh-2017-2020-evidence-successor-20260722`
+
+### 2026-07-22T05:50:55.469Z · start · /root/fix_zh_vertical_slice
+
+- Scope：isolated-local-successor-atop-5c223267-online-witness-conflict-schema-and-release-gate-hardening-no-deploy
+- Resources：`/private/tmp/curriculum-zh-vertical-slice-successor-20260722`、`codex/zh-2017-2020-evidence-successor-20260722`
+- Evidence：independent-review-fail-mandatory-p1-p2-repair
+- Rollback：drop-new-successor-commit-or-revert-it
+- Unresolved：exact-implementation-and-release-path-under-inspection
+
+### 2026-07-22T06:23:49.028Z · change · /root/fix_zh_vertical_slice
+
+- Scope：isolated-successor-source-only-document-binding-derived-conflicts-json-schema-strict-release-gate
+- Resources：`/private/tmp/curriculum-zh-vertical-slice-successor-20260722`、`data/research-evidence`、`scripts/research-evidence`、`tests/research-evidence`
+- Evidence：exact-document-version-artifact-binding-and-adversarial-tests-plus-Ajv-2020-12-and-pre-Wrangler-strict-gate
+- Rollback：revert-successor-commit-or-discard-isolated-branch
+- Unresolved：publication-remains-intentionally-blocked-pending-signed-editor-review-and-one-online-conflict
+
+### 2026-07-22T06:25:26.558Z · verify · /root/fix_zh_vertical_slice
+
+- Scope：isolated-successor-commit-25d2e1cf74911ac128bf22a06d883d8b3ce95756
+- Resources：`/private/tmp/curriculum-zh-vertical-slice-successor-20260722`、`codex/zh-2017-2020-evidence-successor-20260722`
+- Evidence：npm-test-1038-total-1036-pass-0-fail-2-skip-focused-28-pass-python-14-pass-tsc-build-assets-audit-real-integrity-exit0-strict-fail-closed-exit3-gitleaks-clean
+- Rollback：revert-25d2e1cf74911ac128bf22a06d883d8b3ce95756
+- Unresolved：publication-ineligible-until-signed-editor-review-third-assertion-also-has-online-conflict-and-no-exact-document-witness
+
+### 2026-07-22T06:25:39.633Z · closeout · /root/fix_zh_vertical_slice
+
+- Scope：handoff-only-successor-no-deploy-no-ssh-no-cache-content-mutation
+- Resources：`commit:25d2e1cf74911ac128bf22a06d883d8b3ce95756`、`parent:5c2232677b96ac1976023538b6717842613b6fb5`、`branch:codex/zh-2017-2020-evidence-successor-20260722`
+- Evidence：exact-parent-worktree-clean-release-gates-fail-closed-and-all-required-tests-green
+- Rollback：revert-successor-commit-or-discard-isolated-branch
+- Unresolved：integrate-only-after-independent-review-no-publication-or-production-mutation-was-attempted
+
+</details>
+
+<details><summary><code>curriculum-ontology-v2-p1-review-remediation-20260722</code> · 4 events · 2026-07-22T06:42:55.244Z → 2026-07-22T07:06:37.675Z</summary>
+
+Agents：`codex-ontology-v2-successor`
+Resources：`curriculum-atlas-worktree`、`scripts/validate-subject-ontology-v2.mjs`、`scripts/build-release-manifest.mjs`、`scripts/prepare-release.mjs`、`scripts/lib/desired-release-manifest.mjs`、`data/schemas/subject-ontology-v2.schema.json`、`data/subject-ontology-v2-validation.json`、`tests/subject-ontology-v2-contract.test.mjs`、`tests/release-manifest.test.mjs`、`ontology-v2-validator`、`release-builder`、`desired-release-manifest`、`schema`、`deterministic-report`、`adversarial-tests`、`contract-doc`、`ontology-focused-tests`、`full-node-suite`、`typescript`、`site-build`、`python-ocr-tests`、`gitleaks`、`commit-90ce19f41b7c7c8da378acca013518d487623f31`
+
+### 2026-07-22T06:42:55.244Z · start · codex-ontology-v2-successor
+
+- Scope：isolated-worktree-ontology-v2-release-contract-review-remediation
+- Resources：`curriculum-atlas-worktree`、`scripts/validate-subject-ontology-v2.mjs`、`scripts/build-release-manifest.mjs`、`scripts/prepare-release.mjs`、`scripts/lib/desired-release-manifest.mjs`、`data/schemas/subject-ontology-v2.schema.json`、`data/subject-ontology-v2-validation.json`、`tests/subject-ontology-v2-contract.test.mjs`、`tests/release-manifest.test.mjs`
+- Evidence：independent-review-four-P1-findings
+- Rollback：successor-commit-can-be-reverted-without-touching-24fa1e
+- Unresolved：no-deploy-no-candidate-no-cache
+
+### 2026-07-22T07:04:28.614Z · change · codex-ontology-v2-successor
+
+- Scope：isolated-worktree-ontology-v2-release-contract-review-remediation
+- Resources：`ontology-v2-validator`、`release-builder`、`desired-release-manifest`、`schema`、`deterministic-report`、`adversarial-tests`、`contract-doc`
+- Evidence：exact-Git-blob-promotion-boundary-governed-coverage-and-work-lineage-Ed25519-semantic-adjudication
+- Rollback：revert-successor-commit-on-isolated-branch
+- Unresolved：no-production-or-candidate-or-cache-mutation
+
+### 2026-07-22T07:06:10.026Z · verify · codex-ontology-v2-successor
+
+- Scope：isolated-worktree-ontology-v2-release-contract-review-remediation
+- Resources：`ontology-focused-tests`、`full-node-suite`、`typescript`、`site-build`、`python-ocr-tests`、`gitleaks`
+- Evidence：focused-43-pass-full-node-1049-tests-1046-pass-3-skip-zero-fail-python-14-pass-tsc-build-gitleaks-clean
+- Rollback：no-production-state-changed
+- Unresolved：canonical-promotion-remains-closed-until-reviewed-scopes-and-publishable-page-evidence-exist
+
+### 2026-07-22T07:06:37.675Z · closeout · codex-ontology-v2-successor
+
+- Scope：isolated-worktree-ontology-v2-release-contract-review-remediation
+- Resources：`commit-90ce19f41b7c7c8da378acca013518d487623f31`
+- Evidence：clean-worktree-parent-24fa1e-focused-43-pass-full-1049-zero-fail-postcommit-gitleaks-clean
+- Rollback：git-revert-90ce19f41b7c7c8da378acca013518d487623f31-after-integration-if-needed
+- Unresolved：no-deploy-candidate-and-cache-untouched-promotion-fail-closed-until-governed-review-data-exist
+
+</details>
+
+<details><summary><code>curriculum-a2-forward-continuation-successor-20260722</code> · 4 events · 2026-07-22T06:58:43.690Z → 2026-07-22T07:44:27.207Z</summary>
+
+Agents：`/root/review_a2_forward_fix`
+Resources：`/private/tmp/curriculum-a2-forward-continuation-successor-20260722`、`codex/a2-forward-continuation-successor-20260722`、`scripts-continuation-lock-journal-unit-fence-receiver-tests`、`continuation-runner`、`continuation-validator`、`lifecycle-flock`、`receiver-integration`、`adversarial-tests`、`protocol-doc`、`1145453`、`bede155`
+
+### 2026-07-22T06:58:43.690Z · start · /root/review_a2_forward_fix
+
+- Scope：isolated-local-successor-hardening-from-bede155-no-ssh-no-deploy
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-successor-20260722`、`codex/a2-forward-continuation-successor-20260722`、`scripts-continuation-lock-journal-unit-fence-receiver-tests`
+- Evidence：independent-review-four-P1-findings-and-clean-bede155-successor
+- Rollback：revert-single-successor-commit-or-discard-independent-worktree
+- Unresolved：implementation-and-regression-tests-pending-production-profile-remains-fail-closed
+
+### 2026-07-22T07:32:02.828Z · change · /root/review_a2_forward_fix
+
+- Scope：isolated-successor-worktree-a2-forward-continuation
+- Resources：`continuation-runner`、`continuation-validator`、`lifecycle-flock`、`receiver-integration`、`adversarial-tests`、`protocol-doc`
+- Evidence：terminal-plan-first-recovery-resume-chain-fd-path-inode-guard-systemd-generation-fence-full-receiver-archive-idempotency
+- Rollback：revert-task-commit-after-local-integration-if-needed
+- Unresolved：no-remote-or-deploy-candidate-mutation-linux-real-flock-test-remains-platform-gated
+
+### 2026-07-22T07:44:27.194Z · verify · /root/review_a2_forward_fix
+
+- Scope：isolated-clean-commit-A2-forward-continuation-successor
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-successor-20260722`、`1145453`、`bede155`
+- Evidence：npm-test-1076-total-1072-pass-0-fail-4-linux-only-skip-build-tsc-python14-gitleaks-clean-release-source-all-pass
+- Rollback：revert-1145453-after-integration-or-drop-unintegrated-successor-branch
+- Unresolved：Linux-real-inherited-fd-flock-and-systemd-dry-run-remain-platform-gated-production-profile-remains-fail-closed
+
+### 2026-07-22T07:44:27.207Z · closeout · /root/review_a2_forward_fix
+
+- Scope：committed-local-control-plane-only-no-remote-mutation
+- Resources：`codex/a2-forward-continuation-successor-20260722`、`1145453`、`bede155`
+- Evidence：clean-single-commit-successor-with-four-P1-adversarial-regressions-and-receiver-E2E
+- Rollback：revert-1145453-after-integration-or-discard-successor-worktree-before-integration
+- Unresolved：Linux-real-tests-and-parent-owned-integration-remain-pending-no-SSH-deploy-systemd-or-production-write-performed
+
+</details>
+
+<details><summary><code>curriculum-ontology-v2-p1-successor-remediation-20260722</code> · 4 events · 2026-07-22T07:58:15.932Z → 2026-07-22T08:22:15.844Z</summary>
+
+Agents：`/root/fix_ontology_v2_contract`
+Resources：`/private/tmp/curriculum-ontology-v2-successor-20260722`、`scripts/validate-subject-ontology-v2.mjs`、`scripts/lib/desired-release-manifest.mjs`、`data/schemas/subject-ontology-v2.schema.json`、`data/ontologies/index.json`、`tests/subject-ontology-v2-contract.test.mjs`、`tests/release-manifest.test.mjs`、`ontology-validator`、`desired-release-envelope`、`governed-review-signatures`、`canonical-path-library`、`schema-index-report-tests-docs`、`focused-tests`、`full-node-suite`、`typescript`、`site-build`、`python-ocr-tests`、`gitleaks`、`branch-codex-ontology-v2-successor-20260722`、`commit-a8bec76f2684278bf54bf42123385e1ccd9c637d`、`parent-90ce19f41b7c7c8da378acca013518d487623f31`
+
+### 2026-07-22T07:58:15.932Z · start · /root/fix_ontology_v2_contract
+
+- Scope：isolated-successor-only-test-first-self-reference-signed-reviews-canonical-path
+- Resources：`/private/tmp/curriculum-ontology-v2-successor-20260722`、`scripts/validate-subject-ontology-v2.mjs`、`scripts/lib/desired-release-manifest.mjs`、`data/schemas/subject-ontology-v2.schema.json`、`data/ontologies/index.json`、`tests/subject-ontology-v2-contract.test.mjs`、`tests/release-manifest.test.mjs`
+- Evidence：independent-review-three-P1-findings-on-commit-90ce19f
+- Rollback：revert-new-successor-commit-or-discard-isolated-branch
+- Unresolved：no-deploy-no-ssh-no-candidate-integration
+
+### 2026-07-22T08:21:37.574Z · change · /root/fix_ontology_v2_contract
+
+- Scope：isolated-successor-ontology-v2-contract-only
+- Resources：`ontology-validator`、`desired-release-envelope`、`governed-review-signatures`、`canonical-path-library`、`schema-index-report-tests-docs`
+- Evidence：three-red-regressions-now-green-47-focused-tests-and-full-1053-zero-fail
+- Rollback：revert-new-successor-commit
+- Unresolved：ordinary-ontology-remains-zero-scope-candidate-fail-closed-no-deploy-no-integration
+
+### 2026-07-22T08:22:15.829Z · verify · /root/fix_ontology_v2_contract
+
+- Scope：isolated-clean-successor-commit-a8bec76f2684278bf54bf42123385e1ccd9c637d
+- Resources：`focused-tests`、`full-node-suite`、`typescript`、`site-build`、`python-ocr-tests`、`gitleaks`
+- Evidence：focused-47-pass-full-1053-total-1050-pass-3-skip-zero-fail-python-14-pass-tsc-build-ontology-validator-gitleaks-clean
+- Rollback：revert-a8bec76f2684278bf54bf42123385e1ccd9c637d
+- Unresolved：zero-scope-candidate-fail-closed-no-deploy-no-ssh-no-integration
+
+### 2026-07-22T08:22:15.844Z · closeout · /root/fix_ontology_v2_contract
+
+- Scope：handoff-only-isolated-successor
+- Resources：`branch-codex-ontology-v2-successor-20260722`、`commit-a8bec76f2684278bf54bf42123385e1ccd9c637d`、`parent-90ce19f41b7c7c8da378acca013518d487623f31`
+- Evidence：clean-worktree-three-P1-regressions-and-postcommit-envelope-proof-green
+- Rollback：drop-unintegrated-branch-or-revert-a8bec76f2684278bf54bf42123385e1ccd9c637d-after-integration
+- Unresolved：parent-owned-review-and-integration-remain-no-production-state-changed
+
+</details>
+
+<details><summary><code>curriculum-admin-control-plane-20260722</code> · 7 events · 2026-07-22T08:01:34.809Z → 2026-07-22T09:58:36.661Z</summary>
+
+Agents：`Codex-root`、`Codex-review-admin`
+Resources：`/private/tmp/curriculum-admin-control-plane-20260722`、`src/index.ts`、`public/app.js`、`public/style.css`、`tests`、`docs`、`src/admin.ts`、`public/styles.css`、`data/release-environment-evidence.json`、`tests/admin-control-plane.test.mjs`、`docs/admin-control-plane.md`、`421c1304cacb26095e3b76c02f02dd880c91e947`、`public/admin-control-plane.js`、`scripts/verify-dual-schema-bootstrap.mjs`、`commit-d3378d405af5487cd92a3b0064422ea0ce95fe2d`
+
+### 2026-07-22T08:01:34.809Z · start · Codex-root
+
+- Scope：isolated-admin-UI-and-admin-API-contract-from-exact-ba9fa6a
+- Resources：`/private/tmp/curriculum-admin-control-plane-20260722`、`src/index.ts`、`public/app.js`、`public/style.css`、`tests`、`docs`
+- Evidence：recent-action-log-inspected-no-active-admin-owner-candidate-and-production-untouched
+- Rollback：discard-isolated-worktree-or-revert-task-commit
+- Unresolved：no-deploy-no-D1-write-no-shared-candidate-integration-until-independent-review
+
+### 2026-07-22T08:34:05.090Z · change · Codex-root
+
+- Scope：isolated-admin-control-plane-only-no-deploy
+- Resources：`/private/tmp/curriculum-admin-control-plane-20260722`、`src/admin.ts`、`src/index.ts`、`public/app.js`、`public/styles.css`、`data/release-environment-evidence.json`、`tests/admin-control-plane.test.mjs`、`docs/admin-control-plane.md`
+- Evidence：admin-session-auth-before-D1-allowlisted-bound-inventory-real-0001-through-0009-schema-report-claim-four-exact-writes-private-AI-log-projection-official-bootstrap-receipt-refreshed
+- Rollback：discard-isolated-worktree-or-revert-task-commit
+- Unresolved：independent-review-integration-preview-and-production-pending
+
+### 2026-07-22T08:38:12.921Z · verify · Codex-root
+
+- Scope：isolated-clean-commit-421c1304cacb26095e3b76c02f02dd880c91e947-no-deploy
+- Resources：`/private/tmp/curriculum-admin-control-plane-20260722`、`421c1304cacb26095e3b76c02f02dd880c91e947`
+- Evidence：focused-9-pass-full-1034-total-1031-pass-0-fail-3-linux-skip-real-migrations-assets-page-gate-concepts-ontology-tsc-build-python14-gitleaks-pass
+- Rollback：revert-421c1304cacb26095e3b76c02f02dd880c91e947-after-integration-or-drop-unintegrated-branch
+- Unresolved：independent-review-pending-release-manifest-correctly-refuses-unpushed-no-upstream-branch-no-preview-or-production-change
+
+### 2026-07-22T09:39:51.919Z · start · Codex-review-admin
+
+- Scope：isolated-admin-five-finding-remediation-no-deploy
+- Resources：`/private/tmp/curriculum-admin-control-plane-20260722`、`src/admin.ts`、`src/index.ts`、`public/app.js`、`public/admin-control-plane.js`、`public/styles.css`、`scripts/verify-dual-schema-bootstrap.mjs`、`tests/admin-control-plane.test.mjs`、`data/release-environment-evidence.json`
+- Evidence：independent-review-confirmed-five-findings-and-existing-task-ownership-handoff
+- Rollback：revert-new-remediation-commit-or-drop-isolated-branch
+- Unresolved：tests-first-implementation-and-independent-integration-pending
+
+### 2026-07-22T09:57:49.007Z · change · Codex-review-admin
+
+- Scope：isolated-five-finding-admin-remediation
+- Resources：`/private/tmp/curriculum-admin-control-plane-20260722`、`src/admin.ts`、`src/index.ts`、`public/app.js`、`public/admin-control-plane.js`、`public/styles.css`、`scripts/verify-dual-schema-bootstrap.mjs`、`tests/admin-control-plane.test.mjs`、`data/release-environment-evidence.json`
+- Evidence：real-0007-0008-0009-admin-probes-four-write-CAS-runtime-bundle-binding-pagination-status-semantics-focus-live-region
+- Rollback：git-revert-remediation-commit-after-created
+- Unresolved：no-preview-no-live-admin-account-no-deploy
+
+### 2026-07-22T09:58:27.495Z · verify · Codex-review-admin
+
+- Scope：clean-HEAD-local-verification
+- Resources：`/private/tmp/curriculum-admin-control-plane-20260722`、`commit-d3378d405af5487cd92a3b0064422ea0ce95fe2d`
+- Evidence：focused-15-pass-full-1038-pass-2-skips-zero-fail-python-14-pass-tsc-build-dual-schema-0007-0008-0009-runtime-receipt-gitleaks-clean
+- Rollback：git-revert-d3378d405af5487cd92a3b0064422ea0ce95fe2d
+- Unresolved：preview-real-admin-browser-and-production-verification-pending
+
+### 2026-07-22T09:58:36.661Z · closeout · Codex-review-admin
+
+- Scope：isolated-admin-remediation-committed-no-remote
+- Resources：`/private/tmp/curriculum-admin-control-plane-20260722`、`commit-d3378d405af5487cd92a3b0064422ea0ce95fe2d`
+- Evidence：clean-worktree-five-confirmed-findings-fixed-no-SSH-no-deploy-no-production-mutation
+- Rollback：git-revert-d3378d405af5487cd92a3b0064422ea0ce95fe2d
+- Unresolved：preview-real-admin-browser-accessibility-and-live-integration-remain-before-release
+
+</details>
+
+<details><summary><code>curriculum-a2-forward-continuation-reliability-p1-20260722</code> · 4 events · 2026-07-22T08:27:42.740Z → 2026-07-22T09:06:24.097Z</summary>
+
+Agents：`/root/review_a2_reliability`
+Resources：`/private/tmp/curriculum-a2-forward-continuation-successor-20260722`、`scripts/continue-remote-ocr-operator-interruption.mjs`、`scripts/lib/remote-ocr-operator-continuation.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`tests/remote-ocr-operator-interruption-continuation.test.mjs`、`tests/remote-ocr-offload-receiver.test.mjs`、`continuation-runner`、`continuation-validator`、`runtime-manifest`、`receiver-tests`、`protocol-doc`、`focused-node-tests`、`full-node-suite`、`typescript`、`site-build`、`python-ocr-tests`、`gitleaks`、`diff`、`branch-codex-a2-forward-continuation-successor-20260722`、`commit-a16e539`、`parent-1145453`
+
+### 2026-07-22T08:27:42.740Z · start · /root/review_a2_reliability
+
+- Scope：isolated-successor-test-first-deterministic-terminal-temp-orphan-process-recovery-runtime-manifest-no-remote-no-deploy
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-successor-20260722`、`scripts/continue-remote-ocr-operator-interruption.mjs`、`scripts/lib/remote-ocr-operator-continuation.mjs`、`scripts/receive-remote-ocr-offload.mjs`、`tests/remote-ocr-operator-interruption-continuation.test.mjs`、`tests/remote-ocr-offload-receiver.test.mjs`
+- Evidence：parent-delegated-three-confirmed-P1s-clean-head-1145453-existing-owner-closed
+- Rollback：revert-new-successor-commit-or-discard-isolated-worktree
+- Unresolved：production-profile-remains-five-null-anchors-fail-closed
+
+### 2026-07-22T08:52:29.951Z · change · /root/review_a2_reliability
+
+- Scope：isolated-successor-three-P1-test-first-local-only
+- Resources：`continuation-runner`、`continuation-validator`、`runtime-manifest`、`receiver-tests`、`protocol-doc`
+- Evidence：deterministic-plan-bound-terminal-temp-real-SIGKILL-recovery-hash-bound-orphan-process-and-exact-llama-convergence-independent-eight-file-runtime-closure-receipt-and-receiver-validation
+- Rollback：revert-new-successor-commit-or-discard-isolated-worktree
+- Unresolved：production-profile-five-null-anchors-remain-fail-closed-no-remote-no-deploy
+
+### 2026-07-22T09:06:23.961Z · verify · /root/review_a2_reliability
+
+- Scope：isolated-clean-commit-a16e539-three-P1-reliability-gates
+- Resources：`focused-node-tests`、`full-node-suite`、`typescript`、`site-build`、`python-ocr-tests`、`gitleaks`、`diff`、`runtime-manifest`
+- Evidence：focused-131-total-129-pass-0-fail-2-linux-skip-full-1084-total-1080-pass-0-fail-4-skip-python14-pass-tsc-build-gitleaks-tree-and-one-commit-clean-runtime-tree-f108a068
+- Rollback：revert-a16e539-after-integration-or-drop-unintegrated-successor
+- Unresolved：production-profile-five-null-anchors-remain-intentionally-fail-closed-linux-systemd-real-dry-run-still-platform-gated
+
+### 2026-07-22T09:06:24.097Z · closeout · /root/review_a2_reliability
+
+- Scope：handoff-only-clean-successor-no-ssh-no-deploy-no-production-write
+- Resources：`branch-codex-a2-forward-continuation-successor-20260722`、`commit-a16e539`、`parent-1145453`
+- Evidence：deterministic-terminal-temp-real-SIGKILL-tests-owned-process-recovery-independent-runtime-manifest-receiver-readback-worktree-clean
+- Rollback：drop-unintegrated-branch-or-revert-a16e539-after-integration
+- Unresolved：parent-owned-independent-review-and-integration-production-execution-still-blocked-by-five-null-anchors
+
+</details>
+
+<details><summary><code>curriculum-source-recovery-successor2-20260722</code> · 5 events · 2026-07-22T08:39:41.140Z → 2026-07-22T09:25:28.616Z</summary>
+
+Agents：`Codex-root`
+Resources：`/private/tmp/curriculum-source-recovery-successor2-20260722`、`scripts/validate-source-recovery-proofs.mjs`、`scripts/source-recovery-online-receipt.mjs`、`tests/source-recovery-proofs.test.mjs`、`tests/source-recovery-online-receipt.test.mjs`、`source-proof-validator`、`online-receipt-validator`、`catalog-identity-shape`、`tests`、`docs`、`dff01a968a41a939a71726753dd8215dfbd53533`、`373627780303ba91ac7159f99b166c85f9a1b9af`、`codex/curriculum-source-recovery-successor2-20260722`
+
+### 2026-07-22T08:39:41.140Z · start · Codex-root
+
+- Scope：isolated-successor-from-3736277-red-tests-for-independent-data-consistency-findings-no-remote
+- Resources：`/private/tmp/curriculum-source-recovery-successor2-20260722`、`scripts/validate-source-recovery-proofs.mjs`、`scripts/source-recovery-online-receipt.mjs`、`tests/source-recovery-proofs.test.mjs`、`tests/source-recovery-online-receipt.test.mjs`
+- Evidence：independent-review-reproduced-fixed-universe-status-exception-redirect-chain-exact-key-and-proof-byte-binding-gaps
+- Rollback：discard-isolated-worktree-or-revert-successor-commit
+- Unresolved：original-review-still-finishing-no-deploy-no-candidate-integration
+
+### 2026-07-22T09:09:17.321Z · change · Codex-root
+
+- Scope：isolated-source-recovery-successor-no-remote
+- Resources：`/private/tmp/curriculum-source-recovery-successor2-20260722`、`source-proof-validator`、`online-receipt-validator`、`catalog-identity-shape`、`tests`、`docs`
+- Evidence：immutable-git-object-baseline-exact-149-pdf-and-86-row-queue-universe-explicit-identity-keys-contiguous-redirects-two-exact-ICTR-412-pages-proof-byte-binding
+- Rollback：revert-successor-commit-or-drop-unintegrated-branch
+- Unresolved：cross-branch-catalog-hash-regeneration-deferred-to-parent-integration-no-deploy
+
+### 2026-07-22T09:10:08.123Z · verify · Codex-root
+
+- Scope：isolated-clean-commit-dff01a968a41a939a71726753dd8215dfbd53533-no-deploy
+- Resources：`/private/tmp/curriculum-source-recovery-successor2-20260722`、`dff01a968a41a939a71726753dd8215dfbd53533`
+- Evidence：focused-27-pass-local-deep-149-pdf-21-archive-member-and-online-6-page-23-artifact-gates-pass-tsc-build-python14-gitleaks-pass-full-1053-had-1042-pass-2-skip-and-8-expected-cross-branch-catalog-hash-failures-plus-prebuild-dist-failure
+- Rollback：revert-dff01a9-after-integration-or-drop-unintegrated-branch
+- Unresolved：independent-review-pending-full-zero-fail-requires-parent-integration-and-regeneration-of-catalog-bound-ontology-page-evidence-and-release-artifacts
+
+### 2026-07-22T09:25:28.516Z · verify · Codex-root
+
+- Scope：independent-read-only-exact-tip-source-recovery-review
+- Resources：`dff01a968a41a939a71726753dd8215dfbd53533`、`373627780303ba91ac7159f99b166c85f9a1b9af`
+- Evidence：independent-PASS-no-actionable-findings-exact-195-document-ID-preservation-149-PDF-universe-86-row-ordered-queue-redirect-WAF-proof-byte-and-source-manifest-gates-plus-27-of27-focused-tests-clean
+- Rollback：no-live-state-change-unintegrated-commit-can-be-omitted-or-reverted
+- Unresolved：parent-integration-and-generated-catalog-bound-artifact-regeneration-pending
+
+### 2026-07-22T09:25:28.616Z · closeout · Codex-root
+
+- Scope：source-recovery-successor-approved-for-parent-integration
+- Resources：`codex/curriculum-source-recovery-successor2-20260722`、`dff01a968a41a939a71726753dd8215dfbd53533`
+- Evidence：clean-commit-independent-PASS-no-remote-or-production-mutation
+- Rollback：drop-branch-before-integration-or-revert-dff01a9-after-integration
+- Unresolved：integrate-with-ontology-research-A2-admin-and-regenerate-once-before-preview
+
+</details>
+
+<details><summary><code>curriculum-zh-url-delimiter-followup-20260722</code> · 3 events · 2026-07-22T09:12:44.959Z → 2026-07-22T09:13:11.148Z</summary>
+
+Agents：`Codex-root`
+Resources：`/private/tmp/curriculum-zh-vertical-slice-successor2-20260722`、`scripts/lib/research-evidence-slice.mjs`、`tests/research-evidence-slice.test.mjs`、`docs/zh-hs-2017-2020-research-evidence-slice.md`、`research-url-normalizer`、`focused-negative-tests`、`operator-doc`、`181a131f174b19a107f829a63ca7c4e9550b5f6a`
+
+### 2026-07-22T09:12:44.959Z · start · Codex-root
+
+- Scope：isolated-zh-successor-followup-from-cdd285e-no-remote
+- Resources：`/private/tmp/curriculum-zh-vertical-slice-successor2-20260722`、`scripts/lib/research-evidence-slice.mjs`、`tests/research-evidence-slice.test.mjs`、`docs/zh-hs-2017-2020-research-evidence-slice.md`
+- Evidence：independent-review-reproduced-empty-fragment-and-empty-userinfo-alias-plus-stale-doc-command
+- Rollback：revert-followup-commit-or-drop-unintegrated-branch
+- Unresolved：reviewer-remains-read-only-full-integration-pending
+
+### 2026-07-22T09:12:44.992Z · change · Codex-root
+
+- Scope：isolated-zh-url-syntax-and-doc-command-only
+- Resources：`research-url-normalizer`、`focused-negative-tests`、`operator-doc`
+- Evidence：raw-fragment-control-whitespace-backslash-and-authority-userinfo-delimiters-rejected-before-WHATWG-normalization-renderer-override-removed-from-doc-examples
+- Rollback：revert-followup-commit
+- Unresolved：independent-review-recheck-and-parent-integration-pending-no-deploy
+
+### 2026-07-22T09:13:11.148Z · verify · Codex-root
+
+- Scope：isolated-clean-commit-181a131f174b19a107f829a63ca7c4e9550b5f6a-no-deploy
+- Resources：`/private/tmp/curriculum-zh-vertical-slice-successor2-20260722`、`181a131f174b19a107f829a63ca7c4e9550b5f6a`
+- Evidence：focused-33-pass-including-empty-fragment-and-empty-userinfo-distinct-source-registry-regressions-diff-clean-gitleaks-clean
+- Rollback：revert-181a131-after-integration-or-drop-unintegrated-branch
+- Unresolved：independent-review-recheck-full-suite-already-green-at-parent-cdd285e-integration-pending
+
+</details>
+
+<details><summary><code>curriculum-a2-forward-continuation-p1-remediation-2-20260722</code> · 5 events · 2026-07-22T09:18:42.580Z → 2026-07-22T09:53:40.139Z</summary>
+
+Agents：`/root/review_a2_fixed_branch`
+Resources：`/private/tmp/curriculum-a2-forward-continuation-successor-20260722`、`scripts/continue-remote-ocr-operator-interruption.mjs`、`scripts/lib/remote-ocr-operator-continuation.mjs`、`tests/remote-ocr-operator-interruption-continuation.test.mjs`、`tests/remote-ocr-offload-receiver.test.mjs`、`docs/remote-ocr-operator-interruption-continuation.md`、`data/remote-ocr-a2-continuation-runtime-manifest.json`、`data/release-assets-policy.json`、`commit-0aab245cc4c53d1349a47aabb3cc8f3904ef7353`
+
+### 2026-07-22T09:18:42.580Z · start · /root/review_a2_fixed_branch
+
+- Scope：isolated-a2-continuation-closure-tests-docs-test-first-no-remote
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-successor-20260722`、`scripts/continue-remote-ocr-operator-interruption.mjs`、`scripts/lib/remote-ocr-operator-continuation.mjs`、`tests/remote-ocr-operator-interruption-continuation.test.mjs`、`tests/remote-ocr-offload-receiver.test.mjs`、`docs/remote-ocr-operator-interruption-continuation.md`
+- Evidence：independent-review-three-P1s-accepted-at-clean-a16e539
+- Rollback：revert-new-remediation-commit-or-drop-unintegrated-branch
+- Unresolved：five-production-anchors-remain-null-no-SSH-no-deploy
+
+### 2026-07-22T09:38:40.049Z · change · /root/review_a2_fixed_branch
+
+- Scope：isolated-a2-continuation-runtime-closure-tests-docs
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-successor-20260722`、`scripts/continue-remote-ocr-operator-interruption.mjs`、`scripts/lib/remote-ocr-operator-continuation.mjs`、`data/remote-ocr-a2-continuation-runtime-manifest.json`、`tests/remote-ocr-operator-interruption-continuation.test.mjs`、`tests/remote-ocr-offload-receiver.test.mjs`、`docs/remote-ocr-operator-interruption-continuation.md`
+- Evidence：added-plan-inode-terminal-temp-recovery-durable-llama-start-intent-and-immediate-process-unit-identity-revalidation
+- Rollback：revert-remediation-commit-after-created
+- Unresolved：five-production-anchors-remain-null-no-remote-mutation
+
+### 2026-07-22T09:46:11.575Z · change · /root/review_a2_fixed_branch
+
+- Scope：register-runtime-closure-in-release-data-inventory
+- Resources：`data/release-assets-policy.json`
+- Evidence：full-suite-exposed-unregistered-tracked-runtime-manifest-release-tests-pass-after-explicit-private-quality-evidence-registration
+- Rollback：revert-remediation-commit-after-created
+- Unresolved：full-clean-HEAD-regression-pending
+
+### 2026-07-22T09:53:40.111Z · verify · /root/review_a2_fixed_branch
+
+- Scope：clean-HEAD-local-verification
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-successor-20260722`、`commit-0aab245cc4c53d1349a47aabb3cc8f3904ef7353`
+- Evidence：focused-59-pass-3-macos-linux-skips-full-1085-pass-5-skips-build-tsc-python-14-pass-gitleaks-216-commits-no-leaks-runtime-manifest-ffdbd3f85f1e38737f011b92ffca5574a30735593ed5536b762d5e6d783718c1-tree-4d6ab40a892f00779d151d383b961dd807e62d66f750a5b0a849a1b2ab74abd6
+- Rollback：git-revert-0aab245cc4c53d1349a47aabb3cc8f3904ef7353
+- Unresolved：linux-only-proc-and-flock-tests-skipped-on-macos-five-production-anchors-null
+
+### 2026-07-22T09:53:40.139Z · closeout · /root/review_a2_fixed_branch
+
+- Scope：isolated-A2-remediation-committed-no-remote
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-successor-20260722`、`commit-0aab245cc4c53d1349a47aabb3cc8f3904ef7353`
+- Evidence：clean-worktree-seven-files-committed-no-SSH-no-deploy-no-production-mutation
+- Rollback：git-revert-0aab245cc4c53d1349a47aabb3cc8f3904ef7353
+- Unresolved：independent-review-and-linux-execution-remain-before-any-profile-release
+
+</details>
+
+<details><summary><code>curriculum-final-integration-20260722</code> · 11 events · 2026-07-22T09:25:53.324Z → 2026-07-22T09:50:38.645Z</summary>
+
+Agents：`Codex-root`、`codex-root`
+Resources：`/private/tmp/curriculum-final-integration-20260722`、`codex/curriculum-final-integration-20260722`、`curriculum-atlas`、`dff01a968a41a939a71726753dd8215dfbd53533`、`373627780303ba91ac7159f99b166c85f9a1b9af`、`181a131f174b19a107f829a63ca7c4e9550b5f6a`、`0f04b86`、`tests/release-source-gate.test.mjs`、`tests/research-evidence-slice.test.mjs`、`tests/source-recovery-proofs.test.mjs`、`tests/source-recovery-online-receipt.test.mjs`、`a299941`、`scripts/lib/research-evidence-slice.mjs`、`3ec13eb`、`docs/original-goal-delivery-matrix.md`、`/private/tmp/curriculum-final-integration-20260722/docs/original-goal-delivery-matrix.md`、`/private/tmp/curriculum-final-integration-20260722/scripts/page-evidence/fail-closed-manifest.json`、`/private/tmp/curriculum-final-integration-20260722/data/catalog.json`、`DMITPro2-inner-bdfz`、`/private/tmp/curriculum-final-integration-20260722/docs/operations.md`、`/private/tmp/curriculum-final-integration-20260722/docs/ai-handoff.md`
+
+### 2026-07-22T09:25:53.324Z · start · Codex-root
+
+- Scope：create-single-isolated-integration-candidate-from-exact-ba9fa6a-and-merge-only-independently-approved-chains
+- Resources：`/private/tmp/curriculum-final-integration-20260722`、`codex/curriculum-final-integration-20260722`、`curriculum-atlas`
+- Evidence：candidate-base-ba9fa6a-clean-source-dff01a9-independent-PASS-zh-181a131-independent-PASS-other-components-still-read-only-pending-review
+- Rollback：remove-unintegrated-worktree-and-branch-or-revert-task-scoped-merges
+- Unresolved：no-preview-production-D1-R2-GitHub-or-remote-OCR-mutation-until-all-reviews-and-regeneration-pass
+
+### 2026-07-22T09:26:11.796Z · change · Codex-root
+
+- Scope：merged-independently-approved-source-recovery-chain-into-single-integration-candidate
+- Resources：`/private/tmp/curriculum-final-integration-20260722`、`dff01a968a41a939a71726753dd8215dfbd53533`、`373627780303ba91ac7159f99b166c85f9a1b9af`
+- Evidence：no-conflict-no-regeneration-yet-source-commit-preserved-as-real-ancestor
+- Rollback：revert-the-integration-merge-or-drop-unpublished-integration-branch
+- Unresolved：ontology-research-A2-admin-merges-and-one-final-generated-artifact-rebuild-pending
+
+### 2026-07-22T09:30:27.944Z · change · Codex-root
+
+- Scope：manually-merged-independently-approved-Chinese-2017-to2020-evidence-chain-with-source-recovery-gate
+- Resources：`/private/tmp/curriculum-final-integration-20260722`、`181a131f174b19a107f829a63ca7c4e9550b5f6a`、`0f04b86`
+- Evidence：retained-source-receipt-freshness-before-lexical-built-in-prepareRelease-WeakSet-one-shot-capability-and-immutable-snapshot-order-removed-obsolete-releasePreparer-injection
+- Rollback：revert-integration-merge-0f04b86-or-drop-unpublished-branch
+- Unresolved：chronology-invariant-and-dynamic-capability-replay-P2-hardening-still-to-add-before-final-review
+
+### 2026-07-22T09:30:28.043Z · verify · Codex-root
+
+- Scope：focused-source-recovery-plus-research-evidence-plus-release-transaction-integration-gates
+- Resources：`0f04b86`、`tests/release-source-gate.test.mjs`、`tests/research-evidence-slice.test.mjs`、`tests/source-recovery-proofs.test.mjs`、`tests/source-recovery-online-receipt.test.mjs`
+- Evidence：78-of78-pass-no-skip-diff-check-clean-149-PDF-and86-row-source-universe-preserved
+- Rollback：no-live-state-change
+- Unresolved：full-suite-and-generated-artifact-regeneration-after-remaining-merges
+
+### 2026-07-22T09:31:38.947Z · change · Codex-root
+
+- Scope：closed-nonblocking-Chinese-research-evidence-chronology-review-gap
+- Resources：`a299941`、`scripts/lib/research-evidence-slice.mjs`、`tests/research-evidence-slice.test.mjs`
+- Evidence：strict-from-sort-year-less-than-to-sort-year-invariant-survives-coordinated-manifest-corpus-and-registry-rewrite
+- Rollback：revert-a299941
+- Unresolved：final-independent-integration-review-still-required
+
+### 2026-07-22T09:31:39.040Z · verify · Codex-root
+
+- Scope：focused-Chinese-research-evidence-chronology-regression
+- Resources：`a299941`、`tests/research-evidence-slice.test.mjs`
+- Evidence：34-of34-pass-including-coordinated-reversed-year-negative-test
+- Rollback：no-live-state-change
+- Unresolved：capability-dynamic-replay-remains-nonblocking-static-contract-until-final-integration-review
+
+### 2026-07-22T09:36:12.647Z · change · Codex-root
+
+- Scope：refreshed-original-goal-truth-matrix-from-independent-source-review-and-live-read-only-A2-audit
+- Resources：`3ec13eb`、`docs/original-goal-delivery-matrix.md`
+- Evidence：source-queue-86-documents-11903-pages-85-unique-11835-pages-zero-blocked-A2-1568-of3182-zero-failed-pages-four-complete-one-interrupted-three-retry-wait
+- Rollback：revert-3ec13eb-if-superseded-by-later-verified-snapshot
+- Unresolved：update-again-after-A2-resume-OCR-import-preview-or-production-state-change
+
+### 2026-07-22T09:39:25.551Z · change · codex-root
+
+- Scope：original-goal-delivery-matrix
+- Resources：`/private/tmp/curriculum-final-integration-20260722/docs/original-goal-delivery-matrix.md`
+- Evidence：commit ced8b1d aligns the current 85 unique OCR denominator and integration-only critical path
+- Rollback：revert commit ced8b1d before release regeneration
+- Unresolved：ontology A2 and admin branches remain under independent review; production unchanged
+
+### 2026-07-22T09:43:03.480Z · verify · codex-root
+
+- Scope：fail-closed-release-regeneration-precheck
+- Resources：`/private/tmp/curriculum-final-integration-20260722/scripts/page-evidence/fail-closed-manifest.json`、`/private/tmp/curriculum-final-integration-20260722/data/catalog.json`
+- Evidence：research validation found SQL-manifest batch mismatch; corpus build then failed closed because page-evidence manifest is bound to the prior catalog SHA
+- Rollback：no production or remote mutation; integration worktree remains on committed source plus matrix updates
+- Unresolved：independent review must authorize a newly generated zero-publication binding before corpus and research evidence regeneration
+
+### 2026-07-22T09:48:48.359Z · verify · codex-root
+
+- Scope：remote-ocr-run-universe-readback
+- Resources：`DMITPro2-inner-bdfz`、`/private/tmp/curriculum-final-integration-20260722/docs/original-goal-delivery-matrix.md`
+- Evidence：read-only run-status readback proves B3 6 documents and 3182 pages finished settled complete; A2 remains 4 complete 1 interrupted 3 retry_wait and frozen; matrix commit 76c9820 preserves B3 asset
+- Rollback：documentation-only commit can be reverted; no remote service or output mutation
+- Unresolved：B3 still requires reviewed whole-document receiver import; A2 continuation remains under local review
+
+### 2026-07-22T09:50:38.645Z · change · codex-root
+
+- Scope：OCR operations and AI handoff truth reconciliation
+- Resources：`/private/tmp/curriculum-final-integration-20260722/docs/operations.md`、`/private/tmp/curriculum-final-integration-20260722/docs/ai-handoff.md`
+- Evidence：commit 8d126ae records current 86/11903 nominal queue 85/11835 unique queue local 6859 primary audit 6924 Vision B3 3182 complete and A2 1568 durable frozen
+- Rollback：revert commit 8d126ae; no remote or production mutation
+- Unresolved：B3 and final A2 must pass complete 14-document receiver union; page publication remains zero
+
+</details>
+
+<details><summary><code>curriculum-ontology-v2-independent-P1-remediation-20260722</code> · 4 events · 2026-07-22T09:45:07.089Z → 2026-07-22T10:18:31.998Z</summary>
+
+Agents：`/root/review_ontology_v2`
+Resources：`/private/tmp/curriculum-ontology-v2-successor-20260722`、`scripts/validate-subject-ontology-v2.mjs`、`scripts/deploy-worker.mjs`、`tests`、`scripts/lib/draft-2020-schema-validator.mjs`、`scripts/prepare-release.mjs`、`commit-0802e959ae5a13c424b560fa093d4d6e19190396`
+
+### 2026-07-22T09:45:07.089Z · start · /root/review_ontology_v2
+
+- Scope：isolated-successor-test-first-relation-schema-report-deployer-no-remote
+- Resources：`/private/tmp/curriculum-ontology-v2-successor-20260722`、`scripts/validate-subject-ontology-v2.mjs`、`scripts/deploy-worker.mjs`、`tests`
+- Evidence：independent-review-reproduced-three-merge-blocking-P1s-at-a8bec76-clean-closed-prior-owner
+- Rollback：revert-new-successor-commit-or-discard-isolated-worktree
+- Unresolved：implementation-and-full-local-verification-pending
+
+### 2026-07-22T10:17:23.179Z · change · /root/review_ontology_v2
+
+- Scope：isolated-successor-three-P1-remediation
+- Resources：`/private/tmp/curriculum-ontology-v2-successor-20260722`、`scripts/validate-subject-ontology-v2.mjs`、`scripts/lib/draft-2020-schema-validator.mjs`、`scripts/prepare-release.mjs`、`scripts/deploy-worker.mjs`、`tests`
+- Evidence：test-first-red-duplicate-ID-semantic-edge-endpoint-and-schema-cases-then-green-pinned-schema-validation-global-identities-deterministic-two-commit-report-writer-deployer-flag-propagation
+- Rollback：git-revert-successor-commit-after-created
+- Unresolved：no-remote-no-deploy-parent-integration-and-canonical-report-closeout-remain
+
+### 2026-07-22T10:18:31.894Z · verify · /root/review_ontology_v2
+
+- Scope：clean-HEAD-local-verification
+- Resources：`/private/tmp/curriculum-ontology-v2-successor-20260722`、`commit-0802e959ae5a13c424b560fa093d4d6e19190396`
+- Evidence：focused-67-pass-full-1055-pass-3-skips-python-14-pass-tsc-build-ordinary-ontology-valid-diff-syntax-gitleaks-clean
+- Rollback：git-revert-0802e959ae5a13c424b560fa093d4d6e19190396
+- Unresolved：parent-integration-independent-rereview-and-live-promotion-remain
+
+### 2026-07-22T10:18:31.998Z · closeout · /root/review_ontology_v2
+
+- Scope：isolated-successor-committed-no-remote
+- Resources：`/private/tmp/curriculum-ontology-v2-successor-20260722`、`commit-0802e959ae5a13c424b560fa093d4d6e19190396`
+- Evidence：clean-worktree-three-P1s-closed-test-first-no-SSH-no-push-no-deploy-no-production-mutation
+- Rollback：git-revert-0802e959ae5a13c424b560fa093d4d6e19190396
+- Unresolved：parent-must-review-and-integrate-commit-and-update-canonical-release-record
+
+</details>
+
+<details><summary><code>curriculum-atlas-final-publication</code> · 23 events · 2026-07-22T10:04:14.951Z → 2026-07-22T12:16:04.999Z</summary>
+
+Agents：`root`、`research-evidence-rebind`
+Resources：`DMITPro2-inner-bdfz-read-only`、`/private/tmp/curriculum-a2-anchor-collection-20260722T-current`、`/private/tmp/curriculum-final-integration-20260722`、`commit-9564b3c`、`/private/tmp/curriculum-b3-receiver-preservation-20260722`、`commit-6a13074`、`commit-8c9e521`、`/private/tmp/curriculum-b3-receiver-preservation-20260722.RECEIPT.json`、`DMITPro2-inner-bdfz`、`production-p1-mb16-shard-a-r2`、`/private/tmp/curriculum-b3-model-cache-preservation-20260722`、`/private/tmp/curriculum-b3-model-cache-preservation-20260722.RECEIPT.json`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/b3-completed-shard-preservation`、`curriculum.bdfz.net`、`bdfz-curriculum-atlas-preview.bdfz.workers.dev`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/b3-completed-shard-preservation/manifests`、`/private/tmp/curriculum-a2-forward-continuation-successor-20260722`、`scripts/lib/remote-ocr-operator-continuation.mjs`、`data/remote-ocr-a2-continuation-runtime-manifest.json`、`docs/remote-ocr-operator-interruption-continuation.md`、`tests/remote-ocr-operator-interruption-continuation.test.mjs`、`commit-a719330`、`commit-cf0ae811`、`/private/tmp/curriculum-research-evidence-rebind-20260722`、`data/research-evidence`、`scripts/rebind-research-evidence-corpus.mjs`、`commit-0cd838c`、`/private/tmp/curriculum-research-evidence-rebind-20260722/data/research-evidence/zh-hs-2017-2020.json`、`/private/tmp/curriculum-research-evidence-rebind-20260722/data/research-evidence/zh-hs-2017-2020-source-registry.json`、`commit f01ad2c`、`real research validator`、`focused node tests`、`TypeScript check`、`site build`
+
+### 2026-07-22T10:04:14.951Z · verify · root
+
+- Scope：A2-production-anchor-readback
+- Resources：`DMITPro2-inner-bdfz-read-only`、`/private/tmp/curriculum-a2-anchor-collection-20260722T-current`
+- Evidence：Read-only copied incident and rearm evidence; all 27 file digests match remote; exact inspectTreeStrict hashes recorded locally; receipt and claim byte identities verified; no remote write
+- Rollback：No production mutation; local evidence copy may be discarded after source pin and review
+- Unresolved：Do not pin or stage anchors until SIGKILL partial-write checkpoint P1 is fixed and independently re-reviewed
+
+### 2026-07-22T10:05:45.769Z · change · root
+
+- Scope：integration-candidate-admin-control-plane
+- Resources：`/private/tmp/curriculum-final-integration-20260722`、`commit-9564b3c`
+- Evidence：Merged independently reviewed d3378d4 with PASS and no P0/P1/P2; integration branch remains clean; no deployment
+- Rollback：Revert merge commit 9564b3c on isolated integration branch if later combined verification fails
+- Unresolved：Preview real admin/non-admin auth, accessibility, and live D1 integration remain release gates
+
+### 2026-07-22T10:20:37.572Z · verify · root
+
+- Scope：B3-completed-shard-local-preservation
+- Resources：`DMITPro2-inner-bdfz-read-only`、`/private/tmp/curriculum-b3-receiver-preservation-20260722`
+- Evidence：Preserved receiver-required B3 output excluding reproducible Paddle cache: 9635 files; remote/local sorted file digest, directory digest and run-status projection digest identical; all run/status/seed sidecars pass; 6/6 documents complete and settled, 3182 pages
+- Rollback：No remote mutation; local preservation copy is additive and may be removed only after verified import and durable backup
+- Unresolved：B3 must remain unreceived until A2 completes so receiver can validate the exact 14-document union
+
+### 2026-07-22T10:24:26.995Z · change · root
+
+- Scope：integration-candidate-page-evidence-rebind
+- Resources：`/private/tmp/curriculum-final-integration-20260722`、`commit-6a13074`
+- Evidence：Merged independently audited 3c3d702; catalog binding now d67830c and remains zero-publication fail-closed; no deploy
+- Rollback：Revert merge commit 6a13074 on isolated integration branch if derived-artifact regeneration review fails
+- Unresolved：Catalog-derived corpus and ontology still require one coordinated rebuild and independent review
+
+### 2026-07-22T10:24:27.093Z · verify · root
+
+- Scope：integration-page-evidence-gate
+- Resources：`/private/tmp/curriculum-final-integration-20260722`
+- Evidence：Ordinary gate valid but publishable false; bundles empty; all five publication counts zero; focused page-evidence suite 40 of 40 passed
+- Rollback：No production mutation
+- Unresolved：Promotion intentionally remains unavailable
+
+### 2026-07-22T10:33:15.029Z · change · root
+
+- Scope：integration-candidate-subject-ontology-v2
+- Resources：`/private/tmp/curriculum-final-integration-20260722`、`commit-8c9e521`
+- Evidence：Merged independently reviewed 0802e95; resolved conflicts by preserving source-recovery and research gates, built-in WeakSet deployment preparation, and adding the subject ontology promotion flag and deterministic report path; focused source/deploy tests passed
+- Rollback：Revert merge commit 8c9e521 on isolated integration branch if coordinated regeneration or fresh review fails
+- Unresolved：Checked-in empty ontology and corpus artifacts still bind predecessor catalog and must be regenerated together against the current 195-document source tree
+
+### 2026-07-22T10:39:26.369Z · verify · root
+
+- Scope：B3-preservation-receipt-classification-correction
+- Resources：`/private/tmp/curriculum-b3-receiver-preservation-20260722`、`/private/tmp/curriculum-b3-receiver-preservation-20260722.RECEIPT.json`
+- Evidence：Portable OCR evidence preservation verified at 9635 files and 3182 complete settled pages; receipt SHA256 19f0451523727b1487f4554548ab840c3ef5a4f37da3bc2b39a867f2567c4b; Paddle cache excluded, receiver_ready false, so prior receiver-required wording is superseded
+- Rollback：No remote or production mutation; receipt edit is additive clarification
+- Unresolved：Final receiver must use the original absolute cache identity and exact A2 plus B3 fourteen-document union; this portable copy alone cannot be received
+
+### 2026-07-22T10:42:07.585Z · verify · root
+
+- Scope：A2-frozen-live-readback-before-continuation-review
+- Resources：`DMITPro2-inner-bdfz`、`production-p1-mb16-shard-a-r2`
+- Evidence：Host up six days with 298G free, 13GiB available memory, GPU 39C and idle; A2 output remains device 66306 inode 45748776, 1568 durable content pages, 4 complete 1 interrupted 3 retry_wait 0 failed, worker failed with MainPID 0, monitor and llama inactive, zero lifecycle lock files
+- Rollback：Read-only inspection; no remote state changed
+- Unresolved：Do not restart until the hash-chained partial-checkpoint continuation fix passes fresh independent review, Linux-real tests, two identical dry-runs and a same-attempt canary
+
+### 2026-07-22T10:56:20.022Z · change · root
+
+- Scope：B3-official-model-cache-local-preservation
+- Resources：`/private/tmp/curriculum-b3-model-cache-preservation-20260722`、`/private/tmp/curriculum-b3-model-cache-preservation-20260722.RECEIPT.json`
+- Evidence：Copied the remote B3 official_models tree read-only into a separate local preservation root; no existing OCR evidence receipt was altered and no remote state was changed
+- Rollback：Local additive preservation copy can be removed only after final receiver import and durable backup are verified
+- Unresolved：Absolute remote cache path remains part of run identity, so this copy is evidence-only and receiver_ready remains false
+
+### 2026-07-22T10:56:20.142Z · verify · root
+
+- Scope：B3-official-model-cache-byte-readback
+- Resources：`DMITPro2-inner-bdfz`、`/private/tmp/curriculum-b3-model-cache-preservation-20260722`
+- Evidence：Remote and local full 135-file zero-symlink listings share SHA256 2f9bdf00338c3f210b6f8acb2f3eb8a0d55a115844d54a130d7e68d128390c3c; receiver-grade stable fingerprint is 17 files 171142109 bytes tree 737684d6273d03d72b444a5e911c0850d2a2b7a92cf961a37f72b163f8ba4007; receipt SHA256 1773d42fd462c3b06457e304166985949769e3a07d1c783d661d6d4f7998ea24
+- Rollback：Read-only remote verification and additive local copy; production unchanged
+- Unresolved：Final exact A2 plus B3 receiver path still needs an execution environment that preserves the original absolute cache identities
+
+### 2026-07-22T11:02:34.379Z · change · root
+
+- Scope：B3-completed-shard-durable-local-backup
+- Resources：`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/b3-completed-shard-preservation`
+- Evidence：Copied the separately verified 9635-file OCR evidence tree and 135-file official model cache tree plus receipts from private temporary storage into the canonical local curriculum backup hierarchy; 303M total
+- Rollback：Additive backup only; retain until exact fourteen-document receiver import and a second durable remote archive are verified
+- Unresolved：Backup remains evidence-only and receiver_ready false because original absolute cache identity and final A2 plus B3 union are not yet resolved
+
+### 2026-07-22T11:02:34.494Z · verify · root
+
+- Scope：B3-completed-shard-durable-local-backup-readback
+- Resources：`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/b3-completed-shard-preservation`
+- Evidence：Checksum-mode rsync dry-runs for both trees produced zero differences; both receipt SHA256 values passed strict readback from durable backup
+- Rollback：No production or remote mutation
+- Unresolved：Google Drive or private R2 archival of this new preservation layer remains pending after the exact final A2 union is complete
+
+### 2026-07-22T11:04:05.717Z · verify · root
+
+- Scope：current-live-baseline-before-candidate-release
+- Resources：`curriculum.bdfz.net`、`bdfz-curriculum-atlas-preview.bdfz.workers.dev`
+- Evidence：Production and preview both remain healthy v10 with corpus-358471fcce862b2f0ae446fc, 196 documents, 16456 paragraphs and FTS rows, 6031 page gates, 91 chunks, 12 display facets, and zero accepted OCR documents; production security headers present; no deployment occurred
+- Rollback：Read-only health and header probes; live state unchanged
+- Unresolved：Candidate remains local and must not replace v10 until OCR, derived binding, research publication contract, preview migrations and end-to-end gates pass
+
+### 2026-07-22T11:15:10.011Z · change · root
+
+- Scope：B3-union-manifest-durable-preservation
+- Resources：`DMITPro2-inner-bdfz`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/b3-completed-shard-preservation/manifests`
+- Evidence：Copied the exact raw parent, A2 and B3 manifests read-only into the durable local preservation bundle and added their SHA256 values to the strict checksum set
+- Rollback：Additive local backup; remote source unchanged
+- Unresolved：A2 output is still incomplete and the final origin receiver dry-run must execute on the original inner-host roots and inodes
+
+### 2026-07-22T11:15:10.117Z · verify · root
+
+- Scope：B3-union-manifest-readback
+- Resources：`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/b3-completed-shard-preservation`
+- Evidence：Strict SHA256 readback passed for all receipts and manifests; parent is exactly 14 documents 6364 pages, shard A is 8 documents 3182 pages, and shard B is 6 documents 3182 pages
+- Rollback：Read-only verification; no production mutation
+- Unresolved：Portable relocation receipt implementation remains required after the original-host exact union dry-run
+
+### 2026-07-22T11:19:38.613Z · change · root
+
+- Scope：A2-forward-continuation-production-anchor-pinning-candidate
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-successor-20260722`、`scripts/lib/remote-ocr-operator-continuation.mjs`、`data/remote-ocr-a2-continuation-runtime-manifest.json`、`docs/remote-ocr-operator-interruption-continuation.md`、`tests/remote-ocr-operator-interruption-continuation.test.mjs`
+- Evidence：Pinned only the independently read-back incident tree, rearm receipt and byte count, reservation claim, and rearm tree identities; regenerated runtime closure identity 8b645fd6; focused receiver plus continuation suite 155 total 152 pass 0 fail 3 Linux-only skip; check and build pass
+- Rollback：Revert the dedicated anchor-pin commit before any remote execution; frozen A2 remains unchanged
+- Unresolved：Exact pin commit still requires fresh independent review, Linux-real tests, two identical live dry-runs and a bounded same-attempt canary before apply
+
+### 2026-07-22T11:26:28.491Z · change · root
+
+- Scope：A2-continuation-gate-copy-correction
+- Resources：`/private/tmp/curriculum-a2-forward-continuation-successor-20260722`、`commit-a719330`
+- Evidence：source-pinned-profile-usage-now-states-reviewed-sealed-Linux-tests-and-two-byte-identical-mutation-free-live-dry-runs-runtime-closure-024a7033-focused-155-total-152-pass-0-fail-3-Linux-skips-check-build-pass
+- Rollback：revert-follow-up-commit-a719330-before-any-remote-execution
+- Unresolved：fresh-independent-review-in-progress-then-sealed-Linux-tests-and-two-live-dry-runs-required
+
+### 2026-07-22T11:40:21.599Z · change · root
+
+- Scope：integration-current-corpus-ordinary-ontology-zero-evidence-rebind
+- Resources：`/private/tmp/curriculum-final-integration-20260722`、`commit-cf0ae811`
+- Evidence：merged-independently-reviewed-0715d499-crash-safe-rebind-195-docs-16711-paragraphs-93-chunks-index-0af5af35-report-e7e258e8-zero-scopes-concepts-relations
+- Rollback：revert-merge-cf0ae811-before-any-preview-deploy
+- Unresolved：Chinese-research-concept-graph-and-legacy-ontology-bindings-remain-stale-and-fail-closed
+
+### 2026-07-22T11:40:27.309Z · verify · root
+
+- Scope：integration-ordinary-ontology-rebind-gates
+- Resources：`/private/tmp/curriculum-final-integration-20260722`、`commit-cf0ae811`
+- Evidence：rebind-idempotent-changed-false-ontology-valid-nonpublishable-page-evidence-unresolved-fail-closed-focused-11-parent-43-check-build-python14-pass-clean-tree
+- Rollback：no-live-state-changed
+- Unresolved：full-suite-expected-stale-research-concept-graph-and-legacy-bridge-gates-pending-coordinated-regeneration
+
+### 2026-07-22T11:40:31.338Z · start · research-evidence-rebind
+
+- Scope：isolated-chinese-research-evidence-current-corpus-rebind
+- Resources：`/private/tmp/curriculum-research-evidence-rebind-20260722`、`data/research-evidence`、`scripts/rebind-research-evidence-corpus.mjs`
+- Evidence：base-cf0ae811-exact-leaf-data-contract-only
+- Rollback：delete-only-new-worktree-after-reviewed-commit-is-integrated
+- Unresolved：strict-publication-remains-blocked-by-authentic-signed-editor-decisions-and-unresolved-online-version-conflict
+
+### 2026-07-22T11:43:51.280Z · change · root
+
+- Scope：original-nineteen-goal-truth-matrix-refresh
+- Resources：`/private/tmp/curriculum-final-integration-20260722`、`commit-0cd838c`
+- Evidence：reread-full-712-line-original-brief-updated-only-current-local-integration-and-A2-truth-rows-no-completion-overclaim
+- Rollback：revert-documentation-commit-0cd838c-if-source-evidence-proves-a-row-wrong
+- Unresolved：all-nineteen-sections-still-require-final-LIVE_VERIFIED-closeout
+
+### 2026-07-22T12:02:59.488Z · change · research-evidence-rebind
+
+- Scope：isolated research evidence corpus rebind worktree
+- Resources：`/private/tmp/curriculum-research-evidence-rebind-20260722/data/research-evidence/zh-hs-2017-2020.json`、`/private/tmp/curriculum-research-evidence-rebind-20260722/data/research-evidence/zh-hs-2017-2020-source-registry.json`
+- Evidence：Applied deterministic two-file corpus rebind in isolated worktree; manifest evidence pointers and source-registry research rowset digest only; no integration tree, remote, deployment, or private source mutation
+- Rollback：Restore the two tracked JSON files from parent commit cf0ae811181c4ecd27fc51022c2b3c2e2cfece4a or revert the eventual task commit
+- Unresolved：Publication intentionally remains fail-closed pending exact witness and signed review
+
+### 2026-07-22T12:16:04.999Z · verify · research-evidence-rebind
+
+- Scope：isolated research evidence corpus rebind worktree
+- Resources：`commit f01ad2c`、`real research validator`、`focused node tests`、`TypeScript check`、`site build`
+- Evidence：Real corpus dry-run is byte-idempotent changed=false; integrity validator exit 0; strict publication gate exit 3; 48 focused tests pass; npm run check and npm run build pass; full npm test has only known isolated derived-graph/release and absent private source-cache failures
+- Rollback：Revert commit f01ad2c; no integration tree, remote resource, deployment, or private evidence source was changed
+- Unresolved：Fresh independent review pending agent capacity; concept and release derived rebind remain explicitly out of scope; private source cache was not copied into worktree
+
+</details>
+
+<details><summary><code>curriculum-page-evidence-zero-binding-20260722</code> · 4 events · 2026-07-22T10:06:53.450Z → 2026-07-22T10:21:22.811Z</summary>
+
+Agents：`/root/page_evidence_zero_binding`
+Resources：`/private/tmp/curriculum-final-integration-20260722`、`/private/tmp/curriculum-page-evidence-rebind-20260722`、`scripts/page-evidence/fail-closed-manifest.json`、`data/catalog.json`、`tests/page-evidence-catalog-rebind.test.mjs`、`docs/page-evidence-zero-publication-catalog-rebind-2026-07-22.md`、`commit-3c3d70262061d59803c13474e5f8bf4fd4750521`、`branch-codex-curriculum-page-evidence-rebind-20260722`
+
+### 2026-07-22T10:06:53.450Z · start · /root/page_evidence_zero_binding
+
+- Scope：independent-source-recovery-catalog-identity-and-zero-publication-page-evidence-rebind-audit-no-regeneration-no-deploy
+- Resources：`/private/tmp/curriculum-final-integration-20260722`、`/private/tmp/curriculum-page-evidence-rebind-20260722`、`scripts/page-evidence/fail-closed-manifest.json`、`data/catalog.json`
+- Evidence：exact-reviewed-integration-base-9564b3c-source-recovery-dff01a9-ancestor-zero-publication-contract-required
+- Rollback：discard-isolated-worktree-or-revert-task-commit
+- Unresolved：binding-change-prohibited-unless-all-catalog-deltas-trace-to-reviewed-source-recovery-and-zero-publication-is-provable
+
+### 2026-07-22T10:19:05.349Z · change · /root/page_evidence_zero_binding
+
+- Scope：isolated-zero-publication-catalog-rebind-only-no-derived-regeneration-no-deploy
+- Resources：`/private/tmp/curriculum-page-evidence-rebind-20260722`、`scripts/page-evidence/fail-closed-manifest.json`、`tests/page-evidence-catalog-rebind.test.mjs`、`docs/page-evidence-zero-publication-catalog-rebind-2026-07-22.md`
+- Evidence：catalog-delta-195-identical-IDs-order-counts-37-governed-absent-to-null-native-fields-old-proof-74-errors-new-proof-zero-only-catalog-binding-updated
+- Rollback：revert-task-commit-or-drop-isolated-branch
+- Unresolved：parent-must-regenerate-and-re-review-catalog-derived-corpus-and-ontology-artifacts-after-final-component-merges
+
+### 2026-07-22T10:21:14.798Z · verify · /root/page_evidence_zero_binding
+
+- Scope：clean-HEAD-independent-zero-publication-rebind-verification-no-deploy
+- Resources：`/private/tmp/curriculum-page-evidence-rebind-20260722`、`commit-3c3d70262061d59803c13474e5f8bf4fd4750521`
+- Evidence：page-evidence-focused-40-pass-source-deep-validation-149-PDF-86-queue-6-pages-23-artifacts-ordinary-valid-publishable-false-all-zero-promotion-rejected-gitleaks-one-commit-clean
+- Rollback：git-revert-3c3d70262061d59803c13474e5f8bf4fd4750521-or-drop-unintegrated-branch
+- Unresolved：full-node-suite-has-two-known-fail-closed-ontology-bridge-catalog-fingerprint-mismatches-requiring-parent-one-time-derived-artifact-regeneration
+
+### 2026-07-22T10:21:22.811Z · closeout · /root/page_evidence_zero_binding
+
+- Scope：isolated-clean-commit-approved-for-parent-integration-no-SSH-no-deploy-no-corpus-regeneration
+- Resources：`branch-codex-curriculum-page-evidence-rebind-20260722`、`commit-3c3d70262061d59803c13474e5f8bf4fd4750521`
+- Evidence：independent-audit-found-safe-zero-publication-only-rebind-195-identities-preserved-exact-catalog-pin-and-promotion-rejection-documented
+- Rollback：drop-unintegrated-branch-or-revert-3c3d70262061d59803c13474e5f8bf4fd4750521-after-integration
+- Unresolved：parent-must-merge-then-regenerate-catalog-derived-corpus-and-ontology-bridge-once-and-independently-review-before-preview
+
+</details>
+
+<details><summary><code>curriculum-derived-ordinary-rebind-20260722</code> · 4 events · 2026-07-22T10:36:21.499Z → 2026-07-22T11:29:49.554Z</summary>
+
+Agents：`/root/independent_ontology_0802_review`
+Resources：`/private/tmp/curriculum-derived-rebind-20260722`、`data/catalog.json`、`data/corpus-chunks/manifest.json`、`data/ontologies/index.json`、`data/subject-ontology-v2-validation.json`、`scripts/rebind-subject-ontology-v2-ordinary.mjs`、`tests/subject-ontology-v2-ordinary-rebind.test.mjs`、`package.json`、`docs/subject-ontology-v2-ordinary-rebind-2026-07-22.md`、`branch-codex-curriculum-derived-rebind-20260722`、`commit-0715d4998501e463cd2a691ad492f26381979110`
+
+### 2026-07-22T10:36:21.499Z · start · /root/independent_ontology_0802_review
+
+- Scope：isolated-derived-catalog-corpus-and-zero-ontology-rebind-generator-no-deploy
+- Resources：`/private/tmp/curriculum-derived-rebind-20260722`、`data/catalog.json`、`data/corpus-chunks/manifest.json`、`data/ontologies/index.json`、`data/subject-ontology-v2-validation.json`
+- Evidence：exact-integration-HEAD-8c9e521-final-integration-worktree-left-untouched-despite-generated-manifest-dirty
+- Rollback：drop-unintegrated-worktree-and-branch-or-revert-task-commit
+- Unresolved：ignored-corpus-SQL-must-be-preserved-and-research-release-bindings-explicitly-deferred
+
+### 2026-07-22T10:57:20.868Z · change · /root/independent_ontology_0802_review
+
+- Scope：isolated-branch-ordinary-v2-rebind-and-verify-order
+- Resources：`/private/tmp/curriculum-derived-rebind-20260722`、`data/corpus-chunks/manifest.json`、`data/ontologies/index.json`、`data/subject-ontology-v2-validation.json`、`scripts/rebind-subject-ontology-v2-ordinary.mjs`、`tests/subject-ontology-v2-ordinary-rebind.test.mjs`、`package.json`、`docs/subject-ontology-v2-ordinary-rebind-2026-07-22.md`
+- Evidence：195-doc-16711-paragraph-93-chunk-corpus-rebound-to-zero-data-ordinary-v2-index-and-report-verify-now-rebinds-immediately-after-corpus-build
+- Rollback：revert-task-commit-or-drop-isolated-worktree-before-integration
+- Unresolved：concept-graph-and-legacy-ontology-bridge-derived-assets-stale-chinese-research-binding-deferred-no-deploy
+
+### 2026-07-22T11:29:08.012Z · verify · /root/independent_ontology_0802_review
+
+- Scope：isolated-ordinary-v2-zero-publication-final-verification-no-deploy
+- Resources：`/private/tmp/curriculum-derived-rebind-20260722`、`branch-codex-curriculum-derived-rebind-20260722`
+- Evidence：focused-43-of-43-pass-ontology-and-page-evidence-validators-pass-check-build-pass-python-14-of-14-pass-gitleaks-clean-93-ignored-SQL-exact-independent-review-third-pass-no-P0-P1-P2
+- Rollback：drop-unintegrated-branch-or-revert-task-commit-after-integration
+- Unresolved：public-concept-graph-and-legacy-ontology-bridge-remain-stale-Chinese-research-binding-explicitly-deferred-no-deploy
+
+### 2026-07-22T11:29:49.554Z · closeout · /root/independent_ontology_0802_review
+
+- Scope：isolated-clean-commit-for-parent-integration-no-SSH-no-deploy
+- Resources：`branch-codex-curriculum-derived-rebind-20260722`、`commit-0715d4998501e463cd2a691ad492f26381979110`
+- Evidence：exact-parent-8c9e521-195-doc-16711-paragraph-93-SQL-ordinary-zero-ontology-rebound-crash-safe-three-SIGKILL-windows-independent-review-PASS-worktree-clean
+- Rollback：drop-unintegrated-branch-or-git-revert-0715d4998501e463cd2a691ad492f26381979110-after-integration
+- Unresolved：full-suite-still-fail-closes-on-stale-public-concept-graph-and-legacy-ontology-bridge-Chinese-research-binding-deferred-no-deploy
+
+</details>
+
+<details><summary><code>curriculum-atlas-A2-sealed-Linux-gate</code> · 9 events · 2026-07-22T11:27:10.679Z → 2026-07-22T12:07:34.051Z</summary>
+
+Agents：`root`
+Resources：`DMITPro2-inner-bdfz`、`/private/tmp/curriculum-a2-sealed-a719330.tar`、`commit-a719330`、`/home/suen/curriculum-ocr-offload/sealed-runtime/curriculum-a2-sealed-a719330`、`A2-evidence-base-profile`、`A2-frozen-output`、`five-A2-units`、`A2-authority-sidecars`、`A2-document-and-incident-timestamps`
+
+### 2026-07-22T11:27:10.679Z · start · root
+
+- Scope：additive-sealed-test-staging-only-no-service-start-no-frozen-output-write
+- Resources：`DMITPro2-inner-bdfz`、`/private/tmp/curriculum-a2-sealed-a719330.tar`、`commit-a719330`
+- Evidence：independent-review-PASS-archive-SHA256-b452297ddd5175ff041f0ab8190ad3ea7720404ca4329005090753850b7ab426
+- Rollback：remove-only-the-new-sealed-test-directory-and-uploaded-archive-after-verification
+- Unresolved：three-Linux-only-tests-must-pass-before-live-dry-run
+
+### 2026-07-22T11:34:49.756Z · change · root
+
+- Scope：additive-sealed-runtime-staging-no-service-or-frozen-output-mutation
+- Resources：`DMITPro2-inner-bdfz`、`/home/suen/curriculum-ocr-offload/sealed-runtime/curriculum-a2-sealed-a719330`
+- Evidence：uploaded-Git-archive-b452297d-and-readback-exact-entrypoint-7ba6b0bd-runtime-manifest-f4b06a35
+- Rollback：remove-only-new-sealed-runtime-directory-and-archive-after-A2-receipt-closeout
+- Unresolved：none-for-staging
+
+### 2026-07-22T11:34:55.133Z · verify · root
+
+- Scope：sealed-Linux-real-regression-no-live-OCR-execution
+- Resources：`DMITPro2-inner-bdfz`、`commit-a719330`
+- Evidence：node-test-continuation-80-total-80-pass-0-fail-0-skip-including-exact-proc-ownership-inherited-fd-flock-exclusion-and-lock-pathname-replacement
+- Rollback：tests-used-only-temporary-fixtures-no-production-rollback-needed
+- Unresolved：two-byte-identical-mutation-free-live-dry-runs-remain-required
+
+### 2026-07-22T11:39:18.528Z · verify · root
+
+- Scope：live-dry-run-fail-closed-before-any-write
+- Resources：`DMITPro2-inner-bdfz`、`A2-evidence-base-profile`
+- Evidence：two-identical-no-apply-invocations-both-exit2-with-A2-evidence-base-inode-differs-current-read-only-stat-dev66306-inode41854492-old-reviewed-protocol-also-pins41854492-action-log-identifies42336296-as-monitor-inode
+- Rollback：no-live-mutation-occurred-services-and-frozen-output-untouched
+- Unresolved：correct-mislabeled-profile-anchor-in-new-reviewed-commit-then-rerun-Linux-and-two-dry-run-gates
+
+### 2026-07-22T11:41:37.000Z · verify · root
+
+- Scope：post-fail-closed-dry-run-live-no-mutation-readback
+- Resources：`DMITPro2-inner-bdfz`、`A2-frozen-output`、`five-A2-units`
+- Evidence：exact-run-status-document-status-log-state-hashes-remain-1daf1ab5-28921af4-470d7b4e-d16de657-all-five-units-quiescent-worker-failed-pid0-zero-restarts-no-operator-continuation-path-created
+- Rollback：no-production-mutation
+- Unresolved：reviewed-evidence-base-inode-label-fix-required-before-repeating-dry-runs
+
+### 2026-07-22T11:57:08.350Z · verify · root
+
+- Scope：second-live-dry-run-fail-closed-before-any-write
+- Resources：`DMITPro2-inner-bdfz`、`A2-authority-sidecars`
+- Evidence：two-identical-no-apply-invocations-both-exit2-only-mismatches-ledger-sidecar-SHA-and-bytes-actual-canonical-sidecar-SHA72d1609f-bytes104-body-remains-df77305d-bytes302
+- Rollback：no-claim-no-service-start-no-output-write
+- Unresolved：correct-only-two-ledger-sidecar-profile-fields-in-new-reviewed-commit
+
+### 2026-07-22T11:57:14.723Z · verify · root
+
+- Scope：post-second-fail-closed-no-mutation-readback
+- Resources：`DMITPro2-inner-bdfz`、`A2-frozen-output`、`five-A2-units`
+- Evidence：four-frozen-file-hashes-remain-1daf1ab5-28921af4-470d7b4e-d16de657-five-units-quiescent-worker-pid0-zero-restarts-no-operator-continuation-path
+- Rollback：no-live-mutation
+- Unresolved：reviewed-ledger-sidecar-anchor-correction-and-repeated-Linux-plus-double-dry-run-gates-required
+
+### 2026-07-22T12:07:25.017Z · verify · root
+
+- Scope：third-live-dry-run-fail-closed-before-any-write
+- Resources：`DMITPro2-inner-bdfz`、`A2-document-and-incident-timestamps`
+- Evidence：two-identical-no-apply-invocations-both-exit2-after-full-authority-pass-hashed-document-and-run-status-interrupted-at-041335387Z-pinned-incident-json-operator-freeze-at-041335390Z-old-profile-conflated-distinct-events
+- Rollback：no-claim-no-service-start-no-output-write
+- Unresolved：split-document-and-incident-timestamps-in-new-reviewed-profile-then-repeat-gates
+
+### 2026-07-22T12:07:34.051Z · verify · root
+
+- Scope：post-third-fail-closed-no-mutation-readback
+- Resources：`DMITPro2-inner-bdfz`、`A2-frozen-output`、`five-A2-units`
+- Evidence：four-frozen-file-hashes-remain-1daf1ab5-28921af4-470d7b4e-d16de657-five-units-quiescent-worker-pid0-zero-restarts-no-operator-continuation-path
+- Rollback：no-live-mutation
+- Unresolved：timestamp-separation-fix-review-Linux-and-double-dry-run-required
+
+</details>
+
+<details><summary><code>curriculum-a2-evidence-base-inode-fix-20260722</code> · 3 events · 2026-07-22T11:40:28.102Z → 2026-07-22T11:45:09.376Z</summary>
+
+Agents：`/root/fix_a2_evidence_base_inode`
+Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`scripts/lib/remote-ocr-operator-continuation.mjs`、`tests/remote-ocr-operator-interruption-continuation.test.mjs`、`docs/remote-ocr-operator-interruption-continuation.md`、`data/remote-ocr-a2-continuation-runtime-manifest.json`
+
+### 2026-07-22T11:40:28.102Z · start · /root/fix_a2_evidence_base_inode
+
+- Scope：isolated-profile-and-documentation-inode-correction-no-remote
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`scripts/lib/remote-ocr-operator-continuation.mjs`、`tests/remote-ocr-operator-interruption-continuation.test.mjs`、`docs/remote-ocr-operator-interruption-continuation.md`、`data/remote-ocr-a2-continuation-runtime-manifest.json`
+- Evidence：exact-base-a719330-read-only-production-stat-and-original-reviewed-protocol-agree-evidence-base-inode-41854492
+- Rollback：drop-unintegrated-branch-or-revert-task-commit
+- Unresolved：fresh-independent-review-required-before-parent-integration-no-SSH-no-service-or-frozen-output-mutation
+
+### 2026-07-22T11:45:09.362Z · verify · /root/fix_a2_evidence_base_inode
+
+- Scope：local-focused-profile-fix-verification-no-remote
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`
+- Evidence：focused-155-total-152-pass-0-fail-3-Linux-skips-tsc-build-diff-check-runtime-manifest-validation-gitleaks-225-commits-clean
+- Rollback：no-production-mutation-branch-can-be-dropped-before-integration
+- Unresolved：independent-review-and-parent-rerun-of-sealed-Linux-and-live-dry-run-gates-remain
+
+### 2026-07-22T11:45:09.376Z · change · /root/fix_a2_evidence_base_inode
+
+- Scope：isolated-A2-evidence-base-inode-anchor-correction
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`
+- Evidence：corrected-only-profile-and-runbook-42336296-monitor-to-41854492-evidence-base-added-nonconfusion-regression-regenerated-runtime-tree-d2108fb2
+- Rollback：revert-task-commit-after-created-or-drop-unintegrated-branch
+- Unresolved：fresh-independent-review-required-no-remote-execution-authorized
+
+</details>
+
+<details><summary><code>curriculum-a2-ledger-sidecar-identity-fix-20260722</code> · 2 events · 2026-07-22T11:58:41.165Z → 2026-07-22T11:58:47.826Z</summary>
+
+Agents：`/root/fix_a2_evidence_base_inode`
+Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-84eef844046f409af419bd2e33c23af5be520c48`
+
+### 2026-07-22T11:58:41.165Z · change · /root/fix_a2_evidence_base_inode
+
+- Scope：isolated-follow-up-ledger-sidecar-profile-correction-no-amend
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-84eef844046f409af419bd2e33c23af5be520c48`
+- Evidence：full-authority-comparator-drift-limited-to-ledger-sidecar-profile-updated-to-canonical-104-byte-SHA72d1609f-runtime-tree-9f734a5c
+- Rollback：git-revert-84eef844046f409af419bd2e33c23af5be520c48-or-drop-unintegrated-branch
+- Unresolved：fresh-independent-review-and-repeated-sealed-Linux-live-dry-run-gates-remain-no-SSH-or-apply
+
+### 2026-07-22T11:58:47.826Z · verify · /root/fix_a2_evidence_base_inode
+
+- Scope：clean-HEAD-local-follow-up-verification-no-remote
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-84eef844046f409af419bd2e33c23af5be520c48`
+- Evidence：focused-155-total-152-pass-0-fail-3-Linux-skips-tsc-build-diff-runtime-manifest-valid-gitleaks-exact-one-commit-clean
+- Rollback：no-production-mutation-branch-can-be-dropped-before-integration
+- Unresolved：fresh-independent-review-required-parent-must-rerun-sealed-Linux-and-two-identical-live-dry-runs
+
+</details>
+
+<details><summary><code>curriculum-a2-timestamp-semantics-fix-20260722</code> · 2 events · 2026-07-22T12:13:34.784Z → 2026-07-22T12:13:46.791Z</summary>
+
+Agents：`/root/fix_a2_evidence_base_inode`
+Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-5fc414f510275cc2e0590b75a2a18da5e866703e`
+
+### 2026-07-22T12:13:34.784Z · change · /root/fix_a2_evidence_base_inode
+
+- Scope：isolated-follow-up-document-vs-incident-timestamp-split-no-amend
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-5fc414f510275cc2e0590b75a2a18da5e866703e`
+- Evidence：profile-schema2-exact-72-keys-document-387-incident-390-receipt-status-authorization-and-incident-record-bound-by-semantics-runtime-tree-a745b761
+- Rollback：git-revert-5fc414f510275cc2e0590b75a2a18da5e866703e-or-drop-unintegrated-branch
+- Unresolved：fresh-independent-review-and-repeated-sealed-Linux-live-dry-run-gates-remain-no-SSH-or-apply
+
+### 2026-07-22T12:13:46.791Z · verify · /root/fix_a2_evidence_base_inode
+
+- Scope：clean-HEAD-local-timestamp-split-verification-no-remote
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-5fc414f510275cc2e0590b75a2a18da5e866703e`
+- Evidence：focused-155-total-152-pass-0-fail-3-Linux-skips-production-preservation-readback-status-and-run-status-387-incident-390-tsc-build-diff-runtime-manifest-valid-gitleaks-one-commit-clean
+- Rollback：no-production-mutation-branch-can-be-dropped-before-integration
+- Unresolved：fresh-independent-review-required-parent-must-rerun-sealed-Linux-and-two-identical-live-dry-runs
+
+</details>
+
+<details><summary><code>curriculum-a2-profile-anchor-remediation-20260722</code> · 1 events · 2026-07-22T12:14:00.746Z → 2026-07-22T12:14:00.746Z</summary>
+
+Agents：`/root/fix_a2_evidence_base_inode`
+Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-318d6b8f3490014a2ddb6aa4bfc4d6a6031bba17`、`commit-84eef844046f409af419bd2e33c23af5be520c48`、`commit-5fc414f510275cc2e0590b75a2a18da5e866703e`
+
+### 2026-07-22T12:14:00.746Z · closeout · /root/fix_a2_evidence_base_inode
+
+- Scope：isolated-clean-three-commit-A2-profile-remediation-handoff-no-remote
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-318d6b8f3490014a2ddb6aa4bfc4d6a6031bba17`、`commit-84eef844046f409af419bd2e33c23af5be520c48`、`commit-5fc414f510275cc2e0590b75a2a18da5e866703e`
+- Evidence：clean-worktree-inode-ledger-sidecar-and-dual-timestamp-semantics-committed-focused-155-tsc-build-diff-and-range-gitleaks-pass
+- Rollback：revert-three-commits-in-reverse-order-or-drop-unintegrated-branch
+- Unresolved：fresh-independent-review-sealed-Linux-tests-two-identical-live-dry-runs-and-canary-remain-before-any-apply
+
+</details>
+
+<details><summary><code>curriculum-atlas-A2-frozen-monitor-20260722</code> · 1 events · 2026-07-22T12:20:58.501Z → 2026-07-22T12:20:58.501Z</summary>
+
+Agents：`root`
+Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-a-r2.service`、`curriculum-ocr-monitor-a-r2.service`、`curriculum-ocr-monitor-a-r2.timer`、`curriculum-ocr-monitor-a-r2-alert.service`、`curriculum-ocr-llama.service`、`A2-output-root`
+
+### 2026-07-22T12:20:58.501Z · verify · root
+
+- Scope：read-only-inner-bdfz-A2-state-and-service-drift-check
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-a-r2.service`、`curriculum-ocr-monitor-a-r2.service`、`curriculum-ocr-monitor-a-r2.timer`、`curriculum-ocr-monitor-a-r2-alert.service`、`curriculum-ocr-llama.service`、`A2-output-root`
+- Evidence：all-five-units-inactive-dead-MainPID0-NRestarts0-output-dev66306-inode45748776-four-frozen-SHA256-exact-1daf1ab5-28921af4-470d7b4e-d16de657
+- Rollback：no-mutation-read-only
+- Unresolved：A2-exact-canonical-timestamp-gate-P1-under-local-fix-no-sealed-dry-run-or-apply
+
+</details>
+
+<details><summary><code>curriculum-a2-exact-timestamp-pair-fix-20260722</code> · 3 events · 2026-07-22T12:21:12.450Z → 2026-07-22T12:21:42.296Z</summary>
+
+Agents：`/root/fix_a2_evidence_base_inode`
+Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-4e659753da084ff7125b5d16bc3e74b66460bcd9`
+
+### 2026-07-22T12:21:12.450Z · change · /root/fix_a2_evidence_base_inode
+
+- Scope：isolated-follow-up-exact-dual-timestamp-anchor-no-amend
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-4e659753da084ff7125b5d16bc3e74b66460bcd9`
+- Evidence：validator-now-requires-exact-document-387-incident-390-and-3ms-pair-rejects-equality-single-or-joint-shift-runtime-tree-47582d01
+- Rollback：git-revert-4e659753da084ff7125b5d16bc3e74b66460bcd9-or-drop-unintegrated-branch
+- Unresolved：fresh-independent-review-and-repeated-sealed-Linux-live-dry-run-gates-remain-no-SSH-or-apply
+
+### 2026-07-22T12:21:19.405Z · verify · /root/fix_a2_evidence_base_inode
+
+- Scope：clean-HEAD-local-exact-timestamp-pair-verification-no-remote
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-4e659753da084ff7125b5d16bc3e74b66460bcd9`
+- Evidence：focused-155-total-152-pass-0-fail-3-Linux-skips-tsc-build-diff-runtime-manifest-valid-gitleaks-one-commit-clean-schema2-72-keys-preserved
+- Rollback：no-production-mutation-branch-can-be-dropped-before-integration
+- Unresolved：fresh-independent-review-required-parent-must-rerun-sealed-Linux-and-two-identical-live-dry-runs
+
+### 2026-07-22T12:21:42.296Z · closeout · /root/fix_a2_evidence_base_inode
+
+- Scope：isolated-clean-follow-up-handoff-no-remote
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-4e659753da084ff7125b5d16bc3e74b66460bcd9`
+- Evidence：clean-worktree-exact-pair-validation-and-regressions-committed-focused-tsc-build-diff-range-gitleaks-pass
+- Rollback：git-revert-4e659753da084ff7125b5d16bc3e74b66460bcd9-or-drop-unintegrated-branch
+- Unresolved：fresh-independent-review-sealed-Linux-tests-two-identical-live-dry-runs-and-canary-remain-before-any-apply
+
+</details>
+
+<details><summary><code>curriculum-atlas-final-publication-tx-hardening</code> · 1 events · 2026-07-22T12:25:23.415Z → 2026-07-22T12:25:23.415Z</summary>
+
+Agents：`research-evidence-rebind`
+Resources：`/private/tmp/curriculum-research-evidence-rebind-20260722/scripts/rebind-research-evidence-corpus.mjs`、`/private/tmp/curriculum-research-evidence-rebind-20260722/tests/research-evidence-corpus-rebind.test.mjs`
+
+### 2026-07-22T12:25:23.415Z · start · research-evidence-rebind
+
+- Scope：follow-up hardening of isolated research evidence rebind transaction protocol
+- Resources：`/private/tmp/curriculum-research-evidence-rebind-20260722/scripts/rebind-research-evidence-corpus.mjs`、`/private/tmp/curriculum-research-evidence-rebind-20260722/tests/research-evidence-corpus-rebind.test.mjs`
+- Evidence：Fresh review identified three transaction-integrity blockers; work begins from clean f01ad2caea211506c14b92648aac0af516272d65
+- Rollback：Revert only the new follow-up commit; do not amend f01ad2c
+- Unresolved：No integration, remote, deployment, academic data, or private source mutation authorized
+
+</details>
+
+<details><summary><code>curriculum-atlas-A2-sealed-4e65975-Linux-gate</code> · 4 events · 2026-07-22T12:26:16.641Z → 2026-07-22T12:31:22.515Z</summary>
+
+Agents：`root`
+Resources：`DMITPro2-inner-bdfz`、`/home/suen/curriculum-ocr-offload/sealed-runtime/curriculum-a2-sealed-4e65975`、`curriculum-ocr-a-r2.service`、`A2-output-root`
+
+### 2026-07-22T12:26:16.641Z · start · root
+
+- Scope：additive-reviewed-sealed-runtime-staging-and-read-only-dry-run-gates
+- Resources：`DMITPro2-inner-bdfz`、`/home/suen/curriculum-ocr-offload/sealed-runtime/curriculum-a2-sealed-4e65975`、`curriculum-ocr-a-r2.service`
+- Evidence：exact-reviewed-commit-4e659753-parent-5fc414f-local-archive-SHA256-60cfa78c
+- Rollback：remove-only-new-sealed-runtime-directory-and-archive-after-receipt-closeout
+- Unresolved：no-service-start-no-apply-no-frozen-output-write-until-Linux-and-two-identical-no-apply-runs-pass
+
+### 2026-07-22T12:29:31.916Z · change · root
+
+- Scope：additive-sealed-runtime-staging-no-service-or-frozen-output-mutation
+- Resources：`DMITPro2-inner-bdfz`、`/home/suen/curriculum-ocr-offload/sealed-runtime/curriculum-a2-sealed-4e65975`
+- Evidence：remote-archive-two-stable-readbacks-SHA256-60cfa78c-bytes3633161-inode45758379-extracted-reviewed-commit
+- Rollback：remove-only-new-sealed-runtime-directory-and-archive-after-A2-receipt-closeout
+- Unresolved：live-no-apply-dry-run-gates-remain
+
+### 2026-07-22T12:29:32.018Z · verify · root
+
+- Scope：remote-sealed-Linux-runtime-and-lock-gate
+- Resources：`DMITPro2-inner-bdfz`、`/home/suen/curriculum-ocr-offload/sealed-runtime/curriculum-a2-sealed-4e65975`
+- Evidence：node-test-remote-ocr-operator-interruption-continuation-80-total-80-pass-0-fail-0-skip-runtime-tree-47582d01
+- Rollback：no-production-mutation-tests-used-temporary-fixtures
+- Unresolved：two-identical-no-apply-live-dry-runs-before-any-apply
+
+### 2026-07-22T12:31:22.515Z · verify · root
+
+- Scope：first-live-no-apply-dry-run-and-post-failure-preservation-readback
+- Resources：`DMITPro2-inner-bdfz`、`A2-output-root`、`curriculum-ocr-a-r2.service`
+- Evidence：no-apply-exit2-document-state-not-valid-partial-attempt6-four-frozen-hashes-exact-output-inode45748776-five-units-inactive-dead-MainPID0-NRestarts0
+- Rollback：no-production-mutation-dry-run-stopped-before-write
+- Unresolved：actual-hash-bound-state-omits-selected_pages-and-selected_pages_complete-while-validator-required-false-follow-up-review-needed
+
+</details>
+
+<details><summary><code>curriculum-a2-legacy-selection-state-fix-20260722</code> · 3 events · 2026-07-22T12:36:13.507Z → 2026-07-22T12:36:35.524Z</summary>
+
+Agents：`/root/fix_a2_evidence_base_inode`
+Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-420cad2d0a5d51d71d1a1ba4044c8df9fc8abc38`
+
+### 2026-07-22T12:36:13.507Z · change · /root/fix_a2_evidence_base_inode
+
+- Scope：isolated-follow-up-pinned-legacy-selected-pages-state-shape
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-420cad2d0a5d51d71d1a1ba4044c8df9fc8abc38`
+- Evidence：exact-state-SHA-retained-two-legitimate-selection-shapes-only-runtime-tree-f982e61c
+- Rollback：git-revert-420cad2d0a5d51d71d1a1ba4044c8df9fc8abc38-or-drop-unintegrated-branch
+- Unresolved：independent-review-and-fresh-live-no-apply-dry-run-remain-no-SSH-or-apply
+
+### 2026-07-22T12:36:29.004Z · verify · /root/fix_a2_evidence_base_inode
+
+- Scope：clean-HEAD-local-selection-shape-verification-no-remote
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-420cad2d0a5d51d71d1a1ba4044c8df9fc8abc38`
+- Evidence：focused-155-total-152-pass-0-fail-3-Linux-skips-legacy-absence-full-dry-run-fixture-explicit-form-and-negative-matrix-tsc-build-diff-runtime-manifest-valid-gitleaks-one-commit-clean
+- Rollback：no-production-mutation-branch-can-be-dropped-before-integration
+- Unresolved：independent-review-and-fresh-live-no-apply-dry-run-remain
+
+### 2026-07-22T12:36:35.524Z · closeout · /root/fix_a2_evidence_base_inode
+
+- Scope：clean-isolated-handoff-no-remote
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-420cad2d0a5d51d71d1a1ba4044c8df9fc8abc38`
+- Evidence：complete-committed-selected-pages-chain-audit-and-regressions-no-uncommitted-files
+- Rollback：git-revert-420cad2d0a5d51d71d1a1ba4044c8df9fc8abc38-or-drop-unintegrated-branch
+- Unresolved：independent-review-and-live-no-apply-dry-run-remain-before-any-apply
+
+</details>
+
+<details><summary><code>curriculum-atlas-full-release-handoff-20260722</code> · 1 events · 2026-07-22T12:39:15.973Z → 2026-07-22T12:39:15.973Z</summary>
+
+Agents：`root`
+Resources：`/private/tmp/curriculum-final-integration-20260722`、`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`/private/tmp/curriculum-research-evidence-rebind-20260722`、`DMITPro2-inner-bdfz`、`thread-019f89d5-e14c-7f40-a3a7-92e2635d5123`
+
+### 2026-07-22T12:39:15.973Z · closeout · root
+
+- Scope：handoff-to-user-requested-new-Codex-thread-with-no-production-deploy
+- Resources：`/private/tmp/curriculum-final-integration-20260722`、`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`/private/tmp/curriculum-research-evidence-rebind-20260722`、`DMITPro2-inner-bdfz`、`thread-019f89d5-e14c-7f40-a3a7-92e2635d5123`
+- Evidence：comprehensive-initial-goal-current-truth-hashes-unit-boundaries-dirty-worktree-and-next-order-transferred-new-thread-active
+- Rollback：no-production-mutation-current-production-and-preview-remain-v10
+- Unresolved：A2-full-chain-read-only-preflight-research-transaction-v2-review-OCR-receive-evidence-publication-preview-production-E2E-remain
+
+</details>
+
+<details><summary><code>curriculum-atlas-final-19-section-completion-20260722</code> · 1 events · 2026-07-22T12:43:11.852Z → 2026-07-22T12:43:11.852Z</summary>
+
+Agents：`root`
+Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`/private/tmp/curriculum-research-evidence-rebind-20260722`、`/private/tmp/curriculum-final-integration-20260722`
+
+### 2026-07-22T12:43:11.852Z · start · root
+
+- Scope：local-A2-read-only-preflight-and-research-transaction-v2-review-continuation
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`/private/tmp/curriculum-research-evidence-rebind-20260722`、`/private/tmp/curriculum-final-integration-20260722`
+- Evidence：exact-status-verified-A2-and-integration-clean-research-single-preserved-dirty-script-prior-agent-handoff-confirmed
+- Rollback：task-scoped-local-commits-can-be-reverted-after-review-no-remote-state-changed
+- Unresolved：no-sealed-runtime-no-live-dry-run-no-service-start-no-apply-no-deploy-no-shared-hub-write-package-graph-bridge-excluded-until-research-merge
+
+</details>
+
+<details><summary><code>curriculum-atlas-final-19-live-verified-981394d3</code> · 21 events · 2026-07-22T13:15:14.423Z → 2026-07-22T15:56:30.858Z</summary>
+
+Agents：`root/981394d3-5125-4172-a5a8-fbf25ffce607`
+Resources：`/private/tmp/curriculum-final-integration-20260722`、`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`/private/tmp/curriculum-research-evidence-rebind-20260722`、`curriculum production read-only until gates pass`、`DMITPro2-inner-bdfz-read-only`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-readonly-preflight-981394d3-5125-4172-a5a8-fbf25ffce607`、`/private/tmp/curriculum-research-evidence-rebind-20260722/scripts/rebind-research-evidence-corpus.mjs`、`/private/tmp/curriculum-research-evidence-rebind-20260722/tests/research-evidence-corpus-rebind.test.mjs`、`commit-13b2aa0462484be6ee0d83d148d5ec6fe80e5e3d`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/research-evidence-transaction-v2-981394d3-5125-4172-a5a8-fbf25ffce607`、`DMITPro2-inner-bdfz`、`/home/suen/curriculum-ocr-offload/sealed-runtime/curriculum-a2-sealed-aea1368`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-sealed-linux-noapply-981394d3-5125-4172-a5a8-fbf25ffce607`、`A2-output-inode-45748776`、`sealed-runtime-aea1368`、`curriculum-ocr-a2-forward-continuation-aea1368.service`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-sealed-linux-noapply-981394d3-5125-4172-a5a8-fbf25ffce607/APPLY-CANARY-EXIT2`、`/private/tmp/curriculum-final-integration-20260722/scripts/continue-remote-ocr-operator-interruption.mjs`、`/private/tmp/curriculum-final-integration-20260722/tests/remote-ocr-operator-interruption-continuation.test.mjs`、`/private/tmp/curriculum-final-integration-20260722/data/remote-ocr-a2-continuation-runtime-manifest.json`、`/private/tmp/curriculum-final-integration-20260722/ops/remote-ocr-a2-readonly-preflight-gates.v1.json`、`/home/suen/curriculum-ocr-offload/sealed-runtime/curriculum-a2-sealed-ca8b2df`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-sealed-linux-noapply-ca8b2df-981394d3-5125-4172-a5a8-fbf25ffce607`、`reports/cloudflare_business_audit_2026-05-23.md`
+
+### 2026-07-22T13:15:14.423Z · start · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：takeover-after-confirmed-interrupted-thread-019f89d5; preserve dirty A2 and research; local A2 preflight first
+- Resources：`/private/tmp/curriculum-final-integration-20260722`、`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`/private/tmp/curriculum-research-evidence-rebind-20260722`、`curriculum production read-only until gates pass`
+- Evidence：prior owner task readback status interrupted at 2026-07-22T13:20Z; integration clean; A2 four tracked plus two untracked; research one tracked dirty; production v10 live
+- Rollback：restore task-scoped local work from preclaim recovery bundle; no remote or production mutation authorized at this stage
+- Unresolved：exclude package.json graph bridge shared hubs Companion User Center Portal all service starts A2 apply frozen state grant authority output deploy and push until explicit gates
+
+### 2026-07-22T13:35:09.140Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：A2-readonly-preflight-candidate-and-production-metadata-fixture
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`DMITPro2-inner-bdfz-read-only`
+- Evidence：91-gate-versioned-manifest-nonshort-validator-bounded-stdin-collector-production-canonical-SHA-6b2564cd-legacy-partial-state-regression-fixed
+- Rollback：restore-preclaim-bundle-or-revert-task-scoped-uncommitted-files-no-remote-state-change
+- Unresolved：independent-read-only-review-in-progress-no-sealed-runtime-no-live-dry-run-no-service-start-no-A2-apply
+
+### 2026-07-22T13:53:28.182Z · verify · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：A2-nonshort-readonly-preflight-production-metadata-and-local-regression
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`DMITPro2-inner-bdfz-read-only`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-readonly-preflight-981394d3-5125-4172-a5a8-fbf25ffce607`
+- Evidence：91-of-91-gates-88-pass-0-fail-0-error-3-apply-only-NA-two-byte-identical-snapshots-canonical-SHA-6b2564cd-full-tests-1115-total-1109-pass-0-fail-6-platform-skips-independent-review-no-P0-P1-P2
+- Rollback：no-remote-or-production-mutation-local-source-restorable-from-preclaim-bundle
+- Unresolved：A2-apply-service-start-grant-frozen-state-new-sealed-runtime-live-dry-run-deploy-remain-unperformed-and-require-later-gates
+
+### 2026-07-22T14:01:19.579Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：research-evidence-transaction-v2-local-candidate
+- Resources：`/private/tmp/curriculum-research-evidence-rebind-20260722/scripts/rebind-research-evidence-corpus.mjs`、`/private/tmp/curriculum-research-evidence-rebind-20260722/tests/research-evidence-corpus-rebind.test.mjs`
+- Evidence：completed-v2-staged-WAL-lifecycle-lock-inode-bound-rollback-and-validated-recovery-focused-19-pass-0-fail
+- Rollback：restore-preclaim-research-tracked.patch-or-revert-task-scoped-local-commit-no-production-mutation
+- Unresolved：partial-state-journal-crash-audit-independent-review-full-suite-and-real-dry-run-remain
+
+### 2026-07-22T14:09:30.865Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：A2-readonly-preflight-local-commit
+- Resources：`/private/tmp/curriculum-a2-evidence-base-inode-fix-20260722`、`commit-13b2aa0462484be6ee0d83d148d5ec6fe80e5e3d`
+- Evidence：clean-task-scoped-commit-after-1115-test-full-suite-and-independent-no-P0-P1-P2-review
+- Rollback：git-revert-13b2aa0462484be6ee0d83d148d5ec6fe80e5e3d-or-reset-only-this-isolated-worktree-to-420cad2
+- Unresolved：not-pushed-not-integrated-no-A2-apply-service-start-seal-live-dry-run-or-deploy
+
+### 2026-07-22T14:34:42.575Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：research-evidence-transaction-v2-commit
+- Resources：`/private/tmp/curriculum-research-evidence-rebind-20260722`
+- Evidence：commit=7644b537fc7f07daebe8824cc403c3e660246f2f,files=2,review=0-P0-P1-P2
+- Rollback：git revert 7644b537fc7f07daebe8824cc403c3e660246f2f
+- Unresolved：integration-still-has-stale-graph-bindings-and-local-cache-is-not-copied
+
+### 2026-07-22T14:37:37.186Z · verify · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：research-evidence-transaction-v2-reviewed-and-bundled
+- Resources：`/private/tmp/curriculum-research-evidence-rebind-20260722`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/research-evidence-transaction-v2-981394d3-5125-4172-a5a8-fbf25ffce607`
+- Evidence：commit=7644b537,focused=60-of-60,review=0-P0-P1-P2,dryrun-report-sha=ec3c22d7,state-snapshot-sha=c7ff544c,bundle-checksums=pass
+- Rollback：git revert 7644b537fc7f07daebe8824cc403c3e660246f2f
+- Unresolved：strict-research-publication-exit-3
+
+### 2026-07-22T14:37:48.007Z · verify · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：research-evidence-transaction-v2-reviewed-and-bundled
+- Resources：`/private/tmp/curriculum-research-evidence-rebind-20260722`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/research-evidence-transaction-v2-981394d3-5125-4172-a5a8-fbf25ffce607`
+- Evidence：commit=7644b537,focused=60-of-60,review=0-P0-P1-P2,dryrun-report-sha=ec3c22d7,state-snapshot-sha=c7ff544c,bundle-checksums=pass
+- Rollback：git-revert-7644b537fc7f07daebe8824cc403c3e660246f2f
+- Unresolved：strict-research-publication-exit-3,graph-rebuild-pending-after-merge,deep-local-source-suite-requires-canonical-cache
+
+### 2026-07-22T14:39:34.590Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：local-final-integration-of-reviewed-research-and-A2
+- Resources：`/private/tmp/curriculum-final-integration-20260722`
+- Evidence：research-merge=e5a66217,A2-merge=47ba7229,one-policy-union-conflict-resolved,targeted=219-pass-0-fail-3-platform-skip,tsc-pass,build-pass
+- Rollback：revert-47ba7229-then-e5a66217
+- Unresolved：stale-concept-graph-bindings-rebuild-next,no-remote-deploy,no-A2-apply-or-service-start
+
+### 2026-07-22T14:59:46.762Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：local-integration-graph-ontology-rebind-and-lock-test-synchronization
+- Resources：`/private/tmp/curriculum-final-integration-20260722`
+- Evidence：graph-commit-6214ca6,test-commit-aea1368,graph-tree-sha-f17575ce,ontology-validation-pass
+- Rollback：git-revert-aea1368-then-6214ca6
+- Unresolved：no-A2-apply-no-service-start-no-deploy-new-sealed-Linux-runtime-next
+
+### 2026-07-22T14:59:46.865Z · verify · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：clean-final-integration-candidate-local-suite-and-independent-review
+- Resources：`/private/tmp/curriculum-final-integration-20260722`
+- Evidence：full-suite-1266-total-1261-pass-0-fail-5-platform-skip,final-focused-172-pass,tsc-pass,diff-check-pass,independent-review-0-P0-P1-P2
+- Rollback：local-commits-6214ca6-and-aea1368-can-be-reverted-no-production-state-changed
+- Unresolved：sealed-Linux-full-suite-two-no-apply-and-post-run-frozen-readback-remain
+
+### 2026-07-22T15:07:09.400Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：additive-new-A2-sealed-Linux-runtime-staging
+- Resources：`DMITPro2-inner-bdfz`、`/home/suen/curriculum-ocr-offload/sealed-runtime/curriculum-a2-sealed-aea1368`
+- Evidence：git-commit-aea1368,archive-sha-e26a0031,archive-bytes-4314972,suite-manifest-sha-cf6aec92,remote-runtime-inode-45758840
+- Rollback：remove-only-curriculum-a2-sealed-aea1368-directory-archive-and-suite-manifest-after-evidence-closeout
+- Unresolved：no-service-start-no-apply-no-frozen-state-write-Linux-suite-and-two-no-apply-next
+
+### 2026-07-22T15:15:53.829Z · verify · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：sealed-Linux-full-A2-suite-double-no-apply-and-frozen-preservation
+- Resources：`DMITPro2-inner-bdfz`、`/home/suen/curriculum-ocr-offload/sealed-runtime/curriculum-a2-sealed-aea1368`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-sealed-linux-noapply-981394d3-5125-4172-a5a8-fbf25ffce607`
+- Evidence：archive-e26a0031-bytes4314972,suite-manifest-cf6aec92,Linux-87-pass-0-fail-0-skip,TAP-61c856fc,two-canonical-8cd4d53a,frozen-before-after-80876b5b,checksums-pass
+- Rollback：no-frozen-state-rollback-needed-remove-only-unique-sealed-staging-paths-after-evidence-retention
+- Unresolved：A2-apply-and-any-service-start-require-explicit-user-approval-execution-packet-created
+
+### 2026-07-22T15:18:01.755Z · start · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：user-approved-bounded-A2-same-attempt6-forward-continuation-canary
+- Resources：`DMITPro2-inner-bdfz`、`A2-output-inode-45748776`、`sealed-runtime-aea1368`
+- Evidence：user-explicit-approval-received-2026-07-22T15-17-02-239Z,precheck-all-frozen-hashes-inodes-units-lock-processes-pass
+- Rollback：stop-only-exact-dedicated-canary-unit-preserve-claim-receipt-journal-successor-and-forward-artifacts-no-snapshot-restore
+- Unresolved：ordinary-A2-worker-monitor-timer-Cloudflare-publication-and-second-apply-remain-excluded
+
+### 2026-07-22T15:23:03.448Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：approval-bound-A2-canary-preflight-and-dedicated-unit-install
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-a2-forward-continuation-aea1368.service`
+- Evidence：authorization-sha-ced13507,two-noapply-canonical-f04a1e0f,frozen-before-after-80876b5b,unit-sha-7b747f68-static-inactive-pid0-restart-no
+- Rollback：before-start-remove-only-new-unit-and-daemon-reload-after-start-stop-only-exact-unit-preserve-forward-evidence
+- Unresolved：single-approved-start-not-yet-issued
+
+### 2026-07-22T15:23:43.690Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：single-approved-A2-attempt6-bounded-canary-start
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-a2-forward-continuation-aea1368.service`、`A2-output-inode-45748776`
+- Evidence：one-start-issued,canary-active-MainPID3023293-NRestarts0,ordinary-worker-monitor-timer-alert-llama-still-quiescent-at-immediate-readback
+- Rollback：stop-only-exact-canary-unit-if-active-preserve-claim-receipt-journal-and-forward-output-no-second-start-on-75-2-12
+- Unresolved：canary-running-await-terminal-or-new-hard-gate
+
+### 2026-07-22T15:32:33.438Z · verify · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：approved-A2-canary-exit2-hard-stop-root-cause-and-preservation
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-a2-forward-continuation-aea1368.service`、`A2-output-inode-45748776`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-sealed-linux-noapply-981394d3-5125-4172-a5a8-fbf25ffce607/APPLY-CANARY-EXIT2`
+- Evidence：one-invocation-582923cb-exit2-NRestarts0-no-continuation-four-frozen-hashes-three-inodes-unchanged-checksums-pass-root-cause-apply-only-seed-verifier-requires-active-llama-before-later-start
+- Rollback：no-frozen-rollback-needed-preserve-failure-evidence-and-do-not-retry
+- Unresolved：local-minimal-fix-fresh-review-new-sealed-Linux-double-noapply-new-explicit-approval-required-before-any-second-apply
+
+### 2026-07-22T15:43:05.002Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：local-A2-apply-only-committed-seed-verifier-fix-and-regression
+- Resources：`/private/tmp/curriculum-final-integration-20260722/scripts/continue-remote-ocr-operator-interruption.mjs`、`/private/tmp/curriculum-final-integration-20260722/tests/remote-ocr-operator-interruption-continuation.test.mjs`、`/private/tmp/curriculum-final-integration-20260722/data/remote-ocr-a2-continuation-runtime-manifest.json`、`/private/tmp/curriculum-final-integration-20260722/ops/remote-ocr-a2-readonly-preflight-gates.v1.json`
+- Evidence：frozen-hash-bound-llama-attestation-used-only-for-quiescent-seed-verification-post-start-live-attestation-retained-full-1267-total-1262-pass-0-fail-5-skip-focused-final-85-pass-0-fail-3-skip-tsc-build-diff-pass
+- Rollback：revert-pending-local-commit-no-remote-retry-or-frozen-state-mutation
+- Unresolved：independent-review-commit-new-sealed-Linux-full-suite-double-noapply-and-new-user-approval-remain
+
+### 2026-07-22T15:53:04.009Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：additive-corrected-A2-sealed-Linux-runtime-staging
+- Resources：`DMITPro2-inner-bdfz`、`/home/suen/curriculum-ocr-offload/sealed-runtime/curriculum-a2-sealed-ca8b2df`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-sealed-linux-noapply-ca8b2df-981394d3-5125-4172-a5a8-fbf25ffce607`
+- Evidence：commit-ca8b2df-archive-e2909617-bytes4315787-suite-52d4895d-remote-root-inode45759372
+- Rollback：remove-only-new-ca8b2df-sealed-staging-paths-after-evidence-retention-no-frozen-state-rollback
+- Unresolved：no-new-apply-or-service-start-without-explicit-new-user-approval
+
+### 2026-07-22T15:53:12.616Z · verify · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：corrected-A2-sealed-Linux-suite-double-noapply-frozen-preservation-and-new-packet
+- Resources：`DMITPro2-inner-bdfz`、`/home/suen/curriculum-ocr-offload/sealed-runtime/curriculum-a2-sealed-ca8b2df`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-sealed-linux-noapply-ca8b2df-981394d3-5125-4172-a5a8-fbf25ffce607`
+- Evidence：Linux-88-pass-0-fail-0-skip-TAP-afd53a08-two-noapply-d153cfa0-frozen-before-after-80876b5b-continuation-absent-bundle-checksums-pass-independent-review-0-P0-P1-P2
+- Rollback：no-production-or-frozen-mutation-new-staging-is-additive-and-removable-after-retention
+- Unresolved：corrected-apply-and-new-canary-unit-start-require-explicit-new-user-approval-old-approval-consumed
+
+### 2026-07-22T15:56:30.858Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：canonical-report-A2-canary-hard-stop-and-corrected-candidate-closeout
+- Resources：`reports/cloudflare_business_audit_2026-05-23.md`
+- Evidence：old-single-start-exit2-no-retry-frozen-unchanged-corrected-ca8b2df-Linux88-double-noapply-recorded
+- Rollback：report-entry-is-additive-no-runtime-state-changed
+- Unresolved：corrected-ca8b2df-apply-requires-new-explicit-user-approval
+
+</details>
+
+<details><summary><code>curriculum-atlas-A2-approved-aea1368-canary</code> · 1 events · 2026-07-22T15:56:30.965Z → 2026-07-22T15:56:30.965Z</summary>
+
+Agents：`root/981394d3-5125-4172-a5a8-fbf25ffce607`
+Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-a2-forward-continuation-aea1368.service`、`reports/cloudflare_business_audit_2026-05-23.md`
+
+### 2026-07-22T15:56:30.965Z · closeout · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：old-user-approved-A2-bounded-canary-consumed-and-closed
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-a2-forward-continuation-aea1368.service`、`reports/cloudflare_business_audit_2026-05-23.md`
+- Evidence：exactly-one-start-exit2-NRestarts0-no-second-start-failure-bundle-checksums-pass-frozen-state-unchanged
+- Rollback：no-frozen-rollback-needed-preserve-failure-evidence-and-process-free-unit
+- Unresolved：corrected-ca8b2df-is-a-new-packet-and-needs-new-explicit-approval
+
+</details>
+
+<details><summary><code>curriculum-atlas-A2-approved-ca8b2df-canary</code> · 5 events · 2026-07-22T22:49:54.714Z → 2026-07-22T23:09:19.684Z</summary>
+
+Agents：`root/981394d3-5125-4172-a5a8-fbf25ffce607`
+Resources：`DMITPro2-inner-bdfz`、`A2-output-inode-45748776`、`sealed-runtime-ca8b2df`、`curriculum-ocr-a2-forward-continuation-ca8b2df.service`、`curriculum-ocr-llama.service`、`backups/curriculum-atlas/2026-07-22/a2-sealed-linux-noapply-ca8b2df-981394d3-5125-4172-a5a8-fbf25ffce607/APPLY-CANARY-EXIT2`、`reports/cloudflare_business_audit_2026-05-23.md`、`reports/vps_fleet_status_2026-05-23.md`
+
+### 2026-07-22T22:49:54.714Z · start · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：user-approved-corrected-A2-same-attempt6-forward-continuation-canary
+- Resources：`DMITPro2-inner-bdfz`、`A2-output-inode-45748776`、`sealed-runtime-ca8b2df`
+- Evidence：explicit-approval-observed-2026-07-22T22-49-54-604Z-packet-ca8b2df
+- Rollback：stop-only-exact-corrected-canary-unit-preserve-claim-receipt-journal-successor-and-forward-artifacts-no-snapshot-restore
+- Unresolved：ordinary-A2-worker-monitor-timer-Cloudflare-publication-retired-aea1368-and-second-apply-excluded
+
+### 2026-07-22T22:56:04.077Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：approval-bound-corrected-A2-preflight-and-dedicated-unit-install
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-a2-forward-continuation-ca8b2df.service`
+- Evidence：authorization-e071d5e9-two-noapply-8227c5b6-frozen-before-after-80876b5b-command-array-recorded-unit-80736c80-static-inactive-never-run-restart-no
+- Rollback：before-start-remove-only-new-unit-and-approval-staging-after-evidence-retention-after-start-stop-only-exact-unit-preserve-forward-evidence
+- Unresolved：exactly-one-approved-start-not-yet-issued
+
+### 2026-07-22T22:56:26.266Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：single-approved-corrected-A2-attempt6-bounded-canary-start
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-a2-forward-continuation-ca8b2df.service`、`A2-output-inode-45748776`
+- Evidence：one-start-issued-invocation-2609dbba-MainPID3356413-NRestarts0
+- Rollback：stop-only-exact-corrected-canary-unit-if-active-preserve-claim-receipt-journal-and-forward-output-no-second-start-on-75-2-12
+- Unresolved：canary-running-await-terminal-or-new-hard-gate
+
+### 2026-07-22T22:59:30.003Z · verify · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：corrected-A2-canary-exit2-hard-stop-and-exact-owned-llama-stop
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-a2-forward-continuation-ca8b2df.service`、`curriculum-ocr-llama.service`、`A2-output-inode-45748776`
+- Evidence：one-invocation-2609dbba-exit2-NRestarts0-claim-receipt-published-no-OCR-child-llama-invocation-5605b7a8-causally-correlated-and-stopped-MainPID0
+- Rollback：preserve-claim-receipt-journal-and-forward-evidence-no-snapshot-restore-no-second-apply
+- Unresolved：llama-process-start-marker-absent-from-proc-environ-claimed-only-journal-requires-readonly-evidence-review
+
+### 2026-07-22T23:09:19.684Z · closeout · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：approved-corrected-A2-bounded-canary-consumed-exit2-evidence-and-reports-closed
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-ocr-a2-forward-continuation-ca8b2df.service`、`backups/curriculum-atlas/2026-07-22/a2-sealed-linux-noapply-ca8b2df-981394d3-5125-4172-a5a8-fbf25ffce607/APPLY-CANARY-EXIT2`、`reports/cloudflare_business_audit_2026-05-23.md`、`reports/vps_fleet_status_2026-05-23.md`
+- Evidence：exactly-one-start-exit2-NRestarts0-exact-llama-stopped-seven-units-process-free-document-tree-and-four-live-hashes-unchanged-46-checksums-pass
+- Rollback：no-destructive-rollback-preserve-claim-receipt-journal-and-forward-evidence-no-second-apply
+- Unresolved：real-Linux-systemd-marker-harness-and-claimed-only-recovery-review-required-before-any-further-invocation
+
+</details>
+
+<details><summary><code>curriculum-atlas-A2-marker-recovery-harness</code> · 6 events · 2026-07-23T02:01:58.343Z → 2026-07-23T03:14:56.764Z</summary>
+
+Agents：`root/981394d3-5125-4172-a5a8-fbf25ffce607`
+Resources：`DMITPro2-inner-bdfz`、`/private/tmp/curriculum-a2-marker-recovery-20260722`、`curriculum-a2-marker-harness.service`、`curriculum-a2-marker-harness-parent.service`、`curriculum-a2-marker-harness-child.service`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-systemd-marker-harness-20260722T1902PDT`、`ops/systemd/curriculum-ocr-llama.service`、`GitHub:ieduer/curriculum-atlas@d3936b0`
+
+### 2026-07-23T02:01:58.343Z · start · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：real-Linux-systemd-marker-harness-and-claimed-only-recovery-hardening
+- Resources：`DMITPro2-inner-bdfz`、`/private/tmp/curriculum-a2-marker-recovery-20260722`、`curriculum-a2-marker-harness.service`
+- Evidence：prior-ca8b2df-canary-closed-process-free-claimed-only-preserved-current-integration-ca8b2df-clean
+- Rollback：remove-only-unique-harness-unit-and-files-revert-isolated-worktree-commit-no-A2-output-restore
+- Unresolved：no-A2-apply-no-llama-start-no-GPU-no-ordinary-worker-no-Cloudflare-no-publication
+
+### 2026-07-23T02:08:13.826Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：installed-and-started-isolated-systemd-marker-parent-child-harness-exactly-once
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-a2-marker-harness-parent.service`、`curriculum-a2-marker-harness-child.service`
+- Evidence：parent-success-child-success-NRestarts-zero-proc-identity-stable-marker-present
+- Rollback：remove-two-unique-user-units-daemon-reload-preserve-evidence-directory
+- Unresolved：exact-llama-unit-difference-not-yet-diagnosed
+
+### 2026-07-23T02:11:02.653Z · verify · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：isolated-generic-systemd-marker-harness-verified-and-removed
+- Resources：`DMITPro2-inner-bdfz`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-systemd-marker-harness-20260722T1902PDT`
+- Evidence：marker-present-proc-uid1000-identity-stable-parent-child-success-NRestarts-zero-units-not-found-after-removal
+- Rollback：no-installed-unit-remains-evidence-preserved
+- Unresolved：exact-llama-server-marker-and-readiness-still-to-test
+
+### 2026-07-23T02:24:55.523Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：local-minimal-Type-exec-fix-tests-and-production-deploy-preparation
+- Resources：`/private/tmp/curriculum-a2-marker-recovery-20260722`、`ops/systemd/curriculum-ocr-llama.service`、`DMITPro2-inner-bdfz`
+- Evidence：focused-13-pass-local-unit-sha-5f014a97-remote-old-sha-bf6714dd-service-inactive-MainPID-zero
+- Rollback：backup-old-unit-restore-daemon-reload-verify-inactive
+- Unresolved：deploy-unit-and-one-existing-claim-recovery-invocation-no-model-replacement
+
+### 2026-07-23T03:14:56.649Z · verify · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：deployed reviewed Type-exec unit and recovered preserved claim exactly once
+- Resources：`DMITPro2-inner-bdfz`、`/private/tmp/curriculum-a2-marker-recovery-20260722`
+- Evidence：production worker and llama zero restarts; focused tests 13/13; branch d3936b0 pushed
+- Rollback：restore saved old unit from marker-recovery/20260722T1925PDT and daemon-reload
+- Unresolved：none for startup race; formal OCR continues
+
+### 2026-07-23T03:14:56.764Z · closeout · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：release marker recovery and Type-exec source ownership
+- Resources：`DMITPro2-inner-bdfz`、`GitHub:ieduer/curriculum-atlas@d3936b0`
+- Evidence：harness evidence preserved; production service stable; source and reports updated
+- Rollback：restore saved old unit; no output-tree rollback
+- Unresolved：formal English OCR remains active
+
+</details>
+
+<details><summary><code>curriculum-atlas-A2-llama-marker-diagnostic</code> · 4 events · 2026-07-23T02:11:02.682Z → 2026-07-23T03:14:56.874Z</summary>
+
+Agents：`root/981394d3-5125-4172-a5a8-fbf25ffce607`
+Resources：`DMITPro2-inner-bdfz`、`curriculum-a2-llama-marker-harness.service`、`/home/suen/curriculum-ocr-offload/marker-harness/20260722T1920PDT`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-llama-marker-harness-eacces-20260722T1920PDT`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-llama-type-exec-harness-pass-20260722T1930PDT`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22`
+
+### 2026-07-23T02:11:02.682Z · start · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：exact-llama-server-binary-model-marker-and-readiness-isolated-no-OCR
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-a2-llama-marker-harness.service`、`/home/suen/curriculum-ocr-offload/marker-harness/20260722T1920PDT`
+- Evidence：generic-systemd-marker-harness-passed-GPU-idle-port8113-free
+- Rollback：stop-exact-unique-unit-unset-marker-remove-unit-daemon-reload-preserve-redacted-evidence
+- Unresolved：no-A2-apply-no-production-llama-unit-no-OCR-prompt-no-document-state-no-worker-no-publication
+
+### 2026-07-23T02:16:54.904Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：first-exact-llama-binary-start-failed-closed-at-proc-environ-attestation-before-health
+- Resources：`DMITPro2-inner-bdfz`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-llama-marker-harness-eacces-20260722T1920PDT`
+- Evidence：one-child-start-no-restart-immediate-EACCES-reading-proc-environ-Type-simple-child-stopped-units-removed
+- Rollback：complete-no-unit-marker-port-or-process-remains
+- Unresolved：test-Type-exec-as-bounded-startup-race-fix-before-changing-production
+
+### 2026-07-23T02:24:55.496Z · verify · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：Type-exec-llama-binary-model-marker-and-health-passed-exactly-once
+- Resources：`DMITPro2-inner-bdfz`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22/a2-llama-type-exec-harness-pass-20260722T1930PDT`
+- Evidence：same-PID-marker-initial-and-ready-health-ok-GPU-2416MiB-NRestarts-zero-no-process-port-marker-unit-remains
+- Rollback：temporary-units-removed-no-production-config-changed
+- Unresolved：deploy-reviewed-Type-exec-unit-then-resume-existing-claimed-continuation
+
+### 2026-07-23T03:14:56.874Z · closeout · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：exact llama diagnostic closed after validated Type-exec correction
+- Resources：`DMITPro2-inner-bdfz`、`/Users/ylsuen/CF/backups/curriculum-atlas/2026-07-22`
+- Evidence：same PID marker and health passed; temporary units removed; no orphan process or port
+- Rollback：temporary harness already removed; production rollback uses saved old unit
+- Unresolved：none for diagnostic
+
+</details>
+
+<details><summary><code>curriculum-atlas-fast-secondary-ocr</code> · 4 events · 2026-07-23T02:35:17.039Z → 2026-07-23T03:14:57.201Z</summary>
+
+Agents：`root/981394d3-5125-4172-a5a8-fbf25ffce607`
+Resources：`DMITPro2-inner-bdfz`、`curriculum-a2-fast-tesseract.service`、`/home/suen/curriculum-ocr-offload/fast-ocr`、`/home/suen/curriculum-ocr-offload/fast-ocr/legacy-compendium-english-tesseract-p0193-p0649-v1`、`reports/vps_fleet_status_2026-05-23.md`
+
+### 2026-07-23T02:35:17.039Z · start · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：low-priority-page193-649-Tesseract-secondary-layer-while-VLM-continues
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-a2-fast-tesseract.service`、`/home/suen/curriculum-ocr-offload/fast-ocr`
+- Evidence：page193-canary-psm3-one-second-945-chars-VLM-running-page208-Type-exec-health-ok
+- Rollback：stop-exact-secondary-unit-preserve-owner-only-output-remove-unit-after-evidence-closeout
+- Unresolved：no-formal-A2-state-mutation-citation-allowed-false-data-import-only-after-validation
+
+### 2026-07-23T03:14:56.983Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：completed bounded Tesseract pages 193 through 649 as secondary noncitation layer
+- Resources：`DMITPro2-inner-bdfz`、`curriculum-a2-fast-tesseract.service`、`/home/suen/curriculum-ocr-offload/fast-ocr`
+- Evidence：457 page directories in 19m50s; unit success and zero restarts; manifest 26664cfe
+- Rollback：preserve output and remove only unique unit if still installed
+- Unresolved：secondary output is not formal citation evidence
+
+### 2026-07-23T03:14:57.083Z · verify · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：validated secondary OCR completion and formal-union provisional coverage
+- Resources：`DMITPro2-inner-bdfz`、`/home/suen/curriculum-ocr-offload/fast-ocr/legacy-compendium-english-tesseract-p0193-p0649-v1`
+- Evidence：pages 193-649 exactly; source hash bound; citation allowed false; formal worker uninterrupted
+- Rollback：no formal state changed; discard secondary layer if rejected
+- Unresolved：formal VLM pages after 448 continue
+
+### 2026-07-23T03:14:57.201Z · closeout · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：release completed fast secondary OCR ownership
+- Resources：`DMITPro2-inner-bdfz`、`reports/vps_fleet_status_2026-05-23.md`
+- Evidence：secondary unit inactive success; evidence and rollback recorded
+- Rollback：remove only unique unit; retain owner-only evidence
+- Unresolved：three retry-wait documents remain
+
+</details>
+
+<details><summary><code>curriculum-atlas-ocr-data-frontend-20260723</code> · 4 events · 2026-07-23T02:42:01.158Z → 2026-07-23T03:14:57.366Z</summary>
+
+Agents：`root/981394d3-5125-4172-a5a8-fbf25ffce607`
+Resources：`/Users/ylsuen/CF/curriculum-atlas/public/data`、`/Users/ylsuen/CF/curriculum-atlas/public/app.js`、`/Users/ylsuen/CF/curriculum-atlas/public/styles.css`、`bdfz-curriculum-atlas-Worker`、`curriculum.bdfz.net`、`DMITPro2-inner-bdfz`、`/Users/ylsuen/CF/curriculum-atlas/public/data/ocr-observation-layer.json`、`/Users/ylsuen/CF/curriculum-atlas`、`reports/cloudflare_business_audit_2026-05-23.md`、`reports/vps_fleet_status_2026-05-23.md`
+
+### 2026-07-23T02:42:01.158Z · start · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：production-main-OCR-observation-data-and-leaf-frontend
+- Resources：`/Users/ylsuen/CF/curriculum-atlas/public/data`、`/Users/ylsuen/CF/curriculum-atlas/public/app.js`、`/Users/ylsuen/CF/curriculum-atlas/public/styles.css`、`bdfz-curriculum-atlas-Worker`、`curriculum.bdfz.net`
+- Evidence：main-2e6584a-clean-before-mutation-A2-and-fast-OCR-running
+- Rollback：git-revert-task-commit-and-wrangler-versions-rollback
+- Unresolved：formal-OCR-text-remains-citation-false-until-editorial-page-gate
+
+### 2026-07-23T02:57:23.274Z · change · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：source-bound-OCR-observation-layer-and-frontend-integration
+- Resources：`DMITPro2-inner-bdfz`、`/Users/ylsuen/CF/curriculum-atlas/public/data/ocr-observation-layer.json`、`/Users/ylsuen/CF/curriculum-atlas/public/app.js`、`/Users/ylsuen/CF/curriculum-atlas/public/styles.css`
+- Evidence：moe-2022-03-109-of-109-source-sha-3ef0ec8a-layer-sha-c056887c-23-concepts-20-lineage-42-cooccurrence-10-docs-4078-pages
+- Rollback：remove-static-OCR-layer-and-revert-frontend-commit-remote-formal-OCR-output-unchanged
+- Unresolved：OCR-layer-remains-citation-false-formal-English-running-at-336-of-649
+
+### 2026-07-23T03:14:57.285Z · verify · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：verified production OCR observation data and responsive frontend
+- Resources：`curriculum.bdfz.net`、`bdfz-curriculum-atlas-Worker`、`/Users/ylsuen/CF/curriculum-atlas`
+- Evidence：health ok corpus ready Git 3d5efe8; layer 109 pages 23 concepts 20 lineage 42 cooccurrence; browser desktop and mobile zero console errors
+- Rollback：deploy production version d9b35eea-d812-4d6e-a5f2-53f11081ed09 at 100 percent or revert four commits
+- Unresolved：candidate layer remains citation false
+
+### 2026-07-23T03:14:57.366Z · closeout · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：release OCR data and frontend production ownership after reports and browser teardown
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`curriculum.bdfz.net`、`reports/cloudflare_business_audit_2026-05-23.md`、`reports/vps_fleet_status_2026-05-23.md`
+- Evidence：production version baaf97e3; origin main exact; task browser closed; orphan dry-run acted zero
+- Rollback：Cloudflare rollback version d9b35eea; git revert task commits; report backups preserved
+- Unresolved：formal English and three retry-wait documents continue; no citation-ready claim
+
+</details>
+
+<details><summary><code>curriculum-atlas-century-timeline-20260723</code> · 5 events · 2026-07-23T03:28:17.899Z → 2026-07-23T03:55:16.378Z</summary>
+
+Agents：`root/981394d3-5125-4172-a5a8-fbf25ffce607`、`local-agent`
+Resources：`/Users/ylsuen/CF/curriculum-atlas/data`、`/Users/ylsuen/CF/curriculum-atlas/scripts`、`/Users/ylsuen/CF/curriculum-atlas/public/data`、`/Users/ylsuen/CF/curriculum-atlas/public/app.js`、`/Users/ylsuen/CF/curriculum-atlas/public/styles.css`、`bdfz-curriculum-atlas-Worker`、`curriculum.bdfz.net`、`curriculum-atlas/data/century-observation-source.json`、`curriculum-atlas/data/embedded-items-century-v1.json`、`curriculum-atlas/public/data/century-observation-layer.json`、`curriculum-atlas/public/app.js`、`curriculum-atlas/public/styles.css`、`curriculum-atlas test suite`、`curriculum-atlas build`、`curriculum-atlas release manifest dry-run`、`/Users/ylsuen/CF/curriculum-atlas`、`reports/cloudflare_business_audit_2026-05-23.md`
+
+### 2026-07-23T03:28:17.899Z · start · root/981394d3-5125-4172-a5a8-fbf25ffce607
+
+- Scope：Own two-compendium embedded-item manifest, 1902-2000 noncitation observation layer, century timeline frontend, Worker Assets preview and production only
+- Resources：`/Users/ylsuen/CF/curriculum-atlas/data`、`/Users/ylsuen/CF/curriculum-atlas/scripts`、`/Users/ylsuen/CF/curriculum-atlas/public/data`、`/Users/ylsuen/CF/curriculum-atlas/public/app.js`、`/Users/ylsuen/CF/curriculum-atlas/public/styles.css`、`bdfz-curriculum-atlas-Worker`、`curriculum.bdfz.net`
+- Evidence：main clean at 3d5efe8; production health exact; Cloudflare auth confirmed; OCR archive source hash inventory preserved
+- Rollback：git revert task commits and deploy prior production version baaf97e3 at 100 percent
+- Unresolved：shared hubs D1 schema formal citation gate remaining OCR documents and unrelated worktrees excluded
+
+### 2026-07-23T03:44:36.715Z · change · local-agent
+
+- Scope：Generated fail-closed two-compendium century layer and implemented document-first timeline UI
+- Resources：`curriculum-atlas/data/century-observation-source.json`、`curriculum-atlas/data/embedded-items-century-v1.json`、`curriculum-atlas/public/data/century-observation-layer.json`、`curriculum-atlas/public/app.js`、`curriculum-atlas/public/styles.css`
+- Evidence：134 unique embedded items; 57 Chinese and 77 plans; 1902-2000; 48 lexical observations; 132 source-order and 2 co-observation nonsemantic relations
+- Rollback：Revert task commit; static Assets rollback requires no D1 or R2 mutation
+- Unresolved：Candidate observations remain noncitation and nonsemantic pending item audit
+
+### 2026-07-23T03:46:26.119Z · verify · local-agent
+
+- Scope：Local deterministic data, frontend and release-source validation
+- Resources：`curriculum-atlas test suite`、`curriculum-atlas build`、`curriculum-atlas release manifest dry-run`
+- Evidence：554 Node tests and 14 Python tests passed; TypeScript and build passed; century layer check exact; Wrangler dry-run read 13 Assets files; final clean-source gate expectedly blocked pre-commit dirty tree
+- Rollback：No production mutation performed
+- Unresolved：Real browser launch blocked by host SIGKILL under current memory pressure; preview and production live verification remain
+
+### 2026-07-23T03:55:16.336Z · verify · local-agent
+
+- Scope：Verified preview and production century timeline in real desktop and mobile browser
+- Resources：`curriculum.bdfz.net`、`bdfz-curriculum-atlas-Worker`、`/Users/ylsuen/CF/curriculum-atlas`
+- Evidence：production version 0ff3eadc at 100 percent; health ok; 134 nodes; 57 Chinese and 77 plans; timeline 134 rows across 3 eras; historical page deep link exact; desktop and mobile no overflow; console errors zero
+- Rollback：Restore production version baaf97e3 at 100 percent or revert the three task commits and redeploy
+- Unresolved：Candidate observations remain noncitation and nonsemantic pending item audit
+
+### 2026-07-23T03:55:16.378Z · closeout · local-agent
+
+- Scope：Released century candidate layer and production timeline ownership after canonical report update
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`curriculum.bdfz.net`、`reports/cloudflare_business_audit_2026-05-23.md`
+- Evidence：main and origin main exact at 26cc003; production deployment a3abbc5b; report backup hash recorded; no D1 R2 VPS or shared hub mutation
+- Rollback：Cloudflare rollback version baaf97e3; git revert f4446c5 1ffd6d2 26cc003; report backup preserved
+- Unresolved：Human item audit and later citation or semantic promotion are separate gates
+
+</details>
+
+<details><summary><code>curriculum-atlas-single-star-manual-20260723</code> · 5 events · 2026-07-23T04:02:38.379Z → 2026-07-23T04:41:48.529Z</summary>
+
+Agents：`local-agent`
+Resources：`/Users/ylsuen/CF/curriculum-atlas/public`、`/Users/ylsuen/CF/curriculum-atlas/scripts/build-century-observation-layer.mjs`、`/Users/ylsuen/CF/curriculum-atlas/docs/PROJECT_MANUAL.md`、`bdfz-curriculum-atlas-Worker`、`curriculum.bdfz.net`、`docs/PROJECT_MANUAL.md`、`public/app.js`、`public/index.html`、`public/styles.css`、`public/data/century-observation-layer.json`、`scripts/build-century-observation-layer.mjs`、`bdfz-curriculum-atlas-preview`、`data/release-environment-evidence.json`、`bdfz-curriculum-atlas`、`/Users/ylsuen/CF/curriculum-atlas`、`reports/cloudflare_business_audit_2026-05-23.md`
+
+### 2026-07-23T04:02:38.379Z · start · local-agent
+
+- Scope：Own leaf frontend century candidate star projection canonical project manual preview and production Assets only
+- Resources：`/Users/ylsuen/CF/curriculum-atlas/public`、`/Users/ylsuen/CF/curriculum-atlas/scripts/build-century-observation-layer.mjs`、`/Users/ylsuen/CF/curriculum-atlas/docs/PROJECT_MANUAL.md`、`bdfz-curriculum-atlas-Worker`、`curriculum.bdfz.net`
+- Evidence：main clean at 26cc003; prior century task closed; live health ok; rollback branch backup/single-star-manual-20260723
+- Rollback：Deploy prior production version 0ff3eadc at 100 percent or revert task commits; no D1 R2 VPS shared hub mutation
+- Unresolved：Production promotion requires local preview and real browser star-map validation
+
+### 2026-07-23T04:16:36.395Z · change · local-agent
+
+- Scope：Implemented canonical single-star-map product contract and deterministic century OCR candidate projection
+- Resources：`docs/PROJECT_MANUAL.md`、`public/app.js`、`public/index.html`、`public/styles.css`、`public/data/century-observation-layer.json`、`scripts/build-century-observation-layer.mjs`
+- Evidence：134 archive items generate 48 candidate episodes 66 page evidence records 38 lineage edges and 5 co-observation edges; 554 Node and 14 Python tests pass
+- Rollback：Revert task commits; no production D1 R2 VPS or shared hub changed yet
+- Unresolved：Commit-bound release evidence preview browser QA and production promotion remain
+
+### 2026-07-23T04:20:26.402Z · change · local-agent
+
+- Scope：Deployed clean feature commit to preview Worker and captured commit-bound environment evidence
+- Resources：`bdfz-curriculum-atlas-preview`、`data/release-environment-evidence.json`
+- Evidence：Preview Worker version 091d8e71-a83b-4236-a654-7ae57db2df28 deployment e7cdd602-7eaa-4210-839a-dadd7bc26c35; live 48 candidate stars 66 evidence 43 edges 134 archive items; browser no horizontal timeline and no first-party logs
+- Rollback：Restore prior preview Worker version recorded by deployment history; D1 and R2 unchanged
+- Unresolved：Evidence commit full verify and production promotion remain
+
+### 2026-07-23T04:41:48.491Z · verify · local-agent
+
+- Scope：Verified single-star candidate projection and production release
+- Resources：`curriculum.bdfz.net`、`bdfz-curriculum-atlas`、`bdfz-curriculum-atlas-preview`、`docs/PROJECT_MANUAL.md`
+- Evidence：Node 554 of 554 and Python 14 of 14; release blockers zero; production 48 candidate stars 66 evidence 43 fail-closed edges and 134 archive rows; desktop and 390x844 no overflow no timeline DOM zero console errors
+- Rollback：Production predecessor version 0ff3eadc-c5ab-48f1-af30-a94b93fda7a7 deployment a3abbc5b-4932-47d4-87d3-15fdda3e336a; git revert task commits; no D1 R2 VPS rollback
+- Unresolved：Continue OCR bounded-item projection and independent page edition semantic and citation review
+
+### 2026-07-23T04:41:48.529Z · closeout · local-agent
+
+- Scope：Closed single-star project manual data projection frontend and Assets release
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas`、`curriculum.bdfz.net`、`reports/cloudflare_business_audit_2026-05-23.md`
+- Evidence：Production version 43bf06ad-4eff-4b4b-9fbf-142e3fddbc2a deployment 30b00a0c-b35d-453d-b7df-4008778e3653; final docs head 0497e86988f21d4214268b51f74cf910dc4432a5; task browsers closed; dry-run preserved xue-live-r6
+- Rollback：Restore production predecessor at 100 percent and revert task commits; report backup SHA ca72a379186c955c907050ff9284e31ca1468e98f2bab2822395f0d4af5e6f12
+- Unresolved：OCR completion remains separate from citation and semantic release; continue deterministic projection as new bounded inputs finish
+
+</details>
+
+<details><summary><code>curriculum-atlas-star-effect-parity-20260723</code> · 5 events · 2026-07-23T04:51:17.169Z → 2026-07-23T05:38:48.558Z</summary>
+
+Agents：`local-agent`
+Resources：`/Users/ylsuen/CF/curriculum-atlas/public/atlas.js`、`/Users/ylsuen/CF/curriculum-atlas/tests`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`curriculum.bdfz.net`、`curriculum-atlas/public/atlas.js`、`curriculum-atlas/public/app.js`、`curriculum-atlas/public/index.html`、`curriculum-atlas/tests`、`https://bdfz-curriculum-atlas-preview.bdfz.workers.dev`、`/Users/ylsuen/CF/curriculum-atlas`、`https://curriculum.bdfz.net`、`/Users/ylsuen/CF/reports/cloudflare_business_audit_2026-05-23.md`
+
+### 2026-07-23T04:51:17.169Z · start · local-agent
+
+- Scope：Own leaf Canvas renderer star-effect parity tests docs preview and production Assets only
+- Resources：`/Users/ylsuen/CF/curriculum-atlas/public/atlas.js`、`/Users/ylsuen/CF/curriculum-atlas/tests`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`curriculum.bdfz.net`
+- Evidence：main clean at 0497e86; prior single-star task closed; mismatch isolated to candidate dimming label exclusion and static edge treatment
+- Rollback：Git revert task commits and restore current production Worker version 43bf06ad at 100 percent
+- Unresolved：Preview browser parity and production promotion gates remain
+
+### 2026-07-23T04:53:12.980Z · change · local-agent
+
+- Scope：Unified candidate and reviewed stars onto one shared material motion label and interaction profile
+- Resources：`curriculum-atlas/public/atlas.js`、`curriculum-atlas/public/app.js`、`curriculum-atlas/public/index.html`、`curriculum-atlas/tests`
+- Evidence：Candidate core glow pulse highlight and default labels now share solid-star values; only evidence ring remains dashed; focused 26 tests and TypeScript pass
+- Rollback：Revert task commit; asset cache version returns from v21 to v20
+- Unresolved：Full suite preview browser and production gates remain
+
+### 2026-07-23T05:21:53.317Z · change · local-agent
+
+- Scope：Deployed commit-bound star-effect parity build to preview Worker
+- Resources：`bdfz-curriculum-atlas-preview`、`https://bdfz-curriculum-atlas-preview.bdfz.workers.dev`
+- Evidence：Worker version b1e1c8ba; live assets byte-equal Git 8018b95; desktop and 390x844 candidate star hover click inspector crop drag zoom no overflow and zero console errors
+- Rollback：Restore previous preview Worker version 091d8e71 at 100 percent
+- Unresolved：Production promotion and post-deploy evidence remain
+
+### 2026-07-23T05:38:48.433Z · verify · local-agent
+
+- Scope：Verified production star effect parity repository state hub reachability and browser behavior
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas`、`https://curriculum.bdfz.net`、`/Users/ylsuen/CF/reports/cloudflare_business_audit_2026-05-23.md`
+- Evidence：Node 556 of 556 and Python 14 of 14 passed; release blockers zero; production version d717631e at 100 percent; v21 live; desktop and mobile candidate hover click crop drag zoom no overflow; console errors and warnings zero; HEAD equals upstream f0e2602
+- Rollback：Restore Worker version 43bf06ad at 100 percent and revert feature commit 8018b95; no D1 R2 or VPS restore
+- Unresolved：OCR candidate citation and semantic gates remain fail closed pending page edition and human review
+
+### 2026-07-23T05:38:48.558Z · closeout · local-agent
+
+- Scope：Closed leaf Canvas effect parity deployment documentation and task-owned browser lifecycle
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`https://curriculum.bdfz.net`、`/Users/ylsuen/CF/reports/cloudflare_business_audit_2026-05-23.md`
+- Evidence：Production deployment eaa65677 serves v21 and healthy bindings; report backup hash 6b33d267; all task browser sessions closed; orphan dry run left only another task xue-live-r6 and App MCP untouched
+- Rollback：Production version 43bf06ad deployment 30b00a0c is rollback anchor; Git revert 8018b95 and redeploy; report backup is task scoped
+- Unresolved：Continue OCR completion and candidate adjudication through the existing single star map pipeline without weakening evidence gates
+
+</details>
+
+<details><summary><code>curriculum-atlas-century-concept-evolution-20260723</code> · 5 events · 2026-07-23T05:55:58.080Z → 2026-07-23T07:50:03.178Z</summary>
+
+Agents：`local-agent`
+Resources：`/Users/ylsuen/CF/curriculum-atlas/data`、`/Users/ylsuen/CF/curriculum-atlas/public`、`/Users/ylsuen/CF/curriculum-atlas/scripts`、`/Users/ylsuen/CF/curriculum-atlas/tests`、`/Users/ylsuen/CF/curriculum-atlas/docs`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`curriculum.bdfz.net`、`curriculum-atlas data/concept-evolution-families.json`、`century observation builder and outputs`、`public app/atlas/index/styles`、`tests and project docs`、`curriculum-atlas public index`、`app`、`atlas`、`styles and layout tests; preview Worker only`、`/Users/ylsuen/CF/curriculum-atlas`、`https://curriculum.bdfz.net`、`/Users/ylsuen/CF/reports/cloudflare_business_audit_2026-05-23.md`
+
+### 2026-07-23T05:55:58.080Z · start · local-agent
+
+- Scope：Leaf-only century concept-family data Canvas selection and left-side control consolidation; excludes D1 R2 VPS shared hubs and OCR runtime
+- Resources：`/Users/ylsuen/CF/curriculum-atlas/data`、`/Users/ylsuen/CF/curriculum-atlas/public`、`/Users/ylsuen/CF/curriculum-atlas/scripts`、`/Users/ylsuen/CF/curriculum-atlas/tests`、`/Users/ylsuen/CF/curriculum-atlas/docs`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`curriculum.bdfz.net`
+- Evidence：main clean at f0e2602; prior star-effect task closed; production d717631e at 100 percent
+- Rollback：Git revert task commits and restore production version d717631e at 100 percent; no D1 R2 VPS or shared-hub mutation
+- Unresolved：Preview and production promotion require deterministic data tests and real desktop-mobile browser verification
+
+### 2026-07-23T06:21:28.312Z · change · local-agent
+
+- Scope：Built same-tier century concept families, rebuilt frozen historical observations, consolidated controls left, and implemented whole-family solid-line selection
+- Resources：`curriculum-atlas data/concept-evolution-families.json`、`century observation builder and outputs`、`public app/atlas/index/styles`、`tests and project docs`
+- Evidence：134 embedded items; 25 historical observed concepts; 433 historical episodes; 1754 evidence entries; 7 families; 427 episode memberships; 237 same-surface edges; 17 editorial correspondence edges; Node suite 561/561; TypeScript/build/Python checks passed; no dashed visual primitives
+- Rollback：Revert task commits; production remains d717631e-8b93-40a5-8266-71158f415c22 until deployment
+- Unresolved：Preview browser QA, production deployment, live verification, and operations closeout remain
+
+### 2026-07-23T07:11:02.824Z · change · local-agent
+
+- Scope：Redesigned the consolidated left control rail to prevent overlap and made all-subject state explicit
+- Resources：`curriculum-atlas public index`、`app`、`atlas`、`styles and layout tests; preview Worker only`
+- Evidence：Preview 50c9f522-9dfc-4650-8f27-ec37235a82e5; desktop and 390x844 show 12/12 active subjects; control scrollHeight equals clientHeight; mobile scrollWidth equals innerWidth; explicit all-open restores 12/12; console 0 errors 0 warnings
+- Rollback：Preview rollback to b1e1c8ba-92c4-4e0b-9161-63b685c4a3a6; production remains d717631e-8b93-40a5-8266-71158f415c22
+- Unresolved：Full release gate, production deploy, production browser QA, and operations closeout remain
+
+### 2026-07-23T07:49:47.174Z · verify · local-agent
+
+- Scope：Verified production century concept evolution, all-subject left rail, dependency reachability, and governed release
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas`、`bdfz-curriculum-atlas-preview`、`https://curriculum.bdfz.net`、`/Users/ylsuen/CF/reports/cloudflare_business_audit_2026-05-23.md`
+- Evidence：Git 298778d0e6e7f0b03fd31acdd09d5b55b5195dd6; Node 561 of 561 and Python 14 of 14; production version 6613ba19-a81d-4c16-aa20-f8657e67275b at 100 percent; 134 items 433 observations 1754 evidence 7 families 427 memberships; desktop and mobile one Canvas 12 of 12 subjects no overlap no horizontal overflow and zero console errors or warnings; health and hubs 200
+- Rollback：Restore production d717631e-8b93-40a5-8266-71158f415c22 or preview b1e1c8ba-92c4-4e0b-9161-63b685c4a3a6 at 100 percent and revert 298778d plus b207ec6; D1 R2 VPS unchanged
+- Unresolved：Other-subject historical volumes and page edition semantic citation review remain fail closed
+
+### 2026-07-23T07:50:03.178Z · closeout · local-agent
+
+- Scope：Closed century concept-family data, single-star visualization, left-rail redesign, production release, documentation, and browser lifecycle
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas`、`bdfz-curriculum-atlas-preview`、`https://curriculum.bdfz.net`、`/Users/ylsuen/CF/reports/cloudflare_business_audit_2026-05-23.md`
+- Evidence：Production 6613ba19 serves asset Git 298778d; report backup SHA c9619e6b; task browser curriculum-century-v23 closed; orphan dry-run acted on zero and preserved separately owned xue-live-r6 plus App MCP; temporary analysis directory removed
+- Rollback：Production d717631e and preview b1e1c8ba are immutable rollback anchors; git revert task commits and redeploy; report backup is task scoped
+- Unresolved：Continue adding historical same-tier families when non-Chinese source volumes finish; existing OCR candidates remain nonsemantic noncausal and noncitable until review
 
 </details>
 
