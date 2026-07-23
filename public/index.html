@@ -14,10 +14,10 @@
   <meta property="og:image" content="https://img.bdfz.net/20250503004.webp">
   <link rel="icon" href="https://img.bdfz.net/20250503004.webp" type="image/webp">
   <link rel="apple-touch-icon" href="https://img.bdfz.net/20250503004.webp">
-  <link rel="stylesheet" href="/styles.css?v=20260723v32">
-  <link rel="modulepreload" href="/subject-facets.js?v=20260723v32">
-  <link rel="modulepreload" href="/historical-stages.js?v=20260723v32">
-  <script type="module" src="/app.js?v=20260723v32"></script>
+  <link rel="stylesheet" href="/styles.css?v=20260723v33">
+  <link rel="modulepreload" href="/subject-facets.js?v=20260723v33">
+  <link rel="modulepreload" href="/historical-stages.js?v=20260723v33">
+  <script type="module" src="/app.js?v=20260723v33"></script>
 </head>
 <body>
   <a class="skip-link" href="#cosmos-stage">跳到课程星图</a>
@@ -48,9 +48,14 @@
         <form class="search-orbit" id="cosmos-search" role="search">
           <label class="sr-only" for="cosmos-query">在星图中搜索概念、术语与能力</label>
           <span aria-hidden="true">⌕</span>
-          <input id="cosmos-query" name="query" type="search" autocomplete="off" placeholder="检索概念、术语、能力">
+          <input id="cosmos-query" name="query" type="search" role="combobox" aria-autocomplete="list"
+            aria-controls="concept-result-list" aria-expanded="false" autocomplete="off" placeholder="检索概念、术语、能力">
           <button type="button" id="clear-query" aria-label="清除搜索" hidden>×</button>
         </form>
+        <section class="concept-results" id="concept-results" aria-label="同源概念星点列表" hidden>
+          <header><b>同源星点</b><span id="concept-result-count">0 个</span></header>
+          <div id="concept-result-list" role="listbox" aria-label="可用键盘选择的概念星点"></div>
+        </section>
         <div class="mode-switch" aria-label="星图关系模式">
           <button class="active" type="button" data-map-mode="lineage">百年演进</button>
           <button type="button" data-map-mode="cross">概念关系</button>

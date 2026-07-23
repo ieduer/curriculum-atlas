@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { assertCleanReleaseSource } from '../scripts/assert-clean-release-source.mjs';
-import { assertManifestSourceGates, wranglerDeployArgs } from '../scripts/deploy-worker.mjs';
+import {
+  assertManifestSourceGates,
+  releaseGateScripts,
+  wranglerDeployArgs,
+} from '../scripts/deploy-worker.mjs';
 
 function fakeGit(outputs) {
   return (_command, arguments_) => {
@@ -55,4 +59,10 @@ test('Worker deploy wrapper injects Git provenance and refuses source blockers',
     release_blockers: [{ environment: 'source', code: 'downloads_audit_stale' }],
   }), /downloads_audit_stale/);
   assert.equal(assertManifestSourceGates({ release_blockers: [] }), true);
+  assert.deepEqual(releaseGateScripts('preview'), ['release:gates:check']);
+  assert.deepEqual(releaseGateScripts('production'), [
+    'release:gates:check',
+    'performance:runtime:check',
+  ]);
+  assert.throws(() => releaseGateScripts('staging'), /unsupported deployment environment/);
 });

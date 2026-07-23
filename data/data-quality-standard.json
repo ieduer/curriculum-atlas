@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "standard_id": "curriculum-atlas-data-quality-v1",
+  "title": "課標百年數據層加工細度與準確度核查標準",
+  "release_policy": {
+    "failure_blocks_preview": true,
+    "failure_blocks_production": true,
+    "manual_override_allowed": false,
+    "ocr_completion_does_not_imply_citation": true,
+    "candidate_observation_does_not_imply_semantic_relation": true
+  },
+  "subject_facets": [
+    "语文",
+    "数学",
+    "外语",
+    "思想政治与道德法治",
+    "历史",
+    "历史与社会",
+    "地理",
+    "科学类",
+    "技术",
+    "劳动",
+    "艺术",
+    "体育与健康"
+  ],
+  "concept_granularity": {
+    "tier_order": [
+      "language-practice-domain",
+      "subject-course-identity",
+      "subject-practice-domain",
+      "subject-content-domain",
+      "subject-ability-domain"
+    ],
+    "family_count_by_tier": {
+      "language-practice-domain": 7,
+      "subject-course-identity": 12,
+      "subject-practice-domain": 12,
+      "subject-content-domain": 12,
+      "subject-ability-domain": 12
+    },
+    "required_century_crossing_tiers": [
+      "subject-course-identity",
+      "subject-practice-domain",
+      "subject-content-domain",
+      "subject-ability-domain"
+    ],
+    "required_century_crossing_year": 2001
+  },
+  "temporal_scope": {
+    "first_year": 1902,
+    "last_year": 2022,
+    "required_pre_1950_stages": [
+      [1902, 1911, "清末学堂章程"],
+      [1912, 1922, "民初法令与课程建制"],
+      [1923, 1928, "新学制课程纲要"],
+      [1929, 1936, "课程标准编订与修正"],
+      [1937, 1949, "战时调整与战后修订"]
+    ],
+    "required_1950_stage": [1950, 1977, "国家课程起点"]
+  },
+  "ocr_denominator": {
+    "nominal_documents": 86,
+    "nominal_pages": 11847,
+    "physical_documents": 85,
+    "physical_pages": 11779,
+    "complete_whole_documents": 83,
+    "runtime_completed_pages": 10690,
+    "runtime_remaining_pages": 1157,
+    "candidate_covered_pages": 10770,
+    "candidate_remaining_pages": 1077,
+    "dual_witness_audited_pages": 6947,
+    "human_decided_non_citation_pages": 4,
+    "citation_ready_pages": 0,
+    "required_gap_documents": [
+      "legacy-compendium-geography",
+      "legacy-compendium-mathematics",
+      "legacy-compendium-politics"
+    ],
+    "required_candidate_gap_ranges": {
+      "legacy-compendium-geography": [[97, 518]],
+      "legacy-compendium-mathematics": [[337, 697]],
+      "legacy-compendium-politics": [[129, 422]]
+    }
+  },
+  "relation_policy": {
+    "allowed_family_edge_types": [
+      "editorial_correspondence",
+      "same_surface_observed_again",
+      "integrated_curriculum_contains_disciplines"
+    ],
+    "semantic_must_be_false": true,
+    "citation_allowed_must_be_false": true,
+    "influence_claim_allowed_must_be_false": true,
+    "history_family_id": "subject-course-history",
+    "history_society_family_id": "subject-course-history-society",
+    "only_released_discipline_relation_id": "discipline-grouping-social-studies-1923",
+    "discipline_relation_year": 1923,
+    "discipline_relation_evidence_pages": [123, 124],
+    "discipline_relation_edge_count": 3
+  },
+  "evidence_policy": {
+    "candidate_layers": [
+      "ocr",
+      "subject_detail",
+      "pre2001_subject_detail",
+      "century"
+    ],
+    "minimum_evidence_anchors_per_episode": 1,
+    "candidate_citation_allowed": false,
+    "candidate_semantic_claim_allowed": false,
+    "candidate_negative_claim_allowed": false
+  },
+  "release_diff_policy": {
+    "baseline_tag": "curriculum-baseline-20260723-7cedbe95",
+    "removed_episode_count_allowed": 0,
+    "cross_layer_move_count_allowed": 0
+  },
+  "visual_policy": {
+    "candidate_display_level": "uniform_star",
+    "forbidden_tokens": [
+      "candidate_dashed",
+      "warning_dashed",
+      "stroke-dasharray",
+      "setLineDash"
+    ]
+  }
+}

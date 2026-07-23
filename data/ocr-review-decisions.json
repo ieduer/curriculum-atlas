@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "contract": "curriculum_ocr_review_decisions_v1",
+  "policy": {
+    "human_review_is_not_publication": true,
+    "citation_requires_exact_edition_identity": true,
+    "citation_requires_primary_and_independent_witness": true,
+    "citation_requires_page_level_adjudication": true,
+    "semantic_promotion_requires_separate_dual_ended_relation_review": true,
+    "default_citation_allowed": false,
+    "default_semantic_promotion_allowed": false
+  },
+  "decisions": [
+    {
+      "id": "review:legacy-compendium-chinese:p17",
+      "stable_locator": "legacy-compendium-chinese:page:17",
+      "reviewed_at": "2026-07-15T06:15:00Z",
+      "outcome": "human_image_review_pass_non_citation",
+      "edition_match": "exact_online_edition_not_established",
+      "evidence_file": "data/ocr-review-legacy-chinese-0017-0020.json",
+      "evidence_file_sha256": "340d4dffef86961ebb338049355083e4891d878097aceb7880ebda8a53a1e34e",
+      "citation_allowed": false,
+      "semantic_promotion_allowed": false
+    },
+    {
+      "id": "review:legacy-compendium-chinese:p18",
+      "stable_locator": "legacy-compendium-chinese:page:18",
+      "reviewed_at": "2026-07-15T06:15:00Z",
+      "outcome": "human_image_review_pass_non_citation",
+      "edition_match": "exact_online_edition_not_established",
+      "evidence_file": "data/ocr-review-legacy-chinese-0017-0020.json",
+      "evidence_file_sha256": "340d4dffef86961ebb338049355083e4891d878097aceb7880ebda8a53a1e34e",
+      "citation_allowed": false,
+      "semantic_promotion_allowed": false
+    },
+    {
+      "id": "review:legacy-compendium-chinese:p19",
+      "stable_locator": "legacy-compendium-chinese:page:19",
+      "reviewed_at": "2026-07-15T06:15:00Z",
+      "outcome": "human_image_review_pass_non_citation",
+      "edition_match": "exact_online_edition_not_established",
+      "evidence_file": "data/ocr-review-legacy-chinese-0017-0020.json",
+      "evidence_file_sha256": "340d4dffef86961ebb338049355083e4891d878097aceb7880ebda8a53a1e34e",
+      "citation_allowed": false,
+      "semantic_promotion_allowed": false
+    },
+    {
+      "id": "review:legacy-compendium-chinese:p20",
+      "stable_locator": "legacy-compendium-chinese:page:20",
+      "reviewed_at": "2026-07-15T06:15:00Z",
+      "outcome": "human_judgment_with_warning_non_citation",
+      "edition_match": "exact_online_edition_not_established",
+      "evidence_file": "data/ocr-review-legacy-chinese-0017-0020.json",
+      "evidence_file_sha256": "340d4dffef86961ebb338049355083e4891d878097aceb7880ebda8a53a1e34e",
+      "citation_allowed": false,
+      "semantic_promotion_allowed": false
+    }
+  ]
+}

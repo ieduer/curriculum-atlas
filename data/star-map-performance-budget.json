@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "budget_id": "curriculum-star-map-performance-v1",
+  "release_policy": {
+    "static_failure_blocks_preview": true,
+    "static_failure_blocks_production": true,
+    "preview_runtime_failure_blocks_production": true,
+    "manual_override_allowed": false
+  },
+  "static": {
+    "initial_graph_data_raw_bytes_max": 21500000,
+    "frontend_raw_bytes_max": 200000,
+    "merged_episode_count_max": 2100,
+    "merged_edge_count_max": 3000,
+    "merged_evidence_count_max": 5000,
+    "canvas_device_pixel_ratio_max": 2,
+    "mobile_automatic_label_count_max": 9
+  },
+  "runtime": {
+    "desktop": {
+      "viewport": [1440, 1000],
+      "ready_ms_max": 6500,
+      "resource_transfer_bytes_max": 8000000,
+      "draw_p95_ms_max": 50,
+      "long_task_count_max": 12,
+      "long_task_total_ms_max": 1800
+    },
+    "mobile": {
+      "viewport": [390, 844],
+      "ready_ms_max": 8000,
+      "resource_transfer_bytes_max": 8000000,
+      "draw_p95_ms_max": 60,
+      "long_task_count_max": 14,
+      "long_task_total_ms_max": 2200
+    }
+  }
+}

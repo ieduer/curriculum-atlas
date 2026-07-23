@@ -1,0 +1,548 @@
+{
+  "schema_version": 1,
+  "artifact_profile": "curriculum-data-quality-validation-v1",
+  "standard_id": "curriculum-atlas-data-quality-v1",
+  "release_decision": "pass",
+  "deployment_allowed": true,
+  "manual_override_allowed": false,
+  "source_fingerprints": {
+    "standard": "80e202966479d0c1f104a41e02eda770a8ebbf8e36660b8cbdc83c42073b85d5",
+    "candidateSchema": "d985d3c4d89440c4e2890694c10f20fb0fd291fcea68d9d13f28170843e4f212",
+    "coverage": "65302bc99a9bdf7ddce2f8bda9484b93a3b2a4140b22f1ca8cfcff8babd0be49",
+    "releaseDiff": "19c73d5b1ff582366d5b41d02bb04c01e54e48a4bc54950d50c1386506ef658f",
+    "performanceBudget": "d550d51061364473f80ce0c718edc4effc8056ca0437fbc744f714c391bd18c4",
+    "performanceValidation": "fdd5ba5e65494f409501829c3847030d8b535d77af334ae7b7bf2193e7dd5fe9",
+    "familiesConfig": "e891fce9b7b025b23fedbde6c90b734367673c8592a6d44c2b3bc2c0f80651c8",
+    "families": "720aa6edf19e6e89faff61dc8b8d8c66007135fe35b8000dcfe94bc8eaf7b531",
+    "core": "0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8",
+    "ocr": "5c95361d8e157231b7fe28bc940fbab45baf0836d143a94f7c8db3fbc4ce1e39",
+    "detail": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
+    "pre2001": "399e0c750329effe75ab0dbc8bfb335a5943e152cdbff0069e14bfc88369d6c1",
+    "century": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
+    "app": "0f76ec6c5d0ebc6b8f5d9e7cf1979251c9a980a3b52d67b83efc250b36aeb336",
+    "atlas": "5a546398b403999efa10f6283405851f8586d0d3ec599c1d4e5ed7d914e22e04",
+    "styles": "afb6503b14f021180f088fbd3769ae07f5dfbe523f989db0a8d7dec9fca2347f",
+    "index": "afe60ddf7db16915a7837b3a3c9f781050efb4291a8efeef555dd75e10326d1f"
+  },
+  "counts": {
+    "checks": 24,
+    "passed": 24,
+    "failed": 0,
+    "subject_facets": 12,
+    "concept_tiers": 5,
+    "concept_families": 55,
+    "episodes": 2030,
+    "family_edges": 1272,
+    "ocr_nominal_pages": 11847,
+    "ocr_candidate_covered_pages": 10770,
+    "ocr_candidate_remaining_pages": 1077,
+    "ocr_citation_ready_pages": 0
+  },
+  "checks": [
+    {
+      "id": "facets.core_exact",
+      "passed": true,
+      "observed": [
+        "语文",
+        "数学",
+        "外语",
+        "思想政治与道德法治",
+        "历史",
+        "历史与社会",
+        "地理",
+        "科学类",
+        "技术",
+        "劳动",
+        "艺术",
+        "体育与健康"
+      ],
+      "expected": [
+        "语文",
+        "数学",
+        "外语",
+        "思想政治与道德法治",
+        "历史",
+        "历史与社会",
+        "地理",
+        "科学类",
+        "技术",
+        "劳动",
+        "艺术",
+        "体育与健康"
+      ]
+    },
+    {
+      "id": "facets.family_exact",
+      "passed": true,
+      "observed": [
+        "语文",
+        "数学",
+        "外语",
+        "思想政治与道德法治",
+        "历史",
+        "历史与社会",
+        "地理",
+        "科学类",
+        "技术",
+        "劳动",
+        "艺术",
+        "体育与健康"
+      ],
+      "expected": [
+        "语文",
+        "数学",
+        "外语",
+        "思想政治与道德法治",
+        "历史",
+        "历史与社会",
+        "地理",
+        "科学类",
+        "技术",
+        "劳动",
+        "艺术",
+        "体育与健康"
+      ]
+    },
+    {
+      "id": "granularity.tier_order",
+      "passed": true,
+      "observed": [
+        "language-practice-domain",
+        "subject-course-identity",
+        "subject-practice-domain",
+        "subject-content-domain",
+        "subject-ability-domain"
+      ],
+      "expected": [
+        "language-practice-domain",
+        "subject-course-identity",
+        "subject-practice-domain",
+        "subject-content-domain",
+        "subject-ability-domain"
+      ]
+    },
+    {
+      "id": "granularity.family_count_by_tier",
+      "passed": true,
+      "observed": {
+        "language-practice-domain": 7,
+        "subject-course-identity": 12,
+        "subject-practice-domain": 12,
+        "subject-content-domain": 12,
+        "subject-ability-domain": 12
+      },
+      "expected": {
+        "language-practice-domain": 7,
+        "subject-course-identity": 12,
+        "subject-practice-domain": 12,
+        "subject-content-domain": 12,
+        "subject-ability-domain": 12
+      }
+    },
+    {
+      "id": "granularity.every_subject_crosses_2001",
+      "passed": true,
+      "observed": {
+        "failures": [],
+        "checked_pairs": 48
+      },
+      "expected": {
+        "failures": [],
+        "checked_pairs": 48
+      }
+    },
+    {
+      "id": "granularity.family_concepts_one_category",
+      "passed": true,
+      "observed": [],
+      "expected": []
+    },
+    {
+      "id": "time.family_membership_range",
+      "passed": true,
+      "observed": {
+        "first_year": 1902,
+        "last_year": 2022
+      },
+      "expected": {
+        "first_year": 1902,
+        "last_year": 2022
+      }
+    },
+    {
+      "id": "time.stages_contiguous",
+      "passed": true,
+      "observed": [
+        [
+          1902,
+          1911,
+          "清末学堂章程"
+        ],
+        [
+          1912,
+          1922,
+          "民初法令与课程建制"
+        ],
+        [
+          1923,
+          1928,
+          "新学制课程纲要"
+        ],
+        [
+          1929,
+          1936,
+          "课程标准编订与修正"
+        ],
+        [
+          1937,
+          1949,
+          "战时调整与战后修订"
+        ],
+        [
+          1950,
+          1977,
+          "国家课程起点"
+        ],
+        [
+          1978,
+          2000,
+          "恢复与重建"
+        ],
+        [
+          2001,
+          2010,
+          "新课程改革"
+        ],
+        [
+          2011,
+          2021,
+          "核心素养转向"
+        ],
+        [
+          2022,
+          2022,
+          "素养导向重构"
+        ]
+      ],
+      "expected": "1902-2022 contiguous"
+    },
+    {
+      "id": "time.pre1950_stages_exact",
+      "passed": true,
+      "observed": [
+        [
+          1902,
+          1911,
+          "清末学堂章程"
+        ],
+        [
+          1912,
+          1922,
+          "民初法令与课程建制"
+        ],
+        [
+          1923,
+          1928,
+          "新学制课程纲要"
+        ],
+        [
+          1929,
+          1936,
+          "课程标准编订与修正"
+        ],
+        [
+          1937,
+          1949,
+          "战时调整与战后修订"
+        ]
+      ],
+      "expected": [
+        [
+          1902,
+          1911,
+          "清末学堂章程"
+        ],
+        [
+          1912,
+          1922,
+          "民初法令与课程建制"
+        ],
+        [
+          1923,
+          1928,
+          "新学制课程纲要"
+        ],
+        [
+          1929,
+          1936,
+          "课程标准编订与修正"
+        ],
+        [
+          1937,
+          1949,
+          "战时调整与战后修订"
+        ]
+      ]
+    },
+    {
+      "id": "time.1950_stage_exact",
+      "passed": true,
+      "observed": [
+        1950,
+        1977,
+        "国家课程起点"
+      ],
+      "expected": [
+        1950,
+        1977,
+        "国家课程起点"
+      ]
+    },
+    {
+      "id": "ocr.denominator_exact",
+      "passed": true,
+      "observed": {
+        "nominal_documents": 86,
+        "nominal_pages": 11847,
+        "physical_documents": 85,
+        "physical_pages": 11779,
+        "complete_whole_documents": 83,
+        "runtime_completed_pages": 10690,
+        "runtime_remaining_pages": 1157,
+        "candidate_covered_pages": 10770,
+        "candidate_remaining_pages": 1077,
+        "dual_witness_audited_pages": 6947,
+        "human_decided_non_citation_pages": 4,
+        "citation_ready_pages": 0
+      },
+      "expected": {
+        "nominal_documents": 86,
+        "nominal_pages": 11847,
+        "physical_documents": 85,
+        "physical_pages": 11779,
+        "complete_whole_documents": 83,
+        "runtime_completed_pages": 10690,
+        "runtime_remaining_pages": 1157,
+        "candidate_covered_pages": 10770,
+        "candidate_remaining_pages": 1077,
+        "dual_witness_audited_pages": 6947,
+        "human_decided_non_citation_pages": 4,
+        "citation_ready_pages": 0
+      }
+    },
+    {
+      "id": "ocr.gap_documents_exact",
+      "passed": true,
+      "observed": [
+        "legacy-compendium-geography",
+        "legacy-compendium-mathematics",
+        "legacy-compendium-politics"
+      ],
+      "expected": [
+        "legacy-compendium-geography",
+        "legacy-compendium-mathematics",
+        "legacy-compendium-politics"
+      ]
+    },
+    {
+      "id": "ocr.gap_ranges_exact",
+      "passed": true,
+      "observed": {
+        "legacy-compendium-geography": [
+          [
+            97,
+            518
+          ]
+        ],
+        "legacy-compendium-mathematics": [
+          [
+            337,
+            697
+          ]
+        ],
+        "legacy-compendium-politics": [
+          [
+            129,
+            422
+          ]
+        ]
+      },
+      "expected": {
+        "legacy-compendium-geography": [
+          [
+            97,
+            518
+          ]
+        ],
+        "legacy-compendium-mathematics": [
+          [
+            337,
+            697
+          ]
+        ],
+        "legacy-compendium-politics": [
+          [
+            129,
+            422
+          ]
+        ]
+      }
+    },
+    {
+      "id": "ocr.fail_closed",
+      "passed": true,
+      "observed": {
+        "zero_silent_missing_documents": true,
+        "zero_silent_missing_pages": true,
+        "explicit_runtime_gaps": 3,
+        "citation_allowed": false,
+        "semantic_promotion_allowed": false,
+        "negative_claim_eligible": false
+      },
+      "expected": {
+        "citation_allowed": false,
+        "semantic_promotion_allowed": false,
+        "negative_claim_allowed": false
+      }
+    },
+    {
+      "id": "schema.candidate_fail_closed_contract",
+      "passed": true,
+      "observed": {
+        "semantic": false,
+        "negative_claim_eligible": false,
+        "display_level": "uniform_star"
+      },
+      "expected": {
+        "semantic": false,
+        "negative_claim_eligible": false,
+        "display_level": "uniform_star"
+      }
+    },
+    {
+      "id": "identity.episode_ids_globally_unique",
+      "passed": true,
+      "observed": {
+        "total": 2030,
+        "unique": 2030
+      },
+      "expected": {
+        "duplicate_count": 0
+      }
+    },
+    {
+      "id": "evidence.every_episode_resolves_anchor",
+      "passed": true,
+      "observed": {
+        "failures": [],
+        "checked_episodes": 2030
+      },
+      "expected": {
+        "failures": [],
+        "checked_episodes": 2030
+      }
+    },
+    {
+      "id": "evidence.candidate_layers_fail_closed",
+      "passed": true,
+      "observed": {
+        "failures": [],
+        "candidate_layers": [
+          "ocr",
+          "subject_detail",
+          "pre2001_subject_detail",
+          "century"
+        ]
+      },
+      "expected": {
+        "failures": [],
+        "candidate_layers": [
+          "ocr",
+          "subject_detail",
+          "pre2001_subject_detail",
+          "century"
+        ]
+      }
+    },
+    {
+      "id": "relations.family_edges_valid",
+      "passed": true,
+      "observed": {
+        "invalid_edge_ids": [],
+        "checked_edges": 1272
+      },
+      "expected": {
+        "invalid_edge_ids": [],
+        "checked_edges": 1272
+      }
+    },
+    {
+      "id": "relations.history_and_history_society_separate",
+      "passed": true,
+      "observed": [],
+      "expected": []
+    },
+    {
+      "id": "relations.only_sourced_1923_discipline_grouping",
+      "passed": true,
+      "observed": {
+        "relation_ids": [
+          "discipline-grouping-social-studies-1923"
+        ],
+        "year": 1923,
+        "evidence_pages": [
+          123,
+          124
+        ],
+        "edge_count": 3
+      },
+      "expected": {
+        "relation_ids": [
+          "discipline-grouping-social-studies-1923"
+        ],
+        "year": 1923,
+        "evidence_pages": [
+          123,
+          124
+        ],
+        "edge_count": 3
+      }
+    },
+    {
+      "id": "visual.no_dashed_semantics_or_primitives",
+      "passed": true,
+      "observed": [],
+      "expected": []
+    },
+    {
+      "id": "release.episode_diff_stable_and_current",
+      "passed": true,
+      "observed": {
+        "baseline_tag": "curriculum-baseline-20260723-7cedbe95",
+        "removed": 0,
+        "cross_layer_moves": 0,
+        "deployment_allowed": true
+      },
+      "expected": {
+        "baseline_tag": "curriculum-baseline-20260723-7cedbe95",
+        "removed": 0,
+        "cross_layer_moves": 0,
+        "deployment_allowed": true
+      }
+    },
+    {
+      "id": "performance.static_budget_current_and_passed",
+      "passed": true,
+      "observed": {
+        "budget_id": "curriculum-star-map-performance-v1",
+        "checks": 7,
+        "failed": 0
+      },
+      "expected": {
+        "budget_id": "curriculum-star-map-performance-v1",
+        "checks": 7,
+        "failed": 0
+      }
+    }
+  ]
+}

@@ -26,11 +26,24 @@ export function assertManifestSourceGates(manifest) {
   return true;
 }
 
+export function releaseGateScripts(environment) {
+  if (!['preview', 'production'].includes(environment)) {
+    throw new Error(`unsupported deployment environment: ${environment || '<unset>'}`);
+  }
+  return environment === 'production'
+    ? ['release:gates:check', 'performance:runtime:check']
+    : ['release:gates:check'];
+}
+
 export async function deployWorker({
   environment,
   root = DEFAULT_ROOT,
   runCommand = spawnSync,
 } = {}) {
+  for (const script of releaseGateScripts(environment)) {
+    const gate = runCommand('npm', ['run', script], { cwd: root, encoding: 'utf8', stdio: 'inherit' });
+    if (gate.status !== 0) throw new Error(`deployment quality gate failed: ${script}`);
+  }
   const git = assertCleanReleaseSource({ root, requireUpstream: true, runCommand });
   const manifest = await buildReleaseManifest({ root });
   assertManifestSourceGates(manifest);

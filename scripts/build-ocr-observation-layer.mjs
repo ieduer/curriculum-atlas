@@ -162,7 +162,7 @@ function createCandidateEpisode(concept, pageHits, meaningfulCharacters) {
       complete: true, negative_claim_eligible: false,
     },
     claim_policy: {
-      display_level: 'candidate_dashed', quotation_allowed: false, semantic_relation_allowed: false,
+      display_level: 'uniform_star', quotation_allowed: false, semantic_relation_allowed: false,
       historical_superlative_allowed: false, first_appearance_allowed: false, disappearance_allowed: false,
     },
     candidate_page_hits: pageHits,

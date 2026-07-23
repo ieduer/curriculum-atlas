@@ -36,6 +36,7 @@ test('OCR candidates and relations remain nonsemantic and fail closed for citati
     && episode.curriculum_line.school_type === 'general_education'
     && episode.observation.status === 'ocr_complete_pending_audit'
     && episode.observation.semantic === false
+    && episode.claim_policy.display_level === 'uniform_star'
     && episode.claim_policy.quotation_allowed === false
     && episode.claim_policy.semantic_relation_allowed === false));
   assert.ok(layer.edges.every((edge) => edge.semantic === false && edge.influence_claim_allowed === false));
@@ -47,8 +48,21 @@ test('OCR candidates and relations remain nonsemantic and fail closed for citati
 test('OCR layer exposes searchable 2022 text and production UI wiring', () => {
   assert.ok(layer.pages.some((page) => page.content.includes('学习任务群')));
   assert.ok(layer.concepts.some((concept) => concept.label === '学习任务群' && concept.mention_count > 0));
-  assert.equal(layer.pipeline_summary.complete_documents, 10);
-  assert.equal(layer.pipeline_summary.complete_pages, 4078);
+  assert.equal(layer.pipeline_summary.complete_documents, 11);
+  assert.equal(layer.pipeline_summary.complete_pages, 4727);
+  assert.equal(layer.pipeline_summary.active_documents, 0);
+  assert.equal(
+    layer.documents.find((document) => document.id === 'legacy-compendium-english')?.status,
+    'complete',
+  );
+  assert.deepEqual(
+    layer.documents.filter((document) => document.status === 'retry_wait').map((document) => document.id),
+    [
+      'legacy-compendium-geography',
+      'legacy-compendium-mathematics',
+      'legacy-compendium-politics',
+    ],
+  );
   assert.match(appSource, /ocr-observation-layer\.json/);
   assert.match(appSource, /OCR 待核命中/);
   assert.match(appSource, /ocr-p-/);

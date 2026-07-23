@@ -43,7 +43,7 @@ test('operations ledger exposes the complete v10 lifecycle and fail-closed statu
   assert.match(ledger, /1259 of 3182/u);
   assert.match(ledger, /3304581750 bytes/u);
   assert.match(ledger, /2026-07-17T06:35:37\.437Z/u);
-  assert.match(ledger, /Century candidate graph \| 134 archive items；1482 OCR \+ 44 catalog-title source observations；1031 projected century stars \/ 3202 century evidence \/ 952 lineage \/ 155 co-observation；detail 32 documents \/ 3044 pages \/ 40 concepts \/ 97 episodes \/ 420 evidence；5 tiers \/ 55 families \/ 12 subject facets \/ 1171 memberships/u);
+  assert.match(ledger, /Century candidate graph \| 134 archive items；1482 OCR \+ 44 catalog-title source observations；1031 projected century stars \/ 3202 century evidence \/ 952 lineage \/ 155 co-observation；detail 32 documents \/ 3044 pages \/ 40 concepts \/ 97 episodes \/ 420 evidence；5 tiers \/ 55 families \/ 12 subject facets \/ 1497 memberships/u);
 });
 
 test('operations ledger derives current environment facts instead of hardcoding legacy workers', async () => {

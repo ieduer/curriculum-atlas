@@ -131,6 +131,30 @@ button { color: inherit; }
 .search-orbit button { width: 28px; height: 28px; border: 0; color: var(--muted); background: transparent; cursor: pointer; font-size: 20px; }
 .search-orbit:focus-within { border-color: rgba(118,223,255,.55); box-shadow: 0 0 0 3px rgba(118,223,255,.06); }
 
+.concept-results {
+  position: relative; display: flex; flex: 0 1 230px; min-height: 92px; flex-direction: column; overflow: hidden;
+  border: 1px solid rgba(198,210,244,.13); border-radius: 12px; background: rgba(5,8,20,.78);
+  backdrop-filter: blur(16px); pointer-events: auto;
+}
+.concept-results[hidden] { display: none; }
+.concept-results header { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; min-height: 28px; padding: 0 9px; border-bottom: 1px solid rgba(198,210,244,.08); }
+.concept-results header b { color: rgba(236,240,250,.88); font: 600 9px var(--serif); }
+.concept-results header span { color: var(--muted); font-size: 7px; }
+#concept-result-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+#concept-result-list button {
+  display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 7px; width: 100%; min-height: 39px; padding: 6px 8px;
+  border: 0; border-bottom: 1px solid rgba(198,210,244,.06); color: var(--ink); background: transparent; cursor: pointer; text-align: left;
+}
+#concept-result-list button:hover, #concept-result-list button:focus-visible, #concept-result-list button[aria-selected="true"] {
+  outline: 0; background: rgba(118,223,255,.08); box-shadow: inset 2px 0 rgba(118,223,255,.62);
+}
+#concept-result-list button span { min-width: 0; }
+#concept-result-list button b, #concept-result-list button small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#concept-result-list button b { font: 600 9px var(--serif); }
+#concept-result-list button small { margin-top: 3px; color: var(--muted); font-size: 7px; }
+#concept-result-list button em { align-self: center; max-width: 70px; overflow: hidden; color: rgba(231,189,97,.72); font: normal 7px var(--sans); text-overflow: ellipsis; white-space: nowrap; }
+.concept-result-empty { margin: 0; padding: 13px 9px; color: var(--muted); font-size: 8px; line-height: 1.5; }
+
 .mode-switch {
   position: relative; display: grid; flex: 0 0 auto; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 2px; width: 100%; padding: 3px;
   border: 1px solid var(--line); border-radius: 14px; background: rgba(7,10,25,.68); backdrop-filter: blur(16px); pointer-events: auto;
@@ -485,6 +509,9 @@ button { color: inherit; }
   .search-orbit > span { margin-right: 4px; font-size: 16px; }
   .search-orbit input { font-size: 9px; }
   .search-orbit button { width: 20px; font-size: 16px; }
+  .concept-results { flex-basis: 168px; min-height: 76px; }
+  #concept-result-list button { min-height: 35px; padding: 5px 6px; }
+  #concept-result-list button em { display: none; }
   .mode-switch button { min-height: 27px; padding-inline: 5px; font-size: 8px; }
   .subject-orbit { gap: 2px; padding-right: 2px; }
   .subject-button { min-height: 22px; padding-inline: 5px 7px; font-size: 8px; background: rgba(6,9,21,.34); }

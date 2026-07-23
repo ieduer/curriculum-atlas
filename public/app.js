@@ -1,5 +1,5 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v32';
-import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v32';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v33';
+import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v33';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -7,7 +7,18 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260723v32';
+} from './subject-facets.js?v=20260723v33';
+
+const longTasks = [];
+if ('PerformanceObserver' in window && PerformanceObserver.supportedEntryTypes?.includes('longtask')) {
+  const observer = new PerformanceObserver((list) => {
+    longTasks.push(...list.getEntries().map((entry) => ({
+      start_ms: Number(entry.startTime.toFixed(3)),
+      duration_ms: Number(entry.duration.toFixed(3)),
+    })));
+  });
+  observer.observe({ type: 'longtask', buffered: true });
+}
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -49,6 +60,9 @@ const yearValue = document.querySelector('#year-value');
 const searchForm = document.querySelector('#cosmos-search');
 const searchInput = document.querySelector('#cosmos-query');
 const clearQuery = document.querySelector('#clear-query');
+const conceptResults = document.querySelector('#concept-results');
+const conceptResultList = document.querySelector('#concept-result-list');
+const conceptResultCount = document.querySelector('#concept-result-count');
 const workbench = document.querySelector('#workbench');
 const workbenchKicker = document.querySelector('#workbench-kicker');
 const workbenchTitle = document.querySelector('#workbench-title');
@@ -87,6 +101,7 @@ const state = {
   mode: 'lineage',
   selectedDocument: null,
   selectedEpisode: null,
+  searchResultEpisodes: [],
 };
 
 const CORE_SUBJECTS = DISPLAY_SUBJECT_FACETS;
@@ -120,12 +135,12 @@ async function api(path, options) {
 async function loadBase() {
   if (state.meta) return;
   const [conceptGraph, ocrLayer, detailLayer, pre2001Layer, centuryLayer, evolutionLayer, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v32'),
-    api('/data/ocr-observation-layer.json?v=20260723v32'),
-    api('/data/subject-detail-observation-layer.json?v=20260723v32'),
-    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v32'),
-    api('/data/century-observation-layer.json?v=20260723v32'),
-    api('/data/concept-evolution-families.json?v=20260723v32'),
+    api('/data/concept-evolution.json?v=20260723v33'),
+    api('/data/ocr-observation-layer.json?v=20260723v33'),
+    api('/data/subject-detail-observation-layer.json?v=20260723v33'),
+    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v33'),
+    api('/data/century-observation-layer.json?v=20260723v33'),
+    api('/data/concept-evolution-families.json?v=20260723v33'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -519,6 +534,13 @@ function clearConceptInspector(resetRoute = true) {
   if (resetRoute && location.pathname.replace(/\/+$/, '') === '/terms') history.replaceState({}, '', '/');
 }
 
+function selectConceptEpisode(episode) {
+  if (!episode) return;
+  showConceptInspector(episode);
+  history.replaceState({}, '', `/terms?term=${encodeURIComponent(episode.concept_id)}&episode=${encodeURIComponent(episode.id)}`);
+  renderConceptResults();
+}
+
 function showConceptInspector(episode) {
   state.selectedEpisode = episode;
   state.cosmos?.setSelected(episode.id);
@@ -833,6 +855,53 @@ function showTooltip(node, event) {
   tooltip.hidden = false;
 }
 
+function renderConceptResults() {
+  searchInput.removeAttribute('aria-activedescendant');
+  if (!state.query) {
+    state.searchResultEpisodes = [];
+    conceptResultList.replaceChildren();
+    conceptResults.hidden = true;
+    searchInput.setAttribute('aria-expanded', 'false');
+    return;
+  }
+  const controlledSubjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
+  const matches = state.conceptGraph.episodes
+    .filter((episode) => Number(episode.time.year) <= state.maxYear
+      && episodeVisibleForSubjectFilter(episode, state.hiddenSubjects, state.hideAllSubjects, controlledSubjects)
+      && episodeSearchText(episode).includes(state.query))
+    .sort((left, right) => {
+      const leftExact = left.label.toLocaleLowerCase('zh-CN') === state.query ? 0 : 1;
+      const rightExact = right.label.toLocaleLowerCase('zh-CN') === state.query ? 0 : 1;
+      return leftExact - rightExact
+        || left.label.localeCompare(right.label, 'zh-CN')
+        || Number(left.time.year) - Number(right.time.year)
+        || left.id.localeCompare(right.id);
+    });
+  state.searchResultEpisodes = matches.slice(0, 60);
+  conceptResults.hidden = false;
+  searchInput.setAttribute('aria-expanded', 'true');
+  conceptResultCount.textContent = matches.length > state.searchResultEpisodes.length
+    ? `${state.searchResultEpisodes.length}/${matches.length} 个`
+    : `${matches.length} 个`;
+  conceptResultList.innerHTML = state.searchResultEpisodes.length
+    ? state.searchResultEpisodes.map((episode, index) => {
+      const family = state.evolutionFamilyById.get(episode.evolution_family_id);
+      const subject = displayFacetForSubject(episodeCanonicalSubject(episode)) || episodeEntityLabel(episode);
+      const selected = state.selectedEpisode?.id === episode.id;
+      return `<button id="concept-result-${index}" type="button" role="option" tabindex="-1" data-episode-id="${escapeHtml(episode.id)}" aria-selected="${selected}">
+        <span><b>${escapeHtml(episode.label)}</b><small>${escapeHtml(episode.time.year)} · ${escapeHtml(subject)}</small></span>
+        <em>${escapeHtml(family?.label || episode.category)}</em>
+      </button>`;
+    }).join('')
+    : '<p class="concept-result-empty">当前学科与年份范围内没有匹配星点</p>';
+}
+
+function focusConceptResult(index) {
+  const options = [...conceptResultList.querySelectorAll('[role="option"]')];
+  if (!options.length) return;
+  options[Math.max(0, Math.min(index, options.length - 1))].focus();
+}
+
 function updateMapStatus({ fitVisible = false } = {}) {
   const controlledSubjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
   const visibleEpisodes = state.conceptGraph.episodes.filter((episode) => Number(episode.time.year) <= state.maxYear
@@ -849,6 +918,7 @@ function updateMapStatus({ fitVisible = false } = {}) {
     { hiddenSubjects: state.hiddenSubjects, hideAll: state.hideAllSubjects, maxYear: state.maxYear, query: state.query },
     { fitVisible, maxZoom: visibleSubjectCount === 1 ? 1.32 : 1 },
   );
+  renderConceptResults();
   renderConceptLayers();
 }
 
@@ -1458,10 +1528,7 @@ async function route() {
 
 function initializeCosmos() {
   state.cosmos = new CurriculumCosmos(mount, {
-    onSelect: (episode) => {
-      showConceptInspector(episode);
-      history.replaceState({}, '', `/terms?term=${encodeURIComponent(episode.concept_id)}&episode=${encodeURIComponent(episode.id)}`);
-    },
+    onSelect: selectConceptEpisode,
     onHover: showTooltip,
   });
   state.cosmos.setData(state.conceptGraph);
@@ -1469,6 +1536,18 @@ function initializeCosmos() {
   renderEraControls();
   updateMapStatus();
   loading.classList.add('ready');
+  window.__CURRICULUM_ATLAS_DIAGNOSTICS__ = () => ({
+    ready: true,
+    ready_ms: Number(performance.now().toFixed(3)),
+    graph: state.cosmos.performanceSnapshot(),
+    data: {
+      episodes: state.conceptGraph.episodes.length,
+      edges: state.conceptGraph.edges.length,
+      evidence: state.conceptGraph.evidence.length,
+      subject_facets: state.conceptGraph.subject_facets.length,
+    },
+    long_tasks: [...longTasks],
+  });
 }
 
 document.addEventListener('click', (event) => {
@@ -1490,11 +1569,41 @@ yearRange.addEventListener('input', () => {
   syncYearStageState();
   updateMapStatus();
 });
-searchForm.addEventListener('submit', (event) => event.preventDefault());
+searchForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  selectConceptEpisode(state.searchResultEpisodes[0]);
+});
 searchInput.addEventListener('input', () => {
   state.query = searchInput.value.trim().toLocaleLowerCase('zh-CN');
   clearQuery.hidden = !state.query;
   updateMapStatus();
+});
+searchInput.addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+  const options = conceptResultList.querySelectorAll('[role="option"]');
+  if (!options.length) return;
+  event.preventDefault();
+  focusConceptResult(event.key === 'ArrowDown' ? 0 : options.length - 1);
+});
+conceptResultList.addEventListener('click', (event) => {
+  const option = event.target.closest('[data-episode-id]');
+  if (!option) return;
+  selectConceptEpisode(state.searchResultEpisodes.find((episode) => episode.id === option.dataset.episodeId));
+});
+conceptResultList.addEventListener('keydown', (event) => {
+  const option = event.target.closest('[role="option"]');
+  if (!option) return;
+  const options = [...conceptResultList.querySelectorAll('[role="option"]')];
+  const index = options.indexOf(option);
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') {
+    event.preventDefault();
+    if (event.key === 'Home') focusConceptResult(0);
+    else if (event.key === 'End') focusConceptResult(options.length - 1);
+    else focusConceptResult(index + (event.key === 'ArrowDown' ? 1 : -1));
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    searchInput.focus();
+  }
 });
 clearQuery.addEventListener('click', () => {
   searchInput.value = '';

@@ -1,0 +1,303 @@
+{
+  "schema_version": 1,
+  "artifact_profile": "curriculum-release-episode-diff-v1",
+  "baseline": {
+    "tag": "curriculum-baseline-20260723-7cedbe95",
+    "commit": "b8917c6f2cc6a3a77bb8df5983b76ca1d3b6ef2e",
+    "production_worker_version_id": "7cedbe95-fed7-432b-85ef-d89a3baf2d6f"
+  },
+  "input_fingerprints": {
+    "public/data/concept-evolution.json": {
+      "baseline_sha256": "0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8",
+      "current_sha256": "0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8"
+    },
+    "public/data/ocr-observation-layer.json": {
+      "baseline_sha256": "c056887cc26dbada199862810e82cf0427f8de248b3b8b636a3cddb13439d11f",
+      "current_sha256": "5c95361d8e157231b7fe28bc940fbab45baf0836d143a94f7c8db3fbc4ce1e39"
+    },
+    "public/data/subject-detail-observation-layer.json": {
+      "baseline_sha256": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
+      "current_sha256": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634"
+    },
+    "public/data/pre2001-subject-detail-observation-layer.json": {
+      "baseline_sha256": "399e0c750329effe75ab0dbc8bfb335a5943e152cdbff0069e14bfc88369d6c1",
+      "current_sha256": "399e0c750329effe75ab0dbc8bfb335a5943e152cdbff0069e14bfc88369d6c1"
+    },
+    "public/data/century-observation-layer.json": {
+      "baseline_sha256": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
+      "current_sha256": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b"
+    }
+  },
+  "release_gate": {
+    "stable_ids_preserved": true,
+    "removed_episode_count_allowed": 0,
+    "cross_layer_move_count_allowed": 0,
+    "deployment_allowed": true
+  },
+  "counts": {
+    "baseline": 2030,
+    "current": 2030,
+    "added": 0,
+    "removed": 0,
+    "updated": 23,
+    "unchanged": 2007,
+    "cross_layer_moves": 0
+  },
+  "added": [],
+  "removed": [],
+  "updated": [
+    {
+      "id": "ocr-candidate:moe-2022-03:academic-quality",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "03675255c42107482021e0bfd761fb5561170210059f4321214f7ccf266ef269",
+      "current_fingerprint_sha256": "f415678c6ff316850fc57645f61f8b8655d1ed2033607aa0fb58879e252f6411"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:comprehensive-practice",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "ca962c49ca117f95cb4ee7922c3aed1903fa0823b281c106583ff9db38a1958c",
+      "current_fingerprint_sha256": "c5fd0dcfe308d308c36a301cf2c4232d354239976bc3064cbe84df948195a663"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:core-competency",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "94f89074f024c3294beb0c49af0022ea9b772a29a2a771a810ceec3b9528c490",
+      "current_fingerprint_sha256": "283f43da3c2c1a94192ae1983afc4a4d767529a61a7c23fadad9831e3b09d25d"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:cross-media-reading-communication",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "c6b9d07ca002b59b7c7227420c8f4cbf5f426ffd8444c7559efc75cea8ea7509",
+      "current_fingerprint_sha256": "180fd3ca45c2e7958110a527c2929aee36fb4eac269bf107e549a42d459f9ac8"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:cultural-confidence",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "da18fba2608374906b742f6b222eb49bec7b945068d2fca85d73dff64a4d4e34",
+      "current_fingerprint_sha256": "affad2e4dd602eca021da9cb8e0cc3adbc9a80dae9e0ba6493fa9c25f51ecb1f"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:emotion-attitude-values",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "0012cdc7087c36335686c7ca6e07f3ae02e2073a57e09d5aa4f109b86124c7d4",
+      "current_fingerprint_sha256": "66e4c3f193311563cdece5b6b0b0c4419ef103d9c6683f6654d393e5de9e3766"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:expression-communication",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "e145b99fa33351fd5d9baf4dd2ab34c0907d40d45071dfb8622c696a0e5dab55",
+      "current_fingerprint_sha256": "6e88104feaaef4b5deacce78d4ce2e8609679d11203dbaf75cf5034691eb6e60"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:inquiry-learning",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "6096ebcd0e50aa113dbddfa52f1d3ac4c32cb5955bbac530a5ff07de1fa80734",
+      "current_fingerprint_sha256": "0c39aae8d371d157b52d3559782e8a193c8d71075db6c37de1c9d0c0ef806f8b"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:instrumentality-humanity",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "624d1f7e8e0be6491f4559607576fc84cdd02c784a9e0970ba291f662c335d76",
+      "current_fingerprint_sha256": "0d29e6c591e121df79edc1c3864161ea58388c2496c1cfac70d5c7a4a40f803b"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:knowledge-and-ability",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "590d0acfe734056f04591373800102d1fcdacae34d5cc98d9945c8942c3e9348",
+      "current_fingerprint_sha256": "6a8101abdb40d7cd98aa40cdebcf62720db4a4597d8eab88ff9ddd362c2ff898"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:language-use",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "4cb266cde0073e349100abbf42ab6d7e40af8ae5634ea53c7767a3b7ef140b42",
+      "current_fingerprint_sha256": "ab119ad2305dbf04f2484bea0ee34d2ecdc578754535bdd5e6a9502c3945b961"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:learning-task-group",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "a3d1eb7eb61563220a0952f31d298a0052907bc10f75e6d955924d5e37cbfda9",
+      "current_fingerprint_sha256": "00a1f5d630ae0ee923bab73a58365aa0350defeadaa77971b1ad9b8da2521741"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:literacy-writing",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "2f581b693c4a9307feb85ea2d60c5ae4ab485f4884ec3d9b439d24dc21570a33",
+      "current_fingerprint_sha256": "91138512aac30c0a8cbda519d783d24bff5983ce663259033edc7cf5c237b4bb"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:literary-works-appreciation",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "903a97d13953d8441bc2c6ea41a391c1e8bc0398c00b4d2c7d9126d00d22a816",
+      "current_fingerprint_sha256": "3fa97e1a6fe13d194572765a86aafb68cd028c4f753bfc19bdb14b4cb00e7ff3"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:overall-perception",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "d76332a43a14839bb4793bf8c0276efc793728ce72d9b7aca64628cda62f905b",
+      "current_fingerprint_sha256": "d8b025e7f0df6f62b2584fa9f26fb7fbea2bcbb6a798f8092eec4e0f438089c5"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:practical-reading-communication",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "1d6e2827adf785866f9e05fbee7db8bdef5ffe94bb96b9f18521fd6f13ee3708",
+      "current_fingerprint_sha256": "8c468f60d1e97bf855b95dd2c66d06b557d1c110bf21be3c8914205288260513"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:problem-solving",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "28ca2d93574668f0904bb8bd81656c230569c4e2f4dbfd7885928dd6bb965b15",
+      "current_fingerprint_sha256": "36f28b2366cb6ab53cbb0f09515ebe4384f69064e4249dda6d57bf13a51d2339"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:process-and-method",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "5bae9e1d4098aca2dc0efb6ddb05f3acb7c2856b512610f4172af16db40be2f4",
+      "current_fingerprint_sha256": "541f8dfcebdd64ce1d1eaec7c4d414850582e8cc655c74fbac225aa0f85fdd9f"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:reading-appreciation",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "67a05b2eb07dff57b966b68f0d240ddf3bfbd4000e64989fc8e5994d08920f15",
+      "current_fingerprint_sha256": "344eeb77b818e0c5d6e7c5e52dde8d174bbc9ea8faf105bf5ff889e9347a1c9e"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:sorting-inquiry",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "f19e9c24f389e546fd294f24ef3b967883af15703c088bd59c41e137b527576c",
+      "current_fingerprint_sha256": "03050a24ad432402b65c38ebb6d8e7fb5449028b7c1bcbcd4ebc9459e71adef3"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:speculative-reading-expression",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "72f1a13b3d8e022d52b3db4fbc726010b1a4a84300ff673b9a2e4819049d8551",
+      "current_fingerprint_sha256": "2b9c861e1f51db455ae140e772e838ecba5e3a55ae3827d35b15590c37e5f75e"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:thinking-quality-improvement",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "f05aeb168e41fde3211deb48bb6728ea79227c0cf64e4d559f0220ab541c8918",
+      "current_fingerprint_sha256": "a710a76c58f0379ed9efbb407d0a8a073ace24c587c1e1ae6da713d82578b04e"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-03:whole-book-reading",
+      "baseline_layer": "ocr",
+      "current_layer": "ocr",
+      "changed_top_level_fields": [
+        "claim_policy",
+        "observation"
+      ],
+      "baseline_fingerprint_sha256": "e1bdbfd005db5b0706d063fa58c13f8173d3b52092f86deb5532b2ea8a41c106",
+      "current_fingerprint_sha256": "dc108c36e306ff1a56039cf5473390ebf4ea6e1c749c67681e693dd24afdc3c1"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v32';
+import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v33';
 
 const TAU = Math.PI * 2;
 const MIN_ZOOM = .2;
@@ -249,6 +249,7 @@ export class CurriculumCosmos {
     this.dpr = 1;
     this.frame = 0;
     this.raf = 0;
+    this.drawDurations = [];
     this.motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
     this.stable = this.motionQuery.matches;
     this.camera = { ...DEFAULT_CAMERA };
@@ -676,6 +677,7 @@ export class CurriculumCosmos {
 
   draw(time = performance.now()) {
     if (!this.width || !this.height) return;
+    const drawStartedAt = performance.now();
     this.drawBackground(time);
     this.drawEraGates();
     if (this.activeSelectionIds.size) {
@@ -724,6 +726,26 @@ export class CurriculumCosmos {
     });
     const occupied = [];
     for (const item of labels) this.drawNodeLabel(item, occupied);
+    this.drawDurations.push(performance.now() - drawStartedAt);
+    if (this.drawDurations.length > 120) this.drawDurations.shift();
+  }
+
+  performanceSnapshot() {
+    const ordered = [...this.drawDurations].sort((left, right) => left - right);
+    const p95Index = Math.max(0, Math.ceil(ordered.length * .95) - 1);
+    return {
+      total_nodes: this.nodes.length,
+      visible_nodes: this.screenNodes.length,
+      relationship_edges: this.relationshipEdges.length,
+      evolution_edges: this.evolutionEdges.length,
+      draw_samples: ordered.length,
+      draw_average_ms: ordered.length
+        ? Number((ordered.reduce((sum, value) => sum + value, 0) / ordered.length).toFixed(3))
+        : null,
+      draw_p95_ms: ordered.length ? Number(ordered[p95Index].toFixed(3)) : null,
+      canvas_css_pixels: [this.width, this.height],
+      device_pixel_ratio: this.dpr,
+    };
   }
 
   loop(time = performance.now()) {

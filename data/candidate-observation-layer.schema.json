@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://curriculum.bdfz.net/schemas/candidate-observation-layer.schema.json",
+  "title": "課標百年候選星點觀察",
+  "type": "object",
+  "required": [
+    "id",
+    "concept_id",
+    "label",
+    "visibility_facets",
+    "visibility_policy",
+    "time",
+    "observation",
+    "evidence_ids",
+    "coverage",
+    "claim_policy"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "concept_id": { "type": "string", "minLength": 1 },
+    "label": { "type": "string", "minLength": 1 },
+    "visibility_facets": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "visibility_policy": { "type": "string", "minLength": 1 },
+    "time": {
+      "type": "object",
+      "required": ["year"],
+      "properties": {
+        "year": { "type": "integer", "minimum": 1902, "maximum": 2022 }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "required": ["status", "observation_class", "semantic"],
+      "properties": {
+        "status": { "type": "string", "minLength": 1 },
+        "observation_class": { "type": "string", "minLength": 1 },
+        "semantic": { "const": false }
+      }
+    },
+    "evidence_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "coverage": {
+      "type": "object",
+      "required": ["negative_claim_eligible"],
+      "properties": {
+        "negative_claim_eligible": { "const": false }
+      }
+    },
+    "claim_policy": {
+      "type": "object",
+      "required": [
+        "display_level",
+        "quotation_allowed",
+        "semantic_relation_allowed",
+        "historical_superlative_allowed",
+        "first_appearance_allowed",
+        "disappearance_allowed"
+      ],
+      "properties": {
+        "display_level": { "const": "uniform_star" },
+        "quotation_allowed": { "const": false },
+        "semantic_relation_allowed": { "const": false },
+        "historical_superlative_allowed": { "const": false },
+        "first_appearance_allowed": { "const": false },
+        "disappearance_allowed": { "const": false }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "visibility_policy": { "const": "global_only" } },
+        "required": ["visibility_policy"]
+      },
+      "then": {
+        "properties": { "visibility_facets": { "maxItems": 0 } }
+      },
+      "else": {
+        "properties": { "visibility_facets": { "minItems": 1 } }
+      }
+    }
+  ]
+}
