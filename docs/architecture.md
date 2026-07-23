@@ -14,6 +14,14 @@ Browser
 
 原始 PDF、OCR 中间图像和受再分发限制的扫描件仅保存在本地研究区，不属于公开部署资产。生成流程把可公开元数据写入 D1/R2；未通过文档级与段落级闸门的文本不能进入搜索或 AI 引文。
 
+产品和工程的唯一总入口是 `docs/PROJECT_MANUAL.md`。本文件只解释技术分层，不能另行定义第二套产品轴线。
+
+## 单一星图投影
+
+前端只渲染一个概念观察图。现行正式观察来自 `public/data/concept-evolution.json`；百年汇编 OCR 候选由 `scripts/build-century-observation-layer.mjs` 从 134 个内嵌篇目生成 `public/data/century-observation-layer.json#star_projection`。应用启动时把两者的 episode、edge 与 evidence 合并后一次性交给 Canvas。
+
+时间只是 episode 的 `year` 坐标和右侧筛选条件。文档、汇编篇目、页段与 OCR 运行记录都留在 archive/evidence 层，不成为星体，也不产生独立时间轴。候选 OCR 星恒为非语义、不可引文；只有后续独立核验才能进入更高证据层。
+
 ## 运行时
 
 - `src/index.ts`：路由、资料、搜索、讨论和管理 API。

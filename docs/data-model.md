@@ -75,3 +75,15 @@ Production current 为 `release-9cb02f77c06ee0535e7981a22b312373`；preview curr
 | `editorial_audit` | 一项构建或主张政策 | 保存机器生成边界与尚未发生的编辑审核，不伪造审核者和时间 |
 
 完整约束和学科分类决定见 `docs/concept-evolution-academic-model.md`。
+
+## 百年 OCR 候选星投影
+
+`data/embedded-items-century-v1.json` 保存语文卷与课程计划卷目录解析出的 134 个内嵌篇目。它们是文档级证据容器，不是星体。`scripts/build-century-observation-layer.mjs` 从页级 OCR 候选生成 `public/data/century-observation-layer.json`，其中：
+
+- `items` 保存 1902–2000 的篇目身份、年份与物理页段；
+- `concept_observations` 保存受控词面命中，恒为 `ocr_surface_candidate_nonsemantic`；
+- `star_projection.episodes` 把每次词面观察映射为同一主星图中的虚线候选星；
+- `star_projection.evidence` 把候选星反向定位到篇目和扫描物理页；
+- `star_projection.edges` 只允许同源顺序或同篇共现关系，禁止语义、影响和因果主张。
+
+必须满足一星至少一证据定位、边的两端均存在、所有候选均 `citation_allowed=false`。OCR 队列可以连续追加页面和观察，但不得因此改写现行概念模型或自动开放检索/AI 引文。

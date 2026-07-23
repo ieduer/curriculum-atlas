@@ -183,54 +183,6 @@ button { color: inherit; }
 .ontology-relations button { display: block; width: 100%; padding: 7px 0; border: 0; color: #e4e9f6; background: transparent; cursor: pointer; text-align: left; font: 11px/1.45 var(--serif); }
 .ontology-relations button span { display: inline-block; min-width: 76px; margin-right: 7px; color: var(--gold); font: 8px var(--sans); }
 
-.century-timeline {
-  position: absolute; z-index: 11; left: calc(clamp(18px, 3.8vw, 58px) + var(--left-rail-w) + 24px);
-  right: calc(clamp(18px, 3.8vw, 58px) + var(--right-rail-w) + 24px); bottom: 20px;
-  height: 112px; border: 1px solid rgba(198,210,244,.14); border-radius: 17px;
-  background: linear-gradient(180deg, rgba(8,12,28,.79), rgba(4,7,18,.58)); backdrop-filter: blur(16px);
-  box-shadow: 0 18px 48px rgba(0,0,0,.26); pointer-events: auto; transition: opacity .24s, transform .24s;
-}
-.century-timeline[hidden] { display: none; }
-.century-timeline > header {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 39px; padding: 5px 10px 4px 13px;
-  border-bottom: 1px solid rgba(198,210,244,.1);
-}
-.century-timeline > header > a { display: flex; min-width: 0; align-items: baseline; gap: 9px; text-decoration: none; }
-.century-timeline > header b { color: #f0cd7b; font: 600 11px var(--serif); letter-spacing: .08em; }
-.century-timeline > header span { overflow: hidden; color: #aab8d8; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
-.century-filters { display: flex; gap: 2px; }
-.century-filters button {
-  padding: 3px 7px; border: 1px solid transparent; border-radius: 999px; color: #9eabc9; background: transparent;
-  cursor: pointer; font-size: 8px;
-}
-.century-filters button:hover, .century-filters button:focus-visible, .century-filters button.active {
-  border-color: rgba(231,189,97,.27); color: #f4d58d; background: rgba(231,189,97,.08); outline: 0;
-}
-.century-track-viewport { height: 71px; padding: 0 11px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: rgba(231,189,97,.24) transparent; }
-.century-track { position: relative; width: max(1280px,100%); height: 68px; }
-.century-track::after {
-  content: ""; position: absolute; left: 0; right: 0; top: 47px; height: 1px;
-  background: linear-gradient(90deg, rgba(118,223,255,.28), rgba(231,189,97,.46), rgba(118,223,255,.22));
-}
-.century-era-band {
-  position: absolute; left: var(--era-left); top: 0; width: var(--era-width); height: 59px;
-  border-left: 1px solid rgba(231,189,97,.12); background: linear-gradient(90deg, rgba(231,189,97,.035), transparent);
-}
-.century-era-band b { position: absolute; left: 5px; top: 4px; color: rgba(195,205,230,.42); font: 7px var(--sans); letter-spacing: .08em; white-space: nowrap; }
-.century-decade { position: absolute; left: var(--year-left); top: 0; bottom: 9px; width: 1px; background: rgba(198,210,244,.08); }
-.century-decade b { position: absolute; left: 3px; bottom: -7px; color: rgba(181,192,220,.5); font: 7px var(--sans); }
-.century-node {
-  position: absolute; z-index: 2; left: calc(var(--year-left) + var(--node-offset)); top: var(--node-top);
-  width: 7px; height: 7px; padding: 0; border: 1px solid currentColor; border-radius: 50%;
-  color: var(--gold); background: rgba(7,10,23,.94); box-shadow: 0 0 8px currentColor; cursor: pointer;
-  transform: translate(-50%,-50%); transition: opacity .2s, transform .18s, background .18s;
-}
-.century-node.chinese { color: var(--cyan); }
-.century-node.plans { color: var(--gold); border-radius: 1px; transform: translate(-50%,-50%) rotate(45deg); box-shadow: 0 0 7px rgba(231,189,97,.65); }
-.century-node:hover, .century-node:focus-visible { z-index: 4; background: currentColor; outline: 2px solid rgba(255,255,255,.75); outline-offset: 3px; transform: translate(-50%,-50%) scale(1.55); }
-.century-node.plans:hover, .century-node.plans:focus-visible { transform: translate(-50%,-50%) rotate(45deg) scale(1.55); }
-.century-node.filtered { opacity: .04; pointer-events: none; }
-
 .era-rail {
   position: relative; display: flex; flex: 1 1 auto; min-height: 0; gap: 8px; width: 100%;
   padding: 4px 0 8px; pointer-events: none;
@@ -325,7 +277,6 @@ button { color: inherit; }
   box-shadow: 0 -32px 90px rgba(0,0,0,.55); overflow: hidden; animation: workbench-in .34s cubic-bezier(.2,.8,.2,1) both;
 }
 .workbench[hidden] { display: none; }
-body:has(.workbench:not([hidden])) .century-timeline { opacity: 0; transform: translateY(18px); pointer-events: none; }
 @keyframes workbench-in { from { transform: translateY(100%); } }
 .workbench-handle { width: 48px; height: 4px; margin: 10px auto 0; border-radius: 999px; background: rgba(22,30,46,.22); }
 .workbench-header { height: 90px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(31,40,57,.14); }
@@ -457,7 +408,6 @@ body:has(.workbench:not([hidden])) .century-timeline { opacity: 0; transform: tr
   .mode-switch button { padding-inline: 8px; }
   .subject-button { min-height: 27px; padding-inline: 7px 9px; font-size: 10px; }
   .concept-layers { inset: 94px 148px 18px 148px; }
-  .century-timeline { left: 158px; right: 158px; bottom: 16px; }
   .map-key { display: none; }
   .research-dock small { font-size: 8px; }
   .star-inspector { top: 92px; right: 158px; width: min(330px, calc(100% - 320px)); max-height: calc(100svh - 112px); }
@@ -485,22 +435,6 @@ body:has(.workbench:not([hidden])) .century-timeline { opacity: 0; transform: tr
   .subject-orbit { gap: 2px; padding-right: 2px; }
   .subject-button { min-height: 22px; padding-inline: 5px 7px; font-size: 8px; background: rgba(6,9,21,.34); }
   .concept-layers { inset: 78px 84px 10px 100px; }
-  .century-timeline {
-    left: 103px; right: 87px; bottom: calc(var(--mobile-dock-clearance) + env(safe-area-inset-bottom) + 4px);
-    height: 88px; border-radius: 13px;
-  }
-  .century-timeline > header { height: 31px; padding: 3px 6px 3px 8px; }
-  .century-timeline > header b { font-size: 8px; }
-  .century-timeline > header span { display: none; }
-  .century-filters button { padding: 2px 4px; font-size: 7px; }
-  .century-track-viewport { height: 55px; padding-inline: 6px; }
-  .century-track { width: 920px; height: 54px; }
-  .century-track::after { top: 38px; }
-  .century-era-band { height: 48px; }
-  .century-era-band b { font-size: 6px; }
-  .century-decade { bottom: 8px; }
-  .century-decade b { font-size: 6px; }
-  .century-node { top: calc(var(--node-top) - 7px); width: 6px; height: 6px; }
   .ontology-breadcrumb { max-width: 96%; }
   .ontology-stage { top: 31px; }
   .ontology-center { width: 132px; min-height: 70px; padding: 10px; }

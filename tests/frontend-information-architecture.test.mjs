@@ -22,12 +22,13 @@ test('the primary viewport is the curriculum cosmos rather than a marketing page
   assert.doesNotMatch(html, /class="hero-copy"|class="main-nav"/);
 });
 
-test('the document-first century spine is visible without replacing the concept cosmos', () => {
-  assert.match(html, /id="century-timeline"/);
-  assert.match(html, /百年文件时间轴/);
-  assert.match(app, /centuryVisibleItems/);
+test('the century archive feeds the single concept cosmos without a second time axis', () => {
+  assert.doesNotMatch(html, /id="century-timeline"|id="century-track"|百年文件时间轴/);
+  assert.doesNotMatch(styles, /\.century-track \{|\.century-node\./);
+  assert.match(app, /centuryLayer\.star_projection\.episodes/);
+  assert.match(app, /conceptGraph\.episodes = \[\.\.\.conceptGraph\.episodes, \.\.\.centuryLayer\.star_projection\.episodes\]/);
+  assert.match(app, /path === '\/timeline' \|\| path === '\/archive'/);
   assert.match(app, /renderHistoricalItem/);
-  assert.match(styles, /\.century-track \{/);
 });
 
 test('subjects and concepts are controlled inside the star map', () => {
@@ -51,9 +52,11 @@ test('subject hide-all clears every node and edge without a redundant count read
 
 test('the map loads validated concept episodes and fails closed instead of drawing document stars', () => {
   assert.match(app, /data\/concept-evolution\.json/);
+  assert.match(app, /data\/century-observation-layer\.json/);
   assert.match(app, /概念星图数据未通过结构校验/);
   assert.match(app, /setData\(state\.conceptGraph\)/);
   assert.doesNotMatch(app, /setData\(state\.documents/);
+  assert.doesNotMatch(app, /setData\(centuryLayer\.items/);
 });
 
 test('the left rail orders subjects, search, and lineage modes without crossing the canvas', () => {
@@ -89,6 +92,7 @@ test('legacy pages remain merged into the two rail-launched workspaces', () => {
   assert.match(html, /研究 · 讨论/);
   assert.match(app, /path === '\/compare'/);
   assert.match(app, /path === '\/sources' \|\| path === '\/search'/);
+  assert.match(app, /path === '\/timeline' \|\| path === '\/archive'/);
   assert.match(app, /path === '\/ai'/);
   assert.match(app, /path === '\/discussions'/);
 });

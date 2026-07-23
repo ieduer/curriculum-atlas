@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v19';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v20';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -6,7 +6,7 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260723v19';
+} from './subject-facets.js?v=20260723v20';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -51,10 +51,6 @@ const workbenchBody = document.querySelector('#workbench-body');
 const scrim = document.querySelector('#scrim');
 const toastNode = document.querySelector('#toast');
 const ocrLayerStatus = document.querySelector('#ocr-layer-status');
-const centuryTimeline = document.querySelector('#century-timeline');
-const centuryTrack = document.querySelector('#century-track');
-const centurySummary = document.querySelector('#century-summary');
-const centuryFilters = document.querySelector('#century-filters');
 
 const state = {
   meta: null,
@@ -77,7 +73,6 @@ const state = {
   maxYear: 2022,
   query: '',
   mode: 'lineage',
-  centurySubject: 'all',
   selectedDocument: null,
   selectedEpisode: null,
 };
@@ -114,9 +109,9 @@ async function api(path, options) {
 async function loadBase() {
   if (state.meta) return;
   const [conceptGraph, ocrLayer, centuryLayer, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v19'),
-    api('/data/ocr-observation-layer.json?v=20260723v19'),
-    api('/data/century-observation-layer.json?v=20260723v19'),
+    api('/data/concept-evolution.json?v=20260723v20'),
+    api('/data/ocr-observation-layer.json?v=20260723v20'),
+    api('/data/century-observation-layer.json?v=20260723v20'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -151,12 +146,23 @@ async function loadBase() {
     || centuryLayer.items.length !== 134
     || !Array.isArray(centuryLayer.concept_observations)
     || !Array.isArray(centuryLayer.relations)
+    || centuryLayer.star_projection?.node_semantics !== 'concept_observation_episode_not_document'
+    || centuryLayer.star_projection?.time_semantics !== 'year_is_single_spatial_coordinate_not_a_second_timeline'
+    || !Array.isArray(centuryLayer.star_projection?.episodes)
+    || !Array.isArray(centuryLayer.star_projection?.edges)
+    || !Array.isArray(centuryLayer.star_projection?.evidence)
+    || centuryLayer.star_projection.episodes.length !== centuryLayer.concept_observations.length
+    || centuryLayer.star_projection.episodes.some((episode) => episode.claim_policy?.display_level !== 'candidate_dashed'
+      || !episode.evidence_ids?.length)
     || centuryLayer.items.some((item) => item.citation_allowed !== false || item.semantic_claim_allowed !== false)) {
     throw new Error('百年文件候选层未通过结构校验');
   }
   conceptGraph.episodes = [...conceptGraph.episodes, ...ocrLayer.episodes];
   conceptGraph.edges = [...conceptGraph.edges, ...ocrLayer.edges];
   conceptGraph.evidence = [...conceptGraph.evidence, ...ocrLayer.evidence];
+  conceptGraph.episodes = [...conceptGraph.episodes, ...centuryLayer.star_projection.episodes];
+  conceptGraph.edges = [...conceptGraph.edges, ...centuryLayer.star_projection.edges];
+  conceptGraph.evidence = [...conceptGraph.evidence, ...centuryLayer.star_projection.evidence];
   state.conceptGraph = conceptGraph;
   state.ocrLayer = ocrLayer;
   state.centuryLayer = centuryLayer;
@@ -185,9 +191,8 @@ async function loadBase() {
   yearStart.textContent = String(minYear);
   yearValue.textContent = String(maxYear);
   const pipeline = ocrLayer.pipeline_summary;
-  ocrLayerStatus.innerHTML = `<b>OCR 资料层</b><span>${escapeHtml(pipeline.complete_documents)} 册 · ${escapeHtml(pipeline.complete_pages)} 页完成</span><small>2022 语文：${escapeHtml(ocrLayer.counts.concept_candidates)} 个概念待核</small>`;
+  ocrLayerStatus.innerHTML = `<b>OCR 星图持续层</b><span>${escapeHtml(pipeline.complete_documents)} 册 · ${escapeHtml(pipeline.complete_pages)} 页完成</span><small>百年候选 ${escapeHtml(centuryLayer.star_projection.counts.episodes)} 星 · 资料目录 ${escapeHtml(centuryLayer.counts.items)} 项</small>`;
   ocrLayerStatus.hidden = false;
-  centuryTimeline.hidden = false;
 }
 
 async function loadMe() {
@@ -326,6 +331,7 @@ function conceptStatusLabel(status) {
     source_text_candidate: '来源文本候选 · 段落门槛未过',
     ocr_candidate: '双引擎 OCR 候选 · 待人工核对',
     ocr_complete_pending_audit: 'OCR 全页完成 · 待人工核对',
+    ocr_complete_pending_item_audit: 'OCR 篇目完成 · 待逐项核对',
     conflict: '识别冲突 · 保留疑点',
   };
   return labels[status] || '质量状态待核';
@@ -333,6 +339,7 @@ function conceptStatusLabel(status) {
 
 function observationLabel(episode) {
   if (episode.observation?.status === 'ocr_complete_pending_audit') return '来源绑定且全页完成的 2022 OCR 词面观察';
+  if (episode.observation?.status === 'ocr_complete_pending_item_audit') return '目录与物理页已绑定的百年 OCR 词面观察';
   const incoming = state.conceptGraph.edges.find((edge) => edge.type === 'next_observed' && edge.target === episode.id);
   const labels = {
     observed_more_frequently: '当前可比语料中规范化提及增多',
@@ -362,6 +369,7 @@ function showConceptInspector(episode) {
     ${item.citation_allowed ? `<a href="/document/${encodeURIComponent(item.document_id)}" data-link>${escapeHtml(item.document_title)}</a>` : `<b>${escapeHtml(item.document_title)}</b>`}
     <small>${escapeHtml(item.source_locator)} · ${escapeHtml(item.matched_surface)}${item.citation_allowed ? '' : ' · 不进入引文 AI'}</small>
     <p>${escapeHtml(item.snippet)}</p>
+    ${item.public_locator ? `<a href="${escapeHtml(item.public_locator)}" data-link>查看目录绑定页段</a>` : ''}
   </article>`).join('');
   inspector.innerHTML = `
     <button class="inspector-close" type="button" aria-label="关闭">×</button>
@@ -378,6 +386,7 @@ function showConceptInspector(episode) {
     </div>
     <div class="inspector-actions">
       ${episode.ontology_node_id ? `<button class="action-button primary" type="button" data-open-ontology="${escapeHtml(episode.ontology_node_id)}">展开概念层级</button>` : ''}
+      ${episode.public_locator ? `<a class="action-button primary" href="${escapeHtml(episode.public_locator)}" data-link>查看候选文件页段</a>` : ''}
       <a class="action-button primary" href="/sources?q=${encodeURIComponent(episode.label)}" data-link>检索全部原文</a>
       ${subjectFacet ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(subjectFacet)}" data-link>比较版本</a>` : ''}
     </div>`;
@@ -621,7 +630,6 @@ function updateMapStatus({ fitVisible = false } = {}) {
     { fitVisible, maxZoom: visibleSubjectCount === 1 ? 1.32 : 1 },
   );
   renderConceptLayers();
-  renderCenturyTimeline();
 }
 
 function subjectButton(subject, count, panel = false) {
@@ -679,56 +687,6 @@ function centurySearchText(item) {
   const concepts = state.centuryConceptsByItem.get(item.id) || [];
   return `${item.year} ${item.title} ${item.parent_title} ${item.stage} ${item.document_type} ${concepts.map((concept) => `${concept.label} ${concept.observed_surfaces.join(' ')}`).join(' ')}`
     .toLocaleLowerCase('zh-CN');
-}
-
-function centuryVisibleItems() {
-  if (!state.centuryLayer) return [];
-  return state.centuryLayer.items.filter((item) => item.year <= state.maxYear
-    && (state.centurySubject === 'all' || item.subject === state.centurySubject)
-    && (!state.query || centurySearchText(item).includes(state.query)));
-}
-
-function renderCenturyTimeline() {
-  if (!state.centuryLayer) return;
-  const visibleIds = new Set(centuryVisibleItems().map((item) => item.id));
-  const yearSlots = new Map();
-  const firstYear = state.centuryLayer.counts.first_year;
-  const lastYear = state.centuryLayer.counts.last_year;
-  const span = lastYear - firstYear;
-  const eraBands = ERAS.filter((era) => era.start <= lastYear).map((era) => {
-    const start = Math.max(firstYear, era.start);
-    const end = Math.min(lastYear, era.end);
-    const left = ((start - firstYear) / span) * 100;
-    const width = ((end - start + 1) / (span + 1)) * 100;
-    return `<span class="century-era-band" style="--era-left:${left.toFixed(3)}%;--era-width:${width.toFixed(3)}%"><b>${escapeHtml(era.label)}</b></span>`;
-  }).join('');
-  const decadeTicks = Array.from({ length: 10 }, (_, index) => 1910 + index * 10)
-    .filter((year) => year <= lastYear)
-    .map((year) => `<span class="century-decade" style="--year-left:${(((year - firstYear) / span) * 100).toFixed(3)}%"><b>${year}</b></span>`)
-    .join('');
-  const nodes = state.centuryLayer.items.map((item) => {
-    const slotKey = `${item.subject}:${item.year}`;
-    const slot = yearSlots.get(slotKey) || 0;
-    yearSlots.set(slotKey, slot + 1);
-    const left = ((item.year - firstYear) / span) * 100;
-    const lane = item.subject === '语文' ? 39 : 13;
-    const top = lane + (slot % 3) * 8;
-    const offset = (Math.floor(slot / 3) * 7) - 3;
-    const concepts = state.centuryConceptsByItem.get(item.id) || [];
-    const visible = visibleIds.has(item.id);
-    return `<button class="century-node ${item.subject === '语文' ? 'chinese' : 'plans'} ${visible ? '' : 'filtered'}" type="button" data-century-item="${escapeHtml(item.id)}" style="--year-left:${left.toFixed(3)}%;--node-top:${top}px;--node-offset:${offset}px" aria-label="${escapeHtml(`${item.year}年 ${item.title}`)}" title="${escapeHtml(`${item.year} · ${item.title} · ${concepts.length} 个词面候选`)}"></button>`;
-  }).join('');
-  centuryTrack.innerHTML = `${eraBands}${decadeTicks}${nodes}`;
-  const visibleItems = centuryVisibleItems();
-  const visibleConcepts = new Set(visibleItems.flatMap((item) =>
-    (state.centuryConceptsByItem.get(item.id) || []).map((concept) => concept.concept_id)));
-  centurySummary.textContent = `${visibleItems.length} / 134 文件 · ${visibleConcepts.size} 个词面`;
-  centuryFilters.querySelectorAll('[data-century-subject]').forEach((button) => {
-    button.classList.toggle('active', button.dataset.centurySubject === state.centurySubject);
-  });
-  centuryTrack.querySelectorAll('[data-century-item]').forEach((button) => button.addEventListener('click', () => {
-    navigate(`/historical/${encodeURIComponent(button.dataset.centuryItem)}`);
-  }));
 }
 
 function setMapMode(mode) {
@@ -797,14 +755,14 @@ function renderCenturyArchive(url) {
     if (!groupItems.length) return '';
     return `<section class="century-era-list"><header><p>${era.start}–${era.end}</p><h2>${escapeHtml(era.label)}</h2><span>${groupItems.length} 条</span></header>${centuryItemRows(groupItems)}</section>`;
   }).join('');
-  workbenchBody.innerHTML = `<div class="workspace-grid century-workspace"><aside class="workspace-aside"><h2>1902–2000 候选观察层</h2><p>134 条来自语文卷与课程（教学）计划卷目录。目录身份和扫描页段已绑定；OCR 词面仅用于发现，不进入引文或语义关系。</p><form class="work-form" id="century-form"><label for="century-query">篇名或候选词面</label><input id="century-query" name="q" value="${escapeHtml(query)}" placeholder="例如：国语、课程计划"><label for="century-subject">资料卷</label><select id="century-subject" name="subject"><option value="">两卷合看</option><option value="语文" ${subject === '语文' ? 'selected' : ''}>语文卷</option><option value="课程方案" ${subject === '课程方案' ? 'selected' : ''}>课程计划卷</option></select><button class="work-button" type="submit">筛选百年文件</button></form><p class="candidate-boundary">${escapeHtml(state.centuryLayer.assertion_boundary)}</p></aside><main class="workspace-main">${eraGroups || '<div class="empty-state">没有匹配条目。</div>'}</main></div>`;
+  workbenchBody.innerHTML = `<div class="workspace-grid century-workspace"><aside class="workspace-aside"><h2>1902–2000 百年资料目录</h2><p>134 条来自语文卷与课程（教学）计划卷目录。它们是星点背后的文件与页段证据，不构成第二条时间轴；只有受控 OCR 词面观察进入主星图。</p><form class="work-form" id="century-form"><label for="century-query">篇名或候选词面</label><input id="century-query" name="q" value="${escapeHtml(query)}" placeholder="例如：国语、课程计划"><label for="century-subject">资料卷</label><select id="century-subject" name="subject"><option value="">两卷合看</option><option value="语文" ${subject === '语文' ? 'selected' : ''}>语文卷</option><option value="课程方案" ${subject === '课程方案' ? 'selected' : ''}>课程计划卷</option></select><button class="work-button" type="submit">筛选百年资料</button></form><p class="candidate-boundary">${escapeHtml(state.centuryLayer.assertion_boundary)}</p></aside><main class="workspace-main">${eraGroups || '<div class="empty-state">没有匹配条目。</div>'}</main></div>`;
   document.querySelector('#century-form').addEventListener('submit', (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const params = new URLSearchParams();
     if (form.get('q')) params.set('q', form.get('q'));
     if (form.get('subject')) params.set('subject', form.get('subject'));
-    navigate(`/timeline${params.size ? `?${params}` : ''}`);
+    navigate(`/archive${params.size ? `?${params}` : ''}`);
   });
 }
 
@@ -843,7 +801,7 @@ function renderHistoricalItem(id) {
   const relatedRows = related.length
     ? related.map(({ candidate, shared }) => `<article class="result-row"><a href="/historical/${encodeURIComponent(candidate.id)}" data-link>${escapeHtml(candidate.year)} · ${escapeHtml(candidate.title)}</a><small>${escapeHtml(candidate.subject)} · 共同词面 ${escapeHtml(shared.map((concept) => concept.label).join('、'))}</small></article>`).join('')
     : '<div class="empty-state">当前没有按共同词面连接的其他条目。</div>';
-  workbenchBody.innerHTML = `<div class="reader-grid century-reader"><article class="reader-document"><p class="century-document-kicker">${escapeHtml(item.year)} · ${escapeHtml(item.subject)} · 候选文件身份</p><h2>${escapeHtml(item.title)}</h2><div class="reader-candidate-boundary"><b>候选层边界</b><p>${escapeHtml(state.centuryLayer.assertion_boundary)}</p></div><h2>目录绑定页段</h2><ol class="century-segments">${segments}</ol><h2>OCR 词面观察</h2><div class="century-concepts">${observations}</div></article><aside class="reader-facts"><h3>文件身份</h3><p>年份：${escapeHtml(item.year)}<br>资料卷：${escapeHtml(item.subject)}<br>学段：${escapeHtml(item.stage)}<br>类型：${escapeHtml(item.document_type)}<br>题名状态：${escapeHtml(item.title_status)}<br>身份：目录绑定候选<br>引文权限：关闭<br>语义断言：关闭</p><p>父级资料：${escapeHtml(item.parent_title)}</p><a class="action-button primary" href="/timeline?subject=${encodeURIComponent(item.subject)}" data-link>返回百年时间轴</a><h3>候选词面关系</h3><ul class="century-relation-list">${relationRows}</ul><h3>共同词面文件</h3>${relatedRows}</aside></div>`;
+  workbenchBody.innerHTML = `<div class="reader-grid century-reader"><article class="reader-document"><p class="century-document-kicker">${escapeHtml(item.year)} · ${escapeHtml(item.subject)} · 候选文件身份</p><h2>${escapeHtml(item.title)}</h2><div class="reader-candidate-boundary"><b>候选层边界</b><p>${escapeHtml(state.centuryLayer.assertion_boundary)}</p></div><h2>目录绑定页段</h2><ol class="century-segments">${segments}</ol><h2>OCR 词面观察</h2><div class="century-concepts">${observations}</div></article><aside class="reader-facts"><h3>文件身份</h3><p>年份：${escapeHtml(item.year)}<br>资料卷：${escapeHtml(item.subject)}<br>学段：${escapeHtml(item.stage)}<br>类型：${escapeHtml(item.document_type)}<br>题名状态：${escapeHtml(item.title_status)}<br>身份：目录绑定候选<br>引文权限：关闭<br>语义断言：关闭</p><p>父级资料：${escapeHtml(item.parent_title)}</p><a class="action-button primary" href="/archive?subject=${encodeURIComponent(item.subject)}" data-link>返回百年资料目录</a><h3>候选词面关系</h3><ul class="century-relation-list">${relationRows}</ul><h3>共同词面文件</h3>${relatedRows}</aside></div>`;
   if (location.hash) requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView({ block: 'center' }));
 }
 
@@ -1150,8 +1108,10 @@ async function route() {
       closeWorkbench(false);
       setMapMode('cross');
       const conceptId = url.searchParams.get('term');
-      const episode = state.conceptGraph.episodes.filter((item) => item.concept_id === conceptId && item.time.year <= state.maxYear)
-        .sort((left, right) => right.time.year - left.time.year)[0];
+      const episodeId = url.searchParams.get('episode');
+      const episode = state.conceptGraph.episodes.find((item) => item.id === episodeId && item.time.year <= state.maxYear)
+        || state.conceptGraph.episodes.filter((item) => item.concept_id === conceptId && item.time.year <= state.maxYear)
+          .sort((left, right) => right.time.year - left.time.year)[0];
       if (episode) showConceptInspector(episode);
       return;
     }
@@ -1170,8 +1130,18 @@ async function route() {
       history.replaceState({}, '', '/');
       return;
     }
-    if (path === '/timeline') {
-      openWorkbench({ kicker: '百年文件时间轴', title: '1902–2000 文件观察', tabs: [{ id: 'timeline', label: '百年文件', href: url.pathname + url.search }, { id: 'sources', label: '正式资料库', href: '/sources' }], active: 'timeline' });
+    if (path === '/timeline' || path === '/archive') {
+      if (path === '/timeline') history.replaceState({}, '', `/archive${url.search}`);
+      openWorkbench({
+        kicker: '版本 · 资料',
+        title: '百年资料与证据',
+        tabs: [
+          { id: 'archive', label: '百年资料', href: `/archive${url.search}` },
+          { id: 'compare', label: '版本比较', href: '/compare' },
+          { id: 'sources', label: '正式资料库', href: '/sources' },
+        ],
+        active: 'archive',
+      });
       renderCenturyArchive(url);
       return;
     }
@@ -1180,12 +1150,12 @@ async function route() {
       return;
     }
     if (path === '/compare') {
-      openWorkbench({ kicker: '版本 · 资料', title: '版本与资料', tabs: [{ id: 'compare', label: '版本比较', href: url.pathname + url.search }, { id: 'sources', label: '资料检索', href: '/sources' }], active: 'compare' });
+      openWorkbench({ kicker: '版本 · 资料', title: '版本与资料', tabs: [{ id: 'archive', label: '百年资料', href: '/archive' }, { id: 'compare', label: '版本比较', href: url.pathname + url.search }, { id: 'sources', label: '资料检索', href: '/sources' }], active: 'compare' });
       await renderCompare(url);
       return;
     }
     if (path === '/sources' || path === '/search') {
-      openWorkbench({ kicker: '版本 · 资料', title: '版本与资料', tabs: [{ id: 'compare', label: '版本比较', href: '/compare' }, { id: 'sources', label: '资料检索', href: url.pathname + url.search }], active: 'sources' });
+      openWorkbench({ kicker: '版本 · 资料', title: '版本与资料', tabs: [{ id: 'archive', label: '百年资料', href: '/archive' }, { id: 'compare', label: '版本比较', href: '/compare' }, { id: 'sources', label: '资料检索', href: url.pathname + url.search }], active: 'sources' });
       await renderSources(url);
       return;
     }
@@ -1201,7 +1171,7 @@ async function route() {
     if (path.startsWith('/historical/')) {
       const id = decodeURIComponent(path.slice('/historical/'.length));
       const item = state.centuryItemById.get(id);
-      const tabs = [{ id: 'historical', label: '候选页段与词面', href: `${path}${url.hash}` }, { id: 'timeline', label: '百年时间轴', href: `/timeline${item ? `?subject=${encodeURIComponent(item.subject)}` : ''}` }];
+      const tabs = [{ id: 'historical', label: '候选页段与词面', href: `${path}${url.hash}` }, { id: 'archive', label: '百年资料', href: `/archive${item ? `?subject=${encodeURIComponent(item.subject)}` : ''}` }];
       openWorkbench({ kicker: '百年文件候选层', title: '文件定位与关系', tabs, active: 'historical' });
       renderHistoricalItem(id);
       return;
@@ -1234,7 +1204,7 @@ function initializeCosmos() {
   state.cosmos = new CurriculumCosmos(mount, {
     onSelect: (episode) => {
       showConceptInspector(episode);
-      history.replaceState({}, '', `/terms?term=${encodeURIComponent(episode.concept_id)}`);
+      history.replaceState({}, '', `/terms?term=${encodeURIComponent(episode.concept_id)}&episode=${encodeURIComponent(episode.id)}`);
     },
     onHover: showTooltip,
   });
@@ -1255,12 +1225,6 @@ document.addEventListener('click', (event) => {
 });
 
 document.querySelectorAll('[data-map-mode]').forEach((button) => button.addEventListener('click', () => setMapMode(button.dataset.mapMode)));
-centuryFilters.addEventListener('click', (event) => {
-  const button = event.target.closest('[data-century-subject]');
-  if (!button) return;
-  state.centurySubject = button.dataset.centurySubject;
-  renderCenturyTimeline();
-});
 yearRange.addEventListener('input', () => {
   state.maxYear = Number(yearRange.value);
   yearValue.textContent = String(state.maxYear);

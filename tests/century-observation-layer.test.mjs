@@ -75,18 +75,42 @@ test('the century candidate layer remains nonsemantic and bounded', () => {
   assert.ok(layer.relations.some((relation) => relation.type === 'source_order_adjacent'));
   assert.ok(layer.relations.some((relation) => relation.type === 'surface_co_observed_in_item'));
   assert.ok(layer.relations.every((relation) => relation.semantic === false && relation.influence_claim_allowed === false));
+  assert.equal(layer.star_projection.node_semantics, 'concept_observation_episode_not_document');
+  assert.equal(layer.star_projection.time_semantics, 'year_is_single_spatial_coordinate_not_a_second_timeline');
+  assert.equal(layer.star_projection.episodes.length, layer.concept_observations.length);
+  assert.equal(layer.star_projection.counts.episodes, layer.star_projection.episodes.length);
+  assert.equal(layer.star_projection.counts.evidence, layer.star_projection.evidence.length);
+  assert.equal(
+    layer.star_projection.counts.lineage_edges + layer.star_projection.counts.cross_edges,
+    layer.star_projection.edges.length,
+  );
+  const evidenceIds = new Set(layer.star_projection.evidence.map((evidence) => evidence.id));
+  const episodeIds = new Set(layer.star_projection.episodes.map((episode) => episode.id));
+  assert.equal(evidenceIds.size, layer.star_projection.evidence.length);
+  assert.equal(episodeIds.size, layer.star_projection.episodes.length);
+  assert.ok(layer.star_projection.episodes.every((episode) =>
+    episode.observation_class === 'ocr_surface_candidate_nonsemantic'
+    && episode.citation_allowed === false
+    && episode.claim_policy.display_level === 'candidate_dashed'
+    && episode.evidence_ids.length > 0
+    && episode.evidence_ids.every((id) => evidenceIds.has(id))));
+  assert.ok(layer.star_projection.edges.every((edge) =>
+    episodeIds.has(edge.source)
+    && episodeIds.has(edge.target)
+    && edge.semantic === false
+    && edge.citation_allowed === false
+    && edge.influence_claim_allowed === false));
 });
 
-test('the production UI exposes a document-first century timeline and deep links', () => {
-  assert.match(html, /id="century-timeline"/);
-  assert.match(html, /id="century-track"/);
-  assert.match(html, /百年文件时间轴/);
+test('the production UI projects OCR observations into one star map and keeps documents in the archive', () => {
+  assert.doesNotMatch(html, /id="century-timeline"|id="century-track"|百年文件时间轴/);
   assert.match(app, /century-observation-layer\.json/);
-  assert.match(app, /path === '\/timeline'/);
+  assert.match(app, /conceptGraph\.episodes = \[\.\.\.conceptGraph\.episodes, \.\.\.centuryLayer\.star_projection\.episodes\]/);
+  assert.match(app, /path === '\/timeline' \|\| path === '\/archive'/);
+  assert.match(app, /history\.replaceState\(\{\}, '', `\/archive/);
   assert.match(app, /path\.startsWith\('\/historical\/'\)/);
   assert.match(app, /候选层边界/);
   assert.match(app, /扫描物理页/);
-  assert.match(styles, /\.century-timeline \{/);
-  assert.match(styles, /\.century-node\.chinese/);
-  assert.match(styles, /\.century-node\.plans/);
+  assert.doesNotMatch(styles, /\.century-timeline \{|\.century-track \{|\.century-node\./);
+  assert.match(styles, /\.century-workspace \{/);
 });

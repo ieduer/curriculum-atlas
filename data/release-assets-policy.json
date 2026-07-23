@@ -59,7 +59,7 @@
       { "path": "data/document-sources.json", "disposition": "d1_build_input", "consumers": ["catalog_builder", "corpus_builder"] },
       { "path": "data/downloads-asset-audit-receipt.json", "disposition": "release_governance_receipt", "consumers": ["release_manifest", "deploy_gate"] },
       { "path": "data/ingest-manifest.json", "disposition": "r2_public_metadata", "consumers": ["corpus_builder", "source_manifest_api"] },
-      { "path": "data/embedded-items-century-v1.json", "disposition": "candidate_fail_closed", "consumers": ["century_builder", "timeline_ui"] },
+      { "path": "data/embedded-items-century-v1.json", "disposition": "candidate_fail_closed", "consumers": ["century_builder", "archive_and_star_projection"] },
       { "path": "data/local-compendia.json", "disposition": "d1_build_input", "consumers": ["catalog_builder"] },
       { "path": "data/local-official-scans.json", "disposition": "d1_build_input", "consumers": ["catalog_builder", "ocr_queue_builder"] },
       { "path": "data/ocr-benchmark-ground-truth.json", "disposition": "test_benchmark", "consumers": ["ocr_benchmark"] },

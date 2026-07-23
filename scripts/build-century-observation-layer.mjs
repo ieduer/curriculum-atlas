@@ -150,6 +150,295 @@ function itemId(documentId, item) {
   return `embedded-century:${documentId}:${sha256(`${item.year}|${item.printed_page_start}|${item.title}`).slice(0, 16)}`;
 }
 
+function centurySubjectIdentity(subject) {
+  if (subject === '语文') {
+    return {
+      subject: {
+        canonical: '语文',
+        entity_kind: 'subject',
+        classification: 'general_curriculum_subject',
+        facet_eligible: true,
+        source_label: '语文',
+        facet: '语文',
+        family: '语文',
+        course_family: null,
+        related_subjects: [],
+        stable_subject_id: 'subject:bb651061c153bcbb',
+        stable_course_id: null,
+        official_code: 'SB0101',
+        authority: 'JY/T 0644—2022',
+        course_variant: null,
+        lineage_family: '语文',
+      },
+      scope_entity: {
+        canonical: '语文',
+        entity_kind: 'subject',
+        classification: 'general_curriculum_subject',
+        facet_eligible: true,
+        source_label: '语文',
+        facet: '语文',
+        family: '语文',
+        course_family: null,
+        related_subjects: [],
+        stable_subject_id: 'subject:bb651061c153bcbb',
+        stable_course_id: null,
+        official_code: 'SB0101',
+        authority: 'JY/T 0644—2022',
+        course_variant: null,
+        lineage_family: '语文',
+      },
+      visibility_facets: ['语文'],
+      visibility_policy: 'direct_subject_facet',
+    };
+  }
+  return {
+    subject: {
+      canonical: null,
+      entity_kind: 'cross_cutting_framework',
+      classification: 'curriculum_plan_framework',
+      facet_eligible: false,
+      source_label: '课程方案',
+      facet: null,
+      family: null,
+      course_family: null,
+      related_subjects: [],
+      stable_subject_id: null,
+      stable_course_id: null,
+      official_code: null,
+      authority: 'source_bound_compendium_identity',
+      course_variant: null,
+      lineage_family: null,
+    },
+    scope_entity: {
+      canonical: '课程方案',
+      label: '课程方案',
+      entity_kind: 'cross_cutting_framework',
+      classification: 'curriculum_plan_framework',
+      facet_eligible: false,
+      source_label: '课程方案',
+      facet: null,
+      family: null,
+      course_family: null,
+      related_subjects: [],
+      stable_subject_id: null,
+      stable_course_id: null,
+      official_code: null,
+      authority: 'source_bound_compendium_identity',
+      course_variant: null,
+      lineage_family: null,
+    },
+    visibility_facets: [],
+    visibility_policy: 'global_only',
+  };
+}
+
+function buildCenturyStarProjection(items, conceptObservations, coObservationRelations) {
+  const itemsById = new Map(items.map((item) => [item.id, item]));
+  const evidence = [];
+  const episodes = conceptObservations.map((observation) => {
+    const item = itemsById.get(observation.item_id);
+    if (!item) throw new Error(`century star projection missing item ${observation.item_id}`);
+    const identity = centurySubjectIdentity(item.subject);
+    const evidenceIds = observation.observed_physical_pages.map((page) => {
+      const id = `century-evidence:${sha256(`${observation.id}|${page}`).slice(0, 20)}`;
+      evidence.push({
+        id,
+        document_id: item.parent_document_id,
+        document_title: item.title,
+        page_number: page,
+        source_locator: `${item.parent_title} · PDF physical p.${page} · OCR 待核`,
+        matched_surface: observation.observed_surfaces.join(' / '),
+        snippet: `目录绑定篇目「${item.title}」的 OCR 词面候选；请回到扫描物理页核对原件。`,
+        public_locator: `${item.public_locator}#page-${page}`,
+        citation_allowed: false,
+        observation_class: 'ocr_surface_candidate_nonsemantic',
+      });
+      return id;
+    });
+    const pageCount = item.segments.reduce(
+      (total, segment) => total + segment.physical_page_end - segment.physical_page_start + 1,
+      0,
+    );
+    const visualStrength = Math.min(0.82, 0.34 + Math.log2(observation.mention_count + 1) * 0.1);
+    return {
+      id: observation.id,
+      concept_id: observation.concept_id,
+      concept_sense_id: `sense:${observation.concept_id}:undifferentiated`,
+      label: observation.label,
+      aliases: observation.observed_surfaces.filter((surface) => surface !== observation.label),
+      category: observation.category,
+      observation_class: observation.observation_class,
+      semantic: false,
+      citation_allowed: false,
+      ontology_node_id: null,
+      ...identity,
+      course_entity: null,
+      curriculum_line: {
+        id: `line:${item.parent_document_id}:${item.subject === '语文' ? 'chinese' : 'curriculum-plan'}`,
+        subject: item.subject === '语文' ? '语文' : null,
+        course: null,
+        scope_entity_label: item.subject,
+        subject_entity_kind: identity.subject.entity_kind,
+        subject_classification: identity.subject.classification,
+        stage: item.stage,
+        source_stage: item.stage,
+        school_type: 'general_education',
+        school_subtype: null,
+        document_type: item.document_type,
+        jurisdiction: '中国',
+        issuing_body: null,
+      },
+      work_id: `work:${item.id}`,
+      edition_id: `edition:${item.id}`,
+      embedded_item_id: item.id,
+      public_locator: item.public_locator,
+      time: { year: item.year, precision: 'year', basis: 'table_of_contents_year' },
+      edition: {
+        identity_id: `edition:${item.id}`,
+        version_label: `${item.year}年目录绑定候选`,
+        preferred_document_id: item.parent_document_id,
+        alternate_document_ids: [],
+        base_edition_year: item.year,
+        revision_year: null,
+        identity_status: item.identity_status,
+      },
+      observation: {
+        status: 'ocr_complete_pending_item_audit',
+        observation_class: observation.observation_class,
+        semantic: false,
+        match_type: 'exact_surface',
+        roles: ['unknown'],
+        mention_count: observation.mention_count,
+        local_unique_mention_count: observation.mention_count,
+        unique_section_count: null,
+        normalized_per_10k: null,
+        heading_hit: null,
+        definition_hit: null,
+        common_boilerplate_only: false,
+        frequency: {
+          numerator: observation.mention_count,
+          numerator_unit: 'exact_surface_occurrences_in_toc_bounded_item_ocr',
+          denominator: null,
+          denominator_unit: 'not_established',
+          exclusions: [],
+          comparability: 'within_item_display_only',
+          interpretation: null,
+        },
+        visual_strength: visualStrength,
+        visual_strength_basis: 'within_candidate_display_scaling_not_historical_magnitude',
+      },
+      evidence_ids: evidenceIds,
+      coverage: {
+        coverage_cell_id: `century-coverage:${item.id}`,
+        usable_pages: pageCount,
+        total_pages: pageCount,
+        complete: true,
+        negative_claim_eligible: false,
+      },
+      claim_policy: {
+        display_level: 'candidate_dashed',
+        quotation_allowed: false,
+        semantic_relation_allowed: false,
+        historical_superlative_allowed: false,
+        first_appearance_allowed: false,
+        disappearance_allowed: false,
+      },
+    };
+  });
+
+  const lineageEdges = [];
+  const episodesByLine = new Map();
+  for (const episode of episodes) {
+    const key = `${episode.concept_id}|${episode.subject.source_label}`;
+    const line = episodesByLine.get(key) || [];
+    line.push(episode);
+    episodesByLine.set(key, line);
+  }
+  for (const line of episodesByLine.values()) {
+    line.sort((left, right) => left.time.year - right.time.year || left.id.localeCompare(right.id, 'en'));
+    for (let index = 1; index < line.length; index += 1) {
+      const source = line[index - 1];
+      const target = line[index];
+      lineageEdges.push({
+        id: `century-star-lineage:${sha256(`${source.id}|${target.id}`).slice(0, 20)}`,
+        source: source.id,
+        target: target.id,
+        type: 'next_observed',
+        mode: 'lineage',
+        status: 'ocr_candidate_pending_item_audit',
+        assertion_type: 'next_lexical_observation_in_current_century_candidate_layer',
+        semantic: false,
+        citation_allowed: false,
+        directionality: 'directed_by_observation_year_then_stable_item_id',
+        editor_reviewed: false,
+        source_evidence_ids: source.evidence_ids,
+        target_evidence_ids: target.evidence_ids,
+        influence_claim_allowed: false,
+        claim_boundary: '连线只表示当前百年候选层中同一词面的下一次观察；不表示首次出现、替代、影响、因果或义项连续。',
+      });
+    }
+  }
+
+  const qualifyingPairs = new Set(coObservationRelations.map((relation) =>
+    [relation.source, relation.target].sort((left, right) => left.localeCompare(right, 'en')).join('|')));
+  const observationsByItem = new Map();
+  for (const observation of conceptObservations) {
+    const byConcept = observationsByItem.get(observation.item_id) || new Map();
+    byConcept.set(observation.concept_id, observation);
+    observationsByItem.set(observation.item_id, byConcept);
+  }
+  const crossEdges = [];
+  for (const [itemIdValue, byConcept] of observationsByItem) {
+    const conceptIds = [...byConcept.keys()].sort((left, right) => left.localeCompare(right, 'en'));
+    for (let left = 0; left < conceptIds.length; left += 1) {
+      for (let right = left + 1; right < conceptIds.length; right += 1) {
+        const pair = `${conceptIds[left]}|${conceptIds[right]}`;
+        if (!qualifyingPairs.has(pair)) continue;
+        const source = byConcept.get(conceptIds[left]);
+        const target = byConcept.get(conceptIds[right]);
+        crossEdges.push({
+          id: `century-star-co-observed:${sha256(`${itemIdValue}|${pair}`).slice(0, 20)}`,
+          source: source.id,
+          target: target.id,
+          type: 'item_co_observed',
+          mode: 'cross',
+          status: 'ocr_candidate_pending_item_audit',
+          assertion_type: 'lexicon_surfaces_observed_within_same_toc_bounded_item',
+          semantic: false,
+          citation_allowed: false,
+          directionality: 'undirected',
+          editor_reviewed: false,
+          source_evidence_ids: source.evidence_ids,
+          target_evidence_ids: target.evidence_ids,
+          influence_claim_allowed: false,
+          claim_boundary: '虚线只表示两个词面在同一目录边界篇目中共同出现；不表示语义关系、影响或因果。',
+        });
+      }
+    }
+  }
+
+  const edges = [...lineageEdges, ...crossEdges];
+  const evidenceIds = new Set(evidence.map((item) => item.id));
+  if (episodes.some((episode) => episode.evidence_ids.length === 0
+    || episode.evidence_ids.some((id) => !evidenceIds.has(id)))) {
+    throw new Error('century star projection contains an episode without bounded evidence');
+  }
+  return {
+    schema_version: 1,
+    node_semantics: 'concept_observation_episode_not_document',
+    time_semantics: 'year_is_single_spatial_coordinate_not_a_second_timeline',
+    episodes,
+    evidence,
+    edges,
+    counts: {
+      episodes: episodes.length,
+      evidence: evidence.length,
+      lineage_edges: lineageEdges.length,
+      cross_edges: crossEdges.length,
+    },
+  };
+}
+
 function identityTitle(source, item) {
   if (source.document_id !== 'legacy-compendium-chinese') return item.title;
   return item.title.replaceAll('（摘录）', '').replaceAll('（试用）', '').trim();
@@ -512,6 +801,7 @@ function buildArtifacts(sourceEnvelope) {
         influence_claim_allowed: false,
       };
     });
+  const starProjection = buildCenturyStarProjection(items, conceptObservations, coObservationRelations);
   const manifest = {
     schema_version: 1,
     artifact_profile: 'curriculum-embedded-century-items-v1',
@@ -538,12 +828,17 @@ function buildArtifacts(sourceEnvelope) {
     items,
     concept_observations: conceptObservations,
     relations: [...sequenceRelations, ...coObservationRelations],
+    star_projection: starProjection,
     counts: {
       items: items.length,
       concept_observations: conceptObservations.length,
       observed_concepts: new Set(conceptObservations.map((item) => item.concept_id)).size,
       sequence_relations: sequenceRelations.length,
       co_observation_relations: coObservationRelations.length,
+      star_episodes: starProjection.counts.episodes,
+      star_evidence: starProjection.counts.evidence,
+      star_lineage_edges: starProjection.counts.lineage_edges,
+      star_cross_edges: starProjection.counts.cross_edges,
       first_year: Math.min(...items.map((item) => item.year)),
       last_year: Math.max(...items.map((item) => item.year)),
     },
