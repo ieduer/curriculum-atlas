@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v26';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v27';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -6,7 +6,7 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260723v26';
+} from './subject-facets.js?v=20260723v27';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -126,12 +126,12 @@ async function api(path, options) {
 async function loadBase() {
   if (state.meta) return;
   const [conceptGraph, ocrLayer, detailLayer, pre2001Layer, centuryLayer, evolutionLayer, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v26'),
-    api('/data/ocr-observation-layer.json?v=20260723v26'),
-    api('/data/subject-detail-observation-layer.json?v=20260723v26'),
-    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v26'),
-    api('/data/century-observation-layer.json?v=20260723v26'),
-    api('/data/concept-evolution-families.json?v=20260723v26'),
+    api('/data/concept-evolution.json?v=20260723v27'),
+    api('/data/ocr-observation-layer.json?v=20260723v27'),
+    api('/data/subject-detail-observation-layer.json?v=20260723v27'),
+    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v27'),
+    api('/data/century-observation-layer.json?v=20260723v27'),
+    api('/data/concept-evolution-families.json?v=20260723v27'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -180,7 +180,7 @@ async function loadBase() {
   if (pre2001Layer.schema_version !== 1
     || pre2001Layer.artifact_profile !== 'curriculum-pre2001-subject-detail-observation-layer-v1'
     || pre2001Layer.publication_status !== 'candidate_fail_closed'
-    || pre2001Layer.node_semantics !== 'subject_detail_concept_observation_episode_not_document'
+    || pre2001Layer.node_semantics !== 'pre2001_subject_detail_concept_observation_episode_not_document'
     || pre2001Layer.time_semantics !== 'year_is_single_spatial_coordinate_not_a_second_timeline'
     || pre2001Layer.counts?.subject_facets !== 12
     || !Array.isArray(pre2001Layer.items)

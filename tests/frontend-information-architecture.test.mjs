@@ -69,6 +69,7 @@ test('the map loads validated concept episodes and fails closed instead of drawi
   assert.match(app, /data\/concept-evolution\.json/);
   assert.match(app, /data\/century-observation-layer\.json/);
   assert.match(app, /data\/pre2001-subject-detail-observation-layer\.json/);
+  assert.match(app, /pre2001Layer\.node_semantics !== 'pre2001_subject_detail_concept_observation_episode_not_document'/);
   assert.match(app, /data\/concept-evolution-families\.json/);
   assert.match(app, /episode\.evolution_family_id = membership\.family_id/);
   assert.match(atlas, /selectedEvolutionNodeIds\(this\.nodes, this\.selectedId\)/);
