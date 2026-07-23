@@ -1,4 +1,5 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v27';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v32';
+import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v32';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -6,7 +7,7 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260723v27';
+} from './subject-facets.js?v=20260723v32';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -95,14 +96,7 @@ const SUBJECT_SHORT_LABELS = new Map([
   ['科学类', '科学'],
   ['体育与健康', '体育·健康'],
 ]);
-const ERAS = [
-  { label: '近代学制初建', start: 1902, end: 1949 },
-  { label: '国家课程起点', start: 1950, end: 1977 },
-  { label: '恢复与重建', start: 1978, end: 2000 },
-  { label: '新课程改革', start: 2001, end: 2010 },
-  { label: '核心素养转向', start: 2011, end: 2021 },
-  { label: '素养导向重构', start: 2022, end: 2022 },
-];
+const ERAS = CURRICULUM_STAGES;
 
 let toastTimer = 0;
 const escapeHtml = (value) => String(value ?? '')
@@ -126,12 +120,12 @@ async function api(path, options) {
 async function loadBase() {
   if (state.meta) return;
   const [conceptGraph, ocrLayer, detailLayer, pre2001Layer, centuryLayer, evolutionLayer, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v27'),
-    api('/data/ocr-observation-layer.json?v=20260723v27'),
-    api('/data/subject-detail-observation-layer.json?v=20260723v27'),
-    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v27'),
-    api('/data/century-observation-layer.json?v=20260723v27'),
-    api('/data/concept-evolution-families.json?v=20260723v27'),
+    api('/data/concept-evolution.json?v=20260723v32'),
+    api('/data/ocr-observation-layer.json?v=20260723v32'),
+    api('/data/subject-detail-observation-layer.json?v=20260723v32'),
+    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v32'),
+    api('/data/century-observation-layer.json?v=20260723v32'),
+    api('/data/concept-evolution-families.json?v=20260723v32'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -722,6 +716,11 @@ function ontologySearchText(node) {
     .toLocaleLowerCase('zh-CN');
 }
 
+function episodeSearchText(episode) {
+  return `${episode.label} ${(episode.aliases || []).join(' ')} ${episodeEntityLabel(episode)} ${episode.time.year} ${episode.category}`
+    .toLocaleLowerCase('zh-CN');
+}
+
 function activeOntologyContext() {
   const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
   const visibleSubjects = state.hideAllSubjects ? [] : subjects.filter((subject) => !state.hiddenSubjects.has(subject));
@@ -750,7 +749,11 @@ function renderConceptLayers() {
     .filter((node) => searchableSubjects.has(ontologyNodeSubject(node)) && ontologySearchText(node).includes(state.query))
     .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
     .slice(0, 24) : [];
-  if (state.mode !== 'structure' && !queryMatches.length) {
+  const queryHasEpisodeMatch = state.query && state.conceptGraph.episodes.some((episode) =>
+    Number(episode.time.year) <= state.maxYear
+    && episodeVisibleForSubjectFilter(episode, state.hiddenSubjects, state.hideAllSubjects, subjects)
+    && episodeSearchText(episode).includes(state.query));
+  if (state.mode !== 'structure' && (!queryMatches.length || queryHasEpisodeMatch)) {
     conceptLayers.hidden = true;
     mount.classList.remove('structure-muted');
     return;
@@ -834,7 +837,7 @@ function updateMapStatus({ fitVisible = false } = {}) {
   const controlledSubjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
   const visibleEpisodes = state.conceptGraph.episodes.filter((episode) => Number(episode.time.year) <= state.maxYear
     && episodeVisibleForSubjectFilter(episode, state.hiddenSubjects, state.hideAllSubjects, controlledSubjects)
-    && (!state.query || `${episode.label}${(episode.aliases || []).join('')}${episodeEntityLabel(episode)}${episode.time.year}${episode.category}`.toLocaleLowerCase('zh-CN').includes(state.query)));
+    && (!state.query || episodeSearchText(episode).includes(state.query)));
   const visibleIds = new Set(visibleEpisodes.map((episode) => episode.id));
   if (state.selectedEpisode && !visibleIds.has(state.selectedEpisode.id)) clearConceptInspector();
   const visibleSubjects = state.hideAllSubjects
@@ -902,14 +905,26 @@ function restoreAllSubjects() {
 }
 
 function renderEraControls() {
-  eraButtons.innerHTML = ERAS.map((era) => `<button type="button" data-era-end="${era.end}" title="显示到 ${era.end} 年">${era.start} · ${era.label}</button>`).join('');
+  eraButtons.innerHTML = ERAS.map((era) => `<button type="button" data-era-start="${era.start}" data-era-end="${era.end}" aria-label="${era.start} 至 ${era.end} 年，${escapeHtml(era.label)}；显示到 ${era.end} 年" title="${escapeHtml(era.evidenceBasis)}">${era.start} · ${escapeHtml(era.shortLabel)}</button>`).join('');
   document.querySelectorAll('[data-era-end]').forEach((button) => button.addEventListener('click', () => {
     state.maxYear = Math.min(Number(yearRange.max), Number(button.dataset.eraEnd));
     yearRange.value = String(state.maxYear);
-    yearValue.textContent = String(state.maxYear);
-    document.querySelectorAll('[data-era-end]').forEach((item) => item.classList.toggle('active', item === button));
+    syncYearStageState();
     updateMapStatus();
   }));
+  syncYearStageState();
+}
+
+function syncYearStageState() {
+  const active = curriculumStageForYear(state.maxYear);
+  yearValue.textContent = String(state.maxYear);
+  yearRange.setAttribute('aria-valuetext', active ? `${state.maxYear} 年，${active.label}` : `${state.maxYear} 年`);
+  document.querySelectorAll('[data-era-end]').forEach((button) => {
+    const selected = active && Number(button.dataset.eraStart) === active.start;
+    button.classList.toggle('active', Boolean(selected));
+    if (selected) button.setAttribute('aria-current', 'step');
+    else button.removeAttribute('aria-current');
+  });
 }
 
 function centurySearchText(item) {
@@ -1472,8 +1487,7 @@ mapToolsToggle.addEventListener('click', () => {
 showAllSubjects.addEventListener('click', restoreAllSubjects);
 yearRange.addEventListener('input', () => {
   state.maxYear = Number(yearRange.value);
-  yearValue.textContent = String(state.maxYear);
-  document.querySelectorAll('[data-era-end]').forEach((button) => button.classList.toggle('active', Number(button.dataset.eraEnd) === state.maxYear));
+  syncYearStageState();
   updateMapStatus();
 });
 searchForm.addEventListener('submit', (event) => event.preventDefault());

@@ -112,6 +112,7 @@ test('left tools default collapsed while year visibility lives horizontally insi
   assert.match(styles, /\.map-control-column \{[^}]*overflow-y:\s*auto;/);
   assert.match(styles, /\.subject-orbit \{[^}]*grid-template-columns:\s*repeat\(2,minmax\(0,1fr\)\);/);
   assert.match(styles, /\.search-orbit \{[^}]*position:\s*relative;/);
+  assert.match(styles, /\.search-orbit input::\-webkit-search-cancel-button \{[^}]*display:\s*none;/);
   assert.match(styles, /\.mode-switch \{[^}]*position:\s*relative;/);
   assert.match(styles, /\.map-control-column\.is-collapsed \{/);
   assert.match(styles, /\.cosmos-year-control \{[^}]*left:\s*50%;[^}]*bottom:/);
@@ -188,6 +189,8 @@ test('deep ontology search matches definitions and source terms and renders an i
     assert.ok(indexed.includes(expected.toLocaleLowerCase('zh-CN')), `ontology search omitted ${expected}`);
   }
   assert.match(app, /queryMatches = state\.query \? state\.conceptGraph\.ontology_nodes/);
+  assert.match(app, /const queryHasEpisodeMatch = state\.query && state\.conceptGraph\.episodes\.some/);
+  assert.match(app, /state\.mode !== 'structure' && \(!queryMatches\.length \|\| queryHasEpisodeMatch\)/);
   assert.match(app, /searchableSubjects\.has\(ontologyNodeSubject\(node\)\)/);
   assert.match(app, /data-ontology-search-result=/);
   assert.match(app, /ontology-center ontology-search-center/);

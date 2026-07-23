@@ -6,7 +6,7 @@
 - 公开源码：<https://github.com/ieduer/curriculum-atlas>
 - 唯一项目手册：[docs/PROJECT_MANUAL.md](docs/PROJECT_MANUAL.md)
 
-网站只有一张全屏宇宙星图：每颗星都是一次带年份和来源定位的概念观察，年代只是星体的空间坐标与星图内显隐条件，不再另设文件时间轴。左侧学科、检索与研究工具默认全部收起，年份控制横向嵌入星图底部。340 个去重 bounded items 及后续 OCR 文件都是证据容器；OCR 提取的受控词面观察持续加入同一星图，且与已核节点使用完全相同的星体材质，不以虚线区分证据状态。点选任一概念，会隐藏无关星点，同时照亮纵向同层百年演进链与横向来源明示的学科分合关系；选中星系可一键放大。历史与历史与社会保持两条独立纵向课程链，1923 年社会科只以同年合科关系实线连接公民、历史与地理，不表示替代、因果或由历史演变而来。AI 只可引用 D1 中同时通过文档级和段落级白名单的证据；讨论接入 BDFZ 统一用户中心，匿名内容经 Turnstile 后进入审核队列。
+网站只有一张全屏宇宙星图：每颗星都是一次带年份和来源定位的概念观察，年代只是星体的空间坐标与星图内显隐条件，不再另设文件时间轴。左侧学科、检索与研究工具默认全部收起，年份控制横向嵌入星图底部；1950 年国家课程起点之前按 1902–1911、1912–1922、1923–1928、1929–1936、1937–1949 五个来源有界阶段在同一星图七点钟方向分区。340 个去重 bounded items 及后续 OCR 文件都是证据容器；OCR 提取的受控词面观察持续加入同一星图，且与已核节点使用完全相同的星体材质，不以虚线区分证据状态。点选任一概念，会隐藏无关星点，同时照亮纵向同层百年演进链与横向来源明示的学科分合关系；选中星系可一键放大。历史与历史与社会保持两条独立纵向课程链，1923 年社会科只以同年合科关系实线连接公民、历史与地理，不表示替代、因果或由历史演变而来。AI 只可引用 D1 中同时通过文档级和段落级白名单的证据；讨论接入 BDFZ 统一用户中心，匿名内容经 Turnstile 后进入审核队列。
 
 ## 当前资料状态
 
@@ -42,6 +42,6 @@ npm run verify
 
 本地开发运行 `npm run dev`。Cloudflare 账户变量与 Worker secrets 的名称见 `.env.example`；真实值只应进入本机批准的秘密存储或使用 `wrangler secret put` 安装，不能提交到仓库。
 
-项目目标、单星图产品合同、OCR 持续投影、发布门槛、运维和路线图以 [docs/PROJECT_MANUAL.md](docs/PROJECT_MANUAL.md) 为唯一总入口。数据方法与 OCR 闸门见 [docs/data-methodology.md](docs/data-methodology.md) 和 [docs/ocr-quality.md](docs/ocr-quality.md)。资产主账与数据层审计分别见 [docs/project-asset-ledger.md](docs/project-asset-ledger.md) 和 [docs/project-data-integrity-audit-2026-07-16.md](docs/project-data-integrity-audit-2026-07-16.md)。宇宙星图的信息架构、交互与视觉验收门槛见 [docs/frontend-reproduction-verification.md](docs/frontend-reproduction-verification.md)。部署、回滚与日常运维见 [docs/deployment.md](docs/deployment.md) 和 [docs/operations.md](docs/operations.md)；从立项到当前、可重新生成的完整运维事件总账见 [docs/project-operations-ledger.md](docs/project-operations-ledger.md)。
+项目目标、单星图产品合同、OCR 持续投影、发布门槛、运维和路线图以 [docs/PROJECT_MANUAL.md](docs/PROJECT_MANUAL.md) 为唯一总入口；本轮整体问题、优先级与 1950 年前分期依据见 [docs/PROJECT_AUDIT_2026-07-23.md](docs/PROJECT_AUDIT_2026-07-23.md)。数据方法与 OCR 闸门见 [docs/data-methodology.md](docs/data-methodology.md) 和 [docs/ocr-quality.md](docs/ocr-quality.md)。资产主账与数据层审计分别见 [docs/project-asset-ledger.md](docs/project-asset-ledger.md) 和 [docs/project-data-integrity-audit-2026-07-16.md](docs/project-data-integrity-audit-2026-07-16.md)。宇宙星图的信息架构、交互与视觉验收门槛见 [docs/frontend-reproduction-verification.md](docs/frontend-reproduction-verification.md)。部署、回滚与日常运维见 [docs/deployment.md](docs/deployment.md) 和 [docs/operations.md](docs/operations.md)；从立项到当前、可重新生成的完整运维事件总账见 [docs/project-operations-ledger.md](docs/project-operations-ledger.md)。
 
 架构、数据模型与接手顺序分别见 [docs/architecture.md](docs/architecture.md)、[docs/data-model.md](docs/data-model.md) 和 [docs/ai-handoff.md](docs/ai-handoff.md)。公开资料的来源与再分发边界见 [docs/content-sources-and-rights.md](docs/content-sources-and-rights.md)。提交改进前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [SECURITY.md](SECURITY.md)。

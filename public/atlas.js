@@ -1,3 +1,5 @@
+import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v32';
+
 const TAU = Math.PI * 2;
 const MIN_ZOOM = .2;
 const MAX_ZOOM = 2.3;
@@ -10,13 +12,11 @@ const CORE_COLORS = {
 };
 
 const FALLBACK_COLORS = ['#79d6ff', '#d990ff', '#78e0b0', '#ff9a80', '#e9c768', '#98a8ff', '#7ae4e5'];
-const ERA_GATES = [
-  { year: 1950, label: '国家课程起点' },
-  { year: 1978, label: '恢复与重建' },
-  { year: 2001, label: '课程标准转型' },
-  { year: 2017, label: '核心素养' },
-  { year: 2022, label: '素养导向重构' },
-];
+const ERA_GATES = CURRICULUM_STAGES.map((stage) => ({
+  year: stage.start,
+  label: stage.shortLabel,
+  early: stage.end < 1950,
+}));
 
 function hash(value) {
   let result = 2166136261;
@@ -223,6 +223,7 @@ export class CurriculumCosmos {
     this.callbacks = callbacks;
     this.canvas = document.createElement('canvas');
     this.canvas.setAttribute('aria-label', '历代课程标准星图，可拖动旋转、滚轮缩放并点击星体；菱形星体为课程节点，圆形星体为学科概念');
+    this.canvas.textContent = '键盘使用者可展开“学科 · 检索”，通过搜索结果选择概念并读取证据详情。';
     this.mount.replaceChildren(this.canvas);
     this.context = this.canvas.getContext('2d');
     this.abort = new AbortController();
@@ -384,7 +385,7 @@ export class CurriculumCosmos {
 
   safeViewport() {
     if (this.width <= 640) {
-      return { left: 8, top: 68, right: this.width - 8, bottom: this.height - 98 };
+      return { left: 8, top: 68, right: this.width - 8, bottom: this.height - 166 };
     }
     if (this.width <= 980) {
       return { left: 34, top: 86, right: this.width - 18, bottom: this.height - 84 };
@@ -487,8 +488,7 @@ export class CurriculumCosmos {
   drawEraGates() {
     const context = this.context;
     context.save();
-    context.font = '600 11px ui-sans-serif, system-ui, sans-serif';
-    for (const gate of ERA_GATES) {
+    for (const [index, gate] of ERA_GATES.entries()) {
       const top = this.project({ x: yearX(gate.year), y: -450, z: 0 });
       const bottom = this.project({ x: yearX(gate.year), y: 450, z: 0 });
       context.beginPath();
@@ -500,12 +500,18 @@ export class CurriculumCosmos {
       const safe = this.safeViewport();
       if (top.x > safe.left && top.x < safe.right) {
         const label = `${gate.year}  ${gate.label}`;
+        const earlyIndex = gate.early ? index : 0;
+        context.font = `${gate.early ? '650 9px' : '600 11px'} ui-sans-serif, system-ui, sans-serif`;
         const labelX = top.x + 7;
-        const labelY = Math.max(safe.top + 13, top.y + 17);
+        const labelY = gate.early
+          ? safe.top + 13 + (this.width <= 640 ? 50 : 0) + earlyIndex * 17
+          : Math.max(safe.top + 13, top.y + 17);
         const labelWidth = context.measureText(label).width;
         context.fillStyle = 'rgba(3,6,16,.58)';
         context.fillRect(labelX - 4, labelY - 13, labelWidth + 8, 18);
-        context.fillStyle = gate.year === 2022 ? 'rgba(242,205,124,.9)' : 'rgba(200,215,242,.76)';
+        context.fillStyle = gate.year === 2022
+          ? 'rgba(242,205,124,.9)'
+          : gate.early ? 'rgba(222,205,164,.8)' : 'rgba(200,215,242,.76)';
         context.fillText(label, labelX, labelY);
       }
     }
@@ -705,8 +711,13 @@ export class CurriculumCosmos {
       .filter(({ projected }) => projected.x > -50 && projected.x < this.width + 50 && projected.y > -50 && projected.y < this.height + 50)
       .sort((left, right) => left.projected.z - right.projected.z);
     const drawn = this.screenNodes.map((item) => ({ ...item, radius: this.drawNode(item.node, item.projected, time) }));
-    const labels = drawn.filter(({ node }) => this.activeSelectionIds.has(node.id) || node.id === this.hovered?.id
-      || starAutoLabelEligible(node));
+    const emphasizedLabels = drawn.filter(({ node }) => this.activeSelectionIds.has(node.id) || node.id === this.hovered?.id);
+    const emphasizedIds = new Set(emphasizedLabels.map(({ node }) => node.id));
+    const automaticLabels = drawn
+      .filter(({ node }) => !emphasizedIds.has(node.id) && starAutoLabelEligible(node))
+      .sort((left, right) => right.node.strength - left.node.strength || left.node.year - right.node.year);
+    const automaticLimit = this.width <= 640 ? 9 : this.width <= 980 ? 22 : automaticLabels.length;
+    const labels = [...emphasizedLabels, ...automaticLabels.slice(0, automaticLimit)];
     labels.sort((left, right) => {
       const priority = ({ node }) => (node.id === this.selectedId ? 100 : this.activeSelectionIds.has(node.id) ? 94 : node.id === this.hovered?.id ? 90 : 30 + node.strength);
       return priority(right) - priority(left);
