@@ -10,6 +10,8 @@ import {
   episodeSubjectFacet,
   episodeVisibilityFacets,
   episodeVisibleForSubjectFilter,
+  starAutoLabelEligible,
+  starEffectProfile,
   subjectColor,
 } from '../public/atlas.js';
 import {
@@ -54,6 +56,23 @@ test('star-map facet helper admits controlled subject and assessment-subject ent
     subject: { entity_kind: 'scope', facet_eligible: false, canonical: null },
     scope_entity: { entity_kind: 'cross_cutting_framework', canonical: '课程方案' },
   }), '课程方案');
+});
+
+test('candidate stars inherit the complete star effect profile and differ only by evidence ring', () => {
+  const solid = starEffectProfile('solid');
+  const candidate = starEffectProfile('candidate_dashed');
+  const reviewed = starEffectProfile('reviewed_ring');
+  const sharedKeys = ['coreOpacity', 'haloOpacity', 'pulseAmplitude', 'spikeScale', 'labelOpacity'];
+  assert.deepEqual(
+    Object.fromEntries(sharedKeys.map((key) => [key, candidate[key]])),
+    Object.fromEntries(sharedKeys.map((key) => [key, solid[key]])),
+  );
+  assert.equal(solid.evidenceRing, 'none');
+  assert.equal(candidate.evidenceRing, 'candidate_dashed');
+  assert.equal(reviewed.evidenceRing, 'reviewed');
+  assert.equal(starAutoLabelEligible({ display: 'solid', strength: .55 }), true);
+  assert.equal(starAutoLabelEligible({ display: 'candidate_dashed', strength: .55 }), true);
+  assert.equal(starAutoLabelEligible({ display: 'candidate_dashed', strength: .54 }), false);
 });
 
 test('D1 schema v2 preserves raw taxonomy identity and constrains twelve public facets', async () => {

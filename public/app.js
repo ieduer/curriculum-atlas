@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v20';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v21';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -6,7 +6,7 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260723v20';
+} from './subject-facets.js?v=20260723v21';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -109,9 +109,9 @@ async function api(path, options) {
 async function loadBase() {
   if (state.meta) return;
   const [conceptGraph, ocrLayer, centuryLayer, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v20'),
-    api('/data/ocr-observation-layer.json?v=20260723v20'),
-    api('/data/century-observation-layer.json?v=20260723v20'),
+    api('/data/concept-evolution.json?v=20260723v21'),
+    api('/data/ocr-observation-layer.json?v=20260723v21'),
+    api('/data/century-observation-layer.json?v=20260723v21'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),

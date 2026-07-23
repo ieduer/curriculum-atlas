@@ -31,6 +31,17 @@ test('the century archive feeds the single concept cosmos without a second time 
   assert.match(app, /renderHistoricalItem/);
 });
 
+test('OCR candidates use the original star material, motion, labels, and interaction path', () => {
+  assert.match(atlas, /effects: starEffectProfile\(display\)/);
+  assert.match(atlas, /pulseAmplitude/);
+  assert.match(atlas, /haloOpacity/);
+  assert.match(atlas, /spikeScale/);
+  assert.match(atlas, /starAutoLabelEligible\(node\)/);
+  assert.match(atlas, /node\.effects\.evidenceRing === 'candidate_dashed'|node\.effects\.evidenceRing !== 'none'/);
+  assert.doesNotMatch(atlas, /node\.display === 'solid' \? rgba\(node\.color, depthAlpha\)/);
+  assert.doesNotMatch(atlas, /node\.display === 'solid' \? 'rgba\(244,247,255/);
+});
+
 test('subjects and concepts are controlled inside the star map', () => {
   assert.match(html, /id="subject-orbit"/);
   assert.match(html, /data-map-mode="cross"/);

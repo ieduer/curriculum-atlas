@@ -49,6 +49,29 @@ export function subjectColor(subject) {
   return CORE_COLORS[subject] || FALLBACK_COLORS[hash(subject) % FALLBACK_COLORS.length];
 }
 
+const SHARED_STAR_EFFECTS = Object.freeze({
+  coreOpacity: 1,
+  haloOpacity: 1,
+  pulseAmplitude: 1,
+  spikeScale: 1,
+  labelOpacity: 1,
+});
+
+export function starEffectProfile(display = 'candidate_dashed') {
+  const evidenceRing = display === 'solid'
+    ? 'none'
+    : display === 'reviewed_ring'
+      ? 'reviewed'
+      : display === 'warning_ring'
+        ? 'warning_dashed'
+        : 'candidate_dashed';
+  return { ...SHARED_STAR_EFFECTS, evidenceRing };
+}
+
+export function starAutoLabelEligible(node) {
+  return node?.display === 'reviewed_ring' || Number(node?.strength) >= .55;
+}
+
 export function episodeSubjectFacet(episode) {
   const subject = episode?.subject;
   return ['subject', 'assessment_subject'].includes(subject?.entity_kind) && subject?.facet_eligible === true && typeof subject?.facet === 'string' && subject.facet.trim()
@@ -236,7 +259,7 @@ export class CurriculumCosmos {
         x: yearX(Math.max(1902, Math.min(2022, Number(episode.time.year)))),
         y: Math.sin(angle) * radius + (conceptDrift() - .5) * 68 + (lineDrift() - .5) * 24,
         z: Math.cos(angle) * radius * .8 + (conceptDrift() - .5) * 52 + (lineDrift() - .5) * 24,
-        phase: conceptDrift() * TAU, display,
+        phase: conceptDrift() * TAU, display, effects: starEffectProfile(display),
         strength: Number(episode.observation?.visual_strength) || .35,
       };
     });
@@ -461,19 +484,19 @@ export class CurriculumCosmos {
     const hovered = node.id === this.hovered?.id;
     const depthScale = clamp(projected.scale, .42, 1.55);
     const radius = Math.max(1.05, (1.45 + node.strength * 3.15) * depthScale) + (selected ? 2.35 : hovered ? 1.45 : 0);
-    const pulse = this.stable ? 0 : Math.sin(time * .0017 + node.phase) * .72;
+    const pulse = this.stable ? 0 : Math.sin(time * .0017 + node.phase) * .72 * node.effects.pulseAmplitude;
     const depthAlpha = clamp(.48 + projected.scale * .38, .5, 1);
     const halo = radius * (selected ? 6.2 : hovered ? 5.4 : 4.4) + pulse;
     const gradient = context.createRadialGradient(projected.x, projected.y, 0, projected.x, projected.y, halo);
-    gradient.addColorStop(0, rgba(node.color, selected ? .66 : .32 * depthAlpha));
-    gradient.addColorStop(.22, rgba(node.color, selected ? .22 : .13 * depthAlpha));
+    gradient.addColorStop(0, rgba(node.color, (selected ? .66 : .32 * depthAlpha) * node.effects.haloOpacity));
+    gradient.addColorStop(.22, rgba(node.color, (selected ? .22 : .13 * depthAlpha) * node.effects.haloOpacity));
     gradient.addColorStop(1, rgba(node.color, 0));
     context.fillStyle = gradient;
     context.beginPath();
     context.arc(projected.x, projected.y, halo, 0, TAU);
     context.fill();
 
-    const spikeLength = selected ? radius * 5.2 : hovered ? radius * 3.8 : node.strength >= .72 ? radius * 2.25 : 0;
+    const spikeLength = (selected ? radius * 5.2 : hovered ? radius * 3.8 : node.strength >= .72 ? radius * 2.25 : 0) * node.effects.spikeScale;
     if (spikeLength) {
       context.save();
       context.strokeStyle = rgba(node.color, selected ? .62 : hovered ? .45 : .2 * depthAlpha);
@@ -487,25 +510,27 @@ export class CurriculumCosmos {
       context.restore();
     }
 
-    if (node.display === 'reviewed_ring') {
+    if (node.effects.evidenceRing === 'reviewed') {
       context.strokeStyle = rgba(node.color, selected || hovered ? .9 : .55);
       context.lineWidth = selected ? 1.5 : 1;
       context.beginPath();
       context.arc(projected.x, projected.y, radius + 3 + pulse * .25, 0, TAU);
       context.stroke();
-    } else if (node.display !== 'solid') {
+    } else if (node.effects.evidenceRing !== 'none') {
       context.setLineDash([2.5, 2.5]);
-      context.strokeStyle = node.display === 'warning_ring' ? 'rgba(255,178,102,.82)' : rgba(node.color, selected || hovered ? .9 : .5);
+      context.lineDashOffset = this.stable ? 0 : -(time * .008 % 5);
+      context.strokeStyle = node.effects.evidenceRing === 'warning_dashed' ? 'rgba(255,178,102,.82)' : rgba(node.color, selected || hovered ? .9 : .5);
       context.lineWidth = 1;
       context.beginPath();
-      context.arc(projected.x, projected.y, radius + 2.6, 0, TAU);
+      context.arc(projected.x, projected.y, radius + 2.6 + pulse * .25, 0, TAU);
       context.stroke();
       context.setLineDash([]);
+      context.lineDashOffset = 0;
     }
 
     context.beginPath();
     context.arc(projected.x, projected.y, radius, 0, TAU);
-    context.fillStyle = node.display === 'solid' ? rgba(node.color, depthAlpha) : rgba(node.color, node.display === 'reviewed_ring' ? .72 * depthAlpha : .42 * depthAlpha);
+    context.fillStyle = rgba(node.color, depthAlpha * node.effects.coreOpacity);
     context.fill();
     context.beginPath();
     context.arc(projected.x - radius * .28, projected.y - radius * .28, Math.max(.55, radius * .27), 0, TAU);
@@ -570,7 +595,7 @@ export class CurriculumCosmos {
     context.lineWidth = 3;
     context.strokeStyle = 'rgba(0,2,8,.95)';
     context.strokeText(label, x + 7, y + height / 2 + .5);
-    context.fillStyle = node.display === 'solid' ? 'rgba(244,247,255,.96)' : 'rgba(250,224,164,.94)';
+    context.fillStyle = `rgba(244,247,255,${.96 * node.effects.labelOpacity})`;
     context.fillText(label, x + 7, y + height / 2 + .5);
     context.restore();
   }
@@ -595,9 +620,9 @@ export class CurriculumCosmos {
       .sort((left, right) => left.projected.z - right.projected.z);
     const drawn = this.screenNodes.map((item) => ({ ...item, radius: this.drawNode(item.node, item.projected, time) }));
     const labels = drawn.filter(({ node }) => node.id === this.selectedId || node.id === this.hovered?.id
-      || node.display === 'reviewed_ring' || (node.display === 'solid' && node.strength >= .55));
+      || starAutoLabelEligible(node));
     labels.sort((left, right) => {
-      const priority = ({ node }) => (node.id === this.selectedId ? 100 : node.id === this.hovered?.id ? 90 : node.display === 'solid' ? 30 + node.strength : 20 + node.strength);
+      const priority = ({ node }) => (node.id === this.selectedId ? 100 : node.id === this.hovered?.id ? 90 : 30 + node.strength);
       return priority(right) - priority(left);
     });
     const occupied = [];
