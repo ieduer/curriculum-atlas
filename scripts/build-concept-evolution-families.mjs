@@ -48,26 +48,40 @@ function edgeId(parts) {
 }
 
 function buildArtifact(config, lexicon, graphs) {
-  if (config.schema_version !== 1
-    || config.artifact_profile !== 'curriculum-century-concept-families-v1'
-    || config.concept_tier?.id !== 'language-practice-domain'
+  if (config.schema_version !== 2
+    || config.artifact_profile !== 'curriculum-century-concept-families-v2'
+    || !Array.isArray(config.concept_tiers)
+    || config.concept_tiers.length < 2
     || !Array.isArray(config.families)
-    || !Array.isArray(config.historical_concepts)) {
+    || !Array.isArray(config.historical_concepts)
+    || !Array.isArray(config.course_identity_concepts)) {
     throw new Error('concept evolution family config failed structural validation');
   }
+  const tiers = new Map(config.concept_tiers.map((tier) => [tier.id, tier]));
+  if (tiers.size !== config.concept_tiers.length) throw new Error('concept tier ids must be unique');
   const concepts = new Map([
     ...lexicon.concepts.map((concept) => [concept.id, concept]),
     ...config.historical_concepts.map((concept) => [concept.id, concept]),
+    ...config.course_identity_concepts.map((concept) => [concept.id, concept]),
   ]);
   const familyByConcept = new Map();
   for (const family of config.families) {
-    if (!family.id || !family.label || !Array.isArray(family.concept_ids) || family.concept_ids.length < 2) {
+    if (!family.id
+      || !family.label
+      || !tiers.has(family.concept_tier_id)
+      || !Array.isArray(family.visibility_facets)
+      || family.visibility_facets.length === 0
+      || !Array.isArray(family.concept_ids)
+      || family.concept_ids.length < 2) {
       throw new Error(`invalid concept family: ${family.id || 'unknown'}`);
     }
     for (const conceptId of family.concept_ids) {
       if (!concepts.has(conceptId)) throw new Error(`${family.id} references unknown concept ${conceptId}`);
       if (familyByConcept.has(conceptId)) throw new Error(`${conceptId} belongs to more than one same-tier family`);
-      familyByConcept.set(conceptId, family.id);
+      familyByConcept.set(conceptId, {
+        family_id: family.id,
+        concept_tier_id: family.concept_tier_id,
+      });
     }
     for (const transition of family.transitions || []) {
       if (!family.concept_ids.includes(transition.source_concept_id)
@@ -91,8 +105,8 @@ function buildArtifact(config, lexicon, graphs) {
   const memberships = relevantEpisodes.map((episode) => ({
     episode_id: episode.id,
     concept_id: episode.concept_id,
-    family_id: familyByConcept.get(episode.concept_id),
-    concept_tier_id: config.concept_tier.id,
+    family_id: familyByConcept.get(episode.concept_id).family_id,
+    concept_tier_id: familyByConcept.get(episode.concept_id).concept_tier_id,
     year: Number(episode.time.year),
   })).sort((left, right) =>
     left.year - right.year || left.family_id.localeCompare(right.family_id, 'en')
@@ -100,7 +114,8 @@ function buildArtifact(config, lexicon, graphs) {
 
   const edges = [];
   const familySummaries = config.families.map((family) => {
-    const familyEpisodes = relevantEpisodes.filter((episode) => familyByConcept.get(episode.concept_id) === family.id);
+    const familyEpisodes = relevantEpisodes.filter((episode) =>
+      familyByConcept.get(episode.concept_id).family_id === family.id);
     const episodesByConcept = new Map(family.concept_ids.map((conceptId) => [conceptId, []]));
     for (const episode of familyEpisodes) episodesByConcept.get(episode.concept_id).push(episode);
     const representatives = new Map(
@@ -116,6 +131,7 @@ function buildArtifact(config, lexicon, graphs) {
           source: source.id,
           target: target.id,
           family_id: family.id,
+          concept_tier_id: family.concept_tier_id,
           type: 'same_surface_observed_again',
           mode: 'evolution',
           label: '同词再现',
@@ -151,6 +167,7 @@ function buildArtifact(config, lexicon, graphs) {
         source: pair.source.id,
         target: pair.target.id,
         family_id: family.id,
+        concept_tier_id: family.concept_tier_id,
         type: 'editorial_correspondence',
         mode: 'evolution',
         label: transition.label,
@@ -169,7 +186,8 @@ function buildArtifact(config, lexicon, graphs) {
       id: family.id,
       label: family.label,
       definition: family.definition,
-      concept_tier_id: config.concept_tier.id,
+      concept_tier_id: family.concept_tier_id,
+      visibility_facets: family.visibility_facets,
       concept_ids: family.concept_ids,
       observed_concepts: observedConcepts.map((conceptId) => ({
         id: conceptId,
@@ -195,9 +213,9 @@ function buildArtifact(config, lexicon, graphs) {
     throw new Error('every published family must cross the historical/current boundary with at least two observed concepts');
   }
   return {
-    schema_version: 1,
-    artifact_profile: 'curriculum-concept-evolution-families-v1',
-    concept_tier: config.concept_tier,
+    schema_version: 2,
+    artifact_profile: 'curriculum-concept-evolution-families-v2',
+    concept_tiers: config.concept_tiers,
     assertion_boundary: config.assertion_boundary,
     publication_status: 'editorial_correspondence_noncausal',
     families: familySummaries,
@@ -205,6 +223,8 @@ function buildArtifact(config, lexicon, graphs) {
     edges,
     counts: {
       families: familySummaries.length,
+      concept_tiers: config.concept_tiers.length,
+      subject_facets: new Set(familySummaries.flatMap((family) => family.visibility_facets)).size,
       configured_concepts: familyByConcept.size,
       observed_concepts: new Set(memberships.map((item) => item.concept_id)).size,
       episode_memberships: memberships.length,

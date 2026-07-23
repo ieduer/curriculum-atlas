@@ -12,6 +12,7 @@ const SOURCE_PATH = path.join(ROOT, 'data/century-observation-source.json');
 const MANIFEST_PATH = path.join(ROOT, 'data/embedded-items-century-v1.json');
 const PUBLIC_PATH = path.join(ROOT, 'public/data/century-observation-layer.json');
 const EVOLUTION_FAMILIES_PATH = path.join(ROOT, 'data/concept-evolution-families.json');
+const CATALOG_PATH = path.join(ROOT, 'data/catalog.json');
 const ARCHIVE_ROOT = 'production-p1-mb16-shard-b-r3';
 const ASSERTION_BOUNDARY = '本层只陈述汇编目录中的条目身份、页段顺序及 OCR 词面共同出现。它不证明原文件颁行效力、版本替代、概念连续性、影响或因果；所有条目与关系均禁止作为引文或 AI 证据。';
 
@@ -151,7 +152,51 @@ function itemId(documentId, item) {
   return `embedded-century:${documentId}:${sha256(`${item.year}|${item.printed_page_start}|${item.title}`).slice(0, 16)}`;
 }
 
-function centurySubjectIdentity(subject) {
+function centurySubjectIdentity(subject, visibilityFacets = []) {
+  const facets = [...new Set(visibilityFacets.filter(Boolean))];
+  if (facets.length === 1) {
+    const facet = facets[0];
+    const canonical = subject === '课程方案' ? facet : subject;
+    return {
+      subject: {
+        canonical,
+        entity_kind: 'subject',
+        classification: 'course_identity_candidate',
+        facet_eligible: true,
+        source_label: canonical,
+        facet,
+        family: facet,
+        course_family: null,
+        related_subjects: [],
+        stable_subject_id: null,
+        stable_course_id: null,
+        official_code: null,
+        authority: 'source_bound_candidate_identity',
+        course_variant: null,
+        lineage_family: facet,
+      },
+      scope_entity: {
+        canonical,
+        label: canonical,
+        entity_kind: 'subject',
+        classification: 'course_identity_candidate',
+        facet_eligible: true,
+        source_label: canonical,
+        facet,
+        family: facet,
+        course_family: null,
+        related_subjects: [],
+        stable_subject_id: null,
+        stable_course_id: null,
+        official_code: null,
+        authority: 'source_bound_candidate_identity',
+        course_variant: null,
+        lineage_family: facet,
+      },
+      visibility_facets: facets,
+      visibility_policy: 'controlled_concept_facet',
+    };
+  }
   if (subject === '语文') {
     return {
       subject: {
@@ -237,30 +282,61 @@ function buildCenturyStarProjection(items, conceptObservations, coObservationRel
   const itemsById = new Map(items.map((item) => [item.id, item]));
   const evidence = [];
   const episodes = conceptObservations.map((observation) => {
-    const item = itemsById.get(observation.item_id);
-    if (!item) throw new Error(`century star projection missing item ${observation.item_id}`);
-    const identity = centurySubjectIdentity(item.subject);
-    const evidenceIds = observation.observed_physical_pages.map((page) => {
-      const id = `century-evidence:${sha256(`${observation.id}|${page}`).slice(0, 20)}`;
+    const item = observation.item_id ? itemsById.get(observation.item_id) : null;
+    const document = observation.catalog_document || null;
+    if (!item && !document) throw new Error(`century star projection missing source for ${observation.id}`);
+    const sourceSubject = item?.subject || document.subject;
+    const identity = centurySubjectIdentity(sourceSubject, observation.visibility_facets);
+    let evidenceIds;
+    let pageCount;
+    if (item) {
+      evidenceIds = observation.observed_physical_pages.map((page) => {
+        const id = `century-evidence:${sha256(`${observation.id}|${page}`).slice(0, 20)}`;
+        evidence.push({
+          id,
+          document_id: item.parent_document_id,
+          document_title: item.title,
+          page_number: page,
+          source_locator: `${item.parent_title} · PDF physical p.${page} · OCR 待核`,
+          matched_surface: observation.observed_surfaces.join(' / '),
+          snippet: `目录绑定篇目「${item.title}」的 OCR 词面候选；请回到扫描物理页核对原件。`,
+          public_locator: `${item.public_locator}#page-${page}`,
+          citation_allowed: false,
+          observation_class: observation.observation_class,
+        });
+        return id;
+      });
+      pageCount = item.segments.reduce(
+        (total, segment) => total + segment.physical_page_end - segment.physical_page_start + 1,
+        0,
+      );
+    } else {
+      const id = `century-catalog-evidence:${sha256(observation.id).slice(0, 20)}`;
       evidence.push({
         id,
-        document_id: item.parent_document_id,
-        document_title: item.title,
-        page_number: page,
-        source_locator: `${item.parent_title} · PDF physical p.${page} · OCR 待核`,
+        document_id: document.id,
+        document_title: document.title,
+        page_number: null,
+        source_locator: `${document.version_label} · 教育部编目标题`,
         matched_surface: observation.observed_surfaces.join(' / '),
-        snippet: `目录绑定篇目「${item.title}」的 OCR 词面候选；请回到扫描物理页核对原件。`,
-        public_locator: `${item.public_locator}#page-${page}`,
+        snippet: `编目标题「${document.title}」中的学科名称词面；用于衔接当代名称节点，不代替正文引文。`,
+        public_locator: `/document/${encodeURIComponent(document.id)}`,
         citation_allowed: false,
-        observation_class: 'ocr_surface_candidate_nonsemantic',
+        observation_class: observation.observation_class,
       });
-      return id;
-    });
-    const pageCount = item.segments.reduce(
-      (total, segment) => total + segment.physical_page_end - segment.physical_page_start + 1,
-      0,
-    );
-    const visualStrength = Math.min(0.82, 0.34 + Math.log2(observation.mention_count + 1) * 0.1);
+      evidenceIds = [id];
+      pageCount = 0;
+    }
+    const visualStrength = item
+      ? Math.min(0.82, 0.34 + Math.log2(observation.mention_count + 1) * 0.1)
+      : 0.48;
+    const sourceId = item?.id || document.id;
+    const year = item?.year || observation.year;
+    const stage = item?.stage || document.stage;
+    const documentType = item?.document_type || document.document_type;
+    const publicLocator = item?.public_locator || `/document/${encodeURIComponent(document.id)}`;
+    const versionLabel = item ? `${item.year}年目录绑定候选` : `${document.version_label}编目标题候选`;
+    const facetKey = identity.visibility_facets[0] || sourceSubject;
     return {
       id: observation.id,
       concept_id: observation.concept_id,
@@ -275,36 +351,40 @@ function buildCenturyStarProjection(items, conceptObservations, coObservationRel
       ...identity,
       course_entity: null,
       curriculum_line: {
-        id: `line:${item.parent_document_id}:${item.subject === '语文' ? 'chinese' : 'curriculum-plan'}`,
-        subject: item.subject === '语文' ? '语文' : null,
+        id: `line:century-candidate:${facetKey}`,
+        subject: identity.subject.canonical,
         course: null,
-        scope_entity_label: item.subject,
+        scope_entity_label: facetKey,
         subject_entity_kind: identity.subject.entity_kind,
         subject_classification: identity.subject.classification,
-        stage: item.stage,
-        source_stage: item.stage,
+        stage,
+        source_stage: stage,
         school_type: 'general_education',
         school_subtype: null,
-        document_type: item.document_type,
+        document_type: documentType,
         jurisdiction: '中国',
         issuing_body: null,
       },
-      work_id: `work:${item.id}`,
-      edition_id: `edition:${item.id}`,
-      embedded_item_id: item.id,
-      public_locator: item.public_locator,
-      time: { year: item.year, precision: 'year', basis: 'table_of_contents_year' },
+      work_id: `work:${sourceId}`,
+      edition_id: `edition:${sourceId}`,
+      embedded_item_id: item?.id || null,
+      public_locator: publicLocator,
+      time: {
+        year,
+        precision: 'year',
+        basis: item ? 'table_of_contents_year' : 'catalog_version_label_year',
+      },
       edition: {
-        identity_id: `edition:${item.id}`,
-        version_label: `${item.year}年目录绑定候选`,
-        preferred_document_id: item.parent_document_id,
+        identity_id: `edition:${sourceId}`,
+        version_label: versionLabel,
+        preferred_document_id: item?.parent_document_id || document.id,
         alternate_document_ids: [],
-        base_edition_year: item.year,
+        base_edition_year: year,
         revision_year: null,
-        identity_status: item.identity_status,
+        identity_status: item?.identity_status || 'catalog_title_bound_candidate',
       },
       observation: {
-        status: 'ocr_complete_pending_item_audit',
+        status: item ? 'ocr_complete_pending_item_audit' : 'catalog_title_candidate',
         observation_class: observation.observation_class,
         semantic: false,
         match_type: 'exact_surface',
@@ -318,11 +398,13 @@ function buildCenturyStarProjection(items, conceptObservations, coObservationRel
         common_boilerplate_only: false,
         frequency: {
           numerator: observation.mention_count,
-          numerator_unit: 'exact_surface_occurrences_in_toc_bounded_item_ocr',
+          numerator_unit: item
+            ? 'exact_surface_occurrences_in_toc_bounded_item_ocr'
+            : 'exact_surface_occurrence_in_catalog_title',
           denominator: null,
           denominator_unit: 'not_established',
           exclusions: [],
-          comparability: 'within_item_display_only',
+          comparability: item ? 'within_item_display_only' : 'catalog_title_display_only',
           interpretation: null,
         },
         visual_strength: visualStrength,
@@ -330,10 +412,11 @@ function buildCenturyStarProjection(items, conceptObservations, coObservationRel
       },
       evidence_ids: evidenceIds,
       coverage: {
-        coverage_cell_id: `century-coverage:${item.id}`,
-        usable_pages: pageCount,
-        total_pages: pageCount,
-        complete: true,
+        coverage_cell_id: `century-coverage:${sourceId}`,
+        usable_pages: item ? pageCount : 0,
+        total_pages: item ? pageCount : 0,
+        complete: Boolean(item),
+        coverage_kind: item ? 'toc_bounded_item_ocr' : 'catalog_title_only',
         negative_claim_eligible: false,
       },
       claim_policy: {
@@ -350,7 +433,7 @@ function buildCenturyStarProjection(items, conceptObservations, coObservationRel
   const lineageEdges = [];
   const episodesByLine = new Map();
   for (const episode of episodes) {
-    const key = `${episode.concept_id}|${episode.subject.source_label}`;
+    const key = `${episode.concept_id}|${episode.visibility_facets.join('|') || episode.subject.source_label}`;
     const line = episodesByLine.get(key) || [];
     line.push(episode);
     episodesByLine.set(key, line);
@@ -384,20 +467,21 @@ function buildCenturyStarProjection(items, conceptObservations, coObservationRel
     [relation.source, relation.target].sort((left, right) => left.localeCompare(right, 'en')).join('|')));
   const observationsByItem = new Map();
   for (const observation of conceptObservations) {
+    if (!observation.item_id) continue;
     const byConcept = observationsByItem.get(observation.item_id) || new Map();
     byConcept.set(observation.concept_id, observation);
     observationsByItem.set(observation.item_id, byConcept);
   }
-  const crossEdges = [];
+  const crossEdgesByPair = new Map();
   for (const [itemIdValue, byConcept] of observationsByItem) {
     const conceptIds = [...byConcept.keys()].sort((left, right) => left.localeCompare(right, 'en'));
     for (let left = 0; left < conceptIds.length; left += 1) {
       for (let right = left + 1; right < conceptIds.length; right += 1) {
         const pair = `${conceptIds[left]}|${conceptIds[right]}`;
-        if (!qualifyingPairs.has(pair)) continue;
+        if (!qualifyingPairs.has(pair) || crossEdgesByPair.has(pair)) continue;
         const source = byConcept.get(conceptIds[left]);
         const target = byConcept.get(conceptIds[right]);
-        crossEdges.push({
+        crossEdgesByPair.set(pair, {
           id: `century-star-co-observed:${sha256(`${itemIdValue}|${pair}`).slice(0, 20)}`,
           source: source.id,
           target: target.id,
@@ -417,6 +501,7 @@ function buildCenturyStarProjection(items, conceptObservations, coObservationRel
       }
     }
   }
+  const crossEdges = [...crossEdgesByPair.values()];
 
   const edges = [...lineageEdges, ...crossEdges];
   const evidenceIds = new Set(evidence.map((item) => item.id));
@@ -425,7 +510,7 @@ function buildCenturyStarProjection(items, conceptObservations, coObservationRel
     throw new Error('century star projection contains an episode without bounded evidence');
   }
   return {
-    schema_version: 1,
+    schema_version: 2,
     node_semantics: 'concept_observation_episode_not_document',
     time_semantics: 'year_is_single_spatial_coordinate_not_a_second_timeline',
     episodes,
@@ -560,6 +645,7 @@ function matchPageConcepts(content, concepts) {
 async function captureConceptObservations(extractedRoot, source, items, lexicon) {
   const relevantConcepts = lexicon.concepts
     .filter((concept) => concept.subjects.includes('*')
+      || concept.subjects.includes(source.subject)
       || (source.subject === '语文' && concept.subjects.some((subject) => ['语文', '生活语文', '汉语'].includes(subject))))
     .map((concept) => ({
       ...concept,
@@ -580,6 +666,7 @@ async function captureConceptObservations(extractedRoot, source, items, lexicon)
           concept_id: concept.id,
           label: concept.label,
           category: concept.category,
+          visibility_facets: concept.visibility_facets || [],
           mention_count: 0,
           observed_physical_pages: [],
           observed_surfaces: [],
@@ -616,7 +703,11 @@ async function captureSource(archivePath) {
   ]);
   const captureLexicon = {
     ...lexicon,
-    concepts: [...lexicon.concepts, ...evolutionFamilies.historical_concepts],
+    concepts: [
+      ...lexicon.concepts,
+      ...evolutionFamilies.historical_concepts,
+      ...evolutionFamilies.course_identity_concepts,
+    ],
   };
   const archiveSha = checksums.match(/^([a-f0-9]{64})\s+output\.tar\.zst$/m)?.[1];
   if (!archiveSha) throw new Error('output.tar.zst checksum missing from SHA256SUMS');
@@ -660,8 +751,8 @@ async function captureSource(archivePath) {
       sources.push(source);
     }
     return {
-      schema_version: 1,
-      artifact_profile: 'curriculum-century-observation-source-v1',
+      schema_version: 2,
+      artifact_profile: 'curriculum-century-observation-source-v2',
       source_snapshot: '20260718-b3-final',
       assertion_boundary: ASSERTION_BOUNDARY,
       archive: {
@@ -674,8 +765,9 @@ async function captureSource(archivePath) {
       },
       concept_capture_policy: {
         config_sha256: sha256(stableJson(evolutionFamilies)),
-        concept_tier_id: evolutionFamilies.concept_tier.id,
-        historical_concepts: evolutionFamilies.historical_concepts.length,
+        concept_tier_ids: evolutionFamilies.concept_tiers.map((tier) => tier.id),
+        controlled_concepts: evolutionFamilies.historical_concepts.length
+          + evolutionFamilies.course_identity_concepts.length,
         overlap_resolution: 'longest_surface_wins',
       },
       sources,
@@ -685,16 +777,98 @@ async function captureSource(archivePath) {
   }
 }
 
-function buildArtifacts(sourceEnvelope, evolutionFamilies) {
-  if (sourceEnvelope.schema_version !== 1
-    || sourceEnvelope.artifact_profile !== 'curriculum-century-observation-source-v1'
+function catalogObservationYear(document) {
+  const years = `${document.version_label || ''} ${document.title || ''}`
+    .match(/(?:19|20)\d{2}/g)
+    ?.map(Number)
+    .filter(Number.isFinite) || [];
+  return years.length ? Math.max(...years) : null;
+}
+
+function buildCatalogConceptObservations(catalog, evolutionFamilies) {
+  const concepts = evolutionFamilies.course_identity_concepts
+    .filter((concept) => Array.isArray(concept.catalog_subjects) && concept.catalog_subjects.length);
+  const observations = [];
+  for (const document of catalog.documents || []) {
+    if (!String(document.id || '').startsWith('moe-')
+      || !/^(义务教育|普通高中)/.test(document.title || '')
+      || document.document_type !== '课程标准') {
+      continue;
+    }
+    const year = catalogObservationYear(document);
+    if (!year || year < 2001) continue;
+    for (const concept of concepts) {
+      if (!concept.catalog_subjects.includes(document.subject)
+        || !document.title.includes(concept.label)) {
+        continue;
+      }
+      observations.push({
+        id: `century-catalog-concept:${sha256(`${document.id}|${concept.id}`).slice(0, 20)}`,
+        item_id: null,
+        source_document_id: document.id,
+        concept_id: concept.id,
+        label: concept.label,
+        category: concept.category,
+        subject: document.subject,
+        visibility_facets: concept.visibility_facets,
+        year,
+        mention_count: 1,
+        observed_physical_pages: [],
+        observed_surfaces: [concept.label],
+        observation_class: 'catalog_title_candidate_nonsemantic',
+        semantic: false,
+        citation_allowed: false,
+        catalog_document: {
+          id: document.id,
+          title: document.title,
+          subject: document.subject,
+          version_label: document.version_label,
+          current_status: document.current_status,
+          document_type: document.document_type,
+          source_url: document.source_url,
+          stage: document.title.startsWith('普通高中') ? '高中' : '义务教育',
+        },
+      });
+    }
+  }
+  return observations.sort((left, right) => left.year - right.year
+    || left.source_document_id.localeCompare(right.source_document_id, 'en')
+    || left.concept_id.localeCompare(right.concept_id, 'en'));
+}
+
+function selectStarConceptObservations(observations) {
+  const selected = new Map();
+  for (const observation of observations) {
+    const key = [
+      observation.concept_id,
+      observation.year,
+      ...(observation.visibility_facets || []),
+    ].join('|');
+    const previous = selected.get(key);
+    if (!previous
+      || observation.mention_count > previous.mention_count
+      || (observation.mention_count === previous.mention_count
+        && observation.id.localeCompare(previous.id, 'en') < 0)) {
+      selected.set(key, observation);
+    }
+  }
+  return [...selected.values()].sort((left, right) => left.year - right.year
+    || left.concept_id.localeCompare(right.concept_id, 'en')
+    || left.id.localeCompare(right.id, 'en'));
+}
+
+function buildArtifacts(sourceEnvelope, evolutionFamilies, catalog) {
+  if (sourceEnvelope.schema_version !== 2
+    || sourceEnvelope.artifact_profile !== 'curriculum-century-observation-source-v2'
     || sourceEnvelope.archive?.citation_allowed !== false
     || sourceEnvelope.sources?.length !== 2) {
     throw new Error('century observation source failed structural validation');
   }
   if (sourceEnvelope.concept_capture_policy?.config_sha256 !== sha256(stableJson(evolutionFamilies))
-    || sourceEnvelope.concept_capture_policy?.concept_tier_id !== evolutionFamilies.concept_tier?.id
-    || sourceEnvelope.concept_capture_policy?.historical_concepts !== evolutionFamilies.historical_concepts?.length
+    || JSON.stringify(sourceEnvelope.concept_capture_policy?.concept_tier_ids)
+      !== JSON.stringify(evolutionFamilies.concept_tiers.map((tier) => tier.id))
+    || sourceEnvelope.concept_capture_policy?.controlled_concepts
+      !== evolutionFamilies.historical_concepts.length + evolutionFamilies.course_identity_concepts.length
     || sourceEnvelope.concept_capture_policy?.overlap_resolution !== 'longest_surface_wins') {
     throw new Error('century observation source was not captured with the current concept-family policy');
   }
@@ -769,6 +943,9 @@ function buildArtifacts(sourceEnvelope, evolutionFamilies) {
           label: concept.label,
           category: concept.category,
           subject: source.subject,
+          visibility_facets: concept.visibility_facets?.length
+            ? concept.visibility_facets
+            : (source.subject === '语文' ? ['语文'] : []),
           year: parsedItem.year,
           mention_count: concept.mention_count,
           observed_physical_pages: [...new Set(concept.observed_physical_pages)].sort((left, right) => left - right),
@@ -783,8 +960,14 @@ function buildArtifacts(sourceEnvelope, evolutionFamilies) {
   items.sort((left, right) => left.year - right.year
     || left.subject.localeCompare(right.subject, 'zh-CN')
     || left.segments[0].printed_page_start - right.segments[0].printed_page_start);
+  const ocrConceptObservationCount = conceptObservations.length;
+  const catalogConceptObservations = buildCatalogConceptObservations(catalog, evolutionFamilies);
+  conceptObservations.push(...catalogConceptObservations);
   conceptObservations.sort((left, right) => left.year - right.year
-    || left.item_id.localeCompare(right.item_id, 'en')
+    || String(left.item_id || left.source_document_id).localeCompare(
+      String(right.item_id || right.source_document_id),
+      'en',
+    )
     || left.concept_id.localeCompare(right.concept_id, 'en'));
 
   const sequenceRelations = [];
@@ -808,16 +991,26 @@ function buildArtifacts(sourceEnvelope, evolutionFamilies) {
 
   const observationsByItem = new Map();
   for (const observation of conceptObservations) {
-    const list = observationsByItem.get(observation.item_id) || [];
-    list.push(observation.concept_id);
-    observationsByItem.set(observation.item_id, list);
+    if (!observation.item_id) continue;
+    const byConcept = observationsByItem.get(observation.item_id) || new Map();
+    byConcept.set(observation.concept_id, observation);
+    observationsByItem.set(observation.item_id, byConcept);
   }
   const pairCounts = new Map();
-  for (const conceptIds of observationsByItem.values()) {
-    const uniqueIds = [...new Set(conceptIds)].sort((left, right) => left.localeCompare(right, 'en'));
-    for (let left = 0; left < uniqueIds.length; left += 1) {
-      for (let right = left + 1; right < uniqueIds.length; right += 1) {
-        const key = `${uniqueIds[left]}|${uniqueIds[right]}`;
+  for (const byConcept of observationsByItem.values()) {
+    const entries = [...byConcept.entries()].sort(([left], [right]) => left.localeCompare(right, 'en'));
+    for (let left = 0; left < entries.length; left += 1) {
+      for (let right = left + 1; right < entries.length; right += 1) {
+        const [leftId, leftObservation] = entries[left];
+        const [rightId, rightObservation] = entries[right];
+        const leftFacets = leftObservation.visibility_facets || [];
+        const rightFacets = rightObservation.visibility_facets || [];
+        if (!leftFacets.length
+          || !rightFacets.length
+          || !leftFacets.some((facet) => rightFacets.includes(facet))) {
+          continue;
+        }
+        const key = `${leftId}|${rightId}`;
         pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
       }
     }
@@ -839,7 +1032,15 @@ function buildArtifacts(sourceEnvelope, evolutionFamilies) {
         influence_claim_allowed: false,
       };
     });
-  const starProjection = buildCenturyStarProjection(items, conceptObservations, coObservationRelations);
+  const starConceptObservations = selectStarConceptObservations(conceptObservations);
+  const starProjection = buildCenturyStarProjection(items, starConceptObservations, coObservationRelations);
+  starProjection.projection_policy = {
+    grain: 'one_strongest_bounded_observation_per_concept_year_subject_facet',
+    source_observations_retained_in_layer: conceptObservations.length,
+    projected_observations: starConceptObservations.length,
+    semantic: false,
+    citation_allowed: false,
+  };
   const manifest = {
     schema_version: 1,
     artifact_profile: 'curriculum-embedded-century-items-v1',
@@ -857,8 +1058,8 @@ function buildArtifacts(sourceEnvelope, evolutionFamilies) {
     },
   };
   const layer = {
-    schema_version: 1,
-    artifact_profile: 'curriculum-century-candidate-observation-layer-v1',
+    schema_version: 2,
+    artifact_profile: 'curriculum-century-candidate-observation-layer-v2',
     source_snapshot: sourceEnvelope.source_snapshot,
     assertion_boundary: ASSERTION_BOUNDARY,
     publication_status: 'candidate_fail_closed',
@@ -870,15 +1071,19 @@ function buildArtifacts(sourceEnvelope, evolutionFamilies) {
     counts: {
       items: items.length,
       concept_observations: conceptObservations.length,
+      ocr_concept_observations: ocrConceptObservationCount,
+      catalog_metadata_observations: catalogConceptObservations.length,
+      projected_concept_year_observations: starConceptObservations.length,
       observed_concepts: new Set(conceptObservations.map((item) => item.concept_id)).size,
+      subject_facets: new Set(conceptObservations.flatMap((item) => item.visibility_facets || [])).size,
       sequence_relations: sequenceRelations.length,
       co_observation_relations: coObservationRelations.length,
       star_episodes: starProjection.counts.episodes,
       star_evidence: starProjection.counts.evidence,
       star_lineage_edges: starProjection.counts.lineage_edges,
       star_cross_edges: starProjection.counts.cross_edges,
-      first_year: Math.min(...items.map((item) => item.year)),
-      last_year: Math.max(...items.map((item) => item.year)),
+      first_year: Math.min(...conceptObservations.map((item) => item.year)),
+      last_year: Math.max(...conceptObservations.map((item) => item.year)),
     },
   };
   if (manifest.counts.items !== 134 || manifest.counts.chinese_items !== 57 || manifest.counts.plan_items !== 77) {
@@ -894,7 +1099,10 @@ async function assertExact(pathname, expected) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const evolutionFamilies = JSON.parse(await readFile(EVOLUTION_FAMILIES_PATH, 'utf8'));
+  const [evolutionFamilies, catalog] = await Promise.all([
+    readFile(EVOLUTION_FAMILIES_PATH, 'utf8').then(JSON.parse),
+    readFile(CATALOG_PATH, 'utf8').then(JSON.parse),
+  ]);
   let sourceEnvelope;
   if (options.captureArchive) {
     sourceEnvelope = await captureSource(path.resolve(options.captureArchive));
@@ -902,7 +1110,7 @@ async function main() {
   } else {
     sourceEnvelope = JSON.parse(await readFile(SOURCE_PATH, 'utf8'));
   }
-  const { manifest, layer } = buildArtifacts(sourceEnvelope, evolutionFamilies);
+  const { manifest, layer } = buildArtifacts(sourceEnvelope, evolutionFamilies, catalog);
   const manifestJson = stableJson(manifest);
   const layerJson = stableJson(layer);
   if (options.check) {

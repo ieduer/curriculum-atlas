@@ -1,11 +1,18 @@
 {
-  "schema_version": 1,
-  "artifact_profile": "curriculum-century-concept-families-v1",
-  "concept_tier": {
-    "id": "language-practice-domain",
-    "label": "语文实践领域",
-    "definition": "只比较课程文件中处于同一观察层级的语文学习或实践领域名称，不把课程名称、育人目标、能力指标和具体篇目混入同一演进链。"
-  },
+  "schema_version": 2,
+  "artifact_profile": "curriculum-century-concept-families-v2",
+  "concept_tiers": [
+    {
+      "id": "language-practice-domain",
+      "label": "语文实践领域",
+      "definition": "只比较课程文件中处于同一观察层级的语文学习或实践领域名称，不把课程名称、育人目标、能力指标和具体篇目混入同一演进链。"
+    },
+    {
+      "id": "subject-course-identity",
+      "label": "学科与课程名称",
+      "definition": "只比较课程方案、课程标准标题和正文中处于同一名称层级的学科或课程词面；分支并列展示，不把课程名称直接解释为目标、能力、制度替代或因果关系。"
+    }
+  ],
   "assertion_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。",
   "historical_concepts": [
     {
@@ -114,11 +121,468 @@
       "category": "语文实践领域"
     }
   ],
+  "course_identity_concepts": [
+    {
+      "id": "course-chinese-characters",
+      "label": "字课",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["语文"]
+    },
+    {
+      "id": "course-chinese-written-language",
+      "label": "中国文字",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["语文"]
+    },
+    {
+      "id": "course-chinese-national-language",
+      "label": "国语科",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["语文"]
+    },
+    {
+      "id": "course-chinese-national-literature",
+      "label": "国文科",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["语文"]
+    },
+    {
+      "id": "course-chinese-language",
+      "label": "语文",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["语文"],
+      "catalog_subjects": ["语文"]
+    },
+    {
+      "id": "course-mathematics-arithmetic",
+      "label": "算术",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["数学"]
+    },
+    {
+      "id": "course-mathematics-study",
+      "label": "算学",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["数学"]
+    },
+    {
+      "id": "course-mathematics",
+      "label": "数学",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["数学"],
+      "catalog_subjects": ["数学"]
+    },
+    {
+      "id": "course-foreign-english-writing",
+      "label": "英文",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["外语"]
+    },
+    {
+      "id": "course-foreign-language",
+      "label": "外国语",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["外语"]
+    },
+    {
+      "id": "course-foreign-english",
+      "label": "英语",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["外语"],
+      "catalog_subjects": ["英语"]
+    },
+    {
+      "id": "course-civics-moral-cultivation",
+      "label": "修身",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["思想政治与道德法治"]
+    },
+    {
+      "id": "course-civics-citizenship",
+      "label": "公民",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["思想政治与道德法治"]
+    },
+    {
+      "id": "course-civics-party-principles",
+      "label": "党义",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["思想政治与道德法治"]
+    },
+    {
+      "id": "course-civics-moral-education",
+      "label": "思想品德",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["思想政治与道德法治"],
+      "catalog_subjects": ["思想品德"]
+    },
+    {
+      "id": "course-civics-political-thought",
+      "label": "思想政治",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["思想政治与道德法治"],
+      "catalog_subjects": ["思想政治"]
+    },
+    {
+      "id": "course-civics-morality-law",
+      "label": "道德与法治",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["思想政治与道德法治"],
+      "catalog_subjects": ["道德与法治"]
+    },
+    {
+      "id": "course-history-national",
+      "label": "本国史",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["历史"]
+    },
+    {
+      "id": "course-history-china",
+      "label": "中国史",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["历史"]
+    },
+    {
+      "id": "course-history-world",
+      "label": "世界史",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["历史"]
+    },
+    {
+      "id": "course-history",
+      "label": "历史",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["历史"],
+      "catalog_subjects": ["历史"]
+    },
+    {
+      "id": "course-history-society-social-studies",
+      "label": "社会科",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["历史与社会"]
+    },
+    {
+      "id": "course-history-society",
+      "label": "历史与社会",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["历史与社会"],
+      "catalog_subjects": ["历史与社会"]
+    },
+    {
+      "id": "course-geography-territory",
+      "label": "舆地",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["地理"]
+    },
+    {
+      "id": "course-geography-national",
+      "label": "本国地理",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["地理"]
+    },
+    {
+      "id": "course-geography-world",
+      "label": "世界地理",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["地理"]
+    },
+    {
+      "id": "course-geography",
+      "label": "地理",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["地理"],
+      "catalog_subjects": ["地理"]
+    },
+    {
+      "id": "course-science-natural-philosophy",
+      "label": "格致",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["科学类"]
+    },
+    {
+      "id": "course-science-natural-history",
+      "label": "博物",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["科学类"]
+    },
+    {
+      "id": "course-science-nature",
+      "label": "自然",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["科学类"]
+    },
+    {
+      "id": "course-science-common-knowledge",
+      "label": "常识",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["科学类"]
+    },
+    {
+      "id": "course-science-physics",
+      "label": "物理",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["科学类"],
+      "catalog_subjects": ["物理"]
+    },
+    {
+      "id": "course-science-chemistry",
+      "label": "化学",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["科学类"],
+      "catalog_subjects": ["化学"]
+    },
+    {
+      "id": "course-science-biology",
+      "label": "生物",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["科学类"]
+    },
+    {
+      "id": "course-science-biology-studies",
+      "label": "生物学",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["科学类"],
+      "catalog_subjects": ["生物学"]
+    },
+    {
+      "id": "course-science",
+      "label": "科学",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["科学类"],
+      "catalog_subjects": ["科学"]
+    },
+    {
+      "id": "course-technology-handwork",
+      "label": "手工",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["技术"]
+    },
+    {
+      "id": "course-technology-craft",
+      "label": "工艺",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["技术"]
+    },
+    {
+      "id": "course-technology-labor",
+      "label": "劳动技术",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["技术"]
+    },
+    {
+      "id": "course-technology-information",
+      "label": "信息技术",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["技术"],
+      "catalog_subjects": ["信息技术"]
+    },
+    {
+      "id": "course-technology-information-science",
+      "label": "信息科技",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["技术"],
+      "catalog_subjects": ["信息科技"]
+    },
+    {
+      "id": "course-technology-general",
+      "label": "通用技术",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["技术"],
+      "catalog_subjects": ["通用技术"]
+    },
+    {
+      "id": "course-labor-work",
+      "label": "劳作",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["劳动"]
+    },
+    {
+      "id": "course-labor",
+      "label": "劳动",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["劳动"],
+      "catalog_subjects": ["劳动"]
+    },
+    {
+      "id": "course-labor-education",
+      "label": "劳动教育",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["劳动"]
+    },
+    {
+      "id": "course-art-drawing",
+      "label": "图画",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["艺术"]
+    },
+    {
+      "id": "course-art-singing",
+      "label": "唱歌",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["艺术"]
+    },
+    {
+      "id": "course-art-music",
+      "label": "音乐",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["艺术"],
+      "catalog_subjects": ["音乐"]
+    },
+    {
+      "id": "course-art-fine-art",
+      "label": "美术",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["艺术"],
+      "catalog_subjects": ["美术"]
+    },
+    {
+      "id": "course-art",
+      "label": "艺术",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["艺术"],
+      "catalog_subjects": ["艺术"]
+    },
+    {
+      "id": "course-sports-gymnastics",
+      "label": "体操",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["体育与健康"]
+    },
+    {
+      "id": "course-sports-physical-education",
+      "label": "体育",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["体育与健康"]
+    },
+    {
+      "id": "course-sports-hygiene",
+      "label": "卫生",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["体育与健康"]
+    },
+    {
+      "id": "course-sports-health",
+      "label": "体育与健康",
+      "aliases": [],
+      "subjects": ["课程方案"],
+      "category": "学科与课程名称",
+      "visibility_facets": ["体育与健康"],
+      "catalog_subjects": ["体育与健康"]
+    }
+  ],
   "families": [
     {
       "id": "literacy-and-handwriting",
       "label": "识字与书写",
       "definition": "识字、写字及其后续合并领域名称。",
+      "concept_tier_id": "language-practice-domain",
+      "visibility_facets": ["语文"],
       "concept_ids": [
         "historical-literacy-practice",
         "historical-handwriting-practice",
@@ -141,6 +605,8 @@
       "id": "reading-and-appreciation",
       "label": "阅读与鉴赏",
       "definition": "读书、讲读、阅读及其后续阅读鉴赏领域名称。",
+      "concept_tier_id": "language-practice-domain",
+      "visibility_facets": ["语文"],
       "concept_ids": [
         "historical-reading-study",
         "historical-guided-reading",
@@ -169,6 +635,8 @@
       "id": "expression-and-communication",
       "label": "表达与交流",
       "definition": "作文、写作、听说与口语交际在表达交流领域中的词面变化。",
+      "concept_tier_id": "language-practice-domain",
+      "visibility_facets": ["语文"],
       "concept_ids": [
         "historical-composition-practice",
         "historical-writing-practice",
@@ -209,6 +677,8 @@
       "id": "language-knowledge-and-use",
       "label": "语言知识与运用",
       "definition": "文法、语法、修辞及语言文字运用领域的可比较词面。",
+      "concept_tier_id": "language-practice-domain",
+      "visibility_facets": ["语文"],
       "concept_ids": [
         "historical-grammar-study",
         "historical-grammar-practice",
@@ -237,6 +707,8 @@
       "id": "literature-reading-and-writing",
       "label": "文学阅读与写作",
       "definition": "文学、文学作品鉴赏及文学阅读写作领域的可比较词面。",
+      "concept_tier_id": "language-practice-domain",
+      "visibility_facets": ["语文"],
       "concept_ids": [
         "historical-literature-study",
         "literary-works-appreciation",
@@ -259,6 +731,8 @@
       "id": "classics-and-cultural-study",
       "label": "经典与文化研习",
       "definition": "读经讲经与中华传统文化经典研习领域的可比较词面。",
+      "concept_tier_id": "language-practice-domain",
+      "visibility_facets": ["语文"],
       "concept_ids": [
         "classics-reading",
         "traditional-culture-classics-study"
@@ -275,6 +749,8 @@
       "id": "practical-text-communication",
       "label": "实用文本与交流",
       "definition": "实用文及实用性阅读交流领域的可比较词面。",
+      "concept_tier_id": "language-practice-domain",
+      "visibility_facets": ["语文"],
       "concept_ids": [
         "historical-practical-text-practice",
         "practical-reading-communication"
@@ -284,6 +760,382 @@
           "source_concept_id": "historical-practical-text-practice",
           "target_concept_id": "practical-reading-communication",
           "label": "实用文本进入交流领域"
+        }
+      ]
+    },
+    {
+      "id": "subject-course-chinese",
+      "label": "语文课程名称",
+      "definition": "字课、中国文字、国语、国文到语文等课程名称词面的分支与转写。",
+      "concept_tier_id": "subject-course-identity",
+      "visibility_facets": ["语文"],
+      "concept_ids": [
+        "course-chinese-characters",
+        "course-chinese-written-language",
+        "course-chinese-national-language",
+        "course-chinese-national-literature",
+        "course-chinese-language"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "course-chinese-characters",
+          "target_concept_id": "course-chinese-national-language",
+          "label": "课程名称词面转写"
+        },
+        {
+          "source_concept_id": "course-chinese-written-language",
+          "target_concept_id": "course-chinese-national-literature",
+          "label": "课程名称词面转写"
+        },
+        {
+          "source_concept_id": "course-chinese-national-language",
+          "target_concept_id": "course-chinese-language",
+          "label": "课程名称词面转写"
+        },
+        {
+          "source_concept_id": "course-chinese-national-literature",
+          "target_concept_id": "course-chinese-language",
+          "label": "课程名称词面转写"
+        }
+      ]
+    },
+    {
+      "id": "subject-course-mathematics",
+      "label": "数学课程名称",
+      "definition": "算术、算学与数学课程名称词面的可比较观察。",
+      "concept_tier_id": "subject-course-identity",
+      "visibility_facets": ["数学"],
+      "concept_ids": [
+        "course-mathematics-arithmetic",
+        "course-mathematics-study",
+        "course-mathematics"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "course-mathematics-arithmetic",
+          "target_concept_id": "course-mathematics",
+          "label": "课程名称词面转写"
+        },
+        {
+          "source_concept_id": "course-mathematics-study",
+          "target_concept_id": "course-mathematics",
+          "label": "课程名称词面转写"
+        }
+      ]
+    },
+    {
+      "id": "subject-course-foreign-language",
+      "label": "外语课程名称",
+      "definition": "英文、外国语与英语课程名称词面的可比较观察。",
+      "concept_tier_id": "subject-course-identity",
+      "visibility_facets": ["外语"],
+      "concept_ids": [
+        "course-foreign-english-writing",
+        "course-foreign-language",
+        "course-foreign-english"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "course-foreign-english-writing",
+          "target_concept_id": "course-foreign-english",
+          "label": "课程名称词面转写"
+        },
+        {
+          "source_concept_id": "course-foreign-language",
+          "target_concept_id": "course-foreign-english",
+          "label": "总称与具体课程并列转写"
+        }
+      ]
+    },
+    {
+      "id": "subject-course-civics",
+      "label": "思想政治与道德法治课程名称",
+      "definition": "修身、公民、党义、思想品德、思想政治与道德法治等课程名称词面的分支观察。",
+      "concept_tier_id": "subject-course-identity",
+      "visibility_facets": ["思想政治与道德法治"],
+      "concept_ids": [
+        "course-civics-moral-cultivation",
+        "course-civics-citizenship",
+        "course-civics-party-principles",
+        "course-civics-moral-education",
+        "course-civics-political-thought",
+        "course-civics-morality-law"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "course-civics-moral-cultivation",
+          "target_concept_id": "course-civics-moral-education",
+          "label": "德育课程名称分支转写"
+        },
+        {
+          "source_concept_id": "course-civics-citizenship",
+          "target_concept_id": "course-civics-moral-education",
+          "label": "公民教育名称分支转写"
+        },
+        {
+          "source_concept_id": "course-civics-party-principles",
+          "target_concept_id": "course-civics-political-thought",
+          "label": "政治课程名称分支转写"
+        },
+        {
+          "source_concept_id": "course-civics-moral-education",
+          "target_concept_id": "course-civics-morality-law",
+          "label": "义务教育课程名称转写"
+        }
+      ]
+    },
+    {
+      "id": "subject-course-history",
+      "label": "历史课程名称",
+      "definition": "本国史、中国史、世界史与历史课程名称词面的分支观察。",
+      "concept_tier_id": "subject-course-identity",
+      "visibility_facets": ["历史"],
+      "concept_ids": [
+        "course-history-national",
+        "course-history-china",
+        "course-history-world",
+        "course-history"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "course-history-national",
+          "target_concept_id": "course-history",
+          "label": "课程范围名称并入总称"
+        },
+        {
+          "source_concept_id": "course-history-china",
+          "target_concept_id": "course-history",
+          "label": "课程范围名称并入总称"
+        },
+        {
+          "source_concept_id": "course-history-world",
+          "target_concept_id": "course-history",
+          "label": "课程范围名称并入总称"
+        }
+      ]
+    },
+    {
+      "id": "subject-course-history-society",
+      "label": "历史与社会课程名称",
+      "definition": "社会科与历史与社会课程名称词面的可比较观察。",
+      "concept_tier_id": "subject-course-identity",
+      "visibility_facets": ["历史与社会"],
+      "concept_ids": [
+        "course-history-society-social-studies",
+        "course-history-society"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "course-history-society-social-studies",
+          "target_concept_id": "course-history-society",
+          "label": "综合社会课程名称转写"
+        }
+      ]
+    },
+    {
+      "id": "subject-course-geography",
+      "label": "地理课程名称",
+      "definition": "舆地、本国地理、世界地理与地理课程名称词面的分支观察。",
+      "concept_tier_id": "subject-course-identity",
+      "visibility_facets": ["地理"],
+      "concept_ids": [
+        "course-geography-territory",
+        "course-geography-national",
+        "course-geography-world",
+        "course-geography"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "course-geography-territory",
+          "target_concept_id": "course-geography",
+          "label": "课程名称词面转写"
+        },
+        {
+          "source_concept_id": "course-geography-national",
+          "target_concept_id": "course-geography",
+          "label": "课程范围名称并入总称"
+        },
+        {
+          "source_concept_id": "course-geography-world",
+          "target_concept_id": "course-geography",
+          "label": "课程范围名称并入总称"
+        }
+      ]
+    },
+    {
+      "id": "subject-course-science",
+      "label": "科学类课程名称",
+      "definition": "格致、博物、自然、常识及物理、化学、生物、科学等并列课程名称词面的分支观察。",
+      "concept_tier_id": "subject-course-identity",
+      "visibility_facets": ["科学类"],
+      "concept_ids": [
+        "course-science-natural-philosophy",
+        "course-science-natural-history",
+        "course-science-nature",
+        "course-science-common-knowledge",
+        "course-science-physics",
+        "course-science-chemistry",
+        "course-science-biology",
+        "course-science-biology-studies",
+        "course-science"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "course-science-natural-philosophy",
+          "target_concept_id": "course-science-physics",
+          "label": "科学课程分科名称转写"
+        },
+        {
+          "source_concept_id": "course-science-natural-philosophy",
+          "target_concept_id": "course-science-chemistry",
+          "label": "科学课程分科名称转写"
+        },
+        {
+          "source_concept_id": "course-science-natural-history",
+          "target_concept_id": "course-science-biology",
+          "label": "自然史课程分科名称转写"
+        },
+        {
+          "source_concept_id": "course-science-biology",
+          "target_concept_id": "course-science-biology-studies",
+          "label": "课程名称规范化转写"
+        },
+        {
+          "source_concept_id": "course-science-nature",
+          "target_concept_id": "course-science",
+          "label": "综合科学课程名称转写"
+        },
+        {
+          "source_concept_id": "course-science-common-knowledge",
+          "target_concept_id": "course-science",
+          "label": "综合科学课程名称转写"
+        }
+      ]
+    },
+    {
+      "id": "subject-course-technology",
+      "label": "技术课程名称",
+      "definition": "手工、工艺、劳动技术、信息技术、信息科技与通用技术等课程名称词面的分支观察。",
+      "concept_tier_id": "subject-course-identity",
+      "visibility_facets": ["技术"],
+      "concept_ids": [
+        "course-technology-handwork",
+        "course-technology-craft",
+        "course-technology-labor",
+        "course-technology-information",
+        "course-technology-information-science",
+        "course-technology-general"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "course-technology-handwork",
+          "target_concept_id": "course-technology-craft",
+          "label": "制作课程名称转写"
+        },
+        {
+          "source_concept_id": "course-technology-craft",
+          "target_concept_id": "course-technology-labor",
+          "label": "劳动技术课程名称分支转写"
+        },
+        {
+          "source_concept_id": "course-technology-information",
+          "target_concept_id": "course-technology-information-science",
+          "label": "义务教育课程名称转写"
+        },
+        {
+          "source_concept_id": "course-technology-information",
+          "target_concept_id": "course-technology-general",
+          "label": "高中技术课程名称分支"
+        }
+      ]
+    },
+    {
+      "id": "subject-course-labor",
+      "label": "劳动课程名称",
+      "definition": "劳作、劳动与劳动教育课程名称词面的可比较观察。",
+      "concept_tier_id": "subject-course-identity",
+      "visibility_facets": ["劳动"],
+      "concept_ids": [
+        "course-labor-work",
+        "course-labor",
+        "course-labor-education"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "course-labor-work",
+          "target_concept_id": "course-labor",
+          "label": "劳动课程名称转写"
+        },
+        {
+          "source_concept_id": "course-labor",
+          "target_concept_id": "course-labor-education",
+          "label": "劳动教育名称扩展"
+        }
+      ]
+    },
+    {
+      "id": "subject-course-art",
+      "label": "艺术课程名称",
+      "definition": "图画、唱歌、音乐、美术与艺术课程名称词面的分支观察。",
+      "concept_tier_id": "subject-course-identity",
+      "visibility_facets": ["艺术"],
+      "concept_ids": [
+        "course-art-drawing",
+        "course-art-singing",
+        "course-art-music",
+        "course-art-fine-art",
+        "course-art"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "course-art-drawing",
+          "target_concept_id": "course-art-fine-art",
+          "label": "造型课程名称转写"
+        },
+        {
+          "source_concept_id": "course-art-singing",
+          "target_concept_id": "course-art-music",
+          "label": "音乐课程名称转写"
+        },
+        {
+          "source_concept_id": "course-art-music",
+          "target_concept_id": "course-art",
+          "label": "分科与综合艺术名称并列"
+        },
+        {
+          "source_concept_id": "course-art-fine-art",
+          "target_concept_id": "course-art",
+          "label": "分科与综合艺术名称并列"
+        }
+      ]
+    },
+    {
+      "id": "subject-course-sports-health",
+      "label": "体育与健康课程名称",
+      "definition": "体操、体育、卫生与体育与健康课程名称词面的分支观察。",
+      "concept_tier_id": "subject-course-identity",
+      "visibility_facets": ["体育与健康"],
+      "concept_ids": [
+        "course-sports-gymnastics",
+        "course-sports-physical-education",
+        "course-sports-hygiene",
+        "course-sports-health"
+      ],
+      "transitions": [
+        {
+          "source_concept_id": "course-sports-gymnastics",
+          "target_concept_id": "course-sports-physical-education",
+          "label": "体育课程名称转写"
+        },
+        {
+          "source_concept_id": "course-sports-physical-education",
+          "target_concept_id": "course-sports-health",
+          "label": "课程名称扩展"
+        },
+        {
+          "source_concept_id": "course-sports-hygiene",
+          "target_concept_id": "course-sports-health",
+          "label": "健康领域名称合并"
         }
       ]
     }

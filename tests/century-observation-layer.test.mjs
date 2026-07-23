@@ -14,12 +14,15 @@ const [source, manifest, layer, localCompendia, app, html, styles] = await Promi
 ]);
 
 test('the two compendium tables of contents resolve to exactly 134 embedded items', () => {
-  assert.equal(source.schema_version, 1);
-  assert.equal(source.artifact_profile, 'curriculum-century-observation-source-v1');
+  assert.equal(source.schema_version, 2);
+  assert.equal(source.artifact_profile, 'curriculum-century-observation-source-v2');
   assert.equal(source.archive.sha256, 'f0d0521359a7617048d3ef964a4730f2091474447acc56bed0f6de7284c6334f');
   assert.equal(source.archive.citation_allowed, false);
-  assert.equal(source.concept_capture_policy.concept_tier_id, 'language-practice-domain');
-  assert.equal(source.concept_capture_policy.historical_concepts, 15);
+  assert.deepEqual(source.concept_capture_policy.concept_tier_ids, [
+    'language-practice-domain',
+    'subject-course-identity',
+  ]);
+  assert.equal(source.concept_capture_policy.controlled_concepts, 69);
   assert.equal(source.concept_capture_policy.overlap_resolution, 'longest_surface_wins');
   assert.equal(manifest.schema_version, 1);
   assert.equal(manifest.artifact_profile, 'curriculum-embedded-century-items-v1');
@@ -65,22 +68,36 @@ test('every item is source-bound to valid non-overlapping physical page segments
 });
 
 test('the century candidate layer remains nonsemantic and bounded', () => {
-  assert.equal(layer.schema_version, 1);
-  assert.equal(layer.artifact_profile, 'curriculum-century-candidate-observation-layer-v1');
+  assert.equal(layer.schema_version, 2);
+  assert.equal(layer.artifact_profile, 'curriculum-century-candidate-observation-layer-v2');
   assert.equal(layer.publication_status, 'candidate_fail_closed');
   assert.equal(layer.items.length, 134);
   assert.equal(layer.counts.first_year, 1902);
-  assert.equal(layer.counts.last_year, 2000);
+  assert.equal(layer.counts.last_year, 2022);
+  assert.equal(layer.counts.subject_facets, 12);
+  assert.equal(layer.counts.catalog_metadata_observations, 44);
   assert.ok(layer.concept_observations.length > 0);
   assert.ok(layer.concept_observations.every((item) => item.semantic === false
     && item.citation_allowed === false
-    && item.observation_class === 'ocr_surface_candidate_nonsemantic'));
+    && ['ocr_surface_candidate_nonsemantic', 'catalog_title_candidate_nonsemantic']
+      .includes(item.observation_class)));
+  assert.ok(layer.concept_observations.some((item) =>
+    item.observation_class === 'catalog_title_candidate_nonsemantic'
+    && item.catalog_document?.source_url));
   assert.ok(layer.relations.some((relation) => relation.type === 'source_order_adjacent'));
   assert.ok(layer.relations.some((relation) => relation.type === 'surface_co_observed_in_item'));
   assert.ok(layer.relations.every((relation) => relation.semantic === false && relation.influence_claim_allowed === false));
   assert.equal(layer.star_projection.node_semantics, 'concept_observation_episode_not_document');
   assert.equal(layer.star_projection.time_semantics, 'year_is_single_spatial_coordinate_not_a_second_timeline');
-  assert.equal(layer.star_projection.episodes.length, layer.concept_observations.length);
+  assert.equal(
+    layer.star_projection.projection_policy.grain,
+    'one_strongest_bounded_observation_per_concept_year_subject_facet',
+  );
+  assert.equal(
+    layer.star_projection.episodes.length,
+    layer.counts.projected_concept_year_observations,
+  );
+  assert.ok(layer.star_projection.episodes.length < layer.concept_observations.length);
   assert.equal(layer.star_projection.counts.episodes, layer.star_projection.episodes.length);
   assert.equal(layer.star_projection.counts.evidence, layer.star_projection.evidence.length);
   assert.equal(
@@ -92,7 +109,8 @@ test('the century candidate layer remains nonsemantic and bounded', () => {
   assert.equal(evidenceIds.size, layer.star_projection.evidence.length);
   assert.equal(episodeIds.size, layer.star_projection.episodes.length);
   assert.ok(layer.star_projection.episodes.every((episode) =>
-    episode.observation_class === 'ocr_surface_candidate_nonsemantic'
+    ['ocr_surface_candidate_nonsemantic', 'catalog_title_candidate_nonsemantic']
+      .includes(episode.observation_class)
     && episode.citation_allowed === false
     && episode.claim_policy.display_level === 'uniform_star'
     && episode.evidence_ids.length > 0
@@ -103,6 +121,22 @@ test('the century candidate layer remains nonsemantic and bounded', () => {
     && edge.semantic === false
     && edge.citation_allowed === false
     && edge.influence_claim_allowed === false));
+});
+
+test('one star projection now contains a historical and current course-name chain for all 12 subject facets', () => {
+  const facets = [
+    '语文', '数学', '外语', '思想政治与道德法治', '历史', '历史与社会',
+    '地理', '科学类', '技术', '劳动', '艺术', '体育与健康',
+  ];
+  for (const facet of facets) {
+    const episodes = layer.star_projection.episodes.filter((episode) =>
+      episode.visibility_facets.includes(facet)
+      && episode.category === '学科与课程名称');
+    assert.ok(episodes.some((episode) => episode.time.year < 2001), `${facet} lacks a historical node`);
+    assert.ok(episodes.some((episode) => episode.time.year >= 2001), `${facet} lacks a current node`);
+  }
+  assert.ok(layer.star_projection.edges.length > 0);
+  assert.ok(layer.star_projection.edges.every((edge) => !String(edge.label || '').includes('虚线')));
 });
 
 test('the production UI projects OCR observations into one star map and keeps documents in the archive', () => {

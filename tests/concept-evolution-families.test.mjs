@@ -11,10 +11,13 @@ const [config, artifact, core, ocr, century] = await Promise.all([
   readFile(new URL('public/data/century-observation-layer.json', root), 'utf8').then(JSON.parse),
 ]);
 
-test('the century evolution layer uses one explicit concept tier and seven non-overlapping families', () => {
-  assert.equal(config.schema_version, 1);
-  assert.equal(config.concept_tier.id, 'language-practice-domain');
-  assert.equal(config.families.length, 7);
+test('the century evolution layer uses two explicit tiers and 19 non-overlapping families', () => {
+  assert.equal(config.schema_version, 2);
+  assert.deepEqual(config.concept_tiers.map((tier) => tier.id), [
+    'language-practice-domain',
+    'subject-course-identity',
+  ]);
+  assert.equal(config.families.length, 19);
   const configuredIds = config.families.flatMap((family) => family.concept_ids);
   assert.equal(new Set(configuredIds).size, configuredIds.length);
   assert.ok(config.families.every((family) => family.concept_ids.length >= 2));
@@ -23,17 +26,19 @@ test('the century evolution layer uses one explicit concept tier and seven non-o
 });
 
 test('every published family crosses 2001 and includes multiple observed concepts', () => {
-  assert.equal(artifact.schema_version, 1);
-  assert.equal(artifact.artifact_profile, 'curriculum-concept-evolution-families-v1');
+  assert.equal(artifact.schema_version, 2);
+  assert.equal(artifact.artifact_profile, 'curriculum-concept-evolution-families-v2');
   assert.equal(artifact.publication_status, 'editorial_correspondence_noncausal');
-  assert.equal(artifact.counts.families, 7);
+  assert.equal(artifact.counts.families, 19);
+  assert.equal(artifact.counts.concept_tiers, 2);
+  assert.equal(artifact.counts.subject_facets, 12);
   assert.equal(artifact.counts.first_year, 1902);
   assert.equal(artifact.counts.last_year, 2022);
   for (const family of artifact.families) {
     assert.ok(family.first_observed_year < 2001, family.id);
     assert.ok(family.last_observed_year >= 2001, family.id);
     assert.ok(family.observed_concepts.length >= 2, family.id);
-    assert.equal(family.concept_tier_id, 'language-practice-domain');
+    assert.ok(['language-practice-domain', 'subject-course-identity'].includes(family.concept_tier_id));
   }
 });
 
@@ -48,7 +53,7 @@ test('episode memberships exactly reference real merged star episodes', () => {
   assert.ok(artifact.episode_memberships.every((item) =>
     episodeIds.has(item.episode_id)
     && familyIds.has(item.family_id)
-    && item.concept_tier_id === 'language-practice-domain'));
+    && ['language-practice-domain', 'subject-course-identity'].includes(item.concept_tier_id)));
 });
 
 test('family edges are solid-renderable, chronological, nonsemantic, and noncausal', () => {
@@ -80,4 +85,19 @@ test('representative language-practice chains reach from historical surfaces to 
     familyById.get('language-knowledge-and-use').observed_concepts.map((concept) => concept.label),
     ['文法', '语法', '修辞', '语言文字运用'],
   );
+});
+
+test('every display facet has one course-identity family spanning historical OCR and current catalog metadata', () => {
+  const expectedFacets = [
+    '语文', '数学', '外语', '思想政治与道德法治', '历史', '历史与社会',
+    '地理', '科学类', '技术', '劳动', '艺术', '体育与健康',
+  ];
+  const courseFamilies = artifact.families.filter((family) =>
+    family.concept_tier_id === 'subject-course-identity');
+  assert.equal(courseFamilies.length, 12);
+  assert.deepEqual(courseFamilies.flatMap((family) => family.visibility_facets), expectedFacets);
+  assert.ok(courseFamilies.every((family) =>
+    family.first_observed_year < 2001
+    && family.last_observed_year >= 2001
+    && family.observed_concepts.length >= 2));
 });

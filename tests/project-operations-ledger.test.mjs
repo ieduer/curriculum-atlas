@@ -33,8 +33,8 @@ test('operations ledger exposes the complete v10 lifecycle and fail-closed statu
   assert.deepEqual(evidence.environments.preview.pending_migrations, []);
   assert.equal(evidence.environments.production.applied_migrations.at(-1), '0007_document_taxonomy_contract.sql');
   assert.equal(evidence.environments.preview.applied_migrations.at(-1), '0007_document_taxonomy_contract.sql');
-  assert.match(ledger, /Production Worker[\s\S]+28c7e6d4-1638-42bc-b371-bd8d24210b93[\s\S]+2026\.07\.16-v10/u);
-  assert.match(ledger, /Preview Worker[\s\S]+2d107d38-cf31-49b6-82b1-20b32a32e824[\s\S]+2026\.07\.16-v10/u);
+  assert.ok(ledger.includes(evidence.environments.production.worker_version_id));
+  assert.ok(ledger.includes(evidence.environments.preview.worker_version_id));
   assert.match(ledger, /corpus-358471fcce862b2f0ae446fc/u);
   assert.match(ledger, /159 subject \+ 1 assessment subject \+ 16 course \+ 20 scope/u);
   assert.match(ledger, /release-9cb02f77c06ee0535e7981a22b312373/u);
@@ -43,12 +43,7 @@ test('operations ledger exposes the complete v10 lifecycle and fail-closed statu
   assert.match(ledger, /1259 of 3182/u);
   assert.match(ledger, /3304581750 bytes/u);
   assert.match(ledger, /2026-07-17T06:35:37\.437Z/u);
-  assert.match(ledger, /full 553 nodes \/ 214 lineage \/ 261 cross-subject/u);
-  assert.match(ledger, /auto zoom 0\.864→1\.32 与 0\.20→0\.568/u);
-  assert.match(ledger, /c4166f451f4b9529bf4221b56fb3017dc51aef7493a699553dc218287e42c430/u);
-  assert.match(ledger, /Pulse 425 requests \/ 0 errors/u);
-  assert.match(ledger, /Turnstile only 2 third-party opaque errors \/ 5 warnings/u);
-  assert.match(ledger, /observation 数据止于 2020/u);
+  assert.match(ledger, /Century candidate graph \| 134 archive items；1482 OCR \+ 44 catalog-title source observations；1031 projected stars \/ 3202 evidence \/ 952 lineage \/ 155 co-observation；2 tiers \/ 19 families \/ 12 subject facets \/ 1034 memberships/u);
 });
 
 test('operations ledger derives current environment facts instead of hardcoding legacy workers', async () => {

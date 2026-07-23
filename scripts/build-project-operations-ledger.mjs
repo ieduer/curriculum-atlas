@@ -179,6 +179,8 @@ const [
   releaseEvidence,
   coreGraph,
   academicGraph,
+  centuryLayer,
+  evolutionFamilies,
 ] = await Promise.all([
   readFile(actionLogPath, 'utf8'),
   readJson('data/catalog.json'),
@@ -192,6 +194,8 @@ const [
   readJson('data/release-environment-evidence.json'),
   readJson('public/data/concept-evolution.json'),
   readJson('public/data/concept-evolution-academic.json'),
+  readJson('public/data/century-observation-layer.json'),
+  readJson('public/data/concept-evolution-families.json'),
 ]);
 
 const actionLogLines = actionLogRaw.split(/\r?\n/u).filter(Boolean);
@@ -333,6 +337,7 @@ lines.push(`| Semantic quarantine | aliases ${(semanticPolicy.document_aliases |
 lines.push(`| Corpus release | \`${corpus.release_id}\`；${corpus.documents} documents / ${corpus.paragraphs} paragraphs / ${corpus.fts_rows} FTS / ${corpus.page_publication_gates} page gates / ${corpus.displayed_paragraphs} displayed / ${corpus.accepted_ocr_documents} accepted OCR / ${corpus.sql_chunks} chunks | preview 与 production evidence 均为 ready；OCR 正文仍未接入 |`);
 lines.push(`| Taxonomy | ${taxonomy.subject || 0} subject + ${taxonomy.assessment_subject || 0} assessment subject + ${taxonomy.curriculum_course || 0} courses + ${taxonomy.scopes} scopes；${taxonomy.facets} facets / ${taxonomy.queryIdentities} exact query identities | schema 2；课程和范围不伪装成学科 |`);
 lines.push(`| Concept graph | core ${graphs.episodes} episodes / ${graphs.edges} edges；academic ${graphs.works} works / ${graphs.editions} editions / ${graphs.occurrences} occurrences / ${graphs.evidence} evidence | 五项 live asset byte parity 已由两端 release evidence 绑定 |`);
+lines.push(`| Century candidate graph | ${centuryLayer.counts.items} archive items；${centuryLayer.counts.ocr_concept_observations} OCR + ${centuryLayer.counts.catalog_metadata_observations} catalog-title source observations；${centuryLayer.counts.projected_concept_year_observations} projected stars / ${centuryLayer.star_projection.counts.evidence} evidence / ${centuryLayer.star_projection.counts.lineage_edges} lineage / ${centuryLayer.star_projection.counts.cross_edges} co-observation；${evolutionFamilies.counts.concept_tiers} tiers / ${evolutionFamilies.counts.families} families / ${evolutionFamilies.counts.subject_facets} subject facets / ${evolutionFamilies.counts.episode_memberships} memberships | 1902–2022；12/12 学科；候选、引文、语义和因果闸门全部 fail closed |`);
 lines.push(`| Deep ontology | ${graphs.ontologyNodes} nodes / ${graphs.ontologyRelations} relations / ${graphs.ontologyEvidence} evidence anchors | 当前主要为语文深层模型；其他学科不可伪装已完成 |`);
 lines.push('');
 lines.push('### 本轮完成、保留边界与剩余阻断');
@@ -360,7 +365,7 @@ lines.push(`| Taxonomy | ${taxonomy.subject || 0} subject + ${taxonomy.assessmen
 lines.push(`| Local OCR | primary+audit ${ocrStatus?.queue?.completed_pages ?? 6947}/${queue.counts.pages}；Vision ${ocrStatus?.evidence?.witness_pages ?? 7012}；accepted ${ocrStatus?.evidence?.citation_eligible_pages ?? 0} | OCR 未完成、未上线；page publication 与 citation 保持 fail closed |`);
 lines.push(`| DMITPro2 shard B-r1 | ${remoteBEvent ? markdown(remoteBEvent.evidence) : '1,259/3,182 frozen by low-memory gate'} | ${seedLineageEvent ? markdown(seedLineageEvent.unresolved || seedLineageEvent.scope) : 'B-r2 seed lineage 尚未完成'}；不得无 lineage 复制旧 state |`);
 lines.push(`| Private encrypted archive | ${archiveVerifyEvent ? markdown(archiveVerifyEvent.evidence) : '尚无完整回读'} | index \`backups/curriculum-atlas/private-archive/20260717T021000Z/archive-index.json\`；远端精确前缀回滚需另行明确授权 |`);
-lines.push(`| Production browser / API / Pulse | ${productionBrowserEvent ? `${markdown(productionBrowserEvent.evidence)}${productionBrowserDetail ? `；${productionBrowserDetail}` : ''}` : 'API/R2 已核验；生产桌面/移动视觉 QA 仍待 release owner 回传，本快照不声明通过'} | ${productionBrowserEvent ? '只读 QA 无状态回滚；下一 release 必须重新产生事件。现有 observation 数据止于 2020，accepted OCR 后才能重建 2022 概念观察' : '视觉门未有 append-only verify 事件前不得写成已通过'} |`);
+lines.push(`| Production browser / API / Pulse | ${productionBrowserEvent ? `${markdown(productionBrowserEvent.evidence)}${productionBrowserDetail ? `；${productionBrowserDetail}` : ''}` : 'API/R2 已核验；生产桌面/移动视觉 QA 仍待 release owner 回传，本快照不声明通过'} | ${productionBrowserEvent ? `只读 QA 无状态回滚；下一 release 必须重新产生事件。当前本地候选层为 ${centuryLayer.counts.projected_concept_year_observations} stars / ${evolutionFamilies.counts.families} families / ${evolutionFamilies.counts.subject_facets} facets；只有包含这些计数的后续生产事件才可证明已上线` : '视觉门未有 append-only verify 事件前不得写成已通过'} |`);
 lines.push(`| Full governed verify | ${releaseVerifyEvent ? markdown(releaseVerifyEvent.evidence) : '未找到 380/380 事件'} | Git evidence commit \`${releaseEvidenceCommit}\` |`);
 lines.push('| Public registration | User Center、Nav、Portal、Companion source、Pulse 已登记；Pulse tracked | Companion 新 APK 因无真实 Android 设备验证而显式延期 |');
 lines.push('');
