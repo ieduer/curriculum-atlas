@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "contract": "curriculum_atlas_production_baseline_v1",
+  "recorded_at": "2026-07-23T14:50:56.000Z",
+  "release_status": "verified_production_baseline",
+  "git": {
+    "head_commit": "b8917c6f2cc6a3a77bb8df5983b76ca1d3b6ef2e",
+    "production_asset_commit": "b39abba278836305bb031570d06c44767d8e1d1a",
+    "preview_asset_commit": "b683446e68440ca0353da283a8ebafc6585ee1ad",
+    "tag": "curriculum-baseline-20260723-7cedbe95",
+    "backup_branch": "backup/unresolved-closeout-20260723",
+    "remote": "https://github.com/ieduer/curriculum-atlas.git"
+  },
+  "cloudflare": {
+    "production": {
+      "worker": "bdfz-curriculum-atlas",
+      "version_id": "7cedbe95-fed7-432b-85ef-d89a3baf2d6f",
+      "deployment_id": "a965580c-2e09-4b59-be0c-f1303539bb3d",
+      "traffic_percent": 100,
+      "url": "https://curriculum.bdfz.net/",
+      "rollback_version_id": "564aad94-af26-496f-a1b6-94355581d698"
+    },
+    "preview": {
+      "worker": "bdfz-curriculum-atlas-preview",
+      "version_id": "4235f005-881c-445b-bd68-8cb45361112a",
+      "deployment_id": "683dc5f8-1904-4807-81be-83df7f885f0d",
+      "traffic_percent": 100,
+      "url": "https://bdfz-curriculum-atlas-preview.bdfz.workers.dev/",
+      "rollback_version_id": "6dd0aaa7-cf57-4d42-9bf3-00b1a7917120"
+    }
+  },
+  "release_evidence": {
+    "observed_at": "2026-07-23T14:30:08.440Z",
+    "receipt_sha256": "6e52b06a9d416f0e628fff4ceadc838f9b6e1500dce0e2890793c9bad20fe3af",
+    "file_sha256": "544a3dbb56e7e4c1e9d4b68ed62bc4acd397c66942d3354e6b45a29d307e4382",
+    "corpus_release_id": "corpus-358471fcce862b2f0ae446fc",
+    "corpus_fingerprint_sha256": "358471fcce862b2f0ae446fcae834db80b24b8d5c0e8dcbfd3c9f5a1ae0d2c70",
+    "corpus_manifest_sha256": "87aa26a4975ee39e4c5f104159367a7528167515c4a10bc287447f7bdd69e0a3"
+  },
+  "data_counts": {
+    "catalog_documents": 196,
+    "corpus_paragraphs": 16456,
+    "fts_rows": 16456,
+    "page_publication_gates": 6031,
+    "accepted_ocr_documents": 0,
+    "queued_ocr_documents": 86,
+    "queued_ocr_pages": 11847,
+    "century_embedded_items": 134,
+    "century_concept_observations": 1526,
+    "pre2001_specialist_sources": 13,
+    "pre2001_bounded_items": 341,
+    "pre2001_concepts": 36,
+    "pre2001_episodes": 326,
+    "pre2001_evidence": 645,
+    "subject_detail_sources": 32,
+    "subject_detail_concepts": 40,
+    "subject_detail_episodes": 97,
+    "subject_detail_evidence": 420,
+    "concept_tiers": 5,
+    "concept_families": 55,
+    "family_episode_memberships": 1497,
+    "family_edges": 1272
+  },
+  "data_asset_sha256": {
+    "public/data/century-observation-layer.json": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
+    "public/data/ocr-observation-layer.json": "c056887cc26dbada199862810e82cf0427f8de248b3b8b636a3cddb13439d11f",
+    "public/data/pre2001-subject-detail-observation-layer.json": "399e0c750329effe75ab0dbc8bfb335a5943e152cdbff0069e14bfc88369d6c1",
+    "public/data/subject-detail-observation-layer.json": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
+    "public/data/concept-evolution-families.json": "720aa6edf19e6e89faff61dc8b8d8c66007135fe35b8000dcfe94bc8eaf7b531"
+  },
+  "publication_boundary": {
+    "candidate_ocr_citation_allowed": false,
+    "candidate_ocr_semantic_allowed": false,
+    "first_appearance_claim_allowed": false,
+    "disappearance_claim_allowed": false,
+    "causal_influence_claim_allowed": false,
+    "d1_mutated": false,
+    "r2_mutated": false,
+    "ocr_runtime_mutated": false,
+    "shared_hub_mutated": false
+  }
+}
