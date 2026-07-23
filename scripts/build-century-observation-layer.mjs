@@ -45,6 +45,18 @@ function stableJson(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
+const CAPTURE_TIER_IDS = ['language-practice-domain', 'subject-course-identity'];
+
+function centuryCapturePolicyProjection(evolutionFamilies) {
+  return {
+    schema_version: 1,
+    concept_tiers: evolutionFamilies.concept_tiers
+      .filter((tier) => CAPTURE_TIER_IDS.includes(tier.id)),
+    historical_concepts: evolutionFamilies.historical_concepts,
+    course_identity_concepts: evolutionFamilies.course_identity_concepts,
+  };
+}
+
 function parseArgs(argv) {
   const options = { check: false, captureArchive: null };
   for (let index = 0; index < argv.length; index += 1) {
@@ -764,8 +776,8 @@ async function captureSource(archivePath) {
         receiver_apply_allowed: false,
       },
       concept_capture_policy: {
-        config_sha256: sha256(stableJson(evolutionFamilies)),
-        concept_tier_ids: evolutionFamilies.concept_tiers.map((tier) => tier.id),
+        config_sha256: sha256(stableJson(centuryCapturePolicyProjection(evolutionFamilies))),
+        concept_tier_ids: CAPTURE_TIER_IDS,
         controlled_concepts: evolutionFamilies.historical_concepts.length
           + evolutionFamilies.course_identity_concepts.length,
         overlap_resolution: 'longest_surface_wins',
@@ -864,9 +876,10 @@ function buildArtifacts(sourceEnvelope, evolutionFamilies, catalog) {
     || sourceEnvelope.sources?.length !== 2) {
     throw new Error('century observation source failed structural validation');
   }
-  if (sourceEnvelope.concept_capture_policy?.config_sha256 !== sha256(stableJson(evolutionFamilies))
+  if (sourceEnvelope.concept_capture_policy?.config_sha256
+      !== sha256(stableJson(centuryCapturePolicyProjection(evolutionFamilies)))
     || JSON.stringify(sourceEnvelope.concept_capture_policy?.concept_tier_ids)
-      !== JSON.stringify(evolutionFamilies.concept_tiers.map((tier) => tier.id))
+      !== JSON.stringify(CAPTURE_TIER_IDS)
     || sourceEnvelope.concept_capture_policy?.controlled_concepts
       !== evolutionFamilies.historical_concepts.length + evolutionFamilies.course_identity_concepts.length
     || sourceEnvelope.concept_capture_policy?.overlap_resolution !== 'longest_surface_wins') {

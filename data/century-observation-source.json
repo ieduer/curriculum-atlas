@@ -12,7 +12,7 @@
     "receiver_apply_allowed": false
   },
   "concept_capture_policy": {
-    "config_sha256": "0cb981a97eba73065b3088cd3d218b6ac6b9241073b58da64b8b39df4a8f41ed",
+    "config_sha256": "e4c4b9b44d9c812ebad28843582c110ef42e684a13ad023113932c96f1219e63",
     "concept_tier_ids": [
       "language-practice-domain",
       "subject-course-identity"
