@@ -1,4 +1,4 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260718v16';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260722v17';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -6,7 +6,7 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260718v16';
+} from './subject-facets.js?v=20260722v17';
 
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
@@ -50,12 +50,14 @@ const workbenchTabs = document.querySelector('#workbench-tabs');
 const workbenchBody = document.querySelector('#workbench-body');
 const scrim = document.querySelector('#scrim');
 const toastNode = document.querySelector('#toast');
+const ocrLayerStatus = document.querySelector('#ocr-layer-status');
 
 const state = {
   meta: null,
   documents: [],
   insights: [],
   conceptGraph: null,
+  ocrLayer: null,
   evidenceById: new Map(),
   ontologyNodeById: new Map(),
   ontologyEvidenceById: new Map(),
@@ -103,8 +105,9 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const conceptGraph = await api('/data/concept-evolution.json?v=20260718v16');
-  const [meta, documents, insights] = await Promise.all([
+  const [conceptGraph, ocrLayer, meta, documents, insights] = await Promise.all([
+    api('/data/concept-evolution.json?v=20260722v17'),
+    api('/data/ocr-observation-layer.json?v=20260722v17'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -123,7 +126,20 @@ async function loadBase() {
     || !Array.isArray(conceptGraph.ontology_evidence)) {
     throw new Error('概念星图数据未通过结构校验');
   }
+  if (ocrLayer.schema_version !== 1
+    || ocrLayer.artifact_profile !== 'curriculum-ocr-observation-layer-v1'
+    || !Array.isArray(ocrLayer.pages)
+    || !Array.isArray(ocrLayer.episodes)
+    || !Array.isArray(ocrLayer.edges)
+    || !Array.isArray(ocrLayer.evidence)
+    || ocrLayer.source?.citation_allowed !== false) {
+    throw new Error('OCR 观察层数据未通过结构校验');
+  }
+  conceptGraph.episodes = [...conceptGraph.episodes, ...ocrLayer.episodes];
+  conceptGraph.edges = [...conceptGraph.edges, ...ocrLayer.edges];
+  conceptGraph.evidence = [...conceptGraph.evidence, ...ocrLayer.evidence];
   state.conceptGraph = conceptGraph;
+  state.ocrLayer = ocrLayer;
   state.evidenceById = new Map(conceptGraph.evidence.map((item) => [item.id, item]));
   state.ontologyNodeById = new Map(conceptGraph.ontology_nodes.map((item) => [item.id, item]));
   state.ontologyEvidenceById = new Map(conceptGraph.ontology_evidence.map((item) => [item.id, item]));
@@ -138,6 +154,9 @@ async function loadBase() {
   yearRange.value = String(maxYear);
   yearStart.textContent = String(minYear);
   yearValue.textContent = String(maxYear);
+  const pipeline = ocrLayer.pipeline_summary;
+  ocrLayerStatus.innerHTML = `<b>OCR 资料层</b><span>${escapeHtml(pipeline.complete_documents)} 册 · ${escapeHtml(pipeline.complete_pages)} 页完成</span><small>2022 语文：${escapeHtml(ocrLayer.counts.concept_candidates)} 个概念待核</small>`;
+  ocrLayerStatus.hidden = false;
 }
 
 async function loadMe() {
@@ -157,6 +176,9 @@ function navigate(href, replace = false) {
 
 function qualityLabel(doc) {
   if (Number(doc.citation_allowed) === 1) return '图文与来源已过引文门槛';
+  const ocrDocument = state.ocrLayer?.documents?.find((item) => item.id === doc.id);
+  if (ocrDocument?.status === 'complete') return `OCR ${ocrDocument.page_count} 页完成 · 待核不可引用`;
+  if (ocrDocument?.status === 'active') return `OCR ${ocrDocument.completed_pages}/${ocrDocument.page_count} 页处理中`;
   if (/ocr/i.test(String(doc.text_quality_status || ''))) return 'OCR 复核中 · 禁止 AI 引用';
   return '元数据已确认 · 正文仍待核';
 }
@@ -272,12 +294,14 @@ function conceptStatusLabel(status) {
     verified_non_citation: '图文人工复核 · 禁止逐字引用',
     source_text_candidate: '来源文本候选 · 段落门槛未过',
     ocr_candidate: '双引擎 OCR 候选 · 待人工核对',
+    ocr_complete_pending_audit: 'OCR 全页完成 · 待人工核对',
     conflict: '识别冲突 · 保留疑点',
   };
   return labels[status] || '质量状态待核';
 }
 
 function observationLabel(episode) {
+  if (episode.observation?.status === 'ocr_complete_pending_audit') return '来源绑定且全页完成的 2022 OCR 词面观察';
   const incoming = state.conceptGraph.edges.find((edge) => edge.type === 'next_observed' && edge.target === episode.id);
   const labels = {
     observed_more_frequently: '当前可比语料中规范化提及增多',
@@ -698,6 +722,27 @@ async function searchSubjectFacet(query, facet) {
   return { query, passages };
 }
 
+function searchOcrCandidatePages(query, facet) {
+  if (!state.ocrLayer || (facet && facet !== '语文')) return [];
+  const needle = query.trim().toLocaleLowerCase('zh-CN');
+  if (needle.length < 2) return [];
+  return state.ocrLayer.pages.flatMap((page) => {
+    const searchable = page.content.replace(/\s+/g, ' ');
+    const offset = searchable.toLocaleLowerCase('zh-CN').indexOf(needle);
+    if (offset === -1) return [];
+    const start = Math.max(0, offset - 80);
+    const end = Math.min(searchable.length, offset + needle.length + 140);
+    return [{ page: page.page, snippet: searchable.slice(start, end).trim() }];
+  }).slice(0, 20);
+}
+
+function ocrPipelineSummaryHtml() {
+  const layer = state.ocrLayer;
+  if (!layer) return '';
+  const active = layer.documents.find((document) => document.status === 'active');
+  return `<section class="ocr-data-summary"><p><b>OCR 资料层已接通</b><span>${escapeHtml(layer.pipeline_summary.complete_documents)} 册、${escapeHtml(layer.pipeline_summary.complete_pages)} 页完成</span></p><p>2022 版义务教育语文课标 109/109 页已进入待核全文与概念观察；不可作为引文或 AI 证据。${active ? ` 正式英语汇编快照：${escapeHtml(active.completed_pages)}/${escapeHtml(active.page_count)} 页。` : ''}</p></section>`;
+}
+
 async function renderCompare(url) {
   const subjects = subjectFacetNames();
   const fallback = documentDisplayFacet(state.selectedDocument) || subjects.find((subject) => subject === '语文') || subjects[0] || '';
@@ -710,7 +755,7 @@ async function renderCompare(url) {
   });
   try {
     const data = await compareSubjectFacet(subject);
-    const entries = data.documents.map((doc) => `<article class="version-entry"><time>${escapeHtml(doc.sort_year || '年代待核')}</time><h3>${escapeHtml(doc.title)}</h3><p>${escapeHtml(doc.canonical_subject)} · ${escapeHtml(doc.stage)} · ${escapeHtml(statusLabel(doc.current_status))}</p><a href="/document/${encodeURIComponent(doc.id)}" data-link>查看证据 →</a></article>`).join('');
+    const entries = data.documents.map((doc) => `<article class="version-entry"><time>${escapeHtml(doc.sort_year || '年代待核')}</time><h3>${escapeHtml(doc.title)}</h3><p>${escapeHtml(doc.canonical_subject)} · ${escapeHtml(doc.stage)} · ${escapeHtml(statusLabel(doc.current_status))}<br>${escapeHtml(qualityLabel(doc))}</p><a href="/document/${encodeURIComponent(doc.id)}" data-link>查看资料 →</a></article>`).join('');
     const findings = data.insights.length ? data.insights.map((item) => `<article class="insight-line"><time>${escapeHtml(item.canonical_subject)} · ${escapeHtml(item.era)} · ${escapeHtml(item.dimension)}</time><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.summary)}</p></article>`).join('') : '<div class="empty-state">尚无经编辑核验的变化摘要；版本文献仍可逐份查看。</div>';
     const members = data.plan.map((item) => item.canonicalSubject).join('、');
     document.querySelector('#compare-results').innerHTML = `<h2>${escapeHtml(subject)}版本河流</h2><p>按 ${escapeHtml(members)} 的学科身份分别查询；版本标签不合并。</p><div class="version-river">${entries}</div><h2>经核验的变化判断</h2>${findings}`;
@@ -727,21 +772,24 @@ async function renderSources(url) {
   const facetIndex = subjectFacetIndex();
   let docs = (subject ? filterDocumentsBySubjectFacet(state.documents, subject, facetIndex) : state.documents)
     .filter((doc) => !query || `${doc.title}${documentEntityLabel(doc)}${doc.issued_by}${doc.version_label}`.includes(query));
-  workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>资料与全文</h2><p>元数据用于定位版本；只有通过图像、OCR 与在线同版核查门槛的正文才进入全文结果和 AI 引文。</p><form class="work-form" id="source-form"><label for="source-query">篇名、机构或正文关键词</label><input id="source-query" name="q" value="${escapeHtml(query)}" placeholder="例如：学业质量"><label for="source-subject">学科分面</label><select id="source-subject" name="subject"><option value="">不限分面</option>${subjects.map((name) => `<option ${name === subject ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select><button class="work-button" type="submit">检索资料</button></form></aside><main class="workspace-main" id="source-results"><h2>${query ? `“${escapeHtml(query)}”的结果` : '已编目资料'}</h2>${documentRows(docs.slice(0, 80))}</main></div>`;
+  workbenchBody.innerHTML = `<div class="workspace-grid"><aside class="workspace-aside"><h2>资料与全文</h2><p>元数据用于定位版本；OCR 待核层可浏览和发现概念，只有通过图像、OCR 与在线同版核查门槛的正文才进入引文与证据 AI。</p><form class="work-form" id="source-form"><label for="source-query">篇名、机构或正文关键词</label><input id="source-query" name="q" value="${escapeHtml(query)}" placeholder="例如：学业质量"><label for="source-subject">学科分面</label><select id="source-subject" name="subject"><option value="">不限分面</option>${subjects.map((name) => `<option ${name === subject ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select><button class="work-button" type="submit">检索资料</button></form></aside><main class="workspace-main" id="source-results">${ocrPipelineSummaryHtml()}<h2>${query ? `“${escapeHtml(query)}”的结果` : '已编目资料'}</h2>${documentRows(docs.slice(0, 80))}</main></div>`;
   document.querySelector('#source-form').addEventListener('submit', (event) => {
     event.preventDefault();
     const values = new URLSearchParams(new FormData(event.currentTarget));
     navigate(`/sources?${values.toString()}`);
   });
   if (query.length >= 2) {
+    const ocrMatches = searchOcrCandidatePages(query, subject);
+    let passages = [];
     try {
       const data = await searchSubjectFacet(query, subject);
-      if (data.passages.length) {
-        document.querySelector('#source-results').innerHTML = `<h2>可引文正文</h2><div class="result-list">${data.passages.map((passage) => `<article class="result-row"><a href="/document/${encodeURIComponent(passage.document_id)}#p-${passage.id}" data-link>${escapeHtml(passage.title)}</a><small>${escapeHtml(passage.entity_label || passage.subject)} · ${escapeHtml(passage.version_label)} · ${escapeHtml(passage.source_locator)}</small><p>${escapeHtml(passage.body)}</p></article>`).join('')}</div><h2>元数据匹配</h2>${documentRows(docs.slice(0, 40))}`;
-      }
+      passages = data.passages || [];
     } catch (error) {
       toast(error.message);
     }
+    const citationHtml = passages.length ? `<h2>可引文正文</h2><div class="result-list">${passages.map((passage) => `<article class="result-row"><a href="/document/${encodeURIComponent(passage.document_id)}#p-${passage.id}" data-link>${escapeHtml(passage.title)}</a><small>${escapeHtml(passage.entity_label || passage.subject)} · ${escapeHtml(passage.version_label)} · ${escapeHtml(passage.source_locator)}</small><p>${escapeHtml(passage.body)}</p></article>`).join('')}</div>` : '';
+    const ocrHtml = ocrMatches.length ? `<h2>OCR 待核命中</h2><p class="candidate-boundary">以下来自 2022 版语文课标全页 OCR，只用于浏览与概念发现，不可引用，也不进入证据 AI。</p><div class="result-list">${ocrMatches.map((match) => `<article class="result-row ocr-candidate-row"><a href="/document/moe-2022-03#ocr-p-${match.page}" data-link>义务教育语文课程标准（2022年版）</a><small>语文 · 2022年版 · PDF p.${escapeHtml(match.page)} · OCR待核</small><p>${escapeHtml(match.snippet)}</p></article>`).join('')}</div>` : '';
+    document.querySelector('#source-results').innerHTML = `${ocrPipelineSummaryHtml()}${citationHtml}${ocrHtml}<h2>元数据匹配</h2>${documentRows(docs.slice(0, 40))}`;
   }
 }
 
@@ -751,13 +799,17 @@ async function renderDocument(id) {
     const doc = data.document;
     state.selectedDocument = doc;
     const source = doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener">发布页 / 原件 ↗</a>` : '原件链接待补';
-    const paragraphs = data.paragraphs.length ? data.paragraphs.map((paragraph) => `<section class="paragraph ${paragraph.uncertainty_note ? 'uncertain' : ''}" id="p-${paragraph.id}"><span class="paragraph-number">P:${paragraph.id}<br>${escapeHtml(paragraph.source_locator)}</span>${escapeHtml(paragraph.body)}${paragraph.uncertainty_note ? `<small class="uncertainty-note">可能有问题：${escapeHtml(paragraph.uncertainty_note)}</small>` : ''}</section>`).join('') : '<div class="empty-state">该记录目前只有已核元数据，正文尚未达到上线门槛。</div>';
+    const ocrCandidate = state.ocrLayer?.source?.document_id === id ? state.ocrLayer : null;
+    const citationParagraphs = data.paragraphs.map((paragraph) => `<section class="paragraph ${paragraph.uncertainty_note ? 'uncertain' : ''}" id="p-${paragraph.id}"><span class="paragraph-number">P:${paragraph.id}<br>${escapeHtml(paragraph.source_locator)}</span>${escapeHtml(paragraph.body)}${paragraph.uncertainty_note ? `<small class="uncertainty-note">可能有问题：${escapeHtml(paragraph.uncertainty_note)}</small>` : ''}</section>`).join('');
+    const ocrParagraphs = ocrCandidate?.pages.map((page) => `<section class="paragraph ocr-candidate" id="ocr-p-${page.page}"><span class="paragraph-number">OCR<br>PDF p.${escapeHtml(page.page)}</span><div>${escapeHtml(page.content)}</div></section>`).join('') || '';
+    const paragraphs = citationParagraphs || ocrParagraphs || '<div class="empty-state">该记录目前只有已核元数据，正文尚未达到上线门槛。</div>';
+    const textLayerIntro = ocrCandidate && !citationParagraphs ? `<section class="candidate-boundary reader-candidate-boundary"><b>OCR 待核全文 · 109/109 页完成</b><p>已绑定原 PDF SHA 并逐页校验 OCR 文件哈希，可用于浏览、检索和概念发现；尚未通过版面与引文复核，不可逐字引用，也不进入证据 AI。</p></section>` : '';
     const verification = data.verifications.length ? data.verifications.map((item) => `<article class="verification-row"><b>${escapeHtml(item.entity_label)} · ${escapeHtml(verificationLabel(item.verification_status))}</b><p>${escapeHtml(item.resolution)}</p>${item.uncertainty_note ? `<small class="uncertainty-note">可能有问题：${escapeHtml(item.uncertainty_note)}</small>` : ''}${(item.evidence || []).map((evidence) => `<p><a href="${escapeHtml(evidence.sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(evidence.publisher)}</a> · ${escapeHtml(verificationLabel(evidence.versionMatch))} · ${escapeHtml(evidence.factSummary)}</p>`).join('')}</article>`).join('') : '<div class="empty-state">尚无在线同版核查记录。</div>';
     const documentIdentityKind = documentIdentityKindLabel(doc);
     const documentFacet = documentDisplayFacet(doc);
     const relatedFacet = doc.taxonomy_entity_kind === 'assessment_subject' ? documentFacet : null;
     const sourceVariant = documentSourceVariant(doc);
-    workbenchBody.innerHTML = `<div class="reader-grid"><article class="reader-document"><h2>${escapeHtml(doc.title)}</h2><p>${escapeHtml(doc.issued_by)}${doc.issued_date ? ` · ${escapeHtml(doc.issued_date)}` : ''} · ${escapeHtml(qualityLabel(doc))}</p>${paragraphs}<h2>在线三证核查</h2><p>只有同文同版来源可校正文句；同篇异版仅旁证稳定事实。</p>${verification}</article><aside class="reader-facts"><h3>资料身份</h3><p>编号：${escapeHtml(doc.id)}<br>${escapeHtml(documentIdentityKind)}：${escapeHtml(documentEntityLabel(doc))}${relatedFacet ? `<br>关联学科分面：${escapeHtml(relatedFacet)}` : ''}${sourceVariant ? `<br>来源标注：${escapeHtml(sourceVariant)}` : ''}<br>学段：${escapeHtml(doc.stage)}<br>版本：${escapeHtml(doc.version_label)}<br>状态：${escapeHtml(statusLabel(doc.current_status))}<br>文本质量：${escapeHtml(doc.text_quality_status || '待评估')}<br>页数：${doc.page_count || '待核'}</p><p>${source}</p><div class="inspector-actions">${documentFacet ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(documentFacet)}" data-link>版本比较</a>` : ''}<a class="action-button" href="/discussions?documentId=${encodeURIComponent(doc.id)}" data-link>教师讨论</a></div></aside></div>`;
+    workbenchBody.innerHTML = `<div class="reader-grid"><article class="reader-document"><h2>${escapeHtml(doc.title)}</h2><p>${escapeHtml(doc.issued_by)}${doc.issued_date ? ` · ${escapeHtml(doc.issued_date)}` : ''} · ${escapeHtml(qualityLabel(doc))}</p>${textLayerIntro}${paragraphs}<h2>在线三证核查</h2><p>只有同文同版来源可校正文句；同篇异版仅旁证稳定事实。</p>${verification}</article><aside class="reader-facts"><h3>资料身份</h3><p>编号：${escapeHtml(doc.id)}<br>${escapeHtml(documentIdentityKind)}：${escapeHtml(documentEntityLabel(doc))}${relatedFacet ? `<br>关联学科分面：${escapeHtml(relatedFacet)}` : ''}${sourceVariant ? `<br>来源标注：${escapeHtml(sourceVariant)}` : ''}<br>学段：${escapeHtml(doc.stage)}<br>版本：${escapeHtml(doc.version_label)}<br>状态：${escapeHtml(statusLabel(doc.current_status))}<br>文本质量：${escapeHtml(doc.text_quality_status || '待评估')}<br>页数：${doc.page_count || '待核'}</p><p>${source}</p><div class="inspector-actions">${documentFacet ? `<a class="action-button" href="/compare?subject=${encodeURIComponent(documentFacet)}" data-link>版本比较</a>` : ''}<a class="action-button" href="/discussions?documentId=${encodeURIComponent(doc.id)}" data-link>教师讨论</a></div></aside></div>`;
     if (location.hash) requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView({ block: 'center' }));
   } catch (error) {
     workbenchBody.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;

@@ -216,6 +216,15 @@ button { color: inherit; }
 .research-dock a:hover, .research-dock a.active { background: rgba(231,189,97,.09); }
 .research-dock b { font: 600 12px var(--serif); letter-spacing: .06em; }
 .research-dock small { margin-top: 4px; color: var(--muted); font-size: 9px; }
+.ocr-layer-status {
+  display: grid; gap: 2px; margin-top: 7px; padding: 8px 9px; border: 1px solid rgba(231,189,97,.2); border-radius: 10px;
+  color: rgba(226,232,247,.92); background: rgba(21,17,16,.62); text-decoration: none; pointer-events: auto;
+  box-shadow: inset 2px 0 rgba(231,189,97,.45);
+}
+.ocr-layer-status[hidden] { display: none; }
+.ocr-layer-status b { color: var(--gold); font: 600 10px var(--serif); letter-spacing: .05em; }
+.ocr-layer-status span { font-size: 9px; }
+.ocr-layer-status small { color: var(--muted); font-size: 8px; line-height: 1.4; }
 
 .star-inspector {
   position: absolute; z-index: 18; right: calc(clamp(18px, 3.8vw, 58px) + var(--right-rail-w) + 18px); top: 104px; width: min(350px, calc(100% - 380px));
@@ -325,6 +334,15 @@ button { color: inherit; }
 .result-row small, .comment-row header, .citation-row small { display: block; margin-top: 5px; color: #798399; font-size: 10px; }
 .result-row p, .comment-row p, .citation-row p { margin: 8px 0 0; color: #5d687e; font-size: 12px; line-height: 1.7; }
 .result-row mark { color: inherit; background: rgba(231,189,97,.42); }
+.ocr-data-summary { margin: 0 0 24px; padding: 14px 16px; border: 1px solid rgba(164,123,40,.22); border-radius: 12px; background: rgba(231,189,97,.07); }
+.ocr-data-summary p { margin: 0; color: #59647a; font-size: 11px; line-height: 1.7; }
+.ocr-data-summary p + p { margin-top: 5px; }
+.ocr-data-summary b { margin-right: 10px; color: #7d5c1a; font: 600 14px var(--serif); }
+.ocr-data-summary span { color: #374158; font-weight: 700; }
+.candidate-boundary { color: #76541c; font-size: 11px; line-height: 1.7; }
+.reader-candidate-boundary { margin: 18px 0 9px; padding: 13px 15px; border-left: 3px solid #b88b37; background: rgba(231,189,97,.08); }
+.reader-candidate-boundary p { margin: 5px 0 0; }
+.result-row.ocr-candidate-row { padding-left: 12px; border-left: 2px dashed rgba(164,123,40,.35); }
 .empty-state { padding: 38px 0; color: #7c869a; border-top: 1px solid rgba(38,48,71,.14); font-size: 12px; }
 
 .reader-grid { display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: 50px; align-items: start; }
@@ -333,6 +351,8 @@ button { color: inherit; }
 .paragraph { position: relative; padding: 15px 0 15px 62px; border-top: 1px solid rgba(38,48,71,.13); font: 16px/1.95 var(--serif); }
 .paragraph-number { position: absolute; left: 0; top: 19px; width: 48px; color: #9a7a3c; font: 9px/1.45 var(--sans); }
 .paragraph.uncertain { border-left: 2px solid #ad682e; padding-left: 68px; }
+.paragraph.ocr-candidate { border-left: 2px dashed rgba(164,123,40,.34); background: linear-gradient(90deg, rgba(231,189,97,.06), transparent 34%); }
+.paragraph.ocr-candidate > div { white-space: pre-wrap; }
 .uncertainty-note { display: block; margin-top: 7px; color: #93491d; font: 10px/1.5 var(--sans); }
 .reader-facts { position: sticky; top: 0; padding-left: 20px; border-left: 1px solid rgba(38,48,71,.18); }
 .reader-facts h3 { margin: 0 0 12px; font: 600 16px var(--serif); }
@@ -423,6 +443,10 @@ button { color: inherit; }
   .research-dock a { min-height: 40px; padding: 5px; border-radius: 8px; }
   .research-dock b { font-size: 9px; line-height: 1.35; }
   .research-dock small { display: none; }
+  .ocr-layer-status { gap: 1px; padding: 5px; }
+  .ocr-layer-status b { font-size: 8px; }
+  .ocr-layer-status span { font-size: 7px; line-height: 1.35; }
+  .ocr-layer-status small { display: none; }
   .workbench { height: 82svh; padding-inline: 16px; border-radius: 20px 20px 0 0; }
   .workbench-header { height: 76px; }
   .workbench-header h1 { font-size: 23px; }
@@ -433,7 +457,8 @@ button { color: inherit; }
   }
   body:has(.workbench:not([hidden])) .timeline-library-column { z-index: 82; }
   body:has(.workbench:not([hidden])) .timeline-library-column .era-rail,
-  body:has(.workbench:not([hidden])) .timeline-library-column .map-key { visibility: hidden; pointer-events: none; }
+  body:has(.workbench:not([hidden])) .timeline-library-column .map-key,
+  body:has(.workbench:not([hidden])) .timeline-library-column .ocr-layer-status { visibility: hidden; pointer-events: none; }
   body:has(.workbench:not([hidden])) .research-dock { box-shadow: 0 14px 38px rgba(0,0,0,.34); }
   .work-form-row { grid-template-columns: 1fr; }
   .reader-grid { gap: 30px; }
