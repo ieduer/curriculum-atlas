@@ -27,8 +27,8 @@ test('operations ledger exposes the current staged-release lifecycle and fail-cl
 
   assert.match(ledger, /名义 86 docs \/ 11847 pages；唯一实体 85 docs \/ 11779 pages/u);
   assert.match(ledger, /OCR publication \| 26 accepted documents \/ 30 unique accepted pages \/ 44 paragraph candidates/u);
-  assert.equal(evidence.environments.production.health.version, '2026.07.24-v18');
-  assert.equal(evidence.environments.preview.health.version, '2026.07.24-v18');
+  assert.equal(evidence.environments.production.health.version, '2026.07.24-v20');
+  assert.equal(evidence.environments.preview.health.version, '2026.07.24-v20');
   assert.deepEqual(evidence.environments.production.pending_migrations, []);
   assert.deepEqual(evidence.environments.preview.pending_migrations, []);
   assert.equal(evidence.environments.production.applied_migrations.at(-1), '0007_document_taxonomy_contract.sql');
@@ -41,7 +41,7 @@ test('operations ledger exposes the current staged-release lifecycle and fail-cl
   assert.match(ledger, /machine disposition 6947\/6947；published unique pages 30/u);
   assert.match(ledger, /1259 of 3182/u);
   assert.match(ledger, /3304581750 bytes/u);
-  assert.match(ledger, /Worker 10c8d648-26d7-4e26-bd99-61b80dd9e0cc/u);
+  assert.ok(ledger.includes(`Production Worker | \`${evidence.environments.production.worker_version_id}\``));
   assert.match(ledger, /Merged single-Canvas graph \| 2415 episodes；core 553，century 1031，current detail 97，pre-2001 specialist 426，generic OCR 308；5 tiers \/ 55 families \/ 12 storage identities \/ 11 public facets \/ 1648 memberships/u);
 });
 
