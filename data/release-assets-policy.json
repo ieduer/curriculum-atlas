@@ -97,6 +97,7 @@
       { "path": "data/semantic-publication-policy.schema.json", "disposition": "r2_public_metadata", "consumers": ["semantic_gate"] },
       { "path": "data/star-map-performance-budget.json", "disposition": "release_governance_receipt", "consumers": ["performance_validator", "deploy_gate"] },
       { "path": "data/star-map-performance-validation.json", "disposition": "release_governance_receipt", "consumers": ["release_manifest", "deploy_gate"] },
+      { "path": "data/star-map-runtime-performance.json", "disposition": "release_governance_receipt", "consumers": ["release_manifest", "deploy_gate"] },
       { "path": "data/subject-insights.json", "disposition": "d1_build_input", "consumers": ["corpus_builder", "concept_builder"] },
       { "path": "data/supplemental-sources.json", "disposition": "d1_build_input", "consumers": ["catalog_builder"] }
     ]
