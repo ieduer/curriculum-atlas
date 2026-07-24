@@ -1,24 +1,24 @@
 {
   "schema_version": 1,
   "artifact_profile": "curriculum-star-map-runtime-performance-v1",
-  "budget_id": "curriculum-star-map-performance-v3",
+  "budget_id": "curriculum-star-map-performance-v4",
   "environment": "preview",
   "target_url": "https://bdfz-curriculum-atlas-preview.bdfz.workers.dev/",
-  "measured_at": "2026-07-24T05:54:43Z",
-  "release_git_commit": "343ec2fd576ef568c746851763c85cee83117638",
+  "measured_at": "2026-07-24T08:51:35Z",
+  "release_git_commit": "67733f9c2203dd8b41612847037b90cfd0cba226",
   "release_decision": "pass",
   "deployment_allowed": true,
   "source_fingerprints": {
-    "public/index.html": "c6700dd35ab0ba61e20b8931176d8cd9ea01beefd75c91ba7f0b39ba6c0f6971",
-    "public/app.js": "dbfac44bbc0baa6da3171203d08bf0de0e59e26e50e2f75235c4e5c4fdfc2da6",
-    "public/atlas.js": "9a9974295769f7e89bc1f20392f972b2316eae5d9c912f76ae3e611e03215559",
-    "public/styles.css": "f592140f80aa33b2d853cc681b3bc7754f47abb54901f806a526cc28769fee33",
-    "public/data/concept-evolution.json": "0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8",
-    "public/data/ocr-observation-layer.json": "5c95361d8e157231b7fe28bc940fbab45baf0836d143a94f7c8db3fbc4ce1e39",
+    "public/index.html": "b75c9333409092cf7c7fca669bfdb0a392f3e04fd6e5a0b45b5854f8ce286223",
+    "public/app.js": "1ff4d58e3e02f9fd471956ba348878be0fc0fe026618929c81ae69d43f61b995",
+    "public/atlas.js": "f4e09039231a113351415f11106dfba411654c84e560b98eeeda3d3048d7c818",
+    "public/styles.css": "31f92d3c4a4d3abd2648b13291bc9ce93a8e4e83cdd6c20ef26145d8d5f111ba",
+    "public/data/concept-evolution.json": "d21729902eff87047a8b9fdafd3d94f6d553afa83a58470046efab30a5ad12e4",
+    "public/data/ocr-observation-layer.json": "46a8345a8e3b1048bf59e7e42a5bd624f6f90bea4a308ac2cc04923fb6279b98",
     "public/data/subject-detail-observation-layer.json": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
     "public/data/pre2001-subject-detail-observation-layer.json": "f6e0c70ebd762fb23d4127bee64fcbaf84380be59a4e13426c608d3b0466137c",
     "public/data/century-observation-layer.json": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
-    "public/data/concept-evolution-families.json": "7e747bda715e3c01c7c3755f903adaeb5bac93f282a0f4050655ec79108bf24a"
+    "public/data/concept-evolution-families.json": "04932aa7b1fac24614334212c9c83701342417ba309447fa0e583d8202beb06b"
   },
   "measurements": {
     "desktop": {
@@ -26,9 +26,9 @@
         1440,
         1000
       ],
-      "ready_ms": 526.8,
-      "resource_transfer_bytes": 2400,
-      "draw_p95_ms": 8.7,
+      "ready_ms": 496.9,
+      "resource_transfer_bytes": 1301847,
+      "draw_p95_ms": 11.9,
       "long_task_count": 0,
       "long_task_total_ms": 0
     },
@@ -37,11 +37,11 @@
         390,
         844
       ],
-      "ready_ms": 1117.9,
-      "resource_transfer_bytes": 1267876,
-      "draw_p95_ms": 9.7,
-      "long_task_count": 1,
-      "long_task_total_ms": 86
+      "ready_ms": 338.1,
+      "resource_transfer_bytes": 1301547,
+      "draw_p95_ms": 4.7,
+      "long_task_count": 0,
+      "long_task_total_ms": 0
     }
   },
   "checks": [
@@ -60,13 +60,13 @@
     {
       "id": "budget.id",
       "passed": true,
-      "observed": "curriculum-star-map-performance-v3",
-      "maximum": "curriculum-star-map-performance-v3"
+      "observed": "curriculum-star-map-performance-v4",
+      "maximum": "curriculum-star-map-performance-v4"
     },
     {
       "id": "measured_at.valid",
       "passed": true,
-      "observed": "2026-07-24T05:54:43Z",
+      "observed": "2026-07-24T08:51:35Z",
       "maximum": "valid ISO timestamp"
     },
     {
@@ -84,19 +84,19 @@
     {
       "id": "runtime.desktop.ready_ms",
       "passed": true,
-      "observed": 526.8,
+      "observed": 496.9,
       "maximum": 6500
     },
     {
       "id": "runtime.desktop.resource_transfer_bytes",
       "passed": true,
-      "observed": 2400,
+      "observed": 1301847,
       "maximum": 8000000
     },
     {
       "id": "runtime.desktop.draw_p95_ms",
       "passed": true,
-      "observed": 8.7,
+      "observed": 11.9,
       "maximum": 50
     },
     {
@@ -126,31 +126,31 @@
     {
       "id": "runtime.mobile.ready_ms",
       "passed": true,
-      "observed": 1117.9,
+      "observed": 338.1,
       "maximum": 8000
     },
     {
       "id": "runtime.mobile.resource_transfer_bytes",
       "passed": true,
-      "observed": 1267876,
+      "observed": 1301547,
       "maximum": 8000000
     },
     {
       "id": "runtime.mobile.draw_p95_ms",
       "passed": true,
-      "observed": 9.7,
+      "observed": 4.7,
       "maximum": 60
     },
     {
       "id": "runtime.mobile.long_task_count",
       "passed": true,
-      "observed": 1,
+      "observed": 0,
       "maximum": 14
     },
     {
       "id": "runtime.mobile.long_task_total_ms",
       "passed": true,
-      "observed": 86,
+      "observed": 0,
       "maximum": 2200
     }
   ]

@@ -2,34 +2,34 @@
   "schema_version": 1,
   "contract": "curriculum_release_environment_evidence_v1",
   "generated_by": "scripts/collect-release-environment-evidence.mjs",
-  "observed_at": "2026-07-24T08:41:14.144Z",
+  "observed_at": "2026-07-24T08:51:54.830Z",
   "environments": {
     "preview": {
       "environment": "preview",
-      "observed_at": "2026-07-24T08:41:14.144Z",
+      "observed_at": "2026-07-24T08:51:54.830Z",
       "worker_name": "bdfz-curriculum-atlas-preview",
-      "worker_version_id": "709eb7b7-6fcc-443c-9405-856909aab780",
-      "deployment_id": "13d611c3-4635-4cb0-a50e-0fefd06f5b17",
-      "deployment_created_on": "2026-07-24T08:40:35.374133Z",
-      "asset_git_commit": "0ed731df60012490990e80b6d0fb68edc386842e",
+      "worker_version_id": "f90b350a-6880-43f3-a6ec-c93a602829e3",
+      "deployment_id": "e166e393-68d6-4f57-9469-46a4bde7bd21",
+      "deployment_created_on": "2026-07-24T08:48:57.353366Z",
+      "asset_git_commit": "67733f9c2203dd8b41612847037b90cfd0cba226",
       "asset_parity": {
         "valid": true,
         "method": "five_live_assets_byte_equal_git_commit",
         "assets": [
           {
             "path": "app.js",
-            "sha256": "e08406e1a3b260afe3d6127206fceb993d47c5c7f60754535c909a2d68389cea",
+            "sha256": "1ff4d58e3e02f9fd471956ba348878be0fc0fe026618929c81ae69d43f61b995",
             "bytes": 128616
           },
           {
             "path": "atlas.js",
-            "sha256": "ecb69b15ed0777f69b7d31b67abddddb82c7baf3b906cbe2a0d967a91a0d2e4d",
+            "sha256": "f4e09039231a113351415f11106dfba411654c84e560b98eeeda3d3048d7c818",
             "bytes": 45651
           },
           {
             "path": "styles.css",
-            "sha256": "f592140f80aa33b2d853cc681b3bc7754f47abb54901f806a526cc28769fee33",
-            "bytes": 54734
+            "sha256": "31f92d3c4a4d3abd2648b13291bc9ce93a8e4e83cdd6c20ef26145d8d5f111ba",
+            "bytes": 55582
           },
           {
             "path": "data/concept-evolution.json",
@@ -59,8 +59,8 @@
         "http_status": 200,
         "ok": true,
         "version": "2026.07.24-v18",
-        "release_git_commit": "0ed731df60012490990e80b6d0fb68edc386842e",
-        "body_sha256": "83e909bd24f87cf1b2d41511d968777c1542f53c8b5f07a022ec933473ebf558",
+        "release_git_commit": "67733f9c2203dd8b41612847037b90cfd0cba226",
+        "body_sha256": "e7da383f50d0d9ecaff9b4d6fe752bdd774001d814a759bdaaac20dfc3436d4d",
         "bytes": 2102
       },
       "corpus": {
@@ -105,16 +105,16 @@
           "id": "deployments_status",
           "command": "npx --no-install wrangler deployments status --name bdfz-curriculum-atlas-preview --json",
           "exit_code": 0,
-          "stdout_sha256": "6d2b5e9a368a3e0b4dce0bf82f2df0034b3859589e807fa534b0a7bc0e352288",
+          "stdout_sha256": "412a59398bdc2fd374f3e8cdbbe5ef5bc5f6c3d391161ff0d746d239afb8970d",
           "stdout_bytes": 373,
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stderr_bytes": 0
         },
         {
           "id": "version_view",
-          "command": "npx --no-install wrangler versions view 709eb7b7-6fcc-443c-9405-856909aab780 --name bdfz-curriculum-atlas-preview --json",
+          "command": "npx --no-install wrangler versions view f90b350a-6880-43f3-a6ec-c93a602829e3 --name bdfz-curriculum-atlas-preview --json",
           "exit_code": 0,
-          "stdout_sha256": "00d4c75c74c660f4b543a9866a4fd95d4a9793c1fb275b1b30cb31bfd4b83557",
+          "stdout_sha256": "c15b1569e88a99e20baf9b357c3f934b7c15c16762bd4e3c32513b2ed2847fec",
           "stdout_bytes": 5319,
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stderr_bytes": 0
@@ -275,5 +275,5 @@
       ]
     }
   },
-  "receipt_sha256": "06d382444e573ee5e664548690f4a0f60ab679fedf223f02e8bca6079957da80"
+  "receipt_sha256": "1d2eb765d2e48a4aa5450fdb620f10d729e364704961def7e0d8a1889de6b3b6"
 }
