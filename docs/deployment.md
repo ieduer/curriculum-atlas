@@ -4,10 +4,10 @@
 
 | 环境 | Worker version / deployment | Assets Git | Corpus | R2 current |
 |---|---|---|---|---|
-| preview | `f90b350a-6880-43f3-a6ec-c93a602829e3` / `e166e393-68d6-4f57-9469-46a4bde7bd21` | `67733f9c2203dd8b41612847037b90cfd0cba226` | `corpus-1c4f6b41737380f3e71246dd` ready | `release-cd9ec4a050cbabbede744192398ebfa7` |
-| production | `10c8d648-26d7-4e26-bd99-61b80dd9e0cc` / `38cb4825-ff25-498b-9fbb-c9fb4c9d394a` | `e34e5af224f3c431618d11bcf7f6866f7636b69f` | `corpus-1c4f6b41737380f3e71246dd` ready | `release-cd9ec4a050cbabbede744192398ebfa7` |
+| preview | `037df3d0-e192-4045-ad15-b7449dba2a28` / `2c379122-0e8a-40a6-b7cb-01bfcbcf725e` | `efafbc1de81ebbd8445beb415f3e2002fa395831` | `corpus-1c4f6b41737380f3e71246dd` ready | `release-cd9ec4a050cbabbede744192398ebfa7` |
+| production | `55653436-b55a-4aef-986d-b11dbd84b36e` / `eb93d28c-aa96-48ac-80e1-0a4af031c75e` | `6eea3a540c05b7d9ab6ef0807de59b163535288a` | `corpus-1c4f6b41737380f3e71246dd` ready | `release-cd9ec4a050cbabbede744192398ebfa7` |
 
-两端 health 均为 `2026.07.24-v18`、schema 3 / taxonomy 2 / page-publication 1，migration `0001`–`0007`，D1/R2/APIS/User Center/Assets 五项 binding 全真。Corpus 精确为 196 / 16,500 / 16,500 / 8,808 / 16,500 / 26 / 103（documents / paragraphs / FTS / page gates / displayed / accepted OCR documents / chunks）。
+两端 health 均为 `2026.07.24-v19`、schema 3 / taxonomy 2 / page-publication 1，migration `0001`–`0007`，D1/R2/APIS/User Center/Assets 五项 binding 全真。Corpus 精确为 196 / 16,500 / 16,500 / 8,808 / 16,500 / 26 / 103（documents / paragraphs / FTS / page gates / displayed / accepted OCR documents / chunks）。
 
 ## 目标资源
 
@@ -22,7 +22,7 @@
 
 - clean、已推送的 exact Git commit；
 - OCR 机器裁决、页级发布、候选观察、2001 年前 identity、百年模型与学科分合收据；
-- 34/34 数据质量、20/20 百年模型、11/11 深层模型、11/11 静态性能、16/16 preview runtime；
+- 39/39 数据质量、24/24 百年模型、11/11 深层模型、11/11 静态性能、16/16 preview runtime；
 - 103 个 corpus SQL chunk 的 name/hash/bytes 和远端 receipt；
 - core graph 与 64 个 academic shards 的 build revision/hash/bytes parity；
 - D1 migration、唯一 100% Worker version、五项 live asset byte parity 与 health provenance；
@@ -122,6 +122,20 @@ curl -fsS https://curriculum.bdfz.net/api/source-manifest
 - 关闭命名会话，执行 orphan dry-run。
 
 共享 hub 仅做只读依赖 smoke，不修改合同。
+
+## v19 学科百年链回滚
+
+- 最终 v46 Production predecessor：`c876f21f-2a86-4a5a-b847-a549541b9afb`（v19/v45）。
+- 完整回到 v18 Production：`10c8d648-26d7-4e26-bd99-61b80dd9e0cc`。
+- 源码 tag：`curriculum-baseline-20260724-v18-10c8d648`；backup branch：`backup/curriculum-v19-discipline-lineage-toggle-20260724`。
+- v19 只改 Worker/Assets 和可重算资料资产，未写 D1、R2、OCR 远端输出或共享 hub；回退 Worker 后核对 health、`app.js?v=`、11 学科按钮与既有 corpus ready 即可，不执行 D1 Time Travel 或 R2 pointer 回切。
+
+## v19 正式验收记录
+
+- Production health 200、`cache-control: no-store`，Worker `55653436…`、release Git `6eea3a5…`，corpus expected/actual/live 精确相等。
+- `discipline-lifecycle.json` schema 2：11 条学科百年链、9 个来源明示事件；1923「社会科合科编组」公开分面精确为思政／历史／地理。
+- 在入场动画只载入至 1991 年时立即点击，立即及 3.8 秒后都保持「全部 58 个有资料年份」，没有回锁 1902 或 1923；第二次事件点击退回历史链，第二次历史链点击恢复 11 学科。
+- Preview v46 实测：桌面 ready 853.2 ms / draw p95 4 ms；手机 ready 1437.2 ms / draw p95 2.5 ms；两端横向溢出 0。
 
 ## v18 回滚
 

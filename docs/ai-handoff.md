@@ -24,14 +24,15 @@
 - 先 preview、后 production；D1、Worker Assets、environment evidence、R2 pointer 和浏览器证明必须属于同一发布链。
 - 不修改被冻结的旧 OCR receiver/monitor、远端 OCR unit 或旧 output tree。新数据只由可重放 builder 读取既有证据并生成。
 
-## v18 正式基线
+## v19 正式基线
 
-- 正式站：`https://curriculum.bdfz.net`；Worker `2026.07.24-v18`，version `10c8d648-26d7-4e26-bd99-61b80dd9e0cc`，deployment `38cb4825-ff25-498b-9fbb-c9fb4c9d394a`，Assets Git `e34e5af224f3c431618d11bcf7f6866f7636b69f`。
-- Preview：version `f90b350a-6880-43f3-a6ec-c93a602829e3`，deployment `e166e393-68d6-4f57-9469-46a4bde7bd21`，Assets Git `67733f9c2203dd8b41612847037b90cfd0cba226`。
+- 正式站：`https://curriculum.bdfz.net`；Worker `2026.07.24-v19`，version `55653436-b55a-4aef-986d-b11dbd84b36e`，deployment `eb93d28c-aa96-48ac-80e1-0a4af031c75e`，Assets Git `6eea3a540c05b7d9ab6ef0807de59b163535288a`。
+- Preview：version `037df3d0-e192-4045-ad15-b7449dba2a28`，deployment `2c379122-0e8a-40a6-b7cb-01bfcbcf725e`，Assets Git `efafbc1de81ebbd8445beb415f3e2002fa395831`。
 - 两端 migration `0001`–`0007`，health schema 3 / taxonomy 2 / page-publication 1，D1/R2/APIS/User Center/Assets 五项 binding 全真。
 - Corpus `corpus-1c4f6b41737380f3e71246dd` 两端 `ready`：196 documents、16,500 paragraphs、16,500 FTS、8,808 page gates、16,500 displayed、26 accepted OCR documents、103 chunks。
 - R2 两端 current 均为 `release-cd9ec4a050cbabbede744192398ebfa7`；各自完成 17/17 immutable objects 与 manifest readback 后才切换 pointer。production manifest SHA-256 为 `7b2b836ae29c98743b3a3248eac8e013a4b6c048ac473b0c95685804fb365018`，preview 为 `9e964d6c8e3898dcb8078e4f0b5b8780cd3379e566abff8c12efc5b84ee63bc1`，均为 188,566 bytes。
 - 合并后的单一星图为 2,415 episodes、3,144 edges、5,304 evidence、12 个存储身份／11 个公开学科分面；55 个同层概念族含 1,648 memberships 和 1,348 条候选关系边。
+- 「学科设置 · 分合」另有 schema 2 的 11 条 1902–2022 学科名称链和 9 个来源明示事件；历史公开入口同时解析历史与历史与社会两个底层身份，1923 社会科事件只联动思政／历史／地理。
 - 学术图保持完整语义模型，但以 30,220-byte 索引和 64 个内容寻址分片传输；最大分片 524,250 bytes。materializer 必须复核 SHA-256、bytes、build revision、collection、chunk 与计数。
 
 ## 三个数据工作包的终态
@@ -44,8 +45,8 @@
 
 `data/data-quality-standard.json` 是发布阻断标准，`manual_override_allowed=false`。当前固定执行：
 
-- 34/34 数据细度与准确度检查；
-- 20/20 百年模型检查及 11/11 深层模型检查；
+- 39/39 数据细度与准确度检查；
+- 24/24 百年模型检查及 11/11 深层模型检查；
 - 候选 JSON Schema、episode stable-ID diff、关系端点与证据闭包；
 - 11/11 静态性能预算和 16/16 preview 运行时预算；
 - 亮色四类选中实线相对 `#edf1ee` 均须达到 4.5:1；
@@ -65,15 +66,13 @@
 
 ## 当前未决边界
 
-- 没有 v18 发布 blocker。未通过逐字 exact gate 的 6,843 个非空冲突页和 73 个双空白页已取得终局机器关闭，不是“等待人工”的 backlog。
+- 没有 v19 发布 blocker。未通过逐字 exact gate 的 6,843 个非空冲突页和 73 个双空白页已取得终局机器关闭，不是“等待人工”的 backlog。
 - 候选观察只证明“在受控来源页看到这个词面”，不证明首次出现、消失、制度替代、语义等同、影响或因果。更深语义只能由独立、可引用证据另行发布。
 - 86 份／11,847 页是目录身份分母，85 份／11,779 页是物理去重分母；两者都必须保留。原 1,077 页 Apple Vision 单见证已进入候选覆盖，但不能单独满足正式引文门。
-- DMITPro2 B-r1 的历史冻结状态保留为审计证据，不再阻断 v18；本轮没有改动远端 OCR service、旧 receiver/monitor 或旧 output。
+- DMITPro2 B-r1 的历史冻结状态保留为审计证据，不再阻断 v19；本轮没有改动远端 OCR service、旧 receiver/monitor 或旧 output。
 
 ## 回滚
 
-- 源码基线：tag `curriculum-baseline-20260724-v17-3f8951d8`，backup branch `backup/curriculum-v18-machine-publication-light-lines-20260724`。
-- Production Worker predecessor：`3f8951d8-28ce-4b53-b936-5411b4d23b73`；preview predecessor：`faa7a9bf-e010-42d7-b635-332486f4b0fc`。
-- Production D1 pre-import bookmark：`000000d6-00000000-000050b2-6e1bdf145e5aea4b984d2581ca5724f9`；preview 为 `00000071-00000000-000050b2-0b529d53eb22aae53e6dc536a85995cc`。恢复前必须检查 bookmark 后的合法用户写入。
-- R2-only 回滚恢复 predecessor pointer：production `release-9cb02f77c06ee0535e7981a22b312373`，preview `release-841a528f0086ce69f2f7a6f2d07c0999`；保留所有 immutable v18 objects。
-- v17 Worker 与 v18 corpus 不是可长期混用的组合；需要回到 v17 时必须按运维手册评估并耦合恢复 D1。
+- v19 源码基线：tag `curriculum-baseline-20260724-v18-10c8d648`，backup branch `backup/curriculum-v19-discipline-lineage-toggle-20260724`。
+- 最终 v46 Production predecessor：`c876f21f-2a86-4a5a-b847-a549541b9afb`；完整回到 v18 使用 `10c8d648-26d7-4e26-bd99-61b80dd9e0cc`。
+- v19 没有 D1/R2/OCR mutation；仅回退 Worker，不执行 D1 Time Travel 或 R2 pointer 回切。更早的 v18→v17 数据耦合回滚锚点保留在 `docs/deployment.md`。
