@@ -75,17 +75,17 @@ v17 再次整體核查後，最大的風險已收斂為三件事：
 
 ### 已達成
 
-- 12 個 2001 年前專科來源、341 個 bounded items、36 個早期同粒度概念、326 個 episodes、645 條 evidence。
-- `/archive` 按來源身份合併為 340 條；341 是專科 source items，340 是與 134 seed 合併後的去重目錄，兩個數字語義不同。
-- 55 個概念族、5 個不可混用粒度、153 個受控概念、1,497 個 memberships。
+- 12 個 2001 年前專科來源、462 個 bounded items、36 個早期同粒度概念、426 個 episodes、821 條 evidence。
+- `/archive` 按來源身份合併為 461 條；462 是專科 source items，461 是與 134 seed 合併後的去重目錄，兩個數字語義不同。
+- 55 個概念族、5 個不可混用粒度、153 個受控概念、1,597 個 memberships；全期共 2,130 個 episodes。
 - 12 科課程名稱及 36 條實踐／內容／能力族都跨越 2001 年前後。
 - 每個 candidate episode 至少一條 evidence；候選 citation、semantic、first appearance、disappearance 與 influence gate 全關。
 
 ### 仍未完成
 
-- 剩餘 OCR 文件的完整 document/page denominator 與 zero-silent-missing 收口。
-- 341 個 bounded-item identity 的機器一致性核對，以及高價值條目的逐頁／版次 hash 裁決。
-- OCR 詞面誤命中 review、同義詞版本化和概念粒度稽核。
+- 名義 OCR 覆蓋已收口為 11,847/11,847 頁、zero silent missing；仍須把全部 completed documents 接入同一 deterministic observation builder。
+- 462 個 bounded-item identity 須完成 source hash、物理頁、標題邊界、stable ID 與 seed 對應的全量機器一致性 receipt，不以抽樣人工覆蓋。
+- OCR 詞面誤命中對抗集、同義詞版本化和概念粒度機器稽核。
 - 引文級 observation 的晉級；候選數量不能代替可引用證據數。
 - 新增學科分合關係只能來自來源明示，不從年代鄰近自動推導。
 
@@ -111,8 +111,8 @@ v17 再次整體核查後，最大的風險已收斂為三件事：
 
 1. 執行 5,063 頁第三引擎文字、1,780 頁表格結構、73 頁空白栅格仲裁。
 2. 將 31 頁現有 exact receipt 接入自動 page／paragraph manifest builder；D1 import 仍須獨立 release gate。
-3. 為亮色與互斥時間塢重錄 preview 桌面／手機 runtime 收據。
-4. 持續擴充 OCR 星點前保持靜態及 runtime 性能預算。
+3. 把所有 completed OCR documents 接入通用 observation builder，逐份產出可重現 candidate projection。
+4. 持續擴充 OCR 星點前保持靜態及 runtime 性能預算；亮色與互斥時間塢的桌面／手機 receipt 已於 v17 完成。
 5. 建立 24 小時 aggregate 後驗。
 
 ## 驗收標準
