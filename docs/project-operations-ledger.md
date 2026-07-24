@@ -1,12 +1,12 @@
 # Curriculum Atlas 项目运维总账
 
-<!-- curriculum-operations-ledger-snapshot {"schema_version":1,"action_log_line_cutoff":2281,"action_log_prefix_sha256":"df906663c6c31527c58d5a309a9766162d1bea16a65c15007a5081bd502cf205","included_event_count":1197,"included_task_count":211,"included_event_sha256":"f13eaa93480ca340f59f58834ac90e40377d1af4c90d692330d3c7eaacb61581","included_through":"2026-07-24T09:27:27.638Z"} -->
+<!-- curriculum-operations-ledger-snapshot {"schema_version":1,"action_log_line_cutoff":2284,"action_log_prefix_sha256":"aa363569618e1f7a092db5dabd9bc2fecc5a47dfa1af181b28436d1864a37c74","included_event_count":1200,"included_task_count":211,"included_event_sha256":"eb7c0d702aaac5b19650bfdfab2e627569cb4c7755011e0d4aa0a91d8300beed","included_through":"2026-07-24T09:48:21.877Z"} -->
 
-生成时间：`2026-07-24T09:37:50.097Z`（America/Los_Angeles：`2026/07/24 02:37:50`）
+生成时间：`2026-07-24T09:48:28.188Z`（America/Los_Angeles：`2026/07/24 02:48:28`）
 
-覆盖区间：`2026-07-15T02:01:17.143Z` 至 `2026-07-24T09:27:27.638Z`；共 `211` 个任务、`1197` 条运维事件。
+覆盖区间：`2026-07-15T02:01:17.143Z` 至 `2026-07-24T09:48:21.877Z`；共 `211` 个任务、`1200` 条运维事件。
 
-本文件是项目内的可重建运维总账快照。事件明细来自 `/Users/ylsuen/CF/reports/agent_action_log.jsonl` 的 append-only 前 2281 行；前缀 SHA-256 为 `df906663c6c31527c58d5a309a9766162d1bea16a65c15007a5081bd502cf205`。本地数据数字来自生成时实际文件；Cloudflare 与远端 OCR 数字只引用带时间戳的最后一次只读核验。快照之后新增的日志属于待纳入事件，不会使已冻结发布提交失真；后来的状态不得回写覆盖历史，只能新增事件并在下一发布快照重新生成。
+本文件是项目内的可重建运维总账快照。事件明细来自 `/Users/ylsuen/CF/reports/agent_action_log.jsonl` 的 append-only 前 2284 行；前缀 SHA-256 为 `aa363569618e1f7a092db5dabd9bc2fecc5a47dfa1af181b28436d1864a37c74`。本地数据数字来自生成时实际文件；Cloudflare 与远端 OCR 数字只引用带时间戳的最后一次只读核验。快照之后新增的日志属于待纳入事件，不会使已冻结发布提交失真；后来的状态不得回写覆盖历史，只能新增事件并在下一发布快照重新生成。
 
 ## 读数规则
 
@@ -39,12 +39,12 @@
 
 | 层 | 当前事实 | 状态判定 |
 |---|---|---|
-| Git | branch `main`; HEAD `4e61541d4a270c24956f707d9d8ae7baf9049c11`; origin/main `4e61541d4a270c24956f707d9d8ae7baf9049c11`; modified 0; untracked 0 | 工作树 clean；production environment evidence commit `67f2cecfa86b6d6ece47abb7c8fb36ad3b54400b` |
+| Git | branch `main`; HEAD `b2df82a0f0d26837a9942cfeab5eb4b98bf8901e`; origin/main `b2df82a0f0d26837a9942cfeab5eb4b98bf8901e`; modified 0; untracked 0 | 工作树 clean；production environment evidence commit `67f2cecfa86b6d6ece47abb7c8fb36ad3b54400b` |
 | Catalog | 196 records；verified_online 176；local_verified_scan 12；metadata_only 6；citation_ready 127；ocr_review_pending 88 | checked-in generated snapshot |
 | Ingest | 196 entries | 与 catalog ID 集合精确一致；物理文件另由 artifact registry 审计 |
 | Asset registry | 245 PDF paths / 209 unique SHA-256；201 canonical、3 variant、2 derived、3 quarantine | 遗漏 hash、处置冲突、路径/校验和漂移均 fail closed |
 | OCR queue | 名义 86 docs / 11847 pages；唯一实体 85 docs / 11779 pages；blocked 2 | 未完成且全部 fail-closed |
-| Local OCR evidence | 主 OCR/audit 名义 6947/11847，唯一实体 6879/11779；Vision 名义 7012，唯一实体 6944；failed 1 | 2026-07-24T09:37:43.777Z 本机快照；显示/引文合格 0 |
+| Local OCR evidence | 主 OCR/audit 名义 6947/11847，唯一实体 6879/11779；Vision 名义 7012，唯一实体 6944；failed 1 | 2026-07-24T09:48:18.446Z 本机快照；显示/引文合格 0 |
 | OCR machine disposition | 6947/6947 adjudicated；exact 31、blank 73、text conflict closed 5063、table conflict closed 1780、human required 0 | pending 0；冲突页终局 fail closed |
 | OCR publication | 26 accepted documents / 30 unique accepted pages / 44 paragraph candidates | display/citation page gates 已显式开放 30 页；未列页默认关闭 |
 | OCR generic observation | 83 complete documents / 10210 pages / 308 episodes / 308 evidence | 全部 nonsemantic、noncitable，不继承正式引文状态 |
@@ -61,7 +61,7 @@
 2. **已隔离**：三个唯一的全零/无效下载载荷已归为 `quarantine`；文件魔数、大小和 SHA-256 发生变化时审计会要求重新裁决。
 3. **已去重建模**：`moe-2022-17` 与 `ictr-6c6df9d121ac` 是同一 68 页实体，目录身份仍保留两条，物理 OCR/进度口径按 SHA-256 只计一次。
 4. **已上线**：两端 D1 均通过 `0007_document_taxonomy_contract.sql`，Worker 均为 `2026.07.24-v18`，corpus `corpus-1c4f6b41737380f3e71246dd` ready；corpus importer 的 103 个远端回执名称、hash 与 bytes 已闭环。
-5. **已上线**：taxonomy 为 159 学科资料、1 考试学科、16 课程、20 范围，公开契约为 12 个展示分面与 28 个精确普通学科查询身份。
+5. **已上线**：taxonomy 为 159 学科资料、1 考试学科、16 课程、20 范围，存储契约为 12 个身份分面；历史与历史社会合并后公开为 11 个学科分面，并保留 28 个精确普通学科查询身份。
 6. **R2 已原子激活**：preview `release-cd9ec4a050cbabbede744192398ebfa7` 与 production `release-cd9ec4a050cbabbede744192398ebfa7` 均在 evidence snapshot 之后由 append-only readback 事件证明；environment evidence 内的旧/空 pointer 只能解释为采集时快照，不能覆盖后续激活事实。
 7. **私有备份已验证**：Final exact prefix is 15 objects and 3304581750 bytes; index GET is 8581 bytes SHA256 2ee9d8088dd89f77123c01da67916912f43c65c582c2ba6909fcb2904772bf2f; restored raw set is 246 of 246 files and 3245326023 bytes and OCR evidence is 81318 of 81318 files and 813926562 bytes with zero missing extra or problems; remote-readback contains exactly 15 files and 3304581750 bytes with zero partial or temp files; no browser session was opened and required dry-run found zero cliDaemon processes；本地索引为 `backups/curriculum-atlas/private-archive/20260717T021000Z/archive-index.json`，远端仅引用精确受控前缀，不记录密钥。
 8. **OCR 机器闭环已完成**：6947/6947 页取得终局机器 disposition，30 个唯一页正式发布；其余页关闭而不是等待人工。DMITPro2 B-r1 历史冻结状态仅保留为审计证据，本轮未修改远端 OCR runtime。
@@ -74,14 +74,14 @@
 | Preview Worker | `f90b350a-6880-43f3-a6ec-c93a602829e3` / `e166e393-68d6-4f57-9469-46a4bde7bd21` / `2026.07.24-v18`；Assets Git `67733f9c2203dd8b41612847037b90cfd0cba226`；health 200 | rollback：preview D1 bookmark 与 Worker predecessor 由发布任务私有锚点保存 |
 | D1 prod + preview | 两端 applied migrations 均为 `0001_initial.sql`、`0002_source_provenance_and_ocr_quality.sql`、`0003_online_verification.sql`、`0004_document_classifications.sql`、`0005_page_publication_gate.sql`、`0006_corpus_import_release.sql`、`0007_document_taxonomy_contract.sql`；pending 0；schema 3 / taxonomy 2 / page 1 | corpus 非 ready 或实时计数漂移时 API fail closed 503 |
 | Corpus prod + preview | `corpus-1c4f6b41737380f3e71246dd` ready；196/16500/16500/8808/16500/26/103 | documents / paragraphs / FTS / page gates / displayed / accepted OCR / chunks 必须精确相等 |
-| Production R2（post-evidence） | each bucket verified 17 of 17 immutable objects before pointer activation; preview manifest SHA256 9e964d6c8e3898dcb8078e4f0b5b8780cd3379e566abff8c12efc5b84ee63bc1 188566 bytes published 2026-07-24T09:16:24.524Z; production manifest SHA256 7b2b836ae29c98743b3a3248eac8e013a4b6c048ac473b0c95685804fb365018 188566 bytes published 2026-07-24T09:18:57.787Z | 删除且只删除 `release/current.json` 可恢复 v10 stable-key fallback；不可变 release objects 保留 |
-| Preview R2（post-evidence） | each bucket verified 17 of 17 immutable objects before pointer activation; preview manifest SHA256 9e964d6c8e3898dcb8078e4f0b5b8780cd3379e566abff8c12efc5b84ee63bc1 188566 bytes published 2026-07-24T09:16:24.524Z; production manifest SHA256 7b2b836ae29c98743b3a3248eac8e013a4b6c048ac473b0c95685804fb365018 188566 bytes published 2026-07-24T09:18:57.787Z；authoritative correction：authoritative post-readback ingest manifest identity is 55183 bytes SHA256 0f0fda279b10ef40011ea28477deb528ed5d45b7478dfd93a8b7bf6d0b1cb16e; the immediately preceding log row contained a manual hash transcription error only | 恢复已备份 predecessor pointer；不可变 successor objects 可不引用保留 |
+| Production R2（post-evidence） | each bucket verified 17 of 17 immutable objects before pointer activation; preview manifest SHA256 9e964d6c8e3898dcb8078e4f0b5b8780cd3379e566abff8c12efc5b84ee63bc1 188566 bytes published 2026-07-24T09:16:24.524Z; production manifest SHA256 7b2b836ae29c98743b3a3248eac8e013a4b6c048ac473b0c95685804fb365018 188566 bytes published 2026-07-24T09:18:57.787Z | 恢复 predecessor pointer `release-9cb02f77c06ee0535e7981a22b312373`；不可变 v18 objects 保留 |
+| Preview R2（post-evidence） | each bucket verified 17 of 17 immutable objects before pointer activation; preview manifest SHA256 9e964d6c8e3898dcb8078e4f0b5b8780cd3379e566abff8c12efc5b84ee63bc1 188566 bytes published 2026-07-24T09:16:24.524Z; production manifest SHA256 7b2b836ae29c98743b3a3248eac8e013a4b6c048ac473b0c95685804fb365018 188566 bytes published 2026-07-24T09:18:57.787Z；authoritative correction：authoritative post-readback ingest manifest identity is 55183 bytes SHA256 0f0fda279b10ef40011ea28477deb528ed5d45b7478dfd93a8b7bf6d0b1cb16e; the immediately preceding log row contained a manual hash transcription error only | 恢复 predecessor pointer `release-841a528f0086ce69f2f7a6f2d07c0999`；不可变 v18 objects 保留 |
 | Taxonomy | 159 subject + 1 assessment subject + 16 course + 20 scope；12 facets / 28 query identities | assessment/course/scope 保留身份，不进入普通学科精确筛选 |
 | Local OCR evidence | historical primary+audit 6947/11847；Vision 7012；machine disposition 6947/6947；published unique pages 30 | runtime snapshot 与 publication receipt 是不同阶段；正式引文只读 manifest |
 | DMITPro2 shard B-r1 | Read-only samples were 981131264 and 966483968 bytes MemAvailable, both below the one-GiB stop gate; B had 1259 of 3182 pages, zero failed pages and zero quarantine; explicit user-unit stop left MainPID zero and NRestarts zero while MemAvailable recovered to 2839844 kB | parent-must-cherry-pick-test-and-run-real-seed；不得无 lineage 复制旧 state |
 | Private encrypted archive | Final exact prefix is 15 objects and 3304581750 bytes; index GET is 8581 bytes SHA256 2ee9d8088dd89f77123c01da67916912f43c65c582c2ba6909fcb2904772bf2f; restored raw set is 246 of 246 files and 3245326023 bytes and OCR evidence is 81318 of 81318 files and 813926562 bytes with zero missing extra or problems; remote-readback contains exactly 15 files and 3304581750 bytes with zero partial or temp files; no browser session was opened and required dry-run found zero cliDaemon processes | index `backups/curriculum-atlas/private-archive/20260717T021000Z/archive-index.json`；远端精确前缀回滚需另行明确授权 |
 | Production browser / API / Pulse | health 200 v18 and corpus exact ready; one Canvas; 2415 nodes 3144 edges 5304 evidence 12 facets; exact 1902 plus 2022 compare gives 223 visible; actual Canvas click opens deep link and inspector; reading family highlights 58 observations and four same-level concepts with solid dark-blue lines; desktop safe viewport excludes 370px inspector on selected-star-opposite side; mobile 390x844 safe viewport ends before bottom inspector; zero horizontal overflow; zero console errors or warnings; named browser closed | 只读 QA 无状态回滚；下一 release 必须重新产生事件。当前本地候选层为 1031 stars / 55 families / 12 facets；只有包含这些计数的后续生产事件才可证明已上线 |
-| Full governed verify | source 0ed6f06; app asset v42; 10 desktop stages fully visible 778 of 778 pixels; 1902 and 2022 exact selection; mobile dock 48 pixels and inspector 103.08 pixels above dock; no horizontal overflow; console errors and warnings zero; runtime 16 of 16; full verify passed | Git evidence commit `67f2cecfa86b6d6ece47abb7c8fb36ad3b54400b` |
+| Full governed verify | full verify pass from clean synchronized upstream: Node 615 of 615 Python 14 of 14 data quality 34 of 34 century model 20 of 20 and 11 of 11 deep models static performance 11 of 11 preview runtime 16 of 16 candidate schema 1862 episodes release manifest release-96c55bf423b62551e870d7f75683012a blockers zero Wrangler dry-run pass; live production health v18 and corpus expected actual live exact | Git evidence commit `67f2cecfa86b6d6ece47abb7c8fb36ad3b54400b` |
 | Public registration | User Center、Nav、Portal、Companion source、Pulse 已登记；Pulse tracked | Companion 新 APK 因无真实 Android 设备验证而显式延期 |
 
 ## 生命周期里程碑
@@ -223,6 +223,8 @@
 | `c7209be386a2` | 2026-07-24T02:32:44-07:00 | docs: seal curriculum v18 operations standard |
 | `a5dc4effebe3` | 2026-07-24T02:33:56-07:00 | chore: bind v18 century model receipt |
 | `4e61541d4a27` | 2026-07-24T02:37:38-07:00 | test: align operations ledger with v18 |
+| `f9c0b00c2218` | 2026-07-24T02:38:29-07:00 | docs: rebuild v18 operations ledger |
+| `b2df82a0f0d2` | 2026-07-24T02:41:47-07:00 | test: bind v44 asset cache version |
 
 ## 任务索引
 
@@ -438,9 +440,9 @@
 | 2026-07-24T03:56:44.516Z | 2026-07-24T04:42:26.745Z | `curriculum-atlas-v16-year-compare-inspector-20260723` | 7 | start, change, verify, closeout | OCR citation-ready remains intentionally zero until bounded page-image and edition adjudication; 6947-page triage queues are explicit and do not block candidate visualization; no other task-owned resources remain |
 | 2026-07-24T05:10:17.356Z | 2026-07-24T06:08:48.767Z | `curriculum-atlas-v17-machine-citation-theme-chronology-20260723` | 7 | start, change, verify, closeout | No release blocker; follow-up is machine receipt completion for 6916 pages and explicit publication-manifest write-readback for 31 exact pages before any OCR citation-ready claim |
 | 2026-07-24T06:09:30.657Z | 2026-07-24T06:11:20.773Z | `curriculum-atlas-v17-doc-coherence-20260723` | 4 | start, change, verify, closeout | No release blocker; continue deterministic OCR and manifest roadmap recorded in project manual |
-| 2026-07-24T06:40:27.299Z | 2026-07-24T09:27:27.638Z | `curriculum-atlas-v18-machine-publication-light-lines-20260724` | 10 | start, change, verify | documentation operations ledger canonical report final full verify and process closeout remain |
+| 2026-07-24T06:40:27.299Z | 2026-07-24T09:48:21.877Z | `curriculum-atlas-v18-machine-publication-light-lines-20260724` | 13 | start, change, verify, closeout | no release blocker; candidate observations remain nonsemantic and noncitable by design; immutable OCR conflicts remain terminal fail-closed unless a future reproducible machine receipt supersedes them |
 
-### 未以 closeout 结束的历史任务（29）
+### 未以 closeout 结束的历史任务（28）
 
 这些任务可能已被后续任务 supersede，但 action log 中没有对应 closeout。它们必须保留为治理缺口，不能静默当作已完成。
 
@@ -472,11 +474,10 @@
 - `curriculum-atlas-A2-sealed-4e65975-Linux-gate`：最后阶段 `verify`，最后时间 `2026-07-22T12:31:22.515Z`；actual-hash-bound-state-omits-selected_pages-and-selected_pages_complete-while-validator-required-false-follow-up-review-needed
 - `curriculum-atlas-final-19-section-completion-20260722`：最后阶段 `start`，最后时间 `2026-07-22T12:43:11.852Z`；no-sealed-runtime-no-live-dry-run-no-service-start-no-apply-no-deploy-no-shared-hub-write-package-graph-bridge-excluded-until-research-merge
 - `curriculum-atlas-final-19-live-verified-981394d3`：最后阶段 `change`，最后时间 `2026-07-22T15:56:30.858Z`；corrected-ca8b2df-apply-requires-new-explicit-user-approval
-- `curriculum-atlas-v18-machine-publication-light-lines-20260724`：最后阶段 `verify`，最后时间 `2026-07-24T09:27:27.638Z`；documentation operations ledger canonical report final full verify and process closeout remain
 
 ## 截止点内完整 append-only 运维事件
 
-事件子集 SHA-256：`f13eaa93480ca340f59f58834ac90e40377d1af4c90d692330d3c7eaacb61581`。以下 1197 条按任务首次 UTC 排序，任务内事件再按 UTC 排序；逐条保留 scope、resources、evidence、rollback 和 unresolved。
+事件子集 SHA-256：`eb7c0d702aaac5b19650bfdfab2e627569cb4c7755011e0d4aa0a91d8300beed`。以下 1200 条按任务首次 UTC 排序，任务内事件再按 UTC 排序；逐条保留 scope、resources、evidence、rollback 和 unresolved。
 
 <details><summary><code>curriculum-atlas-launch-20260714</code> · 3 events · 2026-07-15T02:01:17.143Z → 2026-07-17T02:04:05.894Z</summary>
 
@@ -11444,10 +11445,10 @@ Resources：`/Users/ylsuen/CF/curriculum-atlas/docs/PROJECT_AUDIT_2026-07-23.md`
 
 </details>
 
-<details><summary><code>curriculum-atlas-v18-machine-publication-light-lines-20260724</code> · 10 events · 2026-07-24T06:40:27.299Z → 2026-07-24T09:27:27.638Z</summary>
+<details><summary><code>curriculum-atlas-v18-machine-publication-light-lines-20260724</code> · 13 events · 2026-07-24T06:40:27.299Z → 2026-07-24T09:48:21.877Z</summary>
 
 Agents：`codex`、`codex-root`
-Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`curriculum.bdfz.net`、`data/ocr-machine-verification.json`、`data/ocr-publication-receipt.json`、`public/data/ocr-observation-layer.json`、`data/pre2001-bounded-identity-verification.json`、`public/atlas.js`、`public/app.js`、`/private/tmp/curriculum-atlas-v18-preview-business-before-20260724T0734Z.sql`、`/private/tmp/curriculum-atlas-v18-production-business-before-20260724T0734Z.sql`、`curriculum-atlas/scripts/academic-graph-shards.mjs`、`curriculum-atlas/public/data/graph-shards`、`curriculum-atlas/public/data/concept-evolution-academic.json`、`curriculum-atlas/data/star-map-performance-budget.json`、`curriculum-atlas/public/styles.css`、`curriculum-atlas/public/index.html`、`curriculum-atlas/public/app.js`、`curriculum-atlas/public/atlas.js`、`curriculum-atlas/tests/frontend-theme-chronology.test.mjs`、`bdfz-curriculum-atlas-preview D1`、`https://bdfz-curriculum-atlas-preview.bdfz.workers.dev`、`curriculum-atlas/data/star-map-runtime-performance.json`、`bdfz-curriculum-atlas D1`、`corpus-1c4f6b41737380f3e71246dd`、`Worker version 10c8d648-26d7-4e26-bd99-61b80dd9e0cc`、`deployment 38cb4825-ff25-498b-9fbb-c9fb4c9d394a`、`bdfz-curriculum-atlas-sources-preview`、`bdfz-curriculum-atlas-sources`、`release-cd9ec4a050cbabbede744192398ebfa7`、`https://curriculum.bdfz.net`、`Worker 10c8d648-26d7-4e26-bd99-61b80dd9e0cc`、`Playwright curriculum-v18-production`
+Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`curriculum.bdfz.net`、`data/ocr-machine-verification.json`、`data/ocr-publication-receipt.json`、`public/data/ocr-observation-layer.json`、`data/pre2001-bounded-identity-verification.json`、`public/atlas.js`、`public/app.js`、`/private/tmp/curriculum-atlas-v18-preview-business-before-20260724T0734Z.sql`、`/private/tmp/curriculum-atlas-v18-production-business-before-20260724T0734Z.sql`、`curriculum-atlas/scripts/academic-graph-shards.mjs`、`curriculum-atlas/public/data/graph-shards`、`curriculum-atlas/public/data/concept-evolution-academic.json`、`curriculum-atlas/data/star-map-performance-budget.json`、`curriculum-atlas/public/styles.css`、`curriculum-atlas/public/index.html`、`curriculum-atlas/public/app.js`、`curriculum-atlas/public/atlas.js`、`curriculum-atlas/tests/frontend-theme-chronology.test.mjs`、`bdfz-curriculum-atlas-preview D1`、`https://bdfz-curriculum-atlas-preview.bdfz.workers.dev`、`curriculum-atlas/data/star-map-runtime-performance.json`、`bdfz-curriculum-atlas D1`、`corpus-1c4f6b41737380f3e71246dd`、`Worker version 10c8d648-26d7-4e26-bd99-61b80dd9e0cc`、`deployment 38cb4825-ff25-498b-9fbb-c9fb4c9d394a`、`bdfz-curriculum-atlas-sources-preview`、`bdfz-curriculum-atlas-sources`、`release-cd9ec4a050cbabbede744192398ebfa7`、`https://curriculum.bdfz.net`、`Worker 10c8d648-26d7-4e26-bd99-61b80dd9e0cc`、`Playwright curriculum-v18-production`、`git b2df82a0f0d26837a9942cfeab5eb4b98bf8901e`、`curriculum-atlas/docs`、`cloudflare_business_audit_2026-05-23.md`
 
 ### 2026-07-24T06:40:27.299Z · start · codex
 
@@ -11528,6 +11529,30 @@ Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas-preview
 - Evidence：health 200 v18 and corpus exact ready; one Canvas; 2415 nodes 3144 edges 5304 evidence 12 facets; exact 1902 plus 2022 compare gives 223 visible; actual Canvas click opens deep link and inspector; reading family highlights 58 observations and four same-level concepts with solid dark-blue lines; desktop safe viewport excludes 370px inspector on selected-star-opposite side; mobile 390x844 safe viewport ends before bottom inspector; zero horizontal overflow; zero console errors or warnings; named browser closed
 - Rollback：read-only verification has no rollback; Worker rollback 3f8951d8-28ce-4b53-b936-5411b4d23b73 and D1 Time Travel bookmark remain available
 - Unresolved：documentation operations ledger canonical report final full verify and process closeout remain
+
+### 2026-07-24T09:45:04.592Z · verify · codex-root
+
+- Scope：final full governed v18 source data model performance build test dry-run and live health verification
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`git b2df82a0f0d26837a9942cfeab5eb4b98bf8901e`、`curriculum.bdfz.net`
+- Evidence：full verify pass from clean synchronized upstream: Node 615 of 615 Python 14 of 14 data quality 34 of 34 century model 20 of 20 and 11 of 11 deep models static performance 11 of 11 preview runtime 16 of 16 candidate schema 1862 episodes release manifest release-96c55bf423b62551e870d7f75683012a blockers zero Wrangler dry-run pass; live production health v18 and corpus expected actual live exact
+- Rollback：source tag curriculum-baseline-20260724-v17-3f8951d8; production Worker 3f8951d8-28ce-4b53-b936-5411b4d23b73 plus D1 bookmark after write audit; R2 predecessor pointer release-9cb02f77c06ee0535e7981a22b312373
+- Unresolved：canonical report closeout operation-ledger regeneration and Playwright process dry-run remain
+
+### 2026-07-24T09:47:41.369Z · change · codex-root
+
+- Scope：close v18 documentation and canonical operations report with executable standards, production identities, browser evidence, and rollback anchors
+- Resources：`curriculum-atlas/docs`、`cloudflare_business_audit_2026-05-23.md`
+- Evidence：project manual deployment operations data model and handoff are v18-consistent; canonical report records all three work packages, 34 of 34 quality gates, 615 of 615 Node tests, 14 of 14 Python tests, production Worker D1 R2 and browser readback
+- Rollback：restore report backup SHA256 a004f79092491d91a50ee2d3b238c87a8403809f76f40b7105da9586df89fcc7; documentation changes are Git-revertable
+- Unresolved：Playwright ownership dry-run and final operations-ledger regeneration remain before closeout
+
+### 2026-07-24T09:48:21.877Z · closeout · codex-root
+
+- Scope：complete curriculum-atlas v18 three data work packages, executable quality standards, light-theme solid-line frontend, production deployment, canonical report and browser-process ownership closeout
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`curriculum.bdfz.net`、`bdfz-curriculum-atlas-sources-preview`、`bdfz-curriculum-atlas-sources`、`cloudflare_business_audit_2026-05-23.md`
+- Evidence：machine adjudication 6947 of 6947 pending zero; 30 unique published OCR pages in 26 documents; generic observation layer 83 complete documents 10210 pages; pre-2001 identities 462 of 462; data quality 34 of 34; full Node 615 of 615 and Python 14 of 14; Worker 10c8d648 live v18; R2 release-cd9ec4a050cbabbede744192398ebfa7; production desktop and mobile zero console errors; task named browsers none; orphan dry-run matched only xue-live-r6 owned by another task and acted zero; app-owned playwright MCP untouched
+- Rollback：source tag curriculum-baseline-20260724-v17-3f8951d8; Worker 3f8951d8-28ce-4b53-b936-5411b4d23b73; D1 production bookmark 000000d6-00000000-000050b2-6e1bdf145e5aea4b984d2581ca5724f9 after intervening-write audit; R2 production predecessor release-9cb02f77c06ee0535e7981a22b312373
+- Unresolved：no release blocker; candidate observations remain nonsemantic and noncitable by design; immutable OCR conflicts remain terminal fail-closed unless a future reproducible machine receipt supersedes them
 
 </details>
 
