@@ -105,7 +105,10 @@ test('left tools default collapsed while year visibility lives horizontally insi
   assert.equal(rail.includes('id="year-range"'), false);
   const years = elementBlock(html, '<section class="cosmos-year-control"', '</section>');
   assert.match(years, /id="era-buttons"/);
-  assert.match(years, /id="year-range"/);
+  assert.match(years, /id="year-options"/);
+  assert.match(years, /id="year-boundary-compare"/);
+  assert.match(years, /id="clear-year-selection"/);
+  assert.doesNotMatch(years, /type="range"|id="year-range"/);
   assert.doesNotMatch(html, /百年纵轴|class="era-cluster"/);
   assert.match(html, /id="map-tools-toggle"[^>]*aria-expanded="false"/);
   assert.match(html, /id="map-controls"[^>]*aria-hidden="true"/);
@@ -118,8 +121,9 @@ test('left tools default collapsed while year visibility lives horizontally insi
   assert.match(styles, /\.mode-switch \{[^}]*position:\s*relative;/);
   assert.match(styles, /\.map-control-column\.is-collapsed \{/);
   assert.match(styles, /\.cosmos-year-control \{[^}]*left:\s*50%;[^}]*bottom:/);
-  assert.match(styles, /\.year-scrubber input \{[^}]*width:\s*100%;[^}]*cursor:\s*ew-resize;/);
-  assert.doesNotMatch(styles, /writing-mode:\s*vertical-lr|cursor:\s*ns-resize/);
+  assert.match(styles, /\.year-options\s*\{[^}]*overflow-x:\s*auto/);
+  assert.match(styles, /\.year-options button\.active/);
+  assert.doesNotMatch(styles, /year-scrubber|cursor:\s*(?:ns|ew)-resize/);
   assert.match(app, /function setMapControlsExpanded\(expanded\)/);
   assert.match(styles, /\.research-dock \{[^}]*position:\s*relative;/);
   assert.doesNotMatch(html, /timeline-library-column/);
@@ -174,7 +178,11 @@ test('entry reveal, edge-aware inspector, discipline lifecycle, and brand remain
   assert.match(app, /function startCenturyReveal\(\)/);
   assert.match(app, /requestAnimationFrame\(reveal\)/);
   assert.match(app, /function positionInspector\(episodeId = null\)/);
+  assert.match(app, /function applyInspectorAvoidance\(/);
+  assert.match(app, /function finalizeInspectorLayout\(/);
   assert.match(atlas, /getEpisodeScreenPosition\(id\)/);
+  assert.match(atlas, /setViewportObstruction\(rect,\s*side\)/);
+  assert.match(atlas, /obstruction\.side === 'bottom'/);
   assert.match(styles, /\.star-inspector\.dock-left/);
   assert.match(styles, /\.star-inspector\.dock-right/);
   assert.match(styles, /\.star-inspector\.overlap-softened/);
@@ -183,6 +191,17 @@ test('entry reveal, edge-aware inspector, discipline lifecycle, and brand remain
   assert.match(html, /assets\/century-curriculum-mark\.jpg/);
   assert.match(html, /<b>百年课标<\/b>/);
   assert.doesNotMatch(html, />纬<|20世纪—今天/);
+});
+
+test('the bottom year rail supports exact multi-year comparison instead of range-only scrubbing', () => {
+  assert.match(app, /selectedYears:\s*new Set\(\)/);
+  assert.match(app, /function yearVisible\(year\)/);
+  assert.match(app, /function activateYearSelection\(years/);
+  assert.match(app, /function toggleYearSelection\(year/);
+  assert.match(app, /yearBoundaryCompare\.addEventListener\('click'/);
+  assert.match(atlas, /this\.filters\.selectedYears\.size && !this\.filters\.selectedYears\.has\(node\.year\)/);
+  assert.match(html, /选择两个或多个有资料的年份进行对比/);
+  assert.doesNotMatch(html, /type="range"/);
 });
 
 test('deep model search matches definitions, facets, and node types inside the map', () => {

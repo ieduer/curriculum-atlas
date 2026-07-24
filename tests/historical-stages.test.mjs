@@ -41,7 +41,9 @@ test('the stage strip remains inside the single cosmos and is accessible while h
   assert.match(app, /const ERAS = CURRICULUM_STAGES/);
   assert.match(app, /data-era-start=/);
   assert.match(app, /renderEraControls\(\)[\s\S]*syncYearStageState\(\);/);
-  assert.match(app, /aria-valuetext/);
+  assert.match(app, /data-compare-year=/);
+  assert.match(app, /aria-pressed=/);
+  assert.match(app, /selected\.every\(\(year\) => year >= era\.start && year <= era\.end\)/);
   assert.match(app, /aria-current/);
   assert.match(styles, /\.era-buttons \{[^}]*display:\s*flex;[^}]*overflow-x:\s*auto;/);
   assert.match(styles, /\.era-buttons button \{[^}]*scroll-snap-align:\s*start;/);

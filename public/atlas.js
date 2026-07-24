@@ -1,4 +1,4 @@
-import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v37';
+import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v38';
 
 const TAU = Math.PI * 2;
 const MIN_ZOOM = .2;
@@ -242,7 +242,7 @@ export class CurriculumCosmos {
     this.screenNodes = [];
     this.subjects = [];
     this.tracks = [];
-    this.filters = { hiddenSubjects: new Set(), hideAll: false, maxYear: 2022, query: '' };
+    this.filters = { hiddenSubjects: new Set(), hideAll: false, maxYear: 2022, selectedYears: new Set(), query: '' };
     this.mode = 'lineage';
     this.selectedId = null;
     this.selectedFamilyId = null;
@@ -266,6 +266,7 @@ export class CurriculumCosmos {
     this.lastPinch = null;
     this.meteor = { t: -1, x: 0, y: 0, length: 0 };
     this.background = null;
+    this.viewportObstruction = null;
     this.bind();
     this.resize();
     this.loop();
@@ -324,9 +325,29 @@ export class CurriculumCosmos {
       hiddenSubjects: next.hiddenSubjects || this.filters.hiddenSubjects,
       hideAll: Boolean(next.hideAll),
       maxYear: Number(next.maxYear ?? this.filters.maxYear),
+      selectedYears: next.selectedYears instanceof Set
+        ? new Set(next.selectedYears)
+        : new Set(Array.isArray(next.selectedYears) ? next.selectedYears.map(Number) : this.filters.selectedYears),
       query: String(next.query ?? this.filters.query).trim().toLocaleLowerCase('zh-CN'),
     };
     if (!fitVisible || !this.fitToVisibleGraph({ maxZoom, preserveOrientation: true })) this.draw();
+  }
+
+  setViewportObstruction(rect, side) {
+    if (!rect) {
+      this.viewportObstruction = null;
+      this.draw();
+      return;
+    }
+    const canvasRect = this.canvas.getBoundingClientRect();
+    this.viewportObstruction = {
+      left: rect.left - canvasRect.left,
+      top: rect.top - canvasRect.top,
+      right: rect.right - canvasRect.left,
+      bottom: rect.bottom - canvasRect.top,
+      side,
+    };
+    this.draw();
   }
 
   setMode(mode) {
@@ -376,7 +397,9 @@ export class CurriculumCosmos {
   }
 
   visible(node) {
-    if (node.year > this.filters.maxYear || !episodeVisibleForSubjectFilter(node.episode, this.filters.hiddenSubjects, this.filters.hideAll, this.subjects)) return false;
+    if (node.year > this.filters.maxYear
+      || (this.filters.selectedYears.size && !this.filters.selectedYears.has(node.year))
+      || !episodeVisibleForSubjectFilter(node.episode, this.filters.hiddenSubjects, this.filters.hideAll, this.subjects)) return false;
     if (this.activeSelectionIds.size) return this.activeSelectionIds.has(node.id);
     if (!this.filters.query) return true;
     const episode = node.episode;
@@ -408,13 +431,26 @@ export class CurriculumCosmos {
   }
 
   safeViewport() {
+    let viewport;
     if (this.width <= 640) {
-      return { left: 8, top: 68, right: this.width - 8, bottom: this.height - 166 };
+      viewport = { left: 8, top: 68, right: this.width - 8, bottom: this.height - 166 };
+    } else if (this.width <= 980) {
+      viewport = { left: 34, top: 86, right: this.width - 18, bottom: this.height - 84 };
+    } else {
+      viewport = { left: 54, top: 96, right: this.width - 24, bottom: this.height - 84 };
     }
-    if (this.width <= 980) {
-      return { left: 34, top: 86, right: this.width - 18, bottom: this.height - 84 };
-    }
-    return { left: 54, top: 96, right: this.width - 24, bottom: this.height - 84 };
+    const obstruction = this.viewportObstruction;
+    if (!obstruction) return viewport;
+    if (obstruction.side === 'left') viewport.left = Math.max(viewport.left, obstruction.right + 16);
+    if (obstruction.side === 'right') viewport.right = Math.min(viewport.right, obstruction.left - 16);
+    if (obstruction.side === 'bottom') viewport.bottom = Math.min(viewport.bottom, obstruction.top - 12);
+    if (viewport.right - viewport.left < 180 || viewport.bottom - viewport.top < 160) return {
+      left: Math.min(viewport.left, this.width - 188),
+      top: viewport.top,
+      right: Math.max(viewport.right, viewport.left + 180),
+      bottom: Math.max(viewport.bottom, viewport.top + 160),
+    };
+    return viewport;
   }
 
   fitToGraph({ immediate = false, nodes = this.nodes, maxZoom = 1, preserveOrientation = false } = {}) {
@@ -759,6 +795,9 @@ export class CurriculumCosmos {
     return {
       total_nodes: this.nodes.length,
       visible_nodes: this.screenNodes.length,
+      selected_years: [...this.filters.selectedYears].sort((left, right) => left - right),
+      safe_viewport: this.safeViewport(),
+      viewport_obstruction: this.viewportObstruction,
       relationship_edges: this.relationshipEdges.length,
       evolution_edges: this.evolutionEdges.length,
       draw_samples: ordered.length,

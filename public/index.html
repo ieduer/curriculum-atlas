@@ -14,10 +14,10 @@
   <meta property="og:image" content="https://img.bdfz.net/20250503004.webp">
   <link rel="icon" href="https://img.bdfz.net/20250503004.webp" type="image/webp">
   <link rel="apple-touch-icon" href="https://img.bdfz.net/20250503004.webp">
-  <link rel="stylesheet" href="/styles.css?v=20260723v37">
-  <link rel="modulepreload" href="/subject-facets.js?v=20260723v37">
-  <link rel="modulepreload" href="/historical-stages.js?v=20260723v37">
-  <script type="module" src="/app.js?v=20260723v37"></script>
+  <link rel="stylesheet" href="/styles.css?v=20260723v38">
+  <link rel="modulepreload" href="/subject-facets.js?v=20260723v38">
+  <link rel="modulepreload" href="/historical-stages.js?v=20260723v38">
+  <script type="module" src="/app.js?v=20260723v38"></script>
 </head>
 <body>
   <a class="skip-link" href="#cosmos-stage">跳到课程星图</a>
@@ -78,11 +78,14 @@
       <section class="cosmos-year-control" aria-label="星图内年份显隐">
         <div class="era-buttons" id="era-buttons"></div>
         <div class="concept-year-links" id="concept-year-links" aria-label="当前概念关联年代" hidden></div>
-        <div class="year-scrubber">
-          <span id="year-start">1902</span>
-          <label class="sr-only" for="year-range">显示至年份</label>
-          <input id="year-range" type="range" min="1902" max="2022" value="2022" step="1">
-          <strong id="year-value">2022</strong>
+        <div class="year-compare">
+          <header>
+            <b>年份对比</b>
+            <span id="year-selection-status" aria-live="polite">正在载入年份</span>
+            <button id="year-boundary-compare" type="button">首尾</button>
+            <button id="clear-year-selection" type="button">全部</button>
+          </header>
+          <div class="year-options" id="year-options" role="group" aria-label="选择两个或多个有资料的年份进行对比"></div>
         </div>
       </section>
       <section class="concept-layers" id="concept-layers" aria-label="学科概念层级星图" hidden></section>

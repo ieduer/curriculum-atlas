@@ -1,5 +1,5 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v37';
-import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v37';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v38';
+import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v38';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -8,7 +8,7 @@ import {
   normalizeSubjectFacet,
   planSubjectFacetQueries,
   publicSubjectFacet,
-} from './subject-facets.js?v=20260723v37';
+} from './subject-facets.js?v=20260723v38';
 
 const diagnosticsStartedAt = performance.now();
 let diagnosticsReadyAt = null;
@@ -60,9 +60,10 @@ const subjectStatus = document.querySelector('#subject-status');
 const showAllSubjects = document.querySelector('#show-all-subjects');
 const conceptLayers = document.querySelector('#concept-layers');
 const eraButtons = document.querySelector('#era-buttons');
-const yearRange = document.querySelector('#year-range');
-const yearStart = document.querySelector('#year-start');
-const yearValue = document.querySelector('#year-value');
+const yearOptions = document.querySelector('#year-options');
+const yearSelectionStatus = document.querySelector('#year-selection-status');
+const yearBoundaryCompare = document.querySelector('#year-boundary-compare');
+const clearYearSelection = document.querySelector('#clear-year-selection');
 const searchForm = document.querySelector('#cosmos-search');
 const searchInput = document.querySelector('#cosmos-query');
 const clearQuery = document.querySelector('#clear-query');
@@ -111,7 +112,10 @@ const state = {
   cosmos: null,
   hiddenSubjects: new Set(),
   hideAllSubjects: false,
+  minYear: 1902,
   maxYear: 2022,
+  availableYears: [],
+  selectedYears: new Set(),
   query: '',
   mode: 'lineage',
   selectedDocument: null,
@@ -142,6 +146,48 @@ function toast(message) {
   toastTimer = setTimeout(() => toastNode.classList.remove('show'), 3200);
 }
 
+function yearVisible(year) {
+  const value = Number(year);
+  return Number.isFinite(value) && value <= state.maxYear && (!state.selectedYears.size || state.selectedYears.has(value));
+}
+
+function renderYearCompareControls() {
+  if (!state.availableYears.length) return;
+  const selected = [...state.selectedYears].sort((left, right) => left - right);
+  const loadedCount = state.availableYears.filter((year) => year <= state.maxYear).length;
+  yearSelectionStatus.textContent = state.introRevealActive
+    ? `载入至 ${state.maxYear} · ${loadedCount}/${state.availableYears.length}`
+    : selected.length
+      ? selected.length <= 4 ? selected.join(' · ') : `${selected.length} 个年份已选`
+      : `全部 ${state.availableYears.length} 个有资料年份`;
+  clearYearSelection.disabled = selected.length === 0;
+  yearBoundaryCompare.disabled = state.availableYears.length < 2;
+  yearOptions.innerHTML = state.availableYears.map((year) => {
+    const active = state.selectedYears.has(year);
+    const pending = year > state.maxYear;
+    return `<button type="button" data-compare-year="${year}" aria-pressed="${active}" ${pending ? 'disabled' : ''} class="${active ? 'active' : ''}">${year}</button>`;
+  }).join('');
+}
+
+function activateYearSelection(years, { fitVisible = true } = {}) {
+  state.introRevealActive = false;
+  state.introRevealComplete = true;
+  state.maxYear = state.availableYears.at(-1);
+  const allowed = new Set(state.availableYears);
+  state.selectedYears = new Set(years.map(Number).filter((year) => allowed.has(year)));
+  syncYearStageState();
+  updateMapStatus({ fitVisible });
+}
+
+function toggleYearSelection(year, options) {
+  const value = Number(year);
+  if (!state.availableYears.includes(value)) return;
+  const next = new Set(state.selectedYears);
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+  activateYearSelection([...next], options);
+}
+
 async function api(path, options) {
   const response = await fetch(path, options);
   const data = await response.json().catch(() => ({}));
@@ -152,14 +198,14 @@ async function api(path, options) {
 async function loadBase() {
   if (state.meta) return;
   const [conceptGraph, ocrLayer, detailLayer, pre2001Layer, centuryLayer, evolutionLayer, disciplineLifecycle, ocrCoverageSummary, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v37'),
-    api('/data/ocr-observation-layer.json?v=20260723v37'),
-    api('/data/subject-detail-observation-layer.json?v=20260723v37'),
-    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v37'),
-    api('/data/century-observation-layer.json?v=20260723v37'),
-    api('/data/concept-evolution-families.json?v=20260723v37'),
-    api('/data/discipline-lifecycle.json?v=20260723v37'),
-    api('/data/ocr-coverage-summary.json?v=20260723v37'),
+    api('/data/concept-evolution.json?v=20260723v38'),
+    api('/data/ocr-observation-layer.json?v=20260723v38'),
+    api('/data/subject-detail-observation-layer.json?v=20260723v38'),
+    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v38'),
+    api('/data/century-observation-layer.json?v=20260723v38'),
+    api('/data/concept-evolution-families.json?v=20260723v38'),
+    api('/data/discipline-lifecycle.json?v=20260723v38'),
+    api('/data/ocr-coverage-summary.json?v=20260723v38'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -396,16 +442,15 @@ async function loadBase() {
   const years = [
     ...conceptGraph.episodes.map((episode) => Number(episode.time?.year)),
     ...centuryLayer.items.map((item) => Number(item.year)),
+    ...disciplineLifecycle.events.map((event) => Number(event.year)),
   ].filter((year) => Number.isFinite(year) && year >= 1800);
   if (!years.length) throw new Error('概念星图没有可显示的年代节点');
   const minYear = Math.min(...years);
   const maxYear = Math.max(...years);
+  state.minYear = minYear;
   state.maxYear = maxYear;
-  yearRange.min = String(minYear);
-  yearRange.max = String(maxYear);
-  yearRange.value = String(maxYear);
-  yearStart.textContent = String(minYear);
-  yearValue.textContent = String(maxYear);
+  state.availableYears = [...new Set(years)].sort((left, right) => left - right);
+  state.selectedYears.clear();
   buildDeepModels();
   ocrLayerStatus.innerHTML = `<b>百年资料与证据</b><span>11/11 检索分面 · ${escapeHtml(state.archiveItems.length)} 个 bounded items · 候选页 ${escapeHtml(ocrCoverageSummary.coverage.candidate_covered_pages)}/${escapeHtml(ocrCoverageSummary.coverage.nominal_pages)}</span><small>${escapeHtml(evolutionLayer.counts.detailed_families)} 条实践／内容／能力演进族 · ${escapeHtml(pre2001Layer.counts.episodes)} 个早期观察 · 双证据队列已分类 ${escapeHtml(ocrCoverageSummary.coverage.dual_witness_audited_pages)} 页，引文仍为 0</small>`;
   ocrLayerStatus.hidden = false;
@@ -656,15 +701,15 @@ function linkConceptYears(node) {
     return;
   }
   conceptYearLinks.innerHTML = `<b>${escapeHtml(node.label)} · 关联年代</b>${years.map((year) =>
-    `<button type="button" data-concept-year="${year}" class="${year === state.maxYear ? 'active' : ''}">${year}</button>`).join('')}`;
+    `<button type="button" data-concept-year="${year}" aria-pressed="${state.selectedYears.has(year)}" class="${state.selectedYears.has(year) ? 'active' : ''}">${year}</button>`).join('')}`;
   conceptYearLinks.hidden = false;
   conceptYearLinks.querySelectorAll('[data-concept-year]').forEach((button) => button.addEventListener('click', () => {
-    state.maxYear = Number(button.dataset.conceptYear);
-    yearRange.value = String(state.maxYear);
-    syncYearStageState();
-    updateMapStatus({ fitVisible: true });
-    conceptYearLinks.querySelectorAll('button').forEach((item) =>
-      item.classList.toggle('active', item === button));
+    toggleYearSelection(button.dataset.conceptYear, { fitVisible: true });
+    conceptYearLinks.querySelectorAll('button').forEach((item) => {
+      const active = state.selectedYears.has(Number(item.dataset.conceptYear));
+      item.classList.toggle('active', active);
+      item.setAttribute('aria-pressed', String(active));
+    });
   }));
 }
 
@@ -732,13 +777,61 @@ function positionInspector(episodeId = null) {
   if (innerWidth < 980 || selectedNearOppositePanel) inspector.classList.add('overlap-softened');
 }
 
+function clearInspectorAvoidance({ refit = false } = {}) {
+  state.cosmos?.setViewportObstruction(null);
+  for (const side of ['left', 'right', 'bottom']) conceptLayers.style.removeProperty(`--inspector-clear-${side}`);
+  if (refit) state.cosmos?.fitToVisibleGraph({ maxZoom: state.cosmos.visibleSubjectCount() === 1 ? 1.32 : 1, preserveOrientation: true });
+}
+
+function applyInspectorAvoidance({ fitSelection = true } = {}) {
+  if (inspector.hidden || !state.cosmos) {
+    clearInspectorAvoidance();
+    return;
+  }
+  const rect = inspector.getBoundingClientRect();
+  const side = innerWidth <= 640
+    ? 'bottom'
+    : inspector.classList.contains('dock-left') ? 'left' : 'right';
+  state.cosmos.setViewportObstruction(rect, side);
+  for (const name of ['left', 'right', 'bottom']) conceptLayers.style.removeProperty(`--inspector-clear-${name}`);
+  if (side === 'left') conceptLayers.style.setProperty('--inspector-clear-left', `${Math.ceil(rect.right + 14)}px`);
+  if (side === 'right') conceptLayers.style.setProperty('--inspector-clear-right', `${Math.ceil(innerWidth - rect.left + 14)}px`);
+  if (side === 'bottom') conceptLayers.style.setProperty('--inspector-clear-bottom', `${Math.ceil(innerHeight - rect.top + 12)}px`);
+  if (fitSelection && state.cosmos.focusSelection()) return;
+  state.cosmos.fitToVisibleGraph({
+    maxZoom: state.cosmos.visibleSubjectCount() === 1 ? 1.32 : 1,
+    preserveOrientation: true,
+  });
+}
+
+function finalizeInspectorLayout(episodeId = null) {
+  inspector.classList.toggle('is-expanded', innerWidth > 640);
+  const toggle = document.createElement('button');
+  toggle.className = 'inspector-expand';
+  toggle.type = 'button';
+  toggle.textContent = '展开说明';
+  toggle.setAttribute('aria-expanded', 'false');
+  inspector.querySelector('.inspector-close')?.after(toggle);
+  toggle.addEventListener('click', () => {
+    const expanded = inspector.classList.toggle('is-expanded');
+    toggle.textContent = expanded ? '收起说明' : '展开说明';
+    toggle.setAttribute('aria-expanded', String(expanded));
+    requestAnimationFrame(() => applyInspectorAvoidance());
+  });
+  inspector.hidden = false;
+  positionInspector(episodeId);
+  requestAnimationFrame(() => applyInspectorAvoidance());
+}
+
 function clearConceptInspector(resetRoute = true) {
   state.selectedEpisode = null;
   state.selectedScreenPosition = null;
   inspector.hidden = true;
+  inspector.classList.remove('is-expanded');
   conceptYearLinks.hidden = true;
   conceptYearLinks.replaceChildren();
   state.cosmos?.setSelected(null);
+  clearInspectorAvoidance({ refit: true });
   if (resetRoute && location.pathname.replace(/\/+$/, '') === '/terms') history.replaceState({}, '', '/');
 }
 
@@ -838,8 +931,7 @@ function showConceptInspector(episode) {
     setMapMode('structure');
     showOntologyInspector(state.ontologyNodeById.get(state.ontologyFocusId));
   });
-  inspector.hidden = false;
-  positionInspector(episode.id);
+  finalizeInspectorLayout(episode.id);
 }
 
 const ONTOLOGY_TYPE_LABELS = {
@@ -927,7 +1019,6 @@ function showOntologyInspector(node) {
     renderConceptLayers();
     showOntologyInspector(next);
   }));
-  inspector.hidden = false;
   const lexicalEpisodes = node.lexical_concept_id
     ? state.conceptGraph.episodes.filter((episode) => episode.concept_id === node.lexical_concept_id)
     : [];
@@ -937,7 +1028,7 @@ function showOntologyInspector(node) {
       episode_ids: lexicalEpisodes.map((episode) => episode.id),
     });
   }
-  positionInspector(lexicalEpisodes.at(-1)?.id || null);
+  finalizeInspectorLayout(lexicalEpisodes.at(-1)?.id || null);
 }
 
 function showDeepInspector(node) {
@@ -985,8 +1076,7 @@ function showDeepInspector(node) {
     </div>`;
   inspector.querySelector('.inspector-close').addEventListener('click', () => clearConceptInspector(false));
   inspector.querySelector('[data-focus-selection]')?.addEventListener('click', () => state.cosmos?.focusSelection());
-  inspector.hidden = false;
-  positionInspector(selectedEpisode?.id || null);
+  finalizeInspectorLayout(selectedEpisode?.id || null);
 }
 
 function ontologyPositions(count) {
@@ -1036,6 +1126,7 @@ function reconcileOntologyInspectorSubject(visibleSubjects) {
   state.ontologyFocusId = null;
   inspector.hidden = true;
   state.cosmos?.setSelected(null);
+  clearInspectorAvoidance({ refit: true });
 }
 
 function renderConceptLayers() {
@@ -1047,7 +1138,7 @@ function renderConceptLayers() {
     .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
     .slice(0, 24) : [];
   const queryHasEpisodeMatch = state.query && state.conceptGraph.episodes.some((episode) =>
-    Number(episode.time.year) <= state.maxYear
+    yearVisible(episode.time.year)
     && episodeVisibleForSubjectFilter(episode, state.hiddenSubjects, state.hideAllSubjects, subjects)
     && episodeSearchText(episode).includes(state.query));
   if (state.mode !== 'structure' && (!queryMatches.length || queryHasEpisodeMatch)) {
@@ -1141,7 +1232,7 @@ function renderConceptResults() {
   }
   const controlledSubjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
   const matches = state.conceptGraph.episodes
-    .filter((episode) => Number(episode.time.year) <= state.maxYear
+    .filter((episode) => yearVisible(episode.time.year)
       && episodeVisibleForSubjectFilter(episode, state.hiddenSubjects, state.hideAllSubjects, controlledSubjects)
       && episodeSearchText(episode).includes(state.query))
     .sort((left, right) => {
@@ -1179,7 +1270,7 @@ function focusConceptResult(index) {
 
 function updateMapStatus({ fitVisible = false } = {}) {
   const controlledSubjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
-  const visibleEpisodes = state.conceptGraph.episodes.filter((episode) => Number(episode.time.year) <= state.maxYear
+  const visibleEpisodes = state.conceptGraph.episodes.filter((episode) => yearVisible(episode.time.year)
     && episodeVisibleForSubjectFilter(episode, state.hiddenSubjects, state.hideAllSubjects, controlledSubjects)
     && (!state.query || episodeSearchText(episode).includes(state.query)));
   const visibleIds = new Set(visibleEpisodes.map((episode) => episode.id));
@@ -1190,7 +1281,13 @@ function updateMapStatus({ fitVisible = false } = {}) {
   const visibleSubjectCount = visibleSubjects.length;
   reconcileOntologyInspectorSubject(visibleSubjects);
   state.cosmos?.setFilters(
-    { hiddenSubjects: state.hiddenSubjects, hideAll: state.hideAllSubjects, maxYear: state.maxYear, query: state.query },
+    {
+      hiddenSubjects: state.hiddenSubjects,
+      hideAll: state.hideAllSubjects,
+      maxYear: state.maxYear,
+      selectedYears: state.selectedYears,
+      query: state.query,
+    },
     { fitVisible, maxZoom: visibleSubjectCount === 1 ? 1.32 : 1 },
   );
   renderConceptResults();
@@ -1250,7 +1347,7 @@ function showDisciplineEventInspector(event) {
   state.selectedEpisode = null;
   state.selectedScreenPosition = null;
   state.cosmos?.setSelected(null);
-  conceptYearLinks.innerHTML = `<b>${escapeHtml(event.label)} · 关联年代</b><button type="button" data-concept-year="${event.year}" class="active">${event.year}</button>`;
+  conceptYearLinks.innerHTML = `<b>${escapeHtml(event.label)} · 关联年代</b><button type="button" data-concept-year="${event.year}" aria-pressed="${state.selectedYears.has(event.year)}" class="${state.selectedYears.has(event.year) ? 'active' : ''}">${event.year}</button>`;
   conceptYearLinks.hidden = false;
   inspector.innerHTML = `
     <button class="inspector-close" type="button" aria-label="关闭">×</button>
@@ -1267,8 +1364,13 @@ function showDisciplineEventInspector(event) {
       </article>`).join('')}
     </div>`;
   inspector.querySelector('.inspector-close').addEventListener('click', () => clearConceptInspector(false));
-  inspector.hidden = false;
-  positionInspector(null);
+  conceptYearLinks.querySelector('[data-concept-year]')?.addEventListener('click', (clickEvent) => {
+    toggleYearSelection(event.year, { fitVisible: true });
+    const active = state.selectedYears.has(event.year);
+    clickEvent.currentTarget.classList.toggle('active', active);
+    clickEvent.currentTarget.setAttribute('aria-pressed', String(active));
+  });
+  finalizeInspectorLayout(null);
 }
 
 function renderDisciplineLifecycle() {
@@ -1277,7 +1379,7 @@ function renderDisciplineLifecycle() {
   const visibleSubjects = state.hideAllSubjects ? [] : subjects.filter((subject) => !state.hiddenSubjects.has(subject));
   const visibleSet = new Set(visibleSubjects);
   const events = state.disciplineLifecycle.events
-    .filter((event) => event.year <= state.maxYear
+    .filter((event) => yearVisible(event.year)
       && (visibleSubjects.length === subjects.length || event.public_facets.some((facet) => visibleSet.has(facet))))
     .sort((left, right) => left.year - right.year || left.id.localeCompare(right.id, 'en'));
   disciplineLifecycleStatus.textContent = `${events.length} 个来源明示事件`;
@@ -1290,10 +1392,7 @@ function renderDisciplineLifecycle() {
     button.addEventListener('click', () => {
       const event = state.disciplineLifecycle.events.find((item) => item.id === button.dataset.disciplineEvent);
       if (!event) return;
-      state.maxYear = event.year;
-      yearRange.value = String(event.year);
-      syncYearStageState();
-      updateMapStatus({ fitVisible: true });
+      activateYearSelection([event.year], { fitVisible: true });
       showDisciplineEventInspector(event);
     }));
 }
@@ -1306,20 +1405,21 @@ function restoreAllSubjects() {
 }
 
 function renderEraControls() {
-  eraButtons.innerHTML = ERAS.map((era) => `<button type="button" data-era-start="${era.start}" data-era-end="${era.end}" aria-label="${era.start} 至 ${era.end} 年，${escapeHtml(era.label)}；显示到 ${era.end} 年" title="${escapeHtml(era.evidenceBasis)}">${era.start} · ${escapeHtml(era.shortLabel)}</button>`).join('');
+  eraButtons.innerHTML = ERAS.map((era) => `<button type="button" data-era-start="${era.start}" data-era-end="${era.end}" aria-label="${era.start} 至 ${era.end} 年，${escapeHtml(era.label)}；选择本阶段全部有资料年份" title="${escapeHtml(era.evidenceBasis)}">${era.start} · ${escapeHtml(era.shortLabel)}</button>`).join('');
   document.querySelectorAll('[data-era-end]').forEach((button) => button.addEventListener('click', () => {
-    state.maxYear = Math.min(Number(yearRange.max), Number(button.dataset.eraEnd));
-    yearRange.value = String(state.maxYear);
-    syncYearStageState();
-    updateMapStatus();
+    const start = Number(button.dataset.eraStart);
+    const end = Number(button.dataset.eraEnd);
+    activateYearSelection(state.availableYears.filter((year) => year >= start && year <= end));
   }));
   syncYearStageState();
 }
 
 function syncYearStageState() {
-  const active = curriculumStageForYear(state.maxYear);
-  yearValue.textContent = String(state.maxYear);
-  yearRange.setAttribute('aria-valuetext', active ? `${state.maxYear} 年，${active.label}` : `${state.maxYear} 年`);
+  renderYearCompareControls();
+  const selected = [...state.selectedYears];
+  const active = selected.length
+    ? CURRICULUM_STAGES.find((era) => selected.every((year) => year >= era.start && year <= era.end))
+    : state.introRevealActive ? curriculumStageForYear(state.maxYear) : null;
   document.querySelectorAll('[data-era-end]').forEach((button) => {
     const selected = active && Number(button.dataset.eraStart) === active.start;
     button.classList.toggle('active', Boolean(selected));
@@ -1768,8 +1868,8 @@ async function route() {
       setMapMode('cross');
       const conceptId = url.searchParams.get('term');
       const episodeId = url.searchParams.get('episode');
-      const episode = state.conceptGraph.episodes.find((item) => item.id === episodeId && item.time.year <= state.maxYear)
-        || state.conceptGraph.episodes.filter((item) => item.concept_id === conceptId && item.time.year <= state.maxYear)
+      const episode = state.conceptGraph.episodes.find((item) => item.id === episodeId && yearVisible(item.time.year))
+        || state.conceptGraph.episodes.filter((item) => item.concept_id === conceptId && yearVisible(item.time.year))
           .sort((left, right) => right.time.year - left.time.year)[0];
       if (episode) showConceptInspector(episode);
       return;
@@ -1862,11 +1962,11 @@ async function route() {
 function startCenturyReveal() {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const onHome = location.pathname.replace(/\/+$/, '') === '';
-  const firstYear = Number(yearRange.min);
-  const lastYear = Number(yearRange.max);
+  const firstYear = state.minYear;
+  const lastYear = state.availableYears.at(-1);
+  state.selectedYears.clear();
   if (reducedMotion || !onHome || !Number.isFinite(firstYear) || !Number.isFinite(lastYear)) {
     state.maxYear = lastYear;
-    yearRange.value = String(lastYear);
     syncYearStageState();
     updateMapStatus();
     state.introRevealComplete = true;
@@ -1875,7 +1975,6 @@ function startCenturyReveal() {
   }
   state.introRevealActive = true;
   state.maxYear = firstYear;
-  yearRange.value = String(firstYear);
   syncYearStageState();
   updateMapStatus();
   loading.classList.add('ready');
@@ -1890,12 +1989,12 @@ function startCenturyReveal() {
     if (year !== lastRenderedYear) {
       lastRenderedYear = year;
       state.maxYear = year;
-      yearRange.value = String(year);
       syncYearStageState();
       state.cosmos?.setFilters({
         hiddenSubjects: state.hiddenSubjects,
         hideAll: state.hideAllSubjects,
         maxYear: year,
+        selectedYears: state.selectedYears,
         query: state.query,
       });
       if (state.disciplineLifecycle.events.some((event) => event.year === year)) renderDisciplineLifecycle();
@@ -1906,6 +2005,7 @@ function startCenturyReveal() {
     }
     state.introRevealActive = false;
     state.introRevealComplete = true;
+    syncYearStageState();
     updateMapStatus({ fitVisible: true });
   };
   requestAnimationFrame(reveal);
@@ -1949,12 +2049,14 @@ mapToolsToggle.addEventListener('click', () => {
   setMapControlsExpanded(mapToolsToggle.getAttribute('aria-expanded') !== 'true');
 });
 showAllSubjects.addEventListener('click', restoreAllSubjects);
-yearRange.addEventListener('input', () => {
-  state.introRevealActive = false;
-  state.maxYear = Number(yearRange.value);
-  syncYearStageState();
-  updateMapStatus();
+yearOptions.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-compare-year]');
+  if (!button) return;
+  toggleYearSelection(button.dataset.compareYear, { fitVisible: true });
 });
+clearYearSelection.addEventListener('click', () => activateYearSelection([], { fitVisible: true }));
+yearBoundaryCompare.addEventListener('click', () =>
+  activateYearSelection([state.availableYears[0], state.availableYears.at(-1)], { fitVisible: true }));
 searchForm.addEventListener('submit', (event) => {
   event.preventDefault();
   selectConceptEpisode(state.searchResultEpisodes[0]);
@@ -2003,7 +2105,13 @@ clearQuery.addEventListener('click', () => {
 document.querySelector('#workbench-close').addEventListener('click', () => closeWorkbench());
 scrim.addEventListener('click', () => closeWorkbench());
 window.addEventListener('popstate', route);
-window.addEventListener('resize', () => { if (state.mode === 'structure') renderConceptLayers(); });
+window.addEventListener('resize', () => {
+  if (state.mode === 'structure') renderConceptLayers();
+  if (!inspector.hidden) {
+    positionInspector(state.selectedEpisode?.id || null);
+    requestAnimationFrame(() => applyInspectorAvoidance());
+  }
+});
 window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if (!workbench.hidden) closeWorkbench();

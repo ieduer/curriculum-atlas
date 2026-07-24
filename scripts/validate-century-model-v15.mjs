@@ -183,12 +183,29 @@ record('ui.brand_and_title',
   'JPG mark and 百年课标 only');
 record('ui.inspector_avoids_selection',
   app.includes('function positionInspector(')
+    && app.includes('function applyInspectorAvoidance(')
+    && app.includes('function finalizeInspectorLayout(')
     && atlas.includes('getEpisodeScreenPosition(')
+    && atlas.includes('setViewportObstruction(rect, side)')
+    && atlas.includes("obstruction.side === 'bottom'")
     && styles.includes('.star-inspector.dock-left')
     && styles.includes('.star-inspector.dock-right')
-    && styles.includes('.star-inspector.overlap-softened'),
-  'edge-aware inspector hooks',
-  'opposite-edge docking plus translucent fallback');
+    && styles.includes('.star-inspector:not(.is-expanded)')
+    && styles.includes('.inspector-expand'),
+  'reserved inspector viewport hooks',
+  'opposite-edge desktop dock plus compact mobile dock with graph-safe obstruction');
+record('ui.multi_year_comparison',
+  html.includes('id="year-options"')
+    && html.includes('id="year-boundary-compare"')
+    && !html.includes('id="year-range"')
+    && !html.includes('type="range"')
+    && app.includes('selectedYears: new Set()')
+    && app.includes('function activateYearSelection(')
+    && app.includes('function toggleYearSelection(')
+    && atlas.includes('this.filters.selectedYears.size')
+    && atlas.includes('this.filters.selectedYears.has(node.year)'),
+  'exact multi-year selection hooks',
+  'arbitrary observed-year set plus 1902/latest shortcut, with no range-only scrubber');
 record('ui.dynamic_year_reveal',
   app.includes('function startCenturyReveal(')
     && app.includes('firstYear')

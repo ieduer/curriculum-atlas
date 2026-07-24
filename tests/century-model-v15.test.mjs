@@ -87,11 +87,16 @@ test('review queue is exhaustively triaged without opening citation gates', () =
   assert.equal(publicOcrSummary.release_gate.citation_allowed, false);
 });
 
-test('inspector uses opposite-edge docking and translucent mobile fallback', () => {
+test('inspector reserves a graph-safe viewport and uses a compact mobile fallback', () => {
   assert.match(app, /function positionInspector\(episodeId = null\)/);
+  assert.match(app, /function applyInspectorAvoidance\(/);
+  assert.match(app, /setViewportObstruction/);
+  assert.match(app, /focusSelection\(\)/);
   assert.match(styles, /\.star-inspector\.dock-left/);
   assert.match(styles, /\.star-inspector\.dock-right/);
   assert.match(styles, /\.star-inspector\.overlap-softened/);
+  assert.match(styles, /\.star-inspector:not\(\.is-expanded\)/);
+  assert.match(styles, /\.inspector-expand/);
   assert.match(styles, /max-height:\s*min\(36svh/);
 });
 
@@ -100,6 +105,9 @@ test('new header and progressive entry reveal are wired without a second axis', 
   assert.match(html, /<b>百年课标<\/b>/);
   assert.doesNotMatch(html, />纬<|20世纪—今天|century-timeline|century-track/);
   assert.match(app, /function startCenturyReveal\(\)/);
-  assert.match(app, /const firstYear = Number\(yearRange\.min\)/);
+  assert.match(app, /const firstYear = state\.minYear/);
   assert.match(app, /requestAnimationFrame\(reveal\)/);
+  assert.match(html, /id="year-options"/);
+  assert.match(html, /id="year-boundary-compare"/);
+  assert.doesNotMatch(html, /id="year-range"|type="range"/);
 });

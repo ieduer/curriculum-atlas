@@ -3,8 +3,8 @@
   "standard_id": "curriculum-atlas-century-model-v15",
   "passed": true,
   "counts": {
-    "checks": 19,
-    "passed": 19,
+    "checks": 20,
+    "passed": 20,
     "failed": 0,
     "public_subject_facets": 11,
     "storage_subject_facets": 12,
@@ -24,10 +24,10 @@
     "triage": "8a288fa8c75642a90af3ce67f4379a255a497a79e5adf1ee7822f15809b5f765",
     "fallback": "514beb453c594fbc74e1297bd6a446d041a6b8e37d68b518a6976ce252b15ed7",
     "publicOcrSummary": "b2535155bacce8052c32b1ed4f96fd81c89f7c2ed48d0e2c189651bdf9816e0a",
-    "app": "1e7d31b49684465c94ef32b3f0dc1611dea9b365b77b0cebc27847984c2228f0",
-    "atlas": "a10cfc7cb2942ffb16d32192376ce3dfb676cf170c85718bbf9b9dd6a7922315",
-    "html": "9e1a4e819d51170cd0c53a5d449ca96a17cb8dfade17d85341dd563948a12424",
-    "styles": "1ab34d70d88d3827ec52caf25140301b88612fe30153573d860f02633579604e",
+    "app": "0a438fca1ca4935825af025f4dc657c324fdd979f3be4139bdd01cb23586fc91",
+    "atlas": "b1b712b247597312b93446a417ce4375be7ce62eb19bfc0d913589311b9a95e2",
+    "html": "d2fef371fca213f9794e14eb9bbca1df3f3e7e5b51398f8b05a27a0a394d7138",
+    "styles": "89588c399a206eca867a977604b704d43b61c50b035d8d1a375ca59f55f3eea1",
     "mark": "ef5ce8e69373d4711dd71304cc7700ff6968fba4046d13b01d27e5519005cb01"
   },
   "checks": [
@@ -236,8 +236,14 @@
     {
       "id": "ui.inspector_avoids_selection",
       "passed": true,
-      "observed": "edge-aware inspector hooks",
-      "expected": "opposite-edge docking plus translucent fallback"
+      "observed": "reserved inspector viewport hooks",
+      "expected": "opposite-edge desktop dock plus compact mobile dock with graph-safe obstruction"
+    },
+    {
+      "id": "ui.multi_year_comparison",
+      "passed": true,
+      "observed": "exact multi-year selection hooks",
+      "expected": "arbitrary observed-year set plus 1902/latest shortcut, with no range-only scrubber"
     },
     {
       "id": "ui.dynamic_year_reveal",

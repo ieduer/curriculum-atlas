@@ -9,7 +9,7 @@ const [html, styles, appJs] = await Promise.all([
   readFile(new URL('public/app.js', root), 'utf8'),
 ]);
 
-const assetVersion = '20260723v37';
+const assetVersion = '20260723v38';
 
 function block(source, opening, closing = '}') {
   const start = source.indexOf(opening);
@@ -53,6 +53,9 @@ test('mobile inspector and workbench preserve the two-entry dock in the collapse
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*--mobile-dock-clearance:\s*164px;/);
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?\.cosmos-year-control \{[\s\S]*?bottom:\s*calc\(74px \+ env\(safe-area-inset-bottom\)\);/);
   assert.match(styles, /\.star-inspector \{[\s\S]*?inset:\s*auto 9px calc\(var\(--mobile-dock-clearance\) \+ env\(safe-area-inset-bottom\)\) 9px;/);
+  assert.match(styles, /\.star-inspector\.is-expanded\s*\{[\s\S]*?max-height:\s*min\(36svh/);
+  assert.match(styles, /\.star-inspector:not\(\.is-expanded\)/);
+  assert.match(styles, /\.inspector-expand\s*\{/);
   assert.match(styles, /body:has\(\.workbench:not\(\[hidden\]\)\) \.map-control-column \{ z-index: 82; \}/);
   assert.match(styles, /body:has\(\.workbench:not\(\[hidden\]\)\) \.map-tools-toggle,[\s\S]*?\.cosmos-year-control \{ visibility:\s*hidden; pointer-events:\s*none; \}/);
   assert.match(styles, /body:has\(\.workbench:not\(\[hidden\]\)\) \.map-control-column \.subject-cluster,[\s\S]*?visibility:\s*hidden; pointer-events:\s*none;/);

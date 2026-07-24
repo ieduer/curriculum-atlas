@@ -171,7 +171,7 @@ test('frontend subject controls consume strict display facets and hide all nodes
   assert.match(app, /citation\.displayFacet/);
   assert.match(app, /`\$\{doc\.title\}\$\{documentEntityLabel\(doc\)\}\$\{doc\.issued_by\}\$\{doc\.version_label\}`\.includes\(query\)/,
     'sources metadata/title query must retain assessment identities without claiming full-text coverage');
-  assert.match(atlas, /node\.year > this\.filters\.maxYear \|\| !episodeVisibleForSubjectFilter/);
+  assert.match(atlas, /node\.year > this\.filters\.maxYear[\s\S]*this\.filters\.selectedYears\.size[\s\S]*episodeVisibleForSubjectFilter/);
   assert.match(atlas, /!source \|\| !target \|\| !this\.visible\(source\) \|\| !this\.visible\(target\)/);
   assert.match(atlas, /color: episodeColor\(episode\)/);
   assert.match(atlas, /if \(node\.course\)[\s\S]*context\.rotate\(Math\.PI \/ 4\)/);
@@ -264,7 +264,7 @@ test('the cosmos fit API receives only visible nodes and honors the requested zo
   let drawCount = 0;
   let filterFit = null;
   const filtered = {
-    filters: { hiddenSubjects: new Set(), hideAll: false, maxYear: 2022, query: '' },
+    filters: { hiddenSubjects: new Set(), hideAll: false, maxYear: 2022, selectedYears: new Set(), query: '' },
     fitToVisibleGraph: (options) => {
       filterFit = options;
       return true;
@@ -281,6 +281,62 @@ test('the cosmos fit API receives only visible nodes and honors the requested zo
     hiddenSubjects: new Set(), hideAll: false, maxYear: 2022, query: '',
   });
   assert.equal(drawCount, 1, 'non-fitting filter changes must preserve the current camera and redraw only');
+});
+
+test('the cosmos exact-year filter can compare 1902 and 2022 without admitting intermediate years', () => {
+  const context = {
+    filters: {
+      hiddenSubjects: new Set(),
+      hideAll: false,
+      maxYear: 2022,
+      selectedYears: new Set([1902, 2022]),
+      query: '',
+    },
+    activeSelectionIds: new Set(),
+    subjects: ['语文'],
+  };
+  const node = (year) => ({
+    id: `chinese-${year}`,
+    year,
+    entityLabel: '语文',
+    episode: {
+      label: '语文',
+      aliases: [],
+      category: '课程名称',
+      curriculum_line: { stage: '小学' },
+      subject: { entity_kind: 'subject', facet_eligible: true, canonical: '语文', facet: '语文' },
+    },
+  });
+  assert.equal(CurriculumCosmos.prototype.visible.call(context, node(1902)), true);
+  assert.equal(CurriculumCosmos.prototype.visible.call(context, node(1950)), false);
+  assert.equal(CurriculumCosmos.prototype.visible.call(context, node(2022)), true);
+});
+
+test('the safe viewport excludes desktop side inspectors and mobile bottom inspectors', () => {
+  assert.deepEqual(
+    CurriculumCosmos.prototype.safeViewport.call({
+      width: 1440,
+      height: 1000,
+      viewportObstruction: { left: 1040, top: 104, right: 1410, bottom: 740, side: 'right' },
+    }),
+    { left: 54, top: 96, right: 1024, bottom: 916 },
+  );
+  assert.deepEqual(
+    CurriculumCosmos.prototype.safeViewport.call({
+      width: 1440,
+      height: 1000,
+      viewportObstruction: { left: 30, top: 104, right: 400, bottom: 740, side: 'left' },
+    }),
+    { left: 416, top: 96, right: 1416, bottom: 916 },
+  );
+  assert.deepEqual(
+    CurriculumCosmos.prototype.safeViewport.call({
+      width: 390,
+      height: 844,
+      viewportObstruction: { left: 9, top: 500, right: 381, bottom: 612, side: 'bottom' },
+    }),
+    { left: 8, top: 68, right: 382, bottom: 488 },
+  );
 });
 
 test('each public subject isolate is fail-closed and Chinese cannot inherit sports-course concepts', async () => {
