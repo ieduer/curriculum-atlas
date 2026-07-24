@@ -1,12 +1,12 @@
 # Curriculum Atlas 项目运维总账
 
-<!-- curriculum-operations-ledger-snapshot {"schema_version":1,"action_log_line_cutoff":2289,"action_log_prefix_sha256":"7ad9d99c5d83a10b0aff9c3042023dd7307fb76bfe0119c69d291eeb35e82c72","included_event_count":1205,"included_task_count":212,"included_event_sha256":"67c1ea1c72dbc56c6322f03287d61af26c903617386dcf02e0445f8bdb63b455","included_through":"2026-07-24T11:25:27.298Z"} -->
+<!-- curriculum-operations-ledger-snapshot {"schema_version":1,"action_log_line_cutoff":2290,"action_log_prefix_sha256":"d3c39391bf8d8494d289d48bf8ac33a4b827bd772443f97301dcf9c64c6318ec","included_event_count":1206,"included_task_count":212,"included_event_sha256":"c62971166f4d8d094fe45d10748afde19505f04e032b15eab7ff76162142a568","included_through":"2026-07-24T11:27:15.394Z"} -->
 
-生成时间：`2026-07-24T11:25:41.056Z`（America/Los_Angeles：`2026/07/24 04:25:41`）
+生成时间：`2026-07-24T11:27:19.842Z`（America/Los_Angeles：`2026/07/24 04:27:19`）
 
-覆盖区间：`2026-07-15T02:01:17.143Z` 至 `2026-07-24T11:25:27.298Z`；共 `212` 个任务、`1205` 条运维事件。
+覆盖区间：`2026-07-15T02:01:17.143Z` 至 `2026-07-24T11:27:15.394Z`；共 `212` 个任务、`1206` 条运维事件。
 
-本文件是项目内的可重建运维总账快照。事件明细来自 `/Users/ylsuen/CF/reports/agent_action_log.jsonl` 的 append-only 前 2289 行；前缀 SHA-256 为 `7ad9d99c5d83a10b0aff9c3042023dd7307fb76bfe0119c69d291eeb35e82c72`。本地数据数字来自生成时实际文件；Cloudflare 与远端 OCR 数字只引用带时间戳的最后一次只读核验。快照之后新增的日志属于待纳入事件，不会使已冻结发布提交失真；后来的状态不得回写覆盖历史，只能新增事件并在下一发布快照重新生成。
+本文件是项目内的可重建运维总账快照。事件明细来自 `/Users/ylsuen/CF/reports/agent_action_log.jsonl` 的 append-only 前 2290 行；前缀 SHA-256 为 `d3c39391bf8d8494d289d48bf8ac33a4b827bd772443f97301dcf9c64c6318ec`。本地数据数字来自生成时实际文件；Cloudflare 与远端 OCR 数字只引用带时间戳的最后一次只读核验。快照之后新增的日志属于待纳入事件，不会使已冻结发布提交失真；后来的状态不得回写覆盖历史，只能新增事件并在下一发布快照重新生成。
 
 ## 读数规则
 
@@ -39,12 +39,12 @@
 
 | 层 | 当前事实 | 状态判定 |
 |---|---|---|
-| Git | branch `main`; HEAD `6eea3a540c05b7d9ab6ef0807de59b163535288a`; origin/main `6eea3a540c05b7d9ab6ef0807de59b163535288a`; modified 5; untracked 0 | 生成器工作树含待提交文档变更；发布证据仍绑定已推送 commit；production environment evidence commit `67f2cecfa86b6d6ece47abb7c8fb36ad3b54400b` |
+| Git | branch `main`; HEAD `86939056d9f8b1b3c3fb88cf844a3823d4de1306`; origin/main `86939056d9f8b1b3c3fb88cf844a3823d4de1306`; modified 0; untracked 0 | 工作树 clean；production environment evidence commit `67f2cecfa86b6d6ece47abb7c8fb36ad3b54400b` |
 | Catalog | 196 records；verified_online 176；local_verified_scan 12；metadata_only 6；citation_ready 127；ocr_review_pending 88 | checked-in generated snapshot |
 | Ingest | 196 entries | 与 catalog ID 集合精确一致；物理文件另由 artifact registry 审计 |
 | Asset registry | 245 PDF paths / 209 unique SHA-256；201 canonical、3 variant、2 derived、3 quarantine | 遗漏 hash、处置冲突、路径/校验和漂移均 fail closed |
 | OCR queue | 名义 86 docs / 11847 pages；唯一实体 85 docs / 11779 pages；blocked 2 | 未完成且全部 fail-closed |
-| Local OCR evidence | 主 OCR/audit 名义 6947/11847，唯一实体 6879/11779；Vision 名义 7012，唯一实体 6944；failed 1 | 2026-07-24T11:25:23.186Z 本机快照；显示/引文合格 0 |
+| Local OCR evidence | 主 OCR/audit 名义 6947/11847，唯一实体 6879/11779；Vision 名义 7012，唯一实体 6944；failed 1 | 2026-07-24T11:27:01.245Z 本机快照；显示/引文合格 0 |
 | OCR machine disposition | 6947/6947 adjudicated；exact 31、blank 73、text conflict closed 5063、table conflict closed 1780、human required 0 | pending 0；冲突页终局 fail closed |
 | OCR publication | 26 accepted documents / 30 unique accepted pages / 44 paragraph candidates | display/citation page gates 已显式开放 30 页；未列页默认关闭 |
 | OCR generic observation | 83 complete documents / 10210 pages / 308 episodes / 308 evidence | 全部 nonsemantic、noncitable，不继承正式引文状态 |
@@ -230,6 +230,7 @@
 | `0f2f181ec4f8` | 2026-07-24T04:09:35-07:00 | test: bind v19 preview runtime evidence |
 | `efafbc1de81e` | 2026-07-24T04:12:09-07:00 | fix: stop intro reveal on discipline focus |
 | `6eea3a540c05` | 2026-07-24T04:16:02-07:00 | test: bind v46 preview runtime evidence |
+| `86939056d9f8` | 2026-07-24T04:26:44-07:00 | docs: close v19 discipline lineage release |
 
 ## 任务索引
 
@@ -446,9 +447,9 @@
 | 2026-07-24T05:10:17.356Z | 2026-07-24T06:08:48.767Z | `curriculum-atlas-v17-machine-citation-theme-chronology-20260723` | 7 | start, change, verify, closeout | No release blocker; follow-up is machine receipt completion for 6916 pages and explicit publication-manifest write-readback for 31 exact pages before any OCR citation-ready claim |
 | 2026-07-24T06:09:30.657Z | 2026-07-24T06:11:20.773Z | `curriculum-atlas-v17-doc-coherence-20260723` | 4 | start, change, verify, closeout | No release blocker; continue deterministic OCR and manifest roadmap recorded in project manual |
 | 2026-07-24T06:40:27.299Z | 2026-07-24T09:48:21.877Z | `curriculum-atlas-v18-machine-publication-light-lines-20260724` | 13 | start, change, verify, closeout | no release blocker; candidate observations remain nonsemantic and noncitable by design; immutable OCR conflicts remain terminal fail-closed unless a future reproducible machine receipt supersedes them |
-| 2026-07-24T10:47:45.860Z | 2026-07-24T11:25:27.298Z | `curriculum-atlas-v19-discipline-lineage-toggle-20260724` | 5 | start, change, verify | documentation commit, operations-ledger generation and browser-process closeout remain |
+| 2026-07-24T10:47:45.860Z | 2026-07-24T11:27:15.394Z | `curriculum-atlas-v19-discipline-lineage-toggle-20260724` | 6 | start, change, verify, closeout | no release blocker; source-explicit events remain bounded claims and candidate observations remain nonsemantic and noncitable unless a future governed receipt promotes them |
 
-### 未以 closeout 结束的历史任务（29）
+### 未以 closeout 结束的历史任务（28）
 
 这些任务可能已被后续任务 supersede，但 action log 中没有对应 closeout。它们必须保留为治理缺口，不能静默当作已完成。
 
@@ -480,11 +481,10 @@
 - `curriculum-atlas-A2-sealed-4e65975-Linux-gate`：最后阶段 `verify`，最后时间 `2026-07-22T12:31:22.515Z`；actual-hash-bound-state-omits-selected_pages-and-selected_pages_complete-while-validator-required-false-follow-up-review-needed
 - `curriculum-atlas-final-19-section-completion-20260722`：最后阶段 `start`，最后时间 `2026-07-22T12:43:11.852Z`；no-sealed-runtime-no-live-dry-run-no-service-start-no-apply-no-deploy-no-shared-hub-write-package-graph-bridge-excluded-until-research-merge
 - `curriculum-atlas-final-19-live-verified-981394d3`：最后阶段 `change`，最后时间 `2026-07-22T15:56:30.858Z`；corrected-ca8b2df-apply-requires-new-explicit-user-approval
-- `curriculum-atlas-v19-discipline-lineage-toggle-20260724`：最后阶段 `verify`，最后时间 `2026-07-24T11:25:27.298Z`；documentation commit, operations-ledger generation and browser-process closeout remain
 
 ## 截止点内完整 append-only 运维事件
 
-事件子集 SHA-256：`67c1ea1c72dbc56c6322f03287d61af26c903617386dcf02e0445f8bdb63b455`。以下 1205 条按任务首次 UTC 排序，任务内事件再按 UTC 排序；逐条保留 scope、resources、evidence、rollback 和 unresolved。
+事件子集 SHA-256：`c62971166f4d8d094fe45d10748afde19505f04e032b15eab7ff76162142a568`。以下 1206 条按任务首次 UTC 排序，任务内事件再按 UTC 排序；逐条保留 scope、resources、evidence、rollback 和 unresolved。
 
 <details><summary><code>curriculum-atlas-launch-20260714</code> · 3 events · 2026-07-15T02:01:17.143Z → 2026-07-17T02:04:05.894Z</summary>
 
@@ -11563,10 +11563,10 @@ Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas-preview
 
 </details>
 
-<details><summary><code>curriculum-atlas-v19-discipline-lineage-toggle-20260724</code> · 5 events · 2026-07-24T10:47:45.860Z → 2026-07-24T11:25:27.298Z</summary>
+<details><summary><code>curriculum-atlas-v19-discipline-lineage-toggle-20260724</code> · 6 events · 2026-07-24T10:47:45.860Z → 2026-07-24T11:27:15.394Z</summary>
 
 Agents：`codex-root`
-Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`curriculum.bdfz.net`、`curriculum-atlas/public/data/discipline-lifecycle.json`、`curriculum-atlas/public/app.js`、`curriculum-atlas/public/atlas.js`、`curriculum-atlas/public/styles.css`、`curriculum-atlas/data/data-quality-standard.json`、`curriculum-atlas/data/star-map-performance-budget.json`、`preview-version-7f6024f3-a8a8-4301-9414-8b42617ff732`、`curriculum-atlas/data/star-map-runtime-performance.json`、`curriculum-atlas/public/index.html`、`curriculum-atlas/data/star-map-performance-validation.json`、`curriculum-atlas/data/century-model-validation.json`、`curriculum-atlas/data/data-quality-validation.json`
+Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`curriculum.bdfz.net`、`curriculum-atlas/public/data/discipline-lifecycle.json`、`curriculum-atlas/public/app.js`、`curriculum-atlas/public/atlas.js`、`curriculum-atlas/public/styles.css`、`curriculum-atlas/data/data-quality-standard.json`、`curriculum-atlas/data/star-map-performance-budget.json`、`preview-version-7f6024f3-a8a8-4301-9414-8b42617ff732`、`curriculum-atlas/data/star-map-runtime-performance.json`、`curriculum-atlas/public/index.html`、`curriculum-atlas/data/star-map-performance-validation.json`、`curriculum-atlas/data/century-model-validation.json`、`curriculum-atlas/data/data-quality-validation.json`、`cloudflare_business_audit_2026-05-23.md`
 
 ### 2026-07-24T10:47:45.860Z · start · codex-root
 
@@ -11607,6 +11607,14 @@ Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas-preview
 - Evidence：Preview 16 of 16 runtime; production 55653436-b55a-4aef-986d-b11dbd84b36e deployment eb93d28c-aa96-48ac-80e1-0a4af031c75e; health 200 no-store v19 release Git 6eea3a5 and exact ready corpus; early click during 42 of 58 reveal stayed all 58 years and exactly civics history geography after 3.8 seconds; second clicks restored parent lineage then 11 subjects; brand navigation cleared marker and query via full navigate
 - Rollback：restore production c876f21f-2a86-4a5a-b847-a549541b9afb for v45 or 10c8d648-26d7-4e26-bd99-61b80dd9e0cc for v18 baseline; no D1 or R2 rollback required
 - Unresolved：documentation commit, operations-ledger generation and browser-process closeout remain
+
+### 2026-07-24T11:27:15.394Z · closeout · codex-root
+
+- Scope：Complete v19 subject-century lineage model, reversible controls, production deployment, documentation, canonical report and browser ownership closeout
+- Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`curriculum.bdfz.net`、`cloudflare_business_audit_2026-05-23.md`
+- Evidence：Production 55653436-b55a-4aef-986d-b11dbd84b36e live v19 with v46 assets; 11 subject lineages and 9 source-explicit events; social grouping exact three facets across all 58 years; second-click restoration and full brand refresh verified; data quality 39 of 39 century model 24 of 24 deep models 11 of 11 runtime 16 of 16 Node tests pass; docs commit 8693905 pushed; dry-run matched only xue-live-r6 owned by another task and acted zero; task named browsers none; app-owned Playwright MCP untouched
+- Rollback：production c876f21f-2a86-4a5a-b847-a549541b9afb for v45 or 10c8d648-26d7-4e26-bd99-61b80dd9e0cc for v18; source tag curriculum-baseline-20260724-v18-10c8d648 and backup branch backup/curriculum-v19-discipline-lineage-toggle-20260724; no D1 or R2 rollback required
+- Unresolved：no release blocker; source-explicit events remain bounded claims and candidate observations remain nonsemantic and noncitable unless a future governed receipt promotes them
 
 </details>
 
