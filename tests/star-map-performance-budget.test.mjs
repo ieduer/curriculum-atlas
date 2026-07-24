@@ -29,5 +29,7 @@ test('the Canvas publishes bounded runtime diagnostics without adding a second v
   assert.match(atlas, /this\.drawDurations\.length > 120/);
   assert.match(app, /__CURRICULUM_ATLAS_DIAGNOSTICS__/);
   assert.match(app, /PerformanceObserver\.supportedEntryTypes\?\.includes\('longtask'\)/);
+  assert.match(app, /diagnosticsReadyAt - diagnosticsStartedAt/);
+  assert.match(app, /entry\.startTime >= diagnosticsStartedAt/);
   assert.doesNotMatch(app, /performance-dashboard|second-canvas/);
 });

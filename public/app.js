@@ -1,5 +1,5 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v33';
-import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v33';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v34';
+import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v34';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -7,15 +7,20 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260723v33';
+} from './subject-facets.js?v=20260723v34';
 
+const diagnosticsStartedAt = performance.now();
+let diagnosticsReadyAt = null;
 const longTasks = [];
 if ('PerformanceObserver' in window && PerformanceObserver.supportedEntryTypes?.includes('longtask')) {
   const observer = new PerformanceObserver((list) => {
-    longTasks.push(...list.getEntries().map((entry) => ({
-      start_ms: Number(entry.startTime.toFixed(3)),
-      duration_ms: Number(entry.duration.toFixed(3)),
-    })));
+    longTasks.push(...list.getEntries()
+      .filter((entry) => entry.startTime >= diagnosticsStartedAt
+        && (diagnosticsReadyAt === null || entry.startTime <= diagnosticsReadyAt))
+      .map((entry) => ({
+        start_ms: Number((entry.startTime - diagnosticsStartedAt).toFixed(3)),
+        duration_ms: Number(entry.duration.toFixed(3)),
+      })));
   });
   observer.observe({ type: 'longtask', buffered: true });
 }
@@ -135,12 +140,12 @@ async function api(path, options) {
 async function loadBase() {
   if (state.meta) return;
   const [conceptGraph, ocrLayer, detailLayer, pre2001Layer, centuryLayer, evolutionLayer, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v33'),
-    api('/data/ocr-observation-layer.json?v=20260723v33'),
-    api('/data/subject-detail-observation-layer.json?v=20260723v33'),
-    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v33'),
-    api('/data/century-observation-layer.json?v=20260723v33'),
-    api('/data/concept-evolution-families.json?v=20260723v33'),
+    api('/data/concept-evolution.json?v=20260723v34'),
+    api('/data/ocr-observation-layer.json?v=20260723v34'),
+    api('/data/subject-detail-observation-layer.json?v=20260723v34'),
+    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v34'),
+    api('/data/century-observation-layer.json?v=20260723v34'),
+    api('/data/concept-evolution-families.json?v=20260723v34'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -1536,9 +1541,10 @@ function initializeCosmos() {
   renderEraControls();
   updateMapStatus();
   loading.classList.add('ready');
+  diagnosticsReadyAt = performance.now();
   window.__CURRICULUM_ATLAS_DIAGNOSTICS__ = () => ({
     ready: true,
-    ready_ms: Number(performance.now().toFixed(3)),
+    ready_ms: Number((diagnosticsReadyAt - diagnosticsStartedAt).toFixed(3)),
     graph: state.cosmos.performanceSnapshot(),
     data: {
       episodes: state.conceptGraph.episodes.length,
