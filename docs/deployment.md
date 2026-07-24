@@ -116,6 +116,11 @@ npm run historical:reader:publish:production -- --apply
 
 发布命令不带 `--apply` 时只读取远端 pointer 并输出 dry-run。`--apply` 顺序为 461 个 item objects 与 manifest 上传 → 462/462 全量 readback → 最后写入 `historical-reader/current.json` → pointer readback。中断且 pointer 未切换时，旧版不受影响；pointer 已切换时必须完成 readback。回滚只恢复 predecessor pointer 原始 bytes，immutable objects 保留供审计；若 predecessor 为 `null`，移除 current pointer 即关闭入口，不能删除整桶。
 
+若日志已经证明 immutable 上传阶段完整结束、但全量 readback 因 Cloudflare API 的
+429/5xx 瞬时错误中断，可用同一命令追加 `--resume-readback`，只重做 462/462
+全量 hash readback，再切 pointer；发布器只对 429/5xx 做最多五次的有界退避，
+其他错误仍立即 fail-closed。不得在上传阶段未完整结束时使用该选项。
+
 ### 6. API、浏览器与依赖验收
 
 ```bash

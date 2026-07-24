@@ -38,6 +38,9 @@ test('original scans remain private, bounded and explicitly non-citable', () => 
   assert.match(builder, /scope: 'bounded_item_only'/);
   assert.match(builder, /original_image_format: 'source_pdf_page_fragment'/);
   assert.match(publisher, /historical-reader\/current\.json/);
+  assert.match(publisher, /WRANGLER_MAX_ATTEMPTS = 5/);
+  assert.match(publisher, /--resume-readback/);
+  assert.match(publisher, /resuming at full readback/);
   assert.doesNotMatch(builder, /public\/data\/historical-reader/);
   assert.match(styles, /\.historical-reader-shell iframe/);
   assert.match(headers, /frame-src 'self' https:\/\/challenges\.cloudflare\.com/);

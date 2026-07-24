@@ -26,16 +26,24 @@ function requireValue(condition, message) {
 }
 
 function parseArgs(argv) {
-  const options = { apply: false, remote: false, bucket: '' };
+  const options = {
+    apply: false,
+    remote: false,
+    resumeReadback: false,
+    bucket: '',
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--apply') options.apply = true;
     else if (arg === '--remote') options.remote = true;
+    else if (arg === '--resume-readback') options.resumeReadback = true;
     else if (arg === '--bucket') options.bucket = argv[++index] || '';
     else throw new Error(`unknown argument: ${arg}`);
   }
   requireValue(options.bucket, '--bucket is required');
   requireValue(options.remote, '--remote is required');
+  requireValue(!options.resumeReadback || options.apply,
+    '--resume-readback requires --apply');
   return options;
 }
 
@@ -54,24 +62,46 @@ async function mapLimit(values, limit, callback) {
 }
 
 let wranglerCall = 0;
+const WRANGLER_MAX_ATTEMPTS = 5;
+
+function isTransientWranglerFailure(failure) {
+  return /(?:\b429\b|\b5(?:00|02|03|04|20|21|22|23|24)\b|connection timed out|network connection lost|fetch failed|ECONNRESET|ETIMEDOUT)/i
+    .test(failure);
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 async function wrangler(args, { allowMissing = false } = {}) {
-  wranglerCall += 1;
-  const logRoot = path.join(PACKAGE_ROOT, 'wrangler-logs');
-  await mkdir(logRoot, { recursive: true });
-  try {
-    return await execFileAsync('npx', ['wrangler', ...args], {
-      cwd: ROOT,
-      env: {
-        ...process.env,
-        WRANGLER_LOG_PATH: path.join(logRoot, `${process.pid}-${wranglerCall}.log`),
-      },
-      maxBuffer: 8 * 1024 * 1024,
-    });
-  } catch (error) {
-    const failure = `${error.stdout || ''}\n${error.stderr || ''}\n${error.message || ''}`;
-    if (allowMissing && failure.includes('The specified key does not exist.')) return null;
-    throw new Error(`wrangler ${args.slice(0, 4).join(' ')} failed: ${error.stderr || error.message}`);
+  for (let attempt = 1; attempt <= WRANGLER_MAX_ATTEMPTS; attempt += 1) {
+    wranglerCall += 1;
+    const logRoot = path.join(PACKAGE_ROOT, 'wrangler-logs');
+    await mkdir(logRoot, { recursive: true });
+    try {
+      return await execFileAsync('npx', ['wrangler', ...args], {
+        cwd: ROOT,
+        env: {
+          ...process.env,
+          WRANGLER_LOG_PATH: path.join(logRoot, `${process.pid}-${wranglerCall}.log`),
+        },
+        maxBuffer: 8 * 1024 * 1024,
+      });
+    } catch (error) {
+      const failure = `${error.stdout || ''}\n${error.stderr || ''}\n${error.message || ''}`;
+      if (allowMissing && failure.includes('The specified key does not exist.')) return null;
+      if (attempt < WRANGLER_MAX_ATTEMPTS && isTransientWranglerFailure(failure)) {
+        const delay = 500 * (2 ** (attempt - 1));
+        process.stderr.write(
+          `[historical-reader] transient Wrangler failure; retry ${attempt + 1}/${WRANGLER_MAX_ATTEMPTS} in ${delay}ms\n`,
+        );
+        await wait(delay);
+        continue;
+      }
+      throw new Error(`wrangler ${args.slice(0, 4).join(' ')} failed: ${error.stderr || error.message}`);
+    }
   }
+  throw new Error('unreachable Wrangler retry state');
 }
 
 async function getRemote(bucket, key, target, allowMissing = false) {
@@ -123,20 +153,26 @@ if (!options.apply) {
   process.exit(0);
 }
 
-let uploaded = 0;
-await mapLimit(objects, 6, async (object) => {
-  const localPath = path.join(releaseRoot, object.local_path);
-  await wrangler([
-    'r2', 'object', 'put', `${options.bucket}/${object.key}`,
-    '--file', localPath,
-    '--content-type', object.content_type,
-    '--remote',
-  ]);
-  uploaded += 1;
-  if (uploaded % 25 === 0 || uploaded === objects.length) {
-    process.stderr.write(`[historical-reader] uploaded ${uploaded}/${objects.length}\n`);
-  }
-});
+if (options.resumeReadback) {
+  process.stderr.write(
+    `[historical-reader] resuming at full readback for ${objects.length} expected immutable objects\n`,
+  );
+} else {
+  let uploaded = 0;
+  await mapLimit(objects, 6, async (object) => {
+    const localPath = path.join(releaseRoot, object.local_path);
+    await wrangler([
+      'r2', 'object', 'put', `${options.bucket}/${object.key}`,
+      '--file', localPath,
+      '--content-type', object.content_type,
+      '--remote',
+    ]);
+    uploaded += 1;
+    if (uploaded % 25 === 0 || uploaded === objects.length) {
+      process.stderr.write(`[historical-reader] uploaded ${uploaded}/${objects.length}\n`);
+    }
+  });
+}
 
 const readbackRoot = path.join(workingRoot, pointer.release_id);
 await mkdir(readbackRoot, { recursive: true });
