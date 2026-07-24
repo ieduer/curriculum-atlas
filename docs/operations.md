@@ -1,130 +1,103 @@
 # 运维与八点验证标准
 
-> 完整历史、Git 时间线、append-only 事件、回滚与未决项见 [`project-operations-ledger.md`](project-operations-ledger.md)。总账由 `npm run ops:ledger` 重建；本文件只给当前运行标准和最近一次已证明状态。
+> 完整 Git 时间线、append-only 事件和历史回滚见 [`project-operations-ledger.md`](project-operations-ledger.md)。本文件只定义当前 v18 运行标准。
 
-## 当前检查点（2026-07-23）
+## 当前检查点
 
-- 两端 D1 已应用 `0001`–`0007`；Worker 为 `2026.07.16-v10`，health 合同为 schema 3 / taxonomy 2 / page publication 1。
-- Corpus `corpus-358471fcce862b2f0ae446fc` 在 preview 与 production 均为 `ready`：196 documents、16,456 paragraphs、16,456 FTS rows、6,031 page gates、16,456 displayed paragraphs、0 accepted OCR documents、91/91 chunks。
-- Taxonomy 为 159 subject、1 assessment subject、16 curriculum course、20 scope；公开 12 个 display facets，普通学科 API 仅接受 28 个 exact query identities。
-- Production Worker version `ecf4fb36-a231-4e9a-97f7-cf3664391e35`，Assets Git `380a6f18bc5c23bd035b2130eeac165c8d6431ad`。
-- Preview Worker version `a4acdac0-5c57-4bd6-9087-679a9892037d`，Assets Git `e15a72b634c54ffafe1a0b61edbbaddd33a744ea`。
-- Production R2 current 为 `release-9cb02f77c06ee0535e7981a22b312373`；preview 为 `release-841a528f0086ce69f2f7a6f2d07c0999`。
-- 环境证据提交为 `036206ead16b788618db7c4963eb58f363565d31`；完整本地发布链通过 568/568 Node tests、14/14 Python tests、TypeScript、asset audit、release manifest 与 Wrangler dry-run。两端部署后 evidence focused tests 10/10，最终 manifest `release-2167df6d1d32e65f3c877052a30a0c0d` blockers 0。
-- Production 只读终验事件由任务 `curriculum-atlas-subject-detail-drilldown-20260723` 于 2026-07-23 UTC 记录：桌面／手机与 12 科逐科实点通过，单一 Canvas、无第二 timeline、移动端无横向溢出，Pulse 738 requests / 0 errors。
-- 单一星图已合并所有学科百年候选投影：134 个 archive items 保留 1,482 条 1902–2000 OCR 来源观察，教育部目录补入 44 条 2011／2020／2022 当代名称观察；按概念 × 年份 × 学科分面投影为 1,031 颗星、3,202 条 evidence、952 条同词面序列与 155 条同篇共现关系。另由 32 册／3,044 页完整课标 OCR 产生 40 个受控的实践、内容、能力概念、97 个版本星点与 420 条有界 evidence。五层共 55 条同层概念演进族，覆盖 12/12 学科、1,171 个观察点，含 1,027 条同词面实线与 59 条编辑对应实线；其中 36 条为逐科实践／内容／能力族。全部 citation/semantic/influence 闸门关闭。
+- Production：Worker `10c8d648-26d7-4e26-bd99-61b80dd9e0cc`，deployment `38cb4825-ff25-498b-9fbb-c9fb4c9d394a`，Assets Git `e34e5af224f3c431618d11bcf7f6866f7636b69f`。
+- Preview：Worker `f90b350a-6880-43f3-a6ec-c93a602829e3`，deployment `e166e393-68d6-4f57-9469-46a4bde7bd21`，Assets Git `67733f9c2203dd8b41612847037b90cfd0cba226`。
+- 两端 D1 migration `0001`–`0007`，corpus `corpus-1c4f6b41737380f3e71246dd` ready，R2 current `release-cd9ec4a050cbabbede744192398ebfa7`。
+- 单一星图：2,415 episodes、3,144 edges、5,304 evidence；55 families、1,648 memberships；11 个公开学科分面。
+- OCR：6,947/6,947 页机器终局；30 个唯一可引页；83 份完整文件／10,210 页进入 308 个候选观察；462/462 个 2001 年前 bounded identities 通过。
 
 ## 1. Source of truth
 
-代码、schema、生成规则与公开元数据来源：`/Users/ylsuen/CF/curriculum-atlas`。本机原 PDF、`data/ocr-queue.json`、OCR state、Vision witness、exact audit、在线同版核验和人工裁决是 OCR 接入权威；D1/R2 是可重建的部署产物，不能反向覆盖来源。
+代码、schema、builder、公开元数据和发布收据来源为 `/Users/ylsuen/CF/curriculum-atlas`。原 PDF/页图和被冻结的本机 OCR evidence 是原始事实；D1、R2、Worker Assets 是可重建部署物。
 
-`data/release-environment-evidence.json` 绑定采集时的 Worker、D1、corpus 与 Assets；它不是会随 R2 pointer 自动更新的远端数据库。Evidence 之后的 R2 激活必须由 append-only action-log 的 pointer/manifest/object readback 证明，并明确标记观测时间。
+四种状态不得混写：
 
-DMITPro2 inner workstation 的 partial14 output 只属于隔离 staging。B-r1 的已有 state、attempt 和 page artifacts 不得在改变并发/idle/runtime identity 后直接复制为 B-r2；必须先实现并测试 hash-bound seed lineage，生成 predecessor receipt，再验签每个复用 page hash 和 attempt ledger。
+- OCR machine disposition：页级机器裁决；
+- page/corpus publication：正式显示与引文；
+- candidate observation：星图词面候选；
+- semantic relation：独立证据支持的语义关系。
+
+`data/release-environment-evidence.json` 是采集快照，不自动跟随随后激活的 R2 pointer；post-evidence pointer 必须由 append-only readback 事件证明。
 
 ## 2. Health probe
 
-`GET /api/health` 必须返回 200、`ok=true`，并满足：
+`GET /api/health` 必须为 200、`ok=true`，并满足：
 
-- `version=2026.07.16-v10`；
-- `schemaVersion=3`、`classificationSchemaVersion=2`、`pagePublicationSchemaVersion=1`；
-- classifications 为 196/196：159 subject、1 assessment subject、16 course、20 scope、0 unclassified；
-- 12 display facets、28 exact subject query identities；
-- D1、R2、APIS、User Center、Assets 五项 binding 为 true；
-- current corpus 为 `ready`，expected/actual/live 的 documents、paragraphs、FTS、page gates、displayed、accepted OCR 与 chunk receipts 精确一致。
+- `version=2026.07.24-v18`；
+- schema 3、taxonomy 2、page-publication 1；
+- 196/196 classifications，159 subject、1 assessment subject、16 course、20 scope、0 unclassified；
+- 12 storage facets、11 public facets；
+- D1、R2、APIS、User Center、Assets 五项 binding 全真；
+- current corpus `ready`，expected/actual/live 精确为 196 / 16,500 / 16,500 / 8,808 / 16,500 / 26 / 103。
 
-任一 corpus drift 必须返回 503。`/api/source-manifest` 若看到 current pointer，必须核验 pointer、versioned manifest 和目标 ingest object；pointer 存在但损坏时不能回退 stable key。
+任一 corpus drift 返回 503。
 
 ## 3. Contract check
 
-- `/api/meta`：12 facets、28 ordinary subject query identities、1 个与语文 facet 相关但不进入普通 subject query 的 `汉语` assessment identity、16 courses。
-- `/api/documents?limit=200`：总数 196；`subject=汉语` 必须 400；普通语文学科查询不得混入汉语考试资料。
-- 技术课程保持 `curriculum_course` 且 `display_facet=null`；课程、评价领域、资料汇编与跨领域框架不得伪装成学科。
-- `/api/search` 和 AI retrieval 只返回文档/段落双重白名单内容；未登录 AI 401，非法 Origin 讨论写入 403，无 secret 不可 fail open。
-- `/api/compare?subject=语文`、资料 manifest、AI citations 的 taxonomy kind/facet 必须与 D1 身份一致。
-- `release/current.json`、release manifest、17 个 versioned objects 与本地来源必须逐字节匹配。
-- 首页只有一个 Canvas；时间只作为 episode 年份坐标和左侧「百年纵轴」筛选。134 个历史篇目只能进入 `/archive` / evidence，`/timeline` 必须改写到 `/archive`，DOM 不得出现 `#century-timeline` 或 `#century-track`。
-- `century-observation-layer.json` 必须保持 134 items、1,482 OCR 来源观察、44 编目标题观察与 12 个学科分面；`#star_projection` 必须保持 1,031/3,202/952/155 当前计数与 `one_strongest_bounded_observation_per_concept_year_subject_facet` 粒度。`subject-detail-observation-layer.json` 必须保持 12 分面、32 册、3,044 页、40 个概念、97 episodes、420 evidence，来源 hash、全页完成与零失败页逐一校验。`concept-evolution-families.json` 必须保持 5 层 / 55 族 / 12 分面 / 1,171 memberships，其中 36 条为实践／内容／能力族；劳动的三族明示 `single_version_2022`，不得把缺失版本写成不存在。每星至少一条 evidence，所有候选与对应关系保持 fail-closed、nonsemantic、noncausal。OCR 新批次只经确定性 builder 追加到同一星图。
-
-Production R2 最近一次独立读回：
-
-- pointer 388 bytes，SHA-256 `5142166d000fbf82e6d0a9d135a5340ba3c9d77f3bed803967ad565ff8c2133a`；
-- manifest 107,777 bytes，SHA-256 `a6a15ea83cc58b1b84f5587a110c0fddeb414f24c77ff534507ea96868c03964`；
-- 17/17 unique release objects 共 546,648 bytes，manifest / remote GET / local source 三方一致；
-- `/api/source-manifest` 55,183 bytes，SHA-256 `0f0fda279b10ef40011ea28477deb528ed5d45b7478dfd93a8b7bf6d0b1cb16e`。
+- `data/data-quality-standard.json` 的 34 项检查必须全过，且 `manual_override_allowed=false`。
+- 6,947 页机器裁决：31 exact + 73 blank + 5,063 text-conflict closed + 1,780 table-conflict closed，pending 0、human-required 0。
+- 正式 publication：31 receipts → 30 unique pages → 26 documents → 44 paragraph candidates；未列入 manifest 的页默认关闭。
+- 候选层：83 complete documents、10,210 pages、308 episodes，全部 `semantic=false`、`citation_allowed=false`。
+- 462 个 pre-2001 identity receipts 必须唯一、来源页段闭包、failed 0。
+- 55 同层 families、1,648 memberships、1,348 edges 的端点、年份方向、证据和 fail-closed claim policy 必须全部有效。
+- 历史与历史社会在存储身份上分开、公开检索合并为“历史”；不得自动判为 identity equivalent。
+- 首页只有一张 Canvas；不得出现第二 timeline 或虚线 primitive。
 
 ## 4. Deploy and forbidden actions
 
-标准流程见 [`deployment.md`](deployment.md)：冻结与回滚锚点 → migrations → compatible Worker → exact corpus import → environment evidence commit/push → full verify → versioned R2 pointer → API/browser/dependency QA。
+标准流程见 [`deployment.md`](deployment.md)：回滚锚点 → deterministic builders/full verify → preview corpus/Worker/evidence/runtime/browser → production corpus/Worker/evidence → R2 pointer → production browser/readback。
 
-禁止：
+禁止 dirty-tree 部署、跳过 receipt、覆盖 immutable R2 key、把 candidate 冒充 citation、生成冲突页第三份文本、修改共享 hub 或旧 OCR runtime。
 
-- dirty-tree 或 stale evidence 发布；
-- 在旧 Worker 上导入新 schema/corpus，或在 corpus 非 ready 时开放业务 API；
-- corpus 中断后盲目重放 chunk；
-- R2 中断后覆盖 immutable objects 或盲目重跑 publisher；
-- 绕过 `apis` 直连 Gemini，或绕过 User Center 新建叶项目账户；
-- 把原 PDF、完整受版权约束 OCR、secret、cookie、session 或用户内容放入公开 R2/Git/报告；
-- 把远端 OCR staging、Vision 页数或机器排空写成 display/citation accepted。
+## 5. Dependency and browser regression
 
-## 5. Dependency regression
+每次生产发布至少验证：
 
-发布后检查：
+- `my.bdfz.net/site-auth.js`、`apis.bdfz.net`、Nav 注册与 Pulse tracking 的只读合同；
+- 1440×1000 与 390×844；
+- 单一 Canvas、暗/亮主题、多年份任意组合、年代和年份模式互斥；
+- 实际点击星点后整族高亮、关系线为实线、镜头放大；
+- inspector 不覆盖 safe viewport：桌面移到星群对侧，手机置于底部；
+- `scrollWidth=innerWidth`，console error/warning 0；
+- 命名浏览器关闭和 Playwright orphan dry-run。
 
-- `my.bdfz.net/site-auth.js` 与 anonymous session contract；
-- `nav.bdfz.net/sites.json` 中 `curriculum.bdfz.net` 唯一；
-- User Center、portal、Companion 与 Pulse 源码注册仍存在；
-- `apis.bdfz.net` health 正常，AI 回答不越引文闸门；
-- Pulse `/api/meta` 与 `/api/range` 包含 curriculum；
-- desktop/mobile 星图：默认 `12/12 · 全部显示`、可一键「全开」、全隐藏为零关系、单学科自动适配、语文不出现“运动能力”、概念深挖/资料版本/AI讨论共用工作台、无 horizontal overflow；
-- 浏览器会话关闭，并运行 Playwright orphan dry-run。
-
-视觉结论必须来自带时间的 append-only `verify` 事件。当前 production 事件由任务 `curriculum-atlas-subject-detail-drilldown-20260723` 记录：1440×1000 与 390×844 均为单一 Canvas、单一年份控件、12/12 学科全开，移动端 `scrollWidth=innerWidth=390`。12 个学科按钮逐一实点均进入 `1/12` 单科视图并恢复全开；`/terms` 深链分别验证数学「数学活动」3 点、外语「话题／主题」5 点、地理「地理实践能力／地理实践力」5 点与劳动「劳动能力」2022 单版本标记，检查器与星图同时呈现整族。Preview 与 production console warnings/errors 均为 0。未来 release 仍需新事件，不能沿用本次结果。
-
-同一事件回读 health 200 / corpus ready / 五项 bindings 全真；User Center `site-auth.js` 与 APIS health 为 200，Nav 唯一命中 `curriculum.bdfz.net`，Pulse 为 tracked / worker_analytics / 738 requests / 0 errors。D1、R2、VPS、OCR runtime 与共享 hub 本次均无 mutation。
+v18 实测：1902 + 2022 对比 223 个可见星点；“阅读与鉴赏”4 个同层概念／58 个观察点同时亮起；亮色深蓝实线清晰；desktop/mobile 均无 overflow。
 
 ## 6. Backup and restore
 
-D1 使用 Time Travel；发布前保存 bookmark 和用户数据基线。Production v10 prechange bookmark：`0000002b-00002585-000050ab-8645885d977dc9bf5678e6cdf12b084f`。代码进入 Git；原 PDF 与 OCR evidence 长期保留，不以 D1/R2 替代。
+- Production D1：bookmark `000000d6-00000000-000050b2-6e1bdf145e5aea4b984d2581ca5724f9`；非 FTS 业务 SQL backup SHA-256 `f818303b79fee2c41d7a5d2ef24542edff42e9a0d9b228a225c9c04319c3fc4f`，27,778,486 bytes。
+- Preview D1：bookmark `00000071-00000000-000050b2-0b529d53eb22aae53e6dc536a85995cc`；非 FTS 业务 SQL backup SHA-256 `1d082642da0e5b8b0ea44c71ba12c903c39a558ea3a86591859127139e62533e`，27,806,245 bytes。
+- Git：tag `curriculum-baseline-20260724-v17-3f8951d8`；backup branch `backup/curriculum-v18-machine-publication-light-lines-20260724`。
+- 私有加密档案索引：`backups/curriculum-atlas/private-archive/20260717T021000Z/archive-index.json`。密钥不进入 Git、报告或日志。
 
-私有加密档案索引：`backups/curriculum-atlas/private-archive/20260717T021000Z/archive-index.json`。远端精确前缀包含 14 个 encrypted parts 与最后写入的 index，共 15 objects / 3,304,581,750 bytes；全量 GET、逐 part hash、decrypt、decompress 与 raw 246/246、evidence 81,318/81,318 manifest replay 均零缺失、零额外、零问题。密钥不进入项目文件或日志。
-
-讨论、举报、限流、AI citation log 与内容审计是用户/运维数据，corpus rebuild 不得清空。任何 D1 Time Travel 恢复前必须确认 bookmark 之后是否出现合法写入。
+Time Travel 恢复前先检查 bookmark 后的合法用户写入；业务 SQL 是辅助审计副本，不包含 FTS virtual table，不能描述为整库备份。
 
 ## 7. Rollback
 
-Production Worker v7 `7d1766b2-32be-4ce1-9528-f6c69bb2a092` 与 D1 prechange bookmark 是耦合回滚锚点：v7 不兼容 taxonomy schema 2，单独回 Worker 会返回 503。只有 forward repair 失败且确认无后续合法用户写入时，才同时回 D1 + Worker，并完成全套 API/browser regression。
+- Production Worker predecessor：`3f8951d8-28ce-4b53-b936-5411b4d23b73`
+- Preview Worker predecessor：`faa7a9bf-e010-42d7-b635-332486f4b0fc`
+- Production R2 predecessor：`release-9cb02f77c06ee0535e7981a22b312373`
+- Preview R2 predecessor：`release-841a528f0086ce69f2f7a6f2d07c0999`
 
-R2-only 回滚不需要回 D1/Worker：
-
-- production 首次 bootstrap：删除且只删除 `release/current.json`，使 v10 回到已验证 stable-key fallback；
-- preview：恢复已备份 predecessor pointer bytes，指回 `release-b1c8c31d00e0016ad885ae5c9e92cad1`；
-- 不删除任何 immutable release objects；恢复后 GET pointer、manifest 与 ingest object 核对 hash/bytes。
-
-Publisher 中断后先读取远端 pointer/manifest/object set。Pointer 未切换时旧 release 仍在线，已上传对象可安全保持未引用；pointer 已切换时先完成 readback。两种情况都不得盲目重跑。
+R2-only 回滚只恢复 predecessor pointer bytes，保留 immutable v18 objects。回到 v17 Worker 时必须耦合评估 D1，因为旧 Worker 内嵌旧 corpus fingerprint/counts。
 
 ## 8. Last verified
 
-Release evidence 观测于 2026-07-23 UTC，环境证据 commit `036206ead16b788618db7c4963eb58f363565d31`；production Assets Git `380a6f18bc5c23bd035b2130eeac165c8d6431ad`，preview Assets Git `e15a72b634c54ffafe1a0b61edbbaddd33a744ea`。两端 health 200、migrations 0001–0007、corpus ready，production/preview Worker 见本文检查点。D1、R2 pointer/objects、VPS、OCR runtime 与共享 hub 本次均无 mutation。
+Production evidence 采集于 `2026-07-24T09:15:43.645Z`：Worker `10c8d648…`、deployment `38cb4825…`、health 200、corpus ready、五项 assets byte parity 通过。随后 production R2 在 17/17 object readback 后于 `2026-07-24T09:18:57.787Z` 激活 `release-cd9ec4…`。
 
-Production 真实浏览器证明：1440×1000 主星图无横向溢出、无右侧常驻栏、无第二 timeline DOM；左侧学科矩阵完整显示 12/12，年份、检索、模式、资料/研究与百年证据互不遮挡。390×844 证明 `scrollWidth=innerWidth=390`；`/terms` 检查器显示实践、内容、能力同层演进族与自身有界 OCR 证据；console errors/warnings 为 0。Preview 同样通过桌面与移动回归。
+正式浏览器只读验收：
 
-当前百年候选投影是 OCR 词面观察，不是引文或史学结论。全量 OCR 结束后仍须按 `PROJECT_MANUAL.md` 的 source hash → bounded item → controlled surface → candidate projection → preview → production 链持续追加；人工页核、版次核对与语义发布保持独立闸门。
-
-## OCR 日常运维
-
-- `npm run ocr:watchdog:status`：看 watchdog control、owner 与 heartbeat；
-- `npm run ocr:status`：看 11,847 页队列、primary、Vision、audit、review、quarantine 与 accepted；
-- `npm run ocr:check`：机器可判定健康码；
-- `npm run ocr:recover`：仅用于明确的非 quarantine 单页恢复，不绕过证据门。
-
-远端健康不能只看 systemd active：必须核对 run identity、source/runner/OCR/model/mmproj/runtime hashes、loopback llama、status sidecar、逐卷 state/pages 与 memory/thermal gate。配置变化使用新 output root；复用旧完成页只能经 hash-bound seed lineage。A/B 不并行争用超出已验证的 host 并发，低内存门命中立即受控停止并保留状态。
-
-机器 OCR 完成后仍须在 Mac 从原 PDF 重渲染 240 DPI 页图，记录图像 hash，完成 blind Apple Vision、exact audit、目录/篇目定位、同版官方或学术在线文本核对、version-match attestation 和必要人工裁决。任一层缺失，`display_allowed` / `citation_allowed` / `semantic_relation_allowed` 保持 false。
+- desktop 1440×1000：亮色、1902+2022、多年份、实际 Canvas 点击、58 点演进链、inspector 对侧 safe viewport、无 overflow；
+- mobile 390×844：单一 Canvas、bottom inspector 不侵入 safe viewport、无 overflow；
+- console errors 0、warnings 0；命名会话 `curriculum-v18-production` 已关闭。
 
 ## 日常检查
 
-- 每周：OCR failure/quarantine、未核验冲突、匿名讨论、AI 引文失败、Worker 错误率；
-- 每月：官方修订动态、来源 URL、D1 corpus counts、R2 pointer/manifest/object 与本地 hash 对账；
-- 每次新增/更换扫描：重算源 SHA，重新入队，不继承旧页通过状态；
-- 每次发布：action log `start/change/verify/closeout`、canonical report、operations ledger、rollback anchor、Playwright cleanup 一并收口。
+- 每次发布：`npm run verify`、environment evidence、R2 readback、API/browser QA、action log、canonical report、operations ledger、rollback anchor、Playwright cleanup。
+- 每周：OCR failure/quarantine、机器 disposition 总量、publication manifest diff、AI 引文失败、Worker 错误率。
+- 每月：官方修订动态、来源 URL、D1 corpus counts、R2 pointer/manifest/object 与本地 hash 对账。
+- 新增或更换扫描：重算源 SHA，重新入队，不继承旧页通过状态。

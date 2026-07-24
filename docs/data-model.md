@@ -1,6 +1,6 @@
 # 数据模型
 
-D1 的规范结构由 `migrations/0001_initial.sql` 至 `0007_document_taxonomy_contract.sql` 顺序定义。Preview 与 production 均已应用 `0001`–`0007`；当前 Worker v10 health 合同为全局 schema 3、taxonomy schema 2、page publication schema 1。
+D1 规范结构由 `migrations/0001_initial.sql` 至 `0007_document_taxonomy_contract.sql` 顺序定义。Preview 与 production 均已应用 `0001`–`0007`；当前 Worker `2026.07.24-v18` health 合同为全局 schema 3、taxonomy schema 2、page-publication schema 1。
 
 ## 主要实体
 
@@ -9,92 +9,79 @@ D1 的规范结构由 `migrations/0001_initial.sql` 至 `0007_document_taxonomy_
 | 文件与版本 | `documents`, `document_relations`, `periods` | 文件身份、状态、历史阶段与继承/修订/替代关系 |
 | 原文与检索 | `paragraphs`, `paragraphs_fts` | 章节、段落锚点、质量状态与 FTS5 索引 |
 | 分析结构 | `concepts`, `document_concepts`, `cross_subject_relations` | 术语、理念和跨学科证据关系 |
-| OCR 溯源 | `source_artifacts`, `ocr_runs`, `ocr_page_reviews` | 源哈希、引擎版本、页级结果和复核状态 |
-| 在线核查 | `online_verifications`, `online_evidence` | 篇目身份、版次、权威在线证据、冲突与裁决 |
+| OCR 溯源 | `source_artifacts`, `ocr_runs`, `ocr_page_reviews` | 源哈希、引擎版本、页级结果和机器裁决状态 |
+| 在线核查 | `online_verifications`, `online_evidence` | 篇目身份、版次、权威在线证据与冲突记录 |
 | 页级发布 | `page_publication_gates` | 源页、最终文本、证据 bundle、显示与引文的独立门 |
 | Corpus release | `corpus_import_releases`, `corpus_import_chunks`, `corpus_import_guards` | 整批状态、预期/实际计数、SQL 分块哈希与回执 |
-| 学术身份与展示 | `document_classifications` | `taxonomy_entity_kind`、精确普通学科身份、12 个展示分面，以及课程/范围隔离 |
+| 学术身份与展示 | `document_classifications` | 精确学科身份、12 个存储分面、课程/范围隔离 |
 | 讨论 | `comments`, `comment_reports` | 版本绑定评论、回复、举报和审核状态 |
 | AI 审计 | `ai_citation_logs` | 模型标签、检索段落、引文状态与生成时间 |
 
 ## Taxonomy schema 2
 
-`document_classifications.entity_kind` 保留旧 `subject` / `scope` 兼容层；规范身份由 `taxonomy_entity_kind` 决定：
+`taxonomy_entity_kind` 是规范身份：
 
-- `subject`：159 份资料，28 个精确普通学科 query identities，可映射至 12 个 `display_facet`；
-- `assessment_subject`：1 份“汉语”考试身份，关联语文 facet，但不进入普通 `subject=汉语` 查询；
-- `curriculum_course`：16 份课程，`canonical_subject` 与 `display_facet` 均为 `null`；
+- `subject`：159 份资料，映射至 12 个存储分面；
+- `assessment_subject`：1 份“汉语”考试身份，关联语文但不进入普通 `subject=汉语` 查询；
+- `curriculum_course`：16 份课程，不伪装成普通学科；
 - `assessment_domain` 3、`source_collection` 4、`cross_cutting_framework` 13，共 20 scope；
 - `unclassified`：0。
 
-公开 12 facets 为：语文、数学、外语、思想政治与道德法治、历史、历史与社会、地理、科学类、技术、劳动、艺术、体育与健康。Facet 是展示聚合，不覆盖原始来源标签、精确学科 identity、官方 code 或课程身份。普通 subject filter 只允许 `taxonomy_entity_kind='subject'`；assessment/course/scope 通过独立元数据和详情呈现。
+存储层保留“历史”与“历史与社会”两种来源身份；公开检索统一为“历史”一个分面，但不把两种身份判为语义等同。学科设置、合科、分科、并行发标和国家标准组调整由 `discipline-lifecycle.json` 的独立事件标签呈现。
 
-## 引文闸门
+## OCR 四层状态
 
-检索和 AI 必须同时满足 `documents.citation_allowed=1` 与 `paragraphs.citation_allowed=1`。OCR 完成不是开放条件；版本身份、页级质量与在线核查仍需独立通过。抽样核验不得提升整份文档。
+1. **机器裁决**：`data/ocr-machine-verification.json` 保存 6,947 页的不可变终局收据。31 exact 可进入下一阶段；5,063 文字冲突、1,780 表格冲突、73 双空白全部终局关闭。
+2. **页级发布**：`data/ocr-publication-receipt.json` 重新读取来源、页图与文本并复算哈希，31 exact receipts 去重为 30 个唯一页，写入 `data/page-publication-manifest.json`。
+3. **Corpus 检索**：30 页形成 26 个 accepted OCR documents、44 个 paragraph candidates；只有文档与段落双白名单同时为真时才能检索或引用。
+4. **候选星图**：`public/data/ocr-observation-layer.json` 从 83 份完整文件／10,210 页生成 308 个词面观察。它与正式引文无继承关系，恒为 nonsemantic、noncitable。
 
-## 标识稳定性
-
-文件 slug、版本关系、段落 ID 和评论目标是外部引用的一部分。更新内容时使用 upsert，禁止会导致评论级联丢失的 `INSERT OR REPLACE INTO documents`。源文件变更后必须重算 SHA-256，旧页的通过状态不得继承。
+机器裁决收据的 `production_citation_ready_pages=0` 只描述第一阶段未写 manifest 的时点；当前发布真相必须读取第二、三阶段的哈希绑定收据，不能把阶段字段当成同一口径。
 
 ## Corpus release 一致性
 
-每次 `npm run corpus:build` 生成一个由 catalog、ingest、来源、分类、在线核验、语义策略和实际正文资产共同决定的 release fingerprint。当前 manifest 逐一登记正文 SHA-256/bytes 及所有 SQL chunk 的名称、SHA-256/bytes。
+当前 release：
 
-当前 release 为 `corpus-358471fcce862b2f0ae446fc`，fingerprint SHA-256 `358471fcce862b2f0ae446fcae834db80b24b8d5c0e8dcbfd3c9f5a1ae0d2c70`，manifest SHA-256 `87aa26a4975ee39e4c5f104159367a7528167515c4a10bc287447f7bdd69e0a3`。Preview 与 production 均已通过 91/91 远端 receipt 的 name/hash/bytes 核对并 finalize 为 `ready`。
+- ID：`corpus-1c4f6b41737380f3e71246dd`
+- fingerprint：`1c4f6b41737380f3e71246dd6891914009633b454b6ec716d379e04df3e6d2ca`
+- manifest SHA-256：`13341b79d4e5aa080fe9c1514fb2eee826887146ae0f8e7f2909c394b28d0764`
+- 精确计数：196 documents / 16,500 paragraphs / 16,500 FTS / 8,808 page gates / 16,500 displayed / 26 accepted OCR documents / 103 chunks。
 
-导入时先写 `in_progress`，逐 chunk 写 receipt；只有 documents、paragraphs、FTS、page gates、displayed rows、accepted OCR documents 和 receipt 全部精确匹配才可写 `ready`。Worker 在 release 缺失、非 ready 或实时计数漂移时，对 D1 业务路由返回 503。
+Importer 先写 `in_progress`，逐 chunk 保存 name/hash/bytes receipt；只有上述总量和 13 个 core-table counts 全部精确匹配才写 `ready`。Worker 在 release 缺失、非 ready 或实时计数漂移时，对 D1 业务路由 fail closed 503。
 
-当前精确计数顺序为：196 documents / 16,456 paragraphs / 16,456 FTS rows / 6,031 page gates / 16,456 displayed paragraphs / 0 accepted OCR documents / 91 chunks。不要把 FTS 与 page-gate 数量互换，也不要从 OCR 机器进度推断 accepted OCR。
+新 release 缩短文档时，未被引用的旧段落可删除；被讨论或在线核验引用的旧段落保留稳定 ID，但关闭 display/citation。禁止使用会导致评论级联丢失的 `INSERT OR REPLACE INTO documents`。
 
-新 release 缩短文档时，未被引用的旧段落可删除；被讨论或在线核验引用的旧段落保留稳定 ID，但关闭 display/citation。这样既清除 stale search rows，又避免评论级联删除。
+## 公共概念图与传输
+
+完整学术模型包含 `concept_senses`、`surface_forms`、`curriculum_lines`、`works`、`editions`、`revisions`、`embedded_items`、`occurrences`、`relations`、`coverage_cells` 与 ontology。未获得定义证据前，每个 concept 只有一个 `undifferentiated_unresolved` sense；学科/版本语境留在 occurrence/episode，不能凭词面自动分义。
+
+浏览器不直接传输 23 MB 单文件。`public/data/concept-evolution-academic.json` 是 30,220-byte 索引，指向 `public/data/graph-shards/academic/` 下 64 个内容寻址分片；最大 524,250 bytes、总计 23,208,620 bytes。`scripts/academic-graph-shards.mjs` 必须验证每片 SHA-256、bytes、build revision、collection、chunk、计数并重建与原模型逐字段相同的对象。核心前端图不分片，仍由 `public/data/concept-evolution.json` 直接加载。
+
+前端在同一 Canvas 合并：
+
+| 层 | Episodes | Evidence | Edges | 发布边界 |
+|---|---:|---:|---:|---|
+| core 正式概念图 | 553 | 553 | 475 | 受现有证据状态约束 |
+| 1902–2022 century layer | 1,031 | 3,202 | 1,107 | 候选、nonsemantic |
+| 现行学科细层 | 97 | 420 | 0 | 候选、nonsemantic |
+| 2001 年前专科层 | 426 | 821 | 0 | 候选、nonsemantic |
+| 完整 OCR 通用层 | 308 | 308 | 214 | 候选、nonsemantic |
+| **合并总计** | **2,415** | **5,304** | **3,144** | 单一 Canvas |
+
+## 2001 年前与概念族
+
+- `data/embedded-items-century-v1.json` 保留语文卷／课程计划卷 134 个来源篇目，产生 1,031 个 century stars。
+- `data/pre2001-specialist-bounded-items.json` 扩展至各科专科汇编；462/462 item identities 通过，生成 426 个同粒度星点。
+- `public/data/concept-evolution-families.json` 固定 5 个同层 tier、55 个互斥比较族、1,648 memberships、1,251 同词面边、94 编辑对应边和 3 条有来源的学科分合边。
+- 每条族谱边恒为 `semantic=false`、`citation_allowed=false`、`influence_claim_allowed=false`。点击成员时可以整族高亮和缩放，但不能据此声称首次出现、消失、替代、等同或因果。
 
 ## R2 release identity
 
-R2 不是 D1 的来源真相，只保存可公开重建的质量元数据。每个对象发布到 `releases/<release_id>/...`，完整 manifest 与对象 hash/bytes readback 通过后，才原子更新 `release/current.json`。Worker 若看到 pointer，就必须完整验证 pointer、manifest 与目标对象；pointer 损坏时不允许回退旧 fixed key。
+R2 只保存可公开重建的质量元数据。发布顺序固定为 17 个 `releases/<release_id>/...` immutable objects → 逐对象 readback → versioned manifest/readback → 原子更新 `release/current.json` → pointer readback。
 
-Production current 为 `release-9cb02f77c06ee0535e7981a22b312373`；preview current 为 `release-841a528f0086ce69f2f7a6f2d07c0999`。`data/release-environment-evidence.json` 保存采集时的 pointer snapshot：production 首次 bootstrap 与 preview successor activation 都发生在 evidence 之后，因此当前 R2 identity 必须结合 append-only post-activation readback，而不能只读 evidence 内的旧 pointer 字段。
+当前 preview 与 production release ID 均为 `release-cd9ec4a050cbabbede744192398ebfa7`。两桶的 manifest 包含各自采集时环境快照，所以 SHA-256 不同但 release-managed object identity 相同：
 
-## 公共概念图 v2
+- preview：`9e964d6c8e3898dcb8078e4f0b5b8780cd3379e566abff8c12efc5b84ee63bc1`，188,566 bytes；
+- production：`7b2b836ae29c98743b3a3248eac8e013a4b6c048ac473b0c95685804fb365018`，188,566 bytes。
 
-`public/data/concept-evolution.json` 保留 `schema_version=1` 作为轻量前端传输外壳，仅含 episode、edge 和每个 episode 一条证据预览，并通过 `academic_model_ref` 指向完整的 `public/data/concept-evolution-academic.json`。两文件共享 `build_revision`，core 保存完整文件 SHA-256；研究与校验使用 academic 文件中的以下规范实体：
-
-| 实体 | 粒度 | 主要边界 |
-|---|---|---|
-| `subject_taxonomy`, `subject_entity_audit`, `subject_facets` | 来源标签、目录文件、星图展示组 | 原始 `subject` 不直接成为筛选项；受控 `subject`/`assessment_subject` 保留精确 canonical/stable ID/code，再唯一映射至 12 个展示 facet；`curriculum_course` 另存课程实体且不进入展示组 |
-| `course_families`, `course_to_subject_links`, `course_entity` | 课程族、课程与学科关联、episode 课程身份 | 关联不等于合并；课程保持 `facet_eligible=false`，兼容 `scope_entity` 时仍须有显式 `course_entity` |
-| `concept_senses` | 一个尚未分义的概念种子 | 编辑分义前每个 concept 仅有一个 `undifferentiated_unresolved` sense；学科/版本语境留在 occurrence/episode |
-| `surface_forms` | 一个可检索词形 | 正字/词汇变体可自动匹配；历史相关或语义相关形式默认关闭自动匹配 |
-| `curriculum_lines` | 学科、学段、学校类型/子类、文件类型、发布机构 | 盲校、聋校、培智与普通教育不得合并 |
-| `works` | 一个目录文档或一个内嵌页片段 | 当前采用 `document_scoped_not_deduplicated`，不自动判定同一作品 |
-| `editions`, `revisions` | 文档版次与显式修订事件 | “2017年版2020年修订”分别保存基础版年和修订年；生效日期未知时为 `null` |
-| `embedded_items` | 一张已定位的汇编页片段 | 不把相邻页静默合并成完整篇目，完整性恒为 false |
-| `occurrences` | 一次精确词面命中 | 保存词形、义项、版本、页/段、起止偏移、复用簇；章节和规范角色未知时为 `unknown`/`null` |
-| `relations`, `relation_reviews` | 两个 episode 之间的关系及其审核状态 | 自动关系只允许非语义 `next_observed`、`co_observed`，两端均须有证据，不允许影响/因果结论 |
-| `coverage_cells` | 一个版次或页片段的覆盖单元 | 显式保存分母、缺口和引文闸门；`negative_claim_eligible=false` |
-| `editorial_audit` | 一项构建或主张政策 | 保存机器生成边界与尚未发生的编辑审核，不伪造审核者和时间 |
-
-完整约束和学科分类决定见 `docs/concept-evolution-academic-model.md`。
-
-## 百年 OCR 候选星投影
-
-`data/embedded-items-century-v1.json` 保存语文卷与课程计划卷目录解析出的 134 个内嵌篇目。它们是文档级证据容器，不是星体。`scripts/build-century-observation-layer.mjs` 从页级 OCR 候选生成 `public/data/century-observation-layer.json`，其中：
-
-- `items` 保存 1902–2000 的篇目身份、年份与物理页段；
-- `concept_observations` 保存受控词面命中，恒为 `ocr_surface_candidate_nonsemantic`；
-- `star_projection.episodes` 把每次词面观察映射为同一主星图中的同效星体；`display_level=uniform_star` 只描述视觉合同，不提升引文或语义状态；
-- `star_projection.evidence` 把候选星反向定位到篇目和扫描物理页；
-- `star_projection.edges` 只允许同源顺序或同篇共现关系，禁止语义、影响和因果主张。
-
-必须满足一星至少一证据定位、边的两端均存在、所有候选均 `citation_allowed=false`。OCR 队列可以连续追加页面和观察，但不得因此改写现行概念模型或自动开放检索/AI 引文。
-
-## 百年同层概念族谱
-
-`data/concept-evolution-families.json` 固定唯一粒度 `language-practice-domain`，把历史受控词面与现行领域名称配置为七个不重叠比较族。`scripts/build-concept-evolution-families.mjs` 合并正式 graph、2022 OCR 层与 1902–2000 century projection，生成 `public/data/concept-evolution-families.json`：
-
-- `episode_memberships` 把每个真实 episode 绑定到一个概念族；
-- `same_surface_observed_again` 只连接同词面的下一个代表年份；
-- `editorial_correspondence` 只连接配置中同层概念的比较关系；
-- 所有边恒为 `semantic=false`、`citation_allowed=false`、`influence_claim_allowed=false`。
-
-前端平时不铺这些关系；点击一个成员后同时点亮该族全部可见 episode，并以实线、箭头、起讫年份和关系标签呈现演进。族谱是比较索引，不是正式替代、语义等同或因果判断。
+Environment evidence 是采集时快照；随后发生的 pointer 激活由 append-only action-log readback 证明，不能回写伪造采集时间。

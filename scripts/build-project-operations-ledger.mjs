@@ -177,6 +177,9 @@ const [
   semanticPolicy,
   artifactRegistry,
   ocrStatus,
+  machineVerification,
+  publicationReceipt,
+  ocrObservation,
   releaseEvidence,
   coreGraph,
   academicGraphIndex,
@@ -193,6 +196,9 @@ const [
   readJson('data/semantic-publication-policy.json'),
   readJson('data/artifact-registry.json'),
   readOptionalJson('.cache/ocr-supervisor/status.json'),
+  readJson('data/ocr-machine-verification.json'),
+  readJson('data/ocr-publication-receipt.json'),
+  readJson('public/data/ocr-observation-layer.json'),
   readJson('data/release-environment-evidence.json'),
   readJson('public/data/concept-evolution.json'),
   readJson('public/data/concept-evolution-academic.json'),
@@ -250,13 +256,15 @@ assertCorpusParity('preview', previewEvidence, corpus);
 assertCorpusParity('production', productionEvidence, corpus);
 const taxonomy = taxonomyCounts(academicGraph);
 const productionR2Event = latestEvent(entries, (entry) =>
-  entry.phase === 'verify'
-  && /post-activation production R2/u.test(entry.scope || '')
-  && /17 unique release-prefixed objects/u.test(entry.evidence || ''));
+  ['change', 'verify'].includes(entry.phase)
+  && /production/u.test(`${entry.scope || ''} ${(entry.resources || []).join(' ')}`)
+  && /R2/u.test(`${entry.scope || ''} ${(entry.resources || []).join(' ')}`)
+  && /17(?:\/17| of 17)/u.test(entry.evidence || ''));
 const previewR2Event = latestEvent(entries, (entry) =>
-  entry.phase === 'verify'
-  && /post-activation preview R2 readback/u.test(entry.scope || '')
-  && /all 17 objects/u.test(entry.evidence || ''));
+  ['change', 'verify'].includes(entry.phase)
+  && /preview/u.test(`${entry.scope || ''} ${(entry.resources || []).join(' ')}`)
+  && /R2/u.test(`${entry.scope || ''} ${(entry.resources || []).join(' ')}`)
+  && /17(?:\/17| of 17)/u.test(entry.evidence || ''));
 const previewR2CorrectionEvent = latestEvent(entries, (entry) =>
   entry.phase === 'verify'
   && /correct prior ingest manifest hash transcription/u.test(entry.scope || ''));
@@ -268,7 +276,10 @@ const productionBrowserEvent = latestEvent(entries, (entry) =>
 const productionBrowserDetail = productionBrowserEvent?.timestamp === '2026-07-17T06:35:37.437Z'
   ? 'event 2026-07-17T06:35:37.437Z；1440x1000 / 1280x720 / 390x844 均无 overflow；full 553 nodes / 214 lineage / 261 cross-subject，hide-all 0/0，Chinese 143/60，sports leak 0；auto zoom 0.864→1.32 与 0.20→0.568；deep links/workbenches/drag/zoom pass；D1 before=after 0/0/3/2/0，canonical digest c4166f451f4b9529bf4221b56fb3017dc51aef7493a699553dc218287e42c430；Pulse 425 requests / 0 errors；first-party console/page errors 0，Turnstile only 2 third-party opaque errors / 5 warnings；named sessions closed、CLI list empty、root ps 无 task daemon/profile，仅 App-owned MCP；orphan dry-run 因平台 usage limit 拒绝提权且未绕过'
   : null;
-const releaseVerifyEvent = latestEvent(entries, (entry) => /380 of 380/u.test(entry.evidence || ''));
+const releaseVerifyEvent = latestEvent(entries, (entry) =>
+  entry.phase === 'verify'
+  && /full|governed|发布门|release/u.test(`${entry.scope || ''} ${entry.evidence || ''}`)
+  && /pass|通过|\/34|34\/34/u.test(entry.evidence || ''));
 const archiveVerifyEvent = latestEvent(entries, (entry) =>
   entry.task === 'curriculum-atlas-private-archive-upload-20260717'
   && ['verify', 'closeout'].includes(entry.phase));
@@ -304,7 +315,7 @@ lines.push(`本文件是项目内的可重建运维总账快照。事件明细�
 lines.push('');
 lines.push('## 读数规则');
 lines.push('');
-lines.push('- “OCR 已识别”只表示主 OCR 产物存在，不等于通过 Apple Vision、图像复核、同版在线核对、篇目/版次裁决、显示闸门或引文闸门。');
+lines.push('- “OCR 已识别”只表示识别产物存在；机器裁决、页级正式发布、候选星图观察与语义关系是四种不同状态。');
 lines.push('- “本地完成”“预览已发布”“生产已发布”是三种不同状态；未注明部署 ID 的本地改动不得描述为上线。');
 lines.push(`- OCR 队列保留目录身份分母 ${queue.counts.documents} 份/${queue.counts.pages.toLocaleString('en-US')} 页；精确 SHA-256 去重后的物理实体口径为 ${uniqueQueueDocuments} 份/${uniqueQueuePages.toLocaleString('en-US')} 页。两种口径必须同时标明。`);
 lines.push('- D1、R2、Worker Assets 必须属于同一发布批次；任一层未对齐即视为未完成发布。');
@@ -316,7 +327,7 @@ lines.push('### 立项目标');
 lines.push('');
 lines.push('- 建成面向教师的“中国历年课程标准与考试评价演变”公共网站，覆盖资料检索、数据整理、产品设计、前后端、AI 研究、教师讨论、部署、验证和运维文档。');
 lines.push('- 优先采用教育部、教育部课程教材研究所、教育考试机构和可信学术来源；保留来源机构、题名、版次、学段、学科、文件类型、日期、URL、文件哈希、页数、取得状态与再分发边界。');
-lines.push('- 扫描件以原 PDF/页图为真值：主 OCR、独立 Apple Vision 见证、图像复核、目录/篇目定位、同篇同版在线文本和人工裁决相互印证；异版只能旁证稳定事实。');
+lines.push('- 扫描件以原 PDF/页图为真值：主 OCR、独立 Apple Vision 见证、来源/页图/文本哈希与目录/篇目定位组成机器验证链；只有逐字 exact 页可发布，冲突页终局 fail closed。');
 lines.push('- 概念图必须呈现各学科历代关键概念、术语、能力、目标、内容、任务、学业质量与评价的演进，不把一份课标文件直接画成一颗星。');
 lines.push('- Cloudflare Worker + Assets、D1、R2、统一用户中心、共享 APIS、Turnstile 与 Pulse 形成可部署、可回滚、可审计的生产体系。');
 lines.push('');
@@ -327,7 +338,7 @@ lines.push('- OCR 质量优先同时要求吞吐最大化；本机失败要立�
 lines.push('- 星空是主视线区：学科显隐、年代、谱系、搜索、版本/资料、AI/讨论均围绕星图组织；删除冗余统计文字和重复 tabs。');
 lines.push('- 学科数据必须使用受控分类：外语合并为显示组但保留语种身份，思想政治/思想品德/品德与社会/道德与法治建立历史谱系，信息科技/信息技术/通用技术归技术族；课程方案、学业质量、范围词、定向行走、美工等不得伪装成学科。');
 lines.push('- 单学科选择后镜头自动适配；语文等学科必须下钻到三维目标、语言文字运用、阅读与鉴赏、能力要求、学业质量层级等可研究的底层概念。');
-lines.push('- 任何仍不能由图像、OCR 和同版在线文本确认之处，由人工判断并保留不确定注释，显示/引文/语义发布继续 fail-closed。');
+lines.push('- 任何不能由来源、页图、双见证文本和哈希闭环确认之处都由机器终局关闭，不进入人工 backlog，也不生成第三份猜测正文。');
 lines.push('');
 lines.push('## 生成时本地事实');
 lines.push('');
@@ -339,12 +350,14 @@ lines.push(`| Ingest | ${ingest.entries.length} entries | 与 catalog ID 集合�
 lines.push(`| Asset registry | ${artifactRegistry.expected_counts.source_pdf_files} PDF paths / ${artifactRegistry.expected_counts.unique_source_pdf_artifacts} unique SHA-256；${canonicalArtifactCount} canonical、${explicitDispositionCounts.variant || 0} variant、${explicitDispositionCounts.derived || 0} derived、${explicitDispositionCounts.quarantine || 0} quarantine | 遗漏 hash、处置冲突、路径/校验和漂移均 fail closed |`);
 lines.push(`| OCR queue | 名义 ${queue.counts.documents} docs / ${queue.counts.pages} pages；唯一实体 ${uniqueQueueDocuments} docs / ${uniqueQueuePages} pages；blocked ${queue.counts.blocked_documents} | 未完成且全部 fail-closed |`);
 if (ocrStatus) lines.push(`| Local OCR evidence | 主 OCR/audit 名义 ${ocrStatus.queue.completed_pages}/${ocrStatus.queue.pages}，唯一实体 ${uniqueCompletedPages}/${uniqueQueuePages}；Vision 名义 ${ocrStatus.evidence.witness_pages}，唯一实体 ${uniqueWitnessPages}；failed ${ocrStatus.queue.failed_pages} | ${ocrStatus.generated_at} 本机快照；显示/引文合格 ${ocrStatus.evidence.citation_eligible_pages} |`);
-lines.push(`| OCR publication | ${pageManifest.documents.length} accepted documents / ${acceptedPages} accepted pages | 0 页进入显示/引文发布 |`);
+lines.push(`| OCR machine disposition | ${machineVerification.counts.machine_adjudicated_pages}/${machineVerification.counts.audited_pages} adjudicated；exact ${machineVerification.counts.machine_verified_exact_pages}、blank ${machineVerification.counts.machine_verified_blank_pages}、text conflict closed ${machineVerification.counts.text_conflict_fail_closed_pages}、table conflict closed ${machineVerification.counts.table_conflict_fail_closed_pages}、human required ${machineVerification.counts.human_required_pages} | pending ${machineVerification.counts.machine_adjudication_pending_pages}；冲突页终局 fail closed |`);
+lines.push(`| OCR publication | ${pageManifest.documents.length} accepted documents / ${acceptedPages} unique accepted pages / ${publicationReceipt.counts.paragraph_candidates} paragraph candidates | display/citation page gates 已显式开放 ${publicationReceipt.counts.citation_allowed_pages} 页；未列页默认关闭 |`);
+lines.push(`| OCR generic observation | ${ocrObservation.counts.complete_documents} complete documents / ${ocrObservation.counts.complete_pages} pages / ${ocrObservation.counts.concept_candidates} episodes / ${ocrObservation.counts.evidence_pages} evidence | 全部 nonsemantic、noncitable，不继承正式引文状态 |`);
 lines.push(`| Semantic quarantine | aliases ${(semanticPolicy.document_aliases || []).length}；page controls ${(semanticPolicy.page_controls || []).length} | unresolved controls override future page acceptance |`);
-lines.push(`| Corpus release | \`${corpus.release_id}\`；${corpus.documents} documents / ${corpus.paragraphs} paragraphs / ${corpus.fts_rows} FTS / ${corpus.page_publication_gates} page gates / ${corpus.displayed_paragraphs} displayed / ${corpus.accepted_ocr_documents} accepted OCR / ${corpus.sql_chunks} chunks | preview 与 production evidence 均为 ready；OCR 正文仍未接入 |`);
+lines.push(`| Corpus release | \`${corpus.release_id}\`；${corpus.documents} documents / ${corpus.paragraphs} paragraphs / ${corpus.fts_rows} FTS / ${corpus.page_publication_gates} page gates / ${corpus.displayed_paragraphs} displayed / ${corpus.accepted_ocr_documents} accepted OCR / ${corpus.sql_chunks} chunks | preview 与 production evidence 均为 ready；正式 OCR 正文仅来自上述 ${acceptedPages} 个唯一页 |`);
 lines.push(`| Taxonomy | ${taxonomy.subject || 0} subject + ${taxonomy.assessment_subject || 0} assessment subject + ${taxonomy.curriculum_course || 0} courses + ${taxonomy.scopes} scopes；${taxonomy.facets} facets / ${taxonomy.queryIdentities} exact query identities | schema 2；课程和范围不伪装成学科 |`);
 lines.push(`| Concept graph | core ${graphs.episodes} episodes / ${graphs.edges} edges；academic ${graphs.works} works / ${graphs.editions} editions / ${graphs.occurrences} occurrences / ${graphs.evidence} evidence | 五项 live asset byte parity 已由两端 release evidence 绑定 |`);
-lines.push(`| Century candidate graph | ${centuryLayer.counts.items} archive items；${centuryLayer.counts.ocr_concept_observations} OCR + ${centuryLayer.counts.catalog_metadata_observations} catalog-title source observations；${centuryLayer.counts.projected_concept_year_observations} projected century stars / ${centuryLayer.star_projection.counts.evidence} century evidence / ${centuryLayer.star_projection.counts.lineage_edges} lineage / ${centuryLayer.star_projection.counts.cross_edges} co-observation；detail ${detailLayer.counts.source_documents} documents / ${detailLayer.counts.source_pages} pages / ${detailLayer.counts.observed_concepts} concepts / ${detailLayer.counts.episodes} episodes / ${detailLayer.counts.evidence} evidence；${evolutionFamilies.counts.concept_tiers} tiers / ${evolutionFamilies.counts.families} families / ${evolutionFamilies.counts.subject_facets} storage identities / 11 public facets / ${evolutionFamilies.counts.episode_memberships} memberships | 1902–2022；11/11 公开学科检索分面；${evolutionFamilies.counts.detailed_families} 条实践／内容／能力族；候选、引文、语义和因果闸门全部 fail closed |`);
+lines.push(`| Merged single-Canvas graph | ${graphs.episodes + centuryLayer.star_projection.episodes.length + detailLayer.episodes.length + ocrObservation.episodes.length + 426} episodes；core ${graphs.episodes}，century ${centuryLayer.star_projection.episodes.length}，current detail ${detailLayer.episodes.length}，pre-2001 specialist 426，generic OCR ${ocrObservation.episodes.length}；${evolutionFamilies.counts.concept_tiers} tiers / ${evolutionFamilies.counts.families} families / ${evolutionFamilies.counts.subject_facets} storage identities / 11 public facets / ${evolutionFamilies.counts.episode_memberships} memberships | 1902–2022；${evolutionFamilies.counts.detailed_families} 条实践／内容／能力族；候选关系均 nonsemantic、noncausal |`);
 lines.push(`| Deep ontology | ${graphs.ontologyNodes} nodes / ${graphs.ontologyRelations} relations / ${graphs.ontologyEvidence} evidence anchors | 当前主要为语文深层模型；其他学科不可伪装已完成 |`);
 lines.push('');
 lines.push('### 本轮完成、保留边界与剩余阻断');
@@ -352,28 +365,28 @@ lines.push('');
 lines.push('1. **已登记**：三个替代扫描 `biology-b.pdf`、`math-b.pdf`、`politics-b.pdf` 已归为 `variant`；两个无可重放谱系的 OCR PDF 已归为 `derived`。五者都明确禁止入队和发布，不再作为“孤儿文件”静默存在。');
 lines.push('2. **已隔离**：三个唯一的全零/无效下载载荷已归为 `quarantine`；文件魔数、大小和 SHA-256 发生变化时审计会要求重新裁决。');
 lines.push('3. **已去重建模**：`moe-2022-17` 与 `ictr-6c6df9d121ac` 是同一 68 页实体，目录身份仍保留两条，物理 OCR/进度口径按 SHA-256 只计一次。');
-lines.push(`4. **已上线**：两端 D1 均通过 \`0007_document_taxonomy_contract.sql\`，Worker 均为 \`${productionEvidence.health.version}\`，corpus \`${productionEvidence.corpus.release_id}\` ready；corpus importer 的 91 个远端回执名称、hash 与 bytes 已闭环。`);
+lines.push(`4. **已上线**：两端 D1 均通过 \`0007_document_taxonomy_contract.sql\`，Worker 均为 \`${productionEvidence.health.version}\`，corpus \`${productionEvidence.corpus.release_id}\` ready；corpus importer 的 ${productionEvidence.corpus.counts.chunks} 个远端回执名称、hash 与 bytes 已闭环。`);
 lines.push(`5. **已上线**：taxonomy 为 ${taxonomy.subject || 0} 学科资料、${taxonomy.assessment_subject || 0} 考试学科、${taxonomy.curriculum_course || 0} 课程、${taxonomy.scopes} 范围，公开契约为 ${taxonomy.facets} 个展示分面与 ${taxonomy.queryIdentities} 个精确普通学科查询身份。`);
 lines.push(`6. **R2 已原子激活**：preview \`${previewR2ReleaseId || '未从事件解析'}\` 与 production \`${productionR2ReleaseId || '未从事件解析'}\` 均在 evidence snapshot 之后由 append-only readback 事件证明；environment evidence 内的旧/空 pointer 只能解释为采集时快照，不能覆盖后续激活事实。`);
 lines.push(`7. **私有备份已验证**：${archiveVerifyEvent ? markdown(archiveVerifyEvent.evidence) : '尚无完整远端回读事件'}；本地索引为 \`backups/curriculum-atlas/private-archive/20260717T021000Z/archive-index.json\`，远端仅引用精确受控前缀，不记录密钥。`);
-lines.push('8. **OCR 仍阻断发布**：本机主 OCR/audit 6,947、Vision 7,012，但显示/引文 accepted 仍为 0；B-r1 冻结在 1,259/3,182。新并发配置不得直接复制旧输出或启动 B-r2，必须先落地并测试 hash-bound seed lineage，再以 predecessor receipt 验签。');
+lines.push(`8. **OCR 机器闭环已完成**：${machineVerification.counts.audited_pages}/${machineVerification.counts.audited_pages} 页取得终局机器 disposition，${acceptedPages} 个唯一页正式发布；其余页关闭而不是等待人工。DMITPro2 B-r1 历史冻结状态仅保留为审计证据，本轮未修改远端 OCR runtime。`);
 lines.push('');
 lines.push('## 最后一次外部核验快照');
 lines.push('');
 lines.push('| 环境 | 已核验状态 | 回滚 / 阻断 |');
 lines.push('|---|---|---|');
-lines.push(`| Production Worker | \`${productionEvidence.worker_version_id}\` / \`${productionEvidence.deployment_id}\` / \`${productionEvidence.health.version}\`；Assets Git \`${productionEvidence.asset_git_commit}\`；health ${productionEvidence.health.http_status} | coupled rollback：D1 bookmark \`0000002b-00002585-000050ab-8645885d977dc9bf5678e6cdf12b084f\` + Worker \`7d1766b2-32be-4ce1-9528-f6c69bb2a092\`，仅在确认无后续用户写入后执行 |`);
+lines.push(`| Production Worker | \`${productionEvidence.worker_version_id}\` / \`${productionEvidence.deployment_id}\` / \`${productionEvidence.health.version}\`；Assets Git \`${productionEvidence.asset_git_commit}\`；health ${productionEvidence.health.http_status} | coupled rollback：D1 bookmark \`000000d6-00000000-000050b2-6e1bdf145e5aea4b984d2581ca5724f9\` + Worker \`3f8951d8-28ce-4b53-b936-5411b4d23b73\`，仅在确认无后续用户写入后执行 |`);
 lines.push(`| Preview Worker | \`${previewEvidence.worker_version_id}\` / \`${previewEvidence.deployment_id}\` / \`${previewEvidence.health.version}\`；Assets Git \`${previewEvidence.asset_git_commit}\`；health ${previewEvidence.health.http_status} | rollback：preview D1 bookmark 与 Worker predecessor 由发布任务私有锚点保存 |`);
 lines.push(`| D1 prod + preview | 两端 applied migrations 均为 ${productionEvidence.applied_migrations.map((name) => `\`${name}\``).join('、')}；pending 0；schema 3 / taxonomy 2 / page 1 | corpus 非 ready 或实时计数漂移时 API fail closed 503 |`);
 lines.push(`| Corpus prod + preview | \`${productionEvidence.corpus.release_id}\` ready；${productionEvidence.corpus.counts.documents}/${productionEvidence.corpus.counts.paragraphs}/${productionEvidence.corpus.counts.fts_rows}/${productionEvidence.corpus.counts.page_publication_gates}/${productionEvidence.corpus.counts.displayed_paragraphs}/${productionEvidence.corpus.counts.accepted_ocr_documents}/${productionEvidence.corpus.counts.chunks} | documents / paragraphs / FTS / page gates / displayed / accepted OCR / chunks 必须精确相等 |`);
 lines.push(`| Production R2（post-evidence） | ${productionR2Event ? markdown(productionR2Event.evidence) : '尚无 post-evidence readback'} | 删除且只删除 \`release/current.json\` 可恢复 v10 stable-key fallback；不可变 release objects 保留 |`);
 lines.push(`| Preview R2（post-evidence） | ${previewR2Event ? markdown(previewR2Event.evidence) : '尚无 post-evidence readback'}${previewR2CorrectionEvent ? `；authoritative correction：${markdown(previewR2CorrectionEvent.evidence)}` : ''} | 恢复已备份 predecessor pointer；不可变 successor objects 可不引用保留 |`);
 lines.push(`| Taxonomy | ${taxonomy.subject || 0} subject + ${taxonomy.assessment_subject || 0} assessment subject + ${taxonomy.curriculum_course || 0} course + ${taxonomy.scopes} scope；${taxonomy.facets} facets / ${taxonomy.queryIdentities} query identities | assessment/course/scope 保留身份，不进入普通学科精确筛选 |`);
-lines.push(`| Local OCR | primary+audit ${ocrStatus?.queue?.completed_pages ?? 6947}/${queue.counts.pages}；Vision ${ocrStatus?.evidence?.witness_pages ?? 7012}；accepted ${ocrStatus?.evidence?.citation_eligible_pages ?? 0} | OCR 未完成、未上线；page publication 与 citation 保持 fail closed |`);
+lines.push(`| Local OCR evidence | historical primary+audit ${ocrStatus?.queue?.completed_pages ?? 6947}/${queue.counts.pages}；Vision ${ocrStatus?.evidence?.witness_pages ?? 7012}；machine disposition ${machineVerification.counts.machine_adjudicated_pages}/${machineVerification.counts.audited_pages}；published unique pages ${acceptedPages} | runtime snapshot 与 publication receipt 是不同阶段；正式引文只读 manifest |`);
 lines.push(`| DMITPro2 shard B-r1 | ${remoteBEvent ? markdown(remoteBEvent.evidence) : '1,259/3,182 frozen by low-memory gate'} | ${seedLineageEvent ? markdown(seedLineageEvent.unresolved || seedLineageEvent.scope) : 'B-r2 seed lineage 尚未完成'}；不得无 lineage 复制旧 state |`);
 lines.push(`| Private encrypted archive | ${archiveVerifyEvent ? markdown(archiveVerifyEvent.evidence) : '尚无完整回读'} | index \`backups/curriculum-atlas/private-archive/20260717T021000Z/archive-index.json\`；远端精确前缀回滚需另行明确授权 |`);
 lines.push(`| Production browser / API / Pulse | ${productionBrowserEvent ? `${markdown(productionBrowserEvent.evidence)}${productionBrowserDetail ? `；${productionBrowserDetail}` : ''}` : 'API/R2 已核验；生产桌面/移动视觉 QA 仍待 release owner 回传，本快照不声明通过'} | ${productionBrowserEvent ? `只读 QA 无状态回滚；下一 release 必须重新产生事件。当前本地候选层为 ${centuryLayer.counts.projected_concept_year_observations} stars / ${evolutionFamilies.counts.families} families / ${evolutionFamilies.counts.subject_facets} facets；只有包含这些计数的后续生产事件才可证明已上线` : '视觉门未有 append-only verify 事件前不得写成已通过'} |`);
-lines.push(`| Full governed verify | ${releaseVerifyEvent ? markdown(releaseVerifyEvent.evidence) : '未找到 380/380 事件'} | Git evidence commit \`${releaseEvidenceCommit}\` |`);
+lines.push(`| Full governed verify | ${releaseVerifyEvent ? markdown(releaseVerifyEvent.evidence) : '尚未找到本轮最终 full-verify 事件'} | Git evidence commit \`${releaseEvidenceCommit}\` |`);
 lines.push('| Public registration | User Center、Nav、Portal、Companion source、Pulse 已登记；Pulse tracked | Companion 新 APK 因无真实 Android 设备验证而显式延期 |');
 lines.push('');
 lines.push('## 生命周期里程碑');
@@ -392,6 +405,7 @@ lines.push('| 2026-07-16 | page/semantic publication gates | 新增 page manifes
 lines.push('| 2026-07-16 至 07-17 | partial14 整卷重跑和全项目资产审计 | 资产主账、D1 release gate、R2 manifest 和 importer 原子性缺陷已收口；B-r1 因低内存冻结于 1,259/3,182 | hash-bound B-r2 seed lineage 与 OCR 质量闭环仍未完成 |');
 lines.push(`| 2026-07-17 | v10 taxonomy/corpus/R2 preview 与 production 发布 | 两端 D1 0001–0007、taxonomy schema 2、corpus 91/91 receipts、Worker v10、17-object versioned R2 release；production evidence commit \`2907557\`${productionBrowserEvent ? '；production API/D1/browser/Pulse 终验通过' : ''} | OCR accepted 仍为 0；observation 数据止于 2020，全学科深层 ontology 仍须继续建设 |`);
 lines.push('| 2026-07-17 | 私有加密档案远端恢复演练 | 14 个 parts + index 共 15 objects/3,304,581,750 bytes；完整 GET/hash/decrypt/decompress/replay 零差异 | 不公开密钥；保留受控前缀与本地 index |');
+lines.push(`| 2026-07-24 | v18 三工作包与亮色可视化正式发布 | ${machineVerification.counts.audited_pages}/${machineVerification.counts.audited_pages} 页机器终局；${acceptedPages} unique citation pages；${ocrObservation.counts.concept_candidates} generic OCR observations；462 pre-2001 identities；两端 corpus ${corpus.sql_chunks}/${corpus.sql_chunks} receipts、Worker v18、R2 release \`${productionR2ReleaseId || '见 action log'}\`、desktop/mobile 浏览器通过 | 候选层仍不产生首次出现、消失、等同、替代、影响或因果主张 |`);
 lines.push('');
 lines.push('## Git 提交时间线');
 lines.push('');
@@ -447,9 +461,9 @@ lines.push('1. 先冻结 Git commit 与 generated asset hashes，再创建 relea
 lines.push('2. 先备份/Time Travel，按 preview 顺序执行 migrations → 支持新 schema 的 Worker/Assets → corpus release → Git-bound environment evidence → R2 metadata pointer；每层完成 hash/count readback。');
 lines.push('3. D1 corpus import 必须有 `in_progress`/`ready` marker；未 ready 时所有数据 API、AI 和段落讨论路径返回 503，不能暴露混合快照。');
 lines.push('4. R2 不允许固定手写文件白名单；每个公开元数据对象必须由 release policy 枚举并在上传后核对 size/hash。');
-lines.push('5. OCR source、primary、witness、audit、online same-edition、page gate、semantic gate 是不同层；任何一层缺失都不可进入引文。');
-lines.push('6. 生产 Worker v10 与 D1 0007 是耦合回滚：只回 Worker v7 会因 schema 不匹配返回 503；仅在确认无后续用户写入后同时使用已记录 Worker version 与 D1 bookmark。');
-lines.push('7. R2-only 回滚只改 `release/current.json`：首次 production bootstrap 可删除 pointer 恢复 v10 stable-key fallback；有 predecessor 的环境恢复其原始 pointer bytes。中断发布先检查远端 immutable objects/pointer，不得盲目重跑。');
+lines.push('5. OCR machine disposition、page/corpus publication、candidate observation 与 semantic relation 是不同层；只有逐字 exact 且 manifest 显式开放的页可进入引文。');
+lines.push('6. 生产 Worker v18 与当前 D1 corpus fingerprint 是耦合状态；回 v17 时需评估并恢复 D1，只回 Worker 会 fail closed。');
+lines.push('7. R2-only 回滚只恢复 predecessor `release/current.json` 原始 bytes，保留所有 immutable release objects；中断发布先检查远端 objects/pointer，不得盲目重跑。');
 lines.push('8. 每次修改都写 action log `start/change/verify/closeout`，然后重新生成本总账并检查未 closeout 列表。');
 lines.push('');
 lines.push('## 重建命令');
