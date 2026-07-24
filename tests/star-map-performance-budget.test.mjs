@@ -28,6 +28,8 @@ test('the Canvas publishes bounded runtime diagnostics without adding a second v
   assert.match(atlas, /performanceSnapshot\(\)/);
   assert.match(atlas, /this\.drawDurations\.length > 120/);
   assert.match(atlas, /this\.animationFrameInterval = 50/);
+  assert.match(atlas, /this\.width <= 640 \? 9 : this\.width <= 980 \? 22 : 96/,
+    'unselected desktop labels must stay bounded while selected constellation labels remain uncapped');
   assert.match(app, /__CURRICULUM_ATLAS_DIAGNOSTICS__/);
   assert.match(app, /PerformanceObserver\.supportedEntryTypes\?\.includes\('longtask'\)/);
   assert.match(app, /diagnosticsReadyAt - diagnosticsStartedAt/);

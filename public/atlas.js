@@ -1,4 +1,4 @@
-import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v38';
+import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v39';
 
 const TAU = Math.PI * 2;
 const MIN_ZOOM = .2;
@@ -777,7 +777,7 @@ export class CurriculumCosmos {
     const automaticLabels = drawn
       .filter(({ node }) => !emphasizedIds.has(node.id) && starAutoLabelEligible(node))
       .sort((left, right) => right.node.strength - left.node.strength || left.node.year - right.node.year);
-    const automaticLimit = this.width <= 640 ? 9 : this.width <= 980 ? 22 : automaticLabels.length;
+    const automaticLimit = this.width <= 640 ? 9 : this.width <= 980 ? 22 : 96;
     const labels = [...emphasizedLabels, ...automaticLabels.slice(0, automaticLimit)];
     labels.sort((left, right) => {
       const priority = ({ node }) => (node.id === this.selectedId ? 100 : this.activeSelectionIds.has(node.id) ? 94 : node.id === this.hovered?.id ? 90 : 30 + node.strength);
