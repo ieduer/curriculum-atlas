@@ -4,7 +4,6 @@ export const DISPLAY_SUBJECT_FACETS = Object.freeze([
   '外语',
   '思想政治与道德法治',
   '历史',
-  '历史与社会',
   '地理',
   '科学类',
   '技术',
@@ -13,14 +12,19 @@ export const DISPLAY_SUBJECT_FACETS = Object.freeze([
   '体育与健康',
 ]);
 
+export const STORAGE_SUBJECT_FACETS = Object.freeze([
+  ...DISPLAY_SUBJECT_FACETS.slice(0, 5),
+  '历史与社会',
+  ...DISPLAY_SUBJECT_FACETS.slice(5),
+]);
+
 const DISPLAY_FACET_SET = new Set(DISPLAY_SUBJECT_FACETS);
 const CANONICAL_MEMBER_ORDER = Object.freeze({
   '语文': ['语文'],
   '数学': ['数学'],
   '外语': ['英语', '俄语', '日语', '西班牙语', '德语', '法语'],
   '思想政治与道德法治': ['思想政治', '思想品德', '品德与生活', '品德与社会', '道德与法治'],
-  '历史': ['历史'],
-  '历史与社会': ['历史与社会'],
+  '历史': ['历史', '历史与社会'],
   '地理': ['地理'],
   '科学类': ['科学', '物理', '化学', '生物学'],
   '技术': ['信息科技', '信息技术', '通用技术'],
@@ -31,6 +35,11 @@ const CANONICAL_MEMBER_ORDER = Object.freeze({
 
 function clean(value) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+export function publicSubjectFacet(subjectOrFacet) {
+  const value = clean(subjectOrFacet);
+  return value === '历史与社会' ? '历史' : value;
 }
 
 function availableCanonicalSubjects(subjects) {
@@ -47,7 +56,7 @@ export function buildSubjectFacetIndex(conceptGraph, availableSubjects = []) {
   const subjectToFacet = new Map(DISPLAY_SUBJECT_FACETS.map((facet) => [facet, facet]));
 
   for (const item of conceptGraph?.subject_taxonomy || []) {
-    const facet = clean(item?.facet);
+    const facet = publicSubjectFacet(item?.facet);
     if (item?.facet_eligible !== true || item?.entity_kind !== 'subject' || !DISPLAY_FACET_SET.has(facet)) continue;
     const canonical = clean(item.canonical);
     const sourceLabel = clean(item.source_label);
@@ -99,7 +108,7 @@ export function filterDocumentsBySubjectFacet(documents, facet, index) {
     const taxonomyKind = clean(document?.taxonomy_entity_kind);
     const persistedFacet = clean(document?.display_facet);
     if (['subject', 'assessment_subject'].includes(taxonomyKind) && persistedFacet) {
-      return persistedFacet === normalized;
+      return publicSubjectFacet(persistedFacet) === normalized;
     }
     return !taxonomyKind
       && document?.entity_kind === 'subject'
@@ -114,7 +123,7 @@ export function controlledSubjectFacetCounts(conceptGraph) {
     const subject = episode?.subject;
     const facet = subject?.facet_eligible === true
       && ['subject', 'assessment_subject'].includes(subject?.entity_kind)
-      ? clean(subject.facet)
+      ? publicSubjectFacet(subject.facet)
       : '';
     if (counts.has(facet)) counts.set(facet, counts.get(facet) + 1);
   }

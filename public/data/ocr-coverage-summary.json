@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "artifact_profile": "curriculum-ocr-public-coverage-summary-v1",
+  "assertion_boundary": "Candidate page coverage is complete, but OCR completion and dual-witness triage do not open quotation, citation, semantic continuity, first-appearance, disappearance, replacement, influence or causality claims.",
+  "coverage": {
+    "nominal_documents": 86,
+    "nominal_pages": 11847,
+    "physical_documents": 85,
+    "physical_pages": 11779,
+    "candidate_covered_pages": 11847,
+    "candidate_remaining_pages": 0,
+    "single_witness_candidate_fallback_pages": 1077,
+    "dual_witness_audited_pages": 6947,
+    "citation_ready_pages": 0
+  },
+  "review_triage": {
+    "audited_dual_witness_pages": 6947,
+    "machine_concordant_sampling_pool": 66,
+    "text_or_structure_conflict_adjudication": 5028,
+    "table_cell_reconstruction": 1780,
+    "blank_visual_confirmation": 73,
+    "unclassified_pages": 0
+  },
+  "release_gate": {
+    "citation_allowed": false,
+    "semantic_promotion_allowed": false,
+    "negative_claim_eligible": false
+  }
+}

@@ -23,6 +23,19 @@
     "艺术",
     "体育与健康"
   ],
+  "public_subject_facets": [
+    "语文",
+    "数学",
+    "外语",
+    "思想政治与道德法治",
+    "历史",
+    "地理",
+    "科学类",
+    "技术",
+    "劳动",
+    "艺术",
+    "体育与健康"
+  ],
   "concept_granularity": {
     "tier_order": [
       "language-practice-domain",
@@ -66,21 +79,34 @@
     "complete_whole_documents": 83,
     "runtime_completed_pages": 10690,
     "runtime_remaining_pages": 1157,
-    "candidate_covered_pages": 10770,
-    "candidate_remaining_pages": 1077,
+    "candidate_covered_pages": 11847,
+    "candidate_remaining_pages": 0,
+    "single_witness_candidate_fallback_pages": 1077,
     "dual_witness_audited_pages": 6947,
     "human_decided_non_citation_pages": 4,
     "citation_ready_pages": 0,
-    "required_gap_documents": [
-      "legacy-compendium-geography",
-      "legacy-compendium-mathematics",
-      "legacy-compendium-politics"
+    "required_gap_documents": [],
+    "required_candidate_gap_ranges": {}
+  },
+  "ocr_review_triage": {
+    "root_cause_code": "critical_field_declaration_contract_never_populated",
+    "audited_dual_witness_pages": 6947,
+    "machine_concordant_sampling_pool": 66,
+    "text_or_structure_conflict_adjudication": 5028,
+    "table_cell_reconstruction": 1780,
+    "blank_visual_confirmation": 73,
+    "unclassified_pages": 0
+  },
+  "discipline_lifecycle_policy": {
+    "required_history_event_types": [
+      "integrated_grouping",
+      "alternative_integrated_or_separate",
+      "parallel_standard_paths",
+      "national_standard_set_adjusted"
     ],
-    "required_candidate_gap_ranges": {
-      "legacy-compendium-geography": [[97, 518]],
-      "legacy-compendium-mathematics": [[337, 697]],
-      "legacy-compendium-politics": [[129, 422]]
-    }
+    "public_history_facet": "历史",
+    "preserved_history_forms": ["历史", "历史与社会"],
+    "identity_equivalence_allowed": false
   },
   "relation_policy": {
     "allowed_family_edge_types": [

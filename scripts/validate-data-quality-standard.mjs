@@ -3,6 +3,11 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { CURRICULUM_STAGES } from '../public/historical-stages.js';
+import {
+  DISPLAY_SUBJECT_FACETS,
+  STORAGE_SUBJECT_FACETS,
+  publicSubjectFacet,
+} from '../public/subject-facets.js';
 
 const root = resolve(new URL('..', import.meta.url).pathname);
 const checkOnly = process.argv.includes('--check');
@@ -10,6 +15,9 @@ const paths = {
   standard: resolve(root, 'data/data-quality-standard.json'),
   candidateSchema: resolve(root, 'data/candidate-observation-layer.schema.json'),
   coverage: resolve(root, 'data/ocr-coverage-ledger.json'),
+  candidateFallback: resolve(root, 'data/ocr-candidate-fallback-ledger.json'),
+  reviewTriage: resolve(root, 'data/ocr-review-triage.json'),
+  lifecycle: resolve(root, 'public/data/discipline-lifecycle.json'),
   releaseDiff: resolve(root, 'data/release-episode-diff.json'),
   performanceBudget: resolve(root, 'data/star-map-performance-budget.json'),
   performanceValidation: resolve(root, 'data/star-map-performance-validation.json'),
@@ -52,6 +60,9 @@ for (const [key, path] of Object.entries(paths)) {
 const standard = JSON.parse(sourceText.standard);
 const candidateSchema = JSON.parse(sourceText.candidateSchema);
 const coverage = JSON.parse(sourceText.coverage);
+const candidateFallback = JSON.parse(sourceText.candidateFallback);
+const reviewTriage = JSON.parse(sourceText.reviewTriage);
+const lifecycle = JSON.parse(sourceText.lifecycle);
 const releaseDiff = JSON.parse(sourceText.releaseDiff);
 const performanceBudget = JSON.parse(sourceText.performanceBudget);
 const performanceValidation = JSON.parse(sourceText.performanceValidation);
@@ -89,6 +100,12 @@ record(
     .flatMap((item) => item.visibility_facets),
   expectedFacets,
 );
+record('facets.public_projection_exact',
+  equal(DISPLAY_SUBJECT_FACETS, standard.public_subject_facets)
+    && equal(STORAGE_SUBJECT_FACETS, standard.subject_facets)
+    && publicSubjectFacet('历史与社会') === '历史',
+  { public: DISPLAY_SUBJECT_FACETS, storage: STORAGE_SUBJECT_FACETS },
+  { public: standard.public_subject_facets, storage: standard.subject_facets });
 
 const tierOrder = families.concept_tiers.map((item) => item.id);
 record('granularity.tier_order', equal(tierOrder, standard.concept_granularity.tier_order),
@@ -180,6 +197,47 @@ record('ocr.fail_closed',
     && coverage.release_gate.negative_claim_eligible === false,
   coverage.release_gate,
   { citation_allowed: false, semantic_promotion_allowed: false, negative_claim_allowed: false });
+record('ocr.candidate_fallback_exact',
+  candidateFallback.counts.pages === standard.ocr_denominator.single_witness_candidate_fallback_pages
+    && candidateFallback.counts.candidate_gap_pages_remaining === 0
+    && coverage.generated_from.candidate_fallback_sha256 === sha256(sourceText.candidateFallback),
+  {
+    pages: candidateFallback.counts.pages,
+    candidate_gap_pages_remaining: candidateFallback.counts.candidate_gap_pages_remaining,
+    fingerprint_bound: coverage.generated_from.candidate_fallback_sha256 === sha256(sourceText.candidateFallback),
+  },
+  {
+    pages: standard.ocr_denominator.single_witness_candidate_fallback_pages,
+    candidate_gap_pages_remaining: 0,
+    fingerprint_bound: true,
+  });
+const observedReviewTriage = {
+  root_cause_code: reviewTriage.root_cause.code,
+  ...reviewTriage.counts,
+};
+record('ocr.review_queue_triaged_exact',
+  equal(observedReviewTriage, standard.ocr_review_triage),
+  observedReviewTriage,
+  standard.ocr_review_triage);
+
+const lifecycleSourceIds = new Set(lifecycle.sources.map((item) => item.id));
+const historyEvents = lifecycle.events.filter((event) => event.public_facets.includes('历史'));
+const historyForms = [...new Set(historyEvents.flatMap((event) => event.discipline_forms)
+  .filter((form) => ['历史', '历史与社会'].includes(form)))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+record('discipline.lifecycle_history_model',
+  equal(lifecycle.public_subject_facets, standard.public_subject_facets)
+    && standard.discipline_lifecycle_policy.required_history_event_types.every((type) =>
+      historyEvents.some((event) => event.event_type === type))
+    && equal(historyForms, [...standard.discipline_lifecycle_policy.preserved_history_forms].sort((a, b) => a.localeCompare(b, 'zh-CN')))
+    && lifecycle.events.every((event) => event.source_ids.length
+      && event.source_ids.every((id) => lifecycleSourceIds.has(id))
+      && event.claim_boundary),
+  {
+    public_subject_facets: lifecycle.public_subject_facets,
+    history_event_types: [...new Set(historyEvents.map((event) => event.event_type))].sort(),
+    history_forms: historyForms,
+  },
+  standard.discipline_lifecycle_policy);
 
 record('schema.candidate_fail_closed_contract',
   candidateSchema.properties.observation.properties.semantic.const === false

@@ -10,6 +10,7 @@ const DEFAULT_QUEUE = path.join(ROOT, 'data/ocr-queue.json');
 const DEFAULT_RUNTIME = path.join(ROOT, 'data/ocr-runtime-status-snapshot.json');
 const DEFAULT_REVIEW = path.join(ROOT, 'data/ocr-review-queue-index.json');
 const DEFAULT_DECISIONS = path.join(ROOT, 'data/ocr-review-decisions.json');
+const DEFAULT_CANDIDATE_FALLBACK = path.join(ROOT, 'data/ocr-candidate-fallback-ledger.json');
 const DEFAULT_LEDGER = path.join(ROOT, 'data/ocr-coverage-ledger.json');
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
@@ -64,6 +65,7 @@ function parseArgs(argv) {
     runtime: DEFAULT_RUNTIME,
     review: DEFAULT_REVIEW,
     decisions: DEFAULT_DECISIONS,
+    candidateFallback: DEFAULT_CANDIDATE_FALLBACK,
     ledger: DEFAULT_LEDGER,
     receiverReceipt: null,
     runStatuses: [],
@@ -83,6 +85,7 @@ function parseArgs(argv) {
         '--runtime': 'runtime',
         '--review': 'review',
         '--decisions': 'decisions',
+        '--candidate-fallback': 'candidateFallback',
         '--ledger': 'ledger',
         '--receiver-receipt': 'receiverReceipt',
         '--private-review-queue': 'privateReviewQueue',
@@ -340,7 +343,15 @@ export async function captureReviewSnapshot({ privateReviewQueuePath, queue }) {
   };
 }
 
-export async function buildCoverageLedger({ queue, runtime, review, decisions, decisionsPath = DEFAULT_DECISIONS }) {
+export async function buildCoverageLedger({
+  queue,
+  runtime,
+  review,
+  decisions,
+  candidateFallback,
+  decisionsPath = DEFAULT_DECISIONS,
+  candidateFallbackPath = DEFAULT_CANDIDATE_FALLBACK,
+}) {
   const documents = queueDocuments(queue);
   require(runtime.contract === 'curriculum_ocr_runtime_status_snapshot_v1', 'runtime snapshot contract mismatch');
   require(review.contract === 'curriculum_ocr_review_queue_index_v1', 'review snapshot contract mismatch');
@@ -356,6 +367,31 @@ export async function buildCoverageLedger({ queue, runtime, review, decisions, d
     const pages = reviewByDocument.get(page.document_id) || [];
     pages.push(page);
     reviewByDocument.set(page.document_id, pages);
+  }
+  require(candidateFallback?.schema_version === 1
+    && candidateFallback?.artifact_profile === 'curriculum-candidate-ocr-fallback-ledger-v1',
+  'candidate fallback ledger contract mismatch');
+  require(candidateFallback.policy?.citation_allowed === false
+    && candidateFallback.policy?.semantic_claim_allowed === false
+    && candidateFallback.policy?.negative_claim_allowed === false,
+  'candidate fallback ledger must remain fail closed');
+  const fallbackByDocument = new Map();
+  for (const document of candidateFallback.documents || []) {
+    const queued = documents.find((item) => item.id === document.document_id);
+    require(queued, `candidate fallback document is absent from OCR queue: ${document.document_id}`);
+    require(document.source_pdf_sha256 === queued.source_sha256,
+      `${document.document_id} candidate fallback source hash drift`);
+    const pages = new Set();
+    for (const page of document.pages || []) {
+      requireInteger(page.page, `${document.document_id}.candidate_page`, 1);
+      require(page.page <= queued.page_count, `${document.document_id} candidate page exceeds PDF`);
+      requireHash(page.sidecar_sha256, `${document.document_id}:${page.page}.sidecar_sha256`);
+      require(!pages.has(page.page), `${document.document_id} duplicate candidate fallback page ${page.page}`);
+      pages.add(page.page);
+    }
+    require(pages.size === document.counts?.pages,
+      `${document.document_id} candidate fallback page count drift`);
+    fallbackByDocument.set(document.document_id, pages);
   }
 
   const decisionIds = new Set();
@@ -378,8 +414,10 @@ export async function buildCoverageLedger({ queue, runtime, review, decisions, d
     const reviewPages = reviewByDocument.get(document.id) || [];
     const decidedPages = decisions.decisions.filter((decision) => decision.stable_locator.startsWith(`${document.id}:page:`));
     const reviewedPageNumbers = new Set(reviewPages.map((page) => page.page));
+    const fallbackPageNumbers = fallbackByDocument.get(document.id) || new Set();
     let candidateCoveredPages = state.completed_pages;
     while (reviewedPageNumbers.has(candidateCoveredPages + 1)) candidateCoveredPages += 1;
+    while (fallbackPageNumbers.has(candidateCoveredPages + 1)) candidateCoveredPages += 1;
     return {
       document_id: document.id,
       title: document.title,
@@ -400,6 +438,7 @@ export async function buildCoverageLedger({ queue, runtime, review, decisions, d
       dual_witness_audited_pages: reviewPages.length,
       dual_witness_pages_outside_runtime_prefix: reviewPages
         .filter((page) => page.page > state.completed_pages).length,
+      single_witness_candidate_fallback_pages: fallbackPageNumbers.size,
       pending_review_pages: reviewPages.length - decidedPages.length,
       decided_non_citation_pages: decidedPages.length,
       citation_allowed: false,
@@ -429,6 +468,7 @@ export async function buildCoverageLedger({ queue, runtime, review, decisions, d
       runtime_snapshot_sha256: sha256(await readFile(DEFAULT_RUNTIME)),
       review_queue_index_sha256: sha256(await readFile(DEFAULT_REVIEW)),
       review_decisions_sha256: sha256(await readFile(decisionsPath)),
+      candidate_fallback_sha256: sha256(await readFile(candidateFallbackPath)),
     },
     assertion_boundary: 'OCR completion, dual-witness audit, human review, publication and semantic claims are separate gates. No count in this ledger opens quotation, citation, first-appearance, disappearance, replacement, influence or causality claims.',
     release_gate: {
@@ -438,7 +478,8 @@ export async function buildCoverageLedger({ queue, runtime, review, decisions, d
         (document) => document.candidate_covered_pages + document.candidate_remaining_pages,
       )
         === runtime.counts.nominal_pages,
-      explicit_runtime_gaps: gaps.length,
+      explicit_candidate_gaps: gaps.length,
+      runtime_remaining_pages: sum(rows, (document) => document.runtime_remaining_pages),
       citation_allowed: false,
       semantic_promotion_allowed: false,
       negative_claim_eligible: false,
@@ -454,6 +495,7 @@ export async function buildCoverageLedger({ queue, runtime, review, decisions, d
       runtime_remaining_pages: sum(rows, (document) => document.runtime_remaining_pages),
       candidate_covered_pages_including_review_evidence: sum(rows, (document) => document.candidate_covered_pages),
       candidate_remaining_pages: sum(rows, (document) => document.candidate_remaining_pages),
+      single_witness_candidate_fallback_pages: candidateFallback.counts.pages,
       dual_witness_audited_pages: review.queue.length,
       human_decided_non_citation_pages: decisions.decisions.length,
       citation_ready_pages: 0,
@@ -489,17 +531,20 @@ async function main() {
     await writeFile(options.runtime, stableJson(runtime));
     await writeFile(options.review, stableJson(review));
   }
-  const [runtime, review, decisions] = await Promise.all([
+  const [runtime, review, decisions, candidateFallback] = await Promise.all([
     readJson(options.runtime),
     readJson(options.review),
     readJson(options.decisions),
+    readJson(options.candidateFallback),
   ]);
   const ledger = await buildCoverageLedger({
     queue,
     runtime,
     review,
     decisions,
+    candidateFallback,
     decisionsPath: options.decisions,
+    candidateFallbackPath: options.candidateFallback,
   });
   const expected = stableJson(ledger);
   if (options.check) {

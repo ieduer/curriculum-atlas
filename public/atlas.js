@@ -1,4 +1,4 @@
-import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v36';
+import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v37';
 
 const TAU = Math.PI * 2;
 const MIN_ZOOM = .2;
@@ -46,7 +46,8 @@ function boxesOverlap(left, right) {
 }
 
 export function subjectColor(subject) {
-  return CORE_COLORS[subject] || FALLBACK_COLORS[hash(subject) % FALLBACK_COLORS.length];
+  const facet = subject === '历史与社会' ? '历史' : subject;
+  return CORE_COLORS[facet] || FALLBACK_COLORS[hash(facet) % FALLBACK_COLORS.length];
 }
 
 const SHARED_STAR_EFFECTS = Object.freeze({
@@ -97,13 +98,16 @@ export function selectedRelationshipNodeIds(nodes, edges, selectedId) {
 
 export function episodeSubjectFacet(episode) {
   const subject = episode?.subject;
-  return ['subject', 'assessment_subject'].includes(subject?.entity_kind) && subject?.facet_eligible === true && typeof subject?.facet === 'string' && subject.facet.trim()
-    ? subject.facet.trim()
+  const facet = subject?.facet === '历史与社会' ? '历史' : subject?.facet;
+  return ['subject', 'assessment_subject'].includes(subject?.entity_kind) && subject?.facet_eligible === true && typeof facet === 'string' && facet.trim()
+    ? facet.trim()
     : null;
 }
 
 export function episodeVisibilityFacets(episode) {
-  if (Array.isArray(episode?.visibility_facets)) return episode.visibility_facets.filter((facet) => typeof facet === 'string' && facet.trim());
+  if (Array.isArray(episode?.visibility_facets)) return [...new Set(episode.visibility_facets
+    .filter((facet) => typeof facet === 'string' && facet.trim())
+    .map((facet) => facet === '历史与社会' ? '历史' : facet))];
   const direct = episodeSubjectFacet(episode);
   return direct ? [direct] : [];
 }
@@ -270,7 +274,9 @@ export class CurriculumCosmos {
   setData(graph) {
     this.graph = graph;
     const episodes = (graph?.episodes || []).filter((episode) => Number(episode.time?.year) >= 1800);
-    this.subjects = Array.isArray(graph?.subject_facets) ? [...graph.subject_facets] : [...new Set(episodes.map(episodeSubjectFacet).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+    this.subjects = Array.isArray(graph?.subject_facets)
+      ? [...new Set(graph.subject_facets.map((facet) => facet === '历史与社会' ? '历史' : facet))]
+      : [...new Set(episodes.map(episodeSubjectFacet).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
     this.tracks = [...new Set(episodes.map((episode) => `${episodeSubjectFacet(episode) ? 'subject' : episodeCourseEntity(episode) ? 'course' : 'scope'}:${episodeEntityLabel(episode)}`))]
       .sort((a, b) => a.localeCompare(b, 'zh-CN'));
     const trackIndex = new Map(this.tracks.map((track, index) => [track, index]));
@@ -337,6 +343,21 @@ export class CurriculumCosmos {
       vertical.has(edge.source) || vertical.has(edge.target));
     this.activeSelectionIds = selectedRelationshipNodeIds(this.nodes, this.relationshipEdges, this.selectedId);
     this.draw();
+  }
+
+  getEpisodeScreenPosition(id) {
+    const node = this.nodes.find((candidate) => candidate.id === id);
+    if (!node || !this.visible(node)) return null;
+    const projected = this.project(node);
+    const rect = this.canvas.getBoundingClientRect();
+    return {
+      x: rect.left + projected.x,
+      y: rect.top + projected.y,
+      canvas_x: projected.x,
+      canvas_y: projected.y,
+      viewport_width: this.width,
+      viewport_height: this.height,
+    };
   }
 
   focusSelection() {
@@ -850,7 +871,7 @@ export class CurriculumCosmos {
         const node = this.hitTest(event.clientX, event.clientY);
         if (node) {
           this.selectedId = node.id;
-          this.callbacks.onSelect?.(node.episode);
+          this.callbacks.onSelect?.(node.episode, this.getEpisodeScreenPosition(node.id));
         }
       }
       this.pointer = null;

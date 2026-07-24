@@ -46,7 +46,7 @@ test('OCR candidates use the original star material, motion, labels, and interac
 
 test('subjects and concepts are controlled inside the star map', () => {
   assert.match(html, /id="subject-orbit"/);
-  assert.match(html, /id="subject-status">12\/12 · 全部显示/);
+  assert.match(html, /id="subject-status">11\/11 · 全部显示/);
   assert.match(html, /id="show-all-subjects"/);
   assert.match(html, /data-map-mode="cross"/);
   assert.match(html, /data-map-mode="structure"/);
@@ -89,13 +89,15 @@ test('left tools default collapsed while year visibility lives horizontally insi
   const subjectIndex = rail.indexOf('id="subject-orbit"');
   const searchIndex = rail.indexOf('id="cosmos-search"');
   const modeIndex = rail.indexOf('class="mode-switch"');
+  const lifecycleIndex = rail.indexOf('id="discipline-lifecycle"');
   const libraryIndex = rail.indexOf('data-workspace="library"');
   const researchIndex = rail.indexOf('data-workspace="research"');
   const evidenceIndex = rail.indexOf('id="ocr-layer-status"');
   assert.ok(subjectIndex >= 0
     && subjectIndex < searchIndex
     && searchIndex < modeIndex
-    && modeIndex < libraryIndex
+    && modeIndex < lifecycleIndex
+    && lifecycleIndex < libraryIndex
     && libraryIndex < researchIndex
     && researchIndex < evidenceIndex,
   'collapsed tool drawer order must be subjects -> search -> modes -> workspaces -> evidence');
@@ -160,52 +162,64 @@ test('the graph fits its data bounds inside responsive safe areas', () => {
 test('deep concept exploration remains inside the star map and preserves evidence boundaries', () => {
   assert.match(app, /function renderConceptLayers\(\)/);
   assert.match(app, /function showOntologyInspector\(node\)/);
+  assert.match(app, /function showDeepInspector\(node\)/);
+  assert.match(app, /function linkConceptYears\(node\)/);
   assert.match(app, /版本边界：/);
   assert.match(app, /reviewed_inference/);
   assert.match(styles, /\.ontology-center/);
   assert.match(styles, /\.ontology-star\.inferred/);
 });
 
-test('deep ontology search matches definitions and source terms and renders an in-map constellation', () => {
-  const helperStart = app.indexOf('function ontologySearchText(');
-  const helperEnd = app.indexOf('\n}\n\nfunction renderConceptLayers', helperStart) + 2;
-  assert.ok(helperStart >= 0 && helperEnd > helperStart, 'ontology search helper missing');
-  const ontologySearchText = Function(
-    'state',
-    'ONTOLOGY_TYPE_LABELS',
-    `"use strict"; ${app.slice(helperStart, helperEnd)}; return ontologySearchText;`,
-  )(
-    { ontologyScopeById: new Map([['scope-1', { version_scope: '2022 年版' }]]) },
-    { ability_descriptor: '能力描述' },
-  );
-  const indexed = ontologySearchText({
+test('entry reveal, edge-aware inspector, discipline lifecycle, and brand remain inside one star map', () => {
+  assert.match(app, /function startCenturyReveal\(\)/);
+  assert.match(app, /requestAnimationFrame\(reveal\)/);
+  assert.match(app, /function positionInspector\(episodeId = null\)/);
+  assert.match(atlas, /getEpisodeScreenPosition\(id\)/);
+  assert.match(styles, /\.star-inspector\.dock-left/);
+  assert.match(styles, /\.star-inspector\.dock-right/);
+  assert.match(styles, /\.star-inspector\.overlap-softened/);
+  assert.match(html, /id="discipline-lifecycle"/);
+  assert.match(html, /id="concept-year-links"/);
+  assert.match(html, /assets\/century-curriculum-mark\.jpg/);
+  assert.match(html, /<b>百年课标<\/b>/);
+  assert.doesNotMatch(html, />纬<|20世纪—今天/);
+});
+
+test('deep model search matches definitions, facets, and node types inside the map', () => {
+  const helperStart = app.indexOf('function deepNodeSearchText(');
+  const helperEnd = app.indexOf('\n}\n\nfunction episodeSearchText', helperStart) + 2;
+  assert.ok(helperStart >= 0 && helperEnd > helperStart, 'deep-model search helper missing');
+  const deepNodeSearchText = Function(
+    `"use strict"; ${app.slice(helperStart, helperEnd)}; return deepNodeSearchText;`,
+  )();
+  const indexed = deepNodeSearchText({
     label: '梳理与探究',
     definition: '比较语言材料并形成解释',
-    source_terms: ['比较', '归纳', '探究'],
-    node_type: 'ability_descriptor',
-    scope_id: 'scope-1',
+    facet: '语文',
+    node_type: 'source_surface_concept',
   });
-  for (const expected of ['梳理与探究', '比较语言材料并形成解释', '归纳', '能力描述', '2022 年版']) {
-    assert.ok(indexed.includes(expected.toLocaleLowerCase('zh-CN')), `ontology search omitted ${expected}`);
+  for (const expected of ['梳理与探究', '比较语言材料并形成解释', '语文', 'source_surface_concept']) {
+    assert.ok(indexed.includes(expected.toLocaleLowerCase('zh-CN')), `deep-model search omitted ${expected}`);
   }
-  assert.match(app, /queryMatches = state\.query \? state\.conceptGraph\.ontology_nodes/);
+  assert.match(app, /queryMatches = state\.query \? \[\.\.\.state\.deepNodeById\.values\(\)\]/);
   assert.match(app, /const queryHasEpisodeMatch = state\.query && state\.conceptGraph\.episodes\.some/);
   assert.match(app, /state\.mode !== 'structure' && \(!queryMatches\.length \|\| queryHasEpisodeMatch\)/);
-  assert.match(app, /searchableSubjects\.has\(ontologyNodeSubject\(node\)\)/);
+  assert.match(app, /searchableSubjects\.has\(node\.facet\)/);
   assert.match(app, /data-ontology-search-result=/);
   assert.match(app, /ontology-center ontology-search-center/);
   assert.match(app, /官方概念、术语与能力描述/);
 });
 
-test('concept deep-dive preserves the selected subject and fails closed when no ontology is released for it', () => {
+test('concept deep-dive preserves the selected subject and exposes all evidence-bound subject models', () => {
   const modeStart = app.indexOf('function setMapMode(');
   const modeEnd = app.indexOf('\nfunction openWorkbench(', modeStart);
   assert.ok(modeStart >= 0 && modeEnd > modeStart, 'setMapMode implementation missing');
   const implementation = app.slice(modeStart, modeEnd);
-  assert.match(implementation, /activeOntologyContext\(\)/);
+  assert.match(implementation, /activeDeepContext\(\)/);
   assert.doesNotMatch(implementation, /firstRoot|hiddenSubjects\.clear|hiddenSubjects\.add|renderSubjectControls/);
-  assert.match(app, /const \{ activeSubject, root \} = activeOntologyContext\(\)/);
-  assert.match(app, /深层模型尚未达到发布门槛/);
+  assert.match(app, /const \{ activeSubject, root \} = activeDeepContext\(\)/);
+  assert.doesNotMatch(app, /深层模型尚未达到发布门槛/);
+  assert.match(app, /11 个公开检索分面均已建立来源绑定的同粒度模型/);
 });
 
 test('changing the isolated subject clears an ontology inspector from the previous subject', () => {
@@ -214,7 +228,8 @@ test('changing the isolated subject clears an ontology inspector from the previo
   assert.ok(reconcileStart >= 0 && reconcileEnd > reconcileStart, 'ontology inspector reconciliation is missing');
   const reconcile = app.slice(reconcileStart, reconcileEnd);
   assert.match(reconcile, /visibleSubjects\.length === 1 \? visibleSubjects\[0\] : null/);
-  assert.match(reconcile, /ontologyNodeSubject\(focus\) === activeSubject/);
+  assert.match(reconcile, /\(focus\.facet \|\| ontologyNodeSubject\(focus\)\) === activeSubject/);
+  assert.match(reconcile, /state\.deepFocusId = null/);
   assert.match(reconcile, /state\.ontologyFocusId = null/);
   assert.match(reconcile, /inspector\.hidden = true/);
 

@@ -17,7 +17,9 @@ import {
   subjectColor,
 } from '../public/atlas.js';
 import {
+  DISPLAY_SUBJECT_FACETS,
   controlledSubjectFacetCounts,
+  publicSubjectFacet,
 } from '../public/subject-facets.js';
 
 const root = new URL('../', import.meta.url);
@@ -34,6 +36,10 @@ test('star-map facet helper admits controlled subject and assessment-subject ent
   assert.equal(episodeSubjectFacet(assessmentSubject), '语文');
   assert.equal(episodeCanonicalSubject(assessmentSubject), '汉语');
   assert.equal(episodeEntityLabel(assessmentSubject), '汉语');
+  assert.equal(episodeSubjectFacet({
+    subject: { entity_kind: 'subject', facet_eligible: true, canonical: '历史与社会', facet: '历史与社会' },
+  }), '历史');
+  assert.equal(publicSubjectFacet('历史与社会'), '历史');
 
   const course = {
     subject: { entity_kind: 'curriculum_course', facet_eligible: false, canonical: null },
@@ -113,7 +119,7 @@ test('selection expands one horizontal step and then the vertical families of th
   );
 });
 
-test('D1 schema v2 preserves raw taxonomy identity and constrains twelve public facets', async () => {
+test('D1 schema v2 preserves raw taxonomy identity and constrains twelve storage facets', async () => {
   const migration = await readFile(new URL('migrations/0007_document_taxonomy_contract.sql', root), 'utf8');
   assert.match(migration, /taxonomy_entity_kind TEXT NOT NULL CHECK/);
   assert.match(migration, /'subject', 'assessment_subject', 'curriculum_course', 'assessment_domain'/);
@@ -131,9 +137,9 @@ test('API, retrieval, and corpus persistence use document classifications rather
     readFile(new URL('scripts/build-corpus.mjs', root), 'utf8'),
   ]);
   assert.match(index, /JOIN document_classifications dc ON dc\.document_id = d\.id/);
-  assert.match(index, /dc\.taxonomy_entity_kind = 'subject' AND dc\.canonical_subject = \?/);
+  assert.match(index, /dc\.taxonomy_entity_kind = 'subject' AND dc\.canonical_subject IN \(\?, \?\)/);
   assert.match(retrieval, /dc\.canonical_subject AS subject/);
-  assert.match(retrieval, /dc\.taxonomy_entity_kind = 'subject' AND dc\.canonical_subject = \?/);
+  assert.match(retrieval, /dc\.taxonomy_entity_kind = 'subject' AND dc\.canonical_subject IN \(\?, \?\)/);
   assert.match(corpus, /INSERT INTO document_classifications/);
   assert.match(corpus, /taxonomy_entity_kind/);
   assert.match(corpus, /display_facet/);
@@ -277,10 +283,11 @@ test('the cosmos fit API receives only visible nodes and honors the requested zo
   assert.equal(drawCount, 1, 'non-fitting filter changes must preserve the current camera and redraw only');
 });
 
-test('each subject isolate is fail-closed and Chinese cannot inherit sports-course concepts', async () => {
+test('each public subject isolate is fail-closed and Chinese cannot inherit sports-course concepts', async () => {
   const graph = JSON.parse(await readFile(new URL('public/data/concept-evolution.json', root), 'utf8'));
-  const subjects = graph.subject_facets;
-  assert.equal(subjects.length, 12);
+  const subjects = controlledSubjectFacetCounts(graph).subjects;
+  assert.equal(graph.subject_facets.length, 12, 'canonical storage identities stay separate');
+  assert.equal(subjects.length, 11, 'public search merges history and history-and-society');
 
   assert.equal(graph.episodes.filter((episode) => episodeVisibleForSubjectFilter(episode, new Set(), false, subjects)).length, graph.episodes.length);
   assert.equal(graph.episodes.filter((episode) => episodeVisibleForSubjectFilter(episode, new Set(subjects), false, subjects)).length, 0);
@@ -289,7 +296,7 @@ test('each subject isolate is fail-closed and Chinese cannot inherit sports-cour
   for (const subject of subjects) {
     const hidden = new Set(subjects.filter((name) => name !== subject));
     const visible = graph.episodes.filter((episode) => episodeVisibleForSubjectFilter(episode, hidden, false, subjects));
-    assert.ok(visible.length > 0 || ['历史与社会', '劳动'].includes(subject), `${subject} isolate unexpectedly empty`);
+    assert.ok(visible.length > 0 || subject === '劳动', `${subject} isolate unexpectedly empty`);
     assert.ok(visible.every((episode) => episodeVisibilityFacets(episode).includes(subject)), `${subject} isolate leaked an unrelated episode`);
     if (subject === '语文') {
       assert.equal(visible.some((episode) => episode.label === '运动能力'), false, 'Chinese isolate leaked sports motor ability');
@@ -298,16 +305,16 @@ test('each subject isolate is fail-closed and Chinese cannot inherit sports-cour
   }
 });
 
-test('the 12 display groups preserve exact identities and remain stable controls', async () => {
+test('the 11 public groups merge history search while preserving canonical storage identities', async () => {
   const graphSource = await readFile(new URL('public/data/concept-evolution.json', root), 'utf8');
   const graph = JSON.parse(graphSource);
 
   const { subjects, counts } = controlledSubjectFacetCounts(graph);
-  assert.equal(subjects.length, 12);
-  assert.deepEqual(subjects, graph.subject_facets, 'graph-defined facet order must remain stable');
-  assert.deepEqual(subjects, ['语文', '数学', '外语', '思想政治与道德法治', '历史', '历史与社会', '地理', '科学类', '技术', '劳动', '艺术', '体育与健康']);
+  assert.equal(graph.subject_facets.length, 12);
+  assert.equal(subjects.length, 11);
+  assert.deepEqual(subjects, DISPLAY_SUBJECT_FACETS);
   const zeroEpisodeSubjects = subjects.filter((subject) => counts.get(subject) === 0);
-  assert.deepEqual(zeroEpisodeSubjects, ['历史与社会', '劳动']);
+  assert.deepEqual(zeroEpisodeSubjects, ['劳动']);
   for (const forbidden of ['汉语', '日语', '西班牙语', '思想品德', '道德与法治', '信息技术', '信息科技', '通用技术', '科学', '物理', '化学', '生物学']) {
     assert.equal(subjects.includes(forbidden), false, `${forbidden} must not be a standalone display facet`);
   }

@@ -40,18 +40,10 @@ test('OCR ledger has no silent document or page gaps', () => {
   assert.equal(ledger.counts.complete_documents, 83);
   assert.equal(ledger.counts.runtime_completed_pages_including_partial_prefixes, 10690);
   assert.equal(ledger.counts.runtime_remaining_pages, 1157);
-  assert.equal(ledger.counts.candidate_covered_pages_including_review_evidence, 10770);
-  assert.equal(ledger.counts.candidate_remaining_pages, 1077);
-  assert.deepEqual(ledger.gaps.map((gap) => ({
-    id: gap.document_id,
-    range: gap.page_range,
-    pages: gap.remaining_pages,
-  })), [
-    { id: 'legacy-compendium-geography', range: [97, 518], pages: 422 },
-    { id: 'legacy-compendium-mathematics', range: [337, 697], pages: 361 },
-    { id: 'legacy-compendium-politics', range: [129, 422], pages: 294 },
-  ]);
-  assert.equal(ledger.gaps.reduce((total, gap) => total + gap.remaining_pages, 0), 1077);
+  assert.equal(ledger.counts.candidate_covered_pages_including_review_evidence, 11847);
+  assert.equal(ledger.counts.candidate_remaining_pages, 0);
+  assert.equal(ledger.counts.single_witness_candidate_fallback_pages, 1077);
+  assert.deepEqual(ledger.gaps, []);
   assert.equal(ledger.documents.length, 86);
   assert.equal(new Set(ledger.documents.map((document) => document.document_id)).size, 86);
   assert.ok(ledger.documents.every((document) =>
@@ -94,5 +86,5 @@ test('checked-in OCR coverage ledger regenerates byte-for-byte', async () => {
     cwd: root,
   });
   assert.match(stdout, /"documents":86/);
-  assert.match(stdout, /"candidate_remaining_pages":1077/);
+  assert.match(stdout, /"candidate_remaining_pages":0/);
 });

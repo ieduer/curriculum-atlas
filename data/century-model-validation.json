@@ -1,0 +1,279 @@
+{
+  "schema_version": 1,
+  "standard_id": "curriculum-atlas-century-model-v15",
+  "passed": true,
+  "counts": {
+    "checks": 19,
+    "passed": 19,
+    "failed": 0,
+    "public_subject_facets": 11,
+    "storage_subject_facets": 12,
+    "deep_model_ready_facets": 11,
+    "lifecycle_events": 9,
+    "candidate_fallback_pages": 1077,
+    "dual_witness_triaged_pages": 6947
+  },
+  "fingerprints": {
+    "lifecycle": "a6ec26386ae1996f0dda6d8c118580443216386ed98fc2f007f617ecb86be952",
+    "families": "7e747bda715e3c01c7c3755f903adaeb5bac93f282a0f4050655ec79108bf24a",
+    "core": "0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8",
+    "ocr": "5c95361d8e157231b7fe28bc940fbab45baf0836d143a94f7c8db3fbc4ce1e39",
+    "detail": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
+    "pre2001": "f6e0c70ebd762fb23d4127bee64fcbaf84380be59a4e13426c608d3b0466137c",
+    "century": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
+    "triage": "8a288fa8c75642a90af3ce67f4379a255a497a79e5adf1ee7822f15809b5f765",
+    "fallback": "514beb453c594fbc74e1297bd6a446d041a6b8e37d68b518a6976ce252b15ed7",
+    "publicOcrSummary": "b2535155bacce8052c32b1ed4f96fd81c89f7c2ed48d0e2c189651bdf9816e0a",
+    "app": "1e7d31b49684465c94ef32b3f0dc1611dea9b365b77b0cebc27847984c2228f0",
+    "atlas": "a10cfc7cb2942ffb16d32192376ce3dfb676cf170c85718bbf9b9dd6a7922315",
+    "html": "9e1a4e819d51170cd0c53a5d449ca96a17cb8dfade17d85341dd563948a12424",
+    "styles": "1ab34d70d88d3827ec52caf25140301b88612fe30153573d860f02633579604e",
+    "mark": "ef5ce8e69373d4711dd71304cc7700ff6968fba4046d13b01d27e5519005cb01"
+  },
+  "checks": [
+    {
+      "id": "facets.public_merged_exact",
+      "passed": true,
+      "observed": [
+        "语文",
+        "数学",
+        "外语",
+        "思想政治与道德法治",
+        "历史",
+        "地理",
+        "科学类",
+        "技术",
+        "劳动",
+        "艺术",
+        "体育与健康"
+      ],
+      "expected": [
+        "语文",
+        "数学",
+        "外语",
+        "思想政治与道德法治",
+        "历史",
+        "地理",
+        "科学类",
+        "技术",
+        "劳动",
+        "艺术",
+        "体育与健康"
+      ]
+    },
+    {
+      "id": "facets.storage_identity_preserved",
+      "passed": true,
+      "observed": [
+        "语文",
+        "数学",
+        "外语",
+        "思想政治与道德法治",
+        "历史",
+        "历史与社会",
+        "地理",
+        "科学类",
+        "技术",
+        "劳动",
+        "艺术",
+        "体育与健康"
+      ],
+      "expected": "12 canonical storage facets projected to 11 public facets"
+    },
+    {
+      "id": "lifecycle.public_facets_exact",
+      "passed": true,
+      "observed": [
+        "语文",
+        "数学",
+        "外语",
+        "思想政治与道德法治",
+        "历史",
+        "地理",
+        "科学类",
+        "技术",
+        "劳动",
+        "艺术",
+        "体育与健康"
+      ],
+      "expected": [
+        "语文",
+        "数学",
+        "外语",
+        "思想政治与道德法治",
+        "历史",
+        "地理",
+        "科学类",
+        "技术",
+        "劳动",
+        "艺术",
+        "体育与健康"
+      ]
+    },
+    {
+      "id": "lifecycle.events_source_bound",
+      "passed": true,
+      "observed": [],
+      "expected": []
+    },
+    {
+      "id": "lifecycle.history_deep_model",
+      "passed": true,
+      "observed": [
+        "alternative_integrated_or_separate",
+        "integrated_grouping",
+        "national_standard_set_adjusted",
+        "parallel_standard_paths"
+      ],
+      "expected": [
+        "integrated_grouping",
+        "alternative_integrated_or_separate",
+        "parallel_standard_paths",
+        "national_standard_set_adjusted"
+      ]
+    },
+    {
+      "id": "deep_model.all_public_facets_four_tiers",
+      "passed": true,
+      "observed": {
+        "missing": [],
+        "ready_facets": 11
+      },
+      "expected": {
+        "missing": [],
+        "ready_facets": 11
+      }
+    },
+    {
+      "id": "deep_model.memberships_resolve_episodes",
+      "passed": true,
+      "observed": [],
+      "expected": []
+    },
+    {
+      "id": "deep_model.every_episode_resolves_evidence",
+      "passed": true,
+      "observed": [],
+      "expected": []
+    },
+    {
+      "id": "deep_model.history_forms_preserved",
+      "passed": true,
+      "observed": [
+        {
+          "id": "subject-course-history",
+          "facets": [
+            "历史"
+          ]
+        },
+        {
+          "id": "subject-course-history-society",
+          "facets": [
+            "历史与社会"
+          ]
+        }
+      ],
+      "expected": "two storage families in one public history model"
+    },
+    {
+      "id": "ocr.triage_exhaustive",
+      "passed": true,
+      "observed": {
+        "audited_dual_witness_pages": 6947,
+        "machine_concordant_sampling_pool": 66,
+        "text_or_structure_conflict_adjudication": 5028,
+        "table_cell_reconstruction": 1780,
+        "blank_visual_confirmation": 73,
+        "unclassified_pages": 0
+      },
+      "expected": {
+        "audited_dual_witness_pages": 6947,
+        "unclassified_pages": 0,
+        "root_cause_pages": 6947
+      }
+    },
+    {
+      "id": "ocr.fallback_candidate_coverage_complete",
+      "passed": true,
+      "observed": {
+        "documents": 3,
+        "pages": 1077,
+        "characters": 739109,
+        "low_mean_confidence_pages": 432,
+        "candidate_gap_pages_remaining": 0
+      },
+      "expected": {
+        "pages": 1077,
+        "candidate_gap_pages_remaining": 0
+      }
+    },
+    {
+      "id": "ocr.public_summary_fail_closed",
+      "passed": true,
+      "observed": {
+        "covered": 11847,
+        "remaining": 0,
+        "triaged": 6947,
+        "release_gate": {
+          "citation_allowed": false,
+          "semantic_promotion_allowed": false,
+          "negative_claim_eligible": false
+        }
+      },
+      "expected": {
+        "covered": 11847,
+        "remaining": 0,
+        "triaged": 6947,
+        "citation_allowed": false
+      }
+    },
+    {
+      "id": "ui.brand_and_title",
+      "passed": true,
+      "observed": "brand HTML",
+      "expected": "JPG mark and 百年课标 only"
+    },
+    {
+      "id": "ui.inspector_avoids_selection",
+      "passed": true,
+      "observed": "edge-aware inspector hooks",
+      "expected": "opposite-edge docking plus translucent fallback"
+    },
+    {
+      "id": "ui.dynamic_year_reveal",
+      "passed": true,
+      "observed": "entry animation hooks",
+      "expected": "1902 to latest monotonic reveal with reduced-motion path"
+    },
+    {
+      "id": "ui.deep_year_link",
+      "passed": true,
+      "observed": "concept-year linking hooks",
+      "expected": "single bottom time axis linked to deep model"
+    },
+    {
+      "id": "ui.discipline_lifecycle_below_modes",
+      "passed": true,
+      "observed": "discipline lifecycle DOM order",
+      "expected": "directly below three map modes"
+    },
+    {
+      "id": "ui.no_dashed_primitives",
+      "passed": true,
+      "observed": "visual source scan",
+      "expected": "no dashed lines"
+    },
+    {
+      "id": "asset.brand_jpeg_bounded",
+      "passed": true,
+      "observed": {
+        "bytes": 69423,
+        "sha256": "ef5ce8e69373d4711dd71304cc7700ff6968fba4046d13b01d27e5519005cb01"
+      },
+      "expected": {
+        "format": "jpeg",
+        "max_bytes": 92160
+      }
+    }
+  ]
+}

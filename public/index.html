@@ -3,34 +3,34 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>课程标准演变｜历代学科星图</title>
-  <meta name="description" content="在一张可核查的课程宇宙中观察20世纪以来各学科关键概念在课程标准中的历次出现与变化。">
+  <title>百年课标｜历代学科星图</title>
+  <meta name="description" content="在一张可核查的课程宇宙中观察1902年以来各学科关键概念与课程形态的历次出现、分合和变化。">
   <meta name="theme-color" content="#050814">
   <link rel="canonical" href="https://curriculum.bdfz.net/">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="课程标准演变｜历代学科星图">
+  <meta property="og:title" content="百年课标｜历代学科星图">
   <meta property="og:description" content="按年代、学科与概念关系探索中国课程标准及考试评价的历史变迁。">
   <meta property="og:url" content="https://curriculum.bdfz.net/">
   <meta property="og:image" content="https://img.bdfz.net/20250503004.webp">
   <link rel="icon" href="https://img.bdfz.net/20250503004.webp" type="image/webp">
   <link rel="apple-touch-icon" href="https://img.bdfz.net/20250503004.webp">
-  <link rel="stylesheet" href="/styles.css?v=20260723v36">
-  <link rel="modulepreload" href="/subject-facets.js?v=20260723v36">
-  <link rel="modulepreload" href="/historical-stages.js?v=20260723v36">
-  <script type="module" src="/app.js?v=20260723v36"></script>
+  <link rel="stylesheet" href="/styles.css?v=20260723v37">
+  <link rel="modulepreload" href="/subject-facets.js?v=20260723v37">
+  <link rel="modulepreload" href="/historical-stages.js?v=20260723v37">
+  <script type="module" src="/app.js?v=20260723v37"></script>
 </head>
 <body>
   <a class="skip-link" href="#cosmos-stage">跳到课程星图</a>
   <header class="site-header">
-    <a class="brand" href="/" data-link aria-label="返回课程标准演变星图">
-      <span class="brand-seal" aria-hidden="true">纬</span>
-      <span><b>课程标准演变</b><small>20世纪—今天</small></span>
+    <a class="brand" href="/" data-link aria-label="返回百年课标星图">
+      <img class="brand-seal" src="/assets/century-curriculum-mark.jpg" width="512" height="512" alt="">
+      <span><b>百年课标</b></span>
     </a>
   </header>
 
   <main id="app">
     <section class="cosmos-stage" id="cosmos-stage" aria-label="中国历代课程标准关键概念演进星图">
-      <div class="cosmos-loading" id="cosmos-loading"><span></span><p>正在生成概念演进星图</p></div>
+      <div class="cosmos-loading" id="cosmos-loading"><span></span><p>1902 · 星图开始展开</p></div>
       <div class="cosmos-mount" id="cosmos-mount"></div>
 
       <button class="map-tools-toggle" id="map-tools-toggle" type="button" aria-expanded="false" aria-controls="map-controls">
@@ -40,7 +40,7 @@
         <section class="subject-cluster" aria-label="学科显隐">
           <header class="control-section-title">
             <b id="subject-mode-label">全学科星图</b>
-            <span id="subject-status">12/12 · 全部显示</span>
+            <span id="subject-status">11/11 · 全部显示</span>
             <button id="show-all-subjects" type="button">全开</button>
           </header>
           <div class="subject-orbit" id="subject-orbit"></div>
@@ -61,6 +61,10 @@
           <button type="button" data-map-mode="cross">概念关系</button>
           <button type="button" data-map-mode="structure">概念深挖</button>
         </div>
+        <section class="discipline-lifecycle" id="discipline-lifecycle" aria-label="学科设置与分合演进">
+          <header><b>学科设置 · 分合</b><span id="discipline-lifecycle-status">来源明示事件</span></header>
+          <div id="discipline-lifecycle-events"></div>
+        </section>
         <nav class="research-dock" aria-label="资料与研究工作台">
           <a href="/compare" data-link data-workspace="library"><b>版本 · 资料</b><small>比较、全文与百年证据</small></a>
           <a href="/ai" data-link data-workspace="research"><b>研究 · 讨论</b><small>证据 AI 与教师讨论</small></a>
@@ -73,6 +77,7 @@
       </aside>
       <section class="cosmos-year-control" aria-label="星图内年份显隐">
         <div class="era-buttons" id="era-buttons"></div>
+        <div class="concept-year-links" id="concept-year-links" aria-label="当前概念关联年代" hidden></div>
         <div class="year-scrubber">
           <span id="year-start">1902</span>
           <label class="sr-only" for="year-range">显示至年份</label>

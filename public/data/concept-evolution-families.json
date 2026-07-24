@@ -1037,8 +1037,8 @@
           "id": "detail-pre2001-mathematics-calculation",
           "label": "演算",
           "first_observed_year": 1916,
-          "last_observed_year": 1952,
-          "episode_count": 4
+          "last_observed_year": 1986,
+          "episode_count": 22
         },
         {
           "id": "detail-mathematics-activities",
@@ -1050,7 +1050,7 @@
       ],
       "first_observed_year": 1916,
       "last_observed_year": 2022,
-      "episode_count": 7
+      "episode_count": 25
     },
     {
       "id": "subject-practice-foreign-language",
@@ -1103,8 +1103,8 @@
           "id": "detail-pre2001-civics-discussion",
           "label": "讨论",
           "first_observed_year": 1923,
-          "last_observed_year": 1941,
-          "episode_count": 3
+          "last_observed_year": 1997,
+          "episode_count": 20
         },
         {
           "id": "detail-civics-social-practice",
@@ -1116,7 +1116,7 @@
       ],
       "first_observed_year": 1923,
       "last_observed_year": 2022,
-      "episode_count": 6
+      "episode_count": 23
     },
     {
       "id": "subject-practice-history",
@@ -1202,8 +1202,8 @@
           "id": "detail-pre2001-geography-field-observation",
           "label": "实地观察",
           "first_observed_year": 1912,
-          "last_observed_year": 1950,
-          "episode_count": 2
+          "last_observed_year": 1956,
+          "episode_count": 4
         },
         {
           "id": "detail-geography-practice",
@@ -1215,7 +1215,7 @@
       ],
       "first_observed_year": 1912,
       "last_observed_year": 2022,
-      "episode_count": 5
+      "episode_count": 7
     },
     {
       "id": "subject-practice-science",
@@ -1433,8 +1433,8 @@
           "id": "detail-pre2001-mathematics-arithmetic",
           "label": "算术",
           "first_observed_year": 1904,
-          "last_observed_year": 1956,
-          "episode_count": 15
+          "last_observed_year": 2000,
+          "episode_count": 52
         },
         {
           "id": "detail-mathematics-number-algebra",
@@ -1446,7 +1446,7 @@
       ],
       "first_observed_year": 1904,
       "last_observed_year": 2022,
-      "episode_count": 18
+      "episode_count": 55
     },
     {
       "id": "subject-content-foreign-language",
@@ -1597,9 +1597,9 @@
         {
           "id": "detail-pre2001-geography-local",
           "label": "乡土地理",
-          "first_observed_year": 1950,
-          "last_observed_year": 1986,
-          "episode_count": 3
+          "first_observed_year": 1940,
+          "last_observed_year": 2000,
+          "episode_count": 17
         },
         {
           "id": "detail-geography-regional",
@@ -1609,9 +1609,9 @@
           "episode_count": 3
         }
       ],
-      "first_observed_year": 1950,
+      "first_observed_year": 1940,
       "last_observed_year": 2022,
-      "episode_count": 6
+      "episode_count": 20
     },
     {
       "id": "subject-content-science",
@@ -1837,8 +1837,8 @@
           "id": "detail-pre2001-mathematics-calculation-ability",
           "label": "计算能力",
           "first_observed_year": 1932,
-          "last_observed_year": 1941,
-          "episode_count": 3
+          "last_observed_year": 2000,
+          "episode_count": 12
         },
         {
           "id": "detail-mathematics-reasoning-ability",
@@ -1850,7 +1850,7 @@
       ],
       "first_observed_year": 1932,
       "last_observed_year": 2022,
-      "episode_count": 6
+      "episode_count": 15
     },
     {
       "id": "subject-ability-foreign-language",
@@ -1903,8 +1903,8 @@
           "id": "detail-pre2001-civics-responsibility",
           "label": "公民的责任",
           "first_observed_year": 1923,
-          "last_observed_year": 1923,
-          "episode_count": 1
+          "last_observed_year": 1993,
+          "episode_count": 2
         },
         {
           "id": "responsibility-awareness",
@@ -1916,7 +1916,7 @@
       ],
       "first_observed_year": 1923,
       "last_observed_year": 2022,
-      "episode_count": 7
+      "episode_count": 8
     },
     {
       "id": "subject-ability-history",
@@ -2003,8 +2003,8 @@
           "id": "detail-pre2001-geography-research",
           "label": "调查研究",
           "first_observed_year": 1950,
-          "last_observed_year": 1950,
-          "episode_count": 1
+          "last_observed_year": 1996,
+          "episode_count": 3
         },
         {
           "id": "detail-geography-practice-ability",
@@ -2023,7 +2023,7 @@
       ],
       "first_observed_year": 1950,
       "last_observed_year": 2022,
-      "episode_count": 6
+      "episode_count": 8
     },
     {
       "id": "subject-ability-science",
@@ -2396,6 +2396,13 @@
       "year": 1904
     },
     {
+      "episode_id": "pre2001-detail:75af41f86b68375dce19",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1904
+    },
+    {
       "episode_id": "pre2001-detail:a6a8ecd4da628c5a0b45",
       "concept_id": "detail-pre2001-mathematics-arithmetic",
       "family_id": "subject-content-mathematics",
@@ -2627,6 +2634,13 @@
       "year": 1909
     },
     {
+      "episode_id": "pre2001-detail:e692532f164ce03eab44",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1909
+    },
+    {
       "episode_id": "pre2001-detail:7bd06a45d8d60a1936a0",
       "concept_id": "detail-pre2001-sports-gymnastics",
       "family_id": "subject-content-sports-health",
@@ -2806,6 +2820,13 @@
       "concept_id": "historical-literature-study",
       "family_id": "literature-reading-and-writing",
       "concept_tier_id": "language-practice-domain",
+      "year": 1912
+    },
+    {
+      "episode_id": "pre2001-detail:010fcafe524569934479",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
       "year": 1912
     },
     {
@@ -3022,6 +3043,13 @@
       "episode_id": "pre2001-detail:c21883db0c825c43240f",
       "concept_id": "detail-pre2001-history-national-history",
       "family_id": "subject-content-history",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1913
+    },
+    {
+      "episode_id": "pre2001-detail:2390966eb339aafb9697",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "year": 1913
     },
@@ -3705,6 +3733,13 @@
       "year": 1923
     },
     {
+      "episode_id": "pre2001-detail:ff8cd6f7d680d57076d5",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1923
+    },
+    {
       "episode_id": "pre2001-detail:3a3c7757535436296758",
       "concept_id": "detail-pre2001-science-biology",
       "family_id": "subject-content-science",
@@ -3967,6 +4002,13 @@
       "episode_id": "pre2001-detail:8bab949b922bd907d08c",
       "concept_id": "detail-pre2001-chinese-composition",
       "family_id": "subject-practice-chinese",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1923
+    },
+    {
+      "episode_id": "pre2001-detail:33989d33bcf98e35defe",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
       "concept_tier_id": "subject-practice-domain",
       "year": 1923
     },
@@ -4245,6 +4287,13 @@
     },
     {
       "episode_id": "pre2001-detail:c655f7ca6c1e11faeb6a",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1929
+    },
+    {
+      "episode_id": "pre2001-detail:dfd0352bb44efa5ca6fa",
       "concept_id": "detail-pre2001-mathematics-arithmetic",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
@@ -4552,6 +4601,13 @@
       "year": 1929
     },
     {
+      "episode_id": "pre2001-detail:ff11cd8b046e7657f819",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1929
+    },
+    {
       "episode_id": "pre2001-detail:4a57d4060f7f6d33b4b7",
       "concept_id": "detail-pre2001-science-experiment",
       "family_id": "subject-practice-science",
@@ -4804,7 +4860,21 @@
       "year": 1932
     },
     {
+      "episode_id": "pre2001-detail:743882f9c269dc898054",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1932
+    },
+    {
       "episode_id": "pre2001-detail:ca80aae618ec300bfc02",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1932
+    },
+    {
+      "episode_id": "pre2001-detail:fc981611286d95c69f29",
       "concept_id": "detail-pre2001-mathematics-arithmetic",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
@@ -5084,6 +5154,20 @@
       "year": 1932
     },
     {
+      "episode_id": "pre2001-detail:54a68bb35fabf9688031",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1932
+    },
+    {
+      "episode_id": "pre2001-detail:e9b5988ceb3a7905d6ce",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1932
+    },
+    {
       "episode_id": "pre2001-detail:12c33253f796da066722",
       "concept_id": "detail-pre2001-science-experiment",
       "family_id": "subject-practice-science",
@@ -5288,6 +5372,13 @@
     },
     {
       "episode_id": "pre2001-detail:374a9ff3ded9c6fdb4b3",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1936
+    },
+    {
+      "episode_id": "pre2001-detail:ca7813c7410838ba86ab",
       "concept_id": "detail-pre2001-mathematics-arithmetic",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
@@ -5504,6 +5595,20 @@
       "year": 1936
     },
     {
+      "episode_id": "pre2001-detail:4c4b44d963c8e7e736ab",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1936
+    },
+    {
+      "episode_id": "pre2001-detail:71d1a72efe6a847cfe10",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1936
+    },
+    {
       "episode_id": "pre2001-detail:42fca8cfe17460e5171c",
       "concept_id": "detail-pre2001-science-experiment",
       "family_id": "subject-practice-science",
@@ -5612,6 +5717,13 @@
       "episode_id": "pre2001-detail:4eef4dc9d9be2ab1a578",
       "concept_id": "detail-pre2001-chinese-reading",
       "family_id": "subject-content-chinese",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1940
+    },
+    {
+      "episode_id": "pre2001-detail:0292993d971bf59f7c46",
+      "concept_id": "detail-pre2001-geography-local",
+      "family_id": "subject-content-geography",
       "concept_tier_id": "subject-content-domain",
       "year": 1940
     },
@@ -5973,6 +6085,13 @@
       "year": 1941
     },
     {
+      "episode_id": "pre2001-detail:a54fb12fe5e06740919e",
+      "concept_id": "detail-pre2001-geography-local",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1941
+    },
+    {
       "episode_id": "pre2001-detail:5b010507131e77aa37b6",
       "concept_id": "detail-pre2001-history-national-history",
       "family_id": "subject-content-history",
@@ -5981,6 +6100,20 @@
     },
     {
       "episode_id": "pre2001-detail:26bf48d322d38060d922",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1941
+    },
+    {
+      "episode_id": "pre2001-detail:5f3adec7b1a00b4cf501",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1941
+    },
+    {
+      "episode_id": "pre2001-detail:d14455a0567f107b03dc",
       "concept_id": "detail-pre2001-mathematics-arithmetic",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
@@ -6162,6 +6295,13 @@
       "year": 1941
     },
     {
+      "episode_id": "pre2001-detail:f8a07b7bca0c92eaf6f5",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1941
+    },
+    {
       "episode_id": "pre2001-detail:7eb7ab6b5d19d8f0f3a7",
       "concept_id": "detail-pre2001-foreign-conversation",
       "family_id": "subject-practice-foreign-language",
@@ -6186,6 +6326,27 @@
       "episode_id": "pre2001-detail:9168f31949d2316b76e5",
       "concept_id": "detail-pre2001-history-fieldwork",
       "family_id": "subject-practice-history",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1941
+    },
+    {
+      "episode_id": "pre2001-detail:76fdbe23b136980b4450",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1941
+    },
+    {
+      "episode_id": "pre2001-detail:f34175007270996d177b",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1941
+    },
+    {
+      "episode_id": "pre2001-detail:fbe361902110ef1c77b3",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
       "concept_tier_id": "subject-practice-domain",
       "year": 1941
     },
@@ -6470,6 +6631,13 @@
       "year": 1948
     },
     {
+      "episode_id": "pre2001-detail:de9701e8baab8a1b1cba",
+      "concept_id": "detail-pre2001-geography-local",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1948
+    },
+    {
       "episode_id": "pre2001-detail:05000613f7d2c3234479",
       "concept_id": "detail-pre2001-history-national-history",
       "family_id": "subject-content-history",
@@ -6485,6 +6653,13 @@
     },
     {
       "episode_id": "pre2001-detail:7064f0e0cc0f96703dd7",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1948
+    },
+    {
+      "episode_id": "pre2001-detail:7d4baaf3ab605737f1dd",
       "concept_id": "detail-pre2001-mathematics-arithmetic",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
@@ -6680,6 +6855,13 @@
       "year": 1948
     },
     {
+      "episode_id": "pre2001-detail:246bee6ec0b9109d9b5e",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1948
+    },
+    {
       "episode_id": "pre2001-detail:01399afafd8e34c0b963",
       "concept_id": "detail-pre2001-foreign-conversation",
       "family_id": "subject-practice-foreign-language",
@@ -6690,6 +6872,20 @@
       "episode_id": "pre2001-detail:bf59732c70b6afe81bb0",
       "concept_id": "detail-pre2001-foreign-conversation",
       "family_id": "subject-practice-foreign-language",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1948
+    },
+    {
+      "episode_id": "pre2001-detail:a16de6c8abba4626040b",
+      "concept_id": "detail-pre2001-geography-field-observation",
+      "family_id": "subject-practice-geography",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1948
+    },
+    {
+      "episode_id": "pre2001-detail:757fae65c3909f48d1a6",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
       "concept_tier_id": "subject-practice-domain",
       "year": 1948
     },
@@ -6816,6 +7012,13 @@
       "episode_id": "pre2001-detail:6c0e820d1664fade7107",
       "concept_id": "detail-pre2001-history-national-history",
       "family_id": "subject-content-history",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1950
+    },
+    {
+      "episode_id": "pre2001-detail:71df246105c8af61a30c",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "year": 1950
     },
@@ -7002,11 +7205,32 @@
       "year": 1950
     },
     {
+      "episode_id": "pre2001-detail:4455ae319cd302d765a7",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1950
+    },
+    {
       "episode_id": "pre2001-detail:716b36ba4c4a4ac55061",
       "concept_id": "detail-pre2001-science-experiment",
       "family_id": "subject-practice-science",
       "concept_tier_id": "subject-practice-domain",
       "year": 1950
+    },
+    {
+      "episode_id": "pre2001-detail:773b5c2b8e4e97b53440",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1951
+    },
+    {
+      "episode_id": "pre2001-detail:ec6f5b162ccf783571f3",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1951
     },
     {
       "episode_id": "pre2001-detail:080866af30e4fb15a639",
@@ -7017,6 +7241,13 @@
     },
     {
       "episode_id": "pre2001-detail:1fdf15cfaf2e17cc63fb",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1952
+    },
+    {
+      "episode_id": "pre2001-detail:6a4280fd53300489a3a0",
       "concept_id": "detail-pre2001-mathematics-arithmetic",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
@@ -7185,6 +7416,13 @@
     },
     {
       "episode_id": "pre2001-detail:233f597c676fac644606",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1952
+    },
+    {
+      "episode_id": "pre2001-detail:71eb893ed5078fdb039e",
       "concept_id": "detail-pre2001-mathematics-calculation",
       "family_id": "subject-practice-mathematics",
       "concept_tier_id": "subject-practice-domain",
@@ -7408,6 +7646,13 @@
       "year": 1954
     },
     {
+      "episode_id": "pre2001-detail:37ac4c2be9161fb5bd7b",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1954
+    },
+    {
       "episode_id": "pre2001-detail:ae113c8cd7a5e0c72364",
       "concept_id": "detail-pre2001-sports-gymnastics",
       "family_id": "subject-content-sports-health",
@@ -7544,6 +7789,13 @@
       "episode_id": "pre2001-detail:39b687cf7a17d5a78bb3",
       "concept_id": "detail-pre2001-chinese-composition",
       "family_id": "subject-practice-chinese",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1954
+    },
+    {
+      "episode_id": "pre2001-detail:8a5d90419e849401c4af",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
       "concept_tier_id": "subject-practice-domain",
       "year": 1954
     },
@@ -7891,7 +8143,21 @@
       "year": 1956
     },
     {
+      "episode_id": "pre2001-detail:d1111030b906e42039a8",
+      "concept_id": "detail-pre2001-geography-local",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1956
+    },
+    {
       "episode_id": "pre2001-detail:559da293bbb25bb5b9d3",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1956
+    },
+    {
+      "episode_id": "pre2001-detail:dba79b6dedc08023412a",
       "concept_id": "detail-pre2001-mathematics-arithmetic",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
@@ -8059,11 +8325,32 @@
       "year": 1956
     },
     {
+      "episode_id": "pre2001-detail:ea023c1d168900052859",
+      "concept_id": "detail-pre2001-geography-field-observation",
+      "family_id": "subject-practice-geography",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1956
+    },
+    {
+      "episode_id": "pre2001-detail:531b95ae23508a2c309f",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1956
+    },
+    {
       "episode_id": "pre2001-detail:b4b1b98cc6f7157161b9",
       "concept_id": "detail-pre2001-science-experiment",
       "family_id": "subject-practice-science",
       "concept_tier_id": "subject-practice-domain",
       "year": 1956
+    },
+    {
+      "episode_id": "pre2001-detail:8cf5e111950f5af22bcf",
+      "concept_id": "detail-pre2001-geography-research",
+      "family_id": "subject-ability-geography",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 1957
     },
     {
       "episode_id": "century-concept:73e8d4c2dad666513c06",
@@ -8353,6 +8640,34 @@
       "year": 1959
     },
     {
+      "episode_id": "pre2001-detail:6c68ad6a24093ab38a8a",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1959
+    },
+    {
+      "episode_id": "pre2001-detail:e7564282d9c5fd300623",
+      "concept_id": "detail-pre2001-mathematics-calculation-ability",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 1960
+    },
+    {
+      "episode_id": "pre2001-detail:4a48a2457e0e34d2b8f3",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1960
+    },
+    {
+      "episode_id": "pre2001-detail:544d96413af931847aef",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1960
+    },
+    {
       "episode_id": "century-concept:925b0347cc234c1067fd",
       "concept_id": "historical-composition-practice",
       "family_id": "expression-and-communication",
@@ -8437,6 +8752,20 @@
       "year": 1963
     },
     {
+      "episode_id": "pre2001-detail:62203940d003cd4e8a4a",
+      "concept_id": "detail-pre2001-mathematics-calculation-ability",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 1963
+    },
+    {
+      "episode_id": "pre2001-detail:dd1295f6eabe8a595592",
+      "concept_id": "detail-pre2001-mathematics-calculation-ability",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 1963
+    },
+    {
       "episode_id": "pre2001-detail:59b05289a82372dae823",
       "concept_id": "detail-pre2001-chinese-reading",
       "family_id": "subject-content-chinese",
@@ -8447,6 +8776,27 @@
       "episode_id": "pre2001-detail:e4ea583ffcdfcd1ea9fa",
       "concept_id": "detail-pre2001-chinese-reading",
       "family_id": "subject-content-chinese",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1963
+    },
+    {
+      "episode_id": "pre2001-detail:4260ee00a485aa592bc1",
+      "concept_id": "detail-pre2001-geography-local",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1963
+    },
+    {
+      "episode_id": "pre2001-detail:415054b71e65f6ac1060",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1963
+    },
+    {
+      "episode_id": "pre2001-detail:88dc7d705e57420fe653",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "year": 1963
     },
@@ -8626,6 +8976,20 @@
       "year": 1963
     },
     {
+      "episode_id": "pre2001-detail:0d7dad11a25fd7cff570",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1963
+    },
+    {
+      "episode_id": "pre2001-detail:847e6dc061eb9a57170b",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1963
+    },
+    {
       "episode_id": "pre2001-detail:9b5cfcf8240713e90e55",
       "concept_id": "detail-pre2001-science-experiment",
       "family_id": "subject-practice-science",
@@ -8738,6 +9102,20 @@
       "year": 1964
     },
     {
+      "episode_id": "pre2001-detail:80debe1257e5de7f2b9d",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1964
+    },
+    {
+      "episode_id": "pre2001-detail:db93e6e2eaa495633c2c",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1964
+    },
+    {
       "episode_id": "century-concept:7005d3c4e98761ad5bc4",
       "concept_id": "historical-composition-practice",
       "family_id": "expression-and-communication",
@@ -8815,6 +9193,13 @@
       "year": 1978
     },
     {
+      "episode_id": "pre2001-detail:15a5749b93d8080c5e43",
+      "concept_id": "detail-pre2001-mathematics-calculation-ability",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 1978
+    },
+    {
       "episode_id": "pre2001-detail:2e5d74a1071cac5e7d42",
       "concept_id": "detail-pre2001-chinese-reading",
       "family_id": "subject-content-chinese",
@@ -8825,6 +9210,27 @@
       "episode_id": "pre2001-detail:64294186e5728411376c",
       "concept_id": "detail-pre2001-chinese-reading",
       "family_id": "subject-content-chinese",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1978
+    },
+    {
+      "episode_id": "pre2001-detail:9dd14db1da914b436e24",
+      "concept_id": "detail-pre2001-geography-local",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1978
+    },
+    {
+      "episode_id": "pre2001-detail:c94392e59f670a12f6f0",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1978
+    },
+    {
+      "episode_id": "pre2001-detail:de51a6025b38888ebd2b",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "year": 1978
     },
@@ -8983,11 +9389,25 @@
       "year": 1978
     },
     {
+      "episode_id": "pre2001-detail:f16fc0784352831dbb08",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1978
+    },
+    {
       "episode_id": "pre2001-detail:c2cb02e21a6efd67df7e",
       "concept_id": "detail-pre2001-science-experiment",
       "family_id": "subject-practice-science",
       "concept_tier_id": "subject-practice-domain",
       "year": 1978
+    },
+    {
+      "episode_id": "pre2001-detail:fda0a3be1f7307da8ac9",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1979
     },
     {
       "episode_id": "century-concept:117ca72b41aad97aa529",
@@ -9067,6 +9487,13 @@
       "year": 1980
     },
     {
+      "episode_id": "pre2001-detail:02294e28d8591f13b475",
+      "concept_id": "detail-pre2001-mathematics-calculation-ability",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 1980
+    },
+    {
       "episode_id": "pre2001-detail:842124e8a6f4502a474b",
       "concept_id": "detail-pre2001-chinese-reading",
       "family_id": "subject-content-chinese",
@@ -9081,6 +9508,20 @@
       "year": 1980
     },
     {
+      "episode_id": "pre2001-detail:df8eec480b0a14ba38ff",
+      "concept_id": "detail-pre2001-geography-local",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1980
+    },
+    {
+      "episode_id": "pre2001-detail:9597f16da5aabf2d9960",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1980
+    },
+    {
       "episode_id": "pre2001-detail:5281f42a49de5a1a0827",
       "concept_id": "detail-pre2001-chinese-composition",
       "family_id": "subject-practice-chinese",
@@ -9091,6 +9532,13 @@
       "episode_id": "pre2001-detail:c0e25550b7baadd67267",
       "concept_id": "detail-pre2001-chinese-composition",
       "family_id": "subject-practice-chinese",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1980
+    },
+    {
+      "episode_id": "pre2001-detail:7fb6722a1dc98458c55c",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
       "concept_tier_id": "subject-practice-domain",
       "year": 1980
     },
@@ -9270,6 +9718,27 @@
       "year": 1981
     },
     {
+      "episode_id": "pre2001-detail:88d7aa317a5f72d6c858",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1982
+    },
+    {
+      "episode_id": "pre2001-detail:4de1e28ae1992812b45d",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1982
+    },
+    {
+      "episode_id": "pre2001-detail:b0ab29eadbb64be885c1",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1982
+    },
+    {
       "episode_id": "pre2001-detail:3bd9aa90ae7d6dee252f",
       "concept_id": "detail-pre2001-science-experiment",
       "family_id": "subject-practice-science",
@@ -9366,6 +9835,20 @@
       "family_id": "subject-course-technology",
       "concept_tier_id": "subject-course-identity",
       "year": 1984
+    },
+    {
+      "episode_id": "pre2001-detail:9b9fea9759dc54ca92e3",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1985
+    },
+    {
+      "episode_id": "pre2001-detail:a61eb9870571d9c99e47",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1985
     },
     {
       "episode_id": "pre2001-detail:7cccb960b58e12ff2879",
@@ -9466,6 +9949,13 @@
       "year": 1986
     },
     {
+      "episode_id": "pre2001-detail:69a679edb997ae71579c",
+      "concept_id": "detail-pre2001-mathematics-calculation-ability",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 1986
+    },
+    {
       "episode_id": "pre2001-detail:fb557edb641958c40edf",
       "concept_id": "detail-pre2001-science-observation-ability",
       "family_id": "subject-ability-science",
@@ -9487,9 +9977,30 @@
       "year": 1986
     },
     {
+      "episode_id": "pre2001-detail:0909aa5c2da9f8814863",
+      "concept_id": "detail-pre2001-geography-local",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1986
+    },
+    {
       "episode_id": "pre2001-detail:d0879e49a0fecb1f5da7",
       "concept_id": "detail-pre2001-geography-local",
       "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1986
+    },
+    {
+      "episode_id": "pre2001-detail:2031b2f9399e09329ade",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1986
+    },
+    {
+      "episode_id": "pre2001-detail:dbe479979a206091aa3b",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "year": 1986
     },
@@ -9504,6 +10015,20 @@
       "episode_id": "pre2001-detail:3779d8e5d6d4785fbd1c",
       "concept_id": "detail-pre2001-chinese-composition",
       "family_id": "subject-practice-chinese",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1986
+    },
+    {
+      "episode_id": "pre2001-detail:98db08f9e16b2168fc9f",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1986
+    },
+    {
+      "episode_id": "pre2001-detail:376845da2d980f1fff12",
+      "concept_id": "detail-pre2001-mathematics-calculation",
+      "family_id": "subject-practice-mathematics",
       "concept_tier_id": "subject-practice-domain",
       "year": 1986
     },
@@ -9599,6 +10124,13 @@
       "year": 1988
     },
     {
+      "episode_id": "pre2001-detail:d19c6c01abd8527333f5",
+      "concept_id": "detail-pre2001-mathematics-calculation-ability",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 1988
+    },
+    {
       "episode_id": "pre2001-detail:9f2ea04b7cb23e68a0d9",
       "concept_id": "detail-pre2001-science-observation-ability",
       "family_id": "subject-ability-science",
@@ -9616,6 +10148,27 @@
       "episode_id": "pre2001-detail:2e9fd2835b656e96274c",
       "concept_id": "detail-pre2001-chinese-reading",
       "family_id": "subject-content-chinese",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1988
+    },
+    {
+      "episode_id": "pre2001-detail:e6e1e0a8fe3fd649bf98",
+      "concept_id": "detail-pre2001-geography-local",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1988
+    },
+    {
+      "episode_id": "pre2001-detail:7a50d3b6937875cb3b46",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1988
+    },
+    {
+      "episode_id": "pre2001-detail:f2b8c3c86692cc9f9acf",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "year": 1988
     },
@@ -9802,6 +10355,20 @@
       "year": 1988
     },
     {
+      "episode_id": "pre2001-detail:0068404d72d5f10a432e",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1988
+    },
+    {
+      "episode_id": "pre2001-detail:7b8dd247261e7baa09ef",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1988
+    },
+    {
       "episode_id": "pre2001-detail:c867c0b3afea40cd9eae",
       "concept_id": "detail-pre2001-science-experiment",
       "family_id": "subject-practice-science",
@@ -9882,6 +10449,20 @@
       "episode_id": "pre2001-detail:e0545fa87b3e4567f140",
       "concept_id": "detail-pre2001-chinese-reading",
       "family_id": "subject-content-chinese",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1990
+    },
+    {
+      "episode_id": "pre2001-detail:0d93eaefa093ba3f77a5",
+      "concept_id": "detail-pre2001-geography-local",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1990
+    },
+    {
+      "episode_id": "pre2001-detail:bd17443a58b4e00c264b",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "year": 1990
     },
@@ -10029,6 +10610,13 @@
       "episode_id": "pre2001-detail:ed2e86a3eda30db20c22",
       "concept_id": "detail-pre2001-chinese-reading",
       "family_id": "subject-content-chinese",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1991
+    },
+    {
+      "episode_id": "pre2001-detail:5a0152386099140392c6",
+      "concept_id": "detail-pre2001-geography-local",
+      "family_id": "subject-content-geography",
       "concept_tier_id": "subject-content-domain",
       "year": 1991
     },
@@ -10201,6 +10789,13 @@
       "year": 1992
     },
     {
+      "episode_id": "pre2001-detail:17353e401ef92ca08e0b",
+      "concept_id": "detail-pre2001-mathematics-calculation-ability",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 1992
+    },
+    {
       "episode_id": "pre2001-detail:2d22211a2038ff130bc6",
       "concept_id": "detail-pre2001-science-observation-ability",
       "family_id": "subject-ability-science",
@@ -10218,6 +10813,27 @@
       "episode_id": "pre2001-detail:80b4b0a9b155a2cfa3c2",
       "concept_id": "detail-pre2001-chinese-reading",
       "family_id": "subject-content-chinese",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1992
+    },
+    {
+      "episode_id": "pre2001-detail:413d07def6f05261182c",
+      "concept_id": "detail-pre2001-geography-local",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1992
+    },
+    {
+      "episode_id": "pre2001-detail:4411320849a934fbf609",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1992
+    },
+    {
+      "episode_id": "pre2001-detail:e6a570e3d9d14d05fb97",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "year": 1992
     },
@@ -10423,6 +11039,13 @@
       "family_id": "subject-practice-science",
       "concept_tier_id": "subject-practice-domain",
       "year": 1992
+    },
+    {
+      "episode_id": "pre2001-detail:b4e347bd5e6d2b282368",
+      "concept_id": "detail-pre2001-civics-responsibility",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 1993
     },
     {
       "episode_id": "century-concept:85e5214a77d10d16bd25",
@@ -10740,6 +11363,13 @@
       "year": 1996
     },
     {
+      "episode_id": "pre2001-detail:d62770875f26f135746e",
+      "concept_id": "detail-pre2001-geography-research",
+      "family_id": "subject-ability-geography",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 1996
+    },
+    {
       "episode_id": "pre2001-detail:91729b94a4795228a2c4",
       "concept_id": "detail-pre2001-science-observation-ability",
       "family_id": "subject-ability-science",
@@ -10750,6 +11380,20 @@
       "episode_id": "pre2001-detail:6eb9d979f894955434c9",
       "concept_id": "detail-pre2001-chinese-reading",
       "family_id": "subject-content-chinese",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1996
+    },
+    {
+      "episode_id": "pre2001-detail:7e5405cde5f02f7d52a2",
+      "concept_id": "detail-pre2001-geography-local",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1996
+    },
+    {
+      "episode_id": "pre2001-detail:c5f3c459ecdd1df1c5db",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "year": 1996
     },
@@ -10880,11 +11524,32 @@
       "year": 1996
     },
     {
+      "episode_id": "pre2001-detail:1f8a2f9fd6caedef26c9",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1996
+    },
+    {
       "episode_id": "pre2001-detail:bd02d95d5aff35eb7672",
       "concept_id": "detail-pre2001-science-experiment",
       "family_id": "subject-practice-science",
       "concept_tier_id": "subject-practice-domain",
       "year": 1996
+    },
+    {
+      "episode_id": "pre2001-detail:463519d0793f2a5fee84",
+      "concept_id": "detail-pre2001-civics-discussion",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 1997
+    },
+    {
+      "episode_id": "pre2001-detail:5767ad5685cdaacb14c1",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 1998
     },
     {
       "episode_id": "century-concept:299d90c98ec1b6f7757d",
@@ -10978,6 +11643,13 @@
       "year": 2000
     },
     {
+      "episode_id": "pre2001-detail:79627e5826e0e54165eb",
+      "concept_id": "detail-pre2001-mathematics-calculation-ability",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2000
+    },
+    {
       "episode_id": "pre2001-detail:51d900a783d7f58a6f0b",
       "concept_id": "detail-pre2001-science-observation-ability",
       "family_id": "subject-ability-science",
@@ -11013,9 +11685,37 @@
       "year": 2000
     },
     {
+      "episode_id": "pre2001-detail:a9d3061cfed3c481f57f",
+      "concept_id": "detail-pre2001-geography-local",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2000
+    },
+    {
       "episode_id": "pre2001-detail:f27e8f96bb39eae4dbbd",
       "concept_id": "detail-pre2001-history-national-history",
       "family_id": "subject-content-history",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2000
+    },
+    {
+      "episode_id": "pre2001-detail:69c0182be8cb6afd7aba",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2000
+    },
+    {
+      "episode_id": "pre2001-detail:93c03b31ecb36ca75e55",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "year": 2000
+    },
+    {
+      "episode_id": "pre2001-detail:c6935044539fa0556fe0",
+      "concept_id": "detail-pre2001-mathematics-arithmetic",
+      "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "year": 2000
     },
@@ -16945,15 +17645,31 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:c7ced9c53ffc57f49deb",
+      "id": "evolution-family:fa90e9a9d6f42350b150",
       "source": "pre2001-detail:4460b6aeef0f389ebb2a",
+      "target": "pre2001-detail:b4e347bd5e6d2b282368",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1923,
+      "target_year": 1993,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:695acd0806bda3bbc8f2",
+      "source": "pre2001-detail:b4e347bd5e6d2b282368",
       "target": "subject-detail:ictr-d692b0ff2e6c:responsibility-awareness",
       "family_id": "subject-ability-civics",
       "concept_tier_id": "subject-ability-domain",
       "type": "editorial_correspondence",
       "mode": "evolution",
       "label": "公民责任到责任意识",
-      "source_year": 1923,
+      "source_year": 1993,
       "target_year": 2001,
       "semantic": false,
       "citation_allowed": false,
@@ -17137,15 +17853,47 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:d540fc2d2d1809b17137",
+      "id": "evolution-family:b8f0a1e68629ef945c04",
       "source": "pre2001-detail:1575c92e04c3dc0fb2c9",
+      "target": "pre2001-detail:8cf5e111950f5af22bcf",
+      "family_id": "subject-ability-geography",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1950,
+      "target_year": 1957,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:99a5eab0f235a533e91b",
+      "source": "pre2001-detail:8cf5e111950f5af22bcf",
+      "target": "pre2001-detail:d62770875f26f135746e",
+      "family_id": "subject-ability-geography",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1957,
+      "target_year": 1996,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:eee5f0e8804c2a5aa4a0",
+      "source": "pre2001-detail:d62770875f26f135746e",
       "target": "subject-detail:ictr-ddde78e17189:detail-geography-practice-ability",
       "family_id": "subject-ability-geography",
       "concept_tier_id": "subject-ability-domain",
       "type": "editorial_correspondence",
       "mode": "evolution",
       "label": "调查研究到地理实践能力",
-      "source_year": 1950,
+      "source_year": 1996,
       "target_year": 2001,
       "semantic": false,
       "citation_allowed": false,
@@ -17361,15 +18109,143 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:0c854808c4099d384cbf",
+      "id": "evolution-family:513035536ebb8e6514ce",
       "source": "pre2001-detail:24de8a90fb06d1e5479b",
+      "target": "pre2001-detail:e7564282d9c5fd300623",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1941,
+      "target_year": 1960,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:5d05a3e180500e28f59c",
+      "source": "pre2001-detail:e7564282d9c5fd300623",
+      "target": "pre2001-detail:dd1295f6eabe8a595592",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1960,
+      "target_year": 1963,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:65f3b004735e9f9ab641",
+      "source": "pre2001-detail:dd1295f6eabe8a595592",
+      "target": "pre2001-detail:15a5749b93d8080c5e43",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1963,
+      "target_year": 1978,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:1c7c8ab0ad3b1248a70e",
+      "source": "pre2001-detail:15a5749b93d8080c5e43",
+      "target": "pre2001-detail:02294e28d8591f13b475",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1978,
+      "target_year": 1980,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:a9b2ce4ab6c873b5a277",
+      "source": "pre2001-detail:02294e28d8591f13b475",
+      "target": "pre2001-detail:69a679edb997ae71579c",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1980,
+      "target_year": 1986,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:f4963657e1abc3f9fa1b",
+      "source": "pre2001-detail:69a679edb997ae71579c",
+      "target": "pre2001-detail:d19c6c01abd8527333f5",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1986,
+      "target_year": 1988,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:4c59d05d8539b016398b",
+      "source": "pre2001-detail:d19c6c01abd8527333f5",
+      "target": "pre2001-detail:17353e401ef92ca08e0b",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1988,
+      "target_year": 1992,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:6557ef6f37dda9a2cdc8",
+      "source": "pre2001-detail:17353e401ef92ca08e0b",
+      "target": "pre2001-detail:79627e5826e0e54165eb",
+      "family_id": "subject-ability-mathematics",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1992,
+      "target_year": 2000,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:d64f7469067619733d3c",
+      "source": "pre2001-detail:79627e5826e0e54165eb",
       "target": "subject-detail:ictr-f36cc1469a0c:detail-mathematics-reasoning-ability",
       "family_id": "subject-ability-mathematics",
       "concept_tier_id": "subject-ability-domain",
       "type": "editorial_correspondence",
       "mode": "evolution",
       "label": "计算能力与推理能力的同层对应",
-      "source_year": 1941,
+      "source_year": 2000,
       "target_year": 2001,
       "semantic": false,
       "citation_allowed": false,
@@ -18305,6 +19181,54 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
+      "id": "evolution-family:f4f999e04d7e2e2fc0fb",
+      "source": "pre2001-detail:0292993d971bf59f7c46",
+      "target": "pre2001-detail:a54fb12fe5e06740919e",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1940,
+      "target_year": 1941,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:298ca079d4d05bfd5a8a",
+      "source": "pre2001-detail:a54fb12fe5e06740919e",
+      "target": "pre2001-detail:de9701e8baab8a1b1cba",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1941,
+      "target_year": 1948,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:ade53f42ea327d9bb428",
+      "source": "pre2001-detail:de9701e8baab8a1b1cba",
+      "target": "pre2001-detail:4c3bd0a5d544ddaf8e27",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1948,
+      "target_year": 1950,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
       "id": "evolution-family:14decbf79a0c7db2a09e",
       "source": "pre2001-detail:4c3bd0a5d544ddaf8e27",
       "target": "pre2001-detail:b86b91df2fbb3668aa4c",
@@ -18321,15 +19245,63 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:0c7dde2b60d0c5350eec",
+      "id": "evolution-family:f4d695a7c8a70ccb8e24",
       "source": "pre2001-detail:b86b91df2fbb3668aa4c",
-      "target": "pre2001-detail:d0879e49a0fecb1f5da7",
+      "target": "pre2001-detail:4260ee00a485aa592bc1",
       "family_id": "subject-content-geography",
       "concept_tier_id": "subject-content-domain",
       "type": "same_surface_observed_again",
       "mode": "evolution",
       "label": "同词再现",
       "source_year": 1956,
+      "target_year": 1963,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:076fb1acf010247df97f",
+      "source": "pre2001-detail:4260ee00a485aa592bc1",
+      "target": "pre2001-detail:9dd14db1da914b436e24",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1963,
+      "target_year": 1978,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:fea7bf9c13f53b229d04",
+      "source": "pre2001-detail:9dd14db1da914b436e24",
+      "target": "pre2001-detail:df8eec480b0a14ba38ff",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1978,
+      "target_year": 1980,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:64cc525827534d5b99bf",
+      "source": "pre2001-detail:df8eec480b0a14ba38ff",
+      "target": "pre2001-detail:0909aa5c2da9f8814863",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1980,
       "target_year": 1986,
       "semantic": false,
       "citation_allowed": false,
@@ -18337,15 +19309,111 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:f2c80deb8807308fc8fb",
-      "source": "pre2001-detail:d0879e49a0fecb1f5da7",
+      "id": "evolution-family:4e3e74e8f006a6d88d17",
+      "source": "pre2001-detail:0909aa5c2da9f8814863",
+      "target": "pre2001-detail:e6e1e0a8fe3fd649bf98",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1986,
+      "target_year": 1988,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:ffed76afffc09e402cd1",
+      "source": "pre2001-detail:e6e1e0a8fe3fd649bf98",
+      "target": "pre2001-detail:0d93eaefa093ba3f77a5",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1988,
+      "target_year": 1990,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:8f1b8966aabd9025ee8a",
+      "source": "pre2001-detail:0d93eaefa093ba3f77a5",
+      "target": "pre2001-detail:5a0152386099140392c6",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1990,
+      "target_year": 1991,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:901b9817c0c5577cac6b",
+      "source": "pre2001-detail:5a0152386099140392c6",
+      "target": "pre2001-detail:413d07def6f05261182c",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1991,
+      "target_year": 1992,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:a5fb1e76c03d63a5f82e",
+      "source": "pre2001-detail:413d07def6f05261182c",
+      "target": "pre2001-detail:7e5405cde5f02f7d52a2",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1992,
+      "target_year": 1996,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:ee413faccde260adc0d5",
+      "source": "pre2001-detail:7e5405cde5f02f7d52a2",
+      "target": "pre2001-detail:a9d3061cfed3c481f57f",
+      "family_id": "subject-content-geography",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1996,
+      "target_year": 2000,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:b5c21b441d375bf8d39c",
+      "source": "pre2001-detail:a9d3061cfed3c481f57f",
       "target": "subject-detail:ictr-ddde78e17189:detail-geography-regional",
       "family_id": "subject-content-geography",
       "concept_tier_id": "subject-content-domain",
       "type": "editorial_correspondence",
       "mode": "evolution",
       "label": "乡土地理到区域地理",
-      "source_year": 1986,
+      "source_year": 2000,
       "target_year": 2001,
       "semantic": false,
       "citation_allowed": false,
@@ -18657,15 +19725,31 @@
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
     },
     {
-      "id": "evolution-family:c4c37633c08a562c63d9",
+      "id": "evolution-family:284ebe3c2be16875d90f",
       "source": "pre2001-detail:a6a8ecd4da628c5a0b45",
-      "target": "pre2001-detail:3a6200c436f9628a1b9a",
+      "target": "pre2001-detail:e692532f164ce03eab44",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "type": "same_surface_observed_again",
       "mode": "evolution",
       "label": "同词再现",
       "source_year": 1904,
+      "target_year": 1909,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:bec5704c487bb033ebc3",
+      "source": "pre2001-detail:e692532f164ce03eab44",
+      "target": "pre2001-detail:3a6200c436f9628a1b9a",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1909,
       "target_year": 1912,
       "semantic": false,
       "citation_allowed": false,
@@ -18673,15 +19757,31 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:59351c45630c2258f942",
+      "id": "evolution-family:8c1a67aed63ea8bc3759",
       "source": "pre2001-detail:3a6200c436f9628a1b9a",
-      "target": "pre2001-detail:88b1eaabad87ebfac4ff",
+      "target": "pre2001-detail:2390966eb339aafb9697",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "type": "same_surface_observed_again",
       "mode": "evolution",
       "label": "同词再现",
       "source_year": 1912,
+      "target_year": 1913,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:dab378eedd49ed041f80",
+      "source": "pre2001-detail:2390966eb339aafb9697",
+      "target": "pre2001-detail:88b1eaabad87ebfac4ff",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1913,
       "target_year": 1916,
       "semantic": false,
       "citation_allowed": false,
@@ -18689,9 +19789,9 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:a60613f7ec4c9c9ae43e",
+      "id": "evolution-family:a97ce82bd1e2f52b6a56",
       "source": "pre2001-detail:88b1eaabad87ebfac4ff",
-      "target": "pre2001-detail:4a1e59a68d9470988bfe",
+      "target": "pre2001-detail:ff8cd6f7d680d57076d5",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "type": "same_surface_observed_again",
@@ -18705,9 +19805,9 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:d5841e9e5163a2a2b753",
-      "source": "pre2001-detail:4a1e59a68d9470988bfe",
-      "target": "pre2001-detail:c655f7ca6c1e11faeb6a",
+      "id": "evolution-family:848e27f2c177f9a8b96e",
+      "source": "pre2001-detail:ff8cd6f7d680d57076d5",
+      "target": "pre2001-detail:dfd0352bb44efa5ca6fa",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "type": "same_surface_observed_again",
@@ -18721,8 +19821,8 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:8694cd8821540e027105",
-      "source": "pre2001-detail:c655f7ca6c1e11faeb6a",
+      "id": "evolution-family:3e4f109e6fa53782fdcd",
+      "source": "pre2001-detail:dfd0352bb44efa5ca6fa",
       "target": "pre2001-detail:ca80aae618ec300bfc02",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
@@ -18769,9 +19869,9 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:bdf8ddd4c1ce442ef1b6",
+      "id": "evolution-family:c84c7a35137abb21f920",
       "source": "pre2001-detail:26bf48d322d38060d922",
-      "target": "pre2001-detail:7064f0e0cc0f96703dd7",
+      "target": "pre2001-detail:7d4baaf3ab605737f1dd",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "type": "same_surface_observed_again",
@@ -18785,9 +19885,9 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:e0b28a5735c5a99f253d",
-      "source": "pre2001-detail:7064f0e0cc0f96703dd7",
-      "target": "pre2001-detail:b695547f8e2b2a201e54",
+      "id": "evolution-family:7a4c531b617f4164220e",
+      "source": "pre2001-detail:7d4baaf3ab605737f1dd",
+      "target": "pre2001-detail:71df246105c8af61a30c",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "type": "same_surface_observed_again",
@@ -18801,15 +19901,31 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:9b1c5f99f1db452cfae4",
-      "source": "pre2001-detail:b695547f8e2b2a201e54",
-      "target": "pre2001-detail:1fdf15cfaf2e17cc63fb",
+      "id": "evolution-family:2717cf7ccd9491564ba0",
+      "source": "pre2001-detail:71df246105c8af61a30c",
+      "target": "pre2001-detail:773b5c2b8e4e97b53440",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "type": "same_surface_observed_again",
       "mode": "evolution",
       "label": "同词再现",
       "source_year": 1950,
+      "target_year": 1951,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:8d9bf684c1e9b12c3220",
+      "source": "pre2001-detail:773b5c2b8e4e97b53440",
+      "target": "pre2001-detail:1fdf15cfaf2e17cc63fb",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1951,
       "target_year": 1952,
       "semantic": false,
       "citation_allowed": false,
@@ -18817,15 +19933,31 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:36337625de8d0526055f",
+      "id": "evolution-family:798b8f34a6914872ecec",
       "source": "pre2001-detail:1fdf15cfaf2e17cc63fb",
-      "target": "pre2001-detail:559da293bbb25bb5b9d3",
+      "target": "pre2001-detail:37ac4c2be9161fb5bd7b",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "type": "same_surface_observed_again",
       "mode": "evolution",
       "label": "同词再现",
       "source_year": 1952,
+      "target_year": 1954,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:37cc031c707b984a92cb",
+      "source": "pre2001-detail:37ac4c2be9161fb5bd7b",
+      "target": "pre2001-detail:559da293bbb25bb5b9d3",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1954,
       "target_year": 1956,
       "semantic": false,
       "citation_allowed": false,
@@ -18833,15 +19965,207 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:2963315af53fa92079db",
+      "id": "evolution-family:239b83edcd2451dae0e9",
       "source": "pre2001-detail:559da293bbb25bb5b9d3",
+      "target": "pre2001-detail:544d96413af931847aef",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1956,
+      "target_year": 1960,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:bc418d0c5b4a24aaf55f",
+      "source": "pre2001-detail:544d96413af931847aef",
+      "target": "pre2001-detail:415054b71e65f6ac1060",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1960,
+      "target_year": 1963,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:ab73bdc1fca4a2cd0fef",
+      "source": "pre2001-detail:415054b71e65f6ac1060",
+      "target": "pre2001-detail:c94392e59f670a12f6f0",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1963,
+      "target_year": 1978,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:720aed3095c4c5f8db43",
+      "source": "pre2001-detail:c94392e59f670a12f6f0",
+      "target": "pre2001-detail:9597f16da5aabf2d9960",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1978,
+      "target_year": 1980,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:b69a395062ca033f2a2c",
+      "source": "pre2001-detail:9597f16da5aabf2d9960",
+      "target": "pre2001-detail:88d7aa317a5f72d6c858",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1980,
+      "target_year": 1982,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:c2bc55a6d9cb5efd249f",
+      "source": "pre2001-detail:88d7aa317a5f72d6c858",
+      "target": "pre2001-detail:2031b2f9399e09329ade",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1982,
+      "target_year": 1986,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:6249c042bc920ec634f2",
+      "source": "pre2001-detail:2031b2f9399e09329ade",
+      "target": "pre2001-detail:7a50d3b6937875cb3b46",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1986,
+      "target_year": 1988,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:3aba4d5f4a07aa488fa5",
+      "source": "pre2001-detail:7a50d3b6937875cb3b46",
+      "target": "pre2001-detail:bd17443a58b4e00c264b",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1988,
+      "target_year": 1990,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:0608ce7ea97b140baa6a",
+      "source": "pre2001-detail:bd17443a58b4e00c264b",
+      "target": "pre2001-detail:e6a570e3d9d14d05fb97",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1990,
+      "target_year": 1992,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:1dffd5b46a26bc527e1b",
+      "source": "pre2001-detail:e6a570e3d9d14d05fb97",
+      "target": "pre2001-detail:c5f3c459ecdd1df1c5db",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1992,
+      "target_year": 1996,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:c31fd356aaddd59abf75",
+      "source": "pre2001-detail:c5f3c459ecdd1df1c5db",
+      "target": "pre2001-detail:5767ad5685cdaacb14c1",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1996,
+      "target_year": 1998,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:060f0a01532fe2e67e2e",
+      "source": "pre2001-detail:5767ad5685cdaacb14c1",
+      "target": "pre2001-detail:69c0182be8cb6afd7aba",
+      "family_id": "subject-content-mathematics",
+      "concept_tier_id": "subject-content-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1998,
+      "target_year": 2000,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:c8c36fed5f41a62a9bb0",
+      "source": "pre2001-detail:69c0182be8cb6afd7aba",
       "target": "subject-detail:ictr-f36cc1469a0c:detail-mathematics-number-algebra",
       "family_id": "subject-content-mathematics",
       "concept_tier_id": "subject-content-domain",
       "type": "editorial_correspondence",
       "mode": "evolution",
       "label": "算术内容到数与代数",
-      "source_year": 1956,
+      "source_year": 2000,
       "target_year": 2001,
       "semantic": false,
       "citation_allowed": false,
@@ -31873,8 +33197,8 @@
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
     },
     {
-      "id": "evolution-family:4a7435932f592bc08ef3",
-      "source": "pre2001-detail:7dc3d76dde840f17a163",
+      "id": "evolution-family:ca67c169a4f5705f4cdc",
+      "source": "pre2001-detail:33989d33bcf98e35defe",
       "target": "pre2001-detail:ac8b44d19618bd7012d1",
       "family_id": "subject-practice-civics",
       "concept_tier_id": "subject-practice-domain",
@@ -31905,15 +33229,191 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:30a86300cb6a4414cde5",
+      "id": "evolution-family:cd1e7c6945f1556daf35",
       "source": "pre2001-detail:7659ffea8ac57cf59094",
+      "target": "pre2001-detail:246bee6ec0b9109d9b5e",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1941,
+      "target_year": 1948,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:d9e6c159dcbad4d56c69",
+      "source": "pre2001-detail:246bee6ec0b9109d9b5e",
+      "target": "pre2001-detail:6c68ad6a24093ab38a8a",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1948,
+      "target_year": 1959,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:4f3998fd34406932676f",
+      "source": "pre2001-detail:6c68ad6a24093ab38a8a",
+      "target": "pre2001-detail:80debe1257e5de7f2b9d",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1959,
+      "target_year": 1964,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:fd57b3efcaea6b7364f6",
+      "source": "pre2001-detail:80debe1257e5de7f2b9d",
+      "target": "pre2001-detail:fda0a3be1f7307da8ac9",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1964,
+      "target_year": 1979,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:d441fe05add7546c9de6",
+      "source": "pre2001-detail:fda0a3be1f7307da8ac9",
+      "target": "pre2001-detail:7fb6722a1dc98458c55c",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1979,
+      "target_year": 1980,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:9d85c2ffe0c4b7fe2a41",
+      "source": "pre2001-detail:7fb6722a1dc98458c55c",
+      "target": "pre2001-detail:b0ab29eadbb64be885c1",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1980,
+      "target_year": 1982,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:04da504c0310c5d9f40d",
+      "source": "pre2001-detail:b0ab29eadbb64be885c1",
+      "target": "pre2001-detail:9b9fea9759dc54ca92e3",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1982,
+      "target_year": 1985,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:f5725319b6c72054c36f",
+      "source": "pre2001-detail:9b9fea9759dc54ca92e3",
+      "target": "pre2001-detail:98db08f9e16b2168fc9f",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1985,
+      "target_year": 1986,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:b226a477125255d89a48",
+      "source": "pre2001-detail:98db08f9e16b2168fc9f",
+      "target": "pre2001-detail:0068404d72d5f10a432e",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1986,
+      "target_year": 1988,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:0caf1926e936471c365c",
+      "source": "pre2001-detail:0068404d72d5f10a432e",
+      "target": "pre2001-detail:1f8a2f9fd6caedef26c9",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1988,
+      "target_year": 1996,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:511b613c7d1b1bf156a2",
+      "source": "pre2001-detail:1f8a2f9fd6caedef26c9",
+      "target": "pre2001-detail:463519d0793f2a5fee84",
+      "family_id": "subject-practice-civics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1996,
+      "target_year": 1997,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:ffd36020bc68c33a8ee4",
+      "source": "pre2001-detail:463519d0793f2a5fee84",
       "target": "subject-detail:ictr-d692b0ff2e6c:detail-civics-social-practice",
       "family_id": "subject-practice-civics",
       "concept_tier_id": "subject-practice-domain",
       "type": "editorial_correspondence",
       "mode": "evolution",
       "label": "讨论活动到社会实践",
-      "source_year": 1941,
+      "source_year": 1997,
       "target_year": 2001,
       "semantic": false,
       "citation_allowed": false,
@@ -32081,15 +33581,31 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:2d75a70ed09dd3ba31b5",
+      "id": "evolution-family:45397905aba19db822a0",
       "source": "pre2001-detail:68156422b90996c11b69",
-      "target": "pre2001-detail:1c9e96481828db2fd004",
+      "target": "pre2001-detail:a16de6c8abba4626040b",
       "family_id": "subject-practice-geography",
       "concept_tier_id": "subject-practice-domain",
       "type": "same_surface_observed_again",
       "mode": "evolution",
       "label": "同词再现",
       "source_year": 1912,
+      "target_year": 1948,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:1bf9605e37967fad5e00",
+      "source": "pre2001-detail:a16de6c8abba4626040b",
+      "target": "pre2001-detail:1c9e96481828db2fd004",
+      "family_id": "subject-practice-geography",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1948,
       "target_year": 1950,
       "semantic": false,
       "citation_allowed": false,
@@ -32097,15 +33613,31 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:dace38996ec81af7bd59",
+      "id": "evolution-family:605ba2c754e75f7ebcd2",
       "source": "pre2001-detail:1c9e96481828db2fd004",
+      "target": "pre2001-detail:ea023c1d168900052859",
+      "family_id": "subject-practice-geography",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1950,
+      "target_year": 1956,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:629646593a00bc1d9795",
+      "source": "pre2001-detail:ea023c1d168900052859",
       "target": "subject-detail:ictr-ddde78e17189:detail-geography-practice",
       "family_id": "subject-practice-geography",
       "concept_tier_id": "subject-practice-domain",
       "type": "editorial_correspondence",
       "mode": "evolution",
       "label": "实地观察到地理实践",
-      "source_year": 1950,
+      "source_year": 1956,
       "target_year": 2001,
       "semantic": false,
       "citation_allowed": false,
@@ -32337,15 +33869,95 @@
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
     },
     {
-      "id": "evolution-family:4e6fbdf3ca19cae40841",
+      "id": "evolution-family:bb5b38235ebeb78a82f1",
       "source": "pre2001-detail:b34fbeb6d16b1fafd9c3",
-      "target": "pre2001-detail:2015ac37b13b251fb062",
+      "target": "pre2001-detail:ff11cd8b046e7657f819",
       "family_id": "subject-practice-mathematics",
       "concept_tier_id": "subject-practice-domain",
       "type": "same_surface_observed_again",
       "mode": "evolution",
       "label": "同词再现",
       "source_year": 1916,
+      "target_year": 1929,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:145188a61e8f350cb0c3",
+      "source": "pre2001-detail:ff11cd8b046e7657f819",
+      "target": "pre2001-detail:54a68bb35fabf9688031",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1929,
+      "target_year": 1932,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:75cc35b6c33cea694fd7",
+      "source": "pre2001-detail:54a68bb35fabf9688031",
+      "target": "pre2001-detail:4c4b44d963c8e7e736ab",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1932,
+      "target_year": 1936,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:5b61ac8af0d2db08a01c",
+      "source": "pre2001-detail:4c4b44d963c8e7e736ab",
+      "target": "pre2001-detail:fbe361902110ef1c77b3",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1936,
+      "target_year": 1941,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:9e3d5ea1589748b87241",
+      "source": "pre2001-detail:fbe361902110ef1c77b3",
+      "target": "pre2001-detail:757fae65c3909f48d1a6",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1941,
+      "target_year": 1948,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:a30fd701ac9ec7c99709",
+      "source": "pre2001-detail:757fae65c3909f48d1a6",
+      "target": "pre2001-detail:4455ae319cd302d765a7",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1948,
       "target_year": 1950,
       "semantic": false,
       "citation_allowed": false,
@@ -32353,15 +33965,31 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:ca0d140210315033d7fc",
-      "source": "pre2001-detail:2015ac37b13b251fb062",
-      "target": "pre2001-detail:d5f69fec3fa9b939fab6",
+      "id": "evolution-family:fc6c7935bfbe45a109ca",
+      "source": "pre2001-detail:4455ae319cd302d765a7",
+      "target": "pre2001-detail:ec6f5b162ccf783571f3",
       "family_id": "subject-practice-mathematics",
       "concept_tier_id": "subject-practice-domain",
       "type": "same_surface_observed_again",
       "mode": "evolution",
       "label": "同词再现",
       "source_year": 1950,
+      "target_year": 1951,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:7ee397165246bcc03b7a",
+      "source": "pre2001-detail:ec6f5b162ccf783571f3",
+      "target": "pre2001-detail:71eb893ed5078fdb039e",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1951,
       "target_year": 1952,
       "semantic": false,
       "citation_allowed": false,
@@ -32369,15 +33997,95 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:4b702ded84a17125fb0e",
-      "source": "pre2001-detail:d5f69fec3fa9b939fab6",
+      "id": "evolution-family:21c44aa5db0b54324d69",
+      "source": "pre2001-detail:71eb893ed5078fdb039e",
+      "target": "pre2001-detail:8a5d90419e849401c4af",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1952,
+      "target_year": 1954,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:35eb6a191ce00d8dfd55",
+      "source": "pre2001-detail:8a5d90419e849401c4af",
+      "target": "pre2001-detail:531b95ae23508a2c309f",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1954,
+      "target_year": 1956,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:7f5fad8d7b422644c98d",
+      "source": "pre2001-detail:531b95ae23508a2c309f",
+      "target": "pre2001-detail:0d7dad11a25fd7cff570",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1956,
+      "target_year": 1963,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:d41ac6858bbcdc820cf0",
+      "source": "pre2001-detail:0d7dad11a25fd7cff570",
+      "target": "pre2001-detail:f16fc0784352831dbb08",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1963,
+      "target_year": 1978,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:1de4ff1dc1da76959bd1",
+      "source": "pre2001-detail:f16fc0784352831dbb08",
+      "target": "pre2001-detail:376845da2d980f1fff12",
+      "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 1978,
+      "target_year": 1986,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:b4098dc3d2b01939234e",
+      "source": "pre2001-detail:376845da2d980f1fff12",
       "target": "subject-detail:ictr-f36cc1469a0c:detail-mathematics-activities",
       "family_id": "subject-practice-mathematics",
       "concept_tier_id": "subject-practice-domain",
       "type": "editorial_correspondence",
       "mode": "evolution",
       "label": "演算实践到数学活动",
-      "source_year": 1952,
+      "source_year": 1986,
       "target_year": 2001,
       "semantic": false,
       "citation_allowed": false,
@@ -33047,8 +34755,8 @@
     "subject_facets": 12,
     "configured_concepts": 153,
     "observed_concepts": 153,
-    "episode_memberships": 1497,
-    "same_surface_edges": 1175,
+    "episode_memberships": 1597,
+    "same_surface_edges": 1238,
     "correspondence_edges": 94,
     "discipline_edges": 3,
     "detailed_families": 36,

@@ -3,9 +3,14 @@ import { getSession, requireAdmin, requireAuthenticated } from './auth';
 import { clampInt, HttpError, json, readJson, requireSameOrigin, secureHeaders, textParam } from './http';
 import { retrieve } from './retrieval';
 import { enforceRateLimit, verifyTurnstile } from './security';
+import {
+  mergePublicSubjectFacetRows,
+  normalizePublicSubjectQuery,
+  secondarySubjectIdentity,
+} from './subject-facets';
 import type { Env, Session } from './types';
 
-const VERSION = '2026.07.23-v14';
+const VERSION = '2026.07.23-v15';
 const R2_CURRENT_POINTER_KEY = 'release/current.json';
 const R2_INGEST_MANIFEST_KEY = 'catalog/ingest-manifest.json';
 const R2_RELEASE_PREFIX = 'releases';
@@ -334,11 +339,13 @@ async function health(env: Env): Promise<Response> {
 
 async function requireExactQueryIdentity(env: Env, identity: string): Promise<void> {
   if (!identity) return;
+  const publicIdentity = normalizePublicSubjectQuery(identity);
+  const secondaryIdentity = secondarySubjectIdentity(publicIdentity);
   const match = await env.DB.prepare(`SELECT dc.canonical_subject FROM document_classifications dc
     JOIN documents d ON d.id=dc.document_id
-    WHERE dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject=?
+    WHERE dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject IN (?, ?)
       AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id') LIMIT 1`)
-    .bind(identity).first();
+    .bind(publicIdentity, secondaryIdentity).first();
   if (!match) throw new HttpError(400, '精确分类身份不存在或不可检索');
 }
 
@@ -382,6 +389,12 @@ async function meta(env: Env): Promise<Response> {
       GROUP BY dc.scope_label ORDER BY documentCount DESC, dc.scope_label`).all(),
     env.DB.prepare('SELECT * FROM periods ORDER BY sort_order').all(),
   ]);
+  const publicSubjects = mergePublicSubjectFacetRows(subjects.results as Array<{
+    name: string;
+    documentCount?: number;
+    firstYear?: number | null;
+    lastYear?: number | null;
+  }>);
   return cacheJson({
     siteKey: 'curriculum',
     title: '中国历年课程标准与考试评价演变',
@@ -395,7 +408,9 @@ async function meta(env: Env): Promise<Response> {
       citationReadyDocuments: citationReady?.count || 0,
       onlineVerifications: onlineVerified?.count || 0,
     },
-    subjects: subjects.results,
+    subjects: publicSubjects,
+    storageSubjects: subjects.results,
+    subjectFacetAliases: { 历史: ['历史', '历史与社会'] },
     queryIdentities: queryIdentities.results,
     assessmentIdentities: assessmentIdentities.results,
     courses: courses.results,
@@ -405,7 +420,8 @@ async function meta(env: Env): Promise<Response> {
 }
 
 async function listDocuments(url: URL, env: Env): Promise<Response> {
-  const subject = textParam(url.searchParams.get('subject'), 40);
+  const subject = normalizePublicSubjectQuery(textParam(url.searchParams.get('subject'), 40));
+  const subjectSecondary = secondarySubjectIdentity(subject);
   const stage = textParam(url.searchParams.get('stage'), 40);
   const status = textParam(url.searchParams.get('status'), 40);
   const type = textParam(url.searchParams.get('type'), 40);
@@ -419,10 +435,10 @@ async function listDocuments(url: URL, env: Env): Promise<Response> {
             COALESCE(dc.canonical_subject,dc.scope_label,dc.source_subject_label) AS entity_label
      FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
      WHERE d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
-       AND (? = '' OR (dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject = ?))
+       AND (? = '' OR (dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject IN (?, ?)))
        AND (? = '' OR d.stage = ?) AND (? = '' OR d.current_status = ?) AND (? = '' OR d.document_type = ?)
      ORDER BY COALESCE(d.sort_year, 0) DESC, entity_label, d.title LIMIT ?`,
-  ).bind(subject, subject, stage, stage, status, status, type, type, limit).all();
+  ).bind(subject, subject, subjectSecondary, stage, stage, status, status, type, type, limit).all();
   return cacheJson({ documents: result.results }, 600);
 }
 
@@ -492,7 +508,7 @@ async function documentDetail(id: string, url: URL, env: Env): Promise<Response>
 async function search(url: URL, env: Env): Promise<Response> {
   const query = textParam(url.searchParams.get('q'), 240);
   if (query.length < 2) throw new HttpError(400, '请输入至少两个字符');
-  const subject = textParam(url.searchParams.get('subject'), 40);
+  const subject = normalizePublicSubjectQuery(textParam(url.searchParams.get('subject'), 40));
   await requireExactQueryIdentity(env, subject);
   const passages = await retrieve(env, {
     query,
@@ -504,10 +520,12 @@ async function search(url: URL, env: Env): Promise<Response> {
 }
 
 async function insights(url: URL, env: Env): Promise<Response> {
-  const subject = textParam(url.searchParams.get('subject'), 40);
+  const subject = normalizePublicSubjectQuery(textParam(url.searchParams.get('subject'), 40));
+  const subjectSecondary = secondarySubjectIdentity(subject);
   await requireExactQueryIdentity(env, subject);
-  const result = await env.DB.prepare(`SELECT * FROM subject_insights WHERE (? = '' OR subject IN (?, '综合')) ORDER BY sort_order`)
-    .bind(subject, subject).all();
+  const result = await env.DB.prepare(`SELECT * FROM subject_insights
+    WHERE (? = '' OR subject IN (?, ?, '综合')) ORDER BY sort_order`)
+    .bind(subject, subject, subjectSecondary).all();
   return cacheJson({ insights: result.results }, 600);
 }
 
@@ -522,17 +540,19 @@ async function terminology(env: Env): Promise<Response> {
 }
 
 async function compare(url: URL, env: Env): Promise<Response> {
-  const subject = textParam(url.searchParams.get('subject'), 40);
+  const subject = normalizePublicSubjectQuery(textParam(url.searchParams.get('subject'), 40));
   if (!subject) throw new HttpError(400, '请选择学科');
+  const subjectSecondary = secondarySubjectIdentity(subject);
   await requireExactQueryIdentity(env, subject);
   const [documents, insights] = await Promise.all([
     env.DB.prepare(`SELECT d.id,d.title,d.version_label,d.stage,d.sort_year,d.current_status,d.source_url,
       dc.entity_kind,dc.taxonomy_entity_kind,dc.canonical_subject,dc.display_facet,dc.subject_family
       FROM documents d JOIN document_classifications dc ON dc.document_id = d.id
-      WHERE dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject = ?
+      WHERE dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject IN (?, ?)
         AND d.corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')
-      ORDER BY d.sort_year`).bind(subject).all(),
-    env.DB.prepare(`SELECT * FROM subject_insights WHERE subject IN (?, '综合') ORDER BY sort_order`).bind(subject).all(),
+      ORDER BY d.sort_year`).bind(subject, subjectSecondary).all(),
+    env.DB.prepare(`SELECT * FROM subject_insights WHERE subject IN (?, ?, '综合') ORDER BY sort_order`)
+      .bind(subject, subjectSecondary).all(),
   ]);
   return cacheJson({ subject, documents: documents.results, insights: insights.results }, 600);
 }
@@ -655,7 +675,7 @@ async function aiChat(request: Request, env: Env, session: Session): Promise<Res
   await enforceRateLimit(env, 'ai-chat', user.slug, 12, 600);
   const input = await readJson<AiInput>(request, 12_000);
   const query = textParam(input.query || '', 1_200);
-  const subject = textParam(input.subject || '', 40);
+  const subject = normalizePublicSubjectQuery(textParam(input.subject || '', 40));
   if (query.length < 8) throw new HttpError(400, '问题至少需要 8 个字符');
   await requireExactQueryIdentity(env, subject);
   return json(await answerWithEvidence(env, session, query, subject));

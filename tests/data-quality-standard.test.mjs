@@ -30,7 +30,7 @@ test('the checked-in data validation receipt passes every gate', () => {
 
 test('the receipt preserves OCR candidate, citation, and remaining-page denominators', () => {
   assert.equal(receipt.counts.ocr_nominal_pages, 11847);
-  assert.equal(receipt.counts.ocr_candidate_covered_pages, 10770);
-  assert.equal(receipt.counts.ocr_candidate_remaining_pages, 1077);
+  assert.equal(receipt.counts.ocr_candidate_covered_pages, 11847);
+  assert.equal(receipt.counts.ocr_candidate_remaining_pages, 0);
   assert.equal(receipt.counts.ocr_citation_ready_pages, 0);
 });

@@ -1,5 +1,5 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v36';
-import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v36';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v37';
+import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v37';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -7,7 +7,8 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260723v36';
+  publicSubjectFacet,
+} from './subject-facets.js?v=20260723v37';
 
 const diagnosticsStartedAt = performance.now();
 let diagnosticsReadyAt = null;
@@ -76,6 +77,9 @@ const workbenchBody = document.querySelector('#workbench-body');
 const scrim = document.querySelector('#scrim');
 const toastNode = document.querySelector('#toast');
 const ocrLayerStatus = document.querySelector('#ocr-layer-status');
+const disciplineLifecycleEvents = document.querySelector('#discipline-lifecycle-events');
+const disciplineLifecycleStatus = document.querySelector('#discipline-lifecycle-status');
+const conceptYearLinks = document.querySelector('#concept-year-links');
 
 const state = {
   meta: null,
@@ -87,6 +91,12 @@ const state = {
   pre2001Layer: null,
   centuryLayer: null,
   evolutionLayer: null,
+  disciplineLifecycle: null,
+  ocrCoverageSummary: null,
+  deepNodeById: new Map(),
+  deepChildrenById: new Map(),
+  deepRootByFacet: new Map(),
+  deepFocusId: null,
   evolutionFamilyById: new Map(),
   evolutionTierById: new Map(),
   centuryItemById: new Map(),
@@ -106,13 +116,15 @@ const state = {
   mode: 'lineage',
   selectedDocument: null,
   selectedEpisode: null,
+  selectedScreenPosition: null,
   searchResultEpisodes: [],
+  introRevealActive: false,
+  introRevealComplete: false,
 };
 
 const CORE_SUBJECTS = DISPLAY_SUBJECT_FACETS;
 const SUBJECT_SHORT_LABELS = new Map([
   ['思想政治与道德法治', '思政·道法'],
-  ['历史与社会', '历史·社会'],
   ['科学类', '科学'],
   ['体育与健康', '体育·健康'],
 ]);
@@ -139,13 +151,15 @@ async function api(path, options) {
 
 async function loadBase() {
   if (state.meta) return;
-  const [conceptGraph, ocrLayer, detailLayer, pre2001Layer, centuryLayer, evolutionLayer, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v36'),
-    api('/data/ocr-observation-layer.json?v=20260723v36'),
-    api('/data/subject-detail-observation-layer.json?v=20260723v36'),
-    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v36'),
-    api('/data/century-observation-layer.json?v=20260723v36'),
-    api('/data/concept-evolution-families.json?v=20260723v36'),
+  const [conceptGraph, ocrLayer, detailLayer, pre2001Layer, centuryLayer, evolutionLayer, disciplineLifecycle, ocrCoverageSummary, meta, documents, insights] = await Promise.all([
+    api('/data/concept-evolution.json?v=20260723v37'),
+    api('/data/ocr-observation-layer.json?v=20260723v37'),
+    api('/data/subject-detail-observation-layer.json?v=20260723v37'),
+    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v37'),
+    api('/data/century-observation-layer.json?v=20260723v37'),
+    api('/data/concept-evolution-families.json?v=20260723v37'),
+    api('/data/discipline-lifecycle.json?v=20260723v37'),
+    api('/data/ocr-coverage-summary.json?v=20260723v37'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -153,6 +167,13 @@ async function loadBase() {
   state.meta = meta;
   state.documents = documents.documents || [];
   state.insights = insights.insights || [];
+  if (ocrCoverageSummary.schema_version !== 1
+    || ocrCoverageSummary.artifact_profile !== 'curriculum-ocr-public-coverage-summary-v1'
+    || ocrCoverageSummary.coverage?.candidate_remaining_pages !== 0
+    || ocrCoverageSummary.coverage?.candidate_covered_pages !== ocrCoverageSummary.coverage?.nominal_pages
+    || ocrCoverageSummary.release_gate?.citation_allowed !== false) {
+    throw new Error('OCR 覆盖摘要未通过结构校验');
+  }
   if (conceptGraph.schema_version !== 1
     || !Array.isArray(conceptGraph.episodes)
     || !Array.isArray(conceptGraph.evidence)
@@ -239,6 +260,17 @@ async function loadBase() {
     || evolutionLayer.edges.some((edge) => edge.semantic !== false || edge.influence_claim_allowed !== false)) {
     throw new Error('百年概念演进族谱未通过结构校验');
   }
+  if (disciplineLifecycle.schema_version !== 1
+    || disciplineLifecycle.artifact_profile !== 'curriculum-discipline-lifecycle-v1'
+    || !Array.isArray(disciplineLifecycle.public_subject_facets)
+    || !Array.isArray(disciplineLifecycle.sources)
+    || !Array.isArray(disciplineLifecycle.events)
+    || disciplineLifecycle.events.some((event) => !Number.isInteger(event.year)
+      || !event.source_ids?.length
+      || !event.public_facets?.length
+      || event.public_facets.some((facet) => !DISPLAY_SUBJECT_FACETS.includes(facet)))) {
+    throw new Error('学科设置与分合事件层未通过结构校验');
+  }
   conceptGraph.episodes = [...conceptGraph.episodes, ...ocrLayer.episodes];
   conceptGraph.edges = [...conceptGraph.edges, ...ocrLayer.edges];
   conceptGraph.evidence = [...conceptGraph.evidence, ...ocrLayer.evidence];
@@ -265,6 +297,8 @@ async function loadBase() {
   state.pre2001Layer = pre2001Layer;
   state.centuryLayer = centuryLayer;
   state.evolutionLayer = evolutionLayer;
+  state.disciplineLifecycle = disciplineLifecycle;
+  state.ocrCoverageSummary = ocrCoverageSummary;
   state.evolutionFamilyById = new Map(evolutionLayer.families.map((family) => [family.id, family]));
   state.evolutionTierById = new Map(evolutionLayer.concept_tiers.map((tier) => [tier.id, tier]));
   const archiveItemById = new Map(centuryLayer.items.map((item) => [item.id, {
@@ -372,7 +406,8 @@ async function loadBase() {
   yearRange.value = String(maxYear);
   yearStart.textContent = String(minYear);
   yearValue.textContent = String(maxYear);
-  ocrLayerStatus.innerHTML = `<b>百年资料与证据</b><span>12/12 学科 · ${escapeHtml(state.archiveItems.length)} 个 bounded items · 1902—2000</span><small>${escapeHtml(evolutionLayer.counts.detailed_families)} 条实践／内容／能力演进族 · ${escapeHtml(pre2001Layer.counts.episodes)} 个早期观察 · ${escapeHtml(evolutionLayer.counts.discipline_edges)} 条学科分合关系</small>`;
+  buildDeepModels();
+  ocrLayerStatus.innerHTML = `<b>百年资料与证据</b><span>11/11 检索分面 · ${escapeHtml(state.archiveItems.length)} 个 bounded items · 候选页 ${escapeHtml(ocrCoverageSummary.coverage.candidate_covered_pages)}/${escapeHtml(ocrCoverageSummary.coverage.nominal_pages)}</span><small>${escapeHtml(evolutionLayer.counts.detailed_families)} 条实践／内容／能力演进族 · ${escapeHtml(pre2001Layer.counts.episodes)} 个早期观察 · 双证据队列已分类 ${escapeHtml(ocrCoverageSummary.coverage.dual_witness_audited_pages)} 页，引文仍为 0</small>`;
   ocrLayerStatus.hidden = false;
 }
 
@@ -479,9 +514,158 @@ function subjectQueryPlan(subjectOrFacet) {
 
 function documentDisplayFacet(document) {
   const persistedFacet = typeof document?.display_facet === 'string' ? document.display_facet.trim() : '';
-  return subjectFacetNames().includes(persistedFacet)
-    ? persistedFacet
+  const publicFacet = publicSubjectFacet(persistedFacet);
+  return subjectFacetNames().includes(publicFacet)
+    ? publicFacet
     : displayFacetForSubject(documentSubjectFacet(document));
+}
+
+function addDeepNode(node) {
+  state.deepNodeById.set(node.id, node);
+  if (!node.parent_id) return;
+  const children = state.deepChildrenById.get(node.parent_id) || [];
+  children.push(node);
+  state.deepChildrenById.set(node.parent_id, children);
+}
+
+function buildDeepModels() {
+  state.deepNodeById.clear();
+  state.deepChildrenById.clear();
+  state.deepRootByFacet.clear();
+  const episodeById = new Map(state.conceptGraph.episodes.map((episode) => [episode.id, episode]));
+  const membershipsByFamily = new Map();
+  for (const membership of state.evolutionLayer.episode_memberships) {
+    const rows = membershipsByFamily.get(membership.family_id) || [];
+    rows.push(membership);
+    membershipsByFamily.set(membership.family_id, rows);
+  }
+  for (const facet of DISPLAY_SUBJECT_FACETS) {
+    const families = state.evolutionLayer.families.filter((family) =>
+      family.visibility_facets.some((candidate) => publicSubjectFacet(candidate) === facet));
+    const root = {
+      id: `deep-root:${facet}`,
+      parent_id: null,
+      facet,
+      label: `${facet}概念模型`,
+      node_type: 'evidence_bound_subject_model',
+      review_status: 'evidence_bound_candidate_model',
+      definition: facet === '历史'
+        ? '合并检索历史与历史与社会的同层概念观察；两种课程形态及其并行、合科和调整事件仍分别保留。'
+        : '按课程名称、实践、内容、能力等同粒度概念组织的来源绑定比较模型。',
+      episode_ids: [...new Set(families.flatMap((family) =>
+        (membershipsByFamily.get(family.id) || []).map((membership) => membership.episode_id)))],
+    };
+    addDeepNode(root);
+    state.deepRootByFacet.set(facet, root);
+    for (const tier of state.evolutionLayer.concept_tiers) {
+      const tierFamilies = families.filter((family) => family.concept_tier_id === tier.id);
+      if (!tierFamilies.length) continue;
+      const tierNode = {
+        id: `deep-tier:${facet}:${tier.id}`,
+        parent_id: root.id,
+        facet,
+        label: tier.label,
+        node_type: 'same_grain_concept_tier',
+        review_status: 'evidence_bound_candidate_model',
+        definition: tier.definition,
+        episode_ids: [...new Set(tierFamilies.flatMap((family) =>
+          (membershipsByFamily.get(family.id) || []).map((membership) => membership.episode_id)))],
+      };
+      addDeepNode(tierNode);
+      for (const family of tierFamilies) {
+        const memberships = membershipsByFamily.get(family.id) || [];
+        const familyNode = {
+          id: `deep-family:${family.id}`,
+          parent_id: tierNode.id,
+          facet,
+          label: family.label,
+          node_type: 'same_grain_evolution_family',
+          review_status: 'editorial_correspondence_noncausal',
+          definition: family.definition,
+          assertion_boundary: state.evolutionLayer.assertion_boundary,
+          family_id: family.id,
+          episode_ids: memberships.map((membership) => membership.episode_id),
+        };
+        addDeepNode(familyNode);
+        for (const concept of family.observed_concepts) {
+          const conceptMemberships = memberships.filter((membership) => membership.concept_id === concept.id);
+          const conceptNode = {
+            id: `deep-concept:${family.id}:${concept.id}`,
+            parent_id: familyNode.id,
+            facet,
+            label: concept.label,
+            node_type: 'source_surface_concept',
+            review_status: 'source_bound_observation',
+            definition: `${concept.first_observed_year}—${concept.last_observed_year} 的当前资料词面观察；不是首次出现或连续存在结论。`,
+            family_id: family.id,
+            concept_id: concept.id,
+            episode_ids: conceptMemberships.map((membership) => membership.episode_id),
+          };
+          addDeepNode(conceptNode);
+          const years = [...new Set(conceptMemberships.map((membership) => membership.year))].sort((a, b) => a - b);
+          for (const year of years) {
+            const yearEpisodeIds = conceptMemberships
+              .filter((membership) => membership.year === year && episodeById.has(membership.episode_id))
+              .map((membership) => membership.episode_id);
+            addDeepNode({
+              id: `deep-year:${family.id}:${concept.id}:${year}`,
+              parent_id: conceptNode.id,
+              facet,
+              label: String(year),
+              node_type: 'source_bound_year_observation',
+              review_status: 'source_bound_observation',
+              definition: `${year} 年来源绑定观察；点击后使用底部同一年代轴定位。`,
+              family_id: family.id,
+              concept_id: concept.id,
+              episode_ids: yearEpisodeIds,
+            });
+          }
+        }
+      }
+    }
+  }
+}
+
+function deepChildren(nodeId) {
+  return state.deepChildrenById.get(nodeId) || [];
+}
+
+function deepPath(node) {
+  const path = [];
+  const seen = new Set();
+  let cursor = node;
+  while (cursor && !seen.has(cursor.id)) {
+    path.unshift(cursor);
+    seen.add(cursor.id);
+    cursor = cursor.parent_id ? state.deepNodeById.get(cursor.parent_id) : null;
+  }
+  return path;
+}
+
+function deepNodeEpisodes(node) {
+  const byId = new Map(state.conceptGraph.episodes.map((episode) => [episode.id, episode]));
+  return (node?.episode_ids || []).map((id) => byId.get(id)).filter(Boolean);
+}
+
+function linkConceptYears(node) {
+  const years = [...new Set(deepNodeEpisodes(node).map((episode) => Number(episode.time?.year)).filter(Number.isFinite))]
+    .sort((a, b) => a - b);
+  if (!years.length) {
+    conceptYearLinks.hidden = true;
+    conceptYearLinks.replaceChildren();
+    return;
+  }
+  conceptYearLinks.innerHTML = `<b>${escapeHtml(node.label)} · 关联年代</b>${years.map((year) =>
+    `<button type="button" data-concept-year="${year}" class="${year === state.maxYear ? 'active' : ''}">${year}</button>`).join('')}`;
+  conceptYearLinks.hidden = false;
+  conceptYearLinks.querySelectorAll('[data-concept-year]').forEach((button) => button.addEventListener('click', () => {
+    state.maxYear = Number(button.dataset.conceptYear);
+    yearRange.value = String(state.maxYear);
+    syncYearStageState();
+    updateMapStatus({ fitVisible: true });
+    conceptYearLinks.querySelectorAll('button').forEach((item) =>
+      item.classList.toggle('active', item === button));
+  }));
 }
 
 function uniqueRows(rows, keyOf) {
@@ -532,15 +716,35 @@ function observationLabel(episode) {
   return incoming?.metric?.interpretation ? labels[incoming.metric.interpretation] : '当前语料中的概念观察点';
 }
 
+function positionInspector(episodeId = null) {
+  inspector.classList.remove('dock-left', 'dock-right', 'overlap-softened');
+  if (innerWidth <= 640) return;
+  const point = episodeId
+    ? state.cosmos?.getEpisodeScreenPosition(episodeId)
+    : state.selectedScreenPosition;
+  const dockLeft = point ? point.x > innerWidth * .52 : false;
+  inspector.classList.add(dockLeft ? 'dock-left' : 'dock-right');
+  const estimatedWidth = Math.min(370, innerWidth - 300);
+  const selectedNearOppositePanel = point && (
+    (dockLeft && point.x < estimatedWidth + 96)
+    || (!dockLeft && point.x > innerWidth - estimatedWidth - 96)
+  );
+  if (innerWidth < 980 || selectedNearOppositePanel) inspector.classList.add('overlap-softened');
+}
+
 function clearConceptInspector(resetRoute = true) {
   state.selectedEpisode = null;
+  state.selectedScreenPosition = null;
   inspector.hidden = true;
+  conceptYearLinks.hidden = true;
+  conceptYearLinks.replaceChildren();
   state.cosmos?.setSelected(null);
   if (resetRoute && location.pathname.replace(/\/+$/, '') === '/terms') history.replaceState({}, '', '/');
 }
 
-function selectConceptEpisode(episode) {
+function selectConceptEpisode(episode, screenPosition = null) {
   if (!episode) return;
+  state.selectedScreenPosition = screenPosition;
   showConceptInspector(episode);
   history.replaceState({}, '', `/terms?term=${encodeURIComponent(episode.concept_id)}&episode=${encodeURIComponent(episode.id)}`);
   renderConceptResults();
@@ -635,10 +839,14 @@ function showConceptInspector(episode) {
     showOntologyInspector(state.ontologyNodeById.get(state.ontologyFocusId));
   });
   inspector.hidden = false;
+  positionInspector(episode.id);
 }
 
 const ONTOLOGY_TYPE_LABELS = {
   subject_model: '学科模型', curriculum_construct: '课程对象', language_activity: '语言活动',
+  evidence_bound_subject_model: '学科证据模型', same_grain_concept_tier: '同粒度层级',
+  same_grain_evolution_family: '概念演进族', source_surface_concept: '来源词面',
+  source_bound_year_observation: '年度观察',
   historical_goal_framework: '历史目标框架', historical_goal_dimension: '三维目标',
   competency_framework: '核心素养框架', core_competency: '核心素养', course_goal: '课程目标',
   practice_framework: '实践框架', practice_domain: '实践领域', student_ability: '学生能力',
@@ -720,6 +928,65 @@ function showOntologyInspector(node) {
     showOntologyInspector(next);
   }));
   inspector.hidden = false;
+  const lexicalEpisodes = node.lexical_concept_id
+    ? state.conceptGraph.episodes.filter((episode) => episode.concept_id === node.lexical_concept_id)
+    : [];
+  if (lexicalEpisodes.length) {
+    linkConceptYears({
+      label: node.label,
+      episode_ids: lexicalEpisodes.map((episode) => episode.id),
+    });
+  }
+  positionInspector(lexicalEpisodes.at(-1)?.id || null);
+}
+
+function showDeepInspector(node) {
+  if (!node) return;
+  state.deepFocusId = node.id;
+  const episodes = deepNodeEpisodes(node)
+    .sort((left, right) => Number(left.time.year) - Number(right.time.year) || left.id.localeCompare(right.id, 'en'));
+  const years = [...new Set(episodes.map((episode) => Number(episode.time?.year)).filter(Number.isFinite))];
+  const evidence = uniqueRows(episodes.flatMap((episode) =>
+    episode.evidence_ids.map((id) => state.evidenceById.get(id)).filter(Boolean)), (item) => item.id).slice(0, 6);
+  const selectedEpisode = episodes.length <= 24 ? episodes.at(-1) : null;
+  state.selectedEpisode = selectedEpisode;
+  state.cosmos?.setSelected(selectedEpisode?.id || null);
+  linkConceptYears(node);
+  const typeLabels = {
+    evidence_bound_subject_model: '学科证据模型',
+    same_grain_concept_tier: '同粒度层级',
+    same_grain_evolution_family: '演进概念族',
+    source_surface_concept: '来源词面概念',
+    source_bound_year_observation: '年度观察',
+  };
+  const evidenceHtml = evidence.map((item) => `<article class="concept-evidence ${item.citation_allowed ? '' : 'candidate'}">
+    ${item.citation_allowed ? `<a href="/document/${encodeURIComponent(item.document_id)}" data-link>${escapeHtml(item.document_title)}</a>` : `<b>${escapeHtml(item.document_title)}</b>`}
+    <small>${escapeHtml(item.source_locator)}${item.citation_allowed ? '' : ' · 候选层不可引文'}</small>
+    <p>${escapeHtml(item.snippet)}</p>
+  </article>`).join('');
+  inspector.innerHTML = `
+    <button class="inspector-close" type="button" aria-label="关闭">×</button>
+    <p class="inspector-kicker">${escapeHtml(node.facet)} · ${escapeHtml(typeLabels[node.node_type] || node.node_type)}</p>
+    <h2>${escapeHtml(node.label)}</h2>
+    <p>${escapeHtml(node.definition)}</p>
+    <div class="inspector-meta">
+      <span>来源观察 ${episodes.length}</span>
+      <span>年代 ${years.length}</span>
+      <span>${node.review_status === 'editorial_correspondence_noncausal' ? '编辑对应·非因果' : '证据绑定候选模型'}</span>
+    </div>
+    ${node.assertion_boundary ? `<small class="ontology-scope-note">${escapeHtml(node.assertion_boundary)}</small>` : ''}
+    <div class="inspector-insights">
+      <h3>对应页段</h3>
+      ${evidenceHtml || '<small>当前为组织导航节点；下钻到概念或年度可查看对应页段。</small>'}
+    </div>
+    <div class="inspector-actions">
+      ${selectedEpisode ? '<button class="action-button primary" type="button" data-focus-selection>放大关联星系</button>' : ''}
+      <a class="action-button primary" href="/sources?q=${encodeURIComponent(node.label)}" data-link>检索全部原文</a>
+    </div>`;
+  inspector.querySelector('.inspector-close').addEventListener('click', () => clearConceptInspector(false));
+  inspector.querySelector('[data-focus-selection]')?.addEventListener('click', () => state.cosmos?.focusSelection());
+  inspector.hidden = false;
+  positionInspector(selectedEpisode?.id || null);
 }
 
 function ontologyPositions(count) {
@@ -743,26 +1010,29 @@ function ontologySearchText(node) {
     .toLocaleLowerCase('zh-CN');
 }
 
+function deepNodeSearchText(node) {
+  return `${node.label} ${node.definition} ${node.facet} ${node.node_type}`.toLocaleLowerCase('zh-CN');
+}
+
 function episodeSearchText(episode) {
   return `${episode.label} ${(episode.aliases || []).join(' ')} ${episodeEntityLabel(episode)} ${episode.time.year} ${episode.category}`
     .toLocaleLowerCase('zh-CN');
 }
 
-function activeOntologyContext() {
+function activeDeepContext() {
   const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
   const visibleSubjects = state.hideAllSubjects ? [] : subjects.filter((subject) => !state.hiddenSubjects.has(subject));
   const activeSubject = visibleSubjects.length === 1 ? visibleSubjects[0] : null;
-  const root = activeSubject
-    ? state.conceptGraph.ontology_nodes.find((node) => !node.parent_id && ontologyNodeSubject(node) === activeSubject) || null
-    : null;
+  const root = activeSubject ? state.deepRootByFacet.get(activeSubject) || null : null;
   return { activeSubject, root };
 }
 
 function reconcileOntologyInspectorSubject(visibleSubjects) {
-  if (!state.ontologyFocusId) return;
-  const focus = state.ontologyNodeById.get(state.ontologyFocusId);
+  if (!state.deepFocusId && !state.ontologyFocusId) return;
+  const focus = state.deepNodeById.get(state.deepFocusId) || state.ontologyNodeById.get(state.ontologyFocusId);
   const activeSubject = visibleSubjects.length === 1 ? visibleSubjects[0] : null;
-  if (focus && ontologyNodeSubject(focus) === activeSubject) return;
+  if (focus && (focus.facet || ontologyNodeSubject(focus)) === activeSubject) return;
+  state.deepFocusId = null;
   state.ontologyFocusId = null;
   inspector.hidden = true;
   state.cosmos?.setSelected(null);
@@ -772,8 +1042,8 @@ function renderConceptLayers() {
   const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
   const visibleSubjects = state.hideAllSubjects ? [] : subjects.filter((subject) => !state.hiddenSubjects.has(subject));
   const searchableSubjects = new Set(visibleSubjects);
-  const queryMatches = state.query ? state.conceptGraph.ontology_nodes
-    .filter((node) => searchableSubjects.has(ontologyNodeSubject(node)) && ontologySearchText(node).includes(state.query))
+  const queryMatches = state.query ? [...state.deepNodeById.values()]
+    .filter((node) => searchableSubjects.has(node.facet) && deepNodeSearchText(node).includes(state.query))
     .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
     .slice(0, 24) : [];
   const queryHasEpisodeMatch = state.query && state.conceptGraph.episodes.some((episode) =>
@@ -793,7 +1063,7 @@ function renderConceptLayers() {
     const stars = queryMatches.map((node, index) => {
       const position = positions[index];
       return `<button class="ontology-star ${position.outer ? 'outer' : ''}" type="button" data-ontology-search-result="${escapeHtml(node.id)}" style="--star-x:${position.x.toFixed(2)}%;--star-y:${position.y.toFixed(2)}%;--star-delay:${index * 24}ms">
-        <i aria-hidden="true"></i><b>${escapeHtml(node.label)}</b><small>${escapeHtml(ontologyNodeSubject(node) || '')} · ${escapeHtml(ONTOLOGY_TYPE_LABELS[node.node_type] || node.node_type)}</small>
+        <i aria-hidden="true"></i><b>${escapeHtml(node.label)}</b><small>${escapeHtml(node.facet || '')} · ${escapeHtml(ONTOLOGY_TYPE_LABELS[node.node_type] || node.node_type)}</small>
       </button>`;
     }).join('');
     conceptLayers.innerHTML = `<nav class="ontology-breadcrumb" aria-label="概念检索路径"><span>星图检索</span><span>›</span><button type="button" aria-current="page">${escapeHtml(state.query)}</button></nav>
@@ -803,47 +1073,47 @@ function renderConceptLayers() {
         ${stars}
       </div>`;
     conceptLayers.querySelectorAll('[data-ontology-search-result]').forEach((button) => button.addEventListener('click', () => {
-      const next = state.ontologyNodeById.get(button.dataset.ontologySearchResult);
+      const next = state.deepNodeById.get(button.dataset.ontologySearchResult);
       if (!next) return;
-      state.ontologyFocusId = next.id;
-      showOntologyInspector(next);
+      state.deepFocusId = next.id;
+      showDeepInspector(next);
     }));
     return;
   }
-  const { activeSubject, root } = activeOntologyContext();
+  const { activeSubject, root } = activeDeepContext();
   if (!root) {
-    conceptLayers.innerHTML = `<div class="ontology-empty"><b>${escapeHtml(activeSubject || '当前组合')}的深层模型尚未达到发布门槛</b><span>只有版本身份、原文段落和概念关系同时核验后才会进入星图。</span></div>`;
+    conceptLayers.innerHTML = `<div class="ontology-empty"><b>请选择一个学科进入概念深挖</b><span>11 个公开检索分面均已建立来源绑定的同粒度模型；历史入口同时保留历史与历史与社会两种课程形态。</span></div>`;
     return;
   }
-  let focus = state.ontologyNodeById.get(state.ontologyFocusId);
-  if (!focus || ontologyNodeSubject(focus) !== activeSubject || !ontologyPath(focus).some((node) => node.id === root.id)) focus = root;
-  state.ontologyFocusId = focus.id;
-  const children = ontologyChildren(focus.id);
+  let focus = state.deepNodeById.get(state.deepFocusId);
+  if (!focus || focus.facet !== activeSubject || !deepPath(focus).some((node) => node.id === root.id)) focus = root;
+  state.deepFocusId = focus.id;
+  const children = deepChildren(focus.id);
   const positions = ontologyPositions(children.length);
-  const breadcrumb = ontologyPath(focus).map((node, index, path) => `<button type="button" data-ontology-node="${escapeHtml(node.id)}" ${index === path.length - 1 ? 'aria-current="page"' : ''}>${escapeHtml(node.label)}</button>`).join('<span>›</span>');
+  const breadcrumb = deepPath(focus).map((node, index, path) => `<button type="button" data-deep-node="${escapeHtml(node.id)}" ${index === path.length - 1 ? 'aria-current="page"' : ''}>${escapeHtml(node.label)}</button>`).join('<span>›</span>');
   const lines = positions.map((position) => `<line x1="50" y1="50" x2="${position.x.toFixed(2)}" y2="${position.y.toFixed(2)}"></line>`).join('');
   const stars = children.map((child, index) => {
     const position = positions[index];
-    const descendants = ontologyChildren(child.id).length;
-    const inferred = child.review_status === 'reviewed_inference';
-    return `<button class="ontology-star ${position.outer ? 'outer' : ''} ${inferred ? 'inferred' : ''}" type="button" data-ontology-node="${escapeHtml(child.id)}" style="--star-x:${position.x.toFixed(2)}%;--star-y:${position.y.toFixed(2)}%;--star-delay:${index * 24}ms">
+    const descendants = deepChildren(child.id).length;
+    const inferred = child.review_status !== 'official_text';
+    return `<button class="ontology-star ${position.outer ? 'outer' : ''} ${inferred ? 'inferred' : ''}" type="button" data-deep-node="${escapeHtml(child.id)}" style="--star-x:${position.x.toFixed(2)}%;--star-y:${position.y.toFixed(2)}%;--star-delay:${index * 24}ms">
       <i aria-hidden="true"></i><b>${escapeHtml(child.label)}</b><small>${escapeHtml(ONTOLOGY_TYPE_LABELS[child.node_type] || child.node_type)}${descendants ? ` · ${descendants}` : ''}</small>
     </button>`;
   }).join('');
   conceptLayers.innerHTML = `<nav class="ontology-breadcrumb" aria-label="概念层级路径">${breadcrumb}</nav>
     <div class="ontology-stage ${children.length > 10 ? 'dense' : ''}">
       <svg class="ontology-edges" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>
-      <button class="ontology-center" type="button" data-inspect-ontology="${escapeHtml(focus.id)}"><i aria-hidden="true"></i><b>${escapeHtml(focus.label)}</b><small>${escapeHtml(ONTOLOGY_TYPE_LABELS[focus.node_type] || focus.node_type)} · ${children.length} 个下位概念</small></button>
+      <button class="ontology-center" type="button" data-inspect-deep="${escapeHtml(focus.id)}"><i aria-hidden="true"></i><b>${escapeHtml(focus.label)}</b><small>${escapeHtml(ONTOLOGY_TYPE_LABELS[focus.node_type] || focus.node_type)} · ${children.length} 个下位概念</small></button>
       ${stars || '<p class="ontology-leaf">已到当前核验层级；可从右侧证据继续查看原文。</p>'}
     </div>`;
-  conceptLayers.querySelectorAll('[data-ontology-node]').forEach((button) => button.addEventListener('click', () => {
-    const next = state.ontologyNodeById.get(button.dataset.ontologyNode);
+  conceptLayers.querySelectorAll('[data-deep-node]').forEach((button) => button.addEventListener('click', () => {
+    const next = state.deepNodeById.get(button.dataset.deepNode);
     if (!next) return;
-    state.ontologyFocusId = next.id;
+    state.deepFocusId = next.id;
     renderConceptLayers();
-    showOntologyInspector(next);
+    showDeepInspector(next);
   }));
-  conceptLayers.querySelector('[data-inspect-ontology]')?.addEventListener('click', () => showOntologyInspector(focus));
+  conceptLayers.querySelector('[data-inspect-deep]')?.addEventListener('click', () => showDeepInspector(focus));
 }
 
 function showTooltip(node, event) {
@@ -925,6 +1195,7 @@ function updateMapStatus({ fitVisible = false } = {}) {
   );
   renderConceptResults();
   renderConceptLayers();
+  renderDisciplineLifecycle();
 }
 
 function subjectButton(subject, count, panel = false) {
@@ -972,6 +1243,61 @@ function renderSubjectControls() {
   }));
 }
 
+function showDisciplineEventInspector(event) {
+  const sources = event.source_ids
+    .map((id) => state.disciplineLifecycle.sources.find((source) => source.id === id))
+    .filter(Boolean);
+  state.selectedEpisode = null;
+  state.selectedScreenPosition = null;
+  state.cosmos?.setSelected(null);
+  conceptYearLinks.innerHTML = `<b>${escapeHtml(event.label)} · 关联年代</b><button type="button" data-concept-year="${event.year}" class="active">${event.year}</button>`;
+  conceptYearLinks.hidden = false;
+  inspector.innerHTML = `
+    <button class="inspector-close" type="button" aria-label="关闭">×</button>
+    <p class="inspector-kicker">${event.year} · 学科设置与分合 · ${escapeHtml(event.display_tag)}</p>
+    <h2>${escapeHtml(event.label)}</h2>
+    <p>${escapeHtml(event.detail)}</p>
+    <div class="inspector-meta">${event.discipline_forms.map((form) => `<span>${escapeHtml(form)}</span>`).join('')}</div>
+    <small class="ontology-scope-note">${escapeHtml(event.claim_boundary)}</small>
+    <div class="inspector-insights">
+      <h3>来源</h3>
+      ${sources.map((source) => `<article class="concept-evidence ${source.citation_allowed ? '' : 'candidate'}">
+        <a href="${escapeHtml(source.locator)}" ${source.locator.startsWith('/') ? 'data-link' : 'target="_blank" rel="noopener"'}>${escapeHtml(source.title)}</a>
+        <small>${escapeHtml(source.authority)}${source.pages ? ` · PDF ${source.pages.join('—')} 页` : ''}</small>
+      </article>`).join('')}
+    </div>`;
+  inspector.querySelector('.inspector-close').addEventListener('click', () => clearConceptInspector(false));
+  inspector.hidden = false;
+  positionInspector(null);
+}
+
+function renderDisciplineLifecycle() {
+  if (!state.disciplineLifecycle) return;
+  const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
+  const visibleSubjects = state.hideAllSubjects ? [] : subjects.filter((subject) => !state.hiddenSubjects.has(subject));
+  const visibleSet = new Set(visibleSubjects);
+  const events = state.disciplineLifecycle.events
+    .filter((event) => event.year <= state.maxYear
+      && (visibleSubjects.length === subjects.length || event.public_facets.some((facet) => visibleSet.has(facet))))
+    .sort((left, right) => left.year - right.year || left.id.localeCompare(right.id, 'en'));
+  disciplineLifecycleStatus.textContent = `${events.length} 个来源明示事件`;
+  disciplineLifecycleEvents.innerHTML = events.length
+    ? events.map((event) => `<button class="discipline-event" type="button" data-discipline-event="${escapeHtml(event.id)}">
+      <time>${event.year}</time><span>${escapeHtml(event.label)}</span><i>${escapeHtml(event.display_tag)}</i>
+    </button>`).join('')
+    : '<small>当前学科和年代范围内没有已发布的设置事件。</small>';
+  disciplineLifecycleEvents.querySelectorAll('[data-discipline-event]').forEach((button) =>
+    button.addEventListener('click', () => {
+      const event = state.disciplineLifecycle.events.find((item) => item.id === button.dataset.disciplineEvent);
+      if (!event) return;
+      state.maxYear = event.year;
+      yearRange.value = String(event.year);
+      syncYearStageState();
+      updateMapStatus({ fitVisible: true });
+      showDisciplineEventInspector(event);
+    }));
+}
+
 function restoreAllSubjects() {
   state.hideAllSubjects = false;
   state.hiddenSubjects.clear();
@@ -1012,8 +1338,8 @@ function setMapMode(mode) {
   state.mode = ['lineage', 'cross', 'structure'].includes(mode) ? mode : 'lineage';
   if (!state.conceptGraph) return;
   if (state.mode === 'structure') {
-    const { root } = activeOntologyContext();
-    state.ontologyFocusId = root?.id || null;
+    const { root } = activeDeepContext();
+    state.deepFocusId = root?.id || null;
   }
   state.cosmos?.setMode(state.mode === 'cross' ? 'cross' : 'lineage');
   document.querySelectorAll('[data-map-mode]').forEach((button) => button.classList.toggle('active', button.dataset.mapMode === state.mode));
@@ -1076,14 +1402,15 @@ function renderCenturyArchive(url) {
   const requestedSubject = url.searchParams.get('subject');
   const subject = archiveSubjects.includes(requestedSubject) ? requestedSubject : '';
   const items = state.archiveItems.filter((item) =>
-    (!subject || item.subject === subject || item.visibility_facets?.includes(subject))
+    (!subject || publicSubjectFacet(item.subject) === subject
+      || item.visibility_facets?.some((facet) => publicSubjectFacet(facet) === subject))
     && (!query || centurySearchText(item).includes(query.toLocaleLowerCase('zh-CN'))));
   const eraGroups = ERAS.filter((era) => era.start <= 2000).map((era) => {
     const groupItems = items.filter((item) => item.year >= era.start && item.year <= era.end);
     if (!groupItems.length) return '';
     return `<section class="century-era-list"><header><p>${era.start}–${era.end}</p><h2>${escapeHtml(era.label)}</h2><span>${groupItems.length} 条</span></header>${centuryItemRows(groupItems)}</section>`;
   }).join('');
-  workbenchBody.innerHTML = `<div class="workspace-grid century-workspace"><aside class="workspace-aside"><h2>1902–2000 百年资料目录</h2><p>${escapeHtml(state.archiveItems.length)} 条去重 bounded items 覆盖 12 个学科分面及课程计划卷。它们是星点背后的文件与物理页证据，不构成第二条时间轴；只有受控词面观察进入主星图。</p><form class="work-form" id="century-form"><label for="century-query">篇名或候选词面</label><input id="century-query" name="q" value="${escapeHtml(query)}" placeholder="例如：社会科、本国史、调查搜集"><label for="century-subject">学科分面或课程卷</label><select id="century-subject" name="subject"><option value="">全部资料</option>${archiveSubjects.map((name) => `<option value="${escapeHtml(name)}" ${subject === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select><button class="work-button" type="submit">筛选百年资料</button></form><p class="candidate-boundary">${escapeHtml(state.pre2001Layer.assertion_boundary)}</p></aside><main class="workspace-main">${eraGroups || '<div class="empty-state">没有匹配条目。</div>'}</main></div>`;
+  workbenchBody.innerHTML = `<div class="workspace-grid century-workspace"><aside class="workspace-aside"><h2>1902–2000 百年资料目录</h2><p>${escapeHtml(state.archiveItems.length)} 条去重 bounded items 覆盖 11 个公开检索分面及课程计划卷；历史入口合并检索历史与历史与社会，底层课程形态仍分别保存。它们是星点背后的文件与物理页证据，不构成第二条时间轴；只有受控词面观察进入主星图。</p><form class="work-form" id="century-form"><label for="century-query">篇名或候选词面</label><input id="century-query" name="q" value="${escapeHtml(query)}" placeholder="例如：社会科、本国史、调查搜集"><label for="century-subject">学科分面或课程卷</label><select id="century-subject" name="subject"><option value="">全部资料</option>${archiveSubjects.map((name) => `<option value="${escapeHtml(name)}" ${subject === name ? 'selected' : ''}>${escapeHtml(name)}</option>`).join('')}</select><button class="work-button" type="submit">筛选百年资料</button></form><p class="candidate-boundary">${escapeHtml(state.pre2001Layer.assertion_boundary)}</p></aside><main class="workspace-main">${eraGroups || '<div class="empty-state">没有匹配条目。</div>'}</main></div>`;
   document.querySelector('#century-form').addEventListener('submit', (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -1195,9 +1522,10 @@ function searchOcrCandidatePages(query, facet) {
 
 function ocrPipelineSummaryHtml() {
   const layer = state.ocrLayer;
-  if (!layer) return '';
+  const summary = state.ocrCoverageSummary;
+  if (!layer || !summary) return '';
   const active = layer.documents.find((document) => document.status === 'active');
-  return `<section class="ocr-data-summary"><p><b>OCR 资料层已接通</b><span>${escapeHtml(layer.pipeline_summary.complete_documents)} 册、${escapeHtml(layer.pipeline_summary.complete_pages)} 页完成</span></p><p>2022 版义务教育语文课标 109/109 页已进入待核全文与概念观察；不可作为引文或 AI 证据。${active ? ` 正式英语汇编快照：${escapeHtml(active.completed_pages)}/${escapeHtml(active.page_count)} 页。` : ''}</p></section>`;
+  return `<section class="ocr-data-summary"><p><b>OCR 候选覆盖已闭合</b><span>${escapeHtml(summary.coverage.candidate_covered_pages)}/${escapeHtml(summary.coverage.nominal_pages)} 页 · 缺口 ${escapeHtml(summary.coverage.candidate_remaining_pages)}</span></p><p>其中 ${escapeHtml(summary.coverage.single_witness_candidate_fallback_pages)} 页为单见证候选补齐；${escapeHtml(summary.coverage.dual_witness_audited_pages)} 页已分为抽样、冲突、表格与空白确认队列，引文就绪仍为 ${escapeHtml(summary.coverage.citation_ready_pages)}。${active ? ` 当前任务：${escapeHtml(active.completed_pages)}/${escapeHtml(active.page_count)} 页。` : ''}</p></section>`;
 }
 
 async function renderCompare(url) {
@@ -1531,6 +1859,58 @@ async function route() {
   }
 }
 
+function startCenturyReveal() {
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const onHome = location.pathname.replace(/\/+$/, '') === '';
+  const firstYear = Number(yearRange.min);
+  const lastYear = Number(yearRange.max);
+  if (reducedMotion || !onHome || !Number.isFinite(firstYear) || !Number.isFinite(lastYear)) {
+    state.maxYear = lastYear;
+    yearRange.value = String(lastYear);
+    syncYearStageState();
+    updateMapStatus();
+    state.introRevealComplete = true;
+    loading.classList.add('ready');
+    return;
+  }
+  state.introRevealActive = true;
+  state.maxYear = firstYear;
+  yearRange.value = String(firstYear);
+  syncYearStageState();
+  updateMapStatus();
+  loading.classList.add('ready');
+  const startedAt = performance.now();
+  const duration = 3600;
+  let lastRenderedYear = firstYear - 1;
+  const reveal = (time) => {
+    if (!state.introRevealActive) return;
+    const progress = Math.min(1, (time - startedAt) / duration);
+    const eased = 1 - (1 - progress) ** 2.2;
+    const year = Math.min(lastYear, Math.floor(firstYear + (lastYear - firstYear) * eased));
+    if (year !== lastRenderedYear) {
+      lastRenderedYear = year;
+      state.maxYear = year;
+      yearRange.value = String(year);
+      syncYearStageState();
+      state.cosmos?.setFilters({
+        hiddenSubjects: state.hiddenSubjects,
+        hideAll: state.hideAllSubjects,
+        maxYear: year,
+        query: state.query,
+      });
+      if (state.disciplineLifecycle.events.some((event) => event.year === year)) renderDisciplineLifecycle();
+    }
+    if (progress < 1) {
+      requestAnimationFrame(reveal);
+      return;
+    }
+    state.introRevealActive = false;
+    state.introRevealComplete = true;
+    updateMapStatus({ fitVisible: true });
+  };
+  requestAnimationFrame(reveal);
+}
+
 function initializeCosmos() {
   state.cosmos = new CurriculumCosmos(mount, {
     onSelect: selectConceptEpisode,
@@ -1539,8 +1919,7 @@ function initializeCosmos() {
   state.cosmos.setData(state.conceptGraph);
   renderSubjectControls();
   renderEraControls();
-  updateMapStatus();
-  loading.classList.add('ready');
+  startCenturyReveal();
   diagnosticsReadyAt = performance.now();
   window.__CURRICULUM_ATLAS_DIAGNOSTICS__ = () => ({
     ready: true,
@@ -1571,6 +1950,7 @@ mapToolsToggle.addEventListener('click', () => {
 });
 showAllSubjects.addEventListener('click', restoreAllSubjects);
 yearRange.addEventListener('input', () => {
+  state.introRevealActive = false;
   state.maxYear = Number(yearRange.value);
   syncYearStageState();
   updateMapStatus();

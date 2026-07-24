@@ -19,12 +19,13 @@ test('the pre-2001 packet is source-bound, bounded, fail-closed, and covers ever
   assert.equal(layer.publication_status, 'candidate_fail_closed');
   assert.equal(layer.counts.source_documents, 12);
   assert.equal(layer.counts.subject_facets, 12);
-  assert.equal(layer.counts.bounded_items, 341);
+  assert.equal(layer.counts.bounded_items, 462);
   assert.equal(layer.counts.controlled_concepts, 36);
   assert.equal(layer.counts.observed_concepts, 36);
-  assert.equal(layer.counts.episodes, 326);
-  assert.equal(itemsArtifact.items.length, 341);
-  assert.equal(new Set(itemsArtifact.items.map((item) => item.id)).size, 341);
+  assert.equal(layer.counts.episodes, 426);
+  assert.equal(layer.counts.evidence, 821);
+  assert.equal(itemsArtifact.items.length, 462);
+  assert.equal(new Set(itemsArtifact.items.map((item) => item.id)).size, 462);
   assert.deepEqual(
     new Set(layer.concepts.flatMap((concept) => concept.visibility_facets)),
     new Set(expectedFacets),

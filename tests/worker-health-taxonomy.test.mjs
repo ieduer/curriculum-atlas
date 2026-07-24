@@ -317,13 +317,16 @@ test('Worker health fails closed when any taxonomy metric drifts independently',
   }
 });
 
-test('public meta exposes exactly twelve facets while assessment identities remain separate and non-filterable', async () => {
+test('public meta merges history search into eleven facets while preserving storage identities', async () => {
   const worker = await loadWorker();
   const env = makeTaxonomyApiEnv();
   const meta = await worker.fetch(new Request('https://curriculum.example/api/meta'), env);
   assert.equal(meta.status, 200);
   const body = await meta.json();
-  assert.deepEqual(body.subjects.map((item) => item.name), displayFacetNames);
+  assert.deepEqual(body.subjects.map((item) => item.name), displayFacetNames.filter((name) => name !== '历史与社会'));
+  assert.equal(body.subjects.find((item) => item.name === '历史').documentCount, 2);
+  assert.deepEqual(body.storageSubjects.map((item) => item.name), displayFacetNames);
+  assert.deepEqual(body.subjectFacetAliases, { 历史: ['历史', '历史与社会'] });
   assert.equal(body.subjects.some((item) => item.name === '汉语'), false);
   assert.deepEqual(body.queryIdentities.map((item) => item.name), ['语文']);
   assert.deepEqual(body.assessmentIdentities, [{

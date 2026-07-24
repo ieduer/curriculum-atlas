@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "artifact_profile": "curriculum-discipline-lifecycle-v1",
+  "publication_status": "source_bound_research_navigation",
+  "assertion_boundary": "事件只陈述来源明示的课程设置、并行方案、合科或独立设置；合并检索入口不表示历史与历史与社会具有同一学科身份，也不推断地方实施、制度因果、替代或连续存在。",
+  "public_subject_facets": [
+    "语文",
+    "数学",
+    "外语",
+    "思想政治与道德法治",
+    "历史",
+    "地理",
+    "科学类",
+    "技术",
+    "劳动",
+    "艺术",
+    "体育与健康"
+  ],
+  "sources": [
+    {
+      "id": "source-1923-social-studies-bounded",
+      "title": "1923年新学制课程纲要总说明（汇编扫描候选页）",
+      "authority": "source_hash_bound_bounded_scan_candidate",
+      "locator": "/historical/embedded-century%3Alegacy-compendium-plans%3A56be277a62104e97",
+      "pages": [123, 124],
+      "citation_allowed": false
+    },
+    {
+      "id": "source-moe-2001-curriculum-plan",
+      "title": "教育部关于印发《义务教育课程设置实验方案》的通知",
+      "authority": "ministry_of_education_public_notice",
+      "locator": "https://www.moe.gov.cn/srcsite/A26/s7054/200111/t20011119_88602.html",
+      "citation_allowed": true
+    },
+    {
+      "id": "source-moe-2011-standards-notice",
+      "title": "教育部关于印发义务教育语文等学科课程标准（2011年版）的通知",
+      "authority": "ministry_of_education_public_notice",
+      "locator": "https://www.moe.gov.cn/srcsite/A26/s8001/201112/t20111228_167340.html",
+      "citation_allowed": true
+    },
+    {
+      "id": "source-moe-2022-standards-notice",
+      "title": "教育部关于印发义务教育课程方案和课程标准（2022年版）的通知",
+      "authority": "ministry_of_education_public_notice",
+      "locator": "https://www.moe.gov.cn/srcsite/A26/s8001/202204/t20220420_619921.html",
+      "citation_allowed": true
+    },
+    {
+      "id": "source-moe-2022-curriculum-plan",
+      "title": "义务教育课程方案（2022年版）",
+      "authority": "ministry_of_education_public_plan",
+      "locator": "https://www.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582343217634.pdf",
+      "citation_allowed": true
+    }
+  ],
+  "events": [
+    {
+      "id": "discipline-event-1923-social-studies-grouping",
+      "year": 1923,
+      "event_type": "integrated_grouping",
+      "label": "社会科合科编组",
+      "detail": "总说明把公民、历史、地理编组为社会科。",
+      "display_tag": "合科",
+      "public_facets": ["思想政治与道德法治", "历史", "地理"],
+      "discipline_forms": ["社会科", "公民", "历史", "地理"],
+      "source_ids": ["source-1923-social-studies-bounded"],
+      "citation_allowed": false,
+      "claim_boundary": "只表示1923年该课程纲要的明示编组；不等同于后来的历史与社会课程。"
+    },
+    {
+      "id": "discipline-event-2001-history-choice",
+      "year": 2001,
+      "event_type": "alternative_integrated_or_separate",
+      "label": "历史与社会，或历史、地理",
+      "detail": "七至九年级可设置历史与社会，或选择分科历史、地理。",
+      "display_tag": "合科／分科可选",
+      "public_facets": ["历史", "地理"],
+      "discipline_forms": ["历史与社会", "历史", "地理"],
+      "source_ids": ["source-moe-2001-curriculum-plan"],
+      "citation_allowed": true,
+      "claim_boundary": "这是国家实验方案中的并列选择，不表示三个名称是同一学科，也不表示一种路径必然替代另一种。"
+    },
+    {
+      "id": "discipline-event-2001-science-choice",
+      "year": 2001,
+      "event_type": "alternative_integrated_or_separate",
+      "label": "科学，或生物、物理、化学",
+      "detail": "七至九年级可设置综合科学，或选择分科生物、物理、化学。",
+      "display_tag": "合科／分科可选",
+      "public_facets": ["科学类"],
+      "discipline_forms": ["科学", "生物", "物理", "化学"],
+      "source_ids": ["source-moe-2001-curriculum-plan"],
+      "citation_allowed": true,
+      "claim_boundary": "只陈述实验方案的课程选择结构，不推断各地实际采用比例。"
+    },
+    {
+      "id": "discipline-event-2001-arts-choice",
+      "year": 2001,
+      "event_type": "alternative_integrated_or_separate",
+      "label": "艺术，或音乐、美术",
+      "detail": "可设置综合艺术，或选择分科音乐、美术。",
+      "display_tag": "合科／分科可选",
+      "public_facets": ["艺术"],
+      "discipline_forms": ["艺术", "音乐", "美术"],
+      "source_ids": ["source-moe-2001-curriculum-plan"],
+      "citation_allowed": true,
+      "claim_boundary": "只陈述实验方案的并列选择，不把综合课程与分科课程解释为同一身份。"
+    },
+    {
+      "id": "discipline-event-2011-history-parallel",
+      "year": 2011,
+      "event_type": "parallel_standard_paths",
+      "label": "历史、地理、历史与社会并行发标",
+      "detail": "教育部同时印发历史、地理、历史与社会三个课程标准，自2012年秋季执行。",
+      "display_tag": "并行",
+      "public_facets": ["历史", "地理"],
+      "discipline_forms": ["历史", "地理", "历史与社会"],
+      "source_ids": ["source-moe-2011-standards-notice"],
+      "citation_allowed": true,
+      "claim_boundary": "并行发标证明课程路径并存，不证明历史与历史与社会具有同一学科身份。"
+    },
+    {
+      "id": "discipline-event-2022-history-standard-set",
+      "year": 2022,
+      "event_type": "national_standard_set_adjusted",
+      "label": "国家标准组调整",
+      "detail": "2022年国家方案列历史、地理；本轮16个课程标准未单列新版历史与社会标准。",
+      "display_tag": "调整",
+      "public_facets": ["历史", "地理"],
+      "discipline_forms": ["历史", "地理", "历史与社会"],
+      "source_ids": ["source-moe-2022-standards-notice", "source-moe-2022-curriculum-plan"],
+      "citation_allowed": true,
+      "claim_boundary": "只陈述2022年国家课程方案与本轮标准附件的列项，不推断地方课程立即取消或既有教材停止使用。"
+    },
+    {
+      "id": "discipline-event-2022-labor-independent",
+      "year": 2022,
+      "event_type": "independent_course",
+      "label": "劳动独立设置",
+      "detail": "劳动从综合实践活动课程中独立出来，形成单独课程及课程标准。",
+      "display_tag": "独立",
+      "public_facets": ["劳动"],
+      "discipline_forms": ["综合实践活动", "劳动"],
+      "source_ids": ["source-moe-2022-standards-notice", "source-moe-2022-curriculum-plan"],
+      "citation_allowed": true,
+      "claim_boundary": "陈述国家课程方案的设置调整，不扩展为地方实施成效判断。"
+    },
+    {
+      "id": "discipline-event-2022-information-technology",
+      "year": 2022,
+      "event_type": "independent_course",
+      "label": "信息科技独立设置",
+      "detail": "国家方案将信息科技列为独立课程并单独印发课程标准。",
+      "display_tag": "独立",
+      "public_facets": ["技术"],
+      "discipline_forms": ["综合实践活动", "信息科技"],
+      "source_ids": ["source-moe-2022-standards-notice", "source-moe-2022-curriculum-plan"],
+      "citation_allowed": true,
+      "claim_boundary": "只陈述2022年国家课程方案和标准列项，不把信息科技与全部技术课程视为同一课程身份。"
+    },
+    {
+      "id": "discipline-event-2022-moral-course-integration",
+      "year": 2022,
+      "event_type": "integrated_and_renamed",
+      "label": "道德课程一体化设置",
+      "detail": "小学至初中相关道德课程统一为道德与法治，并单独印发课程标准。",
+      "display_tag": "整合",
+      "public_facets": ["思想政治与道德法治"],
+      "discipline_forms": ["品德与生活", "品德与社会", "思想品德", "道德与法治"],
+      "source_ids": ["source-moe-2022-standards-notice", "source-moe-2022-curriculum-plan"],
+      "citation_allowed": true,
+      "claim_boundary": "只表示国家课程设置与名称调整，不把不同学段的历史课程直接视为同一内容层级。"
+    }
+  ]
+}

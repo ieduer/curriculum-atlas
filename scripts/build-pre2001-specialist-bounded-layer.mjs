@@ -18,6 +18,7 @@ const PROFILE_ROOTS = {
   ),
   local_production_snapshot: path.join(ROOT, '.cache/ocr-production'),
   targeted_tesseract_20260723: path.join(ROOT, '.cache/pre2001-targeted-ocr'),
+  candidate_hybrid_20260723: path.join(ROOT, '.cache/pre2001-candidate-hybrid-v15'),
 };
 
 function sha256(value) {
@@ -148,9 +149,37 @@ async function loadState(document, profile) {
     if (pageCache.has(number)) return pageCache.get(number);
     requireValue(completed.has(number) && !failed.has(number),
       `requested OCR page is not complete: ${document.id} p.${number}`);
-    const contentPath = path.join(documentRoot, 'pages', String(number).padStart(4, '0'), 'content.md');
-    const bytes = await readFile(contentPath);
-    const expected = state.pages?.[String(number)]?.content_markdown_sha256;
+    const pageState = state.pages?.[String(number)];
+    let bytes;
+    let expected;
+    if (state.profile === 'candidate_hybrid_20260723'
+      && pageState?.origin === 'candidate_ocr_single_witness_v1') {
+      const sidecarPath = path.join(
+        ROOT,
+        state.roots.candidate_ocr_single_witness_v1,
+        `page-${String(number).padStart(4, '0')}.json`,
+      );
+      const sidecarBytes = await readFile(sidecarPath);
+      requireValue(sha256(sidecarBytes) === pageState.sidecar_sha256,
+        `candidate OCR sidecar hash mismatch: ${document.id} p.${number}`);
+      const sidecar = JSON.parse(sidecarBytes);
+      requireValue(sidecar.document_id === document.id
+        && Number(sidecar.physical_pdf_page) === number
+        && sidecar.source_pdf_sha256 === document.checksum_sha256
+        && sidecar.citation_allowed === false,
+      `candidate OCR sidecar identity mismatch: ${document.id} p.${number}`);
+      bytes = Buffer.from(`${sidecar.lines.map((line) => line.text).join('\n')}\n`);
+      expected = sha256(bytes);
+    } else {
+      const contentRoot = state.profile === 'candidate_hybrid_20260723'
+        ? path.join(ROOT, state.roots.local_production_snapshot)
+        : documentRoot;
+      const contentPath = path.join(contentRoot, 'pages', String(number).padStart(4, '0'), 'content.md');
+      bytes = await readFile(contentPath);
+      expected = state.profile === 'candidate_hybrid_20260723'
+        ? pageState?.content_sha256
+        : pageState?.content_markdown_sha256;
+    }
     requireValue(!expected || sha256(bytes) === expected, `OCR content hash mismatch: ${document.id} p.${number}`);
     const result = {
       page: number,

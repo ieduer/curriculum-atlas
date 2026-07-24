@@ -48,10 +48,10 @@
 
 ## 当前已知未决
 
-- OCR 名义队列为 86 份／11,847 页，物理去重为 85 份／11,779 页。最新本机状态为 primary/audit 6,947、Vision 7,012、accepted display/citation 0；不得继续引用旧 50／8,690 口径，也不得把 v10 corpus 上线解释为 OCR 上线。
-- 一页 `legacy-compendium-chemistry:84:paddle` 隔离，6,091 页仍 unresolved、783 页待图像复核、73 页待空白确认。逐页识别完成不是发布完成。
+- OCR 名义队列为 86 份／11,847 页，物理去重为 85 份／11,779 页。v15 候选覆盖已达 11,847／11,847、缺口 0；原三段超时共 1,077 页是 Apple Vision 单见证候选，不能当独立引用证据。
+- 6,947 页双见证队列的根因是旧 witness producer 对每页都留下空 `critical_fields`，不是第二次 OCR 未完成。当前可执行分流为 66 页机器一致抽样池、5,028 页文字／结构冲突裁决、1,780 页表格重建、73 页空白确认；未分类 0、citation-ready 0。
 - DMITPro2 B-r1 因低内存门受控冻结在 1,259/3,182，0 failed、0 quarantine。新配置 B-r2 只有在 hash-bound seed lineage 实现、测试、predecessor receipt 与每页 hash/attempt 验签全部通过后才能创建；不得复制后再补证据。
-- 当前深层 ontology 的 169 个节点主要属于语文；其它学科不能伪装为同等深度完成。
+- 11 个公开检索分面均已具有来源绑定的课程名称、实践、内容、能力四层候选模型；旧 ontology 的 169 个语文节点仍是更深的术语本体，不得把两种模型深度混写。
 - 概念 observation 数据当前止于 2020；2022 corpus 文档和年代轨可见不等于已有 2022 概念观察。必须等 accepted OCR 和版本核对进入发布链后重建，不能由 UI 年代或文件年份推断。
 - 两个 derived OCR PDF 的工具/参数谱系不完整，保持不可入队、不可发布。
 - Companion 源码入口已登记，但新安装包需在真实 Android 设备验证后才能发布。

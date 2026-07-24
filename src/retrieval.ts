@@ -1,5 +1,6 @@
 import { textParam } from './http';
 import { ftsQuery } from './search-query';
+import { normalizePublicSubjectQuery, secondarySubjectIdentity } from './subject-facets';
 import type { Env, Passage } from './types';
 
 interface SearchFilters {
@@ -13,7 +14,8 @@ export async function retrieve(env: Env, filters: SearchFilters): Promise<Passag
   const query = textParam(filters.query, 240);
   if (query.length < 2) return [];
   const limit = Math.min(12, Math.max(1, filters.limit || 8));
-  const subject = textParam(filters.subject || '', 40);
+  const subject = normalizePublicSubjectQuery(textParam(filters.subject || '', 40));
+  const subjectSecondary = secondarySubjectIdentity(subject);
   const stage = textParam(filters.stage || '', 40);
   const match = ftsQuery(query);
   if (match) {
@@ -31,11 +33,11 @@ export async function retrieve(env: Env, filters: SearchFilters): Promise<Passag
        WHERE paragraph_fts MATCH ?
          AND p.citation_allowed = 1
          AND d.citation_allowed = 1
-         AND (? = '' OR (dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject = ?))
+         AND (? = '' OR (dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject IN (?, ?)))
          AND (? = '' OR d.stage = ?)
        ORDER BY score ASC
        LIMIT ?`,
-    ).bind(match, subject, subject, stage, stage, limit).all<Passage>();
+    ).bind(match, subject, subject, subjectSecondary, stage, stage, limit).all<Passage>();
     if (result.results.length) return result.results;
   }
 
@@ -52,9 +54,9 @@ export async function retrieve(env: Env, filters: SearchFilters): Promise<Passag
      WHERE p.body LIKE ? ESCAPE '\\'
        AND p.citation_allowed = 1
        AND d.citation_allowed = 1
-       AND (? = '' OR (dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject = ?))
+       AND (? = '' OR (dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject IN (?, ?)))
        AND (? = '' OR d.stage = ?)
      ORDER BY d.sort_year DESC, p.ordinal ASC LIMIT ?`,
-  ).bind(like, subject, subject, stage, stage, limit).all<Passage>();
+  ).bind(like, subject, subject, subjectSecondary, stage, stage, limit).all<Passage>();
   return fallback.results;
 }

@@ -1,28 +1,28 @@
 {
   "schema_version": 1,
   "artifact_profile": "curriculum-star-map-performance-validation-v1",
-  "budget_id": "curriculum-star-map-performance-v1",
+  "budget_id": "curriculum-star-map-performance-v2",
   "release_decision": "pass",
   "deployment_allowed": true,
   "source_fingerprints": {
-    "data/star-map-performance-budget.json": "278166d22e58c009027ef8e2f9258e7e09b9d494f568e63759a07aa3d78c38ba",
+    "data/star-map-performance-budget.json": "6e5b1748300c2f15bb93df081838cfed8e9ad4680a53db858ee31b9e1135d1f9",
     "public/data/concept-evolution.json": "0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8",
     "public/data/ocr-observation-layer.json": "5c95361d8e157231b7fe28bc940fbab45baf0836d143a94f7c8db3fbc4ce1e39",
     "public/data/subject-detail-observation-layer.json": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
-    "public/data/pre2001-subject-detail-observation-layer.json": "399e0c750329effe75ab0dbc8bfb335a5943e152cdbff0069e14bfc88369d6c1",
+    "public/data/pre2001-subject-detail-observation-layer.json": "f6e0c70ebd762fb23d4127bee64fcbaf84380be59a4e13426c608d3b0466137c",
     "public/data/century-observation-layer.json": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
-    "public/data/concept-evolution-families.json": "720aa6edf19e6e89faff61dc8b8d8c66007135fe35b8000dcfe94bc8eaf7b531",
-    "public/index.html": "366dd6e1877ce773d5cf6cf23040d279838b021e67c6e653c9296b47b072b4cb",
-    "public/app.js": "a8106560037645ed289e636ca43bddae46398af038197814327a2029f5d2bdd9",
-    "public/atlas.js": "7655bb9b6b92c205d0175e0dcce3f85e88d54fb6d12207fa6807bdad0b789580",
-    "public/styles.css": "afb6503b14f021180f088fbd3769ae07f5dfbe523f989db0a8d7dec9fca2347f"
+    "public/data/concept-evolution-families.json": "7e747bda715e3c01c7c3755f903adaeb5bac93f282a0f4050655ec79108bf24a",
+    "public/index.html": "9e1a4e819d51170cd0c53a5d449ca96a17cb8dfade17d85341dd563948a12424",
+    "public/app.js": "1e7d31b49684465c94ef32b3f0dc1611dea9b365b77b0cebc27847984c2228f0",
+    "public/atlas.js": "a10cfc7cb2942ffb16d32192376ce3dfb676cf170c85718bbf9b9dd6a7922315",
+    "public/styles.css": "1ab34d70d88d3827ec52caf25140301b88612fe30153573d860f02633579604e"
   },
   "observed": {
-    "initial_graph_data_raw_bytes": 20709970,
-    "frontend_raw_bytes": 187289,
-    "merged_episode_count": 2030,
-    "merged_edge_count": 2916,
-    "merged_evidence_count": 4957,
+    "initial_graph_data_raw_bytes": 21678735,
+    "frontend_raw_bytes": 210212,
+    "merged_episode_count": 2130,
+    "merged_edge_count": 2979,
+    "merged_evidence_count": 5133,
     "canvas_device_pixel_ratio": 2,
     "mobile_automatic_label_count": 9,
     "canvas_animation_fps": 20
@@ -31,32 +31,32 @@
     {
       "id": "static.initial_graph_data_raw_bytes",
       "passed": true,
-      "observed": 20709970,
-      "maximum": 21500000
+      "observed": 21678735,
+      "maximum": 22000000
     },
     {
       "id": "static.frontend_raw_bytes",
       "passed": true,
-      "observed": 187289,
-      "maximum": 200000
+      "observed": 210212,
+      "maximum": 220000
     },
     {
       "id": "static.merged_episode_count",
       "passed": true,
-      "observed": 2030,
-      "maximum": 2100
+      "observed": 2130,
+      "maximum": 2200
     },
     {
       "id": "static.merged_edge_count",
       "passed": true,
-      "observed": 2916,
+      "observed": 2979,
       "maximum": 3000
     },
     {
       "id": "static.merged_evidence_count",
       "passed": true,
-      "observed": 4957,
-      "maximum": 5000
+      "observed": 5133,
+      "maximum": 5300
     },
     {
       "id": "static.canvas_device_pixel_ratio",

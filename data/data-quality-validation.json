@@ -6,36 +6,39 @@
   "deployment_allowed": true,
   "manual_override_allowed": false,
   "source_fingerprints": {
-    "standard": "80e202966479d0c1f104a41e02eda770a8ebbf8e36660b8cbdc83c42073b85d5",
+    "standard": "ccd1e4b56bf4ec5834c3c3f6ad99f2d8e61c3834bf8ff3b25bb881ae0419f9c2",
     "candidateSchema": "d985d3c4d89440c4e2890694c10f20fb0fd291fcea68d9d13f28170843e4f212",
-    "coverage": "65302bc99a9bdf7ddce2f8bda9484b93a3b2a4140b22f1ca8cfcff8babd0be49",
-    "releaseDiff": "19c73d5b1ff582366d5b41d02bb04c01e54e48a4bc54950d50c1386506ef658f",
-    "performanceBudget": "278166d22e58c009027ef8e2f9258e7e09b9d494f568e63759a07aa3d78c38ba",
-    "performanceValidation": "66438762d05d8a0515e89f7e91fe11b2b70928b7b6707a2fb8219d544873be5d",
+    "coverage": "5ac87d0e489f39737c7f546c7d291e7a0ee111f651540e8a288f5c15e972320f",
+    "candidateFallback": "514beb453c594fbc74e1297bd6a446d041a6b8e37d68b518a6976ce252b15ed7",
+    "reviewTriage": "8a288fa8c75642a90af3ce67f4379a255a497a79e5adf1ee7822f15809b5f765",
+    "lifecycle": "a6ec26386ae1996f0dda6d8c118580443216386ed98fc2f007f617ecb86be952",
+    "releaseDiff": "1593289edecc56267d257766cba2da76b1e3318083784e866f097c47b7c97277",
+    "performanceBudget": "6e5b1748300c2f15bb93df081838cfed8e9ad4680a53db858ee31b9e1135d1f9",
+    "performanceValidation": "3a8dcafdc33438fdc2dd2a02f9f3c618f03b03ec2b7dd9802f379bcb2707a39a",
     "familiesConfig": "e891fce9b7b025b23fedbde6c90b734367673c8592a6d44c2b3bc2c0f80651c8",
-    "families": "720aa6edf19e6e89faff61dc8b8d8c66007135fe35b8000dcfe94bc8eaf7b531",
+    "families": "7e747bda715e3c01c7c3755f903adaeb5bac93f282a0f4050655ec79108bf24a",
     "core": "0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8",
     "ocr": "5c95361d8e157231b7fe28bc940fbab45baf0836d143a94f7c8db3fbc4ce1e39",
     "detail": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
-    "pre2001": "399e0c750329effe75ab0dbc8bfb335a5943e152cdbff0069e14bfc88369d6c1",
+    "pre2001": "f6e0c70ebd762fb23d4127bee64fcbaf84380be59a4e13426c608d3b0466137c",
     "century": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
-    "app": "a8106560037645ed289e636ca43bddae46398af038197814327a2029f5d2bdd9",
-    "atlas": "7655bb9b6b92c205d0175e0dcce3f85e88d54fb6d12207fa6807bdad0b789580",
-    "styles": "afb6503b14f021180f088fbd3769ae07f5dfbe523f989db0a8d7dec9fca2347f",
-    "index": "366dd6e1877ce773d5cf6cf23040d279838b021e67c6e653c9296b47b072b4cb"
+    "app": "1e7d31b49684465c94ef32b3f0dc1611dea9b365b77b0cebc27847984c2228f0",
+    "atlas": "a10cfc7cb2942ffb16d32192376ce3dfb676cf170c85718bbf9b9dd6a7922315",
+    "styles": "1ab34d70d88d3827ec52caf25140301b88612fe30153573d860f02633579604e",
+    "index": "9e1a4e819d51170cd0c53a5d449ca96a17cb8dfade17d85341dd563948a12424"
   },
   "counts": {
-    "checks": 24,
-    "passed": 24,
+    "checks": 28,
+    "passed": 28,
     "failed": 0,
     "subject_facets": 12,
     "concept_tiers": 5,
     "concept_families": 55,
-    "episodes": 2030,
-    "family_edges": 1272,
+    "episodes": 2130,
+    "family_edges": 1335,
     "ocr_nominal_pages": 11847,
-    "ocr_candidate_covered_pages": 10770,
-    "ocr_candidate_remaining_pages": 1077,
+    "ocr_candidate_covered_pages": 11847,
+    "ocr_candidate_remaining_pages": 0,
     "ocr_citation_ready_pages": 0
   },
   "checks": [
@@ -102,6 +105,68 @@
         "艺术",
         "体育与健康"
       ]
+    },
+    {
+      "id": "facets.public_projection_exact",
+      "passed": true,
+      "observed": {
+        "public": [
+          "语文",
+          "数学",
+          "外语",
+          "思想政治与道德法治",
+          "历史",
+          "地理",
+          "科学类",
+          "技术",
+          "劳动",
+          "艺术",
+          "体育与健康"
+        ],
+        "storage": [
+          "语文",
+          "数学",
+          "外语",
+          "思想政治与道德法治",
+          "历史",
+          "历史与社会",
+          "地理",
+          "科学类",
+          "技术",
+          "劳动",
+          "艺术",
+          "体育与健康"
+        ]
+      },
+      "expected": {
+        "public": [
+          "语文",
+          "数学",
+          "外语",
+          "思想政治与道德法治",
+          "历史",
+          "地理",
+          "科学类",
+          "技术",
+          "劳动",
+          "艺术",
+          "体育与健康"
+        ],
+        "storage": [
+          "语文",
+          "数学",
+          "外语",
+          "思想政治与道德法治",
+          "历史",
+          "历史与社会",
+          "地理",
+          "科学类",
+          "技术",
+          "劳动",
+          "艺术",
+          "体育与健康"
+        ]
+      }
     },
     {
       "id": "granularity.tier_order",
@@ -309,8 +374,9 @@
         "complete_whole_documents": 83,
         "runtime_completed_pages": 10690,
         "runtime_remaining_pages": 1157,
-        "candidate_covered_pages": 10770,
-        "candidate_remaining_pages": 1077,
+        "candidate_covered_pages": 11847,
+        "candidate_remaining_pages": 0,
+        "single_witness_candidate_fallback_pages": 1077,
         "dual_witness_audited_pages": 6947,
         "human_decided_non_citation_pages": 4,
         "citation_ready_pages": 0
@@ -323,8 +389,9 @@
         "complete_whole_documents": 83,
         "runtime_completed_pages": 10690,
         "runtime_remaining_pages": 1157,
-        "candidate_covered_pages": 10770,
-        "candidate_remaining_pages": 1077,
+        "candidate_covered_pages": 11847,
+        "candidate_remaining_pages": 0,
+        "single_witness_candidate_fallback_pages": 1077,
         "dual_witness_audited_pages": 6947,
         "human_decided_non_citation_pages": 4,
         "citation_ready_pages": 0
@@ -333,60 +400,14 @@
     {
       "id": "ocr.gap_documents_exact",
       "passed": true,
-      "observed": [
-        "legacy-compendium-geography",
-        "legacy-compendium-mathematics",
-        "legacy-compendium-politics"
-      ],
-      "expected": [
-        "legacy-compendium-geography",
-        "legacy-compendium-mathematics",
-        "legacy-compendium-politics"
-      ]
+      "observed": [],
+      "expected": []
     },
     {
       "id": "ocr.gap_ranges_exact",
       "passed": true,
-      "observed": {
-        "legacy-compendium-geography": [
-          [
-            97,
-            518
-          ]
-        ],
-        "legacy-compendium-mathematics": [
-          [
-            337,
-            697
-          ]
-        ],
-        "legacy-compendium-politics": [
-          [
-            129,
-            422
-          ]
-        ]
-      },
-      "expected": {
-        "legacy-compendium-geography": [
-          [
-            97,
-            518
-          ]
-        ],
-        "legacy-compendium-mathematics": [
-          [
-            337,
-            697
-          ]
-        ],
-        "legacy-compendium-politics": [
-          [
-            129,
-            422
-          ]
-        ]
-      }
+      "observed": {},
+      "expected": {}
     },
     {
       "id": "ocr.fail_closed",
@@ -394,7 +415,8 @@
       "observed": {
         "zero_silent_missing_documents": true,
         "zero_silent_missing_pages": true,
-        "explicit_runtime_gaps": 3,
+        "explicit_candidate_gaps": 0,
+        "runtime_remaining_pages": 1157,
         "citation_allowed": false,
         "semantic_promotion_allowed": false,
         "negative_claim_eligible": false
@@ -403,6 +425,85 @@
         "citation_allowed": false,
         "semantic_promotion_allowed": false,
         "negative_claim_allowed": false
+      }
+    },
+    {
+      "id": "ocr.candidate_fallback_exact",
+      "passed": true,
+      "observed": {
+        "pages": 1077,
+        "candidate_gap_pages_remaining": 0,
+        "fingerprint_bound": true
+      },
+      "expected": {
+        "pages": 1077,
+        "candidate_gap_pages_remaining": 0,
+        "fingerprint_bound": true
+      }
+    },
+    {
+      "id": "ocr.review_queue_triaged_exact",
+      "passed": true,
+      "observed": {
+        "root_cause_code": "critical_field_declaration_contract_never_populated",
+        "audited_dual_witness_pages": 6947,
+        "machine_concordant_sampling_pool": 66,
+        "text_or_structure_conflict_adjudication": 5028,
+        "table_cell_reconstruction": 1780,
+        "blank_visual_confirmation": 73,
+        "unclassified_pages": 0
+      },
+      "expected": {
+        "root_cause_code": "critical_field_declaration_contract_never_populated",
+        "audited_dual_witness_pages": 6947,
+        "machine_concordant_sampling_pool": 66,
+        "text_or_structure_conflict_adjudication": 5028,
+        "table_cell_reconstruction": 1780,
+        "blank_visual_confirmation": 73,
+        "unclassified_pages": 0
+      }
+    },
+    {
+      "id": "discipline.lifecycle_history_model",
+      "passed": true,
+      "observed": {
+        "public_subject_facets": [
+          "语文",
+          "数学",
+          "外语",
+          "思想政治与道德法治",
+          "历史",
+          "地理",
+          "科学类",
+          "技术",
+          "劳动",
+          "艺术",
+          "体育与健康"
+        ],
+        "history_event_types": [
+          "alternative_integrated_or_separate",
+          "integrated_grouping",
+          "national_standard_set_adjusted",
+          "parallel_standard_paths"
+        ],
+        "history_forms": [
+          "历史",
+          "历史与社会"
+        ]
+      },
+      "expected": {
+        "required_history_event_types": [
+          "integrated_grouping",
+          "alternative_integrated_or_separate",
+          "parallel_standard_paths",
+          "national_standard_set_adjusted"
+        ],
+        "public_history_facet": "历史",
+        "preserved_history_forms": [
+          "历史",
+          "历史与社会"
+        ],
+        "identity_equivalence_allowed": false
       }
     },
     {
@@ -423,8 +524,8 @@
       "id": "identity.episode_ids_globally_unique",
       "passed": true,
       "observed": {
-        "total": 2030,
-        "unique": 2030
+        "total": 2130,
+        "unique": 2130
       },
       "expected": {
         "duplicate_count": 0
@@ -435,11 +536,11 @@
       "passed": true,
       "observed": {
         "failures": [],
-        "checked_episodes": 2030
+        "checked_episodes": 2130
       },
       "expected": {
         "failures": [],
-        "checked_episodes": 2030
+        "checked_episodes": 2130
       }
     },
     {
@@ -469,11 +570,11 @@
       "passed": true,
       "observed": {
         "invalid_edge_ids": [],
-        "checked_edges": 1272
+        "checked_edges": 1335
       },
       "expected": {
         "invalid_edge_ids": [],
-        "checked_edges": 1272
+        "checked_edges": 1335
       }
     },
     {
@@ -534,12 +635,12 @@
       "id": "performance.static_budget_current_and_passed",
       "passed": true,
       "observed": {
-        "budget_id": "curriculum-star-map-performance-v1",
+        "budget_id": "curriculum-star-map-performance-v2",
         "checks": 8,
         "failed": 0
       },
       "expected": {
-        "budget_id": "curriculum-star-map-performance-v1",
+        "budget_id": "curriculum-star-map-performance-v2",
         "checks": 8,
         "failed": 0
       }
