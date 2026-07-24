@@ -2,11 +2,11 @@
   "schema_version": 1,
   "contract": "curriculum_downloads_asset_audit_v1",
   "generated_by": "scripts/build-downloads-asset-audit-receipt.mjs",
-  "audited_at": "2026-07-23T02:58:31.421Z",
+  "audited_at": "2026-07-24T03:16:08.338Z",
   "downloads_root_label": "operator_downloads",
   "ok": true,
   "downloads_ingested": true,
-  "pdf_files": 237,
+  "pdf_files": 238,
   "relevant_files": 15,
   "unique_relevant_artifacts": 15,
   "relevant_artifacts": [
@@ -122,5 +122,5 @@
   "registry_sha256": "c7c105a88365c23f1e3d5499f369554627bcad698985235a3b229c28b26d2bea",
   "errors": 0,
   "warnings": 2,
-  "receipt_sha256": "7269955e34fa8b37fb34fcf532c98fb639d6d557564f95925eec4d13e863ef5f"
+  "receipt_sha256": "08bae95fe19b9e6d222fe329f7e68d52565d2c02cb31d78286829d7226a4cc89"
 }
