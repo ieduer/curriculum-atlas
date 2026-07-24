@@ -25,7 +25,7 @@ function contrast(left, right) {
 test('dark remains the default and the explicit user choice persists before first paint', () => {
   assert.match(html, /data-theme-choice="dark"[^>]*aria-pressed="true"/);
   assert.match(html, /data-theme-choice="light"[^>]*aria-pressed="false"/);
-  assert.ok(html.indexOf('/theme-init.js?v=20260724v43') < html.indexOf('/styles.css?v=20260724v43'));
+  assert.ok(html.indexOf('/theme-init.js?v=20260724v44') < html.indexOf('/styles.css?v=20260724v44'));
   assert.match(themeInit, /curriculum-atlas-theme-v1/);
   assert.match(themeInit, /stored === 'dark' \|\| stored === 'light'/);
   assert.match(app, /state\.cosmos\?\.setTheme\(state\.theme\)/);
@@ -38,6 +38,9 @@ test('light theme primary and muted text pass WCAG AA against the paper surface'
   assert.ok(contrast('#67420c', '#edf1ee') >= 4.5);
   assert.match(styles, /\[data-theme="light"\]\s*\{[\s\S]*--ink:\s*#16213a;[\s\S]*--muted:\s*#4f5e75;/);
   assert.match(styles, /\[data-theme="light"\] \.star-inspector/);
+  assert.match(styles, /\[data-theme="light"\] \.evolution-chain-summary,[\s\S]*background: rgba\(230,235,232,.94\)/);
+  assert.match(styles, /\[data-theme="light"\] \.evolution-concept-list span \{[\s\S]*color: #27374f/);
+  assert.match(styles, /\[data-theme="light"\] \.atlas-tooltip/);
   assert.match(atlas, /light:\s*\{[\s\S]*nodeLabel:\s*'rgba\(23,34,53,.98\)'/);
 });
 

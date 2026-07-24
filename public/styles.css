@@ -774,6 +774,23 @@ button { color: inherit; }
 [data-theme="light"] .star-inspector p,
 [data-theme="light"] .inspector-insights small,
 [data-theme="light"] .inspector-close { color: var(--muted); }
+[data-theme="light"] .evolution-chain-summary,
+[data-theme="light"] .discipline-relation-summary {
+  border-color: rgba(5,107,134,.28); color: var(--ink); background: rgba(230,235,232,.94);
+}
+[data-theme="light"] .evolution-chain-summary > small,
+[data-theme="light"] .evolution-concept-list small,
+[data-theme="light"] .discipline-relation-summary div small { color: var(--muted); }
+[data-theme="light"] .evolution-concept-list span {
+  border-color: rgba(30,49,74,.2); color: #27374f; background: rgba(250,251,247,.66);
+}
+[data-theme="light"] .evolution-concept-list span.current {
+  border-color: rgba(138,90,18,.55); color: #67420c; background: rgba(138,90,18,.13);
+}
+[data-theme="light"] .atlas-tooltip {
+  border-color: rgba(30,49,74,.24); color: var(--ink); background: rgba(250,251,247,.96);
+  box-shadow: 0 18px 44px rgba(44,60,72,.18);
+}
 [data-theme="light"] .inspector-meta span,
 [data-theme="light"] .evidence-tag { color: #35465f; }
 [data-theme="light"] .ocr-layer-status { color: #27374f; background: rgba(248,244,233,.9); }

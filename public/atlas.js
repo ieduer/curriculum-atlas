@@ -1,4 +1,4 @@
-import { CURRICULUM_STAGES } from './historical-stages.js?v=20260724v43';
+import { CURRICULUM_STAGES } from './historical-stages.js?v=20260724v44';
 
 const TAU = Math.PI * 2;
 const MIN_ZOOM = .2;
