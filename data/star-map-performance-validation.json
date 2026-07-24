@@ -12,14 +12,14 @@
     "public/data/pre2001-subject-detail-observation-layer.json": "f6e0c70ebd762fb23d4127bee64fcbaf84380be59a4e13426c608d3b0466137c",
     "public/data/century-observation-layer.json": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
     "public/data/concept-evolution-families.json": "7e747bda715e3c01c7c3755f903adaeb5bac93f282a0f4050655ec79108bf24a",
-    "public/index.html": "68e69a0934242b939adfb5bfd06e138274d52de93b22f4d1d870338b625ba12e",
-    "public/app.js": "c0c0aee99e25644521c811c17b8dfecbce423c67aba6a76f88b94117db153043",
-    "public/atlas.js": "d255c7fa1eb5e27f6cfbacaf4963c7896627cda4e74c53361acad30d5da50287",
-    "public/styles.css": "b18b80adda79ee127294299c55f80597bd8fa3d5cc915fec53fc4e22cfdcfe5d"
+    "public/index.html": "0cc76c53e4cd6bb998fc4b5e592badce1ac986194e7236563d5b15ca8a114d67",
+    "public/app.js": "8ed6568bb60338bd4e2d991e3c1b97bb6ceed80c826d2261776fee75480e5c41",
+    "public/atlas.js": "e533250ea58c27959263d0692697040e693bda27ec49617fc99606c8d7fcd13a",
+    "public/styles.css": "f592140f80aa33b2d853cc681b3bc7754f47abb54901f806a526cc28769fee33"
   },
   "observed": {
     "initial_graph_data_raw_bytes": 21678735,
-    "frontend_raw_bytes": 234554,
+    "frontend_raw_bytes": 234569,
     "merged_episode_count": 2130,
     "merged_edge_count": 2979,
     "merged_evidence_count": 5133,
@@ -37,7 +37,7 @@
     {
       "id": "static.frontend_raw_bytes",
       "passed": true,
-      "observed": 234554,
+      "observed": 234569,
       "maximum": 240000
     },
     {

@@ -25,7 +25,7 @@ function contrast(left, right) {
 test('dark remains the default and the explicit user choice persists before first paint', () => {
   assert.match(html, /data-theme-choice="dark"[^>]*aria-pressed="true"/);
   assert.match(html, /data-theme-choice="light"[^>]*aria-pressed="false"/);
-  assert.ok(html.indexOf('/theme-init.js?v=20260723v40') < html.indexOf('/styles.css?v=20260723v40'));
+  assert.ok(html.indexOf('/theme-init.js?v=20260723v41') < html.indexOf('/styles.css?v=20260723v41'));
   assert.match(themeInit, /curriculum-atlas-theme-v1/);
   assert.match(themeInit, /stored === 'dark' \|\| stored === 'light'/);
   assert.match(app, /state\.cosmos\?\.setTheme\(state\.theme\)/);
