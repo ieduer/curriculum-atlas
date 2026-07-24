@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { materializeAcademicGraph } from './academic-graph-shards.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(scriptDir, '..');
@@ -178,7 +179,7 @@ const [
   ocrStatus,
   releaseEvidence,
   coreGraph,
-  academicGraph,
+  academicGraphIndex,
   centuryLayer,
   detailLayer,
   evolutionFamilies,
@@ -199,6 +200,10 @@ const [
   readJson('public/data/subject-detail-observation-layer.json'),
   readJson('public/data/concept-evolution-families.json'),
 ]);
+const academicGraph = await materializeAcademicGraph(
+  academicGraphIndex,
+  resolve(projectRoot, 'public'),
+);
 
 const actionLogLines = actionLogRaw.split(/\r?\n/u).filter(Boolean);
 const actionLogLineCutoff = actionLogLines.length;

@@ -16,10 +16,14 @@ const graphFiles = [
   'public/data/concept-evolution-families.json',
 ];
 const frontendFiles = ['public/index.html', 'public/app.js', 'public/atlas.js', 'public/styles.css'];
+const academicIndexPath = 'public/data/concept-evolution-academic.json';
 const budgetText = await readFile(budgetPath, 'utf8');
 const budget = JSON.parse(budgetText);
 const texts = Object.fromEntries(await Promise.all([...graphFiles, ...frontendFiles]
   .map(async (path) => [path, await readFile(resolve(root, path), 'utf8')])));
+const academicIndexText = await readFile(resolve(root, academicIndexPath), 'utf8');
+const academicIndex = JSON.parse(academicIndexText);
+const academicDescriptors = academicIndex.shard_manifest?.assets || [];
 const graphs = Object.fromEntries(graphFiles.map((path) => [path, JSON.parse(texts[path])]));
 const century = graphs['public/data/century-observation-layer.json'].star_projection;
 const episodeCollections = [
@@ -46,6 +50,9 @@ const evidenceCollections = [
 ];
 const observed = {
   initial_graph_data_raw_bytes: graphFiles.reduce((sum, path) => sum + Buffer.byteLength(texts[path]), 0),
+  academic_graph_index_raw_bytes: Buffer.byteLength(academicIndexText),
+  academic_graph_shard_raw_bytes: Math.max(0, ...academicDescriptors.map((item) => item.bytes || 0)),
+  academic_graph_total_shard_raw_bytes: academicDescriptors.reduce((sum, item) => sum + (item.bytes || 0), 0),
   frontend_raw_bytes: frontendFiles.reduce((sum, path) => sum + Buffer.byteLength(texts[path]), 0),
   merged_episode_count: episodeCollections.reduce((sum, items) => sum + items.length, 0),
   merged_edge_count: edgeCollections.reduce((sum, items) => sum + items.length, 0),
@@ -68,6 +75,7 @@ const checks = Object.entries(budget.static).map(([budgetKey, maximum]) => {
 const failed = checks.filter((item) => !item.passed);
 const fingerprints = Object.fromEntries(Object.entries(texts)
   .map(([path, value]) => [path, createHash('sha256').update(value).digest('hex')]));
+fingerprints[academicIndexPath] = createHash('sha256').update(academicIndexText).digest('hex');
 const receipt = {
   schema_version: 1,
   artifact_profile: 'curriculum-star-map-performance-validation-v1',

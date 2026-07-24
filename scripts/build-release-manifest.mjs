@@ -9,6 +9,7 @@ import { auditProjectAssets } from './audit-project-assets.mjs';
 import { validateDownloadsAuditReceipt } from './build-downloads-asset-audit-receipt.mjs';
 import { validateEnvironmentEvidenceReceipt } from './collect-release-environment-evidence.mjs';
 import { validateCorpusManifest } from './import-corpus.mjs';
+import { materializeAcademicGraph } from './academic-graph-shards.mjs';
 
 const DEFAULT_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const DEFAULT_POLICY = 'data/release-assets-policy.json';
@@ -782,7 +783,10 @@ export async function buildReleaseManifest({
     const deployPath = `${staticDeployRoot}/${inspected.source.slice(staticSourceRoot.length + 1)}`;
     const deployed = await inspectFile(projectRoot, deployPath);
     assertBufferParity(inspected, deployed.buffer, `deploy graph ${deployPath}`);
-    const json = parseJsonAsset(inspected);
+    const rawJson = parseJsonAsset(inspected);
+    const json = configured.role === 'concept_graph_academic'
+      ? await materializeAcademicGraph(rawJson, projectPath(projectRoot, staticSourceRoot))
+      : rawJson;
     const asset = {
       role: configured.role,
       source: configured.source,

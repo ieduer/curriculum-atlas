@@ -3,6 +3,12 @@ import { createHash } from 'node:crypto';
 import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  ACADEMIC_GRAPH_SHARD_MAX_BYTES,
+  ACADEMIC_GRAPH_SHARD_TRANSPORT,
+  createAcademicGraphShardBundle,
+  writeAcademicGraphShardBundle,
+} from './academic-graph-shards.mjs';
 import { isNativeTextRecord } from './page-publication-gate.mjs';
 import {
   acceptedConceptPages,
@@ -86,6 +92,7 @@ const inputFingerprints = {
     ['lexicon_sha256', 'data/concept-lexicon.json'],
     ['ontology_sha256', 'data/concept-ontology.json'],
     ['builder_sha256', 'scripts/build-concept-evolution.mjs'],
+    ['academic_graph_sharder_sha256', 'scripts/academic-graph-shards.mjs'],
     ['concept_publication_gate_sha256', 'scripts/concept-page-publication.mjs'],
     ['page_publication_gate_sha256', 'scripts/page-publication-gate.mjs'],
     ['semantic_publication_policy_sha256', 'data/semantic-publication-policy.json'],
@@ -1466,10 +1473,11 @@ const academicGraph = {
   editorial_audit: editorialAudit,
 };
 
-// The academic graph is machine-consumed and must stay below Cloudflare's
-// 25 MiB per-asset limit without dropping research fields.
+// The full academic graph is retained logically and transported as immutable,
+// content-addressed shards so no research fields are dropped for deployment.
 const academicPayload = `${JSON.stringify(academicGraph)}\n`;
-const academicSha256 = sha256(academicPayload);
+const academicBundle = createAcademicGraphShardBundle(academicGraph);
+const academicSha256 = academicBundle.indexSha256;
 const coreEpisodes = episodes.map((episode) => {
   const { occurrence_ids: occurrenceIds, surface_form_ids: surfaceFormIds, ...coreEpisode } = episode;
   return {
@@ -1591,7 +1599,9 @@ const checks = [
   { id: 'ontology_nodes_resolved', passed: ontologyNodes.length > 0 && ontologyNodes.every((item) => item.evidence_anchor_ids.every((id) => ontologyEvidenceById.has(id))) },
   { id: 'ontology_relations_resolved', passed: ontologyRelations.length > 0 && ontologyRelations.every((item) => item.evidence_anchor_ids.every((id) => ontologyEvidenceById.has(id))) },
   { id: 'core_payload_under_4mb', passed: Buffer.byteLength(corePayload) < 4 * 1024 * 1024 },
-  { id: 'academic_payload_under_cloudflare_asset_limit', passed: Buffer.byteLength(academicPayload) < 25 * 1024 * 1024 },
+  { id: 'academic_index_under_shard_limit', passed: academicBundle.indexBytes.byteLength <= ACADEMIC_GRAPH_SHARD_MAX_BYTES },
+  { id: 'academic_shards_under_shard_limit', passed: academicBundle.assets.length > 0
+    && academicBundle.assets.every((asset) => asset.bytes.byteLength <= ACADEMIC_GRAPH_SHARD_MAX_BYTES) },
   { id: 'solid_has_citation_ready_evidence', passed: episodes.filter((item) => item.claim_policy.display_level === 'solid').every((item) => item.evidence_ids.some((id) => citationReadyEvidence.has(id))) },
   { id: 'non_solid_not_quotable', passed: episodes.filter((item) => item.claim_policy.display_level !== 'solid').every((item) => !item.claim_policy.quotation_allowed) },
   { id: 'relations_have_dual_evidence', passed: relations.every((item) => item.source_evidence_ids.length > 0 && item.target_evidence_ids.length > 0) },
@@ -1615,8 +1625,15 @@ const quality = {
   passed: checks.every((item) => item.passed),
   checks,
   core_bytes: Buffer.byteLength(corePayload),
-  academic_bytes: Buffer.byteLength(academicPayload),
+  academic_bytes: academicBundle.indexBytes.byteLength,
+  academic_logical_bytes: Buffer.byteLength(academicPayload),
   academic_sha256: academicSha256,
+  graph_transport: {
+    profile: ACADEMIC_GRAPH_SHARD_TRANSPORT,
+    max_shard_bytes: ACADEMIC_GRAPH_SHARD_MAX_BYTES,
+    shard_count: academicBundle.assets.length,
+    total_shard_bytes: academicBundle.totalShardBytes,
+  },
   release_boundary: academicGraph.assertion_boundary,
   unresolved: [
     `${Math.max(0, queue.counts.pages - conceptPublishedOcrPages.length)} OCR pages remain outside the concept publication display gate`,
@@ -1630,18 +1647,19 @@ if (!quality.passed) throw new Error(`Concept graph quality gates failed: ${JSON
 await mkdir(path.dirname(outputPath), { recursive: true });
 await mkdir(path.dirname(academicOutputPath), { recursive: true });
 const outputTemp = `${outputPath}.${process.pid}.tmp`;
-const academicTemp = `${academicOutputPath}.${process.pid}.tmp`;
 const qualityTemp = `${qualityPath}.${process.pid}.tmp`;
 await Promise.all([
   writeFile(outputTemp, corePayload),
-  writeFile(academicTemp, academicPayload),
   writeFile(qualityTemp, `${JSON.stringify(quality, null, 2)}\n`),
 ]);
-await Promise.all([rename(outputTemp, outputPath), rename(academicTemp, academicOutputPath), rename(qualityTemp, qualityPath)]);
+await writeAcademicGraphShardBundle(academicBundle, academicOutputPath);
+await Promise.all([rename(outputTemp, outputPath), rename(qualityTemp, qualityPath)]);
 console.log(JSON.stringify({
   academic_schema_version: academicGraph.academic_schema_version,
   core_bytes: Buffer.byteLength(corePayload),
-  academic_bytes: Buffer.byteLength(academicPayload),
+  academic_bytes: academicBundle.indexBytes.byteLength,
+  academic_logical_bytes: Buffer.byteLength(academicPayload),
+  academic_shards: academicBundle.assets.length,
   academic_path: path.relative(root, academicOutputPath),
   episodes: episodes.length,
   relations: relations.length,

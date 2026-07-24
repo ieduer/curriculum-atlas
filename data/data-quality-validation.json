@@ -21,12 +21,12 @@
     "embeddedItems": "1a78546dffa51978e1169704ff2fac46e0ea7d60cedbc1c06bf26bc729e6dede",
     "localCompendia": "633fd244f4927faf8c5d6bea4916b6157be143e7951f14c6b1e2b507a342e2da",
     "lifecycle": "a6ec26386ae1996f0dda6d8c118580443216386ed98fc2f007f617ecb86be952",
-    "releaseDiff": "7f9c54cea760d2866fed4fbce15b411abf04bb06e7e314362e3c60c307175a0c",
-    "performanceBudget": "6ecb024cd6480781ac538b66e6b39ae49f6539a62bd5bea4168918654e755dec",
-    "performanceValidation": "dd9276d82e5b82686e3e372c79194153f3d4b2c747a2eb629896da6760c7d43b",
+    "releaseDiff": "9b6e11923a173ff28ba14b31f4d1898e759b651b4cb83d2a9e1d9252e295207e",
+    "performanceBudget": "b192546a4e0541092ec4eb7076765b0ea25cb4d1a86dfdc9f16b999a0b5b4e8f",
+    "performanceValidation": "1c6e2c3084436ff8f1bd8f57966781c7bf51845d24c3acbce47e0370e1ca2361",
     "familiesConfig": "e891fce9b7b025b23fedbde6c90b734367673c8592a6d44c2b3bc2c0f80651c8",
     "families": "04932aa7b1fac24614334212c9c83701342417ba309447fa0e583d8202beb06b",
-    "core": "ee1385fc608c8f5e5b243865e2a19d9b072e2d10b8bbd47d36af0a8e67b823f4",
+    "core": "d21729902eff87047a8b9fdafd3d94f6d553afa83a58470046efab30a5ad12e4",
     "ocr": "3a3dd82a04aa9d851e112ee4e2345d495169c137f138dbea9b737465a92e2e53",
     "detail": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
     "pre2001": "f6e0c70ebd762fb23d4127bee64fcbaf84380be59a4e13426c608d3b0466137c",
@@ -811,12 +811,12 @@
       "passed": true,
       "observed": {
         "budget_id": "curriculum-star-map-performance-v4",
-        "checks": 8,
+        "checks": 11,
         "failed": 0
       },
       "expected": {
         "budget_id": "curriculum-star-map-performance-v4",
-        "checks": 8,
+        "checks": 11,
         "failed": 0
       }
     }

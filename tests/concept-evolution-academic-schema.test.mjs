@@ -1,15 +1,27 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import {
+  ACADEMIC_GRAPH_SHARD_MAX_BYTES,
+  ACADEMIC_GRAPH_SHARD_TRANSPORT,
+  materializeAcademicGraph,
+  verifyAcademicGraphIndex,
+} from '../scripts/academic-graph-shards.mjs';
 
 const root = new URL('../', import.meta.url);
 const artifactPath = (environmentName, fallback) => process.env[environmentName]
   ? path.resolve(fileURLToPath(root), process.env[environmentName])
   : new URL(fallback, root);
 const core = JSON.parse(await readFile(artifactPath('CONCEPT_GRAPH_OUTPUT_PATH', 'public/data/concept-evolution.json'), 'utf8'));
-const graph = JSON.parse(await readFile(artifactPath('CONCEPT_ACADEMIC_OUTPUT_PATH', 'public/data/concept-evolution-academic.json'), 'utf8'));
+const academicArtifactPath = artifactPath('CONCEPT_ACADEMIC_OUTPUT_PATH', 'public/data/concept-evolution-academic.json');
+const academicIndex = JSON.parse(await readFile(academicArtifactPath, 'utf8'));
+const academicPathname = academicArtifactPath instanceof URL ? fileURLToPath(academicArtifactPath) : academicArtifactPath;
+const publicRoot = path.dirname(path.dirname(academicPathname));
+const shardVerification = await verifyAcademicGraphIndex(academicIndex, publicRoot);
+const graph = await materializeAcademicGraph(academicIndex, publicRoot);
 const byId = (name) => new Map(graph[name].map((item) => [item.id, item]));
 const concepts = byId('concepts');
 const senses = byId('concept_senses');
@@ -40,6 +52,17 @@ test('v2 academic entities coexist with the legacy frontend envelope', () => {
     'ontology_scopes', 'ontology_nodes', 'ontology_relations', 'ontology_evidence',
   ]) assert.ok(Array.isArray(graph[name]), `${name} missing`);
   assert.deepEqual(graph.edges.map((edge) => edge.id), graph.relations.map((relation) => relation.id));
+});
+
+test('academic transport is immutable, bounded, and fully materializable', () => {
+  assert.equal(academicIndex.transport_profile, ACADEMIC_GRAPH_SHARD_TRANSPORT);
+  assert.ok(academicIndex.shard_manifest.assets.length > 1);
+  assert.ok(shardVerification.maximum_shard_bytes <= ACADEMIC_GRAPH_SHARD_MAX_BYTES);
+  assert.equal(core.academic_model_ref.sha256,
+    createHash('sha256').update(`${JSON.stringify(academicIndex)}\n`).digest('hex'));
+  for (const [collection, count] of Object.entries(academicIndex.shard_manifest.logical_counts)) {
+    assert.equal(graph[collection].length, count, collection);
+  }
 });
 
 test('entity IDs are unique and occurrence evidence is referentially complete', () => {

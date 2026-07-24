@@ -5,8 +5,8 @@
   "release_decision": "pass",
   "deployment_allowed": true,
   "source_fingerprints": {
-    "data/star-map-performance-budget.json": "6ecb024cd6480781ac538b66e6b39ae49f6539a62bd5bea4168918654e755dec",
-    "public/data/concept-evolution.json": "ee1385fc608c8f5e5b243865e2a19d9b072e2d10b8bbd47d36af0a8e67b823f4",
+    "data/star-map-performance-budget.json": "b192546a4e0541092ec4eb7076765b0ea25cb4d1a86dfdc9f16b999a0b5b4e8f",
+    "public/data/concept-evolution.json": "d21729902eff87047a8b9fdafd3d94f6d553afa83a58470046efab30a5ad12e4",
     "public/data/ocr-observation-layer.json": "3a3dd82a04aa9d851e112ee4e2345d495169c137f138dbea9b737465a92e2e53",
     "public/data/subject-detail-observation-layer.json": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
     "public/data/pre2001-subject-detail-observation-layer.json": "f6e0c70ebd762fb23d4127bee64fcbaf84380be59a4e13426c608d3b0466137c",
@@ -15,10 +15,14 @@
     "public/index.html": "72fd6777c37ec3c1d11c72ded43922804a0e94dc470f485c64f0c4186e2e6c59",
     "public/app.js": "e08406e1a3b260afe3d6127206fceb993d47c5c7f60754535c909a2d68389cea",
     "public/atlas.js": "ecb69b15ed0777f69b7d31b67abddddb82c7baf3b906cbe2a0d967a91a0d2e4d",
-    "public/styles.css": "f592140f80aa33b2d853cc681b3bc7754f47abb54901f806a526cc28769fee33"
+    "public/styles.css": "f592140f80aa33b2d853cc681b3bc7754f47abb54901f806a526cc28769fee33",
+    "public/data/concept-evolution-academic.json": "ac8c91bf3efae62f62c83d33595ab8367039dfc0a035cb00b2062bd9e26fce2a"
   },
   "observed": {
-    "initial_graph_data_raw_bytes": 23309853,
+    "initial_graph_data_raw_bytes": 23309958,
+    "academic_graph_index_raw_bytes": 30220,
+    "academic_graph_shard_raw_bytes": 524250,
+    "academic_graph_total_shard_raw_bytes": 23208620,
     "frontend_raw_bytes": 236859,
     "merged_episode_count": 2415,
     "merged_edge_count": 3144,
@@ -31,7 +35,25 @@
     {
       "id": "static.initial_graph_data_raw_bytes",
       "passed": true,
-      "observed": 23309853,
+      "observed": 23309958,
+      "maximum": 25000000
+    },
+    {
+      "id": "static.academic_graph_index_raw_bytes",
+      "passed": true,
+      "observed": 30220,
+      "maximum": 524288
+    },
+    {
+      "id": "static.academic_graph_shard_raw_bytes",
+      "passed": true,
+      "observed": 524250,
+      "maximum": 524288
+    },
+    {
+      "id": "static.academic_graph_total_shard_raw_bytes",
+      "passed": true,
+      "observed": 23208620,
       "maximum": 25000000
     },
     {

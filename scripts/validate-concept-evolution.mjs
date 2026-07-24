@@ -3,6 +3,12 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  ACADEMIC_GRAPH_SHARD_MAX_BYTES,
+  ACADEMIC_GRAPH_SHARD_TRANSPORT,
+  materializeAcademicGraph,
+  verifyAcademicGraphIndex,
+} from './academic-graph-shards.mjs';
 import { createConceptPublicationGate } from './concept-page-publication.mjs';
 import { isNativeTextRecord } from './page-publication-gate.mjs';
 import { semanticDocumentDisposition } from './semantic-publication-gate.mjs';
@@ -20,7 +26,10 @@ const academicPath = process.env.CONCEPT_ACADEMIC_OUTPUT_PATH
 const coreText = await readFile(graphPath, 'utf8');
 const academicText = await readFile(academicPath, 'utf8');
 const core = JSON.parse(coreText);
-const graph = JSON.parse(academicText);
+const academicIndex = JSON.parse(academicText);
+const publicRoot = path.dirname(path.dirname(academicPath));
+const shardVerification = await verifyAcademicGraphIndex(academicIndex, publicRoot);
+const graph = await materializeAcademicGraph(academicIndex, publicRoot);
 const quality = JSON.parse(await readFile(qualityPath, 'utf8'));
 const model = JSON.parse(await readFile(path.join(root, 'data/concept-model-v2.json'), 'utf8'));
 const catalog = JSON.parse(await readFile(path.join(root, 'data/catalog.json'), 'utf8'));
@@ -38,6 +47,7 @@ const catalogById = new Map(catalog.documents.map((record) => [record.id, record
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const currentBuildLogicSha256 = {
   builder_sha256: sha256(await readFile(path.join(root, 'scripts/build-concept-evolution.mjs'))),
+  academic_graph_sharder_sha256: sha256(await readFile(path.join(root, 'scripts/academic-graph-shards.mjs'))),
   concept_publication_gate_sha256: sha256(await readFile(path.join(root, 'scripts/concept-page-publication.mjs'))),
   page_publication_gate_sha256: sha256(await readFile(path.join(root, 'scripts/page-publication-gate.mjs'))),
   semantic_publication_policy_sha256: sha256(
@@ -75,6 +85,12 @@ fail(core.build_revision === graph.build_revision, 'core/academic build revision
 fail(core.academic_model_ref?.build_revision === graph.build_revision, 'core academic reference revision mismatch');
 fail(core.academic_model_ref?.sha256 === sha256(academicText), 'core academic reference hash mismatch');
 fail(Buffer.byteLength(coreText) < 4 * 1024 * 1024, 'core artifact exceeds 4 MiB');
+fail(academicIndex.transport_profile === ACADEMIC_GRAPH_SHARD_TRANSPORT, 'academic graph transport profile mismatch');
+fail(Buffer.byteLength(academicText) <= ACADEMIC_GRAPH_SHARD_MAX_BYTES, 'academic graph index exceeds shard cap');
+fail(shardVerification.maximum_shard_bytes <= ACADEMIC_GRAPH_SHARD_MAX_BYTES, 'academic graph shard exceeds shard cap');
+fail(quality.graph_transport?.profile === ACADEMIC_GRAPH_SHARD_TRANSPORT, 'quality graph transport profile mismatch');
+fail(quality.graph_transport?.shard_count === shardVerification.shard_count, 'quality graph shard count mismatch');
+fail(quality.graph_transport?.total_shard_bytes === shardVerification.total_shard_bytes, 'quality graph shard byte count mismatch');
 fail(quality.passed === true, 'quality report is not passing');
 fail(graph.input_fingerprints?.ocr_concept_publication_sha256 === conceptPublicationGate.revision_sha256, 'OCR concept publication fingerprint mismatch');
 fail(core.input_fingerprints?.ocr_concept_publication_sha256 === conceptPublicationGate.revision_sha256, 'core OCR concept publication fingerprint mismatch');
