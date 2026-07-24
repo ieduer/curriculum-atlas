@@ -4,15 +4,15 @@
   "budget_id": "curriculum-star-map-performance-v5",
   "environment": "preview",
   "target_url": "https://bdfz-curriculum-atlas-preview.bdfz.workers.dev/",
-  "measured_at": "2026-07-24T11:15:33Z",
-  "release_git_commit": "efafbc1de81ebbd8445beb415f3e2002fa395831",
+  "measured_at": "2026-07-24T13:05:03Z",
+  "release_git_commit": "1a53319b3320fa787020eb44019a5c46585cfeed",
   "release_decision": "pass",
   "deployment_allowed": true,
   "source_fingerprints": {
-    "public/index.html": "e279117dd8281f05744eba5eac609bf5f12b7c1097127fdab060e3b6af1347ae",
-    "public/app.js": "4cd16c00a556bbfdc8b6e5427fe940fb1159ce3a6b43e8730f09556030f6ee96",
-    "public/atlas.js": "fc02c3e3eb4ae3c6351d8f58f0bbafdd5e6eba3d12b5566bea8a11243aaa836e",
-    "public/styles.css": "6b4fb75e4f32df40b310453b3e5bb512af24eef9adc3034192cd8fd9bf9ac914",
+    "public/index.html": "fb892bc2a5814c7e808233e0f739d5acb1962661e5a5d1146bcff21ff632f31a",
+    "public/app.js": "d6123951805064b55dd8d720bec11bcecef459fe9001eeefd77663165f6fe403",
+    "public/atlas.js": "bc3072fdaa737e3dde70ef9ef7f010f20a29c923061ea28a4e51025b50764f74",
+    "public/styles.css": "4849677f7918f0d81f7712b94455da3397bfd491a6634617a6805d947ed5b835",
     "public/data/concept-evolution.json": "d21729902eff87047a8b9fdafd3d94f6d553afa83a58470046efab30a5ad12e4",
     "public/data/ocr-observation-layer.json": "46a8345a8e3b1048bf59e7e42a5bd624f6f90bea4a308ac2cc04923fb6279b98",
     "public/data/subject-detail-observation-layer.json": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
@@ -26,22 +26,22 @@
         1440,
         1000
       ],
-      "ready_ms": 853.2,
-      "resource_transfer_bytes": 1311857,
-      "draw_p95_ms": 4,
-      "long_task_count": 1,
-      "long_task_total_ms": 68
+      "ready_ms": 546.4,
+      "resource_transfer_bytes": 164501,
+      "draw_p95_ms": 5.2,
+      "long_task_count": 0,
+      "long_task_total_ms": 0
     },
     "mobile": {
       "viewport": [
         390,
         844
       ],
-      "ready_ms": 1437.2,
-      "resource_transfer_bytes": 1311759,
-      "draw_p95_ms": 2.5,
-      "long_task_count": 1,
-      "long_task_total_ms": 57
+      "ready_ms": 493.5,
+      "resource_transfer_bytes": 164501,
+      "draw_p95_ms": 3.4,
+      "long_task_count": 0,
+      "long_task_total_ms": 0
     }
   },
   "checks": [
@@ -66,7 +66,7 @@
     {
       "id": "measured_at.valid",
       "passed": true,
-      "observed": "2026-07-24T11:15:33Z",
+      "observed": "2026-07-24T13:05:03Z",
       "maximum": "valid ISO timestamp"
     },
     {
@@ -84,31 +84,31 @@
     {
       "id": "runtime.desktop.ready_ms",
       "passed": true,
-      "observed": 853.2,
+      "observed": 546.4,
       "maximum": 6500
     },
     {
       "id": "runtime.desktop.resource_transfer_bytes",
       "passed": true,
-      "observed": 1311857,
+      "observed": 164501,
       "maximum": 8000000
     },
     {
       "id": "runtime.desktop.draw_p95_ms",
       "passed": true,
-      "observed": 4,
+      "observed": 5.2,
       "maximum": 50
     },
     {
       "id": "runtime.desktop.long_task_count",
       "passed": true,
-      "observed": 1,
+      "observed": 0,
       "maximum": 12
     },
     {
       "id": "runtime.desktop.long_task_total_ms",
       "passed": true,
-      "observed": 68,
+      "observed": 0,
       "maximum": 1800
     },
     {
@@ -126,31 +126,31 @@
     {
       "id": "runtime.mobile.ready_ms",
       "passed": true,
-      "observed": 1437.2,
+      "observed": 493.5,
       "maximum": 8000
     },
     {
       "id": "runtime.mobile.resource_transfer_bytes",
       "passed": true,
-      "observed": 1311759,
+      "observed": 164501,
       "maximum": 8000000
     },
     {
       "id": "runtime.mobile.draw_p95_ms",
       "passed": true,
-      "observed": 2.5,
+      "observed": 3.4,
       "maximum": 60
     },
     {
       "id": "runtime.mobile.long_task_count",
       "passed": true,
-      "observed": 1,
+      "observed": 0,
       "maximum": 14
     },
     {
       "id": "runtime.mobile.long_task_total_ms",
       "passed": true,
-      "observed": 57,
+      "observed": 0,
       "maximum": 2200
     }
   ]
