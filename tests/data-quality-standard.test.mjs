@@ -9,7 +9,7 @@ const [standard, receipt] = await Promise.all([
 ]);
 
 test('the data standard is a non-overridable deployment gate', () => {
-  assert.equal(standard.standard_id, 'curriculum-atlas-data-quality-v2');
+  assert.equal(standard.standard_id, 'curriculum-atlas-data-quality-v3');
   assert.equal(standard.release_policy.failure_blocks_preview, true);
   assert.equal(standard.release_policy.failure_blocks_production, true);
   assert.equal(standard.release_policy.manual_override_allowed, false);

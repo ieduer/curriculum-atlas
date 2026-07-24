@@ -414,6 +414,71 @@ record('interface.light_edges_are_solid_and_high_contrast',
   });
 
 const lifecycleSourceIds = new Set(lifecycle.sources.map((item) => item.id));
+const lifecycleEventIds = new Set(lifecycle.events.map((item) => item.id));
+const lifecycleFamilyById = new Map(families.families.map((item) => [item.id, item]));
+const lifecycleEpisodeIds = new Set([
+  ...core.episodes,
+  ...ocr.episodes,
+  ...detail.episodes,
+  ...pre2001.episodes,
+  ...century.star_projection.episodes,
+].map((item) => item.id));
+const invalidLineages = lifecycle.subject_lineages.filter((lineage) =>
+  !DISPLAY_SUBJECT_FACETS.includes(lineage.public_facet)
+  || !lineage.family_ids?.length
+  || lineage.family_ids.some((id) => !lifecycleFamilyById.has(id))
+  || lineage.event_ids?.some((id) => !lifecycleEventIds.has(id))
+  || (lineage.supplemental_observations || []).some((observation) =>
+    !lifecycleEpisodeIds.has(observation.episode_id)
+    || !observation.source_ids?.length
+    || observation.source_ids.some((id) => !lifecycleSourceIds.has(id))
+    || observation.citation_allowed !== false
+    || !observation.claim_boundary)
+  || !lineage.claim_boundary);
+record('discipline.lifecycle_lineages_resolve',
+  lifecycle.schema_version === standard.discipline_lifecycle_policy.schema_version
+    && lifecycle.artifact_profile === 'curriculum-discipline-lifecycle-v2'
+    && lifecycle.subject_lineages.length === standard.discipline_lifecycle_policy.expected_public_lineages
+    && lifecycle.events.length === standard.discipline_lifecycle_policy.expected_source_explicit_events
+    && equal(lifecycle.subject_lineages.map((lineage) => lineage.public_facet), DISPLAY_SUBJECT_FACETS)
+    && invalidLineages.length === 0,
+  {
+    schema_version: lifecycle.schema_version,
+    lineages: lifecycle.subject_lineages.length,
+    events: lifecycle.events.length,
+    invalid_lineages: invalidLineages.map((lineage) => lineage.id),
+  },
+  standard.discipline_lifecycle_policy);
+const lineageEndFailures = lifecycle.subject_lineages.filter((lineage) =>
+  Math.max(...lineage.family_ids.map((id) => lifecycleFamilyById.get(id)?.last_observed_year || -Infinity))
+    !== standard.discipline_lifecycle_policy.required_last_observed_year);
+record('discipline.every_public_lineage_reaches_2022',
+  lineageEndFailures.length === 0,
+  lineageEndFailures.map((lineage) => lineage.id),
+  []);
+const chineseLineage = lifecycle.subject_lineages.find((lineage) => lineage.public_facet === '语文');
+const chineseForms = new Set([
+  ...(chineseLineage?.family_ids || []).flatMap((id) =>
+    lifecycleFamilyById.get(id)?.observed_concepts.map((concept) => concept.label) || []),
+  ...(chineseLineage?.supplemental_observations || []).map((observation) => observation.label),
+]);
+record('discipline.chinese_course_forms_complete_and_bounded',
+  standard.discipline_lifecycle_policy.required_chinese_forms.every((form) => chineseForms.has(form))
+    && chineseLineage?.supplemental_observations?.some((observation) =>
+      observation.label === '作文'
+      && observation.role === 'parallel_course_form'
+      && observation.citation_allowed === false),
+  [...chineseForms],
+  standard.discipline_lifecycle_policy.required_chinese_forms);
+const socialEvent = lifecycle.events.find((event) =>
+  event.id === standard.discipline_lifecycle_policy.social_studies_grouping_event_id);
+record('discipline.social_grouping_exact_facets',
+  socialEvent
+    && equal(socialEvent.public_facets, standard.discipline_lifecycle_policy.social_studies_required_facets)
+    && standard.discipline_lifecycle_policy.social_studies_forbidden_facets.every((facet) =>
+      !socialEvent.public_facets.includes(facet)),
+  socialEvent?.public_facets,
+  standard.discipline_lifecycle_policy.social_studies_required_facets);
 const historyEvents = lifecycle.events.filter((event) => event.public_facets.includes('历史'));
 const historyForms = [...new Set(historyEvents.flatMap((event) => event.discipline_forms)
   .filter((form) => ['历史', '历史与社会'].includes(form)))].sort((a, b) => a.localeCompare(b, 'zh-CN'));
@@ -431,6 +496,24 @@ record('discipline.lifecycle_history_model',
     history_forms: historyForms,
   },
   standard.discipline_lifecycle_policy);
+record('discipline.interaction_restores_and_never_single_year_locks_event',
+  sourceText.app.includes('function restoreDisciplineToggleSnapshot()')
+    && sourceText.app.includes('function toggleYearPreset(')
+    && sourceText.app.includes('function toggleMapMode(')
+    && sourceText.app.includes('state.activeDisciplineEventId === event.id')
+    && !sourceText.app.includes('activateYearSelection([event.year]'),
+  {
+    discipline_restore: sourceText.app.includes('function restoreDisciplineToggleSnapshot()'),
+    year_restore: sourceText.app.includes('function toggleYearPreset('),
+    mode_restore: sourceText.app.includes('function toggleMapMode('),
+    single_year_event_lock: sourceText.app.includes('activateYearSelection([event.year]'),
+  },
+  {
+    discipline_restore: true,
+    year_restore: true,
+    mode_restore: true,
+    single_year_event_lock: false,
+  });
 
 record('schema.candidate_fail_closed_contract',
   candidateSchema.properties.observation.properties.semantic.const === false

@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "artifact_profile": "curriculum-discipline-lifecycle-v1",
+  "schema_version": 2,
+  "artifact_profile": "curriculum-discipline-lifecycle-v2",
   "publication_status": "source_bound_research_navigation",
   "assertion_boundary": "事件只陈述来源明示的课程设置、并行方案、合科或独立设置；合并检索入口不表示历史与历史与社会具有同一学科身份，也不推断地方实施、制度因果、替代或连续存在。",
   "public_subject_facets": [
@@ -17,6 +17,14 @@
     "体育与健康"
   ],
   "sources": [
+    {
+      "id": "source-1902-chinese-course-table-bounded",
+      "title": "1902年《钦定小学堂章程》语文卷课程表（汇编扫描候选页）",
+      "authority": "source_hash_bound_bounded_scan_candidate",
+      "locator": "/historical/embedded-century%3Alegacy-compendium-chinese%3A1fdf4a7860ef8497#page-18",
+      "pages": [18],
+      "citation_allowed": false
+    },
     {
       "id": "source-1923-social-studies-bounded",
       "title": "1923年新学制课程纲要总说明（汇编扫描候选页）",
@@ -52,6 +60,118 @@
       "authority": "ministry_of_education_public_plan",
       "locator": "https://www.moe.gov.cn/srcsite/A26/s8001/202204/W020220420582343217634.pdf",
       "citation_allowed": true
+    }
+  ],
+  "subject_lineages": [
+    {
+      "id": "discipline-lineage-chinese",
+      "public_facet": "语文",
+      "label": "语文",
+      "family_ids": ["subject-course-chinese"],
+      "event_ids": [],
+      "form_order": ["作文", "字课", "中国文字", "国文科", "国语科", "语文"],
+      "supplemental_observations": [
+        {
+          "episode_id": "century-concept:ada50bacbcb0e12d001e",
+          "label": "作文",
+          "year": 1902,
+          "role": "parallel_course_form",
+          "source_ids": ["source-1902-chinese-course-table-bounded"],
+          "citation_allowed": false,
+          "claim_boundary": "只把1902年课程表中的「作文」作为与字课并列的课程形态观察；不把后世所有作文实践词面改判为课程更名。"
+        }
+      ],
+      "claim_boundary": "把来源绑定的同层课程名称词面与1902年并列课程形态放在一条研究导航中；连线不证明名称连续存在、替代、制度因果或首次出现。"
+    },
+    {
+      "id": "discipline-lineage-mathematics",
+      "public_facet": "数学",
+      "label": "数学",
+      "family_ids": ["subject-course-mathematics"],
+      "event_ids": [],
+      "form_order": ["算术", "算学", "数学"],
+      "claim_boundary": "只呈现当前来源层中的课程名称观察，不证明名称连续存在、替代或制度因果。"
+    },
+    {
+      "id": "discipline-lineage-foreign-language",
+      "public_facet": "外语",
+      "label": "外语",
+      "family_ids": ["subject-course-foreign-language"],
+      "event_ids": [],
+      "form_order": ["英文", "外国语", "英语"],
+      "claim_boundary": "只呈现当前来源层中的课程名称观察，不证明名称连续存在、替代或制度因果。"
+    },
+    {
+      "id": "discipline-lineage-civics",
+      "public_facet": "思想政治与道德法治",
+      "label": "思想政治与道德法治",
+      "family_ids": ["subject-course-civics"],
+      "event_ids": ["discipline-event-1923-social-studies-grouping", "discipline-event-2022-moral-course-integration"],
+      "form_order": ["修身", "公民", "党义", "思想品德", "思想政治", "道德与法治"],
+      "claim_boundary": "课程名称词面与来源明示的合科、整合事件分层呈现，不把事件参与关系解释为同一课程身份。"
+    },
+    {
+      "id": "discipline-lineage-history",
+      "public_facet": "历史",
+      "label": "历史",
+      "family_ids": ["subject-course-history", "subject-course-history-society"],
+      "event_ids": ["discipline-event-1923-social-studies-grouping", "discipline-event-2001-history-choice", "discipline-event-2011-history-parallel", "discipline-event-2022-history-standard-set"],
+      "form_order": ["本国史", "中国史", "历史", "世界史", "社会科", "历史与社会"],
+      "claim_boundary": "一个公开检索入口同时呈现历史与历史与社会两条底层身份；仅以来源明示事件连接，不宣称两者同一、替代或线性演化。"
+    },
+    {
+      "id": "discipline-lineage-geography",
+      "public_facet": "地理",
+      "label": "地理",
+      "family_ids": ["subject-course-geography"],
+      "event_ids": ["discipline-event-1923-social-studies-grouping", "discipline-event-2001-history-choice", "discipline-event-2011-history-parallel", "discipline-event-2022-history-standard-set"],
+      "form_order": ["舆地", "本国地理", "世界地理", "地理"],
+      "claim_boundary": "课程名称词面与来源明示的合科、分科事件分层呈现，不把事件参与关系解释为同一课程身份。"
+    },
+    {
+      "id": "discipline-lineage-science",
+      "public_facet": "科学类",
+      "label": "科学类",
+      "family_ids": ["subject-course-science"],
+      "event_ids": ["discipline-event-2001-science-choice"],
+      "form_order": ["格致", "博物", "自然", "常识", "物理", "化学", "生物", "生物学", "科学"],
+      "claim_boundary": "课程名称词面与2001年来源明示的合科／分科选择分层呈现，不把综合与分科课程视为同一身份。"
+    },
+    {
+      "id": "discipline-lineage-technology",
+      "public_facet": "技术",
+      "label": "技术",
+      "family_ids": ["subject-course-technology"],
+      "event_ids": ["discipline-event-2022-information-technology"],
+      "form_order": ["手工", "工艺", "劳动技术", "信息技术", "信息科技", "通用技术"],
+      "claim_boundary": "只呈现课程名称观察与来源明示的独立设置事件，不把全部技术课程视为同一课程身份。"
+    },
+    {
+      "id": "discipline-lineage-labor",
+      "public_facet": "劳动",
+      "label": "劳动",
+      "family_ids": ["subject-course-labor"],
+      "event_ids": ["discipline-event-2022-labor-independent"],
+      "form_order": ["劳作", "劳动", "劳动教育"],
+      "claim_boundary": "只呈现课程名称观察与来源明示的独立设置事件，不推断地方实施成效或连续存在。"
+    },
+    {
+      "id": "discipline-lineage-art",
+      "public_facet": "艺术",
+      "label": "艺术",
+      "family_ids": ["subject-course-art"],
+      "event_ids": ["discipline-event-2001-arts-choice"],
+      "form_order": ["图画", "唱歌", "音乐", "美术", "艺术"],
+      "claim_boundary": "课程名称词面与2001年来源明示的综合／分科选择分层呈现，不把综合与分科课程视为同一身份。"
+    },
+    {
+      "id": "discipline-lineage-sports-health",
+      "public_facet": "体育与健康",
+      "label": "体育与健康",
+      "family_ids": ["subject-course-sports-health"],
+      "event_ids": [],
+      "form_order": ["体操", "体育", "卫生", "体育与健康"],
+      "claim_boundary": "只呈现当前来源层中的课程名称观察，不证明名称连续存在、替代或制度因果。"
     }
   ],
   "events": [

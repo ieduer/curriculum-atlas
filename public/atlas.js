@@ -1,4 +1,4 @@
-import { CURRICULUM_STAGES } from './historical-stages.js?v=20260724v44';
+import { CURRICULUM_STAGES } from './historical-stages.js?v=20260724v45';
 
 const TAU = Math.PI * 2;
 const MIN_ZOOM = .2;
@@ -76,7 +76,20 @@ export function selectedEvolutionNodeIds(nodes, selectedId) {
 }
 
 export function selectedRelationshipNodeIds(nodes, edges, selectedId) {
-  const vertical = selectedEvolutionNodeIds(nodes, selectedId);
+  return selectedRelationshipNodeIdsForSeeds(nodes, edges, [selectedId]);
+}
+
+export function selectedRelationshipNodeIdsForSeeds(nodes, edges, seedIds) {
+  const seeds = new Set((seedIds || []).filter(Boolean));
+  if (!seeds.size) return new Set();
+  const seedFamilies = new Set(nodes
+    .filter((node) => seeds.has(node.id))
+    .map((node) => node.evolutionFamilyId)
+    .filter(Boolean));
+  const vertical = new Set(nodes
+    .filter((node) => seeds.has(node.id)
+      || (node.evolutionFamilyId && seedFamilies.has(node.evolutionFamilyId)))
+    .map((node) => node.id));
   if (!vertical.size) return vertical;
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const horizontal = edges.filter((edge) =>
@@ -434,6 +447,29 @@ export class CurriculumCosmos {
     this.selectionRelationshipEdges = this.relationshipEdges.filter((edge) =>
       vertical.has(edge.source) || vertical.has(edge.target));
     this.activeSelectionIds = selectedRelationshipNodeIds(this.nodes, this.relationshipEdges, this.selectedId);
+    this.draw();
+  }
+
+  setSelectionIds(ids, primaryId = null) {
+    const seeds = [...new Set((ids || []).filter(Boolean))];
+    this.selectedId = primaryId && seeds.includes(primaryId) ? primaryId : seeds[0] || null;
+    this.selectedFamilyId = null;
+    const seedSet = new Set(seeds);
+    const seedFamilies = new Set(this.nodes
+      .filter((node) => seedSet.has(node.id))
+      .map((node) => node.evolutionFamilyId)
+      .filter(Boolean));
+    const vertical = new Set(this.nodes
+      .filter((node) => seedSet.has(node.id)
+        || (node.evolutionFamilyId && seedFamilies.has(node.evolutionFamilyId)))
+      .map((node) => node.id));
+    this.selectionRelationshipEdges = this.relationshipEdges.filter((edge) =>
+      vertical.has(edge.source) || vertical.has(edge.target));
+    this.activeSelectionIds = selectedRelationshipNodeIdsForSeeds(
+      this.nodes,
+      this.relationshipEdges,
+      seeds,
+    );
     this.draw();
   }
 

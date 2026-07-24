@@ -27,7 +27,7 @@ D1 规范结构由 `migrations/0001_initial.sql` 至 `0007_document_taxonomy_con
 - `assessment_domain` 3、`source_collection` 4、`cross_cutting_framework` 13，共 20 scope；
 - `unclassified`：0。
 
-存储层保留“历史”与“历史与社会”两种来源身份；公开检索统一为“历史”一个分面，但不把两种身份判为语义等同。学科设置、合科、分科、并行发标和国家标准组调整由 `discipline-lifecycle.json` 的独立事件标签呈现。
+存储层保留“历史”与“历史与社会”两种来源身份；公开检索统一为“历史”一个分面，但不把两种身份判为语义等同。`discipline-lifecycle.json` v2 以 11 条公开学科百年链为主结构，每条链解析一个或多个 `subject-course-identity` 家族并到达 2022；9 个合科、分科、并行发标、独立设置和国家标准组调整事件作为来源明示里程碑挂接。语文链另保留 1902 年课程表「作文」的 `parallel_course_form` 候选观察，但不把后世作文实践词面改判为课程更名。
 
 ## OCR 四层状态
 

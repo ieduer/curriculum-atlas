@@ -1,21 +1,21 @@
 {
   "schema_version": 1,
   "artifact_profile": "curriculum-star-map-performance-validation-v1",
-  "budget_id": "curriculum-star-map-performance-v4",
+  "budget_id": "curriculum-star-map-performance-v5",
   "release_decision": "pass",
   "deployment_allowed": true,
   "source_fingerprints": {
-    "data/star-map-performance-budget.json": "b192546a4e0541092ec4eb7076765b0ea25cb4d1a86dfdc9f16b999a0b5b4e8f",
+    "data/star-map-performance-budget.json": "d641dc1e222079904b2adfc8782eaad43e7843694a4dba588a04367fa6cf893f",
     "public/data/concept-evolution.json": "d21729902eff87047a8b9fdafd3d94f6d553afa83a58470046efab30a5ad12e4",
     "public/data/ocr-observation-layer.json": "46a8345a8e3b1048bf59e7e42a5bd624f6f90bea4a308ac2cc04923fb6279b98",
     "public/data/subject-detail-observation-layer.json": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
     "public/data/pre2001-subject-detail-observation-layer.json": "f6e0c70ebd762fb23d4127bee64fcbaf84380be59a4e13426c608d3b0466137c",
     "public/data/century-observation-layer.json": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
     "public/data/concept-evolution-families.json": "04932aa7b1fac24614334212c9c83701342417ba309447fa0e583d8202beb06b",
-    "public/index.html": "b75c9333409092cf7c7fca669bfdb0a392f3e04fd6e5a0b45b5854f8ce286223",
-    "public/app.js": "1ff4d58e3e02f9fd471956ba348878be0fc0fe026618929c81ae69d43f61b995",
-    "public/atlas.js": "f4e09039231a113351415f11106dfba411654c84e560b98eeeda3d3048d7c818",
-    "public/styles.css": "31f92d3c4a4d3abd2648b13291bc9ce93a8e4e83cdd6c20ef26145d8d5f111ba",
+    "public/index.html": "e1b03f55c32956bbddd95251b450d411717247870bd3db2bd6960974e6e46791",
+    "public/app.js": "40348f89dd9b4cf985fc2110f99c7ab9ed2607c50f0a389f008c6bf4b18b8d85",
+    "public/atlas.js": "90b281d17ad23e3814620cec96f9a83ef912d0dfac463a640deb3c67ad8227ac",
+    "public/styles.css": "6b4fb75e4f32df40b310453b3e5bb512af24eef9adc3034192cd8fd9bf9ac914",
     "public/data/concept-evolution-academic.json": "ac8c91bf3efae62f62c83d33595ab8367039dfc0a035cb00b2062bd9e26fce2a"
   },
   "observed": {
@@ -23,7 +23,7 @@
     "academic_graph_index_raw_bytes": 30220,
     "academic_graph_shard_raw_bytes": 524250,
     "academic_graph_total_shard_raw_bytes": 23208620,
-    "frontend_raw_bytes": 237707,
+    "frontend_raw_bytes": 252634,
     "merged_episode_count": 2415,
     "merged_edge_count": 3144,
     "merged_evidence_count": 5304,
@@ -59,8 +59,8 @@
     {
       "id": "static.frontend_raw_bytes",
       "passed": true,
-      "observed": 237707,
-      "maximum": 240000
+      "observed": 252634,
+      "maximum": 260000
     },
     {
       "id": "static.merged_episode_count",

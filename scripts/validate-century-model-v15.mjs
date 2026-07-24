@@ -83,6 +83,8 @@ record('lifecycle.public_facets_exact',
   lifecycle.public_subject_facets,
   DISPLAY_SUBJECT_FACETS);
 const sourceIds = new Set(lifecycle.sources.map((item) => item.id));
+const familyById = new Map(families.families.map((item) => [item.id, item]));
+const eventIds = new Set(lifecycle.events.map((item) => item.id));
 const invalidEvents = lifecycle.events.filter((event) =>
   !Number.isInteger(event.year)
   || !event.source_ids?.length
@@ -92,6 +94,40 @@ const invalidEvents = lifecycle.events.filter((event) =>
   || !event.claim_boundary);
 record('lifecycle.events_source_bound', invalidEvents.length === 0,
   invalidEvents.map((item) => item.id), []);
+const invalidLineages = lifecycle.subject_lineages.filter((lineage) =>
+  !DISPLAY_SUBJECT_FACETS.includes(lineage.public_facet)
+  || !lineage.family_ids?.length
+  || lineage.family_ids.some((id) => !familyById.has(id))
+  || lineage.event_ids.some((id) => !eventIds.has(id))
+  || !lineage.claim_boundary);
+record('lifecycle.all_public_subject_lineages',
+  lifecycle.schema_version === 2
+    && lifecycle.artifact_profile === 'curriculum-discipline-lifecycle-v2'
+    && lifecycle.subject_lineages.length === DISPLAY_SUBJECT_FACETS.length
+    && JSON.stringify(lifecycle.subject_lineages.map((lineage) => lineage.public_facet))
+      === JSON.stringify(DISPLAY_SUBJECT_FACETS)
+    && invalidLineages.length === 0,
+  invalidLineages.map((item) => item.id),
+  []);
+const chineseLineage = lifecycle.subject_lineages.find((lineage) => lineage.public_facet === '语文');
+const chineseForms = new Set([
+  ...(chineseLineage?.family_ids || []).flatMap((id) =>
+    familyById.get(id)?.observed_concepts.map((concept) => concept.label) || []),
+  ...(chineseLineage?.supplemental_observations || []).map((item) => item.label),
+]);
+record('lifecycle.chinese_course_forms',
+  ['作文', '字课', '中国文字', '国文科', '国语科', '语文'].every((form) => chineseForms.has(form))
+    && chineseLineage?.supplemental_observations?.every((item) =>
+      episodeById.has(item.episode_id) && item.citation_allowed === false),
+  [...chineseForms],
+  ['作文', '字课', '中国文字', '国文科', '国语科', '语文']);
+const socialGrouping = lifecycle.events.find((event) => event.id === 'discipline-event-1923-social-studies-grouping');
+record('lifecycle.social_grouping_excludes_chinese',
+  JSON.stringify(socialGrouping?.public_facets)
+    === JSON.stringify(['思想政治与道德法治', '历史', '地理'])
+    && !socialGrouping.public_facets.includes('语文'),
+  socialGrouping?.public_facets,
+  ['思想政治与道德法治', '历史', '地理']);
 const historyEventTypes = new Set(lifecycle.events
   .filter((event) => event.public_facets.includes('历史'))
   .map((event) => event.event_type));
@@ -243,6 +279,16 @@ record('ui.discipline_lifecycle_below_modes',
     && html.indexOf('id="discipline-lifecycle"') < html.indexOf('class="research-dock"'),
   'discipline lifecycle DOM order',
   'directly below three map modes');
+record('ui.discipline_century_toggle_and_home_refresh',
+  app.includes('function restoreDisciplineToggleSnapshot()')
+    && app.includes('function applyDisciplineGraphFocus(')
+    && app.includes('setSelectionIds(')
+    && app.includes('state.activeDisciplineEventId === event.id')
+    && !app.includes('activateYearSelection([event.year]')
+    && html.includes('<a class="brand" href="/" aria-label="刷新并返回百年课标主页">')
+    && !html.includes('<a class="brand" href="/" data-link'),
+  'discipline lineage toggle and brand navigation hooks',
+  'century-wide subject focus, second-click restore, full home refresh');
 record('ui.no_dashed_primitives',
   ![app, atlas, styles, source.lifecycle.toString('utf8')].join('\n')
     .match(/stroke-dasharray|setLineDash|candidate_dashed|warning_dashed/),

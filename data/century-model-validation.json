@@ -3,8 +3,8 @@
   "standard_id": "curriculum-atlas-century-model-v15",
   "passed": true,
   "counts": {
-    "checks": 20,
-    "passed": 20,
+    "checks": 24,
+    "passed": 24,
     "failed": 0,
     "public_subject_facets": 11,
     "storage_subject_facets": 12,
@@ -14,7 +14,7 @@
     "dual_witness_triaged_pages": 6947
   },
   "fingerprints": {
-    "lifecycle": "a6ec26386ae1996f0dda6d8c118580443216386ed98fc2f007f617ecb86be952",
+    "lifecycle": "dd313343c308f7e90887e3c3249ab8fef8c234b6e6873b18c8eaad92b291b8aa",
     "families": "04932aa7b1fac24614334212c9c83701342417ba309447fa0e583d8202beb06b",
     "core": "d21729902eff87047a8b9fdafd3d94f6d553afa83a58470046efab30a5ad12e4",
     "ocr": "46a8345a8e3b1048bf59e7e42a5bd624f6f90bea4a308ac2cc04923fb6279b98",
@@ -24,10 +24,10 @@
     "triage": "8a288fa8c75642a90af3ce67f4379a255a497a79e5adf1ee7822f15809b5f765",
     "fallback": "514beb453c594fbc74e1297bd6a446d041a6b8e37d68b518a6976ce252b15ed7",
     "publicOcrSummary": "1c6b535f7834389538711dc21e89e7804e39d8ade495493d0075a78c0729043e",
-    "app": "1ff4d58e3e02f9fd471956ba348878be0fc0fe026618929c81ae69d43f61b995",
-    "atlas": "f4e09039231a113351415f11106dfba411654c84e560b98eeeda3d3048d7c818",
-    "html": "b75c9333409092cf7c7fca669bfdb0a392f3e04fd6e5a0b45b5854f8ce286223",
-    "styles": "31f92d3c4a4d3abd2648b13291bc9ce93a8e4e83cdd6c20ef26145d8d5f111ba",
+    "app": "40348f89dd9b4cf985fc2110f99c7ab9ed2607c50f0a389f008c6bf4b18b8d85",
+    "atlas": "90b281d17ad23e3814620cec96f9a83ef912d0dfac463a640deb3c67ad8227ac",
+    "html": "e1b03f55c32956bbddd95251b450d411717247870bd3db2bd6960974e6e46791",
+    "styles": "6b4fb75e4f32df40b310453b3e5bb512af24eef9adc3034192cd8fd9bf9ac914",
     "mark": "ef5ce8e69373d4711dd71304cc7700ff6968fba4046d13b01d27e5519005cb01"
   },
   "checks": [
@@ -115,6 +115,46 @@
       "passed": true,
       "observed": [],
       "expected": []
+    },
+    {
+      "id": "lifecycle.all_public_subject_lineages",
+      "passed": true,
+      "observed": [],
+      "expected": []
+    },
+    {
+      "id": "lifecycle.chinese_course_forms",
+      "passed": true,
+      "observed": [
+        "字课",
+        "中国文字",
+        "国语科",
+        "国文科",
+        "语文",
+        "作文"
+      ],
+      "expected": [
+        "作文",
+        "字课",
+        "中国文字",
+        "国文科",
+        "国语科",
+        "语文"
+      ]
+    },
+    {
+      "id": "lifecycle.social_grouping_excludes_chinese",
+      "passed": true,
+      "observed": [
+        "思想政治与道德法治",
+        "历史",
+        "地理"
+      ],
+      "expected": [
+        "思想政治与道德法治",
+        "历史",
+        "地理"
+      ]
     },
     {
       "id": "lifecycle.history_deep_model",
@@ -271,6 +311,12 @@
       "passed": true,
       "observed": "discipline lifecycle DOM order",
       "expected": "directly below three map modes"
+    },
+    {
+      "id": "ui.discipline_century_toggle_and_home_refresh",
+      "passed": true,
+      "observed": "discipline lineage toggle and brand navigation hooks",
+      "expected": "century-wide subject focus, second-click restore, full home refresh"
     },
     {
       "id": "ui.no_dashed_primitives",

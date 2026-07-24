@@ -31,6 +31,8 @@ test('history and history-and-society share one public query facet but preserve 
 });
 
 test('history lifecycle distinguishes grouping, choice, parallel issue, and standard-set adjustment', () => {
+  assert.equal(lifecycle.schema_version, 2);
+  assert.equal(lifecycle.artifact_profile, 'curriculum-discipline-lifecycle-v2');
   assert.deepEqual(lifecycle.public_subject_facets, DISPLAY_SUBJECT_FACETS);
   const historyEvents = lifecycle.events.filter((event) => event.public_facets.includes('历史'));
   assert.deepEqual(historyEvents.map((event) => event.year), [1923, 2001, 2011, 2022]);
@@ -44,6 +46,48 @@ test('history lifecycle distinguishes grouping, choice, parallel issue, and stan
   assert.match(historyEvents[0].claim_boundary, /不等同于后来的历史与社会/);
   assert.match(historyEvents[1].claim_boundary, /不表示三个名称是同一学科/);
   assert.match(historyEvents[3].claim_boundary, /不推断地方课程立即取消/);
+});
+
+test('subject setting is eleven century lineages rather than a year-filtered event list', () => {
+  assert.equal(lifecycle.subject_lineages.length, 11);
+  assert.equal(lifecycle.events.length, 9);
+  assert.deepEqual(lifecycle.subject_lineages.map((lineage) => lineage.public_facet), DISPLAY_SUBJECT_FACETS);
+  const familyById = new Map(families.families.map((family) => [family.id, family]));
+  for (const lineage of lifecycle.subject_lineages) {
+    assert.ok(lineage.family_ids.length > 0);
+    assert.ok(lineage.family_ids.every((id) => familyById.has(id)));
+    assert.equal(Math.max(...lineage.family_ids.map((id) => familyById.get(id).last_observed_year)), 2022);
+  }
+});
+
+test('Chinese lineage includes the bounded 1902 composition form without retyping composition practice', () => {
+  const lineage = lifecycle.subject_lineages.find((item) => item.public_facet === '语文');
+  const familyById = new Map(families.families.map((family) => [family.id, family]));
+  const forms = new Set([
+    ...lineage.family_ids.flatMap((id) => familyById.get(id).observed_concepts.map((concept) => concept.label)),
+    ...lineage.supplemental_observations.map((item) => item.label),
+  ]);
+  for (const form of ['作文', '字课', '中国文字', '国文科', '国语科', '语文']) assert.ok(forms.has(form), form);
+  assert.deepEqual(lineage.supplemental_observations.map((item) => ({
+    label: item.label,
+    year: item.year,
+    role: item.role,
+    citation_allowed: item.citation_allowed,
+  })), [{
+    label: '作文',
+    year: 1902,
+    role: 'parallel_course_form',
+    citation_allowed: false,
+  }]);
+});
+
+test('social studies grouping excludes Chinese and activates century-wide related lineages', () => {
+  const event = lifecycle.events.find((item) => item.id === 'discipline-event-1923-social-studies-grouping');
+  assert.deepEqual(event.public_facets, ['思想政治与道德法治', '历史', '地理']);
+  assert.equal(event.public_facets.includes('语文'), false);
+  assert.doesNotMatch(app, /activateYearSelection\(\[event\.year\]/);
+  assert.match(app, /applyDisciplineGraphFocus\(disciplineLineagesForEvent\(event\)\)/);
+  assert.match(app, /state\.activeDisciplineEventId === event\.id/);
 });
 
 test('every public facet has source-bound course, practice, content, and ability branches', () => {
@@ -115,4 +159,13 @@ test('new header and progressive entry reveal are wired without a second axis', 
   assert.match(html, /id="year-options"/);
   assert.match(html, /id="year-boundary-compare"/);
   assert.doesNotMatch(html, /id="year-range"|type="range"/);
+});
+
+test('stateful filters restore on second click and the brand performs a full home refresh', () => {
+  assert.match(app, /function restoreDisciplineToggleSnapshot\(\)/);
+  assert.match(app, /function toggleYearPreset\(/);
+  assert.match(app, /function toggleMapMode\(/);
+  assert.match(app, /state\.activeSubjectToggle === subject && state\.subjectToggleSnapshot/);
+  assert.match(html, /<a class="brand" href="\/" aria-label="刷新并返回百年课标主页">/);
+  assert.doesNotMatch(html, /<a class="brand" href="\/" data-link/);
 });

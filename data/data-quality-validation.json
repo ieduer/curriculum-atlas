@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "artifact_profile": "curriculum-data-quality-validation-v1",
-  "standard_id": "curriculum-atlas-data-quality-v2",
+  "standard_id": "curriculum-atlas-data-quality-v3",
   "release_decision": "pass",
   "deployment_allowed": true,
   "manual_override_allowed": false,
   "source_fingerprints": {
-    "standard": "5db532f8ec81a474bee8f255fcda3f31e1fbcd5c2cae04cd977527203f9d7fa9",
+    "standard": "a7d8f16a425dc8c3538398c08dd30bf2bdef033a715f4b5877ff49bb05220d06",
     "candidateSchema": "d985d3c4d89440c4e2890694c10f20fb0fd291fcea68d9d13f28170843e4f212",
     "coverage": "8e0b7f502a945228e708249c9d90401a7a25dd19745b9f918223ccd661233c97",
     "candidateFallback": "514beb453c594fbc74e1297bd6a446d041a6b8e37d68b518a6976ce252b15ed7",
@@ -20,10 +20,10 @@
     "pre2001BoundedSource": "9df474cbb7b037ff14e3d2ca029ff76732949816e777aa3f218e90806ebc7df5",
     "embeddedItems": "1a78546dffa51978e1169704ff2fac46e0ea7d60cedbc1c06bf26bc729e6dede",
     "localCompendia": "633fd244f4927faf8c5d6bea4916b6157be143e7951f14c6b1e2b507a342e2da",
-    "lifecycle": "a6ec26386ae1996f0dda6d8c118580443216386ed98fc2f007f617ecb86be952",
+    "lifecycle": "dd313343c308f7e90887e3c3249ab8fef8c234b6e6873b18c8eaad92b291b8aa",
     "releaseDiff": "e70ca297d1a371dbcc4d38147ae9272e4eedd10a0bf0ae065647cd74aaee54a4",
-    "performanceBudget": "b192546a4e0541092ec4eb7076765b0ea25cb4d1a86dfdc9f16b999a0b5b4e8f",
-    "performanceValidation": "030fc8025d2f73db869c3e6d4a2ba383495b79c1976cdc4b041fdae4bafd2a55",
+    "performanceBudget": "d641dc1e222079904b2adfc8782eaad43e7843694a4dba588a04367fa6cf893f",
+    "performanceValidation": "9c09f54f2c4d587180dd32a06a6b012cfd13fd3ac4c9e786e2d78b810a722db9",
     "familiesConfig": "e891fce9b7b025b23fedbde6c90b734367673c8592a6d44c2b3bc2c0f80651c8",
     "families": "04932aa7b1fac24614334212c9c83701342417ba309447fa0e583d8202beb06b",
     "core": "d21729902eff87047a8b9fdafd3d94f6d553afa83a58470046efab30a5ad12e4",
@@ -31,15 +31,15 @@
     "detail": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
     "pre2001": "f6e0c70ebd762fb23d4127bee64fcbaf84380be59a4e13426c608d3b0466137c",
     "century": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
-    "app": "1ff4d58e3e02f9fd471956ba348878be0fc0fe026618929c81ae69d43f61b995",
-    "atlas": "f4e09039231a113351415f11106dfba411654c84e560b98eeeda3d3048d7c818",
-    "styles": "31f92d3c4a4d3abd2648b13291bc9ce93a8e4e83cdd6c20ef26145d8d5f111ba",
-    "index": "b75c9333409092cf7c7fca669bfdb0a392f3e04fd6e5a0b45b5854f8ce286223",
+    "app": "40348f89dd9b4cf985fc2110f99c7ab9ed2607c50f0a389f008c6bf4b18b8d85",
+    "atlas": "90b281d17ad23e3814620cec96f9a83ef912d0dfac463a640deb3c67ad8227ac",
+    "styles": "6b4fb75e4f32df40b310453b3e5bb512af24eef9adc3034192cd8fd9bf9ac914",
+    "index": "e1b03f55c32956bbddd95251b450d411717247870bd3db2bd6960974e6e46791",
     "themeInit": "331ab5984dec61ac6f89366732162aa692bb5497930b30ae29d64262aed1428c"
   },
   "counts": {
-    "checks": 34,
-    "passed": 34,
+    "checks": 39,
+    "passed": 39,
     "failed": 0,
     "subject_facets": 12,
     "concept_tiers": 5,
@@ -639,6 +639,92 @@
       }
     },
     {
+      "id": "discipline.lifecycle_lineages_resolve",
+      "passed": true,
+      "observed": {
+        "schema_version": 2,
+        "lineages": 11,
+        "events": 9,
+        "invalid_lineages": []
+      },
+      "expected": {
+        "schema_version": 2,
+        "expected_public_lineages": 11,
+        "expected_source_explicit_events": 9,
+        "required_last_observed_year": 2022,
+        "required_chinese_forms": [
+          "作文",
+          "字课",
+          "中国文字",
+          "国文科",
+          "国语科",
+          "语文"
+        ],
+        "social_studies_grouping_event_id": "discipline-event-1923-social-studies-grouping",
+        "social_studies_required_facets": [
+          "思想政治与道德法治",
+          "历史",
+          "地理"
+        ],
+        "social_studies_forbidden_facets": [
+          "语文"
+        ],
+        "second_click_restore_required": true,
+        "required_history_event_types": [
+          "integrated_grouping",
+          "alternative_integrated_or_separate",
+          "parallel_standard_paths",
+          "national_standard_set_adjusted"
+        ],
+        "public_history_facet": "历史",
+        "preserved_history_forms": [
+          "历史",
+          "历史与社会"
+        ],
+        "identity_equivalence_allowed": false
+      }
+    },
+    {
+      "id": "discipline.every_public_lineage_reaches_2022",
+      "passed": true,
+      "observed": [],
+      "expected": []
+    },
+    {
+      "id": "discipline.chinese_course_forms_complete_and_bounded",
+      "passed": true,
+      "observed": [
+        "字课",
+        "中国文字",
+        "国语科",
+        "国文科",
+        "语文",
+        "作文"
+      ],
+      "expected": [
+        "作文",
+        "字课",
+        "中国文字",
+        "国文科",
+        "国语科",
+        "语文"
+      ]
+    },
+    {
+      "id": "discipline.social_grouping_exact_facets",
+      "passed": true,
+      "observed": [
+        "思想政治与道德法治",
+        "历史",
+        "地理"
+      ],
+      "expected": [
+        "思想政治与道德法治",
+        "历史",
+        "地理"
+      ]
+    },
+    {
       "id": "discipline.lifecycle_history_model",
       "passed": true,
       "observed": {
@@ -667,6 +753,28 @@
         ]
       },
       "expected": {
+        "schema_version": 2,
+        "expected_public_lineages": 11,
+        "expected_source_explicit_events": 9,
+        "required_last_observed_year": 2022,
+        "required_chinese_forms": [
+          "作文",
+          "字课",
+          "中国文字",
+          "国文科",
+          "国语科",
+          "语文"
+        ],
+        "social_studies_grouping_event_id": "discipline-event-1923-social-studies-grouping",
+        "social_studies_required_facets": [
+          "思想政治与道德法治",
+          "历史",
+          "地理"
+        ],
+        "social_studies_forbidden_facets": [
+          "语文"
+        ],
+        "second_click_restore_required": true,
         "required_history_event_types": [
           "integrated_grouping",
           "alternative_integrated_or_separate",
@@ -679,6 +787,22 @@
           "历史与社会"
         ],
         "identity_equivalence_allowed": false
+      }
+    },
+    {
+      "id": "discipline.interaction_restores_and_never_single_year_locks_event",
+      "passed": true,
+      "observed": {
+        "discipline_restore": true,
+        "year_restore": true,
+        "mode_restore": true,
+        "single_year_event_lock": false
+      },
+      "expected": {
+        "discipline_restore": true,
+        "year_restore": true,
+        "mode_restore": true,
+        "single_year_event_lock": false
       }
     },
     {
@@ -810,12 +934,12 @@
       "id": "performance.static_budget_current_and_passed",
       "passed": true,
       "observed": {
-        "budget_id": "curriculum-star-map-performance-v4",
+        "budget_id": "curriculum-star-map-performance-v5",
         "checks": 11,
         "failed": 0
       },
       "expected": {
-        "budget_id": "curriculum-star-map-performance-v4",
+        "budget_id": "curriculum-star-map-performance-v5",
         "checks": 11,
         "failed": 0
       }

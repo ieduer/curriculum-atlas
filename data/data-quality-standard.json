@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "standard_id": "curriculum-atlas-data-quality-v2",
+  "schema_version": 2,
+  "standard_id": "curriculum-atlas-data-quality-v3",
   "title": "課標百年數據層加工細度與準確度核查標準",
   "release_policy": {
     "failure_blocks_preview": true,
@@ -167,6 +167,15 @@
     "maximum_mobile_dock_clearance_px": 150
   },
   "discipline_lifecycle_policy": {
+    "schema_version": 2,
+    "expected_public_lineages": 11,
+    "expected_source_explicit_events": 9,
+    "required_last_observed_year": 2022,
+    "required_chinese_forms": ["作文", "字课", "中国文字", "国文科", "国语科", "语文"],
+    "social_studies_grouping_event_id": "discipline-event-1923-social-studies-grouping",
+    "social_studies_required_facets": ["思想政治与道德法治", "历史", "地理"],
+    "social_studies_forbidden_facets": ["语文"],
+    "second_click_restore_required": true,
     "required_history_event_types": [
       "integrated_grouping",
       "alternative_integrated_or_separate",

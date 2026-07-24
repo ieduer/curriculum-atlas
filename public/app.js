@@ -1,5 +1,5 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260724v44';
-import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260724v44';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260724v45';
+import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260724v45';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -8,7 +8,7 @@ import {
   normalizeSubjectFacet,
   planSubjectFacetQueries,
   publicSubjectFacet,
-} from './subject-facets.js?v=20260724v44';
+} from './subject-facets.js?v=20260724v45';
 
 const diagnosticsStartedAt = performance.now();
 let diagnosticsReadyAt = null;
@@ -132,6 +132,14 @@ const state = {
   introRevealComplete: false,
   chronologyMode: 'era',
   theme: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
+  subjectToggleSnapshot: null,
+  activeSubjectToggle: null,
+  yearToggleSnapshot: null,
+  activeYearPreset: null,
+  modeToggleSnapshot: null,
+  disciplineToggleSnapshot: null,
+  activeDisciplineLineageId: null,
+  activeDisciplineEventId: null,
 };
 
 const CORE_SUBJECTS = DISPLAY_SUBJECT_FACETS;
@@ -168,8 +176,12 @@ function renderYearCompareControls() {
     : selected.length
       ? selected.length <= 4 ? selected.join(' · ') : `${selected.length} 个年份已选`
       : `全部 ${state.availableYears.length} 个有资料年份`;
-  clearYearSelection.disabled = selected.length === 0;
   yearBoundaryCompare.disabled = state.availableYears.length < 2;
+  yearBoundaryCompare.classList.toggle('active', state.activeYearPreset === 'boundary');
+  yearBoundaryCompare.setAttribute('aria-pressed', String(state.activeYearPreset === 'boundary'));
+  clearYearSelection.disabled = selected.length === 0 && state.activeYearPreset !== 'all';
+  clearYearSelection.classList.toggle('active', state.activeYearPreset === 'all');
+  clearYearSelection.setAttribute('aria-pressed', String(state.activeYearPreset === 'all'));
   yearSelectionCount.hidden = selected.length === 0;
   yearSelectionCount.textContent = selected.length ? String(selected.length) : '';
   yearOptions.innerHTML = state.availableYears.map((year) => {
@@ -211,12 +223,16 @@ function setTheme(theme, { persist = true } = {}) {
   state.cosmos?.setTheme(state.theme);
 }
 
-function activateYearSelection(years, { fitVisible = true } = {}) {
+function activateYearSelection(years, { fitVisible = true, preservePreset = false } = {}) {
   state.introRevealActive = false;
   state.introRevealComplete = true;
   state.maxYear = state.availableYears.at(-1);
   const allowed = new Set(state.availableYears);
   state.selectedYears = new Set(years.map(Number).filter((year) => allowed.has(year)));
+  if (!preservePreset) {
+    state.yearToggleSnapshot = null;
+    state.activeYearPreset = null;
+  }
   syncYearStageState();
   updateMapStatus({ fitVisible });
 }
@@ -230,6 +246,26 @@ function toggleYearSelection(year, options) {
   activateYearSelection([...next], options);
 }
 
+function toggleYearPreset(key, years, mode = state.chronologyMode) {
+  if (state.activeYearPreset === key && state.yearToggleSnapshot) {
+    const snapshot = state.yearToggleSnapshot;
+    state.yearToggleSnapshot = null;
+    state.activeYearPreset = null;
+    activateYearSelection(snapshot.years, { fitVisible: true, preservePreset: true });
+    setChronologyMode(snapshot.mode);
+    return;
+  }
+  if (!state.yearToggleSnapshot) {
+    state.yearToggleSnapshot = {
+      years: [...state.selectedYears],
+      mode: state.chronologyMode,
+    };
+  }
+  state.activeYearPreset = key;
+  activateYearSelection(years, { fitVisible: true, preservePreset: true });
+  setChronologyMode(mode);
+}
+
 async function api(path, options) {
   const response = await fetch(path, options);
   const data = await response.json().catch(() => ({}));
@@ -240,14 +276,14 @@ async function api(path, options) {
 async function loadBase() {
   if (state.meta) return;
   const [conceptGraph, ocrLayer, detailLayer, pre2001Layer, centuryLayer, evolutionLayer, disciplineLifecycle, ocrCoverageSummary, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260724v44'),
-    api('/data/ocr-observation-layer.json?v=20260724v44'),
-    api('/data/subject-detail-observation-layer.json?v=20260724v44'),
-    api('/data/pre2001-subject-detail-observation-layer.json?v=20260724v44'),
-    api('/data/century-observation-layer.json?v=20260724v44'),
-    api('/data/concept-evolution-families.json?v=20260724v44'),
-    api('/data/discipline-lifecycle.json?v=20260724v44'),
-    api('/data/ocr-coverage-summary.json?v=20260724v44'),
+    api('/data/concept-evolution.json?v=20260724v45'),
+    api('/data/ocr-observation-layer.json?v=20260724v45'),
+    api('/data/subject-detail-observation-layer.json?v=20260724v45'),
+    api('/data/pre2001-subject-detail-observation-layer.json?v=20260724v45'),
+    api('/data/century-observation-layer.json?v=20260724v45'),
+    api('/data/concept-evolution-families.json?v=20260724v45'),
+    api('/data/discipline-lifecycle.json?v=20260724v45'),
+    api('/data/ocr-coverage-summary.json?v=20260724v45'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -367,11 +403,18 @@ async function loadBase() {
     || evolutionLayer.edges.some((edge) => edge.semantic !== false || edge.influence_claim_allowed !== false)) {
     throw new Error('百年概念演进族谱未通过结构校验');
   }
-  if (disciplineLifecycle.schema_version !== 1
-    || disciplineLifecycle.artifact_profile !== 'curriculum-discipline-lifecycle-v1'
+  if (disciplineLifecycle.schema_version !== 2
+    || disciplineLifecycle.artifact_profile !== 'curriculum-discipline-lifecycle-v2'
     || !Array.isArray(disciplineLifecycle.public_subject_facets)
     || !Array.isArray(disciplineLifecycle.sources)
+    || !Array.isArray(disciplineLifecycle.subject_lineages)
     || !Array.isArray(disciplineLifecycle.events)
+    || disciplineLifecycle.subject_lineages.length !== DISPLAY_SUBJECT_FACETS.length
+    || disciplineLifecycle.subject_lineages.some((lineage) =>
+      !DISPLAY_SUBJECT_FACETS.includes(lineage.public_facet)
+      || !lineage.family_ids?.length
+      || !Array.isArray(lineage.event_ids)
+      || !lineage.claim_boundary)
     || disciplineLifecycle.events.some((event) => !Number.isInteger(event.year)
       || !event.source_ids?.length
       || !event.public_facets?.length
@@ -1382,12 +1425,16 @@ function renderSubjectControls() {
   const visible = state.hideAllSubjects ? [] : core.filter((subject) => !state.hiddenSubjects.has(subject));
   subjectModeLabel.textContent = visible.length === core.length ? '全学科星图' : visible.length === 1 ? visible[0] : '多学科筛选';
   subjectStatus.textContent = `${visible.length}/${core.length} · ${visible.length === core.length ? '全部显示' : '已筛选'}`;
-  showAllSubjects.disabled = visible.length === core.length;
+  showAllSubjects.disabled = visible.length === core.length && state.activeSubjectToggle !== '__all__';
+  showAllSubjects.classList.toggle('active', state.activeSubjectToggle === '__all__');
+  showAllSubjects.setAttribute('aria-pressed', String(state.activeSubjectToggle === '__all__'));
   subjectOrbit.innerHTML = core.map((subject) => subjectButton(subject, counts.get(subject))).join('');
   subjectOrbit.querySelectorAll('[data-subject]').forEach((button) => button.addEventListener('click', (event) => {
     const subject = button.dataset.subject;
-    const visibleSubjects = state.hideAllSubjects ? [] : subjects.filter((name) => !state.hiddenSubjects.has(name));
+    clearDisciplineFocusWithoutRestore();
     if (event.shiftKey) {
+      state.subjectToggleSnapshot = null;
+      state.activeSubjectToggle = null;
       if (state.hiddenSubjects.has(subject)) {
         state.hiddenSubjects.delete(subject);
         state.hideAllSubjects = false;
@@ -1395,10 +1442,23 @@ function renderSubjectControls() {
         state.hiddenSubjects.add(subject);
         state.hideAllSubjects = subjects.every((name) => state.hiddenSubjects.has(name));
       }
-    } else if (visibleSubjects.length === 1 && visibleSubjects[0] === subject) {
-      state.hideAllSubjects = false;
-      state.hiddenSubjects.clear();
     } else {
+      if (state.activeSubjectToggle === subject && state.subjectToggleSnapshot) {
+        state.hiddenSubjects = new Set(state.subjectToggleSnapshot.hiddenSubjects);
+        state.hideAllSubjects = state.subjectToggleSnapshot.hideAllSubjects;
+        state.subjectToggleSnapshot = null;
+        state.activeSubjectToggle = null;
+        renderSubjectControls();
+        updateMapStatus({ fitVisible: true });
+        return;
+      }
+      if (!state.subjectToggleSnapshot) {
+        state.subjectToggleSnapshot = {
+          hiddenSubjects: [...state.hiddenSubjects],
+          hideAllSubjects: state.hideAllSubjects,
+        };
+      }
+      state.activeSubjectToggle = subject;
       state.hideAllSubjects = false;
       state.hiddenSubjects.clear();
       subjects.forEach((name) => { if (name !== subject) state.hiddenSubjects.add(name); });
@@ -1408,21 +1468,174 @@ function renderSubjectControls() {
   }));
 }
 
-function showDisciplineEventInspector(event) {
+function disciplineLineageModel(lineage) {
+  const families = lineage.family_ids
+    .map((id) => state.evolutionFamilyById.get(id))
+    .filter(Boolean);
+  const memberships = state.evolutionLayer.episode_memberships
+    .filter((membership) => lineage.family_ids.includes(membership.family_id));
+  const formByLabel = new Map();
+  for (const family of families) {
+    for (const concept of family.observed_concepts) {
+      const current = formByLabel.get(concept.label);
+      formByLabel.set(concept.label, {
+        label: concept.label,
+        first_year: Math.min(current?.first_year ?? Infinity, concept.first_observed_year),
+        last_year: Math.max(current?.last_year ?? -Infinity, concept.last_observed_year),
+        role: 'course_name_observation',
+      });
+    }
+  }
+  for (const observation of lineage.supplemental_observations || []) {
+    formByLabel.set(observation.label, {
+      label: observation.label,
+      first_year: observation.year,
+      last_year: observation.year,
+      role: observation.role,
+    });
+  }
+  const order = new Map((lineage.form_order || []).map((label, index) => [label, index]));
+  const forms = [...formByLabel.values()].sort((left, right) =>
+    (order.get(left.label) ?? Number.MAX_SAFE_INTEGER) - (order.get(right.label) ?? Number.MAX_SAFE_INTEGER)
+    || left.first_year - right.first_year
+    || left.label.localeCompare(right.label, 'zh-CN'));
+  const events = lineage.event_ids
+    .map((id) => state.disciplineLifecycle.events.find((event) => event.id === id))
+    .filter(Boolean);
+  const episodeIds = [...new Set([
+    ...memberships.map((membership) => membership.episode_id),
+    ...(lineage.supplemental_observations || []).map((observation) => observation.episode_id),
+  ])];
+  return {
+    ...lineage,
+    families,
+    forms,
+    events,
+    episode_ids: episodeIds,
+    first_year: Math.min(...forms.map((form) => form.first_year)),
+    last_year: Math.max(...families.map((family) => family.last_observed_year), ...forms.map((form) => form.last_year)),
+  };
+}
+
+function disciplineLineagesForEvent(event) {
+  return state.disciplineLifecycle.subject_lineages
+    .filter((lineage) => event.public_facets.includes(lineage.public_facet))
+    .map(disciplineLineageModel);
+}
+
+function captureDisciplineToggleSnapshot() {
+  return {
+    hiddenSubjects: [...state.hiddenSubjects],
+    hideAllSubjects: state.hideAllSubjects,
+    selectedYears: [...state.selectedYears],
+    maxYear: state.maxYear,
+    query: state.query,
+    mode: state.mode,
+    chronologyMode: state.chronologyMode,
+    selectedEpisodeId: state.selectedEpisode?.id || null,
+  };
+}
+
+function clearDisciplineFocusWithoutRestore() {
+  if (!state.activeDisciplineLineageId && !state.activeDisciplineEventId) return;
+  state.activeDisciplineLineageId = null;
+  state.activeDisciplineEventId = null;
+  state.disciplineToggleSnapshot = null;
+  state.cosmos?.setSelected(null);
+  clearConceptInspector(false);
+}
+
+function restoreDisciplineToggleSnapshot() {
+  const snapshot = state.disciplineToggleSnapshot;
+  state.activeDisciplineLineageId = null;
+  state.activeDisciplineEventId = null;
+  state.disciplineToggleSnapshot = null;
+  if (!snapshot) return;
+  state.hiddenSubjects = new Set(snapshot.hiddenSubjects);
+  state.hideAllSubjects = snapshot.hideAllSubjects;
+  state.selectedYears = new Set(snapshot.selectedYears);
+  state.maxYear = snapshot.maxYear;
+  state.query = snapshot.query;
+  searchInput.value = snapshot.query;
+  clearQuery.hidden = !snapshot.query;
+  state.mode = snapshot.mode;
+  state.cosmos?.setMode(snapshot.mode === 'cross' ? 'cross' : 'lineage');
+  document.querySelectorAll('[data-map-mode]').forEach((button) =>
+    button.classList.toggle('active', button.dataset.mapMode === snapshot.mode));
+  setChronologyMode(snapshot.chronologyMode);
+  renderSubjectControls();
+  syncYearStageState();
+  clearConceptInspector(false);
+  updateMapStatus({ fitVisible: true });
+  const selected = snapshot.selectedEpisodeId
+    ? state.conceptGraph.episodes.find((episode) => episode.id === snapshot.selectedEpisodeId)
+    : null;
+  if (selected) selectConceptEpisode(selected);
+  renderDisciplineLifecycle();
+}
+
+function applyDisciplineGraphFocus(lineages) {
+  const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
+  const facets = new Set(lineages.map((lineage) => lineage.public_facet));
+  state.hideAllSubjects = false;
+  state.hiddenSubjects = new Set(subjects.filter((subject) => !facets.has(subject)));
+  state.subjectToggleSnapshot = null;
+  state.activeSubjectToggle = null;
+  state.selectedYears.clear();
+  state.maxYear = state.availableYears.at(-1);
+  state.yearToggleSnapshot = null;
+  state.activeYearPreset = null;
+  state.query = '';
+  searchInput.value = '';
+  clearQuery.hidden = true;
+  state.mode = 'lineage';
+  state.modeToggleSnapshot = null;
+  state.cosmos?.setMode('lineage');
+  document.querySelectorAll('[data-map-mode]').forEach((button) =>
+    button.classList.toggle('active', button.dataset.mapMode === 'lineage'));
+  renderSubjectControls();
+  syncYearStageState();
+  updateMapStatus({ fitVisible: true });
+  const episodeIds = [...new Set(lineages.flatMap((lineage) => lineage.episode_ids))];
+  state.cosmos?.setSelectionIds(episodeIds, episodeIds[0]);
+  state.cosmos?.focusSelection();
+}
+
+function showDisciplineLineageInspector(lineage) {
+  state.selectedEpisode = null;
+  state.selectedScreenPosition = null;
+  linkConceptYears({ label: `${lineage.label}学科设置`, episode_ids: lineage.episode_ids });
+  inspector.innerHTML = `
+    <button class="inspector-close" type="button" aria-label="关闭">×</button>
+    <p class="inspector-kicker">${lineage.first_year}—${lineage.last_year} · 学科层级百年分合</p>
+    <h2>${escapeHtml(lineage.label)}：名称、分合与设置</h2>
+    <div class="discipline-form-chain">${lineage.forms.map((form) =>
+      `<span class="${form.role === 'parallel_course_form' ? 'parallel' : ''}"><b>${escapeHtml(form.label)}</b><small>${form.first_year}${form.last_year === form.first_year ? '' : `—${form.last_year}`}</small></span>`).join('')}</div>
+    <p>${lineage.events.length
+      ? `下方列出 ${lineage.events.length} 个有来源明示的设置里程碑；点击里程碑会同时点亮参与该事件的学科百年链。`
+      : '当前来源层没有另列设置里程碑；星图仍完整显示课程名称的百年观察链。'}</p>
+    <small class="ontology-scope-note">${escapeHtml(lineage.claim_boundary)}</small>`;
+  inspector.querySelector('.inspector-close').addEventListener('click', restoreDisciplineToggleSnapshot);
+  finalizeInspectorLayout(null);
+}
+
+function showDisciplineEventInspector(event, parentLineage) {
   const sources = event.source_ids
     .map((id) => state.disciplineLifecycle.sources.find((source) => source.id === id))
     .filter(Boolean);
+  const relatedLineages = disciplineLineagesForEvent(event);
   state.selectedEpisode = null;
   state.selectedScreenPosition = null;
-  state.cosmos?.setSelected(null);
-  conceptYearLinks.innerHTML = `<b>${escapeHtml(event.label)} · 关联年代</b><button type="button" data-concept-year="${event.year}" aria-pressed="${state.selectedYears.has(event.year)}" class="${state.selectedYears.has(event.year) ? 'active' : ''}">${event.year}</button>`;
-  conceptYearLinks.hidden = false;
-  setChronologyMode('compare');
+  linkConceptYears({
+    label: `${event.label} · 百年相关学科`,
+    episode_ids: [...new Set(relatedLineages.flatMap((lineage) => lineage.episode_ids))],
+  });
   inspector.innerHTML = `
     <button class="inspector-close" type="button" aria-label="关闭">×</button>
     <p class="inspector-kicker">${event.year} · 学科设置与分合 · ${escapeHtml(event.display_tag)}</p>
     <h2>${escapeHtml(event.label)}</h2>
     <p>${escapeHtml(event.detail)}</p>
+    <p>星图正在显示 ${relatedLineages.map((lineage) => escapeHtml(lineage.label)).join('、')} 的完整百年课程名称链；${event.year} 是来源明示里程碑，不是单年筛选。</p>
     <div class="inspector-meta">${event.discipline_forms.map((form) => `<span>${escapeHtml(form)}</span>`).join('')}</div>
     <small class="ontology-scope-note">${escapeHtml(event.claim_boundary)}</small>
     <div class="inspector-insights">
@@ -1432,41 +1645,88 @@ function showDisciplineEventInspector(event) {
         <small>${escapeHtml(source.authority)}${source.pages ? ` · PDF ${source.pages.join('—')} 页` : ''}</small>
       </article>`).join('')}
     </div>`;
-  inspector.querySelector('.inspector-close').addEventListener('click', () => clearConceptInspector(false));
-  conceptYearLinks.querySelector('[data-concept-year]')?.addEventListener('click', (clickEvent) => {
-    toggleYearSelection(event.year, { fitVisible: true });
-    const active = state.selectedYears.has(event.year);
-    clickEvent.currentTarget.classList.toggle('active', active);
-    clickEvent.currentTarget.setAttribute('aria-pressed', String(active));
+  inspector.querySelector('.inspector-close').addEventListener('click', () => {
+    state.activeDisciplineEventId = null;
+    applyDisciplineGraphFocus([parentLineage]);
+    showDisciplineLineageInspector(parentLineage);
+    renderDisciplineLifecycle();
   });
   finalizeInspectorLayout(null);
 }
 
 function renderDisciplineLifecycle() {
   if (!state.disciplineLifecycle) return;
-  const subjects = controlledSubjectFacetCounts(state.conceptGraph).subjects;
-  const visibleSubjects = state.hideAllSubjects ? [] : subjects.filter((subject) => !state.hiddenSubjects.has(subject));
-  const visibleSet = new Set(visibleSubjects);
-  const events = state.disciplineLifecycle.events
-    .filter((event) => yearVisible(event.year)
-      && (visibleSubjects.length === subjects.length || event.public_facets.some((facet) => visibleSet.has(facet))))
-    .sort((left, right) => left.year - right.year || left.id.localeCompare(right.id, 'en'));
-  disciplineLifecycleStatus.textContent = `${events.length} 个来源明示事件`;
-  disciplineLifecycleEvents.innerHTML = events.length
-    ? events.map((event) => `<button class="discipline-event" type="button" data-discipline-event="${escapeHtml(event.id)}">
-      <time>${event.year}</time><span>${escapeHtml(event.label)}</span><i>${escapeHtml(event.display_tag)}</i>
-    </button>`).join('')
-    : '<small>当前学科和年代范围内没有已发布的设置事件。</small>';
+  const lineages = state.disciplineLifecycle.subject_lineages.map(disciplineLineageModel);
+  disciplineLifecycleStatus.textContent = `${lineages.length} 条百年链 · ${state.disciplineLifecycle.events.length} 个里程碑`;
+  disciplineLifecycleEvents.innerHTML = lineages.map((lineage) => {
+    const active = state.activeDisciplineLineageId === lineage.id;
+    const forms = lineage.forms.map((form) => form.label).join(' → ');
+    const events = active
+      ? lineage.events.map((event) => `<button class="discipline-event ${state.activeDisciplineEventId === event.id ? 'active' : ''}" type="button" data-discipline-event="${escapeHtml(event.id)}">
+          <time>${event.year}</time><span>${escapeHtml(event.label)}</span><i>${escapeHtml(event.display_tag)}</i>
+        </button>`).join('')
+      : '';
+    return `<div class="discipline-lineage-group ${active ? 'active' : ''}">
+      <button class="discipline-lineage ${active ? 'active' : ''}" type="button" data-discipline-lineage="${escapeHtml(lineage.id)}" aria-pressed="${active}">
+        <span><b>${escapeHtml(lineage.label)}</b><small>${lineage.first_year}—${lineage.last_year}</small></span>
+        <i>${escapeHtml(forms)}</i>
+      </button>
+      ${events}
+    </div>`;
+  }).join('');
+  disciplineLifecycleEvents.querySelectorAll('[data-discipline-lineage]').forEach((button) =>
+    button.addEventListener('click', () => {
+      const lineage = lineages.find((item) => item.id === button.dataset.disciplineLineage);
+      if (!lineage) return;
+      if (state.activeDisciplineLineageId === lineage.id) {
+        restoreDisciplineToggleSnapshot();
+        return;
+      }
+      if (!state.disciplineToggleSnapshot) state.disciplineToggleSnapshot = captureDisciplineToggleSnapshot();
+      state.activeDisciplineLineageId = lineage.id;
+      state.activeDisciplineEventId = null;
+      applyDisciplineGraphFocus([lineage]);
+      showDisciplineLineageInspector(lineage);
+      renderDisciplineLifecycle();
+    }));
   disciplineLifecycleEvents.querySelectorAll('[data-discipline-event]').forEach((button) =>
     button.addEventListener('click', () => {
       const event = state.disciplineLifecycle.events.find((item) => item.id === button.dataset.disciplineEvent);
       if (!event) return;
-      activateYearSelection([event.year], { fitVisible: true });
-      showDisciplineEventInspector(event);
+      const parentLineage = lineages.find((lineage) => lineage.id === state.activeDisciplineLineageId);
+      if (!parentLineage) return;
+      if (state.activeDisciplineEventId === event.id) {
+        state.activeDisciplineEventId = null;
+        applyDisciplineGraphFocus([parentLineage]);
+        showDisciplineLineageInspector(parentLineage);
+        renderDisciplineLifecycle();
+        return;
+      }
+      state.activeDisciplineEventId = event.id;
+      applyDisciplineGraphFocus(disciplineLineagesForEvent(event));
+      showDisciplineEventInspector(event, parentLineage);
+      renderDisciplineLifecycle();
     }));
 }
 
 function restoreAllSubjects() {
+  clearDisciplineFocusWithoutRestore();
+  if (state.activeSubjectToggle === '__all__' && state.subjectToggleSnapshot) {
+    state.hiddenSubjects = new Set(state.subjectToggleSnapshot.hiddenSubjects);
+    state.hideAllSubjects = state.subjectToggleSnapshot.hideAllSubjects;
+    state.subjectToggleSnapshot = null;
+    state.activeSubjectToggle = null;
+    renderSubjectControls();
+    updateMapStatus({ fitVisible: true });
+    return;
+  }
+  if (!state.subjectToggleSnapshot) {
+    state.subjectToggleSnapshot = {
+      hiddenSubjects: [...state.hiddenSubjects],
+      hideAllSubjects: state.hideAllSubjects,
+    };
+  }
+  state.activeSubjectToggle = '__all__';
   state.hideAllSubjects = false;
   state.hiddenSubjects.clear();
   renderSubjectControls();
@@ -1478,17 +1738,22 @@ function renderEraControls() {
   document.querySelectorAll('[data-era-end]').forEach((button) => button.addEventListener('click', () => {
     const start = Number(button.dataset.eraStart);
     const end = Number(button.dataset.eraEnd);
-    activateYearSelection(state.availableYears.filter((year) => year >= start && year <= end));
-    setChronologyMode('era');
+    toggleYearPreset(
+      `era:${start}:${end}`,
+      state.availableYears.filter((year) => year >= start && year <= end),
+      'era',
+    );
   }));
   syncYearStageState();
 }
 
 function syncYearStageState() {
   renderYearCompareControls();
-  const selected = [...state.selectedYears];
-  const active = selected.length
-    ? CURRICULUM_STAGES.find((era) => selected.every((year) => year >= era.start && year <= era.end))
+  const activePreset = state.activeYearPreset?.startsWith('era:')
+    ? state.activeYearPreset
+    : null;
+  const active = activePreset
+    ? CURRICULUM_STAGES.find((era) => `era:${era.start}:${era.end}` === activePreset)
     : state.introRevealActive ? curriculumStageForYear(state.maxYear) : null;
   document.querySelectorAll('[data-era-end]').forEach((button) => {
     const selected = active && Number(button.dataset.eraStart) === active.start;
@@ -1514,6 +1779,19 @@ function setMapMode(mode) {
   state.cosmos?.setMode(state.mode === 'cross' ? 'cross' : 'lineage');
   document.querySelectorAll('[data-map-mode]').forEach((button) => button.classList.toggle('active', button.dataset.mapMode === state.mode));
   updateMapStatus();
+}
+
+function toggleMapMode(mode) {
+  const next = ['lineage', 'cross', 'structure'].includes(mode) ? mode : 'lineage';
+  if (state.mode === next && state.modeToggleSnapshot) {
+    const previous = state.modeToggleSnapshot;
+    state.modeToggleSnapshot = null;
+    setMapMode(previous);
+    return;
+  }
+  if (state.mode === next) return;
+  if (!state.modeToggleSnapshot) state.modeToggleSnapshot = state.mode;
+  setMapMode(next);
 }
 
 function setMapControlsExpanded(expanded) {
@@ -2133,7 +2411,7 @@ document.addEventListener('click', (event) => {
   navigate(`${target.pathname}${target.search}${target.hash}`);
 });
 
-document.querySelectorAll('[data-map-mode]').forEach((button) => button.addEventListener('click', () => setMapMode(button.dataset.mapMode)));
+document.querySelectorAll('[data-map-mode]').forEach((button) => button.addEventListener('click', () => toggleMapMode(button.dataset.mapMode)));
 mapToolsToggle.addEventListener('click', () => {
   setMapControlsExpanded(mapToolsToggle.getAttribute('aria-expanded') !== 'true');
 });
@@ -2143,9 +2421,12 @@ yearOptions.addEventListener('click', (event) => {
   if (!button) return;
   toggleYearSelection(button.dataset.compareYear, { fitVisible: true });
 });
-clearYearSelection.addEventListener('click', () => activateYearSelection([], { fitVisible: true }));
-yearBoundaryCompare.addEventListener('click', () =>
-  activateYearSelection([state.availableYears[0], state.availableYears.at(-1)], { fitVisible: true }));
+clearYearSelection.addEventListener('click', () => toggleYearPreset('all', [], 'compare'));
+yearBoundaryCompare.addEventListener('click', () => toggleYearPreset(
+  'boundary',
+  [state.availableYears[0], state.availableYears.at(-1)],
+  'compare',
+));
 chronologyEraTab.addEventListener('click', () => setChronologyMode('era'));
 chronologyCompareTab.addEventListener('click', () => setChronologyMode('compare'));
 document.querySelector('.chronology-tabs').addEventListener('keydown', (event) => {

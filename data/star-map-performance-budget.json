@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "budget_id": "curriculum-star-map-performance-v4",
+  "budget_id": "curriculum-star-map-performance-v5",
   "release_policy": {
     "static_failure_blocks_preview": true,
     "static_failure_blocks_production": true,
@@ -12,7 +12,7 @@
     "academic_graph_index_raw_bytes_max": 524288,
     "academic_graph_shard_raw_bytes_max": 524288,
     "academic_graph_total_shard_raw_bytes_max": 25000000,
-    "frontend_raw_bytes_max": 240000,
+    "frontend_raw_bytes_max": 260000,
     "merged_episode_count_max": 2500,
     "merged_edge_count_max": 3300,
     "merged_evidence_count_max": 5600,
