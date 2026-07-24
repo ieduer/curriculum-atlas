@@ -10,7 +10,7 @@ import {
 } from './subject-facets';
 import type { Env, Session } from './types';
 
-const VERSION = '2026.07.23-v16';
+const VERSION = '2026.07.23-v17';
 const R2_CURRENT_POINTER_KEY = 'release/current.json';
 const R2_INGEST_MANIFEST_KEY = 'catalog/ingest-manifest.json';
 const R2_RELEASE_PREFIX = 'releases';
