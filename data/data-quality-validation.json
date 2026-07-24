@@ -6,15 +6,17 @@
   "deployment_allowed": true,
   "manual_override_allowed": false,
   "source_fingerprints": {
-    "standard": "ccd1e4b56bf4ec5834c3c3f6ad99f2d8e61c3834bf8ff3b25bb881ae0419f9c2",
+    "standard": "9030750bc8b2a87e0a4d50bcfdbbb749b2de6756f9449414ac2e80e9cdfa7a7f",
     "candidateSchema": "d985d3c4d89440c4e2890694c10f20fb0fd291fcea68d9d13f28170843e4f212",
     "coverage": "5ac87d0e489f39737c7f546c7d291e7a0ee111f651540e8a288f5c15e972320f",
     "candidateFallback": "514beb453c594fbc74e1297bd6a446d041a6b8e37d68b518a6976ce252b15ed7",
     "reviewTriage": "8a288fa8c75642a90af3ce67f4379a255a497a79e5adf1ee7822f15809b5f765",
+    "machinePolicy": "6d7ab57cfe7c0c6076b3f7923ac8efb52e403669aafb871916a208dcdac86aab",
+    "machineVerification": "d8ab5e6136828fc7b9fe3ea621b3e48e8760504ea27fb7f7c96432bb72573317",
     "lifecycle": "a6ec26386ae1996f0dda6d8c118580443216386ed98fc2f007f617ecb86be952",
     "releaseDiff": "1593289edecc56267d257766cba2da76b1e3318083784e866f097c47b7c97277",
-    "performanceBudget": "6e5b1748300c2f15bb93df081838cfed8e9ad4680a53db858ee31b9e1135d1f9",
-    "performanceValidation": "66d2bfffa8c6c3bc50239ed7bb7caeb6f34a21c99ed14a4901c1c054776c5657",
+    "performanceBudget": "0e283a940aa28696ab20a1730f30ffc06a78932d268d6e8d4307e5db037fd334",
+    "performanceValidation": "6046542a2779f414ec51051fd0633f331e0cdd96f24410d6e978d37648745302",
     "familiesConfig": "e891fce9b7b025b23fedbde6c90b734367673c8592a6d44c2b3bc2c0f80651c8",
     "families": "7e747bda715e3c01c7c3755f903adaeb5bac93f282a0f4050655ec79108bf24a",
     "core": "0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8",
@@ -22,14 +24,15 @@
     "detail": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
     "pre2001": "f6e0c70ebd762fb23d4127bee64fcbaf84380be59a4e13426c608d3b0466137c",
     "century": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
-    "app": "5290ea4533b4fe382e11c2c229a1b2239985fabf5a3f4577b647f90b94fbf752",
-    "atlas": "d34fab09836e487ece9b96e080bd778e2c5820dbc8b8f2b05957f60907b042b8",
-    "styles": "89588c399a206eca867a977604b704d43b61c50b035d8d1a375ca59f55f3eea1",
-    "index": "1e4d23c5b92409e76c67b33963773604fa5ea65852e7a4a2b8437cadf0894140"
+    "app": "c0c0aee99e25644521c811c17b8dfecbce423c67aba6a76f88b94117db153043",
+    "atlas": "d255c7fa1eb5e27f6cfbacaf4963c7896627cda4e74c53361acad30d5da50287",
+    "styles": "b18b80adda79ee127294299c55f80597bd8fa3d5cc915fec53fc4e22cfdcfe5d",
+    "index": "68e69a0934242b939adfb5bfd06e138274d52de93b22f4d1d870338b625ba12e",
+    "themeInit": "331ab5984dec61ac6f89366732162aa692bb5497930b30ae29d64262aed1428c"
   },
   "counts": {
-    "checks": 28,
-    "passed": 28,
+    "checks": 30,
+    "passed": 30,
     "failed": 0,
     "subject_facets": 12,
     "concept_tiers": 5,
@@ -39,7 +42,10 @@
     "ocr_nominal_pages": 11847,
     "ocr_candidate_covered_pages": 11847,
     "ocr_candidate_remaining_pages": 0,
-    "ocr_citation_ready_pages": 0
+    "ocr_citation_ready_pages": 0,
+    "ocr_machine_verified_exact_pages": 31,
+    "ocr_machine_adjudication_pending_pages": 6916,
+    "ocr_human_required_pages": 0
   },
   "checks": [
     {
@@ -464,6 +470,55 @@
       }
     },
     {
+      "id": "ocr.machine_verification_exact_and_fail_closed",
+      "passed": true,
+      "observed": {
+        "policy_id": "curriculum-ocr-machine-verification-v1",
+        "audited_pages": 6947,
+        "machine_verified_exact_pages": 31,
+        "third_engine_text_consensus_pages": 5063,
+        "table_structure_consensus_pages": 1780,
+        "blank_raster_consensus_pages": 73,
+        "publication_manifest_eligible_pages": 31,
+        "production_citation_ready_pages": 0,
+        "human_required_pages": 0
+      },
+      "expected": {
+        "policy_id": "curriculum-ocr-machine-verification-v1",
+        "audited_pages": 6947,
+        "machine_verified_exact_pages": 31,
+        "third_engine_text_consensus_pages": 5063,
+        "table_structure_consensus_pages": 1780,
+        "blank_raster_consensus_pages": 73,
+        "publication_manifest_eligible_pages": 31,
+        "production_citation_ready_pages": 0,
+        "human_required_pages": 0
+      }
+    },
+    {
+      "id": "interface.theme_and_chronology_contract",
+      "passed": true,
+      "observed": {
+        "default_theme": "dark",
+        "primary_contrast_ratio": 14.03,
+        "muted_contrast_ratio": 5.773,
+        "chronology_modes": [
+          "era",
+          "compare"
+        ],
+        "mobile_dock_clearance_px": 142
+      },
+      "expected": {
+        "default_theme": "dark",
+        "minimum_text_contrast_ratio": 4.5,
+        "chronology_modes": [
+          "era",
+          "compare"
+        ],
+        "maximum_mobile_dock_clearance_px": 150
+      }
+    },
+    {
       "id": "discipline.lifecycle_history_model",
       "passed": true,
       "observed": {
@@ -635,12 +690,12 @@
       "id": "performance.static_budget_current_and_passed",
       "passed": true,
       "observed": {
-        "budget_id": "curriculum-star-map-performance-v2",
+        "budget_id": "curriculum-star-map-performance-v3",
         "checks": 8,
         "failed": 0
       },
       "expected": {
-        "budget_id": "curriculum-star-map-performance-v2",
+        "budget_id": "curriculum-star-map-performance-v3",
         "checks": 8,
         "failed": 0
       }

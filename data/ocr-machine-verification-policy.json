@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "policy_id": "curriculum-ocr-machine-verification-v1",
+  "purpose": "Replace the blanket human-adjudication dependency with deterministic machine gates while keeping publication fail closed.",
+  "release_policy": {
+    "manual_override_allowed": false,
+    "human_review_required": false,
+    "ocr_completion_does_not_imply_citation": true,
+    "machine_verified_page_may_enter_publication_manifest": true,
+    "unresolved_span_is_omitted": true,
+    "semantic_claim_requires_separate_evidence_gate": true
+  },
+  "exact_page_gate": {
+    "minimum_normalized_character_agreement": 0.995,
+    "minimum_average_independent_witness_confidence": 0.8,
+    "require_exact_normalized_full_text": true,
+    "require_exact_heading": true,
+    "require_exact_numeric_sequence": true,
+    "allow_table": false,
+    "allow_replacement_character": false,
+    "required_bindings": [
+      "source_pdf_sha256",
+      "physical_pdf_page",
+      "primary_text_sha256",
+      "independent_witness_sha256",
+      "rendered_image_sha256",
+      "primary_engine",
+      "independent_witness_engine"
+    ]
+  },
+  "adjudication_lanes": {
+    "third_engine_text_consensus": "Run PP-StructureV3 as a third independent engine. Publish only exact spans supported by two engines and matching protected fields.",
+    "table_structure_consensus": "Run PP-StructureV3 table recognition. Release a cell only when text, row-column coordinates, numeric fields, and source-page bindings agree.",
+    "blank_raster_consensus": "Use raster ink density and connected-component analysis plus two zero-text OCR witnesses. Blank pages emit no quotable text.",
+    "conflict_fail_closed": "Conflicting characters or structures remain omitted until a machine consensus lane passes."
+  },
+  "protected_fields": [
+    "headings",
+    "numeric_sequence",
+    "years_and_ranges",
+    "percentages",
+    "article_and_section_markers",
+    "latin_identifiers"
+  ]
+}

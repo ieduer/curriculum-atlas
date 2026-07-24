@@ -105,6 +105,10 @@ test('left tools default collapsed while year visibility lives horizontally insi
   assert.equal(rail.includes('id="year-range"'), false);
   const years = elementBlock(html, '<section class="cosmos-year-control"', '</section>');
   assert.match(years, /id="era-buttons"/);
+  assert.match(years, /id="chronology-mode-era"[^>]*role="tab"/);
+  assert.match(years, /id="chronology-mode-compare"[^>]*role="tab"/);
+  assert.match(years, /id="chronology-era-panel"[^>]*role="tabpanel"/);
+  assert.match(years, /id="chronology-compare-panel"[^>]*role="tabpanel"[^>]*hidden/);
   assert.match(years, /id="year-options"/);
   assert.match(years, /id="year-boundary-compare"/);
   assert.match(years, /id="clear-year-selection"/);
@@ -143,7 +147,8 @@ test('legacy pages remain merged into the two rail-launched workspaces', () => {
 
 test('camera motion follows system preference and no redundant header controls remain', () => {
   assert.doesNotMatch(html, /motion-toggle|reset-view|>静<|>◎</);
-  assert.doesNotMatch(app, /localStorage|motionToggle|resetView|curriculum:stable/);
+  assert.doesNotMatch(app, /motionToggle|resetView|curriculum:stable/);
+  assert.match(app, /localStorage\.setItem\('curriculum-atlas-theme-v1'/);
   assert.doesNotMatch(styles, /body\.stable/);
   assert.match(atlas, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
 });
@@ -199,6 +204,9 @@ test('the bottom year rail supports exact multi-year comparison instead of range
   assert.match(app, /function activateYearSelection\(years/);
   assert.match(app, /function toggleYearSelection\(year/);
   assert.match(app, /yearBoundaryCompare\.addEventListener\('click'/);
+  assert.match(app, /function setChronologyMode\(mode/);
+  assert.match(app, /chronologyComparePanel\.hidden = !compareActive/);
+  assert.match(app, /setChronologyMode\('compare'\)/);
   assert.match(atlas, /this\.filters\.selectedYears\.size && !this\.filters\.selectedYears\.has\(node\.year\)/);
   assert.match(html, /选择两个或多个有资料的年份进行对比/);
   assert.doesNotMatch(html, /type="range"/);

@@ -33,4 +33,7 @@ test('the receipt preserves OCR candidate, citation, and remaining-page denomina
   assert.equal(receipt.counts.ocr_candidate_covered_pages, 11847);
   assert.equal(receipt.counts.ocr_candidate_remaining_pages, 0);
   assert.equal(receipt.counts.ocr_citation_ready_pages, 0);
+  assert.equal(receipt.counts.ocr_machine_verified_exact_pages, 31);
+  assert.equal(receipt.counts.ocr_machine_adjudication_pending_pages, 6916);
+  assert.equal(receipt.counts.ocr_human_required_pages, 0);
 });

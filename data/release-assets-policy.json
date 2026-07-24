@@ -76,6 +76,8 @@
       { "path": "data/ocr-page-furniture-approvals.json", "disposition": "candidate_fail_closed", "consumers": ["approval_validator"] },
       { "path": "data/ocr-queue.json", "disposition": "r2_public_metadata", "consumers": ["ocr_supervisor", "concept_builder"] },
       { "path": "data/ocr-coverage-ledger.json", "disposition": "quality_evidence_private", "consumers": ["ocr_coverage_validator", "data_quality_validator"] },
+      { "path": "data/ocr-machine-verification-policy.json", "disposition": "release_governance_receipt", "consumers": ["ocr_machine_verifier", "data_quality_validator", "deploy_gate"] },
+      { "path": "data/ocr-machine-verification.json", "disposition": "release_governance_receipt", "consumers": ["ocr_machine_verifier", "data_quality_validator", "release_manifest", "deploy_gate"] },
       { "path": "data/ocr-review-decisions.json", "disposition": "quality_evidence_private", "consumers": ["ocr_coverage_validator"] },
       { "path": "data/ocr-review-legacy-chinese-0017-0020.json", "disposition": "candidate_fail_closed", "consumers": ["ocr_review"] },
       { "path": "data/ocr-review-queue-index.json", "disposition": "quality_evidence_private", "consumers": ["ocr_coverage_validator", "review_workflow"] },

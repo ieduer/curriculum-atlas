@@ -1,4 +1,4 @@
-import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v39';
+import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v40';
 
 const TAU = Math.PI * 2;
 const MIN_ZOOM = .2;
@@ -157,6 +157,45 @@ function rgba(hex, alpha) {
   return `rgba(${(number >> 16) & 255},${(number >> 8) & 255},${number & 255},${alpha})`;
 }
 
+const THEME_PALETTES = {
+  dark: {
+    background: '#03050e',
+    vignetteInner: 'rgba(5,10,24,0)',
+    vignetteOuter: 'rgba(0,1,7,.72)',
+    gate: 'rgba(155,178,222,.12)',
+    gateCurrent: 'rgba(231,189,97,.27)',
+    gateLabelBackground: 'rgba(3,6,16,.58)',
+    gateLabel: 'rgba(200,215,242,.76)',
+    gateLabelEarly: 'rgba(222,205,164,.8)',
+    gateLabelCurrent: 'rgba(242,205,124,.9)',
+    edgeLabelBackground: 'rgba(4,7,17,.9)',
+    edgeLabel: 'rgba(244,220,165,.92)',
+    nodeLabelBackground: 'rgba(3,6,16,.8)',
+    nodeLabelRelatedBackground: 'rgba(5,9,22,.9)',
+    nodeLabelSelectedBackground: 'rgba(7,10,22,.94)',
+    nodeLabelStroke: 'rgba(0,2,8,.95)',
+    nodeLabel: 'rgba(244,247,255,.96)',
+  },
+  light: {
+    background: '#edf1ee',
+    vignetteInner: 'rgba(237,241,238,0)',
+    vignetteOuter: 'rgba(188,200,194,.34)',
+    gate: 'rgba(56,78,105,.18)',
+    gateCurrent: 'rgba(138,90,18,.38)',
+    gateLabelBackground: 'rgba(250,251,247,.82)',
+    gateLabel: 'rgba(42,61,84,.82)',
+    gateLabelEarly: 'rgba(89,70,36,.84)',
+    gateLabelCurrent: 'rgba(112,70,10,.92)',
+    edgeLabelBackground: 'rgba(250,251,247,.94)',
+    edgeLabel: 'rgba(91,57,10,.94)',
+    nodeLabelBackground: 'rgba(250,251,247,.9)',
+    nodeLabelRelatedBackground: 'rgba(245,248,245,.94)',
+    nodeLabelSelectedBackground: 'rgba(255,252,241,.97)',
+    nodeLabelStroke: 'rgba(250,251,247,.98)',
+    nodeLabel: 'rgba(23,34,53,.98)',
+  },
+};
+
 function yearX(year) {
   // Equal visual breathing room is assigned to reform eras so the dense
   // post-2001 corpus does not collapse into the right edge of the universe.
@@ -172,7 +211,7 @@ function yearX(year) {
   return 0;
 }
 
-function makeMilkyWay(width, height) {
+function makeMilkyWay(width, height, theme = 'dark') {
   const layer = document.createElement('canvas');
   const ratio = Math.min(2, window.devicePixelRatio || 1);
   layer.width = Math.max(1, Math.round(width * ratio));
@@ -182,12 +221,13 @@ function makeMilkyWay(width, height) {
   const random = randomFrom(90210 + Math.round(width) * 7 + Math.round(height));
   context.clearRect(0, 0, width, height);
 
+  const light = theme === 'light';
   const haze = context.createLinearGradient(0, height * .84, width, height * .14);
-  haze.addColorStop(0, 'rgba(34,61,126,0)');
-  haze.addColorStop(.32, 'rgba(50,78,145,.08)');
-  haze.addColorStop(.55, 'rgba(157,122,186,.09)');
-  haze.addColorStop(.72, 'rgba(59,117,158,.07)');
-  haze.addColorStop(1, 'rgba(15,35,85,0)');
+  haze.addColorStop(0, light ? 'rgba(84,112,147,0)' : 'rgba(34,61,126,0)');
+  haze.addColorStop(.32, light ? 'rgba(92,124,159,.07)' : 'rgba(50,78,145,.08)');
+  haze.addColorStop(.55, light ? 'rgba(158,132,164,.08)' : 'rgba(157,122,186,.09)');
+  haze.addColorStop(.72, light ? 'rgba(78,128,142,.06)' : 'rgba(59,117,158,.07)');
+  haze.addColorStop(1, light ? 'rgba(80,104,132,0)' : 'rgba(15,35,85,0)');
   context.save();
   context.translate(width / 2, height / 2);
   context.rotate(-.34);
@@ -197,9 +237,9 @@ function makeMilkyWay(width, height) {
   context.restore();
   context.filter = 'none';
 
-  const nebulae = [
-    [.24, .62, '#39286b', .20], [.67, .34, '#204e72', .18], [.79, .67, '#603456', .12], [.48, .45, '#415f9c', .13],
-  ];
+  const nebulae = light
+    ? [[.24, .62, '#b5abc9', .13], [.67, .34, '#9ebec8', .12], [.79, .67, '#c7aeba', .09], [.48, .45, '#a8b8cd', .1]]
+    : [[.24, .62, '#39286b', .20], [.67, .34, '#204e72', .18], [.79, .67, '#603456', .12], [.48, .45, '#415f9c', .13]];
   for (const [x, y, color, opacity] of nebulae) {
     const radius = Math.max(width, height) * (.18 + random() * .13);
     const gradient = context.createRadialGradient(width * x, height * y, 0, width * x, height * y, radius);
@@ -214,8 +254,10 @@ function makeMilkyWay(width, height) {
     const x = random() * width;
     const y = random() * height;
     const size = random() > .986 ? 1.8 : random() * 1.05 + .2;
-    const alpha = .13 + random() * .58;
-    context.fillStyle = random() > .82 ? `rgba(157,205,255,${alpha})` : `rgba(255,250,230,${alpha})`;
+    const alpha = light ? .09 + random() * .24 : .13 + random() * .58;
+    context.fillStyle = light
+      ? random() > .82 ? `rgba(40,90,126,${alpha})` : `rgba(75,72,58,${alpha})`
+      : random() > .82 ? `rgba(157,205,255,${alpha})` : `rgba(255,250,230,${alpha})`;
     context.fillRect(x, y, size, size);
   }
   return layer;
@@ -244,6 +286,7 @@ export class CurriculumCosmos {
     this.tracks = [];
     this.filters = { hiddenSubjects: new Set(), hideAll: false, maxYear: 2022, selectedYears: new Set(), query: '' };
     this.mode = 'lineage';
+    this.theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
     this.selectedId = null;
     this.selectedFamilyId = null;
     this.activeSelectionIds = new Set();
@@ -350,6 +393,26 @@ export class CurriculumCosmos {
     this.draw();
   }
 
+  setTheme(theme) {
+    const next = theme === 'light' ? 'light' : 'dark';
+    if (this.theme === next && this.background) {
+      this.draw();
+      return;
+    }
+    this.theme = next;
+    this.background = makeMilkyWay(this.width, this.height, this.theme);
+    this.draw();
+  }
+
+  refreshViewport() {
+    requestAnimationFrame(() => {
+      if (!this.fitToVisibleGraph({
+        maxZoom: this.visibleSubjectCount() === 1 ? 1.32 : 1,
+        preserveOrientation: true,
+      })) this.draw();
+    });
+  }
+
   setMode(mode) {
     this.mode = mode === 'cross' ? 'cross' : 'lineage';
     this.draw();
@@ -433,11 +496,17 @@ export class CurriculumCosmos {
   safeViewport() {
     let viewport;
     if (this.width <= 640) {
-      viewport = { left: 8, top: 68, right: this.width - 8, bottom: this.height - 166 };
+      viewport = { left: 8, top: 68, right: this.width - 8, bottom: this.height - 92 };
     } else if (this.width <= 980) {
       viewport = { left: 34, top: 86, right: this.width - 18, bottom: this.height - 84 };
     } else {
       viewport = { left: 54, top: 96, right: this.width - 24, bottom: this.height - 84 };
+    }
+    const chronology = document.querySelector('.cosmos-year-control');
+    const chronologyRect = chronology?.getBoundingClientRect();
+    const canvasRect = this.canvas.getBoundingClientRect();
+    if (chronologyRect && canvasRect && chronologyRect.top < canvasRect.bottom) {
+      viewport.bottom = Math.min(viewport.bottom, chronologyRect.top - canvasRect.top - 12);
     }
     const obstruction = this.viewportObstruction;
     if (!obstruction) return viewport;
@@ -504,7 +573,7 @@ export class CurriculumCosmos {
     this.canvas.width = Math.round(this.width * this.dpr);
     this.canvas.height = Math.round(this.height * this.dpr);
     this.context.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.background = makeMilkyWay(this.width, this.height);
+    this.background = makeMilkyWay(this.width, this.height, this.theme);
     const crossedMobileBreakpoint = Boolean(previousWidth) && (previousWidth <= 640) !== (this.width <= 640);
     if (this.nodes.length && (!this.hasUserCamera || crossedMobileBreakpoint)) this.fitToVisibleGraph({
       immediate: true,
@@ -516,12 +585,13 @@ export class CurriculumCosmos {
 
   drawBackground(time) {
     const context = this.context;
-    context.fillStyle = '#03050e';
+    const palette = THEME_PALETTES[this.theme];
+    context.fillStyle = palette.background;
     context.fillRect(0, 0, this.width, this.height);
     if (this.background) context.drawImage(this.background, 0, 0, this.width, this.height);
     const vignette = context.createRadialGradient(this.width * .5, this.height * .48, 0, this.width * .5, this.height * .48, Math.max(this.width, this.height) * .69);
-    vignette.addColorStop(.2, 'rgba(5,10,24,0)');
-    vignette.addColorStop(1, 'rgba(0,1,7,.72)');
+    vignette.addColorStop(.2, palette.vignetteInner);
+    vignette.addColorStop(1, palette.vignetteOuter);
     context.fillStyle = vignette;
     context.fillRect(0, 0, this.width, this.height);
 
@@ -547,6 +617,7 @@ export class CurriculumCosmos {
 
   drawEraGates() {
     const context = this.context;
+    const palette = THEME_PALETTES[this.theme];
     context.save();
     for (const [index, gate] of ERA_GATES.entries()) {
       const top = this.project({ x: yearX(gate.year), y: -450, z: 0 });
@@ -554,7 +625,7 @@ export class CurriculumCosmos {
       context.beginPath();
       context.moveTo(top.x, top.y);
       context.lineTo(bottom.x, bottom.y);
-      context.strokeStyle = gate.year === 2022 ? 'rgba(231,189,97,.27)' : 'rgba(155,178,222,.12)';
+      context.strokeStyle = gate.year === 2022 ? palette.gateCurrent : palette.gate;
       context.lineWidth = 1;
       context.stroke();
       const safe = this.safeViewport();
@@ -567,11 +638,11 @@ export class CurriculumCosmos {
           ? safe.top + 13 + (this.width <= 640 ? 50 : 0) + earlyIndex * 17
           : Math.max(safe.top + 13, top.y + 17);
         const labelWidth = context.measureText(label).width;
-        context.fillStyle = 'rgba(3,6,16,.58)';
+        context.fillStyle = palette.gateLabelBackground;
         context.fillRect(labelX - 4, labelY - 13, labelWidth + 8, 18);
         context.fillStyle = gate.year === 2022
-          ? 'rgba(242,205,124,.9)'
-          : gate.early ? 'rgba(222,205,164,.8)' : 'rgba(200,215,242,.76)';
+          ? palette.gateLabelCurrent
+          : gate.early ? palette.gateLabelEarly : palette.gateLabel;
         context.fillText(label, labelX, labelY);
       }
     }
@@ -616,9 +687,10 @@ export class CurriculumCosmos {
       context.save();
       context.font = '650 9px ui-sans-serif, system-ui, sans-serif';
       const textWidth = context.measureText(options.label).width;
-      context.fillStyle = 'rgba(4,7,17,.9)';
+      const palette = THEME_PALETTES[this.theme];
+      context.fillStyle = palette.edgeLabelBackground;
       context.fillRect(x - textWidth / 2 - 5, y - 8, textWidth + 10, 16);
-      context.fillStyle = 'rgba(244,220,165,.92)';
+      context.fillStyle = palette.edgeLabel;
       context.textAlign = 'center';
       context.textBaseline = 'middle';
       context.fillText(options.label, x, y);
@@ -718,7 +790,10 @@ export class CurriculumCosmos {
       return;
     }
     occupied.push(box);
-    context.fillStyle = selected ? 'rgba(7,10,22,.94)' : related ? 'rgba(5,9,22,.9)' : 'rgba(3,6,16,.8)';
+    const palette = THEME_PALETTES[this.theme];
+    context.fillStyle = selected
+      ? palette.nodeLabelSelectedBackground
+      : related ? palette.nodeLabelRelatedBackground : palette.nodeLabelBackground;
     context.fillRect(x, y, width, height);
     if (selected || related || hovered) {
       context.strokeStyle = rgba(node.color, selected ? .72 : related ? .55 : .45);
@@ -727,9 +802,10 @@ export class CurriculumCosmos {
     }
     context.textBaseline = 'middle';
     context.lineWidth = 3;
-    context.strokeStyle = 'rgba(0,2,8,.95)';
+    context.strokeStyle = palette.nodeLabelStroke;
     context.strokeText(label, x + 7, y + height / 2 + .5);
-    context.fillStyle = `rgba(244,247,255,${.96 * node.effects.labelOpacity})`;
+    context.globalAlpha = node.effects.labelOpacity;
+    context.fillStyle = palette.nodeLabel;
     context.fillText(label, x + 7, y + height / 2 + .5);
     context.restore();
   }
@@ -796,6 +872,7 @@ export class CurriculumCosmos {
       total_nodes: this.nodes.length,
       visible_nodes: this.screenNodes.length,
       selected_years: [...this.filters.selectedYears].sort((left, right) => left - right),
+      theme: this.theme,
       safe_viewport: this.safeViewport(),
       viewport_obstruction: this.viewportObstruction,
       relationship_edges: this.relationshipEdges.length,

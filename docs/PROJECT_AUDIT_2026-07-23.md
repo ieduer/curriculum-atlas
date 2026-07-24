@@ -7,13 +7,13 @@
 
 產品主方向已經穩定：唯一主視圖是概念星圖，文件、OCR、物理頁和版次都退回 evidence layer；12 科的課程名稱、實踐、內容、能力已進入同一星圖，歷史與歷史與社會保持不同課程身份，只有來源明示的 1923 學科編組可作橫向實線。
 
-目前最大的風險不再是「有沒有星點」，而是三件事：
+v17 再次整體核查後，最大的風險已收斂為三件事：
 
-1. 候選資料的頁／版次人工裁決尚未完成，不能把 OCR 觀測寫成首次、消失、因果或正式替代。
-2. 1902–1949 原來被壓成一個導航階段，與資料的五個密集編訂段不相稱。
-3. 全量星點在手機預設視圖過密，年代控制與統一用戶浮標碰撞；Canvas 仍缺逐星鍵盤選擇的等價 DOM 路徑。
+1. 6,947 頁舊隊列不能再依賴人工：目前 31 頁已取得雙引擎逐字精確 receipt，6,916 頁仍需第三引擎／表格／空白機器仲裁；未通過者繼續 fail closed。
+2. 年代導航與 57 個精確年份原本同屏展開，在桌面互相搶寬、手機固定佔 164px。
+3. 暗色是唯一主題；直接反色會使控制、檢查器與 Canvas 標籤在亮色下失去可讀性。
 
-本輪已把第 2 項改為五段，並修正第 3 項中的預設標籤密度與浮標碰撞。逐星鍵盤路徑、全量 OCR coverage 收口和人工證據晉級仍列為後續門檻。
+本輪已建立不可人工覆蓋的機器核查 policy／receipt；把底部改為互斥的年代導航／年份對比控制塢；新增持久化暗／亮主題和 Canvas 雙 palette。既有逐星鍵盤路徑、全量候選 coverage、星點選中與 inspector 避讓全部保留。
 
 ## 本輪視覺證據
 
@@ -38,14 +38,17 @@
 
 | 優先級 | 問題 | 處理 |
 |---|---|---|
-| P0 | OCR candidate 可能被誤寫為史學結論 | 現有資料與 UI 保持 `citation=false`、`semantic=false`、first/disappearance/influence fail closed；繼續頁／版次人工裁決。 |
+| P0 | OCR candidate 可能被誤寫為史學結論 | 現有資料與 UI 保持 `citation=false`、`semantic=false`、first/disappearance/influence fail closed；只有機器 receipt 與 publication manifest 同時通過才可晉級。 |
+| P0 | OCR 舊 producer 的空 `critical_fields` 造成 blanket human queue | 新增 deterministic machine gate；31 頁 exact receipt，剩餘 5,063／1,780／73 頁分入第三引擎／表格／空白機器仲裁，人工必審 0。 |
+| P1 | 年代與年份對比重合 | 改為同一控制塢的互斥 tabpanel；概念選中自動切到年份對比，Canvas 按控制塢實際矩形重新 fit。 |
+| P1 | 亮色缺失或文字反差不足 | 暗色默認、亮色持久化；紙本 palette 的主要／次要／金色文字對背景均以 4.5:1 為門檻。 |
 | P1 | 1902–1949 單段過粗 | 本輪改為五個連續階段，Canvas 實線門與底部階段列共用同一配置。 |
 | P1 | 詞面搜索和 ontology 搜索疊層 | 本輪改為 episode 已命中時優先 Canvas；ontology-only 查詢仍可進深層概念星系。 |
 | P1 | 手機預設標籤過密 | 本輪把非選中自動標籤限制為 9 個；選中族仍完整點亮。 |
 | P1 | 手機年份列被統一用戶浮標遮擋 | 本輪提高底部控制安全區與 Canvas fit safe area。 |
-| P1 | Canvas 星點不可逐一用鍵盤選擇 | 後續增加與 Canvas 同源、非第二視圖的可聚焦搜索結果清單；證據檢查器繼續共用。 |
-| P1 | 全量星點缺 FPS／memory／hit-test 預算 | 在下一次大批 OCR 投影前建立 390×844 與普通筆電的性能門檻。 |
-| P2 | 發布缺 episode 增刪 diff receipt | 在 release manifest 增加 added／updated／removed stable IDs。 |
+| 已完成 | Canvas 星點鍵盤等價路徑 | 檢索結果清單與 Canvas 共用同一 episode 與 inspector；支援方向鍵、Home／End、Enter。 |
+| P1 | 新主題與時間塢需重錄 preview runtime | 部署 preview 後重新量測 1440×1000、390×844 的 ready、draw p95、long task 與零橫向溢出。 |
+| 已完成 | 發布 episode 增刪 diff receipt | release gate 已阻斷 silent removal 與跨層移動。 |
 
 ## 1950 前階段劃分
 
@@ -64,7 +67,7 @@
 - Canvas 階段門與短標籤；
 - 星圖底部顯隱按鈕；
 - `/archive` 文件分組；
-- slider 的 `aria-valuetext`。
+- 年代導航與年份對比的可訪問名稱、選中狀態與年份集合。
 
 這避免 Canvas、控制器和資料工作台各自維護一套年代名稱。
 
@@ -81,7 +84,7 @@
 ### 仍未完成
 
 - 剩餘 OCR 文件的完整 document/page denominator 與 zero-silent-missing 收口。
-- 341 個 bounded-item identity 的抽樣人工核對，以及高價值條目的逐頁／版次裁決。
+- 341 個 bounded-item identity 的機器一致性核對，以及高價值條目的逐頁／版次 hash 裁決。
 - OCR 詞面誤命中 review、同義詞版本化和概念粒度稽核。
 - 引文級 observation 的晉級；候選數量不能代替可引用證據數。
 - 新增學科分合關係只能來自來源明示，不從年代鄰近自動推導。
@@ -106,18 +109,18 @@
 
 ### 優化順序
 
-1. 完成全量 OCR coverage denominator 與缺口清單。
-2. 建立候選到引文級的人工 review queue 和可追溯晉級 receipt。
-3. 建立 Canvas 同源鍵盤結果清單與讀屏回歸。
-4. 建立大圖性能預算，再擴入下一批星點。
-5. 在 release manifest 增加 episode diff 和 24 小時 aggregate 後驗。
+1. 執行 5,063 頁第三引擎文字、1,780 頁表格結構、73 頁空白栅格仲裁。
+2. 將 31 頁現有 exact receipt 接入自動 page／paragraph manifest builder；D1 import 仍須獨立 release gate。
+3. 為亮色與互斥時間塢重錄 preview 桌面／手機 runtime 收據。
+4. 持續擴充 OCR 星點前保持靜態及 runtime 性能預算。
+5. 建立 24 小時 aggregate 後驗。
 
 ## 驗收標準
 
 - 仍只有一張 Canvas，沒有百年縱軸或文件時間軸。
 - 1902–1949 五段連續、無重疊、無缺年，1950 接續國家課程起點。
 - 所有階段線都是實線；代碼與 CSS 不含 dashed primitive。
-- slider 任意年份都標出所在階段，屏幕閱讀器可讀出年份與階段。
+- 年代導航與年份對比只能有一個 panel 可見；任意實際資料年份可多選，屏幕閱讀器可讀 tab、狀態與選中年份。
 - 390×844 預設非選中標籤不超過 9 個，年份控制不被統一用戶浮標遮擋。
 - episode 搜索命中時不再被 ontology 結果覆蓋。
 - candidate claim policy 不變；本輪沒有 D1、R2、VPS、OCR runtime 或 shared-hub mutation。

@@ -1,5 +1,5 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v39';
-import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v39';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v40';
+import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v40';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -8,7 +8,7 @@ import {
   normalizeSubjectFacet,
   planSubjectFacetQueries,
   publicSubjectFacet,
-} from './subject-facets.js?v=20260723v39';
+} from './subject-facets.js?v=20260723v40';
 
 const diagnosticsStartedAt = performance.now();
 let diagnosticsReadyAt = null;
@@ -81,6 +81,12 @@ const ocrLayerStatus = document.querySelector('#ocr-layer-status');
 const disciplineLifecycleEvents = document.querySelector('#discipline-lifecycle-events');
 const disciplineLifecycleStatus = document.querySelector('#discipline-lifecycle-status');
 const conceptYearLinks = document.querySelector('#concept-year-links');
+const chronologyEraTab = document.querySelector('#chronology-mode-era');
+const chronologyCompareTab = document.querySelector('#chronology-mode-compare');
+const chronologyEraPanel = document.querySelector('#chronology-era-panel');
+const chronologyComparePanel = document.querySelector('#chronology-compare-panel');
+const yearSelectionCount = document.querySelector('#year-selection-count');
+const themeChoices = document.querySelectorAll('[data-theme-choice]');
 
 const state = {
   meta: null,
@@ -124,6 +130,8 @@ const state = {
   searchResultEpisodes: [],
   introRevealActive: false,
   introRevealComplete: false,
+  chronologyMode: 'era',
+  theme: document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
 };
 
 const CORE_SUBJECTS = DISPLAY_SUBJECT_FACETS;
@@ -162,11 +170,45 @@ function renderYearCompareControls() {
       : `全部 ${state.availableYears.length} 个有资料年份`;
   clearYearSelection.disabled = selected.length === 0;
   yearBoundaryCompare.disabled = state.availableYears.length < 2;
+  yearSelectionCount.hidden = selected.length === 0;
+  yearSelectionCount.textContent = selected.length ? String(selected.length) : '';
   yearOptions.innerHTML = state.availableYears.map((year) => {
     const active = state.selectedYears.has(year);
     const pending = year > state.maxYear;
     return `<button type="button" data-compare-year="${year}" aria-pressed="${active}" ${pending ? 'disabled' : ''} class="${active ? 'active' : ''}">${year}</button>`;
   }).join('');
+}
+
+function setChronologyMode(mode, { focus = false } = {}) {
+  state.chronologyMode = mode === 'compare' ? 'compare' : 'era';
+  const compareActive = state.chronologyMode === 'compare';
+  chronologyEraTab.setAttribute('aria-selected', String(!compareActive));
+  chronologyCompareTab.setAttribute('aria-selected', String(compareActive));
+  chronologyEraTab.tabIndex = compareActive ? -1 : 0;
+  chronologyCompareTab.tabIndex = compareActive ? 0 : -1;
+  chronologyEraPanel.hidden = compareActive;
+  chronologyComparePanel.hidden = !compareActive;
+  document.querySelector('.cosmos-year-control')?.setAttribute('data-mode', state.chronologyMode);
+  state.cosmos?.refreshViewport();
+  if (focus) (compareActive ? chronologyCompareTab : chronologyEraTab).focus();
+}
+
+function setTheme(theme, { persist = true } = {}) {
+  state.theme = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = state.theme;
+  document.documentElement.style.colorScheme = state.theme;
+  document.querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', state.theme === 'light' ? '#edf1ee' : '#050814');
+  themeChoices.forEach((button) =>
+    button.setAttribute('aria-pressed', String(button.dataset.themeChoice === state.theme)));
+  if (persist) {
+    try {
+      localStorage.setItem('curriculum-atlas-theme-v1', state.theme);
+    } catch {
+      // Theme still applies when storage is blocked.
+    }
+  }
+  state.cosmos?.setTheme(state.theme);
 }
 
 function activateYearSelection(years, { fitVisible = true } = {}) {
@@ -198,14 +240,14 @@ async function api(path, options) {
 async function loadBase() {
   if (state.meta) return;
   const [conceptGraph, ocrLayer, detailLayer, pre2001Layer, centuryLayer, evolutionLayer, disciplineLifecycle, ocrCoverageSummary, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v39'),
-    api('/data/ocr-observation-layer.json?v=20260723v39'),
-    api('/data/subject-detail-observation-layer.json?v=20260723v39'),
-    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v39'),
-    api('/data/century-observation-layer.json?v=20260723v39'),
-    api('/data/concept-evolution-families.json?v=20260723v39'),
-    api('/data/discipline-lifecycle.json?v=20260723v39'),
-    api('/data/ocr-coverage-summary.json?v=20260723v39'),
+    api('/data/concept-evolution.json?v=20260723v40'),
+    api('/data/ocr-observation-layer.json?v=20260723v40'),
+    api('/data/subject-detail-observation-layer.json?v=20260723v40'),
+    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v40'),
+    api('/data/century-observation-layer.json?v=20260723v40'),
+    api('/data/concept-evolution-families.json?v=20260723v40'),
+    api('/data/discipline-lifecycle.json?v=20260723v40'),
+    api('/data/ocr-coverage-summary.json?v=20260723v40'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -217,6 +259,9 @@ async function loadBase() {
     || ocrCoverageSummary.artifact_profile !== 'curriculum-ocr-public-coverage-summary-v1'
     || ocrCoverageSummary.coverage?.candidate_remaining_pages !== 0
     || ocrCoverageSummary.coverage?.candidate_covered_pages !== ocrCoverageSummary.coverage?.nominal_pages
+    || ocrCoverageSummary.machine_verification?.policy_id !== 'curriculum-ocr-machine-verification-v1'
+    || ocrCoverageSummary.machine_verification?.machine_verified_exact_pages < 1
+    || ocrCoverageSummary.machine_verification?.human_required_pages !== 0
     || ocrCoverageSummary.release_gate?.citation_allowed !== false) {
     throw new Error('OCR 覆盖摘要未通过结构校验');
   }
@@ -452,7 +497,7 @@ async function loadBase() {
   state.availableYears = [...new Set(years)].sort((left, right) => left - right);
   state.selectedYears.clear();
   buildDeepModels();
-  ocrLayerStatus.innerHTML = `<b>百年资料与证据</b><span>11/11 检索分面 · ${escapeHtml(state.archiveItems.length)} 个 bounded items · 候选页 ${escapeHtml(ocrCoverageSummary.coverage.candidate_covered_pages)}/${escapeHtml(ocrCoverageSummary.coverage.nominal_pages)}</span><small>${escapeHtml(evolutionLayer.counts.detailed_families)} 条实践／内容／能力演进族 · ${escapeHtml(pre2001Layer.counts.episodes)} 个早期观察 · 双证据队列已分类 ${escapeHtml(ocrCoverageSummary.coverage.dual_witness_audited_pages)} 页，引文仍为 0</small>`;
+  ocrLayerStatus.innerHTML = `<b>百年资料与证据</b><span>11/11 检索分面 · ${escapeHtml(state.archiveItems.length)} 个 bounded items · 候选页 ${escapeHtml(ocrCoverageSummary.coverage.candidate_covered_pages)}/${escapeHtml(ocrCoverageSummary.coverage.nominal_pages)}</span><small>${escapeHtml(evolutionLayer.counts.detailed_families)} 条实践／内容／能力演进族 · ${escapeHtml(pre2001Layer.counts.episodes)} 个早期观察 · 机器精确核验 ${escapeHtml(ocrCoverageSummary.machine_verification?.machine_verified_exact_pages || 0)} 页，其余进入自动仲裁</small>`;
   ocrLayerStatus.hidden = false;
 }
 
@@ -474,9 +519,9 @@ function navigate(href, replace = false) {
 function qualityLabel(doc) {
   if (Number(doc.citation_allowed) === 1) return '图文与来源已过引文门槛';
   const ocrDocument = state.ocrLayer?.documents?.find((item) => item.id === doc.id);
-  if (ocrDocument?.status === 'complete') return `OCR ${ocrDocument.page_count} 页完成 · 待核不可引用`;
+  if (ocrDocument?.status === 'complete') return `OCR ${ocrDocument.page_count} 页完成 · 机器仲裁中不可引用`;
   if (ocrDocument?.status === 'active') return `OCR ${ocrDocument.completed_pages}/${ocrDocument.page_count} 页处理中`;
-  if (/ocr/i.test(String(doc.text_quality_status || ''))) return 'OCR 复核中 · 禁止 AI 引用';
+  if (/ocr/i.test(String(doc.text_quality_status || ''))) return 'OCR 机器复核中 · 禁止 AI 引用';
   return '元数据已确认 · 正文仍待核';
 }
 
@@ -703,6 +748,7 @@ function linkConceptYears(node) {
   conceptYearLinks.innerHTML = `<b>${escapeHtml(node.label)} · 关联年代</b>${years.map((year) =>
     `<button type="button" data-concept-year="${year}" aria-pressed="${state.selectedYears.has(year)}" class="${state.selectedYears.has(year) ? 'active' : ''}">${year}</button>`).join('')}`;
   conceptYearLinks.hidden = false;
+  setChronologyMode('compare');
   conceptYearLinks.querySelectorAll('[data-concept-year]').forEach((button) => button.addEventListener('click', () => {
     toggleYearSelection(button.dataset.conceptYear, { fitVisible: true });
     conceptYearLinks.querySelectorAll('button').forEach((item) => {
@@ -739,9 +785,9 @@ function conceptStatusLabel(status) {
     citation_ready: '段落与来源已过引文门槛',
     verified_non_citation: '图文人工复核 · 禁止逐字引用',
     source_text_candidate: '来源文本候选 · 段落门槛未过',
-    ocr_candidate: '双引擎 OCR 候选 · 待人工核对',
-    ocr_complete_pending_audit: 'OCR 全页完成 · 待人工核对',
-    ocr_complete_pending_item_audit: 'OCR 篇目完成 · 待逐项核对',
+    ocr_candidate: '双引擎 OCR 候选 · 待机器仲裁',
+    ocr_complete_pending_audit: 'OCR 全页完成 · 待机器仲裁',
+    ocr_complete_pending_item_audit: 'OCR 篇目完成 · 待自动逐项核查',
     catalog_title_candidate: '教育部编目标题候选 · 不可引用',
     conflict: '识别冲突 · 保留疑点',
   };
@@ -866,6 +912,10 @@ function showConceptInspector(episode) {
       .filter((item) => item.family_id === evolutionFamily.id)
       .map((item) => item.episode_id)
     : [episode.id]);
+  linkConceptYears({
+    label: evolutionFamily?.label || episode.label,
+    episode_ids: [...evolutionEpisodeIds],
+  });
   const episodeById = new Map(state.conceptGraph.episodes.map((item) => [item.id, item]));
   const disciplineRelations = state.conceptGraph.edges
     .filter((edge) => edge.mode === 'discipline'
@@ -1349,6 +1399,7 @@ function showDisciplineEventInspector(event) {
   state.cosmos?.setSelected(null);
   conceptYearLinks.innerHTML = `<b>${escapeHtml(event.label)} · 关联年代</b><button type="button" data-concept-year="${event.year}" aria-pressed="${state.selectedYears.has(event.year)}" class="${state.selectedYears.has(event.year) ? 'active' : ''}">${event.year}</button>`;
   conceptYearLinks.hidden = false;
+  setChronologyMode('compare');
   inspector.innerHTML = `
     <button class="inspector-close" type="button" aria-label="关闭">×</button>
     <p class="inspector-kicker">${event.year} · 学科设置与分合 · ${escapeHtml(event.display_tag)}</p>
@@ -1410,6 +1461,7 @@ function renderEraControls() {
     const start = Number(button.dataset.eraStart);
     const end = Number(button.dataset.eraEnd);
     activateYearSelection(state.availableYears.filter((year) => year >= start && year <= end));
+    setChronologyMode('era');
   }));
   syncYearStageState();
 }
@@ -1625,7 +1677,7 @@ function ocrPipelineSummaryHtml() {
   const summary = state.ocrCoverageSummary;
   if (!layer || !summary) return '';
   const active = layer.documents.find((document) => document.status === 'active');
-  return `<section class="ocr-data-summary"><p><b>OCR 候选覆盖已闭合</b><span>${escapeHtml(summary.coverage.candidate_covered_pages)}/${escapeHtml(summary.coverage.nominal_pages)} 页 · 缺口 ${escapeHtml(summary.coverage.candidate_remaining_pages)}</span></p><p>其中 ${escapeHtml(summary.coverage.single_witness_candidate_fallback_pages)} 页为单见证候选补齐；${escapeHtml(summary.coverage.dual_witness_audited_pages)} 页已分为抽样、冲突、表格与空白确认队列，引文就绪仍为 ${escapeHtml(summary.coverage.citation_ready_pages)}。${active ? ` 当前任务：${escapeHtml(active.completed_pages)}/${escapeHtml(active.page_count)} 页。` : ''}</p></section>`;
+  return `<section class="ocr-data-summary"><p><b>OCR 候选覆盖已闭合</b><span>${escapeHtml(summary.coverage.candidate_covered_pages)}/${escapeHtml(summary.coverage.nominal_pages)} 页 · 缺口 ${escapeHtml(summary.coverage.candidate_remaining_pages)}</span></p><p>双引擎逐字精确一致并完成来源绑定 ${escapeHtml(summary.machine_verification?.machine_verified_exact_pages || 0)} 页；其余 ${escapeHtml(summary.machine_verification?.machine_adjudication_pending_pages || 0)} 页进入第三引擎、表格结构或空白栅格自动仲裁，人工必审 ${escapeHtml(summary.machine_verification?.human_required_pages || 0)} 页。正式引文仍为 ${escapeHtml(summary.coverage.citation_ready_pages)}。${active ? ` 当前任务：${escapeHtml(active.completed_pages)}/${escapeHtml(active.page_count)} 页。` : ''}</p></section>`;
 }
 
 async function renderCompare(url) {
@@ -2017,14 +2069,17 @@ function initializeCosmos() {
     onHover: showTooltip,
   });
   state.cosmos.setData(state.conceptGraph);
+  setTheme(state.theme, { persist: false });
   renderSubjectControls();
   renderEraControls();
+  setChronologyMode(state.chronologyMode);
   startCenturyReveal();
   diagnosticsReadyAt = performance.now();
   window.__CURRICULUM_ATLAS_DIAGNOSTICS__ = () => ({
     ready: true,
     ready_ms: Number((diagnosticsReadyAt - diagnosticsStartedAt).toFixed(3)),
     graph: state.cosmos.performanceSnapshot(),
+    interface: { theme: state.theme, chronology_mode: state.chronologyMode },
     data: {
       episodes: state.conceptGraph.episodes.length,
       edges: state.conceptGraph.edges.length,
@@ -2057,6 +2112,15 @@ yearOptions.addEventListener('click', (event) => {
 clearYearSelection.addEventListener('click', () => activateYearSelection([], { fitVisible: true }));
 yearBoundaryCompare.addEventListener('click', () =>
   activateYearSelection([state.availableYears[0], state.availableYears.at(-1)], { fitVisible: true }));
+chronologyEraTab.addEventListener('click', () => setChronologyMode('era'));
+chronologyCompareTab.addEventListener('click', () => setChronologyMode('compare'));
+document.querySelector('.chronology-tabs').addEventListener('keydown', (event) => {
+  if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+  event.preventDefault();
+  setChronologyMode(state.chronologyMode === 'era' ? 'compare' : 'era', { focus: true });
+});
+themeChoices.forEach((button) =>
+  button.addEventListener('click', () => setTheme(button.dataset.themeChoice)));
 searchForm.addEventListener('submit', (event) => {
   event.preventDefault();
   selectConceptEpisode(state.searchResultEpisodes[0]);

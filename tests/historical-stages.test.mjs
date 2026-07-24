@@ -45,12 +45,14 @@ test('the stage strip remains inside the single cosmos and is accessible while h
   assert.match(app, /aria-pressed=/);
   assert.match(app, /selected\.every\(\(year\) => year >= era\.start && year <= era\.end\)/);
   assert.match(app, /aria-current/);
-  assert.match(styles, /\.era-buttons \{[^}]*display:\s*flex;[^}]*overflow-x:\s*auto;/);
+  assert.match(styles, /\.era-buttons > div \{[^}]*display:\s*flex;[^}]*overflow-x:\s*auto;/);
   assert.match(styles, /\.era-buttons button \{[^}]*scroll-snap-align:\s*start;/);
 });
 
 test('mobile declutters automatic star labels and keeps the unified-user widget off the year scrubber', () => {
   assert.match(atlas, /const automaticLimit = this\.width <= 640 \? 9/);
-  assert.match(atlas, /bottom:\s*this\.height - 166/);
+  assert.match(atlas, /document\.querySelector\('\.cosmos-year-control'\)/);
+  assert.match(atlas, /viewport\.bottom = Math\.min\(viewport\.bottom, chronologyRect\.top - canvasRect\.top - 12\)/);
+  assert.doesNotMatch(atlas, /bottom:\s*this\.height - 166/);
   assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?\.cosmos-year-control \{[\s\S]*?bottom:\s*calc\(74px \+ env\(safe-area-inset-bottom\)\);/);
 });

@@ -25,5 +25,13 @@
     "citation_allowed": false,
     "semantic_promotion_allowed": false,
     "negative_claim_eligible": false
+  },
+  "machine_verification": {
+    "policy_id": "curriculum-ocr-machine-verification-v1",
+    "machine_verified_exact_pages": 31,
+    "publication_manifest_eligible_pages": 31,
+    "machine_adjudication_pending_pages": 6916,
+    "human_required_pages": 0,
+    "production_citation_ready_pages": 0
   }
 }

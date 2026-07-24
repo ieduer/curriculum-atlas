@@ -14,10 +14,11 @@
   <meta property="og:image" content="https://img.bdfz.net/20250503004.webp">
   <link rel="icon" href="https://img.bdfz.net/20250503004.webp" type="image/webp">
   <link rel="apple-touch-icon" href="https://img.bdfz.net/20250503004.webp">
-  <link rel="stylesheet" href="/styles.css?v=20260723v39">
-  <link rel="modulepreload" href="/subject-facets.js?v=20260723v39">
-  <link rel="modulepreload" href="/historical-stages.js?v=20260723v39">
-  <script type="module" src="/app.js?v=20260723v39"></script>
+  <script src="/theme-init.js?v=20260723v40"></script>
+  <link rel="stylesheet" href="/styles.css?v=20260723v40">
+  <link rel="modulepreload" href="/subject-facets.js?v=20260723v40">
+  <link rel="modulepreload" href="/historical-stages.js?v=20260723v40">
+  <script type="module" src="/app.js?v=20260723v40"></script>
 </head>
 <body>
   <a class="skip-link" href="#cosmos-stage">跳到课程星图</a>
@@ -26,6 +27,10 @@
       <img class="brand-seal" src="/assets/century-curriculum-mark.jpg" width="512" height="512" alt="">
       <span><b>百年课标</b></span>
     </a>
+    <div class="theme-switch" role="group" aria-label="星图明暗主题">
+      <button type="button" data-theme-choice="dark" aria-pressed="true"><span aria-hidden="true">●</span>暗色</button>
+      <button type="button" data-theme-choice="light" aria-pressed="false"><span aria-hidden="true">○</span>亮色</button>
+    </div>
   </header>
 
   <main id="app">
@@ -75,12 +80,17 @@
           <span><i class="key-discipline"></i>横向：来源明示的学科分合</span>
         </div>
       </aside>
-      <section class="cosmos-year-control" aria-label="星图内年份显隐">
-        <div class="era-buttons" id="era-buttons"></div>
-        <div class="concept-year-links" id="concept-year-links" aria-label="当前概念关联年代" hidden></div>
-        <div class="year-compare">
+      <section class="cosmos-year-control" aria-label="星图年代与年份控制">
+        <div class="chronology-tabs" role="tablist" aria-label="选择时间控制方式">
+          <button id="chronology-mode-era" type="button" role="tab" aria-selected="true" aria-controls="chronology-era-panel">年代导航</button>
+          <button id="chronology-mode-compare" type="button" role="tab" aria-selected="false" aria-controls="chronology-compare-panel">年份对比 <span id="year-selection-count" hidden></span></button>
+        </div>
+        <div class="chronology-panel era-buttons" id="chronology-era-panel" role="tabpanel" aria-labelledby="chronology-mode-era">
+          <div id="era-buttons"></div>
+        </div>
+        <div class="chronology-panel year-compare" id="chronology-compare-panel" role="tabpanel" aria-labelledby="chronology-mode-compare" hidden>
+          <div class="concept-year-links" id="concept-year-links" aria-label="当前概念关联年代" hidden></div>
           <header>
-            <b>年份对比</b>
             <span id="year-selection-status" aria-live="polite">正在载入年份</span>
             <button id="year-boundary-compare" type="button">首尾</button>
             <button id="clear-year-selection" type="button">全部</button>

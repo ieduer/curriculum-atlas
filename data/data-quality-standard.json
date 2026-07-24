@@ -97,6 +97,29 @@
     "blank_visual_confirmation": 73,
     "unclassified_pages": 0
   },
+  "ocr_machine_verification": {
+    "policy_id": "curriculum-ocr-machine-verification-v1",
+    "audited_pages": 6947,
+    "machine_verified_exact_pages": 31,
+    "third_engine_text_consensus_pages": 5063,
+    "table_structure_consensus_pages": 1780,
+    "blank_raster_consensus_pages": 73,
+    "publication_manifest_eligible_pages": 31,
+    "production_citation_ready_pages": 0,
+    "human_required_pages": 0
+  },
+  "interface_policy": {
+    "default_theme": "dark",
+    "themes": ["dark", "light"],
+    "theme_storage_key": "curriculum-atlas-theme-v1",
+    "light_surface": "#edf1ee",
+    "light_primary_text": "#16213a",
+    "light_muted_text": "#4f5e75",
+    "minimum_text_contrast_ratio": 4.5,
+    "chronology_modes": ["era", "compare"],
+    "chronology_panels_mutually_exclusive": true,
+    "maximum_mobile_dock_clearance_px": 150
+  },
   "discipline_lifecycle_policy": {
     "required_history_event_types": [
       "integrated_grouping",

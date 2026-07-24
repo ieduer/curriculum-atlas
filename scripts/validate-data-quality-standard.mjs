@@ -17,6 +17,8 @@ const paths = {
   coverage: resolve(root, 'data/ocr-coverage-ledger.json'),
   candidateFallback: resolve(root, 'data/ocr-candidate-fallback-ledger.json'),
   reviewTriage: resolve(root, 'data/ocr-review-triage.json'),
+  machinePolicy: resolve(root, 'data/ocr-machine-verification-policy.json'),
+  machineVerification: resolve(root, 'data/ocr-machine-verification.json'),
   lifecycle: resolve(root, 'public/data/discipline-lifecycle.json'),
   releaseDiff: resolve(root, 'data/release-episode-diff.json'),
   performanceBudget: resolve(root, 'data/star-map-performance-budget.json'),
@@ -32,6 +34,7 @@ const paths = {
   atlas: resolve(root, 'public/atlas.js'),
   styles: resolve(root, 'public/styles.css'),
   index: resolve(root, 'public/index.html'),
+  themeInit: resolve(root, 'public/theme-init.js'),
   receipt: resolve(root, 'data/data-quality-validation.json'),
 };
 
@@ -51,6 +54,17 @@ function equal(left, right) {
   return stableStringify(left) === stableStringify(right);
 }
 
+function relativeLuminance(hex) {
+  const channels = hex.match(/[a-f0-9]{2}/giu).map((value) => Number.parseInt(value, 16) / 255)
+    .map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+  return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+}
+
+function contrastRatio(left, right) {
+  const values = [relativeLuminance(left), relativeLuminance(right)].sort((a, b) => b - a);
+  return (values[0] + 0.05) / (values[1] + 0.05);
+}
+
 const sourceText = {};
 for (const [key, path] of Object.entries(paths)) {
   if (key === 'receipt') continue;
@@ -62,6 +76,8 @@ const candidateSchema = JSON.parse(sourceText.candidateSchema);
 const coverage = JSON.parse(sourceText.coverage);
 const candidateFallback = JSON.parse(sourceText.candidateFallback);
 const reviewTriage = JSON.parse(sourceText.reviewTriage);
+const machinePolicy = JSON.parse(sourceText.machinePolicy);
+const machineVerification = JSON.parse(sourceText.machineVerification);
 const lifecycle = JSON.parse(sourceText.lifecycle);
 const releaseDiff = JSON.parse(sourceText.releaseDiff);
 const performanceBudget = JSON.parse(sourceText.performanceBudget);
@@ -219,6 +235,55 @@ record('ocr.review_queue_triaged_exact',
   equal(observedReviewTriage, standard.ocr_review_triage),
   observedReviewTriage,
   standard.ocr_review_triage);
+const observedMachineVerification = {
+  policy_id: machineVerification.policy_id,
+  ...machineVerification.counts,
+};
+record('ocr.machine_verification_exact_and_fail_closed',
+  equal(observedMachineVerification, standard.ocr_machine_verification)
+    && machineVerification.source_bindings.policy_sha256 === sha256(sourceText.machinePolicy)
+    && machinePolicy.release_policy.manual_override_allowed === false
+    && machinePolicy.release_policy.human_review_required === false
+    && machineVerification.release_gate.production_publication_mutation === 'none'
+    && machineVerification.verified_pages.length === machineVerification.counts.machine_verified_exact_pages
+    && machineVerification.verified_pages.every((page) =>
+      page.publication_manifest_eligible === true
+      && page.production_citation_ready === false
+      && page.semantic_claim_allowed === false),
+  observedMachineVerification,
+  standard.ocr_machine_verification);
+
+const interfacePolicy = standard.interface_policy;
+const primaryContrast = contrastRatio(interfacePolicy.light_primary_text, interfacePolicy.light_surface);
+const mutedContrast = contrastRatio(interfacePolicy.light_muted_text, interfacePolicy.light_surface);
+const mobileDockMatch = sourceText.styles.match(/--mobile-dock-clearance:\s*(\d+)px/u);
+const mobileDockClearance = Number(mobileDockMatch?.[1]);
+record('interface.theme_and_chronology_contract',
+  sourceText.index.includes('data-theme-choice="dark" aria-pressed="true"')
+    && sourceText.index.includes('data-theme-choice="light" aria-pressed="false"')
+    && sourceText.index.indexOf('/theme-init.js?v=20260723v40')
+      < sourceText.index.indexOf('/styles.css?v=20260723v40')
+    && sourceText.themeInit.includes(interfacePolicy.theme_storage_key)
+    && sourceText.app.includes('chronologyComparePanel.hidden = !compareActive')
+    && sourceText.app.includes('chronologyEraPanel.hidden = compareActive')
+    && sourceText.index.includes('id="chronology-compare-panel" role="tabpanel" aria-labelledby="chronology-mode-compare" hidden')
+    && sourceText.styles.includes('.chronology-panel[hidden] { display: none; }')
+    && primaryContrast >= interfacePolicy.minimum_text_contrast_ratio
+    && mutedContrast >= interfacePolicy.minimum_text_contrast_ratio
+    && mobileDockClearance <= interfacePolicy.maximum_mobile_dock_clearance_px,
+  {
+    default_theme: 'dark',
+    primary_contrast_ratio: Number(primaryContrast.toFixed(3)),
+    muted_contrast_ratio: Number(mutedContrast.toFixed(3)),
+    chronology_modes: interfacePolicy.chronology_modes,
+    mobile_dock_clearance_px: mobileDockClearance,
+  },
+  {
+    default_theme: interfacePolicy.default_theme,
+    minimum_text_contrast_ratio: interfacePolicy.minimum_text_contrast_ratio,
+    chronology_modes: interfacePolicy.chronology_modes,
+    maximum_mobile_dock_clearance_px: interfacePolicy.maximum_mobile_dock_clearance_px,
+  });
 
 const lifecycleSourceIds = new Set(lifecycle.sources.map((item) => item.id));
 const historyEvents = lifecycle.events.filter((event) => event.public_facets.includes('历史'));
@@ -422,6 +487,10 @@ const receipt = {
     ocr_candidate_covered_pages: coverage.counts.candidate_covered_pages_including_review_evidence,
     ocr_candidate_remaining_pages: coverage.counts.candidate_remaining_pages,
     ocr_citation_ready_pages: coverage.counts.citation_ready_pages,
+    ocr_machine_verified_exact_pages: machineVerification.counts.machine_verified_exact_pages,
+    ocr_machine_adjudication_pending_pages: machineVerification.counts.audited_pages
+      - machineVerification.counts.machine_verified_exact_pages,
+    ocr_human_required_pages: machineVerification.counts.human_required_pages,
   },
   checks,
 };

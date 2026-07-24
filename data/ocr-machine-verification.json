@@ -1,0 +1,1512 @@
+{
+  "schema_version": 1,
+  "artifact_profile": "curriculum-ocr-machine-verification-v1",
+  "policy_id": "curriculum-ocr-machine-verification-v1",
+  "source_bindings": {
+    "review_queue_sha256": "a52df2e49f84c651773b947b8d1fb37d65498d5a1812bbdbc8bddbc01df9dd84",
+    "ocr_queue_sha256": "0cf6c2f8b21737c165287e9ae894bc93fc6e49ebd623c2463df296bc43fb73c5",
+    "policy_sha256": "6d7ab57cfe7c0c6076b3f7923ac8efb52e403669aafb871916a208dcdac86aab"
+  },
+  "assertion_boundary": "Exact dual-engine machine receipts may feed the page publication manifest. They are not yet production citations and do not prove semantic continuity, first appearance, disappearance, replacement, influence, or causality.",
+  "counts": {
+    "audited_pages": 6947,
+    "machine_verified_exact_pages": 31,
+    "third_engine_text_consensus_pages": 5063,
+    "table_structure_consensus_pages": 1780,
+    "blank_raster_consensus_pages": 73,
+    "publication_manifest_eligible_pages": 31,
+    "production_citation_ready_pages": 0,
+    "human_required_pages": 0
+  },
+  "release_gate": {
+    "manual_override_allowed": false,
+    "human_review_required": false,
+    "automatic_manifest_generation_allowed_for_exact_pages": true,
+    "production_publication_mutation": "none",
+    "semantic_claim_allowed": false
+  },
+  "verified_pages": [
+    {
+      "stable_locator": "ictr-0f671ae84421:page:6",
+      "source_pdf_sha256": "0eda7b1ff0f748e938cf87378b39fdee964af42430aa0c441c01e7aa736871e9",
+      "physical_pdf_page": 6,
+      "primary_text_sha256": "2b71b8dc8a2e0e009ef9603e80f8c9d4079a8e997ab0ad04bee84c0efd7c8b7e",
+      "independent_witness_sha256": "ceeed6f00a25ddf6de0b9c68d43968fcf8780d80be058483705983de22ff06a3",
+      "independent_witness_envelope_sha256": "bbb11fb5254a13e7824a7a3aa76866d1098f56350d831124456a56a8c0f816b1",
+      "rendered_image_sha256": "bb1868a75d41cb8ea2ab4243c890f4e064493e6b29e2a978392383992e534f98",
+      "normalized_text_sha256": "003e5ea3d5c7690bb623a4504f30a258569b1e0ee0d7a1a993a2552857bbb9c6",
+      "protected_fields_sha256": "9d823b432e906df9ae165fd9ed6ee0f5fdb941c28090a4011eefc6c840bf43c5",
+      "document_id": "ictr-0f671ae84421",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.926087,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "efd7cea25e3dad436dceb01477e1b1a5b23ef763c2d62f051af8b505961a3da1"
+    },
+    {
+      "stable_locator": "ictr-1adc57fe27b4:page:11",
+      "source_pdf_sha256": "b5ed42deb8d7ea9cd8ed565f662eb43f15a006158fd18e7b4af22caf1c0648e9",
+      "physical_pdf_page": 11,
+      "primary_text_sha256": "ec2effce99276eb97660a9cfa8d27e6047185fd7a69d778268a6ca2e344f4f97",
+      "independent_witness_sha256": "89654f770f8705292f0b20fe036b0edd58914f30dcdc2bd369335e28c67de83a",
+      "independent_witness_envelope_sha256": "a090f5879c7ed28fd2280f01c9c4c5adc0d196668fba34bedb28f4bc52278ecb",
+      "rendered_image_sha256": "5cd87024f6652c501a4fb7c69373b67d489aa37ea82be524b70a4e629f85aaae",
+      "normalized_text_sha256": "817facd5e66043d46ac64fab4276bc23372439a9ad553c0f663ad4355f023798",
+      "protected_fields_sha256": "e6244d2be47f9e89644385aa4db8834b7e02a8dfe1ebc4d72c1167b0f5591d2e",
+      "document_id": "ictr-1adc57fe27b4",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.931818,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "ab03c0d6121e91a26cfcfe9a524fc27dab7f6abe35c5c83c46db952487d502e8"
+    },
+    {
+      "stable_locator": "ictr-4509b6ddd5b8:page:3",
+      "source_pdf_sha256": "1c65aced1afc186044608586d7f41e633a0656bc71ca05162294b297ec1bb386",
+      "physical_pdf_page": 3,
+      "primary_text_sha256": "023e437a51d316039884a4db4b18ee924df93e273934bd3fb8424c1868425af6",
+      "independent_witness_sha256": "81ceffc6561209b9ca1110976ce2c0aabea7c93512b9f31caf28c785ae78857a",
+      "independent_witness_envelope_sha256": "99f82d1653ef1749e648022a9f1d2fc8ab9f24258b6f74fa550387e18c642e9b",
+      "rendered_image_sha256": "8083d0c125d20de446c20f7bd8486422a09d7a19c320046e7a228525ffad1e76",
+      "normalized_text_sha256": "2cb1fb948efeb64f53215a2ca9d39e4c7ccf28bbc78c10656aed79684e6c6e75",
+      "protected_fields_sha256": "886b9e2f2ff4cae8500fd35856a6f78976c1e06d1113018f97645c3bfa78e642",
+      "document_id": "ictr-4509b6ddd5b8",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.837931,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "30f027f43f993f43d2754cd6ba260d8b62056e8c0e11441f65d65cbcec327271"
+    },
+    {
+      "stable_locator": "ictr-49d2b44f0df1:page:3",
+      "source_pdf_sha256": "1b75ee382e898b10aeb5970f388fb1abf8cfe97609338d81aa12063aff076007",
+      "physical_pdf_page": 3,
+      "primary_text_sha256": "4c4c3495b37578471b4dea343d0639fee1248ef73aa39a4932aead61d39fdcb3",
+      "independent_witness_sha256": "cf2474e694843b1de048e7b7c86e1c0f9393219e5f97a1235c45246fc0503625",
+      "independent_witness_envelope_sha256": "e3334e3de61ce3e7306066791440e055357f76144183a849a9d77fce0490ea52",
+      "rendered_image_sha256": "1db5e5f0e229d83aa49d96df32a1bec3002217b792d093abc70a26ad181b2b4e",
+      "normalized_text_sha256": "d6eea9438af3d8d5bcf3dda854e703aff7cbfb14c964977466e896ef62836740",
+      "protected_fields_sha256": "8bbb102002dca32a67027a0f309bb8964d77709f7a185cc6243ec3af6cbe3205",
+      "document_id": "ictr-49d2b44f0df1",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.825926,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "9b9f9530139c3c694adc90a736194f1f1793b5de02303ed335fde0f0ad93d224"
+    },
+    {
+      "stable_locator": "ictr-6c6df9d121ac:page:1",
+      "source_pdf_sha256": "d5f080fee80df073ef67f6b0dbe303250913777aee32f98bea4f22df1c6247d8",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "4df1d52220fbd465c9706e25bdb43ea61a188ebfd8bd8e77ad52ccc1a12989ca",
+      "independent_witness_sha256": "85d4741df66073935577e2a3dd0cdaac18c0054fb79ac27416f323fa69b07ae4",
+      "independent_witness_envelope_sha256": "18b999baf1cf65b4d3fc7b5ea017a43fa803231c8c92170597876305600770a4",
+      "rendered_image_sha256": "6d63183fc6e418217677546a03d178f52a5e74f8a3ae71ee8db20e4ef336092d",
+      "normalized_text_sha256": "6d2664baa3a1f2f21e955fd44a3586ae317e12c99b9e22f7fd16dfe47d74638f",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "ictr-6c6df9d121ac",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.875,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "3938ced077d32c68079b74811dd4f1593c1ed7dad3f766a5cc9c7bcdb7607465"
+    },
+    {
+      "stable_locator": "ictr-7759fd25e216:page:12",
+      "source_pdf_sha256": "9917c10d66461b196321a91aaac5206294d192fc741d5d2d0b6ccb62184b3527",
+      "physical_pdf_page": 12,
+      "primary_text_sha256": "9a5be1b657b864c94705694bb15f18faae5702eebbae5088a265d66e1a32032a",
+      "independent_witness_sha256": "49a1516fb3c03797802f94567d557984e730c291dfe56a3e8955fbfd1b00fcfd",
+      "independent_witness_envelope_sha256": "34d4cc6cdc543cd78eafa50f520ea1d4f200c6dd6e7b8846e3dc0be0f7a0ceeb",
+      "rendered_image_sha256": "3d699951946a36928731d5d26a7d671a9e0f11cc8016bede28581bbff6199588",
+      "normalized_text_sha256": "58305db940923bf3e7b150552c1f1ef944628ba5b6ad3bda7a220edbefd95774",
+      "protected_fields_sha256": "5715e8b067b31803ebca4a0cfced43664d05e2c848fd5f76a2e5f2dc36b99123",
+      "document_id": "ictr-7759fd25e216",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.925,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "4d9edb040a715adf896b3f05576826acdfba52233844cd68cc39cf772472609b"
+    },
+    {
+      "stable_locator": "ictr-7759fd25e216:page:3",
+      "source_pdf_sha256": "9917c10d66461b196321a91aaac5206294d192fc741d5d2d0b6ccb62184b3527",
+      "physical_pdf_page": 3,
+      "primary_text_sha256": "6b54f0236fbd4f9868f1fe56a7d29dea63209030892cb55f0edd7f9ba444bc27",
+      "independent_witness_sha256": "517dbb006c2145af2e2b2ac36100b16d47a95afb27c0a78d8aa8c0f62654545f",
+      "independent_witness_envelope_sha256": "5fde4b06851c175b96b5b8d38d27d951f3bb549d7be8a9f482787c32c9067032",
+      "rendered_image_sha256": "23bfbd25f159caa10e6522a1a27a334712bd576bc464948e11999a23a5f3ca68",
+      "normalized_text_sha256": "d8cf5b5fd3618b4ff594b91a5d6d862e0d23c96d0b2c84c6cc1931a14374b6b8",
+      "protected_fields_sha256": "249cd5328182ccdc3af4c482d28873acbf407ca2bf22b956ac9a4d82f1e4b94c",
+      "document_id": "ictr-7759fd25e216",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.85,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "c9ae2c4f647e4bfd86da0e0879afccb7fa849ed0d4ab0ac6bbfd7b3e3ffb0a83"
+    },
+    {
+      "stable_locator": "ictr-7c995a071399:page:10",
+      "source_pdf_sha256": "42ff64adfe5c31d16c9c2b8b9fbd649c6fd2e3478d30cfbc5b84e7b39fdfb661",
+      "physical_pdf_page": 10,
+      "primary_text_sha256": "2791f4b353ea9f54b9f8b828fe8a6041db17cbaebbcf2e20c7ee511c1cc9c6f3",
+      "independent_witness_sha256": "5ddb367a88c3fa3502bc1feb517fef74c0db16b4ecf369b70e70509fcec1dd88",
+      "independent_witness_envelope_sha256": "5dae17552f4f39336c401ec092b8b15d2cb476392df61404efac1bbdce087b35",
+      "rendered_image_sha256": "9b5fa85af183d0d4038ad41b8bc6bde79dc4cdbd639b418ed07dbdc9d44ea30f",
+      "normalized_text_sha256": "af7ea7311e2a7158bc7b3f98c238171a3e68c0864b9415186960795291cbf9e9",
+      "protected_fields_sha256": "fcce86900e6fb86d92790457cba49d1871886b52c6c75831f7e893fc02161ca4",
+      "document_id": "ictr-7c995a071399",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.86087,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "c36e559ddfe6794f2d5e169b257f7bf8117fa0081ff8ceb8a3e277cac6044bc3"
+    },
+    {
+      "stable_locator": "ictr-8706c7766742:page:3",
+      "source_pdf_sha256": "807caf6715335cab206af1f3d59f0f81c17f1c5a7f3651f96659f2792a68875c",
+      "physical_pdf_page": 3,
+      "primary_text_sha256": "a89e1a8ea084b90e21f5e9e65d7b5fe8830baccac4e65adfa841f7ebe0fe8b06",
+      "independent_witness_sha256": "670b8aad3a0b3a45393837d57addee725b522bc810d251e2ebc42af7b1b66104",
+      "independent_witness_envelope_sha256": "b08e6737e66a1ce9b91e6b5a3a5c5f5dc967e5125e28610780783abd8160dd0e",
+      "rendered_image_sha256": "00e33a6ab37c2b947c53dd2d07472ca912b6e6f24d58248fa04d60685df40b04",
+      "normalized_text_sha256": "53d14eb7b2e8d61c111baf621d5d29097323a76d276f3847fd039761e4006d1d",
+      "protected_fields_sha256": "c45bff19963c1e3c3ddd175f9f2d46212ccbf11e7fa08b7f7f3efbabe61682ea",
+      "document_id": "ictr-8706c7766742",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.867857,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "71f8aae2cd04b24983055b492f6db76ad016402b3a95015fe01d052d96be9742"
+    },
+    {
+      "stable_locator": "ictr-8706c7766742:page:6",
+      "source_pdf_sha256": "807caf6715335cab206af1f3d59f0f81c17f1c5a7f3651f96659f2792a68875c",
+      "physical_pdf_page": 6,
+      "primary_text_sha256": "1ac1567a477a8004a5af3f884ef6bb78b7adfec5e2217d98523e779aa26b8743",
+      "independent_witness_sha256": "ff4e7c924be758d37074496ff8f96abd812d88e4750f8bf28ab68281f739c1d0",
+      "independent_witness_envelope_sha256": "c09797ce48e85bd6a684634ac208dad874c36c42e66a0b2d88a155148c338e8a",
+      "rendered_image_sha256": "b1dcc75797c8b34fb79659cfa20cd880413758c591be4b36e54da625e35ba229",
+      "normalized_text_sha256": "86908387400312aef9018e204a540d15d4a3cd934825b1a66a6b490d8b6d7376",
+      "protected_fields_sha256": "e3282281b75dcc6807e6bf2e96b6a989a875e05426a124018dc073be150072b3",
+      "document_id": "ictr-8706c7766742",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.961538,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "4089ab8b78f6eb0ddde7df2267cc99853af84455eff00044f91786bc30f63b8b"
+    },
+    {
+      "stable_locator": "ictr-ceb759a85c4b:page:3",
+      "source_pdf_sha256": "951385b22fd6b1cd1abc951edffa545171dbc5f0bbd08fd5caf1a5d613b2eefd",
+      "physical_pdf_page": 3,
+      "primary_text_sha256": "74d6d872e008911fe6ebc22cd1e5acf6f2c653104212710c70fc3bed4ca272b6",
+      "independent_witness_sha256": "4f0e62795faf65fff42729d65514eb643fad76a4f97d4f87a91af8d6a113a9c5",
+      "independent_witness_envelope_sha256": "3bf9e016e1dccf9ce9a0f0b5edf65a11108e98b73f003d65b7916c6efec2ebe9",
+      "rendered_image_sha256": "635b6119e12bfc570876c80b14ed52eac65dc026a812a599451f87408e54a619",
+      "normalized_text_sha256": "4e03d8d7b809b7a367ab38e5bb0f3108e5005203711a1da09f489965688a6e3b",
+      "protected_fields_sha256": "71f5cae292231e87026de895d79fc66ef8ca0a96dca2de6c1ae8ed382a735f94",
+      "document_id": "ictr-ceb759a85c4b",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.831034,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "8fc86c27ca85d24f3958fa0736bb77e7bc0f4a3170767ac244655fdd5820ba19"
+    },
+    {
+      "stable_locator": "ictr-d39597b0d7f5:page:12",
+      "source_pdf_sha256": "292a0078f21d3c01e08359c250c8a13b7854cb6fb051acfa6e2ae81e937d4325",
+      "physical_pdf_page": 12,
+      "primary_text_sha256": "688cdcc4742bb01c3b9691103d0dfb3759c7953b378971f92c34a8b7bcc55f9c",
+      "independent_witness_sha256": "cbedf74a6a2d6c0a6c863c59f659ef459bfdb8fa138406f07314955cc978ee14",
+      "independent_witness_envelope_sha256": "c93efc6345a9a5a33150e16374e22188e6459cf62965a064782a9e8a95ad83b7",
+      "rendered_image_sha256": "0859a8f925ecc908e8c88c84c3e30810a776bb3a5d105d58d24c356a8a96a0bd",
+      "normalized_text_sha256": "469a9130f1d2e91624f84dfe66b0636fbcf80bd2f63f64fa100f3b4aa242148e",
+      "protected_fields_sha256": "6e92a4773706c97cd332829c7144e6f0e4cf410891c006d1e0d347a4e388feaa",
+      "document_id": "ictr-d39597b0d7f5",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.934783,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "73f6e9c31fbd7e504c99e27b41258645cf2c64e7578096dec9ca9c736de26c1e"
+    },
+    {
+      "stable_locator": "ictr-ddd18cff2338:page:3",
+      "source_pdf_sha256": "f4a376ebdd65557eb0dea91a292e8f6badd042a2d75bad4a92001d63ee6e4faf",
+      "physical_pdf_page": 3,
+      "primary_text_sha256": "f4690b6152c1854258c5c13f94f3faf4c542139776f20db85c49ca276a3e37da",
+      "independent_witness_sha256": "b6b1b092aa8727e87f7c7c3632e69cc1f68eb40331a85b98188b4bf6b245955a",
+      "independent_witness_envelope_sha256": "257f1bb013c142029055cca95f2abe33f0fc17bddfd5e3e3203cfa4609cb26b2",
+      "rendered_image_sha256": "5c4cd2b71a1111a53d2d6341e1c780603fbd2f9bd5ea7ad8111178a0d734e6c7",
+      "normalized_text_sha256": "1174c9c9d5a9a6fd04a33fd8a68625edeb9d8efc34757a8b31773ae0ad19089c",
+      "protected_fields_sha256": "8f0fe634e663a4f33c0bba609ca6865073e367406cebe14ee0a9a2111052f331",
+      "document_id": "ictr-ddd18cff2338",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.866667,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "e1e8c2900fb124b9ef491169d6a977136453868d37a2e384016ca67f2df57a6c"
+    },
+    {
+      "stable_locator": "ictr-fb05d8088959:page:3",
+      "source_pdf_sha256": "c5ce946b8f8336317d03ba2f4bd0bb540b664cf9b3b9a2f34f6d337efe09d514",
+      "physical_pdf_page": 3,
+      "primary_text_sha256": "0fe7d369d688f5f22e4a968ad987724ff3538b10f310a03f18942b26753d297b",
+      "independent_witness_sha256": "a0f26e4598003b575da4b980733f6a4c1a39f92fbdb82669db45f165ad7663e5",
+      "independent_witness_envelope_sha256": "c35917bad4a74d080c5200171833c854187df415a674d3acb9e89cbe073e5f9c",
+      "rendered_image_sha256": "42073cd03ff9e88f965f1498a9d9e6e65174914bbfeea064f1ce94105b70d44d",
+      "normalized_text_sha256": "34fd5ad7cfd3dabf2e105c3cae2108ef3cc45fcff3f2c941bf7355ed0a802401",
+      "protected_fields_sha256": "c6f3f86d1072f0080b7d0d71a0ad00fb05c3cf94025426e7a6cd2fd86aeeec8a",
+      "document_id": "ictr-fb05d8088959",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.837037,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "0f1816a221f0123062622fc05ba816551fa13d521fff08c5f18088f516c722ee"
+    },
+    {
+      "stable_locator": "legacy-compendium-geography:page:55",
+      "source_pdf_sha256": "d1055bae37dfd8e06f55f9827944ad5aded27ac735e85229b04b7db048d4a857",
+      "physical_pdf_page": 55,
+      "primary_text_sha256": "ceedfb1fce2b77d2f17ae9f51285ff99201aaa3477ce51cf9b7d87cdab76ecd3",
+      "independent_witness_sha256": "4567d97e15f944d08d6ce43a01db2d9423e7d6ca22092143e496f584eff34707",
+      "independent_witness_envelope_sha256": "e29406decca2a35251be2ffb3a126465a4c75fdfe05ad3197228f17239024a22",
+      "rendered_image_sha256": "9e743ea9700f77749963573210e7ec865bd1b94db2f5ee9793e3c5f82c40a51f",
+      "normalized_text_sha256": "4567d97e15f944d08d6ce43a01db2d9423e7d6ca22092143e496f584eff34707",
+      "protected_fields_sha256": "a34e41d87b317d56026902bb955bc822502a67b5a3647362223e240eec617d64",
+      "document_id": "legacy-compendium-geography",
+      "agreement": 1,
+      "independent_witness_average_confidence": 1,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate zh-Hans+en-US",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "b20baa179209bb682b9460ba9b1dd3077c8b990dd0fd73700bcfbfda699a14fb"
+    },
+    {
+      "stable_locator": "moe-2022-01:page:1",
+      "source_pdf_sha256": "976efdf360bf6a28156f5b232aec48566104726ae2617c379cf4cdb4b60aef73",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "bdfdc45e1c43cf558cc1f8047553d13d33abca8bfa8f3073eeccd1810e8ecfd6",
+      "independent_witness_sha256": "83af8d0a44e2537faddce1c61bb8409a3078609a8cd25881dd258c2024d8de42",
+      "independent_witness_envelope_sha256": "a2463a7f93cefc85abe9f3ddbabad91ec759fa2c14a718f10db4fcc2837b52af",
+      "rendered_image_sha256": "97c26cf4b1c5efe1a32aecc63408b45c71c3b9975cfcfd444447ca6cbdda934b",
+      "normalized_text_sha256": "0f18afb73059b49c0d5ebcd322b9998590883ab80f685f7c6ef290946f07a8e4",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "moe-2022-01",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.875,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "ace5f589ebc85221175c5b3fe0450a5a6dc78ea83b4f796b8e1b6fac575b8c53"
+    },
+    {
+      "stable_locator": "moe-2022-02:page:1",
+      "source_pdf_sha256": "16c0a291b522ce5b0afe3b1a28e696d8cca0d4d63cc01ff552a1d6ce06506cf0",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "646a468c7cf13f698f35578664041be97ba0e591fd1c860141f75a1223f40e27",
+      "independent_witness_sha256": "b1885108b3c454b59645641a989906f01dcacad7eb054eecd843035ab66632cc",
+      "independent_witness_envelope_sha256": "6c5311a0e35a0c39f06fb8790ec0aa092226db86feb82b25234652de546bd64f",
+      "rendered_image_sha256": "7c90878d81bc67cf5f45a3f994307b5a4f820439844a76dfaca21575116a64b4",
+      "normalized_text_sha256": "fe41b4560381693d1518c566ad81280852ebf54b29f36724c993da0e290ce3d5",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "moe-2022-02",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.875,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "5ecc40a2d4cafb4da8bbce30b5258c1eedfeb03d5579129d9bc6a67dd617fd7b"
+    },
+    {
+      "stable_locator": "moe-2022-02:page:8",
+      "source_pdf_sha256": "16c0a291b522ce5b0afe3b1a28e696d8cca0d4d63cc01ff552a1d6ce06506cf0",
+      "physical_pdf_page": 8,
+      "primary_text_sha256": "4829fb4f0549e98ed467425934c73d7ba4f7cbeb499386ef4155165907853a50",
+      "independent_witness_sha256": "3e6d0eb72f1a9778a9cf1067f6493f872afe5905c03737080985312878d4248d",
+      "independent_witness_envelope_sha256": "7d79ccac2575021adb236c5e6900d5aabbc3e86dc7db9a3aa0b1135b943375bb",
+      "rendered_image_sha256": "17bcf3ca1535fae444d6a6b8fbd8f9d9cc526c289c18a67fc675061bb14c41c5",
+      "normalized_text_sha256": "7ad24eb66cdf10831ec190367b474983c21f5aab30eaba1c07c757a07485a40b",
+      "protected_fields_sha256": "1e01e99219bc186ec6bfa3080ce711983c6f2abc0863dfdded9fda8241f4051e",
+      "document_id": "moe-2022-02",
+      "agreement": 1,
+      "independent_witness_average_confidence": 1,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "e51483faff7a989c3ead9aacee6225c0882378210ecd200d39c45dace65274f7"
+    },
+    {
+      "stable_locator": "moe-2022-03:page:1",
+      "source_pdf_sha256": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "5e5bef2023bb4e013bee1c07df01a03493cae3882cdc3333e05424276bbf8dbe",
+      "independent_witness_sha256": "dfd311924bd5206a9e3f419cb05872921b6524b1792dfb8ed7813083fcf2835d",
+      "independent_witness_envelope_sha256": "68257a26f45f4a0de8012e30b79861c43754cc947782beb46ace80dbb698d518",
+      "rendered_image_sha256": "467b78c91222f999b270a5a4b6386db21702957c9d92d4157ccf25251956b610",
+      "normalized_text_sha256": "76f80d1a1b86795167f577dc9ae2a7eec851324ef8d6507f1e137462b8c971f3",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "moe-2022-03",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.875,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate zh-Hans+en-US",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "8d600143edb7be16faf9182e227e185646ece19ff50cd5a326af17129feb60ae"
+    },
+    {
+      "stable_locator": "moe-2022-04:page:1",
+      "source_pdf_sha256": "c807b9162d7f7a652c9acedc187c39b28d29b73edfa9e6964045f9a8672a90ef",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "cd0f22dc3a4add87481729e322be15d156d3ceaf5af31442170bce6cdd38aecb",
+      "independent_witness_sha256": "a5f8bca07cecefe50275e478f01fdcec9c9c9a854b0d49795ceca037092fa542",
+      "independent_witness_envelope_sha256": "ce49f20288819273801acc788582acddc9981da0f46eee5d77ad61c7a9a0df90",
+      "rendered_image_sha256": "25965d33a40ea0104b7aace153c170a950b4bedd2c4627179d1141e00fca12f7",
+      "normalized_text_sha256": "ff654538f8599041a8db6d1075ea17c5b8ccf5c958dcac6aeffc394254fd0e2b",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "moe-2022-04",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.875,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "fdcdcfb8ae794b5a18f19abaeab01db8f4fa66b36ff670b91a1a78192959ddbb"
+    },
+    {
+      "stable_locator": "moe-2022-05:page:1",
+      "source_pdf_sha256": "1183b95c58a65eaac4c456f2d2b329bbe42f65a6482993edb537e3eaf8baa144",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "6f8b6bcf2425b5bd604b1502eebff2af4d8aebcb5a980f90a2e78350cd315c4b",
+      "independent_witness_sha256": "21ec650d93322087b1a267a7e82177ef41ea3bfb7fe3a09efffb1a871affffc7",
+      "independent_witness_envelope_sha256": "488f8c8c72fecb5a0dba3dd4d138fedb0f104d56787d771b82dada2e9ee9656d",
+      "rendered_image_sha256": "df3accc3cca56fbc1afb6883dc071f6851f9b1d0997f8365f965492f90b68126",
+      "normalized_text_sha256": "62bdc418eba45386b8c2abca5db22cadd24eedde4b45738bce4f164719421300",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "moe-2022-05",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.875,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "ff83ed5d562ad846c2193d486dd87bdad22ede9ad1ee54938e5bdba0a294a732"
+    },
+    {
+      "stable_locator": "moe-2022-07:page:1",
+      "source_pdf_sha256": "1ecd0cc391376ce76fb61a705f90ef804f746426c99f4813cc8367c0496851c6",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "76dd508cdddea9c1956e648d8c617e3eb9a1663a6ae14c7d5ee65dc6742ee7be",
+      "independent_witness_sha256": "064cb3bb205ed2cb77528a8f769c123224b9ee44f491250b8a596e7b7b3a17d9",
+      "independent_witness_envelope_sha256": "45d0e95de8a457215809254e4ff07d9ecb9de13af7c9440e95e28b8cf02d1428",
+      "rendered_image_sha256": "c13b33a1f0cbe0d275d6e6e479732990ab3929708752c44a4ec31c31758fd017",
+      "normalized_text_sha256": "5a716c71c303367b776c9edd687e4ac891f8466c5b9e0d8f8aea928c74d245fa",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "moe-2022-07",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.875,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "663c5653f1208c0244be95533799dd8ddec2ce7e86154b9c566873da390a6c2a"
+    },
+    {
+      "stable_locator": "moe-2022-09:page:1",
+      "source_pdf_sha256": "5aade5cb5cfa103c48277c8ff663783df69cafb0fec2411f4aad1924d75c67b8",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "f80e16b269d09f9f50a782397247ef370796300da207697d1b66f570409e33ee",
+      "independent_witness_sha256": "83eb4cdaabf2fd441e080837ad78670777458e8b7bc71cb4826b6f9734da78ba",
+      "independent_witness_envelope_sha256": "61c1131bc697ad1c76ca7105826c24c3d6bb55b896c20b8532531882608cf4b1",
+      "rendered_image_sha256": "ae6be44dc540b468354f90586ac38416881faea55211b935649b6172b3bcf548",
+      "normalized_text_sha256": "6f86cbd70e1653544eebebd396ec31d6598b9160563e0e40ef132384a7100811",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "moe-2022-09",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.825,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "991fa3ea50441d1cfd689fec84a60ae3a6fd58339f7456d2b0e93797f3c59c50"
+    },
+    {
+      "stable_locator": "moe-2022-10:page:1",
+      "source_pdf_sha256": "630b2fb082aed2f0b6aaff1cd30cdea530c41459ee0ffd5847e3e07b7324546f",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "12bdc8f442d6f7f41ad1fb134d74ce967c795cd9fa13c170feb924e81e05e080",
+      "independent_witness_sha256": "8792f399f13459813940d017c80a52f07cfa1345e8dbd4d2db618194c33fce79",
+      "independent_witness_envelope_sha256": "9538650a66fe84a2de40e9064746ac55c81f530c46b40abc0f3dd3d15640acc5",
+      "rendered_image_sha256": "6f6195de439bdf0fed3fcb3898e36ead6d62c1af33a06789249cadab144799d6",
+      "normalized_text_sha256": "b96f17a65fb15efabd9967b16ba98ce623df83e07ef71f28d2ba56f95812835c",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "moe-2022-10",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.875,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "eaa365bfa1388c296119e7e91b986938f3b938327082120fe323a7c703bcc5f7"
+    },
+    {
+      "stable_locator": "moe-2022-11:page:1",
+      "source_pdf_sha256": "884069da6c924acb27b966ea20b9c7a4d8f0d6dfc828c80cd252aa72bf990340",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "ae74cadde878d8e3ccc0044cc142ce79784ea56d329ae9d06a9c7b2acd607a0e",
+      "independent_witness_sha256": "3ef2bc239b8af6f5ff70f62531e8b7199fa0763d802dfc004f0af7547ee7bedd",
+      "independent_witness_envelope_sha256": "4e33e2b96a6f2f034599e2d93e5d064f4a12f50729b39590e021e09a6387fe4f",
+      "rendered_image_sha256": "d51bfd1f3d72929e4a9e92a5df19151d56011395d55e5b2aa37cb9ef5b60912b",
+      "normalized_text_sha256": "52ec051fea212af3105eac02a16e1fb8149f77289d806b3b414bc6ca53381ba4",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "moe-2022-11",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.875,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "ab9b61542b6b3f3e78734fc8159833ab5d3e846b382a72bb7c5492fad1a05cca"
+    },
+    {
+      "stable_locator": "moe-2022-12:page:1",
+      "source_pdf_sha256": "8e04592efba9a6baf41ebf6970d868f2461fbd8e43328fb2ddb57165aa0c2b5c",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "61642044b0937ccbe84a40e2ea2d4830b6b05aec381680be18cdbe851b0f28c2",
+      "independent_witness_sha256": "6c144df669dec2034d772cc6e703ff7315d1d1827fee42efd6e914617a44d99d",
+      "independent_witness_envelope_sha256": "9ebe3cba7b83543958201c24af62ad65d72f492d109a68100ad8600e749ea32b",
+      "rendered_image_sha256": "604f0e725c84366a949dbab3f4e1e2f78d0ffbc9f554a03bd81889943c9502b0",
+      "normalized_text_sha256": "5cafb5ef36e7462e641dd138b4684976388fd20a8266ba2ed79fc76b29160e01",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "moe-2022-12",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.875,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "dbe9e521729ce507c21046aade7c3b85a5238c38d6f76a566ec75b6a0eed5bf2"
+    },
+    {
+      "stable_locator": "moe-2022-13:page:1",
+      "source_pdf_sha256": "95993bea87c30104631fa10f2f20f11b98d0718d69c4aeeac46c53a387f43c00",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "027f4ab3c54b27a59a4bca629d20ac8c667bb2da0256b3871759402b1784c8c1",
+      "independent_witness_sha256": "7ed522d952f89a0f23abe3c553c218d3090c77de3916d858c342ece9d23340ef",
+      "independent_witness_envelope_sha256": "ce795f0229215683288f663670504a25aee8747392e40ce6e556404e3d6910b4",
+      "rendered_image_sha256": "960849663e01a24bd9fceeb69cff8fb8faa33973ff1325fa9cc862ab8e424761",
+      "normalized_text_sha256": "1628896757f22c7e7390557b9af56c3648efa70bbf8ec1586210bfa233853dd8",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "moe-2022-13",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.875,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "12b5bf30222a2dddafe0a2be275d39bb63788ecabb4dec80c8682a97e0cb4bca"
+    },
+    {
+      "stable_locator": "moe-2022-14:page:1",
+      "source_pdf_sha256": "065f9df22d35da8813508c23782c7853dab3c54e34f552a627f8dd1698fa1e01",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "f326e97df608da89d765e0e25dd72afd592a00ee45d2b05517292009f34c3d11",
+      "independent_witness_sha256": "660411650a65249852e7c5a1e0000af0fcba405ec61041529d6439e98012a877",
+      "independent_witness_envelope_sha256": "bc3570c01031873154c7c7a040b749d20c888362b07f348edbbd725c0715c2c9",
+      "rendered_image_sha256": "899e8b0f6fc5dde9d1a16cfe675871495247700387ed12c4d69e2ae6dba75d6c",
+      "normalized_text_sha256": "ffc3befff4c69d8a214593b89324ed9aaa1a0c4ca2a7e4c319df069ec195a06c",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "moe-2022-14",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.875,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "2023b9dc2bd314f5a8f525387b45a655e05e546675de35248441db22febfbb83"
+    },
+    {
+      "stable_locator": "moe-2022-16:page:1",
+      "source_pdf_sha256": "7c5c688f5e1b9d8e5c2a0ef908055322df67bb36d5b85ca1c540f1c35807230d",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "f397080bf55fde63711bbe16c19448de95833831c915dee2a1933209d3032dd7",
+      "independent_witness_sha256": "83df96d9a367738a7f2a6472af4f6b28c6785311ef8a9d2ba7c654242504256a",
+      "independent_witness_envelope_sha256": "e9ad4d48c97910afb5c2a3cc4fb528b888ffb82af0ea3d17415b3be27f446976",
+      "rendered_image_sha256": "7488d42ad7c2d9a54f8b917b86ff424da626b4d0d84935900882ac40678fcb9a",
+      "normalized_text_sha256": "35a52647221bca275ea12b46a038a4d8e53d8cd33a492240dbcd887d97a64756",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "moe-2022-16",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.875,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "12e2d618892eafdcf0d43587a30509bdf7c744b58d4baed96d00471034bfc3d8"
+    },
+    {
+      "stable_locator": "moe-2022-16:page:11",
+      "source_pdf_sha256": "7c5c688f5e1b9d8e5c2a0ef908055322df67bb36d5b85ca1c540f1c35807230d",
+      "physical_pdf_page": 11,
+      "primary_text_sha256": "51959d71c9ed0e5a98ad6e5d7ea548f2db121d4f1b63b3add36c2f04fa83d1e2",
+      "independent_witness_sha256": "96ee90acfc5ef487eaced0e6d2946190e8d0b6443836d5c75ee90d56645c285d",
+      "independent_witness_envelope_sha256": "0638a1a8f5f35f0d4c8faa4d78c218c97ba74c63f2159dfd158d17efb7beb51a",
+      "rendered_image_sha256": "668d924612716bf82e64c31c76e3d181036ae92b27ca7906272bf9519ee41cb3",
+      "normalized_text_sha256": "29c5790f4bb41ce36afd21bd6260d279a4ef9a420ba9d07d420c343e7a6a3fc8",
+      "protected_fields_sha256": "e1f69ee8f37d03c0c6f918c33271720bbbf786d87e4ed0e404e661b6a5e45083",
+      "document_id": "moe-2022-16",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.86,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "00e32f6ecd029ea4d22fc65abc52ec6fd1595fb2f63a9de4735763f0a068d780"
+    },
+    {
+      "stable_locator": "moe-2022-17:page:1",
+      "source_pdf_sha256": "d5f080fee80df073ef67f6b0dbe303250913777aee32f98bea4f22df1c6247d8",
+      "physical_pdf_page": 1,
+      "primary_text_sha256": "4df1d52220fbd465c9706e25bdb43ea61a188ebfd8bd8e77ad52ccc1a12989ca",
+      "independent_witness_sha256": "85d4741df66073935577e2a3dd0cdaac18c0054fb79ac27416f323fa69b07ae4",
+      "independent_witness_envelope_sha256": "f766aa58c62220d10690b0bc0733dcf8f77577b975db7e01acd27f9ef0ebd1e2",
+      "rendered_image_sha256": "6d63183fc6e418217677546a03d178f52a5e74f8a3ae71ee8db20e4ef336092d",
+      "normalized_text_sha256": "6d2664baa3a1f2f21e955fd44a3586ae317e12c99b9e22f7fd16dfe47d74638f",
+      "protected_fields_sha256": "6db8a9e1243e8db32a7d1ee9b689fc26ab11c7a1ffceb7db079044803fd50d1c",
+      "document_id": "moe-2022-17",
+      "agreement": 1,
+      "independent_witness_average_confidence": 0.875,
+      "primary_engine": "PaddleOCR-VL structured primary",
+      "independent_witness_engine": "Apple Vision VNRecognizeTextRequest accurate language-profile-v1",
+      "publication_manifest_eligible": true,
+      "production_citation_ready": false,
+      "semantic_claim_allowed": false,
+      "receipt_sha256": "e33c9bc5171b640c87ec4295e4ceae582d076eab7b54cf3c812d7b1a2b8f25b3"
+    }
+  ],
+  "documents": [
+    {
+      "document_id": "ictr-043d90816a8b",
+      "total": 39,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 20,
+        "table_structure_consensus": 18,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "ictr-06ce7a4eb5fa",
+      "total": 45,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 24,
+        "table_structure_consensus": 21,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "ictr-0bcfe4b915df",
+      "total": 39,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 38,
+        "table_structure_consensus": 0,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "ictr-0f671ae84421",
+      "total": 54,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 51,
+        "table_structure_consensus": 0,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "ictr-197f8a2e1cca",
+      "total": 37,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 35,
+        "table_structure_consensus": 0,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "ictr-1ad5d5beabb0",
+      "total": 52,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 32,
+        "table_structure_consensus": 19,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "ictr-1adc57fe27b4",
+      "total": 75,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 63,
+        "table_structure_consensus": 5,
+        "blank_raster_consensus": 6
+      }
+    },
+    {
+      "document_id": "ictr-2aeee929041c",
+      "total": 54,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 27,
+        "table_structure_consensus": 26,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "ictr-2ef191eaec15",
+      "total": 37,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 37,
+        "table_structure_consensus": 0,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "ictr-3db457c6f361",
+      "total": 96,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 85,
+        "table_structure_consensus": 11,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "ictr-4509b6ddd5b8",
+      "total": 76,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 59,
+        "table_structure_consensus": 14,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "ictr-49d2b44f0df1",
+      "total": 26,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 23,
+        "table_structure_consensus": 1,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "ictr-6273af80a813",
+      "total": 30,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 18,
+        "table_structure_consensus": 10,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "ictr-6aed243f91fa",
+      "total": 9,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 8,
+        "table_structure_consensus": 1,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "ictr-6c6df9d121ac",
+      "total": 68,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 58,
+        "table_structure_consensus": 8,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "ictr-6e731c2dcdd2",
+      "total": 44,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 40,
+        "table_structure_consensus": 2,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "ictr-7759fd25e216",
+      "total": 59,
+      "lanes": {
+        "machine_verified_exact": 2,
+        "third_engine_text_consensus": 37,
+        "table_structure_consensus": 19,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "ictr-7c995a071399",
+      "total": 46,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 41,
+        "table_structure_consensus": 2,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "ictr-8176ab3ce84b",
+      "total": 65,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 52,
+        "table_structure_consensus": 13,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "ictr-8706c7766742",
+      "total": 50,
+      "lanes": {
+        "machine_verified_exact": 2,
+        "third_engine_text_consensus": 27,
+        "table_structure_consensus": 20,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "ictr-8b649cdfb27d",
+      "total": 127,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 121,
+        "table_structure_consensus": 6,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "ictr-8c4134098f38",
+      "total": 25,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 24,
+        "table_structure_consensus": 1,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "ictr-afedc894b8c4",
+      "total": 35,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 31,
+        "table_structure_consensus": 3,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "ictr-bb00e7fd186f",
+      "total": 109,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 33,
+        "table_structure_consensus": 75,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "ictr-bbbc097abd83",
+      "total": 89,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 52,
+        "table_structure_consensus": 35,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "ictr-c198f8ed538f",
+      "total": 62,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 38,
+        "table_structure_consensus": 24,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "ictr-ceb759a85c4b",
+      "total": 77,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 48,
+        "table_structure_consensus": 26,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "ictr-d39597b0d7f5",
+      "total": 106,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 73,
+        "table_structure_consensus": 30,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "ictr-d692b0ff2e6c",
+      "total": 29,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 17,
+        "table_structure_consensus": 10,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "ictr-d83c38caeafd",
+      "total": 46,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 27,
+        "table_structure_consensus": 17,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "ictr-ddd18cff2338",
+      "total": 241,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 140,
+        "table_structure_consensus": 98,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "ictr-ddde78e17189",
+      "total": 35,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 22,
+        "table_structure_consensus": 12,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "ictr-e096e4d65c97",
+      "total": 22,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 17,
+        "table_structure_consensus": 5,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "ictr-e1fab1e6823b",
+      "total": 158,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 151,
+        "table_structure_consensus": 7,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "ictr-f36cc1469a0c",
+      "total": 109,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 89,
+        "table_structure_consensus": 19,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "ictr-f6754fe2f491",
+      "total": 88,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 54,
+        "table_structure_consensus": 34,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "ictr-f985431f376f",
+      "total": 102,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 37,
+        "table_structure_consensus": 63,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "ictr-fb05d8088959",
+      "total": 57,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 47,
+        "table_structure_consensus": 7,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "legacy-compendium-arts-labor",
+      "total": 196,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 150,
+        "table_structure_consensus": 44,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "legacy-compendium-biology",
+      "total": 132,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 127,
+        "table_structure_consensus": 5,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "legacy-compendium-chemistry",
+      "total": 127,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 120,
+        "table_structure_consensus": 7,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "legacy-compendium-chinese",
+      "total": 33,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 27,
+        "table_structure_consensus": 4,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "legacy-compendium-english",
+      "total": 95,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 87,
+        "table_structure_consensus": 8,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "legacy-compendium-general-primary",
+      "total": 65,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 35,
+        "table_structure_consensus": 27,
+        "blank_raster_consensus": 3
+      }
+    },
+    {
+      "document_id": "legacy-compendium-geography",
+      "total": 96,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 84,
+        "table_structure_consensus": 9,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "legacy-compendium-history",
+      "total": 80,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 65,
+        "table_structure_consensus": 15,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "legacy-compendium-mathematics",
+      "total": 96,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 63,
+        "table_structure_consensus": 32,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "legacy-compendium-physics",
+      "total": 96,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 94,
+        "table_structure_consensus": 2,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "legacy-compendium-plans",
+      "total": 128,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 107,
+        "table_structure_consensus": 20,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "legacy-compendium-politics",
+      "total": 128,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 80,
+        "table_structure_consensus": 48,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2011-01",
+      "total": 83,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 46,
+        "table_structure_consensus": 36,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "moe-2011-02",
+      "total": 183,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 133,
+        "table_structure_consensus": 50,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2011-03",
+      "total": 110,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 45,
+        "table_structure_consensus": 65,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2011-04",
+      "total": 92,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 72,
+        "table_structure_consensus": 18,
+        "blank_raster_consensus": 2
+      }
+    },
+    {
+      "document_id": "moe-2011-05",
+      "total": 27,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 26,
+        "table_structure_consensus": 0,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "moe-2011-06",
+      "total": 31,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 19,
+        "table_structure_consensus": 11,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "moe-2011-07",
+      "total": 26,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 15,
+        "table_structure_consensus": 10,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "moe-2011-08",
+      "total": 135,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 122,
+        "table_structure_consensus": 13,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2011-09",
+      "total": 62,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 55,
+        "table_structure_consensus": 6,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "moe-2011-10",
+      "total": 66,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 45,
+        "table_structure_consensus": 20,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "moe-2011-11",
+      "total": 60,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 37,
+        "table_structure_consensus": 23,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2011-12",
+      "total": 89,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 54,
+        "table_structure_consensus": 34,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "moe-2011-13",
+      "total": 50,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 30,
+        "table_structure_consensus": 19,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "moe-2011-14",
+      "total": 34,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 21,
+        "table_structure_consensus": 12,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "moe-2011-15",
+      "total": 50,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 19,
+        "table_structure_consensus": 31,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2011-16",
+      "total": 63,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 48,
+        "table_structure_consensus": 14,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "moe-2011-17",
+      "total": 39,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 38,
+        "table_structure_consensus": 0,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "moe-2011-18",
+      "total": 38,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 37,
+        "table_structure_consensus": 0,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "moe-2011-19",
+      "total": 67,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 63,
+        "table_structure_consensus": 4,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-01",
+      "total": 23,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 19,
+        "table_structure_consensus": 2,
+        "blank_raster_consensus": 1
+      }
+    },
+    {
+      "document_id": "moe-2022-02",
+      "total": 73,
+      "lanes": {
+        "machine_verified_exact": 2,
+        "third_engine_text_consensus": 34,
+        "table_structure_consensus": 37,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-03",
+      "total": 109,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 73,
+        "table_structure_consensus": 35,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-04",
+      "total": 86,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 73,
+        "table_structure_consensus": 12,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-05",
+      "total": 189,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 160,
+        "table_structure_consensus": 28,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-06",
+      "total": 201,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 132,
+        "table_structure_consensus": 69,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-07",
+      "total": 147,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 42,
+        "table_structure_consensus": 104,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-08",
+      "total": 111,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 94,
+        "table_structure_consensus": 17,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-09",
+      "total": 65,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 61,
+        "table_structure_consensus": 3,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-10",
+      "total": 193,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 96,
+        "table_structure_consensus": 96,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-11",
+      "total": 71,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 69,
+        "table_structure_consensus": 1,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-12",
+      "total": 87,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 79,
+        "table_structure_consensus": 7,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-13",
+      "total": 76,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 71,
+        "table_structure_consensus": 4,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-14",
+      "total": 74,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 59,
+        "table_structure_consensus": 14,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-15",
+      "total": 148,
+      "lanes": {
+        "machine_verified_exact": 0,
+        "third_engine_text_consensus": 64,
+        "table_structure_consensus": 84,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-16",
+      "total": 131,
+      "lanes": {
+        "machine_verified_exact": 2,
+        "third_engine_text_consensus": 119,
+        "table_structure_consensus": 10,
+        "blank_raster_consensus": 0
+      }
+    },
+    {
+      "document_id": "moe-2022-17",
+      "total": 68,
+      "lanes": {
+        "machine_verified_exact": 1,
+        "third_engine_text_consensus": 58,
+        "table_structure_consensus": 8,
+        "blank_raster_consensus": 1
+      }
+    }
+  ]
+}
