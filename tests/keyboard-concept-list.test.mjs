@@ -22,7 +22,9 @@ test('the collapsed search drawer exposes a keyboard list backed by star episode
 test('arrow keys and Enter use the same concept selection path as Canvas clicks', () => {
   assert.match(app, /searchForm\.addEventListener\('submit'[\s\S]*selectConceptEpisode\(state\.searchResultEpisodes\[0\]\)/);
   assert.match(app, /searchInput\.addEventListener\('keydown'[\s\S]*ArrowDown[\s\S]*ArrowUp/);
-  assert.match(app, /conceptResultList\.addEventListener\('keydown'[\s\S]*Home[\s\S]*End[\s\S]*Escape/);
+  assert.match(app, /conceptResultList\.addEventListener\('keydown'[\s\S]*Home[\s\S]*End[\s\S]*event\.key === 'Enter' \|\| event\.key === ' '/);
+  assert.match(app, /event\.key === 'Enter' \|\| event\.key === ' '[\s\S]*selectConceptEpisode\(state\.searchResultEpisodes\.find/);
+  assert.match(app, /event\.key === 'Enter' \|\| event\.key === ' '[\s\S]*Escape/);
   assert.match(styles, /\.concept-results \{[^}]*flex:\s*0 1 230px;/);
   assert.match(styles, /#concept-result-list \{[^}]*overflow-y:\s*auto;/);
 });

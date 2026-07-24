@@ -1,5 +1,5 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v35';
-import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v35';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v36';
+import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v36';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -7,7 +7,7 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260723v35';
+} from './subject-facets.js?v=20260723v36';
 
 const diagnosticsStartedAt = performance.now();
 let diagnosticsReadyAt = null;
@@ -140,12 +140,12 @@ async function api(path, options) {
 async function loadBase() {
   if (state.meta) return;
   const [conceptGraph, ocrLayer, detailLayer, pre2001Layer, centuryLayer, evolutionLayer, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v35'),
-    api('/data/ocr-observation-layer.json?v=20260723v35'),
-    api('/data/subject-detail-observation-layer.json?v=20260723v35'),
-    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v35'),
-    api('/data/century-observation-layer.json?v=20260723v35'),
-    api('/data/concept-evolution-families.json?v=20260723v35'),
+    api('/data/concept-evolution.json?v=20260723v36'),
+    api('/data/ocr-observation-layer.json?v=20260723v36'),
+    api('/data/subject-detail-observation-layer.json?v=20260723v36'),
+    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v36'),
+    api('/data/century-observation-layer.json?v=20260723v36'),
+    api('/data/concept-evolution-families.json?v=20260723v36'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -1606,6 +1606,9 @@ conceptResultList.addEventListener('keydown', (event) => {
     if (event.key === 'Home') focusConceptResult(0);
     else if (event.key === 'End') focusConceptResult(options.length - 1);
     else focusConceptResult(index + (event.key === 'ArrowDown' ? 1 : -1));
+  } else if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    selectConceptEpisode(state.searchResultEpisodes.find((episode) => episode.id === option.dataset.episodeId));
   } else if (event.key === 'Escape') {
     event.preventDefault();
     searchInput.focus();

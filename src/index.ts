@@ -5,7 +5,7 @@ import { retrieve } from './retrieval';
 import { enforceRateLimit, verifyTurnstile } from './security';
 import type { Env, Session } from './types';
 
-const VERSION = '2026.07.23-v13';
+const VERSION = '2026.07.23-v14';
 const R2_CURRENT_POINTER_KEY = 'release/current.json';
 const R2_INGEST_MANIFEST_KEY = 'catalog/ingest-manifest.json';
 const R2_RELEASE_PREFIX = 'releases';
