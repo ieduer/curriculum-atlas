@@ -2,12 +2,12 @@
 
 ## 当前线上锚点
 
-| 环境 | Worker version / deployment | Assets Git | Corpus | R2 current |
-|---|---|---|---|---|
-| preview | `037df3d0-e192-4045-ad15-b7449dba2a28` / `2c379122-0e8a-40a6-b7cb-01bfcbcf725e` | `efafbc1de81ebbd8445beb415f3e2002fa395831` | `corpus-1c4f6b41737380f3e71246dd` ready | `release-cd9ec4a050cbabbede744192398ebfa7` |
-| production | `55653436-b55a-4aef-986d-b11dbd84b36e` / `eb93d28c-aa96-48ac-80e1-0a4af031c75e` | `6eea3a540c05b7d9ab6ef0807de59b163535288a` | `corpus-1c4f6b41737380f3e71246dd` ready | `release-cd9ec4a050cbabbede744192398ebfa7` |
+| 环境 | Worker version / deployment | Assets Git | Corpus | R2 current | Private historical reader |
+|---|---|---|---|---|---|
+| preview | `fdc9b9f2-7698-47b6-9663-44475786de34` / `ff1a0ab5-22de-4420-a0b9-0b53450f457a` | `c576525df8d2a0590b35999e6e147d7a30800ca3` | `corpus-1c4f6b41737380f3e71246dd` ready | `release-cd9ec4a050cbabbede744192398ebfa7` | `release-88cd0a6b349a0eda911080a28a842506` · 461 ready |
+| production | `c6fa8f68-747e-4d65-a743-2498ab2e0591` / `7d62062e-b8e9-40b5-beef-cc30ccba8081` | `18f7ef702a8be39c3a0eafc963f2b532a4a57cf4` | `corpus-1c4f6b41737380f3e71246dd` ready | `release-cd9ec4a050cbabbede744192398ebfa7` | `release-88cd0a6b349a0eda911080a28a842506` · 461 ready |
 
-两端 health 均为 `2026.07.24-v19`、schema 3 / taxonomy 2 / page-publication 1，migration `0001`–`0007`，D1/R2/APIS/User Center/Assets 五项 binding 全真。Corpus 精确为 196 / 16,500 / 16,500 / 8,808 / 16,500 / 26 / 103（documents / paragraphs / FTS / page gates / displayed / accepted OCR documents / chunks）。
+两端 health 均为 `2026.07.24-v20`、schema 3 / taxonomy 2 / page-publication 1，migration `0001`–`0007`，D1/R2/APIS/User Center/Assets 五项 binding 全真。Corpus 精确为 196 / 16,500 / 16,500 / 8,808 / 16,500 / 26 / 103（documents / paragraphs / FTS / page gates / displayed / accepted OCR documents / chunks）。私有 historical reader 两端各完成 462/462 bytes/SHA-256 readback 后才切换相同 pointer，pointer SHA-256 为 `91b9686e601a78cd46546eec28589aac37d557724b88225c33e5222dcc32b621`。
 
 ## 目标资源
 
@@ -144,19 +144,19 @@ curl -fsS https://curriculum.bdfz.net/api/source-manifest
 
 共享 hub 仅做只读依赖 smoke，不修改合同。
 
-## v19 学科百年链回滚
+## v20 私有历史原页阅读回滚
 
-- 最终 v46 Production predecessor：`c876f21f-2a86-4a5a-b847-a549541b9afb`（v19/v45）。
-- 完整回到 v18 Production：`10c8d648-26d7-4e26-bd99-61b80dd9e0cc`。
-- 源码 tag：`curriculum-baseline-20260724-v18-10c8d648`；backup branch：`backup/curriculum-v19-discipline-lineage-toggle-20260724`。
-- v19 只改 Worker/Assets 和可重算资料资产，未写 D1、R2、OCR 远端输出或共享 hub；回退 Worker 后核对 health、`app.js?v=`、11 学科按钮与既有 corpus ready 即可，不执行 D1 Time Travel 或 R2 pointer 回切。
+- Production Worker predecessor：`55653436-b55a-4aef-986d-b11dbd84b36e`（v19/v46）。
+- Preview Worker predecessor：`037df3d0-e192-4045-ad15-b7449dba2a28`。
+- 源码 tag：`curriculum-baseline-20260724-v19-55653436`；backup branch：`backup/curriculum-v20-archive-reader-20260724`。
+- D1、公开 metadata pointer 和远端 OCR 未改。回退先恢复 v19 Worker，再移除两端 `historical-reader/current.json`；两端 predecessor 都是 `null`，immutable `release-88cd…` objects 保留，禁止删除整桶。
 
-## v19 正式验收记录
+## v20 正式验收记录
 
-- Production health 200、`cache-control: no-store`，Worker `55653436…`、release Git `6eea3a5…`，corpus expected/actual/live 精确相等。
-- `discipline-lifecycle.json` schema 2：11 条学科百年链、9 个来源明示事件；1923「社会科合科编组」公开分面精确为思政／历史／地理。
-- 在入场动画只载入至 1991 年时立即点击，立即及 3.8 秒后都保持「全部 58 个有资料年份」，没有回锁 1902 或 1923；第二次事件点击退回历史链，第二次历史链点击恢复 11 学科。
-- Preview v46 实测：桌面 ready 853.2 ms / draw p95 4 ms；手机 ready 1437.2 ms / draw p95 2.5 ms；两端横向溢出 0。
+- Production health 200、`cache-control: no-store`，Worker `c6fa8f68…`、release Git `18f7ef7…`，historical reader ready 461，corpus expected/actual/live 精确相等。
+- `/compare` 与 `/sources` 真實瀏覽器均不再出現 `page_count` 例外；`/archive` 精確顯示 461 個 `/historical/` 入口並覆蓋 1902–2000。
+- 1902「欽定蒙學堂章程」代表條目顯示掃描物理頁 15–18、統一用戶登入入口、原圖優先及 OCR 不可引文邊界；匿名 API 為 401。
+- Preview v47 实测：桌面 1440×1000 ready 546.4 ms / draw p95 5.2 ms；手机 390×844 ready 493.5 ms / draw p95 3.4 ms；16/16 runtime 通過。Production 桌面與手機橫向溢出均為 0，console errors/warnings 為 0。
 
 ## v18 回滚
 

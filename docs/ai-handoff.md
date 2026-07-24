@@ -24,13 +24,14 @@
 - 先 preview、后 production；D1、Worker Assets、environment evidence、R2 pointer 和浏览器证明必须属于同一发布链。
 - 不修改被冻结的旧 OCR receiver/monitor、远端 OCR unit 或旧 output tree。新数据只由可重放 builder 读取既有证据并生成。
 
-## v19 正式基线
+## v20 正式基线
 
-- 正式站：`https://curriculum.bdfz.net`；Worker `2026.07.24-v19`，version `55653436-b55a-4aef-986d-b11dbd84b36e`，deployment `eb93d28c-aa96-48ac-80e1-0a4af031c75e`，Assets Git `6eea3a540c05b7d9ab6ef0807de59b163535288a`。
-- Preview：version `037df3d0-e192-4045-ad15-b7449dba2a28`，deployment `2c379122-0e8a-40a6-b7cb-01bfcbcf725e`，Assets Git `efafbc1de81ebbd8445beb415f3e2002fa395831`。
+- 正式站：`https://curriculum.bdfz.net`；Worker `2026.07.24-v20`，version `c6fa8f68-747e-4d65-a743-2498ab2e0591`，deployment `7d62062e-b8e9-40b5-beef-cc30ccba8081`，Assets Git `18f7ef702a8be39c3a0eafc963f2b532a4a57cf4`。
+- Preview：version `fdc9b9f2-7698-47b6-9663-44475786de34`，deployment `ff1a0ab5-22de-4420-a0b9-0b53450f457a`，Assets Git `c576525df8d2a0590b35999e6e147d7a30800ca3`。
 - 两端 migration `0001`–`0007`，health schema 3 / taxonomy 2 / page-publication 1，D1/R2/APIS/User Center/Assets 五项 binding 全真。
 - Corpus `corpus-1c4f6b41737380f3e71246dd` 两端 `ready`：196 documents、16,500 paragraphs、16,500 FTS、8,808 page gates、16,500 displayed、26 accepted OCR documents、103 chunks。
 - R2 两端 current 均为 `release-cd9ec4a050cbabbede744192398ebfa7`；各自完成 17/17 immutable objects 与 manifest readback 后才切换 pointer。production manifest SHA-256 为 `7b2b836ae29c98743b3a3248eac8e013a4b6c048ac473b0c95685804fb365018`，preview 为 `9e964d6c8e3898dcb8078e4f0b5b8780cd3379e566abff8c12efc5b84ee63bc1`，均为 188,566 bytes。
+- 私有 historical reader 两端均为 `release-88cd0a6b349a0eda911080a28a842506`，461 个 item、4,604 个 bounded page instances；462 个不可变对象在 pointer 切换前逐件完成 bytes/SHA-256 readback，pointer SHA-256 为 `91b9686e601a78cd46546eec28589aac37d557724b88225c33e5222dcc32b621`。
 - 合并后的单一星图为 2,415 episodes、3,144 edges、5,304 evidence、12 个存储身份／11 个公开学科分面；55 个同层概念族含 1,648 memberships 和 1,348 条候选关系边。
 - 「学科设置 · 分合」另有 schema 2 的 11 条 1902–2022 学科名称链和 9 个来源明示事件；历史公开入口同时解析历史与历史与社会两个底层身份，1923 社会科事件只联动思政／历史／地理。
 - 学术图保持完整语义模型，但以 30,220-byte 索引和 64 个内容寻址分片传输；最大分片 524,250 bytes。materializer 必须复核 SHA-256、bytes、build revision、collection、chunk 与计数。
@@ -68,13 +69,13 @@
 
 ## 当前未决边界
 
-- 没有 v19 发布 blocker。未通过逐字 exact gate 的 6,843 个非空冲突页和 73 个双空白页已取得终局机器关闭，不是“等待人工”的 backlog。
+- 没有 v20 发布 blocker。未通过逐字 exact gate 的 6,843 个非空冲突页和 73 个双空白页已取得终局机器关闭，不是“等待人工”的 backlog。
 - 候选观察只证明“在受控来源页看到这个词面”，不证明首次出现、消失、制度替代、语义等同、影响或因果。更深语义只能由独立、可引用证据另行发布。
 - 86 份／11,847 页是目录身份分母，85 份／11,779 页是物理去重分母；两者都必须保留。原 1,077 页 Apple Vision 单见证已进入候选覆盖，但不能单独满足正式引文门。
-- DMITPro2 B-r1 的历史冻结状态保留为审计证据，不再阻断 v19；本轮没有改动远端 OCR service、旧 receiver/monitor 或旧 output。
+- DMITPro2 B-r1 的历史冻结状态保留为审计证据，不再阻断 v20；本轮没有改动远端 OCR service、旧 receiver/monitor 或旧 output。
 
 ## 回滚
 
-- v19 源码基线：tag `curriculum-baseline-20260724-v18-10c8d648`，backup branch `backup/curriculum-v19-discipline-lineage-toggle-20260724`。
-- 最终 v46 Production predecessor：`c876f21f-2a86-4a5a-b847-a549541b9afb`；完整回到 v18 使用 `10c8d648-26d7-4e26-bd99-61b80dd9e0cc`。
-- v19 没有 D1/R2/OCR mutation；仅回退 Worker，不执行 D1 Time Travel 或 R2 pointer 回切。更早的 v18→v17 数据耦合回滚锚点保留在 `docs/deployment.md`。
+- v20 源码基线：tag `curriculum-baseline-20260724-v19-55653436`，backup branch `backup/curriculum-v20-archive-reader-20260724`，均指向 `471b56a`。
+- Production Worker predecessor：`55653436-b55a-4aef-986d-b11dbd84b36e`；Preview predecessor：`037df3d0-e192-4045-ad15-b7449dba2a28`。
+- v20 没有 D1、公开 metadata R2 或远端 OCR mutation。回退时先恢复 v19 Worker，再移除私有 `historical-reader/current.json`；两端 pointer predecessor 均为 `null`，immutable objects 保留审计。更早的 v18→v17 数据耦合回滚锚点保留在 `docs/deployment.md`。
