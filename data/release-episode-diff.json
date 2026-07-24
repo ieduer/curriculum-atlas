@@ -13,7 +13,7 @@
     },
     "public/data/ocr-observation-layer.json": {
       "baseline_sha256": "c056887cc26dbada199862810e82cf0427f8de248b3b8b636a3cddb13439d11f",
-      "current_sha256": "3a3dd82a04aa9d851e112ee4e2345d495169c137f138dbea9b737465a92e2e53"
+      "current_sha256": "46a8345a8e3b1048bf59e7e42a5bd624f6f90bea4a308ac2cc04923fb6279b98"
     },
     "public/data/subject-detail-observation-layer.json": {
       "baseline_sha256": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
