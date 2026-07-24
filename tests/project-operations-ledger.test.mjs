@@ -26,24 +26,23 @@ test('operations ledger exposes the current staged-release lifecycle and fail-cl
   ]) assert.ok(ledger.includes(heading), heading);
 
   assert.match(ledger, /名义 86 docs \/ 11847 pages；唯一实体 85 docs \/ 11779 pages/u);
-  assert.match(ledger, /OCR publication \| 0 accepted documents \/ 0 accepted pages/u);
-  assert.equal(evidence.environments.production.health.version, '2026.07.23-v14');
-  assert.equal(evidence.environments.preview.health.version, '2026.07.23-v14');
+  assert.match(ledger, /OCR publication \| 26 accepted documents \/ 30 unique accepted pages \/ 44 paragraph candidates/u);
+  assert.equal(evidence.environments.production.health.version, '2026.07.24-v18');
+  assert.equal(evidence.environments.preview.health.version, '2026.07.24-v18');
   assert.deepEqual(evidence.environments.production.pending_migrations, []);
   assert.deepEqual(evidence.environments.preview.pending_migrations, []);
   assert.equal(evidence.environments.production.applied_migrations.at(-1), '0007_document_taxonomy_contract.sql');
   assert.equal(evidence.environments.preview.applied_migrations.at(-1), '0007_document_taxonomy_contract.sql');
   assert.ok(ledger.includes(evidence.environments.production.worker_version_id));
   assert.ok(ledger.includes(evidence.environments.preview.worker_version_id));
-  assert.match(ledger, /corpus-358471fcce862b2f0ae446fc/u);
+  assert.match(ledger, /corpus-1c4f6b41737380f3e71246dd/u);
   assert.match(ledger, /159 subject \+ 1 assessment subject \+ 16 course \+ 20 scope/u);
-  assert.match(ledger, /release-9cb02f77c06ee0535e7981a22b312373/u);
-  assert.match(ledger, /release-841a528f0086ce69f2f7a6f2d07c0999/u);
-  assert.match(ledger, /primary\+audit 6947\/11847；Vision 7012；accepted 0/u);
+  assert.match(ledger, /release-cd9ec4a050cbabbede744192398ebfa7/u);
+  assert.match(ledger, /machine disposition 6947\/6947；published unique pages 30/u);
   assert.match(ledger, /1259 of 3182/u);
   assert.match(ledger, /3304581750 bytes/u);
-  assert.match(ledger, /2026-07-17T06:35:37\.437Z/u);
-  assert.match(ledger, /Century candidate graph \| 134 archive items；1482 OCR \+ 44 catalog-title source observations；1031 projected century stars \/ 3202 century evidence \/ 952 lineage \/ 155 co-observation；detail 32 documents \/ 3044 pages \/ 40 concepts \/ 97 episodes \/ 420 evidence；5 tiers \/ 55 families \/ 12 storage identities \/ 11 public facets \/ 1597 memberships/u);
+  assert.match(ledger, /Worker 10c8d648-26d7-4e26-bd99-61b80dd9e0cc/u);
+  assert.match(ledger, /Merged single-Canvas graph \| 2415 episodes；core 553，century 1031，current detail 97，pre-2001 specialist 426，generic OCR 308；5 tiers \/ 55 families \/ 12 storage identities \/ 11 public facets \/ 1648 memberships/u);
 });
 
 test('operations ledger derives current environment facts instead of hardcoding legacy workers', async () => {
@@ -53,9 +52,11 @@ test('operations ledger derives current environment facts instead of hardcoding 
   assert.match(builder, /previewEvidence\.worker_version_id/u);
   assert.match(builder, /productionEvidence\.applied_migrations/u);
   assert.match(builder, /releaseEvidenceCommit = git\('log'/u);
-  assert.match(builder, /post-activation production R2/u);
+  assert.match(builder, /machineVerification\.counts\.machine_adjudicated_pages/u);
+  assert.match(builder, /publicationReceipt\.counts\.paragraph_candidates/u);
+  assert.match(builder, /17\(\?:\\\/17\| of 17\)/u);
   assert.match(builder, /entry\.timestamp > productionEvidence\.observed_at/u);
-  assert.match(builder, /productionBrowserEvent\?\.timestamp === '2026-07-17T06:35:37\.437Z'/u);
+  assert.match(builder, /const productionBrowserEvent = latestEvent/u);
   assert.doesNotMatch(builder, /Production Worker \| `7d1766b2/u);
   assert.doesNotMatch(builder, /Preview Worker \| `2459045b/u);
 });
