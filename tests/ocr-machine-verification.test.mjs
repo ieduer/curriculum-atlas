@@ -28,8 +28,8 @@ test('machine lanes are deterministic and tables stay outside the exact page gat
     table: { detected: false },
   };
   assert.equal(baseLane(exact, policy), 'exact_page_candidate');
-  assert.equal(baseLane({ ...exact, table: { detected: true } }, policy), 'table_structure_consensus');
-  assert.equal(baseLane({ ...exact, gate: 'blank_page_visual_confirmation_required' }, policy), 'blank_raster_consensus');
+  assert.equal(baseLane({ ...exact, table: { detected: true } }, policy), 'table_conflict_fail_closed');
+  assert.equal(baseLane({ ...exact, gate: 'blank_page_visual_confirmation_required' }, policy), 'dual_zero_text_blank');
 });
 
 test('checked-in machine receipt is fail-closed, exhaustive, and reproducible', async () => {
@@ -40,10 +40,13 @@ test('checked-in machine receipt is fail-closed, exhaustive, and reproducible', 
   assert.equal(counts.production_citation_ready_pages, 0);
   assert.ok(counts.machine_verified_exact_pages > 0);
   assert.equal(counts.publication_manifest_eligible_pages, counts.machine_verified_exact_pages);
+  assert.equal(counts.machine_adjudicated_pages, counts.audited_pages);
+  assert.equal(counts.machine_adjudication_pending_pages, 0);
   assert.equal(counts.machine_verified_exact_pages
-    + counts.third_engine_text_consensus_pages
-    + counts.table_structure_consensus_pages
-    + counts.blank_raster_consensus_pages, counts.audited_pages);
+    + counts.text_conflict_fail_closed_pages
+    + counts.table_conflict_fail_closed_pages
+    + counts.machine_verified_blank_pages, counts.audited_pages);
+  assert.equal(receipt.adjudicated_pages.length, counts.audited_pages);
   assert.ok(receipt.verified_pages.every((page) =>
     page.publication_manifest_eligible === true
       && page.production_citation_ready === false

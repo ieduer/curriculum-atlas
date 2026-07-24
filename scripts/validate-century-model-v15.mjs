@@ -156,19 +156,38 @@ record('ocr.fallback_candidate_coverage_complete',
     && fallback.policy.semantic_claim_allowed === false,
   fallback.counts,
   { pages: 1077, candidate_gap_pages_remaining: 0 });
-record('ocr.public_summary_fail_closed',
+record('ocr.public_summary_sparse_publication_and_fail_closed_semantics',
   publicOcrSummary.coverage.candidate_covered_pages === 11847
     && publicOcrSummary.coverage.candidate_remaining_pages === 0
     && publicOcrSummary.coverage.dual_witness_audited_pages === 6947
-    && publicOcrSummary.release_gate.citation_allowed === false
+    && publicOcrSummary.machine_verification.policy_id === 'curriculum-ocr-machine-verification-v2'
+    && publicOcrSummary.machine_verification.machine_adjudicated_pages === 6947
+    && publicOcrSummary.machine_verification.machine_adjudication_pending_pages === 0
+    && publicOcrSummary.publication.source_exact_receipts === 31
+    && publicOcrSummary.publication.materialized_unique_pages === 30
+    && publicOcrSummary.release_gate.citation_allowed === true
     && publicOcrSummary.release_gate.semantic_promotion_allowed === false,
   {
     covered: publicOcrSummary.coverage.candidate_covered_pages,
     remaining: publicOcrSummary.coverage.candidate_remaining_pages,
     triaged: publicOcrSummary.coverage.dual_witness_audited_pages,
+    adjudicated: publicOcrSummary.machine_verification.machine_adjudicated_pages,
+    adjudication_pending: publicOcrSummary.machine_verification.machine_adjudication_pending_pages,
+    exact_receipts: publicOcrSummary.publication.source_exact_receipts,
+    published_unique_pages: publicOcrSummary.publication.materialized_unique_pages,
     release_gate: publicOcrSummary.release_gate,
   },
-  { covered: 11847, remaining: 0, triaged: 6947, citation_allowed: false });
+  {
+    covered: 11847,
+    remaining: 0,
+    triaged: 6947,
+    adjudicated: 6947,
+    adjudication_pending: 0,
+    exact_receipts: 31,
+    published_unique_pages: 30,
+    citation_allowed: true,
+    semantic_promotion_allowed: false,
+  });
 
 const app = source.app.toString('utf8');
 const atlas = source.atlas.toString('utf8');

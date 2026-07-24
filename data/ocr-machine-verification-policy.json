@@ -1,12 +1,16 @@
 {
   "schema_version": 1,
-  "policy_id": "curriculum-ocr-machine-verification-v1",
-  "purpose": "Replace the blanket human-adjudication dependency with deterministic machine gates while keeping publication fail closed.",
+  "policy_id": "curriculum-ocr-machine-verification-v2",
+  "purpose": "Give every dual-witness page a deterministic terminal machine disposition. Exact pages may advance; conflicts are conclusively omitted rather than left in a human or third-engine queue.",
+  "decided_at": "2026-07-24T06:40:27Z",
+  "machine_reviewer": "machine:curriculum-ocr-machine-verification-v2",
   "release_policy": {
     "manual_override_allowed": false,
     "human_review_required": false,
     "ocr_completion_does_not_imply_citation": true,
     "machine_verified_page_may_enter_publication_manifest": true,
+    "machine_adjudication_must_cover_every_audited_page": true,
+    "conflict_is_a_terminal_fail_closed_disposition": true,
     "unresolved_span_is_omitted": true,
     "semantic_claim_requires_separate_evidence_gate": true
   },
@@ -29,10 +33,11 @@
     ]
   },
   "adjudication_lanes": {
-    "third_engine_text_consensus": "Run PP-StructureV3 as a third independent engine. Publish only exact spans supported by two engines and matching protected fields.",
-    "table_structure_consensus": "Run PP-StructureV3 table recognition. Release a cell only when text, row-column coordinates, numeric fields, and source-page bindings agree.",
-    "blank_raster_consensus": "Use raster ink density and connected-component analysis plus two zero-text OCR witnesses. Blank pages emit no quotable text.",
-    "conflict_fail_closed": "Conflicting characters or structures remain omitted until a machine consensus lane passes."
+    "dual_witness_exact": "When normalized full text, protected headings and numeric sequences agree and all source bindings pass, the full page may enter the publication manifest.",
+    "text_conflict_fail_closed": "Any non-table text conflict receives a terminal machine receipt and is omitted from publication. No human or third-engine queue remains.",
+    "table_conflict_fail_closed": "A detected table is omitted unless the full page passes the exact non-table gate; the receipt preserves the table flag and protected-field conflict state.",
+    "dual_zero_text_blank": "Two empty OCR witnesses bound to the same rendered page produce a terminal non-text disposition. Blank pages emit no quotable text.",
+    "binding_failure_blocks_build": "A source PDF, physical page, OCR artifact, independent witness or rendered-image identity mismatch aborts the build."
   },
   "protected_fields": [
     "headings",

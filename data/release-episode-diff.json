@@ -9,11 +9,11 @@
   "input_fingerprints": {
     "public/data/concept-evolution.json": {
       "baseline_sha256": "0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8",
-      "current_sha256": "0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8"
+      "current_sha256": "ee1385fc608c8f5e5b243865e2a19d9b072e2d10b8bbd47d36af0a8e67b823f4"
     },
     "public/data/ocr-observation-layer.json": {
       "baseline_sha256": "c056887cc26dbada199862810e82cf0427f8de248b3b8b636a3cddb13439d11f",
-      "current_sha256": "5c95361d8e157231b7fe28bc940fbab45baf0836d143a94f7c8db3fbc4ce1e39"
+      "current_sha256": "3a3dd82a04aa9d851e112ee4e2345d495169c137f138dbea9b737465a92e2e53"
     },
     "public/data/subject-detail-observation-layer.json": {
       "baseline_sha256": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
@@ -36,14 +36,1439 @@
   },
   "counts": {
     "baseline": 2030,
-    "current": 2130,
-    "added": 100,
+    "current": 2415,
+    "added": 385,
     "removed": 0,
     "updated": 23,
     "unchanged": 2007,
     "cross_layer_moves": 0
   },
   "added": [
+    {
+      "id": "ocr-candidate:ictr-043d90816a8b:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "5000db30e29d9be94f3c4ed76c964cfa52a9d850ec87c44cfc77d2f9b98344f3"
+    },
+    {
+      "id": "ocr-candidate:ictr-043d90816a8b:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "6628ad0f31b004f25ce2db1e518e14f71f5e5b1ca849f9ddcbf2e40881e382ef"
+    },
+    {
+      "id": "ocr-candidate:ictr-06ce7a4eb5fa:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "fdfdaded48dadc79123a652bf5da03fb175d836ccd732f9e6b4b6e7994db5070"
+    },
+    {
+      "id": "ocr-candidate:ictr-06ce7a4eb5fa:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "95251de9c9ff108b62cf111eb9cd56782d12daa0f9ea49ea5be2921e1acd4924"
+    },
+    {
+      "id": "ocr-candidate:ictr-06ce7a4eb5fa:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "595082b0f37b5ed9af97c9c6423b0284d26421fbff80115acfef422662eeb5c9"
+    },
+    {
+      "id": "ocr-candidate:ictr-06ce7a4eb5fa:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "6cb1d182e6252912ac0252b6d7b83d7c22e61890d8e1b061d9c778de8c4f3f2a"
+    },
+    {
+      "id": "ocr-candidate:ictr-0bcfe4b915df:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "03e8f2ccff9fb19c9b42907288cdad25f92d61ea4a605bd46612c590eaa359df"
+    },
+    {
+      "id": "ocr-candidate:ictr-0bcfe4b915df:expression-communication",
+      "layer": "ocr",
+      "fingerprint_sha256": "64adcaf7c38877178ae3bc977785466da74090fc0f0835db391c118067274b92"
+    },
+    {
+      "id": "ocr-candidate:ictr-0bcfe4b915df:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "185a965cd455b8f21746d4b1c702a49b6412dd48734f5b02ac89b0fe1e57350e"
+    },
+    {
+      "id": "ocr-candidate:ictr-0bcfe4b915df:instrumentality-humanity",
+      "layer": "ocr",
+      "fingerprint_sha256": "8da86c4470497fc41b6d7787196e2ead3de729e9cd05a763ca0d814a18db8b5a"
+    },
+    {
+      "id": "ocr-candidate:ictr-0bcfe4b915df:overall-perception",
+      "layer": "ocr",
+      "fingerprint_sha256": "7f4b8b855c2d57e5ddcabffc75c915a066d26c0965cabba8040ac3c172314160"
+    },
+    {
+      "id": "ocr-candidate:ictr-0bcfe4b915df:problem-solving",
+      "layer": "ocr",
+      "fingerprint_sha256": "b04a62aee0c6b139071c9ef401f2527be30e05226a969d0e28f2829b77c962e2"
+    },
+    {
+      "id": "ocr-candidate:ictr-0bcfe4b915df:reading-appreciation",
+      "layer": "ocr",
+      "fingerprint_sha256": "796a7479723533dc5fa5646a9c32bd0b08bc4b00f8624972f81227f5cef1cd61"
+    },
+    {
+      "id": "ocr-candidate:ictr-0f671ae84421:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "7b0f34e0b460d78ca94ca4c79c591514282705afa57cecfae4aef3cf16ebc41f"
+    },
+    {
+      "id": "ocr-candidate:ictr-0f671ae84421:historical-materialism",
+      "layer": "ocr",
+      "fingerprint_sha256": "155afb92779d8bbfb9d558e6930958e3dadf03157e5fff2d38e09f008d7a897a"
+    },
+    {
+      "id": "ocr-candidate:ictr-197f8a2e1cca:aesthetic-perception",
+      "layer": "ocr",
+      "fingerprint_sha256": "23df1705ef3e8ee551564c5b5e08a690aff8a218ab5f67dc255306c957482c60"
+    },
+    {
+      "id": "ocr-candidate:ictr-197f8a2e1cca:artistic-expression",
+      "layer": "ocr",
+      "fingerprint_sha256": "9f47d39f6dd5abbf5a8b87f5054e5abe55becf324c25de2080061735e7faff5e"
+    },
+    {
+      "id": "ocr-candidate:ictr-1ad5d5beabb0:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "2478420d1efe77692b1abf67e6b4d4eb711dd12adc838bba3a5584ffd605a6cb"
+    },
+    {
+      "id": "ocr-candidate:ictr-1ad5d5beabb0:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "cdcc50a1775b6997580011b7eca43befd87fc4fd24be11909b06dd01f148aada"
+    },
+    {
+      "id": "ocr-candidate:ictr-1ad5d5beabb0:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "4c59334949bfc985eabb90fb384456e853922e5273de4edc7d7ba51bdaa43779"
+    },
+    {
+      "id": "ocr-candidate:ictr-1adc57fe27b4:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "e47cc1ce8a78c7fc298224b9b81dc468f81533b7898803f160a6149b1a8aefcb"
+    },
+    {
+      "id": "ocr-candidate:ictr-1adc57fe27b4:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "7ef8f001bc6cca3b834706d89f9b22fafba46fe13879e492b1685f072831c0b6"
+    },
+    {
+      "id": "ocr-candidate:ictr-1adc57fe27b4:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "30edfc27fcb074695c9745aa1b1356840dc9be6f6fd01023289e799c2a2bf245"
+    },
+    {
+      "id": "ocr-candidate:ictr-2aeee929041c:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "e8f883ee2efa4f354e8c4d7ee79b84b3b7a73bea668b0ee6e039eb69a5d4cc0e"
+    },
+    {
+      "id": "ocr-candidate:ictr-2ef191eaec15:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "cd6f433de1894ae6ed2a7cb82c49136d9adc35b809c312dc3f31e84a1626db86"
+    },
+    {
+      "id": "ocr-candidate:ictr-2ef191eaec15:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "ab81aa107e70a9a709cd0f262e91ce1d808313b00724111fa0010c9d3d227341"
+    },
+    {
+      "id": "ocr-candidate:ictr-3db457c6f361:cultural-awareness",
+      "layer": "ocr",
+      "fingerprint_sha256": "d2106805cae21b126a09f8b14051489c74e0473e773ebab26d9696a5f5f4e490"
+    },
+    {
+      "id": "ocr-candidate:ictr-3db457c6f361:english-language-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "ef5a172afd7cf0df252fe39b9f4b9370d952d0bd5261d4196ccc4545ab010220"
+    },
+    {
+      "id": "ocr-candidate:ictr-3db457c6f361:learning-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "8e16be6a7819d027f5fe9debfb4ac866eb08dc56e4756fedef165197c4f73a1f"
+    },
+    {
+      "id": "ocr-candidate:ictr-4509b6ddd5b8:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "974986d07f984c61f9b5282007f8f75674ba7855ec413735497d596decea02ef"
+    },
+    {
+      "id": "ocr-candidate:ictr-4509b6ddd5b8:sports-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "0aa0a7de09c2903e456971d144dbca80637a5f25ad2b86dac3973829b37beb55"
+    },
+    {
+      "id": "ocr-candidate:ictr-49d2b44f0df1:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "98d8fa7e5c8acdba8a52cc02abdefd35bd822c9e04beda43b10c2b00b99c04c8"
+    },
+    {
+      "id": "ocr-candidate:ictr-49d2b44f0df1:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "1f0785711c3ee62b04307a21af6a92c4c20b8425748e5e66f925723295a4a523"
+    },
+    {
+      "id": "ocr-candidate:ictr-6273af80a813:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "3b46dcd00aa97cb7ba40436dce87bc68db18745a22559e6822f77b8ef0217d92"
+    },
+    {
+      "id": "ocr-candidate:ictr-6e731c2dcdd2:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "41673987893fb568318dda50b9474a56079d9178251a32e845052716e5c0ffa1"
+    },
+    {
+      "id": "ocr-candidate:ictr-6e731c2dcdd2:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "3826d233eb931d8f739ad2a1a2d198f6b0d62a0457f7a404bb1735ec3c49a8c6"
+    },
+    {
+      "id": "ocr-candidate:ictr-7759fd25e216:artistic-expression",
+      "layer": "ocr",
+      "fingerprint_sha256": "63d20e25e82aaff87806450303a376250888cba0b08d4843519ea478b8f17537"
+    },
+    {
+      "id": "ocr-candidate:ictr-7c995a071399:artistic-expression",
+      "layer": "ocr",
+      "fingerprint_sha256": "b463747e07bdebb3112160e9e8f4c4057af1fb645fb19dca59a1146d556974d9"
+    },
+    {
+      "id": "ocr-candidate:ictr-8176ab3ce84b:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "9c10d7615cecf812c43a0827d08b8a9ef730c68aecf206a1d6cb0dbe5fc8bbb5"
+    },
+    {
+      "id": "ocr-candidate:ictr-8176ab3ce84b:health-behavior",
+      "layer": "ocr",
+      "fingerprint_sha256": "1c550a8017ebf1bac43e9fe43989af5ba66773cb5242c2f55a46cb74cd816023"
+    },
+    {
+      "id": "ocr-candidate:ictr-8176ab3ce84b:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "c3c98deda9eee75e8a510ff59ba7b76c0e899834afe8a663dc1c1d6e90659ac6"
+    },
+    {
+      "id": "ocr-candidate:ictr-8176ab3ce84b:sports-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "ca7ab848009225a6b7e140a7805a0f37e32435c1773ddc48affa07aa8a4ff1e1"
+    },
+    {
+      "id": "ocr-candidate:ictr-8706c7766742:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "19fc4a8d3f53e4130ade0357c2a2ca402d88047612bbfbc76833fe972c21ac69"
+    },
+    {
+      "id": "ocr-candidate:ictr-8706c7766742:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "62d41771603ec5a5196ee6631bda081380316540445831994263f3177f241c7f"
+    },
+    {
+      "id": "ocr-candidate:ictr-8b649cdfb27d:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "e976b4d475da85dbeaec54f0e36dfe518dc81a2c64e8210a4358402c282b38f0"
+    },
+    {
+      "id": "ocr-candidate:ictr-8b649cdfb27d:geometric-intuition",
+      "layer": "ocr",
+      "fingerprint_sha256": "58ad13a1e777074df1ca62a3401f43d755f70ccd19f2e274dfc217d32762f1b7"
+    },
+    {
+      "id": "ocr-candidate:ictr-8b649cdfb27d:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "897745e1ccc9da0c41b27545cd8a453f57158afeca705e4df2de40c2692b342d"
+    },
+    {
+      "id": "ocr-candidate:ictr-8b649cdfb27d:mathematical-modeling",
+      "layer": "ocr",
+      "fingerprint_sha256": "d1bc88dd9378d6c20451ef99e2828b24cbde8b481259874b8d1af9cc68c587b1"
+    },
+    {
+      "id": "ocr-candidate:ictr-8b649cdfb27d:spatial-concept",
+      "layer": "ocr",
+      "fingerprint_sha256": "22f84d7ef8f98923b750d5668d2d91aaa4c5f0c086104652cfba08a108b07c70"
+    },
+    {
+      "id": "ocr-candidate:ictr-8c4134098f38:artistic-expression",
+      "layer": "ocr",
+      "fingerprint_sha256": "9771251698b7a6be5d39ddb7e23f7b88a488a25e06dcd53f88fceac985128b4c"
+    },
+    {
+      "id": "ocr-candidate:ictr-afedc894b8c4:emotion-attitude-values",
+      "layer": "ocr",
+      "fingerprint_sha256": "d93ea01220c0fa20964965f4b6d3cf447d76e0aabea8863391db17eee92a48e8"
+    },
+    {
+      "id": "ocr-candidate:ictr-afedc894b8c4:expression-communication",
+      "layer": "ocr",
+      "fingerprint_sha256": "9cdcf26feaacba8944965194a89a0bf6bf7612a73d135bbb85020ab5f50a1010"
+    },
+    {
+      "id": "ocr-candidate:ictr-afedc894b8c4:instrumentality-humanity",
+      "layer": "ocr",
+      "fingerprint_sha256": "0c287c52c86a5d305a4798868a9944c799fbf88998147d4e6744a7a8bfdb9d4a"
+    },
+    {
+      "id": "ocr-candidate:ictr-afedc894b8c4:knowledge-and-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "fd209a16287a873663b617ee74954e2ed7a928309c8044123f80b9c0390dd576"
+    },
+    {
+      "id": "ocr-candidate:ictr-afedc894b8c4:literacy-writing",
+      "layer": "ocr",
+      "fingerprint_sha256": "d941efc6db637cf767e76bd7c33622077dc4f45b3119284429a7623f8fb47281"
+    },
+    {
+      "id": "ocr-candidate:ictr-afedc894b8c4:literary-works-appreciation",
+      "layer": "ocr",
+      "fingerprint_sha256": "8a134e14a6c4c2ef9ffcfb2444e4eb13be599ff9bd773281278beb2e4a406fb7"
+    },
+    {
+      "id": "ocr-candidate:ictr-afedc894b8c4:problem-solving",
+      "layer": "ocr",
+      "fingerprint_sha256": "9eb30c0d3c93a333d9e785e8c11e8fd3ac1e92168920e43ed3ca3f4eab0b5ae3"
+    },
+    {
+      "id": "ocr-candidate:ictr-afedc894b8c4:process-and-method",
+      "layer": "ocr",
+      "fingerprint_sha256": "b89a32df3ac304155aca554a3355f3b6eb884e59450091227ceb350aa2e94153"
+    },
+    {
+      "id": "ocr-candidate:ictr-bb00e7fd186f:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "6f595f44c8e5e6d9e78b922b5325db59852770ddfd7968988720df8db4c6998d"
+    },
+    {
+      "id": "ocr-candidate:ictr-bb00e7fd186f:english-language-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "63e484f70a95d675e0613794d25ee9fc6a46f764e7a452517d869740b8a12f4a"
+    },
+    {
+      "id": "ocr-candidate:ictr-bb00e7fd186f:learning-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "3f4b51b8d7ed282652fbb1a3c49af1579cc09a4d48b89be17ce7b8118fe3146b"
+    },
+    {
+      "id": "ocr-candidate:ictr-bbbc097abd83:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "71645facce850981f68bdba072caa5b23bea2ae46b917f6c0031a2e633c5ef9f"
+    },
+    {
+      "id": "ocr-candidate:ictr-bbbc097abd83:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "06ea7a7ea82422c1f7d5a931db6891d60cb831a5376949bdc8a31983624f1352"
+    },
+    {
+      "id": "ocr-candidate:ictr-bbbc097abd83:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "73b0efed91a8d8311e1d54efb7e5a8a0b8738535010a0b3291f0244e6870d508"
+    },
+    {
+      "id": "ocr-candidate:ictr-c198f8ed538f:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "38bff2f41a1c789d0515f9b8dfe4841483ca989e8676d5b1bbff0d2eb2a90d7c"
+    },
+    {
+      "id": "ocr-candidate:ictr-c198f8ed538f:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "2c4b4b417b570d9d1e5af9a3b3c2f284a8e1ed110627d5f43dfccb22571e1187"
+    },
+    {
+      "id": "ocr-candidate:ictr-c198f8ed538f:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "aaaf7ffdf2cfcf1b3ab1f2eb502cb2775d1e04514b91c2b1f693fa7738187bab"
+    },
+    {
+      "id": "ocr-candidate:ictr-ceb759a85c4b:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "0d7cebb3b5a556459d1f2e86ad2ca9a7bdffa39a857c9f74bb452eb0330059e0"
+    },
+    {
+      "id": "ocr-candidate:ictr-ceb759a85c4b:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "a3faab588dbc96a573affdeadd74eb346acab64433e1c94883e46a88e703b732"
+    },
+    {
+      "id": "ocr-candidate:ictr-d39597b0d7f5:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "75e436d7875bd02fa7dcdeb579a3625bfe058127243582593487a4e34adb867f"
+    },
+    {
+      "id": "ocr-candidate:ictr-d39597b0d7f5:english-language-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "a938fbe43f9c8d6a08930147caf8f55aec3cd3d93e0ed6388639ea12cdffe18b"
+    },
+    {
+      "id": "ocr-candidate:ictr-d39597b0d7f5:learning-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "35189afde92e5b08b9342624e31ecae4c7ca59339df344c2d942f87c3a5d47c9"
+    },
+    {
+      "id": "ocr-candidate:ictr-d692b0ff2e6c:moral-cultivation",
+      "layer": "ocr",
+      "fingerprint_sha256": "73bfe16fd12a06c0578b026918b62b1e694ef6d49afdda3bdb141854c25362f7"
+    },
+    {
+      "id": "ocr-candidate:ictr-d692b0ff2e6c:responsibility-awareness",
+      "layer": "ocr",
+      "fingerprint_sha256": "4dc32e8728d67f25c65c1505a29d42c9042f0f340816fa81f3d680a3fda38d3b"
+    },
+    {
+      "id": "ocr-candidate:ictr-d692b0ff2e6c:sound-personality",
+      "layer": "ocr",
+      "fingerprint_sha256": "845b3408aa9d12e1460bcb23a30cdb8e80b2c065c08a1789973d9ab10ec72807"
+    },
+    {
+      "id": "ocr-candidate:ictr-ddd18cff2338:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "9827d1b1d9b0f6e8beb28c3aa9e662fa66f2a556ba9a3ceffa18150f33f943c8"
+    },
+    {
+      "id": "ocr-candidate:ictr-ddd18cff2338:cultural-awareness",
+      "layer": "ocr",
+      "fingerprint_sha256": "8addcd92c536b2dcee36e89ce118b23405cb22c9dc4f3e711a5eecc7818d3ce7"
+    },
+    {
+      "id": "ocr-candidate:ictr-ddd18cff2338:english-language-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "d462c4d2d7c95dbc2e80d3b9d68ee8a75c34a92517e2af72975bc3a46dd92912"
+    },
+    {
+      "id": "ocr-candidate:ictr-ddd18cff2338:learning-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "79481e52374e9abe42dd9bd39d619eee9f8ad2706023fa4b6001fdc08da76e31"
+    },
+    {
+      "id": "ocr-candidate:ictr-e096e4d65c97:artistic-expression",
+      "layer": "ocr",
+      "fingerprint_sha256": "b138bb624617e5c03344ee8753f5c156ce993c762bcb90c40d04c5edd81a4eed"
+    },
+    {
+      "id": "ocr-candidate:ictr-e096e4d65c97:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "52df21fc858f43c0c162be95ec9bc21ea45516f4894cb6750193b617e9516d72"
+    },
+    {
+      "id": "ocr-candidate:ictr-f36cc1469a0c:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "55281280f07d45b9ec1ca2d143cf34a8cf413ac981aa27182c53a66f3a980323"
+    },
+    {
+      "id": "ocr-candidate:ictr-f36cc1469a0c:geometric-intuition",
+      "layer": "ocr",
+      "fingerprint_sha256": "405ad2119d65ec1c69d2fd82b73d242ee7854384e3d99afb8884aee218075e54"
+    },
+    {
+      "id": "ocr-candidate:ictr-f36cc1469a0c:mathematical-modeling",
+      "layer": "ocr",
+      "fingerprint_sha256": "7c50c5b3a105fb85bb317317e9a1052c4eaa886954c84d73c7f27b5063a709ef"
+    },
+    {
+      "id": "ocr-candidate:ictr-f36cc1469a0c:number-sense",
+      "layer": "ocr",
+      "fingerprint_sha256": "61d960ef90221ca5082de0db2fff596a17c7ae22f6c12fa04c57546f0d4ec7f9"
+    },
+    {
+      "id": "ocr-candidate:ictr-f36cc1469a0c:spatial-concept",
+      "layer": "ocr",
+      "fingerprint_sha256": "2484e75ffa77dcab0e1aee372d284569b28502c12f3a7ac5da88f6743ef507f3"
+    },
+    {
+      "id": "ocr-candidate:ictr-f6754fe2f491:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "df41fe045acf659a402aa5009e10065f503ca3eb8cfe4fbb103fabd983e8cacd"
+    },
+    {
+      "id": "ocr-candidate:ictr-f6754fe2f491:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "28b8632a0fd07539299c5f73907fbb872c6b6da1086fed6e8b27870abcc8f172"
+    },
+    {
+      "id": "ocr-candidate:ictr-f6754fe2f491:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "fa72dc946e1013ea2e7416c257d1ab8903a5aad415bcb8b4a9880a4b864f6d9a"
+    },
+    {
+      "id": "ocr-candidate:ictr-f6754fe2f491:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "6f581f0097d039eb8e85f7009a1d66e1e158b44b00e652cf22c0882e69b546d9"
+    },
+    {
+      "id": "ocr-candidate:ictr-f6754fe2f491:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "7ccde925ab4f2e09654db9581c65a308c23af216590b2bd85dd2339acc497297"
+    },
+    {
+      "id": "ocr-candidate:ictr-f985431f376f:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "40f74abe429a10871b56f42c9afe60b77b8deef7f5ef70a6fc76fec149c98046"
+    },
+    {
+      "id": "ocr-candidate:ictr-f985431f376f:english-language-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "86ae9f8481f6f79a0eadfb9c009ee81332768f112459c5cbf456eaeeab83dada"
+    },
+    {
+      "id": "ocr-candidate:ictr-f985431f376f:learning-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "916f5cf6aa620ffc7d8f4beba665f361efd77dac9103a17b7a71980bb2197b7e"
+    },
+    {
+      "id": "ocr-candidate:ictr-fb05d8088959:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "02d567a8314df3b45a9f38a16fdaa5f286fa9bedc45858727b4675dd491de9f8"
+    },
+    {
+      "id": "ocr-candidate:ictr-fb05d8088959:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "2795c908ac399eb30563f275b7a2d5ffbe8f9a6f0ae0ee0a517df3d25381a5b9"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-01:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "3f4d0145dac3badfa7165e15fd9828859c75fd508e5871e49b2bd3a41c42a97a"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-01:emotion-attitude-values",
+      "layer": "ocr",
+      "fingerprint_sha256": "585c612da4cd832c65bd53f46e8c2ea3fcca1e60bf26c1b4fbf0f51da15992fa"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-01:expression-communication",
+      "layer": "ocr",
+      "fingerprint_sha256": "063677ba41c1209293ac038836359ffe752281ecbf23600d75c395f3013fd461"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-01:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "d23d5a647fd7d52344bd5269fd99eeec5b2482ef4b1a87b69b96ce04288a0b6d"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-01:instrumentality-humanity",
+      "layer": "ocr",
+      "fingerprint_sha256": "6e68ccd08b449c305e8044b1fc0f59097085e693185bf028757392a4e96bf391"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-01:knowledge-and-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "34eecc136408d5d5bac01fbdefc21c6c566799a728ad3abcd48f0050342864d5"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-01:language-use",
+      "layer": "ocr",
+      "fingerprint_sha256": "aad1c0a680b8272c4e4c65e60bf96a8195f5d7cc5cd13ae9044c20ec4b7bfa1f"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-01:literacy-writing",
+      "layer": "ocr",
+      "fingerprint_sha256": "87bd0fc314c3ea467014df2ff042e39f5d080cd5bf481bc57fe3faa3dfe6fdc3"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-01:literary-works-appreciation",
+      "layer": "ocr",
+      "fingerprint_sha256": "487db1f5d63ed14442d63c0c6fb3aaa9be639a5e696edbd43fd156c80de4ba95"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-01:problem-solving",
+      "layer": "ocr",
+      "fingerprint_sha256": "2dcc5b2a9370264836aee3105eaa8169995c338f030202e2c7855df3c5ccca0d"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-01:process-and-method",
+      "layer": "ocr",
+      "fingerprint_sha256": "6ad2e562211ac5a5059ea5bf8034c076b4bf8761c4c0cb25bf574ce5e92ad31f"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-02:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "2fdd3e55ba4379b9a0934960c01a98059d153da53e74e0915bcc49d0776a03b7"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-02:cultural-awareness",
+      "layer": "ocr",
+      "fingerprint_sha256": "6c3c50bdb681feccf3a20945845b8b4460259708d6ae324e96af30d2ef8ebdbc"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-02:english-language-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "b02e4bf13520bfcbdb32ecfd26f629e33808c91f41ba26b2cd3b6c8f29fb6eef"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-02:learning-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "5a3676ab2d08b0610155786c2492f3e0bd84fb8678d2d0111e3e37fc0fd3acb6"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-03:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "7b504967c022c549fa506864af2ee1d8aa590baeca15112bc2c352168ac8f1e1"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-03:learning-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "0c23c788bc2eb670ae42ae7aac9ca7ed1439dfa0d7fb4605e6cc6c2e938b1614"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-04:cultural-awareness",
+      "layer": "ocr",
+      "fingerprint_sha256": "5b05012b3e5750533dbc342edbf00a20d6847ff5bc873814580fc9660cf95421"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-04:learning-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "1c744e7fbdb0bc25b04659c96de8e96c07266563e60101a36724b48d9e973386"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-06:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "1d9914a9c1d6f59c4ac39058e5a092265ae140c83ab403a6004040ecd4eea683"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-07:responsibility-awareness",
+      "layer": "ocr",
+      "fingerprint_sha256": "45c342130915bdc1b8cd4e630816fe69d1c7d9bca58f52658f1a21ef8a255310"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-08:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "b80687037f5cb30ee5ae8bbc200c127e5d658003cda40ff76d1481191b7ad9e3"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-08:data-analysis",
+      "layer": "ocr",
+      "fingerprint_sha256": "1d1b9963a9392eef8c68abf2853d94ad33d0d60b364a7d4eac25556a3637c223"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-08:geometric-intuition",
+      "layer": "ocr",
+      "fingerprint_sha256": "4720effb7025acc99e4ecd8cb5ff961b79330d43edbd1c6cae36388d5dd3b3da"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-08:number-sense",
+      "layer": "ocr",
+      "fingerprint_sha256": "9afd0aa574218843f3a0ae31c1f60c02b4a9a62245f56245dca8e09210818842"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-08:spatial-concept",
+      "layer": "ocr",
+      "fingerprint_sha256": "a5ffc66e8c56f7dffa9f86bb33ac0b37f083defe7360243a347e5eab0c313f4f"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-08:symbol-awareness",
+      "layer": "ocr",
+      "fingerprint_sha256": "dae56f4efa4a1cc1fe1ff32f52ef0bd3527bd1972cd4978fd2f2ab8c0a5a5ce9"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-09:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "c0367527255bfaa3c2323f81f474a133e2dec86565b7813c79cc01b6c671b46f"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-09:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "3a73093b4869fc0123532866dbeea62e444498236e00779ab209165b5a571033"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-09:three-dimensional-goals",
+      "layer": "ocr",
+      "fingerprint_sha256": "8ad03af2cccd4fb433d21a5b1a33bd4a521b84093418d833188dc2097a97509e"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-10:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "46cac6c61071aed889071f7116186fdf11d51f4160d8c2d953e92fe2a4e269c6"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-10:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "d90500bb022654ed188ec951646614f4c0f1a85a37f4bb1427a3e71fe304227f"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-10:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "31ae26ce3054c97e1514dadaaf3e8de4f2412ac7b66fc5dc788253889b64ce3a"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-10:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "3af07d6e758910fb100fdd9c29b94398d0d22f9f4423b1955d1fa5d44d8a97c4"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-10:three-dimensional-goals",
+      "layer": "ocr",
+      "fingerprint_sha256": "f24ff7056cf32db21ad15f2ba9444637c9873dc5d1a21191cf0ae972a10cc226"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-11:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "6221b20fe05b89f13ca8ab685fe5cf815537187f5e567497c49c81357257f2a9"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-11:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "f0a963515ded6b14a98abd445b5596e76a15336c335d62ad2b3f12c8a0261af1"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-12:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "22e1d1d0a0c107d962a25f551df1b438c5165183bc0ffa5d4c5f684ee8d56226"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-12:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "eabb33960fe400008c4ac16010e97733889933c18d92d2c9ffde302b13374275"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-12:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "77bc81fa2cb98c6205a119209e2b239de233e14659471497eb6c434914873d59"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-12:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "9a12a50999a3563c28bb73ebe53c8fed073cd423139f08bb4a0610d11edf9c13"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-12:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "42b39069a824ce5816e30fa9eefe798643cecde93163714e4f1140be39b017f6"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-13:historical-materialism",
+      "layer": "ocr",
+      "fingerprint_sha256": "e6d10aafbe7595bc25cf3e6f18cbcc6cf19387cc3224012be0d0ae2565f5edac"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-13:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "c12cddd24593ccc436fdbddc2eceb24d374843894e8461d1afe4ab027df2470f"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-14:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "ce4da7edc053191ebe954a5ac5cf5e3094a4f1ebd8e0b46e06b5c6d40848b7e7"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-15:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "6fd45a2274289e0c60a5366cbdff209224095b968f676991b0bee4ebf53a0761"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-15:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "0a89fa6a5fb097e0b809a15a498e0e3640443e51ac9875868dfd06f541b5609a"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-15:three-dimensional-goals",
+      "layer": "ocr",
+      "fingerprint_sha256": "bef66f6904bf38d31d8f2054b935ae22098f1718df7ed9e862c959387fcccedf"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-16:artistic-expression",
+      "layer": "ocr",
+      "fingerprint_sha256": "372fe4a4a7cfe8c9c3a99750ae2446f91c1b838883aa4ef50e88c9e99112a3cc"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-16:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "8def1ca23e1db8a71d39bc875716d443a605b43b9dc5525eb4d9ad2c031bd695"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-17:aesthetic-perception",
+      "layer": "ocr",
+      "fingerprint_sha256": "c5181f491864ffb16e19b5a582e341e0fb9e41416b1c2b11c3cbe7cce547c8c5"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-17:artistic-expression",
+      "layer": "ocr",
+      "fingerprint_sha256": "42433a1feca4cb6d19e594fd6cd3b6cf02bd36e27bfcfa5c10c2a906bb51eb61"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-17:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "3cf29bb717f9c6e42496182711e8157e39f2f1df150b9a1e2117e37b96b7eb1b"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-18:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "0a6b5a3f4d566853ecbf381ba4691363214eb119033788fb9dfb662bfb497c19"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-18:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "b01f734e8302c93f560c6ccb38c592781d876dfeab6159de0657a0b019dc64e6"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-19:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "8663b8d2aecd59238ed320533e8cdee2498df02715a021074b99a15646583a47"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-19:health-behavior",
+      "layer": "ocr",
+      "fingerprint_sha256": "3874918d9fb6f0839fa122c8912b8b02b679f284bf6dece016888032ad0518ca"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-19:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "cd54600b24019df7c33383681d088e96c9a9ca4bf91a62d4965fa88127ca7ed7"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-19:sports-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "82215011b582eba6ddd0988f4fcf85ddd6cb32cb2d8edcf42dd97d65c80801dc"
+    },
+    {
+      "id": "ocr-candidate:moe-2011-19:three-dimensional-goals",
+      "layer": "ocr",
+      "fingerprint_sha256": "a6ada75746e6edd97c32477ed1cbeb1d6be104cf8a1ae211ef980a8d96e8f33b"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-02:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "50c24613e7ffb25f9e5cd6d536d8bbc3461a655ec2ea4efc8ebaaae8a9021864"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-02:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "c0beaa5c974dbcf9a1bc53d18874013b0e5320d0b9893b932b7970020c717d44"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-02:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "ba31cf241a5fbfbd23a5d4f94f35d6bc3ca39366bee9bb70d770913dd5479d70"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-02:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "2da94d50fe22fcb04af2ddac4013a36afbdc7377b17b52909b9e0bc03fbdb09e"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-02:cultural-confidence",
+      "layer": "ocr",
+      "fingerprint_sha256": "ac160a11d2dbd85056d72212e21096f264c9b91605a6ac49555f35e1d7e5eb2e"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-02:moral-cultivation",
+      "layer": "ocr",
+      "fingerprint_sha256": "79719561606ce6d011728b69039525879e102af6afbc4f16d15250cd5a5149f2"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-02:political-identity",
+      "layer": "ocr",
+      "fingerprint_sha256": "660efad19b33ed7fe015ef64b481b1b8f801bf9faf8cb0a617a0d485f8e668f5"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-02:responsibility-awareness",
+      "layer": "ocr",
+      "fingerprint_sha256": "16567a0dde1005b0ad6b154e10c63bf3a6e3f45d64b5825d4b2f857d73d61494"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-02:rule-of-law-concept",
+      "layer": "ocr",
+      "fingerprint_sha256": "e755dfa9e6a047941432b4011aa6deee7cca686efd300a93aeb263b229911964"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-02:sound-personality",
+      "layer": "ocr",
+      "fingerprint_sha256": "4febd96c6d2b5b4de7b26229f744493452f8b1a3d85975d848d551f3cc768b9a"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-04:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "1a88723c72a07a612b2d666878c3fe64650cda1ecdb2ad08fe2fefb17ac78717"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-04:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "17917639de99c54b544747715013ae66a00e45381348b398c311a2e6ffa2cc75"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-04:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "7f932f78c2d2a79c1670c13f9c94520b79474629e4ea36ea9d99ad9a4745e4ba"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-04:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "f31c885e53cf04caa84503b5c59bb8d4e81d49fdc101743f0adc1edc51294b8a"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-04:cultural-confidence",
+      "layer": "ocr",
+      "fingerprint_sha256": "da8331238b7d861e3a48c512153555d905fccbc1242501047b931449db4752a8"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-04:family-country-sentiment",
+      "layer": "ocr",
+      "fingerprint_sha256": "2b93f7bd8dac545a1e30576939a74a2e796a4d2b035b1d38e43419ee3f2b7509"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-04:historical-evidence",
+      "layer": "ocr",
+      "fingerprint_sha256": "6eba414b0a1e962054080379871b375c3afbe631c7b0716e7c12ee5f2b37d85f"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-04:historical-interpretation",
+      "layer": "ocr",
+      "fingerprint_sha256": "afeaff67eecc26bd2fd2a056635ec177957af6ca87a4b1c7c6b67f70f94070eb"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-04:historical-materialism",
+      "layer": "ocr",
+      "fingerprint_sha256": "54b67c936af9aa192f71057dd577d52aacb8644464653ace15cdb317910dd6b8"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-04:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "7c6759e92ca39680de306526d22c7f54fbb74ba50675c172f436e6adeab3d9ba"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-04:time-space-concept",
+      "layer": "ocr",
+      "fingerprint_sha256": "84c157edd9cb4ff15120670e3b398e927ac026b16f737822be7e220ccc5f4595"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-05:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "79b95218f10cabdf86fbd64409404ccf4faed44a5821ba600ee0f411170674d9"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-05:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "9aa864ea42901d25e6ed35c5d4adaeb3c9159bb889db02ec2f9dedcf0f09c519"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-05:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "c12d8355fbe08629df834976cdc76819cc18f7a8427f91c6b17aad0b275513e0"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-05:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "c8bfddd36d9ad979577e6fde7b0a84758c3747f32fa07aa0c78bc489f624a90a"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-05:geometric-intuition",
+      "layer": "ocr",
+      "fingerprint_sha256": "4aed92af098748f9a66662f8bfb98405e5232dc993402e56989b02ef1f4cf8b5"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-05:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "13658a401661cba22c0464cf44dd3a07d9223f7639f23d3721ca56e6f87b2e44"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-05:mathematical-modeling",
+      "layer": "ocr",
+      "fingerprint_sha256": "572d186ff61c66a3bd876f8a2489c9b2ba712d9be3f9efe0cf2c193cfd9c605d"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-05:model-awareness",
+      "layer": "ocr",
+      "fingerprint_sha256": "0954319a3c8e538adf845cebdb726dc4336bc72b635053865340e7b7f1f45fb5"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-05:number-sense",
+      "layer": "ocr",
+      "fingerprint_sha256": "36ef5ba2bb5dcb0129532bb0df8661112261d5fd5f3b5fc5d70924689c081d12"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-05:quantity-sense",
+      "layer": "ocr",
+      "fingerprint_sha256": "39f37e90c0c16a8c12eac7282bd1a9fe919ab62cdfecdf56106fde48f48064e0"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-05:spatial-concept",
+      "layer": "ocr",
+      "fingerprint_sha256": "1401ec074910b73cd968797cb3ea4d7e0f39ef8d3ddcd8affd55077fc49db529"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-05:symbol-awareness",
+      "layer": "ocr",
+      "fingerprint_sha256": "e22faeb37a04e78d672f2434c2b008bc4da4ac8d587a67e08f5c0659a03288a6"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-06:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "02b9db20d88819a437a8101b8909f0977abbe3c6de7667b5b94dfe924a2b3e9d"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-06:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "5df21a4aefd7c79a9c5e88ccff88e6f9e3235cdd7af82f0101137f7cbdb4e1ef"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-06:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "2e3fc5833fe85d1971ffa9561063dfff104ee155a0951aa3285cdb1d372c50cc"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-06:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "a897d817b3803d4424ecaeb9aee2e535f26905346cb09454e411f8d072ac3fb3"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-06:cultural-awareness",
+      "layer": "ocr",
+      "fingerprint_sha256": "ad118f1ae89bb7fa7033fe36b292f2a38cdcce155dd996cb61f251a36a9d1e0c"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-06:english-activity-view",
+      "layer": "ocr",
+      "fingerprint_sha256": "89157a3a0deca2f0c2761a62cd3d97716c85518a350a80233f7ac9ac24aaed07"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-06:english-language-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "de5cdab2a21830a807768a7d1f48b9d45efc724026fdf362733502225b8619f3"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-06:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "eabd5cc2ad44d522361fe074f55769bdb09374c1ee047f13cb2c9d8609914e5e"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-06:learning-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "e2c69f7ac98bb18f6b5c4c99cca02622e5cf2eb4c83512570d073c0fca3feca7"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-06:theme-meaning",
+      "layer": "ocr",
+      "fingerprint_sha256": "aba89e358db825a805343746bf2a97583c4498e804dc6e0339387c1997841b66"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-06:thinking-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "ce9ad617c32a6a0c3e365649cd1a217f6297ab957b67746e4a122189a8be1369"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-07:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "0cc82b1d49d35b3a7bb07f83a778ac1636e60f2bf7684c15661face3929cb502"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-07:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "06e7a06f487999a365c8f0c5c6388200fb6aab3e06225dd656330b13a9af7d4c"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-07:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "a0cd3a8455d047ec88da052e8354b254a53008e0ea3f976951afa99224b93db7"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-07:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "ebedd242b976b7943325eab73a6725c14aa61ab250880696315ed53ee19b5813"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-07:cultural-awareness",
+      "layer": "ocr",
+      "fingerprint_sha256": "3db2d05250b101a9704b04265969f64e7a1e9863ff3e15472fb83dfcc8dde7f5"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-07:english-language-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "df618d5e1d7f412917f8df54b699a906ef04056fefecdc131203cdf14b2613fc"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-07:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "1a202fc66e45e01af63eee48c9657f91b4600ab791a20632406ce24d410072e7"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-07:learning-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "2cffe9f18f28971a31497fdece2727995d9161c76fdec29d39283c01d9629eb4"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-07:theme-meaning",
+      "layer": "ocr",
+      "fingerprint_sha256": "ff6ba407615990eed10d9e612e44d64e5c36b3dcfe5d387545fc9621d38b13a1"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-07:thinking-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "e937a3c7c2deb79be1fee400c459c2c77fa361ad71e586750b76c0f5c283f16c"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-08:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "cc4bbefd01eea733b1bd190b5b7e83279faa84ff002e8624ef70150947fe01bf"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-08:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "2bb410db524913448691c9dfc667440dd129093bb50ca7cda3e77b67479c9024"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-08:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "21438b6784b15c6de3d1490675a2481d92001f41d773f28cb9ea664b7b8a2ee9"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-08:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "20428dc7949811210303671b8421de236fd2a61a00c6614e68cf44563e1bfb2e"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-08:cultural-awareness",
+      "layer": "ocr",
+      "fingerprint_sha256": "ce2f0fa9271c15a34c60cc57cc25cfd169049c2499cb399fdc471a423c1e02c6"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-08:english-language-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "c4b1a3dfa891e4a0cf07e71c23d49e19543c0cd33c2c5fed67a9e145b1c08f00"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-08:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "282b984d9807e464bf56fc415f6389fd31dd9411b39ef8e1ee30445a4bf9078d"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-08:learning-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "ca53df66fe4eb38959dbd2ce38f5eca0698f117ab313161f9f10f1258d7b243b"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-08:theme-meaning",
+      "layer": "ocr",
+      "fingerprint_sha256": "a44ac033246987064e3001e68f150b188a0c5fb14623003c2ab97c0b3997cd83"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-08:thinking-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "b0c2c9cd1d490a0f32f2e4eb5c96845c8af96eef6928068da197fae1f77c09e9"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-09:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "ccde0be9d171d5f1930d8aaede9f4a7fca0bb86b22f9c90ca33bd5a3e76f412d"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-09:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "cdace9a0535b3491430d86085276efc4ae214b484c7d4885efb26e86bfabecd5"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-09:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "d2165038ae3b106d3d6109e2afa143e0db8026de4d5d5e0c9f27dd72b933aee4"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-09:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "e57ffe0a1be245721a1680a24ac1a77f4efbe4e2e45c69d0c5041a2431c2e4a7"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-09:geographical-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "46a234180fc77fae6663fb9cad97742973aba410887f4e78d21a44e530d7abc2"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-09:human-land-coordination",
+      "layer": "ocr",
+      "fingerprint_sha256": "25adb35b348ae80e07f024e20381e57a75a6ade6852336fbd653a6d1c074da4c"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-09:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "368df395d82fe8d83856b0635879f0d5035b9ce67383d629f40e2cb17e965600"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-09:integrated-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "c9ef8cf01f1319715a91c6dd2572d46799916e6189b7c8c7e749616cfdbac1a4"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-09:regional-cognition",
+      "layer": "ocr",
+      "fingerprint_sha256": "a366a7236b192263d20ceae04387384486a62203d0e7cab9184efb67836f48c3"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-10:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "327f1e15fc115da0bbf96747d239c766406ec5d3a94629323d4c97556944dd60"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-10:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "8f598663ce980a578a0be355086d7bbd008759a29b671245611de360f9f7d589"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-10:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "06ccead6feb8f0ad7082e770c32873126fc921629dd760249d5e1ca5c646daf5"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-10:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "29a47e792cfa8554c183a26ff4e1ba215d756a3a289332a8abf2706845039c0a"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-10:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "ccc2b601229790b4b39662204ed2ff6de5f6d0d2f147f21d50f267ea43ce5485"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-10:inquiry-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "a62a9a44092b0f3623ab1af0efd898cf399e4bad73ad226376775d6030a2d5f1"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-10:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "97ce6eac41ab8f67431aa4cabe5cfccee9f0f5f124cbd38cbcd51445e73dce8a"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-10:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "49f0fcecc48de994d95393d0c0607a02dc43574611d9bc35034f50f6c2f0d766"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-11:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "8037023f8add83628193263211ab6ed74fe316eb97d7f1a32f023af34f53e52e"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-11:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "e961fdded33f106c7efab50c9d014cfa478438a7805108ec0a1c70b4b9b72542"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-11:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "013d938caadf810644ea1156ca05d3391a18fc52b43fab33a11af8bfe40cd810"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-11:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "5fa83920777d63b4e362b92841fa44aafd16912a863a9fb611799949d1059a26"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-11:physical-concepts",
+      "layer": "ocr",
+      "fingerprint_sha256": "b82c370e68cf8394f1bb26e984cb0c65e9e80a736972f0cd3c8b3735d08a066e"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-11:scientific-attitude-responsibility",
+      "layer": "ocr",
+      "fingerprint_sha256": "862e1e0ed8f9d7dc7335061e826ff8f9d43da3a8d1c00aa194688c9307872407"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-11:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "65e35e7062d95609c5169893f4c37faff08a6bb25a3aaf7c4ba7e8a882212ba2"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-11:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "fa1ed3aa3963e5c843f779fd18d58392d78f18f547caa8c8147b5de35ad3fb1f"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-12:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "137eaf427e78b2d44ff9cb756170e97a5ebf46af4ba0b0baf158baeb5170d03c"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-12:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "7db646376bc24b32c11e8ce40d1942ce84ea15382c33a31d13f5e58191fd78a2"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-12:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "846f4cea3185d5b977613a8a8fcc3e035673ebfb9b4ceb5f3f9a9588d016cfe7"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-12:scientific-attitude-responsibility",
+      "layer": "ocr",
+      "fingerprint_sha256": "2d9827d769ce906a20a295f39014effe7f7bf3ce343f48508ebd13032ce5a2f9"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-12:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "d64c30b3bd90a840c2383e89b2a16bdc9ec6caf2d199feb74c2ad6c784644f17"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-12:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "a88dd22a9ebdb9646be3db871e0fa7be5b8731df2b45848f7597b74a4f6ffa76"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-13:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "2248212c4f3fcf80b2cd5892f7041c82631e1ab0ddacc295caef42ca070ce617"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-13:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "2abf6c9a50986fc8733f2760185c3964ec4ca21cb4d2c2a1b869f2d5dcadabe8"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-13:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "ae7080e1f5f3b8e69a7c3aade31ab596581a686c466c0c2c7e70013cf635c81d"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-13:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "720561caa61109565e5cb44d7c09316af878a1551c8cde93a5f4eae06833b84c"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-13:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "b3a0541de2ed2c8188a07f3129d002b86f239c012a161ad2c5947479e3ed3f1f"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-13:inquiry-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "425146a843d386efdd2869cd82928deaa23007dbef6c56ccfa3eab1029d14c3c"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-13:life-concept",
+      "layer": "ocr",
+      "fingerprint_sha256": "fa5763bf25cf9732852f3f4321a98d285812cf67d1f4a98a27ed4b0a6460954c"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-13:scientific-inquiry",
+      "layer": "ocr",
+      "fingerprint_sha256": "abbafafa3ba5d9a1e6b8a95ca3af9dc172beda0d77aa86999bc161aa8df3e77b"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-13:scientific-thinking",
+      "layer": "ocr",
+      "fingerprint_sha256": "3cb63523d0cdf77660e3d0cbb7ad6be4d42c7e8e8fd29bdce2c306d9fb42ebca"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-14:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "3c53c5dacaa96bb53364509c5354fc13cb1863905149fd3b58d6f94eab58a4fd"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-14:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "3bee3663b60cfefce20f84484b676a5885eb38d080c78e8dcae3c805e9cb5c7c"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-14:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "7a51be1ed440facb03982dae11e8add10484c33ecafe7b5909f45c47cea2d730"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-14:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "37aca67ad46749f123572e6c5843e2cc5b86c1099686308e60042a0515b90a12"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-15:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "83227ba29de17fe1b9f8c684133ad4556c0ac1d8020281cbbc36db90651b7b5b"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-15:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "c339852124602343e574db9ccd12befed2090b97b193e57c48e6e09a6318af26"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-15:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "7e4da795ca219d32132ea358a703ef099c2c402df850557ba67633bc3c2c5fa7"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-15:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "97fa2e124def7b543efe0f663e9ad70324c629c8ba79c7d8eefca3b588aaad7f"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-15:health-behavior",
+      "layer": "ocr",
+      "fingerprint_sha256": "bd81e0d99fdbb2682ec1fdd7810398c2e56e265a40067cfff92d3507ae71410f"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-15:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "6395e99bfba7f6f88d0b390225ffda6e3ad6bea54ddc8eb7cbe4508862301db2"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-15:sports-ability",
+      "layer": "ocr",
+      "fingerprint_sha256": "0b6c049a7c766b9a88c2bfbe8f633ee99f0ac9367459852485f79210de935109"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-15:sports-morality",
+      "layer": "ocr",
+      "fingerprint_sha256": "7a3d242bb585abc8e85f45523a4ec4403739ccb0a35f974cfd2c93de3e2b69aa"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-16:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "29f03fa2e4953dcdb69ff1ab21afb5bd7fa511a2e0d4a7e65adbe74d474fe024"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-16:aesthetic-perception",
+      "layer": "ocr",
+      "fingerprint_sha256": "3f868f11cd3e2986ce26688e943755936b769df16ee3d1eddfb042ef536a9444"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-16:artistic-expression",
+      "layer": "ocr",
+      "fingerprint_sha256": "32a28b42c512fc8b88a132fadce399f5b0b995ddeb606045d8120e6b45e84b30"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-16:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "c5ee435a9bdd6db7614267564ce26720a0afdff0005a2bbe8f5f9d7885493512"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-16:cooperative-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "4adf344af984e9f7e0c38df752a59ae5e571e242b752c6b5c08aff093bc696be"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-16:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "440b5950b4d1ea1a9f39ac69f135b94a1fb07eeb6d1f495b010bad3e85b3c5b3"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-16:creative-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "b4695d712fbaa0a5fff41d2de5fb1f50a27dab682aa6c3e887f5da26ab3b945c"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-16:inquiry-learning",
+      "layer": "ocr",
+      "fingerprint_sha256": "c483ffe33840e081706e222283145068be41bb605d4027092fbc984482ba0a9e"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-17:academic-quality",
+      "layer": "ocr",
+      "fingerprint_sha256": "d59b123d9ec7d8d726a20425180073ed6b5bce7411fc4902e4917d68d1c7bca8"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-17:comprehensive-practice",
+      "layer": "ocr",
+      "fingerprint_sha256": "8860f4f7bd3062eeee66b6a948d549434af93ed11a5d270a50eca6d33bbc6962"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-17:core-competency",
+      "layer": "ocr",
+      "fingerprint_sha256": "ba9c4c380fa06688da9aaba0b82ecfd4e8decbfba5c78db24402a5295bbb34e3"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-17:labor-concept",
+      "layer": "ocr",
+      "fingerprint_sha256": "942d2d5ce347fd427f1d17611e5b5721c6533425e7bbdd12fc4883e1945559ac"
+    },
+    {
+      "id": "ocr-candidate:moe-2022-17:labor-spirit",
+      "layer": "ocr",
+      "fingerprint_sha256": "1c181320646689ea1a42d078241e56aad13acfd46ac3674913a9aba08ef6f7c5"
+    },
     {
       "id": "pre2001-detail:0068404d72d5f10a432e",
       "layer": "pre2001_subject_detail",
@@ -552,253 +1977,437 @@
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "03675255c42107482021e0bfd761fb5561170210059f4321214f7ccf266ef269",
-      "current_fingerprint_sha256": "f415678c6ff316850fc57645f61f8b8655d1ed2033607aa0fb58879e252f6411"
+      "current_fingerprint_sha256": "7d4b9b79a43e9ced5628179195035b550c78d24c70b53a5a5221c46548400e2b"
     },
     {
       "id": "ocr-candidate:moe-2022-03:comprehensive-practice",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "ca962c49ca117f95cb4ee7922c3aed1903fa0823b281c106583ff9db38a1958c",
-      "current_fingerprint_sha256": "c5fd0dcfe308d308c36a301cf2c4232d354239976bc3064cbe84df948195a663"
+      "current_fingerprint_sha256": "0674cd1cb487b1e2a5c8a54964c7e36189fa274cd3dd5e762ee6a53c458935ba"
     },
     {
       "id": "ocr-candidate:moe-2022-03:core-competency",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "94f89074f024c3294beb0c49af0022ea9b772a29a2a771a810ceec3b9528c490",
-      "current_fingerprint_sha256": "283f43da3c2c1a94192ae1983afc4a4d767529a61a7c23fadad9831e3b09d25d"
+      "current_fingerprint_sha256": "9b3bde9c0067eaca1f5dfe111364e51777f85c23b31bd617d95795bcd4ecadd8"
     },
     {
       "id": "ocr-candidate:moe-2022-03:cross-media-reading-communication",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "c6b9d07ca002b59b7c7227420c8f4cbf5f426ffd8444c7559efc75cea8ea7509",
-      "current_fingerprint_sha256": "180fd3ca45c2e7958110a527c2929aee36fb4eac269bf107e549a42d459f9ac8"
+      "current_fingerprint_sha256": "53eae4bd909200a931ed8069a494eeccbed8503bcd7658b165ff4027f15fb9a0"
     },
     {
       "id": "ocr-candidate:moe-2022-03:cultural-confidence",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "da18fba2608374906b742f6b222eb49bec7b945068d2fca85d73dff64a4d4e34",
-      "current_fingerprint_sha256": "affad2e4dd602eca021da9cb8e0cc3adbc9a80dae9e0ba6493fa9c25f51ecb1f"
+      "current_fingerprint_sha256": "19c155c6d90700eeda22e4545a0c545395bc12e155950265c931e75892f0d266"
     },
     {
       "id": "ocr-candidate:moe-2022-03:emotion-attitude-values",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "0012cdc7087c36335686c7ca6e07f3ae02e2073a57e09d5aa4f109b86124c7d4",
-      "current_fingerprint_sha256": "66e4c3f193311563cdece5b6b0b0c4419ef103d9c6683f6654d393e5de9e3766"
+      "current_fingerprint_sha256": "a87415b0b9abe8369c82585ce80dd25967925c68c667ab261c287930f78cdf27"
     },
     {
       "id": "ocr-candidate:moe-2022-03:expression-communication",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "e145b99fa33351fd5d9baf4dd2ab34c0907d40d45071dfb8622c696a0e5dab55",
-      "current_fingerprint_sha256": "6e88104feaaef4b5deacce78d4ce2e8609679d11203dbaf75cf5034691eb6e60"
+      "current_fingerprint_sha256": "ea0cdeee2c2facf1ee128d7a840e4d5d525b057c0fa08609c80afd881acf6914"
     },
     {
       "id": "ocr-candidate:moe-2022-03:inquiry-learning",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "6096ebcd0e50aa113dbddfa52f1d3ac4c32cb5955bbac530a5ff07de1fa80734",
-      "current_fingerprint_sha256": "0c39aae8d371d157b52d3559782e8a193c8d71075db6c37de1c9d0c0ef806f8b"
+      "current_fingerprint_sha256": "5c729036d3654545eb59b9057eb1d08c0d3ab526e0c38ff16a01efc3df10289c"
     },
     {
       "id": "ocr-candidate:moe-2022-03:instrumentality-humanity",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "624d1f7e8e0be6491f4559607576fc84cdd02c784a9e0970ba291f662c335d76",
-      "current_fingerprint_sha256": "0d29e6c591e121df79edc1c3864161ea58388c2496c1cfac70d5c7a4a40f803b"
+      "current_fingerprint_sha256": "ad949b032eefba66149ce9fbe6ba734bab368a87c1adde73daeb4d6a1e089f2c"
     },
     {
       "id": "ocr-candidate:moe-2022-03:knowledge-and-ability",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "590d0acfe734056f04591373800102d1fcdacae34d5cc98d9945c8942c3e9348",
-      "current_fingerprint_sha256": "6a8101abdb40d7cd98aa40cdebcf62720db4a4597d8eab88ff9ddd362c2ff898"
+      "current_fingerprint_sha256": "36c15a83075558433b4dcdd21892c8c6d7c5daf0580eadcadbb990b56e73de1a"
     },
     {
       "id": "ocr-candidate:moe-2022-03:language-use",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "4cb266cde0073e349100abbf42ab6d7e40af8ae5634ea53c7767a3b7ef140b42",
-      "current_fingerprint_sha256": "ab119ad2305dbf04f2484bea0ee34d2ecdc578754535bdd5e6a9502c3945b961"
+      "current_fingerprint_sha256": "51736fddda2e2a140e83204e9b04fa8deda95d15a381a6f931b3d683d0bf50a7"
     },
     {
       "id": "ocr-candidate:moe-2022-03:learning-task-group",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "a3d1eb7eb61563220a0952f31d298a0052907bc10f75e6d955924d5e37cbfda9",
-      "current_fingerprint_sha256": "00a1f5d630ae0ee923bab73a58365aa0350defeadaa77971b1ad9b8da2521741"
+      "current_fingerprint_sha256": "978fbe81b67a213e7f8677b4dd2000dc6ab9a1de67614574009127db0109a900"
     },
     {
       "id": "ocr-candidate:moe-2022-03:literacy-writing",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "2f581b693c4a9307feb85ea2d60c5ae4ab485f4884ec3d9b439d24dc21570a33",
-      "current_fingerprint_sha256": "91138512aac30c0a8cbda519d783d24bff5983ce663259033edc7cf5c237b4bb"
+      "current_fingerprint_sha256": "bea2e4bc9d5ebb7ce73df36c073b4b42e5b0486d88784c37d04f90dcd458d686"
     },
     {
       "id": "ocr-candidate:moe-2022-03:literary-works-appreciation",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "903a97d13953d8441bc2c6ea41a391c1e8bc0398c00b4d2c7d9126d00d22a816",
-      "current_fingerprint_sha256": "3fa97e1a6fe13d194572765a86aafb68cd028c4f753bfc19bdb14b4cb00e7ff3"
+      "current_fingerprint_sha256": "6eaae5f89bde75699b9543703348c2e761eac75c1e321b48a54edab145990c1b"
     },
     {
       "id": "ocr-candidate:moe-2022-03:overall-perception",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "d76332a43a14839bb4793bf8c0276efc793728ce72d9b7aca64628cda62f905b",
-      "current_fingerprint_sha256": "d8b025e7f0df6f62b2584fa9f26fb7fbea2bcbb6a798f8092eec4e0f438089c5"
+      "current_fingerprint_sha256": "31b90a39d0738553887c999b07e445ce2bc0404495aa3c659e32ea7d54906403"
     },
     {
       "id": "ocr-candidate:moe-2022-03:practical-reading-communication",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "1d6e2827adf785866f9e05fbee7db8bdef5ffe94bb96b9f18521fd6f13ee3708",
-      "current_fingerprint_sha256": "8c468f60d1e97bf855b95dd2c66d06b557d1c110bf21be3c8914205288260513"
+      "current_fingerprint_sha256": "33fe1fa12aa5d492e29c4a640b04f4c6d6c275df767350744cb095c035a5bb67"
     },
     {
       "id": "ocr-candidate:moe-2022-03:problem-solving",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "28ca2d93574668f0904bb8bd81656c230569c4e2f4dbfd7885928dd6bb965b15",
-      "current_fingerprint_sha256": "36f28b2366cb6ab53cbb0f09515ebe4384f69064e4249dda6d57bf13a51d2339"
+      "current_fingerprint_sha256": "14c8db1b7a34ed877e2925cd1d4e1c2df3ed4ad32a71fb179789c1502a19878a"
     },
     {
       "id": "ocr-candidate:moe-2022-03:process-and-method",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "5bae9e1d4098aca2dc0efb6ddb05f3acb7c2856b512610f4172af16db40be2f4",
-      "current_fingerprint_sha256": "541f8dfcebdd64ce1d1eaec7c4d414850582e8cc655c74fbac225aa0f85fdd9f"
+      "current_fingerprint_sha256": "ce583d7f8ffe1624357e7250427363f13125fc2fa67c159acc88fd34c84c6089"
     },
     {
       "id": "ocr-candidate:moe-2022-03:reading-appreciation",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "67a05b2eb07dff57b966b68f0d240ddf3bfbd4000e64989fc8e5994d08920f15",
-      "current_fingerprint_sha256": "344eeb77b818e0c5d6e7c5e52dde8d174bbc9ea8faf105bf5ff889e9347a1c9e"
+      "current_fingerprint_sha256": "773d064a76ce4c26c42a62d7c75e8b1320249f0a2862711eb59da94398458a61"
     },
     {
       "id": "ocr-candidate:moe-2022-03:sorting-inquiry",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "f19e9c24f389e546fd294f24ef3b967883af15703c088bd59c41e137b527576c",
-      "current_fingerprint_sha256": "03050a24ad432402b65c38ebb6d8e7fb5449028b7c1bcbcd4ebc9459e71adef3"
+      "current_fingerprint_sha256": "fa279321af538637bf570821ae507856d23e1e66298a62af34ebc15f78285cd9"
     },
     {
       "id": "ocr-candidate:moe-2022-03:speculative-reading-expression",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "72f1a13b3d8e022d52b3db4fbc726010b1a4a84300ff673b9a2e4819049d8551",
-      "current_fingerprint_sha256": "2b9c861e1f51db455ae140e772e838ecba5e3a55ae3827d35b15590c37e5f75e"
+      "current_fingerprint_sha256": "a59faedeb23c2c35b5e3100e157c30fcf0df7968e5ad1db3e85c3b4fcbab73a5"
     },
     {
       "id": "ocr-candidate:moe-2022-03:thinking-quality-improvement",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "f05aeb168e41fde3211deb48bb6728ea79227c0cf64e4d559f0220ab541c8918",
-      "current_fingerprint_sha256": "a710a76c58f0379ed9efbb407d0a8a073ace24c587c1e1ae6da713d82578b04e"
+      "current_fingerprint_sha256": "a0d1f168a7e4544b187c76ea06865185548bbd544fa66fce822ce13195497706"
     },
     {
       "id": "ocr-candidate:moe-2022-03:whole-book-reading",
       "baseline_layer": "ocr",
       "current_layer": "ocr",
       "changed_top_level_fields": [
+        "candidate_page_hits",
         "claim_policy",
-        "observation"
+        "curriculum_line",
+        "edition",
+        "evidence_ids",
+        "observation",
+        "scope_entity",
+        "subject",
+        "time",
+        "visibility_policy"
       ],
       "baseline_fingerprint_sha256": "e1bdbfd005db5b0706d063fa58c13f8173d3b52092f86deb5532b2ea8a41c106",
-      "current_fingerprint_sha256": "dc108c36e306ff1a56039cf5473390ebf4ea6e1c749c67681e693dd24afdc3c1"
+      "current_fingerprint_sha256": "fc2bc84f3a9d33d90f54cf601e3d1ea56d4b9514106d2b1c47ff683ecdd72f88"
     }
   ]
 }

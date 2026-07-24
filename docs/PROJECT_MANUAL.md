@@ -200,7 +200,7 @@ concept
 - 12 個 `subject-content-domain` 課程內容與組織族；
 - 12 個 `subject-ability-domain` 能力與素養表現族。
 
-55 個概念族合計 153 個受控概念、1,597 個 1902–2022 episode memberships。12 個底層課程形態名稱族都必須同時有 2001 年前 OCR 節點和 2001 年後教育部編目節點；36 條實踐／內容／能力族現在每條都同時有 2001 年前 bounded-item 觀測與 2001 年後課標觀測。2001 年前層提供 36 個詞面、426 個星點；2001 年後 32 冊、3,044 頁完整課標層提供 40 個詞面、97 個版本星點。編目標題和 OCR 候選均不代替正文引文證據。所有數字由 builder 生成，不手填進前端。
+55 個概念族合計 153 個受控概念、1,648 個 1902–2022 episode memberships。12 個底層課程形態名稱族都必須同時有 2001 年前 OCR 節點和 2001 年後教育部編目節點；36 條實踐／內容／能力族現在每條都同時有 2001 年前 bounded-item 觀測與 2001 年後課標觀測。2001 年前層提供 36 個詞面、426 個星點；2001 年後 32 冊、3,044 頁完整課標層提供 40 個詞面、97 個版本星點；通用完整 OCR 層再提供 308 個來源雜湊綁定候選星點。編目標題和 OCR 候選均不代替正文引文證據。所有數字由 builder 生成，不手填進前端。
 
 ### 5.3 歷史、歷史與社會及學科分合
 
@@ -314,11 +314,11 @@ OCR 是持續輸入，不是一次性前置任務。每當新的完整文件或�
 
 2026-07-23 v15 受控快照為：名義 86 份／11,847 頁；物理去重 85 份／11,779 頁；完整整卷 83 份；原主流程 runtime 已完成 10,690 頁、仍有 1,157 頁未在原流程完成；候選覆蓋已達 11,847／11,847，候選缺口 0。其中原本三個超時區間共 1,077 頁以 Apple Vision 單見證候選補齊：地理 97–518、數學 337–697、思想政治 129–422。這只關閉候選頁面缺口，不開放引文、語義或負面歷史結論。
 
-6,947 頁不是「尚未做第二次 OCR」，而是雙見證已存在但舊 producer 對每頁都輸出空 `critical_fields`，因此舊 gate 把全部頁面推入人工隊列。v17 取消這個人工依賴，改由 `curriculum-ocr-machine-verification-v1` 從 primary、Apple Vision 見證與 source PDF 重新綁定 source SHA、物理頁、頁圖、兩份文本和引擎身份，並獨立重算完整正規化文本、題名與數字序列。當前 31 頁達成雙引擎逐字精確一致並取得可重現 receipt，可自動進入 page-publication manifest；5,063 頁進第三引擎文字共識、1,780 頁進表格結構共識、73 頁進空白栅格共識，人工必審為 0。任何未形成機器共識的字符或格位直接省略，不能由平均相似度或模型摘要放行。
+6,947 頁不是「尚未做第二次 OCR」，而是雙見證已存在但舊 producer 對每頁都輸出空 `critical_fields`，因此舊 gate 把全部頁面推入人工隊列。v18 的 `curriculum-ocr-machine-verification-v2` 不再沿用該宣告欄位，而是從 primary、Apple Vision 見證與 source PDF 重新綁定 source SHA、物理頁、頁圖、兩份文本和引擎身份，並重算完整正規化文本、題名與數字序列。終局結果是 6,947/6,947 已裁決、pending 0、人工必審 0：31 頁為雙引擎逐字精確；5,063 頁文字衝突、1,780 頁表格衝突均 fail closed；73 頁雙空白作非文本頁處置。衝突字符、格位和段落不由平均相似度、第三模型摘要或猜測文本放行。
 
-31 頁「manifest eligible」仍不是「正式站已可引文」：本輪未改 D1 或 `data/page-publication-manifest.json`，production citation-ready 維持 0。這個分離保證自動化核查不會把候選資料冒充正式引文；後續只有 receipt、文檔 policy、頁／段 manifest 三門同時通過才可進入 corpus。
+31 份 exact receipt 經 `scripts/build-ocr-publication-manifest.mjs` 再次驗證來源 PDF、物理頁、渲染頁圖和最終文本哈希；其中 `ictr-6c6df9d121ac` 與 `moe-2022-17` 是同源別名，因此只物化一次。正式 manifest 為 26 份文件／30 個唯一頁／44 個段落候選；每頁保留全部 source receipt SHA。manifest 是稀疏的：未列頁面在 corpus 綁定時自動生成關閉 gate，文件級 `citation_allowed=true` 只表示該文件至少有一個開放頁，不能推導整卷可引用。
 
-當前資料發布閘門為 28／28，百年模型專項閘門為 20／20；11／11 公開學科分面均具備課程名稱、實踐、內容、能力四層來源綁定模型。新增互動閘門要求年代導航與年份對比互斥、實際資料年份可任意多選、1902／2022 首尾快捷可執行、不得退回 range-only 拖拽，且檢查器與時間塢必須把自身矩形交給 Canvas safe viewport 重新擬合。暗／亮主題都要保持文字 AA 對比和同一星點語義。
+當前資料發布閘門為 34／34，百年模型專項閘門為 20／20；11／11 公開學科分面均具備課程名稱、實踐、內容、能力四層來源綁定模型。新增資料閘門要求 83 份 runtime-complete 文件／10,210 頁全部有終局 observation-builder 處置、12 個底層分面齊全、年份未決 0、462 個 bounded identity receipt 失敗 0、31→30 去重關係可重算。互動閘門要求年代導航與年份對比互斥、實際資料年份可任意多選、1902／2022 首尾快捷可執行、不得退回 range-only 拖拽，且檢查器與時間塢必須把自身矩形交給 Canvas safe viewport 重新擬合。暗／亮主題都要保持文字及選中實線 AA 對比和同一星點語義。
 
 同一發布候選的真實 preview runtime 收據為：桌面 1440×1000，ready 371.4 ms、draw p95 11.3 ms、long task 0；手機 390×844，ready 424.4 ms、draw p95 9.1 ms、long task 0。兩端均為單一 Canvas、10 個星圖內年代顯隱階段、左側默認折疊、零橫向溢出；`Enter` 選中歷史 1904 星點後，兩端都只保留 60 個同源／相關星點並打開同一證據檢視路徑。
 
@@ -328,11 +328,12 @@ OCR 是持續輸入，不是一次性前置任務。每當新的完整文件或�
 |---|---|---|
 | `public/data/concept-evolution.json` | 已核／既有概念星圖傳輸層 | `concepts:build` / `concepts:validate` |
 | `public/data/concept-evolution-academic.json` | 完整學術模型 | 同上 |
-| `public/data/ocr-observation-layer.json` | 2022 語文等 OCR 候選星 | `build-ocr-observation-layer.mjs` |
+| `public/data/ocr-observation-layer.json` | 83 份完整 OCR 文件／10,210 頁的通用終局處置；70 份學科文件投影為 308 個全學科候選星與 308 條頁證據，9 份彙編留在 bounded layer、1 同源別名去重、3 非學科範圍拒絕投影 | `ocr:observations:build` / `ocr:observations:check` |
 | `data/subject-detail-observation-source.json` | 12 個底層課程形態 2001／2011／2022 受控版本來源清單；來源 hash、完整頁與單版本缺口 fail closed | `details:build` / `details:check` |
 | `public/data/subject-detail-observation-layer.json` | 32 冊／3,044 頁課標中的 40 個實踐、內容、能力概念，97 個版本星點與 420 條有界 evidence | `details:build` / `details:check` |
 | `data/pre2001-specialist-bounded-source.json` | 12 科專科匯編的來源、OCR profile、目錄／標題邊界、受控詞面與學科分合斷言 | 人工受控配置 |
 | `data/pre2001-specialist-bounded-items.json` | 462 個來源哈希與物理頁範圍綁定的 1902–2000 items | `pre2001:build` / `pre2001:check` |
+| `data/pre2001-bounded-identity-verification.json` | 462 個穩定 ID／462 個唯一身份／461 個物理範圍的全量身份 receipt；134 seed 全解析、唯一共用範圍明示雙分面、失敗 0 | `pre2001:build` / `pre2001:check` |
 | `public/data/pre2001-subject-detail-observation-layer.json` | 36 個早期同粒度概念、426 個星點、821 條 evidence 與學科分合關係 | `pre2001:build` / `pre2001:check` |
 | `data/embedded-items-century-v1.json` | 134 份嵌入篇目目錄 | `century:build` / `century:check` |
 | `public/data/century-observation-layer.json` | 1902–2000 OCR 與 2011–2022 編目標題候選；投影為 1902–2022 單星圖 | `century:build` / `century:check` |
@@ -341,8 +342,10 @@ OCR 是持續輸入，不是一次性前置任務。每當新的完整文件或�
 | `data/ocr-coverage-ledger.json` | OCR 名義／物理雙分母、候選覆蓋、顯式缺口及 citation gate | `ocr:coverage:build` / `ocr:coverage:check` |
 | `data/ocr-candidate-fallback-ledger.json` | 1,077 頁單見證候選補齊的頁級 hash／字符／置信度統計，不含 OCR 正文 | `ocr:candidate-fallback` |
 | `data/ocr-review-triage.json` | 6,947 頁雙見證隊列的根因與四類完整分流 | `ocr:review:triage` |
-| `data/ocr-machine-verification-policy.json`、`data/ocr-machine-verification.json` | 無人工覆蓋的雙引擎逐字核驗、來源／頁圖綁定、第三引擎／表格／空白機器仲裁與簽名 receipt | `ocr:machine:verify` / `ocr:machine:check` |
-| `public/data/ocr-coverage-summary.json` | 可公開的候選覆蓋、機器精確核驗與待自動仲裁摘要；前端資料工作台與左側狀態共用 | `ocr:review:triage` + `ocr:machine:verify` |
+| `data/ocr-machine-verification-policy.json`、`data/ocr-machine-verification.json` | 無人工覆蓋的 6,947 頁終局裁決：31 exact、5,063 文字衝突、1,780 表格衝突、73 雙空白、pending 0 | `ocr:machine:verify` / `ocr:machine:check` |
+| `data/ocr-publication-receipt.json` | 31 exact receipt → 30 唯一頁 → 26 文件／44 段落候選的來源、頁圖、文本和 manifest 雜湊鏈 | `ocr:publication:build` / `ocr:publication:check` |
+| `data/ocr-document-year-policy.json` | 2001／2003 官方批次與 metadata precedence；所有完整文件必須有終局年份處置 | `ocr:observations:build` / `ocr:observations:check` |
+| `public/data/ocr-coverage-summary.json` | 可公開的候選覆蓋、終局裁決與稀疏頁發布摘要；前端資料工作台與左側狀態共用 | `ocr:coverage:build` / `ocr:coverage:check` |
 | `public/data/discipline-lifecycle.json` | 學科設置、合科／分科、獨立與標準組調整事件及主張邊界 | `century-model:check` |
 | `data/century-model-validation.json` | 11 公開分面、四層深挖、歷史沿革、OCR 分流、任意年份多選與檢查器无遮挡的專項收據 | `century-model:validate` / `century-model:check` |
 | `data/candidate-observation-layer.schema.json` | 四個候選層共用的正式 fail-closed episode Schema | `candidate:schema:check` |
@@ -351,13 +354,13 @@ OCR 是持續輸入，不是一次性前置任務。每當新的完整文件或�
 | `data/star-map-performance-budget.json`、`data/star-map-performance-validation.json` | 初始圖譜 bytes、星點／邊／證據、Canvas DPR 與標籤上限 | `performance:validate` / `performance:check` |
 | `data/star-map-runtime-performance.json` | 與當前公開資產指紋綁定的 preview 桌面／手機 ready、transfer、draw p95 與 long-task 收據；只在真實 preview 驗收後生成 | `performance:runtime:record -- --input <PREVIEW_MEASUREMENT_JSON>` / `performance:runtime:check` |
 | `public/historical-stages.js` | 1902–2022 單一導航分期；Canvas、底部多選、archive 分組與無障礙年份文案共用 | `tests/historical-stages.test.mjs` |
-| `data/page-publication-manifest.json` | 頁級 display/citation gate | page gate scripts |
+| `data/page-publication-manifest.json` | 26 文件／30 頁的稀疏 display/citation gate；未列頁自動關閉 | `ocr:publication:build` / `ocr:publication:check` |
 | D1 corpus release | 正式文件、段落、FTS、頁門與使用者資料 | `corpus:build` / importer |
 | R2 release manifest | 可重建公開元資料 | metadata publisher |
 
 公開 JSON 只承載允許公開的 metadata、候選定位和短證據摘要；原始掃描與完整受限 OCR 不進 Git 或公開 R2。
 
-v17 因加入完整暗／亮 Canvas palette、可持久化主題與可訪問的互斥時間塢，前端 raw bytes 從 v2 的 220KB 上限增至 234.6KB；v3 上限明確調整為 240KB，不改 22MB 初始圖譜、2,200 episodes、3,000 edges、5,300 evidence、DPR 2、手機 9 標籤與 20fps 動畫上限。production 仍必須由 preview 真實 transfer／ready／draw p95 門檻決定，不能用提高 raw 上限繞過 runtime 回歸。
+v18 因通用 OCR layer 新增 308 個候選 stars、214 條實線關係並保存 83 份文件處置，初始圖譜 raw bytes 實測 23,280,626；合併後 2,415 episodes、3,131 edges、5,304 evidence。v4 靜態上限採 25MB、2,500、3,300、5,600，前端 raw 仍維持 240KB、DPR 2、手機 9 標籤與 20fps 動畫上限。亮色四類選中線對紙面背景均需 ≥4.5:1，且代碼不得包含 dashed primitive。production 仍必須由 preview 真實 transfer／ready／draw p95 門檻決定，不能只提高 raw 上限繞過 runtime 回歸。
 
 ## 9. 架構與依賴圖
 
@@ -435,7 +438,7 @@ node scripts/build-century-observation-layer.mjs \
 1. ownership / clean tree / current production version；
 2. task-scoped backup 或 backup branch；
 3. deterministic data build；
-4. candidate Schema、episode diff、28 項數據質檢、18 項百年模型專項檢查、靜態性能、tests、typecheck、asset audit、release manifest、secret scan、Wrangler dry-run；
+4. candidate Schema、episode diff、34 項數據質檢、20 項百年模型專項檢查、靜態性能、tests、typecheck、asset audit、release manifest、secret scan、Wrangler dry-run；
 5. commit / push；
 6. preview Worker version；
 7. 真實桌面／手機／鍵盤／reduced-motion 驗收，並產出 preview runtime performance receipt；

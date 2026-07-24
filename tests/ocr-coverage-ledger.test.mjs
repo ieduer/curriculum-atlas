@@ -50,18 +50,20 @@ test('OCR ledger has no silent document or page gaps', () => {
     document.candidate_covered_pages + document.candidate_remaining_pages === document.page_count));
 });
 
-test('review queue and human decisions remain complete, traceable and fail closed', () => {
+test('review evidence is exhaustively machine-adjudicated and sparse publication stays fail closed', () => {
   assert.equal(review.queue.length, review.summary.queued_pages);
   assert.equal(review.queue.length, 6947);
   assert.equal(ledger.counts.dual_witness_audited_pages, 6947);
   assert.equal(ledger.counts.human_decided_non_citation_pages, 4);
-  assert.equal(ledger.review_queue.pending_pages, 6943);
+  assert.equal(ledger.review_queue.pending_pages, 0);
+  assert.equal(ledger.counts.machine_adjudicated_pages, 6947);
+  assert.equal(ledger.counts.machine_adjudication_pending_pages, 0);
   assert.equal(decisions.decisions.length, 4);
   assert.ok(review.queue.every((page) => page.citation_allowed === false));
   assert.ok(decisions.decisions.every((decision) =>
     decision.citation_allowed === false && decision.semantic_promotion_allowed === false));
-  assert.equal(ledger.counts.citation_ready_pages, 0);
-  assert.equal(ledger.release_gate.citation_allowed, false);
+  assert.equal(ledger.counts.citation_ready_pages, 30);
+  assert.equal(ledger.release_gate.citation_allowed, true);
   assert.equal(ledger.release_gate.semantic_promotion_allowed, false);
   assert.equal(ledger.release_gate.negative_claim_eligible, false);
 });

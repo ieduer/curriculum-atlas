@@ -9,7 +9,7 @@ const [standard, receipt] = await Promise.all([
 ]);
 
 test('the data standard is a non-overridable deployment gate', () => {
-  assert.equal(standard.standard_id, 'curriculum-atlas-data-quality-v1');
+  assert.equal(standard.standard_id, 'curriculum-atlas-data-quality-v2');
   assert.equal(standard.release_policy.failure_blocks_preview, true);
   assert.equal(standard.release_policy.failure_blocks_production, true);
   assert.equal(standard.release_policy.manual_override_allowed, false);
@@ -32,8 +32,14 @@ test('the receipt preserves OCR candidate, citation, and remaining-page denomina
   assert.equal(receipt.counts.ocr_nominal_pages, 11847);
   assert.equal(receipt.counts.ocr_candidate_covered_pages, 11847);
   assert.equal(receipt.counts.ocr_candidate_remaining_pages, 0);
-  assert.equal(receipt.counts.ocr_citation_ready_pages, 0);
+  assert.equal(receipt.counts.ocr_citation_ready_pages, 30);
   assert.equal(receipt.counts.ocr_machine_verified_exact_pages, 31);
-  assert.equal(receipt.counts.ocr_machine_adjudication_pending_pages, 6916);
+  assert.equal(receipt.counts.ocr_machine_adjudicated_pages, 6947);
+  assert.equal(receipt.counts.ocr_machine_adjudication_pending_pages, 0);
   assert.equal(receipt.counts.ocr_human_required_pages, 0);
+  assert.equal(receipt.counts.ocr_published_unique_pages, 30);
+  assert.equal(receipt.counts.ocr_complete_observation_documents, 83);
+  assert.equal(receipt.counts.ocr_complete_observation_pages, 10210);
+  assert.equal(receipt.counts.pre2001_bounded_identity_receipts, 462);
+  assert.equal(receipt.counts.pre2001_bounded_identity_failures, 0);
 });

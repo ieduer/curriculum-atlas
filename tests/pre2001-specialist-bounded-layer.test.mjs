@@ -3,8 +3,9 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
-const [itemsArtifact, layer, families] = await Promise.all([
+const [itemsArtifact, identityReceipt, layer, families] = await Promise.all([
   readFile(new URL('data/pre2001-specialist-bounded-items.json', root), 'utf8').then(JSON.parse),
+  readFile(new URL('data/pre2001-bounded-identity-verification.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('public/data/pre2001-subject-detail-observation-layer.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('public/data/concept-evolution-families.json', root), 'utf8').then(JSON.parse),
 ]);
@@ -43,6 +44,39 @@ test('the pre-2001 packet is source-bound, bounded, fail-closed, and covers ever
     && episode.claim_policy.display_level === 'uniform_star'
     && episode.claim_policy.quotation_allowed === false
     && episode.claim_policy.semantic_relation_allowed === false));
+});
+
+test('all 462 bounded items have reproducible source-bound identity receipts', () => {
+  assert.equal(identityReceipt.artifact_profile, 'curriculum-pre2001-bounded-identity-verification-v1');
+  assert.deepEqual(identityReceipt.counts, {
+    items: 462,
+    unique_item_ids: 462,
+    unique_identity_keys: 462,
+    unique_physical_ranges: 461,
+    intentional_shared_physical_ranges: 1,
+    source_item_links: 135,
+    distinct_source_items_resolved: 134,
+    failed_receipts: 0,
+  });
+  assert.equal(identityReceipt.receipts.length, 462);
+  assert.ok(identityReceipt.receipts.every((receipt) =>
+    /^[a-f0-9]{64}$/.test(receipt.identity_sha256)
+    && /^[a-f0-9]{64}$/.test(receipt.source_sha256)
+    && /^[a-f0-9]{64}$/.test(receipt.ocr_state_sha256)
+    && /^[a-f0-9]{64}$/.test(receipt.range_content_sha256)
+    && Object.values(receipt.checks).every(Boolean)));
+  assert.deepEqual(identityReceipt.shared_physical_ranges, [{
+    range_key: 'legacy-compendium-plans|122|125',
+    item_ids: [
+      'pre2001-item:legacy-compendium-plans:d3c163e6c0b5e7c569',
+      'pre2001-item:legacy-compendium-plans:f1ae73f74155b1493e',
+    ],
+    visibility_facets: ['历史与社会', '体育与健康'],
+    disposition: 'intentional_distinct_facet_identities_on_shared_source_range',
+  }]);
+  assert.equal(identityReceipt.release_gate.deployment_allowed, true);
+  assert.equal(identityReceipt.release_gate.citation_allowed, false);
+  assert.equal(identityReceipt.release_gate.semantic_claim_allowed, false);
 });
 
 test('every facet now crosses the century at practice, content, and ability grain', () => {

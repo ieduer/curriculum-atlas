@@ -27,12 +27,13 @@ async function sha256(filePath) {
   return hash.digest('hex');
 }
 
-test('all 36 cached MOE 2011/2022 scans are fail-closed catalog and queue records', async () => {
-  const [metadata, catalog, queue, ingest] = await Promise.all([
+test('all 36 cached MOE 2011/2022 scans preserve queue closure and sparse page publication', async () => {
+  const [metadata, catalog, queue, ingest, pageManifest] = await Promise.all([
     readJson('data/local-official-scans.json'),
     readJson('data/catalog.json'),
     readJson('data/ocr-queue.json'),
     readJson('data/ingest-manifest.json'),
+    readJson('data/page-publication-manifest.json'),
   ]);
   assert.deepEqual(metadata.documents.map((record) => record.id), expectedIds);
   assert.equal(metadata.counts.documents, 36);
@@ -41,6 +42,7 @@ test('all 36 cached MOE 2011/2022 scans are fail-closed catalog and queue record
   const catalogById = new Map(catalog.documents.map((record) => [record.id, record]));
   const queueById = new Map(queue.documents.map((record) => [record.id, record]));
   const ingestById = new Map(ingest.entries.map((record) => [record.id, record]));
+  const publishedDocumentIds = new Set(pageManifest.documents.map((record) => record.document_id));
   for (const id of expectedIds) {
     const metadataRecord = metadataById.get(id);
     const catalogRecord = catalogById.get(id);
@@ -50,12 +52,16 @@ test('all 36 cached MOE 2011/2022 scans are fail-closed catalog and queue record
     assert.equal(catalogRecord.local_cache_path, `.cache/sources/${id}.pdf`);
     assert.equal(catalogRecord.page_count, metadataRecord.page_count);
     assert.equal(catalogRecord.text_quality_status, 'ocr_required');
-    assert.equal(catalogRecord.citation_allowed, false);
+    assert.equal(catalogRecord.citation_allowed, publishedDocumentIds.has(id));
+    if (publishedDocumentIds.has(id)) {
+      assert.equal(catalogRecord.ocr_audit_ref, 'data/ocr-publication-receipt.json');
+    }
     assert.equal(queueRecord.local_cache_path, catalogRecord.local_cache_path);
     assert.equal(queueRecord.page_count, metadataRecord.page_count);
     assert.equal(queueRecord.source_sha256, metadataRecord.checksum_sha256);
     assert.equal(ingestById.get(id).source_sha256, metadataRecord.checksum_sha256);
     assert.equal(queueRecord.input_quality_status, 'ocr_required');
+    assert.match(queueRecord.policy, /fail closed before citation/);
   }
   assert.equal(queue.counts.priority_0_documents, 2);
   assert.deepEqual(queue.documents.slice(0, 2).map((record) => record.id), ['moe-2011-01', 'moe-2022-03']);

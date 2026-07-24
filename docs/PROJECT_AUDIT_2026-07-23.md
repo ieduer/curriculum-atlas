@@ -1,19 +1,20 @@
 # 「課標百年」整體項目審計
 
-審計日期：2026-07-23 PDT
+審計日期：2026-07-23 PDT；v18 收口複核：2026-07-24 PDT
 審計對象：`curriculum-atlas` source、正式站 `https://curriculum.bdfz.net/`、資料投影、單 Canvas 星圖、資料／研究工作台、桌面與 390×844 手機狀態。
 
 ## 結論
 
 產品主方向已經穩定：唯一主視圖是概念星圖，文件、OCR、物理頁和版次都退回 evidence layer；12 科的課程名稱、實踐、內容、能力已進入同一星圖，歷史與歷史與社會保持不同課程身份，只有來源明示的 1923 學科編組可作橫向實線。
 
-v17 再次整體核查後，最大的風險已收斂為三件事：
+v18 已把 v17 留下的三個資料工作包全部收口：
 
-1. 6,947 頁舊隊列不能再依賴人工：目前 31 頁已取得雙引擎逐字精確 receipt，6,916 頁仍需第三引擎／表格／空白機器仲裁；未通過者繼續 fail closed。
-2. 年代導航與 57 個精確年份原本同屏展開，在桌面互相搶寬、手機固定佔 164px。
-3. 暗色是唯一主題；直接反色會使控制、檢查器與 Canvas 標籤在亮色下失去可讀性。
+1. 6,947/6,947 個雙見證頁已取得終局機器裁決，待裁決 0、人工必審 0。31 份逐字精確 receipt 經來源、頁圖和文本雜湊重算後，去除一份同源別名，形成 30 個唯一可發布頁；5,063 個文字衝突頁、1,780 個表格衝突頁與 73 個雙空白頁均取得終局 fail-closed 處置，不生成猜測文本。
+2. 31 份 receipt 已進入稀疏 page-publication manifest：26 份文件開放 30 個物理頁、生成 44 個可引段落候選；未列頁面在綁定時自動補為關閉，文件級開門不等於整卷可引用。
+3. 83 份 runtime-complete OCR 文件、10,210 頁均通過同一通用 observation builder；70 份學科文件投影為 308 個全學科候選星點和 308 條頁級 evidence，9 份彙編保留在 bounded-item 層，1 份同源別名去重，3 份非學科範圍終局拒絕投影。
+4. 462 個 1902–2000 bounded items 全部生成身份 receipt：462 個穩定 ID、462 個唯一身份、461 個物理範圍、0 失敗；唯一共用範圍明確保存為「歷史與社會／體育與健康」兩個不同分面身份，134 個 seed 均可反向解析。
 
-本輪已建立不可人工覆蓋的機器核查 policy／receipt；把底部改為互斥的年代導航／年份對比控制塢；新增持久化暗／亮主題和 Canvas 雙 palette。既有逐星鍵盤路徑、全量候選 coverage、星點選中與 inspector 避讓全部保留。
+前端仍保持單 Canvas、無虛線、無第二時間軸。亮色模式不再沿用低透明度暗色連線，而以四組固定語義色呈現演進對應、縱向詞面、學科分合與橫向共現；相對 `#edf1ee` 紙面背景均達 4.5:1，選中線寬同時提升。
 
 ## 本輪視覺證據
 
@@ -38,10 +39,10 @@ v17 再次整體核查後，最大的風險已收斂為三件事：
 
 | 優先級 | 問題 | 處理 |
 |---|---|---|
-| P0 | OCR candidate 可能被誤寫為史學結論 | 現有資料與 UI 保持 `citation=false`、`semantic=false`、first/disappearance/influence fail closed；只有機器 receipt 與 publication manifest 同時通過才可晉級。 |
-| P0 | OCR 舊 producer 的空 `critical_fields` 造成 blanket human queue | 新增 deterministic machine gate；31 頁 exact receipt，剩餘 5,063／1,780／73 頁分入第三引擎／表格／空白機器仲裁，人工必審 0。 |
+| 已完成 | OCR candidate 可能被誤寫為史學結論 | 候選 observation 永遠 `citation=false`、`semantic=false`；只有 31 份 exact receipt 對應的 30 個唯一頁進入稀疏 manifest，衝突頁全部終局省略。 |
+| 已完成 | OCR 舊 producer 的空 `critical_fields` 造成 blanket human queue | v2 deterministic machine gate 已裁決 6,947/6,947；31 exact、5,063 文字衝突、1,780 表格衝突、73 雙空白，pending 0。 |
 | P1 | 年代與年份對比重合 | 改為同一控制塢的互斥 tabpanel；概念選中自動切到年份對比，Canvas 按控制塢實際矩形重新 fit。 |
-| P1 | 亮色缺失或文字反差不足 | 暗色默認、亮色持久化；紙本 palette 的主要／次要／金色文字對背景均以 4.5:1 為門檻。 |
+| 已完成 | 亮色文字與連線反差不足 | 暗色默認、亮色持久化；文字與四類選中實線對紙本背景均以 4.5:1 為門檻。 |
 | P1 | 1902–1949 單段過粗 | 本輪改為五個連續階段，Canvas 實線門與底部階段列共用同一配置。 |
 | P1 | 詞面搜索和 ontology 搜索疊層 | 本輪改為 episode 已命中時優先 Canvas；ontology-only 查詢仍可進深層概念星系。 |
 | P1 | 手機預設標籤過密 | 本輪把非選中自動標籤限制為 9 個；選中族仍完整點亮。 |
@@ -77,16 +78,17 @@ v17 再次整體核查後，最大的風險已收斂為三件事：
 
 - 12 個 2001 年前專科來源、462 個 bounded items、36 個早期同粒度概念、426 個 episodes、821 條 evidence。
 - `/archive` 按來源身份合併為 461 條；462 是專科 source items，461 是與 134 seed 合併後的去重目錄，兩個數字語義不同。
-- 55 個概念族、5 個不可混用粒度、153 個受控概念、1,597 個 memberships；全期共 2,130 個 episodes。
+- 55 個概念族、5 個不可混用粒度、1,648 個 memberships；全期共 2,415 個 episodes，相對凍結正式版新增 385、刪除 0、跨層移動 0。
 - 12 科課程名稱及 36 條實踐／內容／能力族都跨越 2001 年前後。
 - 每個 candidate episode 至少一條 evidence；候選 citation、semantic、first appearance、disappearance 與 influence gate 全關。
+- 83 份完整 OCR 文件／10,210 頁全部有終局年份處置；70 份學科文件投影為 308 個候選 stars，12 個底層分面無缺。
+- 462/462 bounded-item identity receipt 通過，134 個 seed 全部解析，唯一共用物理範圍有明示的雙分面身份。
+- 6,947/6,947 頁機器裁決完成；31 份 exact receipt 去重為 30 個可引頁，26 份文件生成 44 個段落候選。
 
-### 仍未完成
+### 持續性品質邊界（不阻斷 v18）
 
-- 名義 OCR 覆蓋已收口為 11,847/11,847 頁、zero silent missing；仍須把全部 completed documents 接入同一 deterministic observation builder。
-- 462 個 bounded-item identity 須完成 source hash、物理頁、標題邊界、stable ID 與 seed 對應的全量機器一致性 receipt，不以抽樣人工覆蓋。
 - OCR 詞面誤命中對抗集、同義詞版本化和概念粒度機器稽核。
-- 引文級 observation 的晉級；候選數量不能代替可引用證據數。
+- 後續新增 OCR 頁仍須逐頁重跑相同 receipt／manifest／corpus 三門，不可用本次 30 頁替代新資料核查。
 - 新增學科分合關係只能來自來源明示，不從年代鄰近自動推導。
 
 ## 概念演進與學科關係
@@ -109,11 +111,11 @@ v17 再次整體核查後，最大的風險已收斂為三件事：
 
 ### 優化順序
 
-1. 執行 5,063 頁第三引擎文字、1,780 頁表格結構、73 頁空白栅格仲裁。
-2. 將 31 頁現有 exact receipt 接入自動 page／paragraph manifest builder；D1 import 仍須獨立 release gate。
-3. 把所有 completed OCR documents 接入通用 observation builder，逐份產出可重現 candidate projection。
-4. 持續擴充 OCR 星點前保持靜態及 runtime 性能預算；亮色與互斥時間塢的桌面／手機 receipt 已於 v17 完成。
-5. 建立 24 小時 aggregate 後驗。
+1. 已完成：6,947 頁終局機器裁決，衝突頁不生成第三份猜測正文。
+2. 已完成：31 份 exact receipt → 30 唯一頁 → 26 文件／44 段落候選的稀疏 manifest。
+3. 已完成：83 份完整文件／10,210 頁通用 observation builder 與 12 分面投影。
+4. 已完成：462 項全量身份 receipt 與 seed 反向解析。
+5. 發布後持續：24 小時 aggregate 後驗與未來新增資料的同標準增量核查。
 
 ## 驗收標準
 
@@ -123,4 +125,4 @@ v17 再次整體核查後，最大的風險已收斂為三件事：
 - 年代導航與年份對比只能有一個 panel 可見；任意實際資料年份可多選，屏幕閱讀器可讀 tab、狀態與選中年份。
 - 390×844 預設非選中標籤不超過 9 個，年份控制不被統一用戶浮標遮擋。
 - episode 搜索命中時不再被 ontology 結果覆蓋。
-- candidate claim policy 不變；本輪沒有 D1、R2、VPS、OCR runtime 或 shared-hub mutation。
+- candidate claim policy 不變；v18 只把 30 個精確頁寫入 D1 corpus，沒有 VPS、遠端 OCR runtime 或 shared-hub mutation。

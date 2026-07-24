@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { sourceManifest } from '../scripts/source-manifest.mjs';
+
+const publicationManifest = JSON.parse(await readFile(
+  new URL('../data/page-publication-manifest.json', import.meta.url),
+  'utf8',
+));
 
 test('every catalog record has an explicit fail-closed text-quality disposition', () => {
   assert.equal(sourceManifest.length, 196);
@@ -11,7 +17,15 @@ test('every catalog record has an explicit fail-closed text-quality disposition'
   }
 
   const citationReady = sourceManifest.filter((record) => record.citation_allowed === true);
-  assert.equal(citationReady.length, 101);
+  assert.equal(citationReady.length, 127);
+  const publishedOcrIds = new Set(publicationManifest.documents.map((document) => document.document_id));
+  assert.deepEqual(
+    citationReady
+      .filter((record) => record.text_quality_status !== 'official_native_text')
+      .map((record) => record.id)
+      .sort(),
+    [...publishedOcrIds].sort(),
+  );
 });
 
 test('catalog-only records never impersonate citable body text', () => {

@@ -19,6 +19,13 @@ const paths = {
   reviewTriage: resolve(root, 'data/ocr-review-triage.json'),
   machinePolicy: resolve(root, 'data/ocr-machine-verification-policy.json'),
   machineVerification: resolve(root, 'data/ocr-machine-verification.json'),
+  publicationReceipt: resolve(root, 'data/ocr-publication-receipt.json'),
+  pagePublicationManifest: resolve(root, 'data/page-publication-manifest.json'),
+  yearPolicy: resolve(root, 'data/ocr-document-year-policy.json'),
+  pre2001Identity: resolve(root, 'data/pre2001-bounded-identity-verification.json'),
+  pre2001BoundedSource: resolve(root, 'data/pre2001-specialist-bounded-source.json'),
+  embeddedItems: resolve(root, 'data/embedded-items-century-v1.json'),
+  localCompendia: resolve(root, 'data/local-compendia.json'),
   lifecycle: resolve(root, 'public/data/discipline-lifecycle.json'),
   releaseDiff: resolve(root, 'data/release-episode-diff.json'),
   performanceBudget: resolve(root, 'data/star-map-performance-budget.json'),
@@ -78,6 +85,10 @@ const candidateFallback = JSON.parse(sourceText.candidateFallback);
 const reviewTriage = JSON.parse(sourceText.reviewTriage);
 const machinePolicy = JSON.parse(sourceText.machinePolicy);
 const machineVerification = JSON.parse(sourceText.machineVerification);
+const publicationReceipt = JSON.parse(sourceText.publicationReceipt);
+const pagePublicationManifest = JSON.parse(sourceText.pagePublicationManifest);
+const yearPolicy = JSON.parse(sourceText.yearPolicy);
+const pre2001Identity = JSON.parse(sourceText.pre2001Identity);
 const lifecycle = JSON.parse(sourceText.lifecycle);
 const releaseDiff = JSON.parse(sourceText.releaseDiff);
 const performanceBudget = JSON.parse(sourceText.performanceBudget);
@@ -208,11 +219,11 @@ const gapRanges = Object.fromEntries(coverage.gaps.map((item) => [
 record('ocr.gap_ranges_exact', equal(gapRanges, standard.ocr_denominator.required_candidate_gap_ranges),
   gapRanges, standard.ocr_denominator.required_candidate_gap_ranges);
 record('ocr.fail_closed',
-  coverage.release_gate.citation_allowed === false
+  coverage.release_gate.citation_allowed === true
     && coverage.release_gate.semantic_promotion_allowed === false
     && coverage.release_gate.negative_claim_eligible === false,
   coverage.release_gate,
-  { citation_allowed: false, semantic_promotion_allowed: false, negative_claim_allowed: false });
+  { citation_allowed: true, semantic_promotion_allowed: false, negative_claim_eligible: false });
 record('ocr.candidate_fallback_exact',
   candidateFallback.counts.pages === standard.ocr_denominator.single_witness_candidate_fallback_pages
     && candidateFallback.counts.candidate_gap_pages_remaining === 0
@@ -244,7 +255,10 @@ record('ocr.machine_verification_exact_and_fail_closed',
     && machineVerification.source_bindings.policy_sha256 === sha256(sourceText.machinePolicy)
     && machinePolicy.release_policy.manual_override_allowed === false
     && machinePolicy.release_policy.human_review_required === false
-    && machineVerification.release_gate.production_publication_mutation === 'none'
+    && machineVerification.release_gate.machine_adjudication_complete === true
+    && machineVerification.release_gate.production_publication_mutation
+      === 'separate_hash_bound_manifest_builder_required'
+    && machineVerification.adjudicated_pages.length === machineVerification.counts.audited_pages
     && machineVerification.verified_pages.length === machineVerification.counts.machine_verified_exact_pages
     && machineVerification.verified_pages.every((page) =>
       page.publication_manifest_eligible === true
@@ -253,16 +267,109 @@ record('ocr.machine_verification_exact_and_fail_closed',
   observedMachineVerification,
   standard.ocr_machine_verification);
 
+const publicationManifestPages = pagePublicationManifest.documents.flatMap((document) =>
+  document.pages.map((page) => ({ document_id: document.document_id, ...page })));
+const publicationObserved = {
+  artifact_profile: publicationReceipt.artifact_profile,
+  ...publicationReceipt.counts,
+};
+record('ocr.publication_manifest_exact_and_source_bound',
+  equal(publicationObserved, standard.ocr_publication)
+    && publicationReceipt.source_bindings.machine_verification_sha256 === sha256(sourceText.machineVerification)
+    && publicationReceipt.source_bindings.page_publication_manifest_sha256
+      === sha256(sourceText.pagePublicationManifest)
+    && publicationReceipt.release_gate.deployment_allowed === true
+    && publicationReceipt.release_gate.semantic_claim_allowed === false
+    && publicationReceipt.pages.length === standard.ocr_publication.materialized_unique_pages
+    && publicationManifestPages.length === standard.ocr_publication.materialized_unique_pages
+    && publicationManifestPages.reduce(
+      (total, page) => total + page.source_receipt_sha256s.length,
+      0,
+    ) === standard.ocr_publication.source_exact_receipts
+    && publicationManifestPages.every((page) =>
+      page.review_status === 'accepted'
+      && page.display_allowed === true
+      && page.citation_allowed === true
+      && page.source_receipt_sha256s.length >= 1),
+  publicationObserved,
+  standard.ocr_publication);
+
+const ocrObserved = {
+  schema_version: ocr.schema_version,
+  artifact_profile: ocr.artifact_profile,
+  complete_documents: ocr.counts.complete_documents,
+  complete_pages: ocr.counts.complete_pages,
+  projected_documents: ocr.counts.projected_documents,
+  bounded_item_documents: ocr.pipeline_summary.bounded_item_documents,
+  deduplicated_alias_documents: ocr.pipeline_summary.deduplicated_alias_documents,
+  non_subject_scope_documents: ocr.pipeline_summary.non_subject_scope_documents,
+  concept_candidates: ocr.counts.concept_candidates,
+  evidence_pages: ocr.counts.evidence_pages,
+  subject_facets: new Set(ocr.episodes.flatMap((episode) => episode.visibility_facets)).size,
+  unresolved_year_documents: ocr.counts.unresolved_year_documents,
+};
+record('ocr.observation_layer_all_complete_documents_fail_closed',
+  equal(ocrObserved, standard.ocr_observation_layer)
+    && ocr.source.year_policy_sha256 === sha256(sourceText.yearPolicy)
+    && yearPolicy.release_gate.manual_override_allowed === false
+    && yearPolicy.batch_rules.every((rule) =>
+      rule.evidence.length > 0
+      && rule.evidence.every((entry) => entry.publisher === '中华人民共和国教育部'
+        && entry.url.startsWith('https://www.moe.gov.cn/')))
+    && ocr.documents.length === standard.ocr_observation_layer.complete_documents
+    && ocr.documents.every((document) =>
+      document.completed_pages === document.page_count
+      && document.failed_pages === 0
+      && Number.isInteger(document.year)
+      && document.citation_allowed === false
+      && document.semantic_claim_allowed === false)
+    && ocr.evidence.length === standard.ocr_observation_layer.evidence_pages
+    && ocr.evidence.every((item) =>
+      item.citation_allowed === false
+      && item.semantic_claim_allowed === false
+      && item.source_pdf_sha256
+      && item.content_sha256),
+  ocrObserved,
+  standard.ocr_observation_layer);
+
+const identityObserved = {
+  artifact_profile: pre2001Identity.artifact_profile,
+  ...pre2001Identity.counts,
+};
+record('pre2001.bounded_item_identity_receipts_complete',
+  equal(identityObserved, standard.pre2001_bounded_identity)
+    && pre2001Identity.source_bindings.bounded_source.sha256 === sha256(sourceText.pre2001BoundedSource)
+    && pre2001Identity.source_bindings.embedded_items.sha256 === sha256(sourceText.embeddedItems)
+    && pre2001Identity.source_bindings.local_compendia.sha256 === sha256(sourceText.localCompendia)
+    && pre2001Identity.source_bindings.concept_families.sha256 === sha256(sourceText.familiesConfig)
+    && pre2001Identity.receipts.length === standard.pre2001_bounded_identity.items
+    && new Set(pre2001Identity.receipts.map((receipt) => receipt.item_id)).size
+      === standard.pre2001_bounded_identity.unique_item_ids
+    && new Set(pre2001Identity.receipts.map((receipt) => receipt.identity_sha256)).size
+      === standard.pre2001_bounded_identity.unique_identity_keys
+    && pre2001Identity.receipts.every((receipt) =>
+      receipt.source_sha256
+      && receipt.ocr_state_sha256
+      && receipt.range_content_sha256
+      && Object.values(receipt.checks).every(Boolean))
+    && pre2001Identity.release_gate.deployment_allowed === true
+    && pre2001Identity.release_gate.citation_allowed === false
+    && pre2001Identity.release_gate.semantic_claim_allowed === false,
+  identityObserved,
+  standard.pre2001_bounded_identity);
+
 const interfacePolicy = standard.interface_policy;
 const primaryContrast = contrastRatio(interfacePolicy.light_primary_text, interfacePolicy.light_surface);
 const mutedContrast = contrastRatio(interfacePolicy.light_muted_text, interfacePolicy.light_surface);
 const mobileDockMatch = sourceText.styles.match(/--mobile-dock-clearance:\s*(\d+)px/u);
 const mobileDockClearance = Number(mobileDockMatch?.[1]);
+const themeScriptMatch = sourceText.index.match(/\/theme-init\.js\?v=([^"]+)/u);
+const stylesheetMatch = sourceText.index.match(/\/styles\.css\?v=([^"]+)/u);
 record('interface.theme_and_chronology_contract',
   sourceText.index.includes('data-theme-choice="dark" aria-pressed="true"')
     && sourceText.index.includes('data-theme-choice="light" aria-pressed="false"')
-    && sourceText.index.indexOf('/theme-init.js?v=20260723v42')
-      < sourceText.index.indexOf('/styles.css?v=20260723v42')
+    && themeScriptMatch?.[1] === stylesheetMatch?.[1]
+    && sourceText.index.indexOf(themeScriptMatch?.[0]) < sourceText.index.indexOf(stylesheetMatch?.[0])
     && sourceText.themeInit.includes(interfacePolicy.theme_storage_key)
     && sourceText.app.includes('chronologyComparePanel.hidden = !compareActive')
     && sourceText.app.includes('chronologyEraPanel.hidden = compareActive')
@@ -283,6 +390,27 @@ record('interface.theme_and_chronology_contract',
     minimum_text_contrast_ratio: interfacePolicy.minimum_text_contrast_ratio,
     chronology_modes: interfacePolicy.chronology_modes,
     maximum_mobile_dock_clearance_px: interfacePolicy.maximum_mobile_dock_clearance_px,
+  });
+
+const lightEdgeContrasts = Object.fromEntries(Object.entries(interfacePolicy.light_edge_colors)
+  .map(([key, color]) => [key, Number(contrastRatio(color, interfacePolicy.light_surface).toFixed(3))]));
+record('interface.light_edges_are_solid_and_high_contrast',
+  Object.entries(interfacePolicy.light_edge_colors).every(([, color]) => sourceText.atlas.includes(color))
+    && Object.values(lightEdgeContrasts).every((ratio) =>
+      ratio >= interfacePolicy.minimum_edge_contrast_ratio)
+    && sourceText.atlas.includes("edgeCorrespondence: '#6f4205'")
+    && sourceText.atlas.includes("edgeLineage: '#234269'")
+    && sourceText.atlas.includes("edgeDiscipline: '#005373'")
+    && sourceText.atlas.includes("edgeCross: '#6a4305'")
+    && sourceText.atlas.includes("light ? 2.1 : 1.55")
+    && sourceText.atlas.includes("light ? 2.2 : 1.65"),
+  {
+    contrast_ratios: lightEdgeContrasts,
+    solid_canvas_primitives: !sourceText.atlas.includes('setLineDash'),
+  },
+  {
+    minimum_edge_contrast_ratio: interfacePolicy.minimum_edge_contrast_ratio,
+    solid_canvas_primitives: true,
   });
 
 const lifecycleSourceIds = new Set(lifecycle.sources.map((item) => item.id));
@@ -488,9 +616,14 @@ const receipt = {
     ocr_candidate_remaining_pages: coverage.counts.candidate_remaining_pages,
     ocr_citation_ready_pages: coverage.counts.citation_ready_pages,
     ocr_machine_verified_exact_pages: machineVerification.counts.machine_verified_exact_pages,
-    ocr_machine_adjudication_pending_pages: machineVerification.counts.audited_pages
-      - machineVerification.counts.machine_verified_exact_pages,
+    ocr_machine_adjudicated_pages: machineVerification.counts.machine_adjudicated_pages,
+    ocr_machine_adjudication_pending_pages: machineVerification.counts.machine_adjudication_pending_pages,
     ocr_human_required_pages: machineVerification.counts.human_required_pages,
+    ocr_published_unique_pages: publicationReceipt.counts.materialized_unique_pages,
+    ocr_complete_observation_documents: ocr.counts.complete_documents,
+    ocr_complete_observation_pages: ocr.counts.complete_pages,
+    pre2001_bounded_identity_receipts: pre2001Identity.counts.items,
+    pre2001_bounded_identity_failures: pre2001Identity.counts.failed_receipts,
   },
   checks,
 };

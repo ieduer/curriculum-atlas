@@ -2,7 +2,19 @@
 
 ## Decision
 
-The production primary is the official PaddleOCR-VL 1.6 document pipeline: PP-DocLayoutV3 detects regions and reading order, then the official PaddleOCR-VL-1.6 model recognizes each region through the pinned llama.cpp backend. The Mac Metal profile remains the local primary and the only host for the independent Apple Vision `accurate` witness; the DMITPro2 inner Kali workstation may run the same pinned primary pipeline through CUDA only as isolated, non-citable whole-document staging. PP-StructureV3 with PP-OCRv5 is the adjudication engine for disputed characters and coordinates. Tesseract is retained only as a diagnostic baseline because it did not meet the benchmark threshold.
+The production primary is the official PaddleOCR-VL 1.6 document pipeline: PP-DocLayoutV3 detects regions and reading order, then the official PaddleOCR-VL-1.6 model recognizes each region through the pinned llama.cpp backend. The Mac Metal profile remains the local primary and the only host for the independent Apple Vision `accurate` witness; the DMITPro2 inner Kali workstation may run the same pinned primary pipeline through CUDA only as isolated, non-citable whole-document staging. PP-StructureV3 with PP-OCRv5 remains a diagnostic adjudication source for disputed characters and coordinates. Tesseract 5.5.2 is not a publication engine; v18 uses it only to fill 507 locally absent pages in two otherwise runtime-complete documents so those documents can enter the non-citable generic observation layer. Those pages are source/image/text-hash bound and can never satisfy a publication receipt.
+
+## Current v18 terminal machine disposition
+
+The legacy queue language below records how evidence was originally produced; it is no longer a human-work requirement. `curriculum-ocr-machine-verification-v2` recomputes every decision from immutable source bindings and gives all 6,947 dual-witness pages one terminal disposition:
+
+- 31 exact page receipts: primary and independent witness normalize to the same complete text; every receipt binds source PDF, physical page, rendered image, both text artifacts and engine identities.
+- 5,063 text conflicts: terminal fail-closed omission; no third model summary is promoted as text.
+- 1,780 table conflicts: terminal fail-closed omission; no row or cell is reconstructed from bag-of-words agreement.
+- 73 dual-zero pages: terminal non-text disposition.
+- machine adjudication pending 0; human-required 0.
+
+`scripts/build-ocr-publication-manifest.mjs` independently rereads every exact receipt and rendered page. Thirty-one source receipts collapse to 30 unique physical pages because one exact source is catalogued under a canonical ID and an alias. The sparse manifest contains 26 documents, 30 citation-enabled pages and 44 paragraph candidates. Unlisted pages are always materialized as closed gates by the corpus builder. Candidate observation data remains non-citable even when another page in the same document is published.
 
 Official technical references:
 

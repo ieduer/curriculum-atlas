@@ -1,51 +1,64 @@
 {
   "schema_version": 1,
   "artifact_profile": "curriculum-data-quality-validation-v1",
-  "standard_id": "curriculum-atlas-data-quality-v1",
+  "standard_id": "curriculum-atlas-data-quality-v2",
   "release_decision": "pass",
   "deployment_allowed": true,
   "manual_override_allowed": false,
   "source_fingerprints": {
-    "standard": "9030750bc8b2a87e0a4d50bcfdbbb749b2de6756f9449414ac2e80e9cdfa7a7f",
+    "standard": "5db532f8ec81a474bee8f255fcda3f31e1fbcd5c2cae04cd977527203f9d7fa9",
     "candidateSchema": "d985d3c4d89440c4e2890694c10f20fb0fd291fcea68d9d13f28170843e4f212",
-    "coverage": "5ac87d0e489f39737c7f546c7d291e7a0ee111f651540e8a288f5c15e972320f",
+    "coverage": "8e0b7f502a945228e708249c9d90401a7a25dd19745b9f918223ccd661233c97",
     "candidateFallback": "514beb453c594fbc74e1297bd6a446d041a6b8e37d68b518a6976ce252b15ed7",
     "reviewTriage": "8a288fa8c75642a90af3ce67f4379a255a497a79e5adf1ee7822f15809b5f765",
-    "machinePolicy": "6d7ab57cfe7c0c6076b3f7923ac8efb52e403669aafb871916a208dcdac86aab",
-    "machineVerification": "d8ab5e6136828fc7b9fe3ea621b3e48e8760504ea27fb7f7c96432bb72573317",
+    "machinePolicy": "7eabe72ae33272b75e38560e9923c27ebb1675b5e460802ba807695e3489c2de",
+    "machineVerification": "7eba196ca55ded13413e8d673dee6adee0a4a5fd6d939c4019a4a634ba485a9c",
+    "publicationReceipt": "84bdd1113bfeedb43b5dda0aebc54a724d1f12e00b0ecea83b9bbc01cb11153e",
+    "pagePublicationManifest": "5502cdab50826fec58d08e60cae05f920a262ec3a1d4eb740a05727002b9e31d",
+    "yearPolicy": "9d6635f70087e719f951a5471c347c4447904221633134467b204ea13145becc",
+    "pre2001Identity": "c2ed1f3f9c1a3a61dccc00dbfdf0f228ff0c30bb235d70c702a07f44c505c349",
+    "pre2001BoundedSource": "9df474cbb7b037ff14e3d2ca029ff76732949816e777aa3f218e90806ebc7df5",
+    "embeddedItems": "1a78546dffa51978e1169704ff2fac46e0ea7d60cedbc1c06bf26bc729e6dede",
+    "localCompendia": "633fd244f4927faf8c5d6bea4916b6157be143e7951f14c6b1e2b507a342e2da",
     "lifecycle": "a6ec26386ae1996f0dda6d8c118580443216386ed98fc2f007f617ecb86be952",
-    "releaseDiff": "1593289edecc56267d257766cba2da76b1e3318083784e866f097c47b7c97277",
-    "performanceBudget": "0e283a940aa28696ab20a1730f30ffc06a78932d268d6e8d4307e5db037fd334",
-    "performanceValidation": "186e642c9ff9a7dff4418b0add8e69b3c28def2bc0bdb89565950382043b2d00",
+    "releaseDiff": "7f9c54cea760d2866fed4fbce15b411abf04bb06e7e314362e3c60c307175a0c",
+    "performanceBudget": "6ecb024cd6480781ac538b66e6b39ae49f6539a62bd5bea4168918654e755dec",
+    "performanceValidation": "dd9276d82e5b82686e3e372c79194153f3d4b2c747a2eb629896da6760c7d43b",
     "familiesConfig": "e891fce9b7b025b23fedbde6c90b734367673c8592a6d44c2b3bc2c0f80651c8",
-    "families": "7e747bda715e3c01c7c3755f903adaeb5bac93f282a0f4050655ec79108bf24a",
-    "core": "0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8",
-    "ocr": "5c95361d8e157231b7fe28bc940fbab45baf0836d143a94f7c8db3fbc4ce1e39",
+    "families": "04932aa7b1fac24614334212c9c83701342417ba309447fa0e583d8202beb06b",
+    "core": "ee1385fc608c8f5e5b243865e2a19d9b072e2d10b8bbd47d36af0a8e67b823f4",
+    "ocr": "3a3dd82a04aa9d851e112ee4e2345d495169c137f138dbea9b737465a92e2e53",
     "detail": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
     "pre2001": "f6e0c70ebd762fb23d4127bee64fcbaf84380be59a4e13426c608d3b0466137c",
     "century": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
-    "app": "dbfac44bbc0baa6da3171203d08bf0de0e59e26e50e2f75235c4e5c4fdfc2da6",
-    "atlas": "9a9974295769f7e89bc1f20392f972b2316eae5d9c912f76ae3e611e03215559",
+    "app": "e08406e1a3b260afe3d6127206fceb993d47c5c7f60754535c909a2d68389cea",
+    "atlas": "ecb69b15ed0777f69b7d31b67abddddb82c7baf3b906cbe2a0d967a91a0d2e4d",
     "styles": "f592140f80aa33b2d853cc681b3bc7754f47abb54901f806a526cc28769fee33",
-    "index": "c6700dd35ab0ba61e20b8931176d8cd9ea01beefd75c91ba7f0b39ba6c0f6971",
+    "index": "72fd6777c37ec3c1d11c72ded43922804a0e94dc470f485c64f0c4186e2e6c59",
     "themeInit": "331ab5984dec61ac6f89366732162aa692bb5497930b30ae29d64262aed1428c"
   },
   "counts": {
-    "checks": 30,
-    "passed": 30,
+    "checks": 34,
+    "passed": 34,
     "failed": 0,
     "subject_facets": 12,
     "concept_tiers": 5,
     "concept_families": 55,
-    "episodes": 2130,
-    "family_edges": 1335,
+    "episodes": 2415,
+    "family_edges": 1348,
     "ocr_nominal_pages": 11847,
     "ocr_candidate_covered_pages": 11847,
     "ocr_candidate_remaining_pages": 0,
-    "ocr_citation_ready_pages": 0,
+    "ocr_citation_ready_pages": 30,
     "ocr_machine_verified_exact_pages": 31,
-    "ocr_machine_adjudication_pending_pages": 6916,
-    "ocr_human_required_pages": 0
+    "ocr_machine_adjudicated_pages": 6947,
+    "ocr_machine_adjudication_pending_pages": 0,
+    "ocr_human_required_pages": 0,
+    "ocr_published_unique_pages": 30,
+    "ocr_complete_observation_documents": 83,
+    "ocr_complete_observation_pages": 10210,
+    "pre2001_bounded_identity_receipts": 462,
+    "pre2001_bounded_identity_failures": 0
   },
   "checks": [
     {
@@ -385,7 +398,7 @@
         "single_witness_candidate_fallback_pages": 1077,
         "dual_witness_audited_pages": 6947,
         "human_decided_non_citation_pages": 4,
-        "citation_ready_pages": 0
+        "citation_ready_pages": 30
       },
       "expected": {
         "nominal_documents": 86,
@@ -400,7 +413,7 @@
         "single_witness_candidate_fallback_pages": 1077,
         "dual_witness_audited_pages": 6947,
         "human_decided_non_citation_pages": 4,
-        "citation_ready_pages": 0
+        "citation_ready_pages": 30
       }
     },
     {
@@ -423,14 +436,14 @@
         "zero_silent_missing_pages": true,
         "explicit_candidate_gaps": 0,
         "runtime_remaining_pages": 1157,
-        "citation_allowed": false,
+        "citation_allowed": true,
         "semantic_promotion_allowed": false,
         "negative_claim_eligible": false
       },
       "expected": {
-        "citation_allowed": false,
+        "citation_allowed": true,
         "semantic_promotion_allowed": false,
-        "negative_claim_allowed": false
+        "negative_claim_eligible": false
       }
     },
     {
@@ -473,26 +486,116 @@
       "id": "ocr.machine_verification_exact_and_fail_closed",
       "passed": true,
       "observed": {
-        "policy_id": "curriculum-ocr-machine-verification-v1",
+        "policy_id": "curriculum-ocr-machine-verification-v2",
         "audited_pages": 6947,
+        "machine_adjudicated_pages": 6947,
+        "machine_adjudication_pending_pages": 0,
         "machine_verified_exact_pages": 31,
-        "third_engine_text_consensus_pages": 5063,
-        "table_structure_consensus_pages": 1780,
-        "blank_raster_consensus_pages": 73,
+        "machine_verified_blank_pages": 73,
+        "text_conflict_fail_closed_pages": 5063,
+        "table_conflict_fail_closed_pages": 1780,
         "publication_manifest_eligible_pages": 31,
         "production_citation_ready_pages": 0,
         "human_required_pages": 0
       },
       "expected": {
-        "policy_id": "curriculum-ocr-machine-verification-v1",
+        "policy_id": "curriculum-ocr-machine-verification-v2",
         "audited_pages": 6947,
+        "machine_adjudicated_pages": 6947,
+        "machine_adjudication_pending_pages": 0,
         "machine_verified_exact_pages": 31,
-        "third_engine_text_consensus_pages": 5063,
-        "table_structure_consensus_pages": 1780,
-        "blank_raster_consensus_pages": 73,
+        "machine_verified_blank_pages": 73,
+        "text_conflict_fail_closed_pages": 5063,
+        "table_conflict_fail_closed_pages": 1780,
         "publication_manifest_eligible_pages": 31,
         "production_citation_ready_pages": 0,
         "human_required_pages": 0
+      }
+    },
+    {
+      "id": "ocr.publication_manifest_exact_and_source_bound",
+      "passed": true,
+      "observed": {
+        "artifact_profile": "curriculum-ocr-publication-receipt-v1",
+        "source_exact_receipts": 31,
+        "materialized_unique_pages": 30,
+        "deduplicated_alias_receipts": 1,
+        "manifest_documents": 26,
+        "display_allowed_pages": 30,
+        "citation_allowed_pages": 30,
+        "paragraph_candidates": 44,
+        "generated_text_assets": 26,
+        "unresolved_manifest_pages": 0
+      },
+      "expected": {
+        "artifact_profile": "curriculum-ocr-publication-receipt-v1",
+        "source_exact_receipts": 31,
+        "materialized_unique_pages": 30,
+        "deduplicated_alias_receipts": 1,
+        "manifest_documents": 26,
+        "display_allowed_pages": 30,
+        "citation_allowed_pages": 30,
+        "paragraph_candidates": 44,
+        "generated_text_assets": 26,
+        "unresolved_manifest_pages": 0
+      }
+    },
+    {
+      "id": "ocr.observation_layer_all_complete_documents_fail_closed",
+      "passed": true,
+      "observed": {
+        "schema_version": 2,
+        "artifact_profile": "curriculum-ocr-observation-layer-v2",
+        "complete_documents": 83,
+        "complete_pages": 10210,
+        "projected_documents": 70,
+        "bounded_item_documents": 9,
+        "deduplicated_alias_documents": 1,
+        "non_subject_scope_documents": 3,
+        "concept_candidates": 308,
+        "evidence_pages": 308,
+        "subject_facets": 12,
+        "unresolved_year_documents": 0
+      },
+      "expected": {
+        "schema_version": 2,
+        "artifact_profile": "curriculum-ocr-observation-layer-v2",
+        "complete_documents": 83,
+        "complete_pages": 10210,
+        "projected_documents": 70,
+        "bounded_item_documents": 9,
+        "deduplicated_alias_documents": 1,
+        "non_subject_scope_documents": 3,
+        "concept_candidates": 308,
+        "evidence_pages": 308,
+        "subject_facets": 12,
+        "unresolved_year_documents": 0
+      }
+    },
+    {
+      "id": "pre2001.bounded_item_identity_receipts_complete",
+      "passed": true,
+      "observed": {
+        "artifact_profile": "curriculum-pre2001-bounded-identity-verification-v1",
+        "items": 462,
+        "unique_item_ids": 462,
+        "unique_identity_keys": 462,
+        "unique_physical_ranges": 461,
+        "intentional_shared_physical_ranges": 1,
+        "source_item_links": 135,
+        "distinct_source_items_resolved": 134,
+        "failed_receipts": 0
+      },
+      "expected": {
+        "artifact_profile": "curriculum-pre2001-bounded-identity-verification-v1",
+        "items": 462,
+        "unique_item_ids": 462,
+        "unique_identity_keys": 462,
+        "unique_physical_ranges": 461,
+        "intentional_shared_physical_ranges": 1,
+        "source_item_links": 135,
+        "distinct_source_items_resolved": 134,
+        "failed_receipts": 0
       }
     },
     {
@@ -516,6 +619,23 @@
           "compare"
         ],
         "maximum_mobile_dock_clearance_px": 150
+      }
+    },
+    {
+      "id": "interface.light_edges_are_solid_and_high_contrast",
+      "passed": true,
+      "observed": {
+        "contrast_ratios": {
+          "correspondence": 7.495,
+          "lineage": 8.964,
+          "discipline": 7.412,
+          "cross": 7.617
+        },
+        "solid_canvas_primitives": true
+      },
+      "expected": {
+        "minimum_edge_contrast_ratio": 4.5,
+        "solid_canvas_primitives": true
       }
     },
     {
@@ -579,8 +699,8 @@
       "id": "identity.episode_ids_globally_unique",
       "passed": true,
       "observed": {
-        "total": 2130,
-        "unique": 2130
+        "total": 2415,
+        "unique": 2415
       },
       "expected": {
         "duplicate_count": 0
@@ -591,11 +711,11 @@
       "passed": true,
       "observed": {
         "failures": [],
-        "checked_episodes": 2130
+        "checked_episodes": 2415
       },
       "expected": {
         "failures": [],
-        "checked_episodes": 2130
+        "checked_episodes": 2415
       }
     },
     {
@@ -625,11 +745,11 @@
       "passed": true,
       "observed": {
         "invalid_edge_ids": [],
-        "checked_edges": 1335
+        "checked_edges": 1348
       },
       "expected": {
         "invalid_edge_ids": [],
-        "checked_edges": 1335
+        "checked_edges": 1348
       }
     },
     {
@@ -690,12 +810,12 @@
       "id": "performance.static_budget_current_and_passed",
       "passed": true,
       "observed": {
-        "budget_id": "curriculum-star-map-performance-v3",
+        "budget_id": "curriculum-star-map-performance-v4",
         "checks": 8,
         "failed": 0
       },
       "expected": {
-        "budget_id": "curriculum-star-map-performance-v3",
+        "budget_id": "curriculum-star-map-performance-v4",
         "checks": 8,
         "failed": 0
       }

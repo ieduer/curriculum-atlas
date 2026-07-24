@@ -11,6 +11,9 @@ const DEFAULT_RUNTIME = path.join(ROOT, 'data/ocr-runtime-status-snapshot.json')
 const DEFAULT_REVIEW = path.join(ROOT, 'data/ocr-review-queue-index.json');
 const DEFAULT_DECISIONS = path.join(ROOT, 'data/ocr-review-decisions.json');
 const DEFAULT_CANDIDATE_FALLBACK = path.join(ROOT, 'data/ocr-candidate-fallback-ledger.json');
+const DEFAULT_MACHINE_VERIFICATION = path.join(ROOT, 'data/ocr-machine-verification.json');
+const DEFAULT_PUBLICATION_RECEIPT = path.join(ROOT, 'data/ocr-publication-receipt.json');
+const DEFAULT_PUBLICATION_MANIFEST = path.join(ROOT, 'data/page-publication-manifest.json');
 const DEFAULT_LEDGER = path.join(ROOT, 'data/ocr-coverage-ledger.json');
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
@@ -66,6 +69,9 @@ function parseArgs(argv) {
     review: DEFAULT_REVIEW,
     decisions: DEFAULT_DECISIONS,
     candidateFallback: DEFAULT_CANDIDATE_FALLBACK,
+    machineVerification: DEFAULT_MACHINE_VERIFICATION,
+    publicationReceipt: DEFAULT_PUBLICATION_RECEIPT,
+    publicationManifest: DEFAULT_PUBLICATION_MANIFEST,
     ledger: DEFAULT_LEDGER,
     receiverReceipt: null,
     runStatuses: [],
@@ -86,6 +92,9 @@ function parseArgs(argv) {
         '--review': 'review',
         '--decisions': 'decisions',
         '--candidate-fallback': 'candidateFallback',
+        '--machine-verification': 'machineVerification',
+        '--publication-receipt': 'publicationReceipt',
+        '--publication-manifest': 'publicationManifest',
         '--ledger': 'ledger',
         '--receiver-receipt': 'receiverReceipt',
         '--private-review-queue': 'privateReviewQueue',
@@ -349,14 +358,43 @@ export async function buildCoverageLedger({
   review,
   decisions,
   candidateFallback,
+  machineVerification,
+  publicationReceipt,
+  publicationManifest,
   decisionsPath = DEFAULT_DECISIONS,
   candidateFallbackPath = DEFAULT_CANDIDATE_FALLBACK,
+  machineVerificationPath = DEFAULT_MACHINE_VERIFICATION,
+  publicationReceiptPath = DEFAULT_PUBLICATION_RECEIPT,
+  publicationManifestPath = DEFAULT_PUBLICATION_MANIFEST,
 }) {
   const documents = queueDocuments(queue);
   require(runtime.contract === 'curriculum_ocr_runtime_status_snapshot_v1', 'runtime snapshot contract mismatch');
   require(review.contract === 'curriculum_ocr_review_queue_index_v1', 'review snapshot contract mismatch');
   require(decisions.contract === 'curriculum_ocr_review_decisions_v1', 'review decisions contract mismatch');
   require(Array.isArray(decisions.decisions), 'review decisions must be an array');
+  require(machineVerification?.artifact_profile === 'curriculum-ocr-machine-verification-v2',
+    'machine verification v2 contract mismatch');
+  require(machineVerification.release_gate?.machine_adjudication_complete === true
+    && machineVerification.counts?.machine_adjudication_pending_pages === 0,
+  'machine verification is not terminal and exhaustive');
+  require(publicationReceipt?.artifact_profile === 'curriculum-ocr-publication-receipt-v1'
+    && publicationReceipt.release_gate?.deployment_allowed === true,
+  'OCR publication receipt contract mismatch');
+  require(publicationManifest?.policy === 'fail_closed_page_publication_v1',
+    'page publication manifest contract mismatch');
+  require(publicationReceipt.source_bindings.page_publication_manifest_sha256
+    === sha256(await readFile(publicationManifestPath)),
+  'OCR publication receipt does not bind the current manifest');
+  const citationPagesByDocument = new Map(publicationManifest.documents.map((document) => [
+    document.document_id,
+    document.pages.filter((page) => page.citation_allowed === true).length,
+  ]));
+  const publicationCitationPages = sum(
+    [...citationPagesByDocument.values()],
+    (value) => value,
+  );
+  require(publicationCitationPages === publicationReceipt.counts.citation_allowed_pages,
+    'publication citation page count drift');
 
   const runtimeById = new Map(runtime.documents.map((document) => [document.id, document]));
   const reviewByDocument = new Map();
@@ -439,9 +477,12 @@ export async function buildCoverageLedger({
       dual_witness_pages_outside_runtime_prefix: reviewPages
         .filter((page) => page.page > state.completed_pages).length,
       single_witness_candidate_fallback_pages: fallbackPageNumbers.size,
-      pending_review_pages: reviewPages.length - decidedPages.length,
+      machine_adjudicated_pages: reviewPages.length,
+      machine_adjudication_pending_pages: 0,
+      pending_review_pages: 0,
       decided_non_citation_pages: decidedPages.length,
-      citation_allowed: false,
+      citation_ready_pages: citationPagesByDocument.get(document.id) || 0,
+      citation_allowed: (citationPagesByDocument.get(document.id) || 0) > 0,
       negative_claim_eligible: false,
     };
   });
@@ -469,8 +510,11 @@ export async function buildCoverageLedger({
       review_queue_index_sha256: sha256(await readFile(DEFAULT_REVIEW)),
       review_decisions_sha256: sha256(await readFile(decisionsPath)),
       candidate_fallback_sha256: sha256(await readFile(candidateFallbackPath)),
+      machine_verification_sha256: sha256(await readFile(machineVerificationPath)),
+      publication_receipt_sha256: sha256(await readFile(publicationReceiptPath)),
+      page_publication_manifest_sha256: sha256(await readFile(publicationManifestPath)),
     },
-    assertion_boundary: 'OCR completion, dual-witness audit, human review, publication and semantic claims are separate gates. No count in this ledger opens quotation, citation, first-appearance, disappearance, replacement, influence or causality claims.',
+    assertion_boundary: 'OCR completion, dual-witness machine adjudication, page publication and semantic claims are separate gates. Only exact manifest pages open quotation; no count opens first-appearance, disappearance, replacement, influence or causality claims.',
     release_gate: {
       zero_silent_missing_documents: rows.length === runtime.counts.nominal_documents,
       zero_silent_missing_pages: sum(
@@ -480,7 +524,7 @@ export async function buildCoverageLedger({
         === runtime.counts.nominal_pages,
       explicit_candidate_gaps: gaps.length,
       runtime_remaining_pages: sum(rows, (document) => document.runtime_remaining_pages),
-      citation_allowed: false,
+      citation_allowed: publicationCitationPages > 0,
       semantic_promotion_allowed: false,
       negative_claim_eligible: false,
     },
@@ -497,16 +541,19 @@ export async function buildCoverageLedger({
       candidate_remaining_pages: sum(rows, (document) => document.candidate_remaining_pages),
       single_witness_candidate_fallback_pages: candidateFallback.counts.pages,
       dual_witness_audited_pages: review.queue.length,
+      machine_adjudicated_pages: machineVerification.counts.machine_adjudicated_pages,
+      machine_adjudication_pending_pages: machineVerification.counts.machine_adjudication_pending_pages,
       human_decided_non_citation_pages: decisions.decisions.length,
-      citation_ready_pages: 0,
+      citation_ready_pages: publicationCitationPages,
       explicit_gap_documents: gaps.length,
     },
     review_queue: {
       queued_pages: review.summary.queued_pages,
       queued_by_priority: review.summary.queued_by_priority,
       queued_by_gate: review.summary.queued_by_gate,
-      pending_pages: review.summary.queued_pages - decisions.decisions.length,
-      decisions: decisions.decisions.length,
+      pending_pages: machineVerification.counts.machine_adjudication_pending_pages,
+      machine_decisions: machineVerification.counts.machine_adjudicated_pages,
+      legacy_human_non_citation_decisions: decisions.decisions.length,
     },
     duplicate_physical_sources: runtime.duplicate_physical_sources,
     gaps,
@@ -531,11 +578,22 @@ async function main() {
     await writeFile(options.runtime, stableJson(runtime));
     await writeFile(options.review, stableJson(review));
   }
-  const [runtime, review, decisions, candidateFallback] = await Promise.all([
+  const [
+    runtime,
+    review,
+    decisions,
+    candidateFallback,
+    machineVerification,
+    publicationReceipt,
+    publicationManifest,
+  ] = await Promise.all([
     readJson(options.runtime),
     readJson(options.review),
     readJson(options.decisions),
     readJson(options.candidateFallback),
+    readJson(options.machineVerification),
+    readJson(options.publicationReceipt),
+    readJson(options.publicationManifest),
   ]);
   const ledger = await buildCoverageLedger({
     queue,
@@ -543,8 +601,14 @@ async function main() {
     review,
     decisions,
     candidateFallback,
+    machineVerification,
+    publicationReceipt,
+    publicationManifest,
     decisionsPath: options.decisions,
     candidateFallbackPath: options.candidateFallback,
+    machineVerificationPath: options.machineVerification,
+    publicationReceiptPath: options.publicationReceipt,
+    publicationManifestPath: options.publicationManifest,
   });
   const expected = stableJson(ledger);
   if (options.check) {

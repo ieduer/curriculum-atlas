@@ -5,6 +5,14 @@ const moe2011Base = 'https://hudong.moe.gov.cn/srcsite/A26/s8001/201112/';
 const neea2019Base = 'https://www.neea.edu.cn/res/Home/1901/';
 const localOfficialScans = JSON.parse(await readFile(new URL('../data/local-official-scans.json', import.meta.url), 'utf8')).documents;
 const localOfficialScanById = new Map(localOfficialScans.map((record) => [record.id, record]));
+const pagePublicationManifest = JSON.parse(
+  await readFile(new URL('../data/page-publication-manifest.json', import.meta.url), 'utf8'),
+);
+const pagePublishedDocumentIds = new Set(
+  pagePublicationManifest.documents
+    .filter((document) => document.pages.some((page) => page.citation_allowed === true))
+    .map((document) => document.document_id),
+);
 
 const common = {
   country: '中国',
@@ -234,7 +242,7 @@ const policyRecords = [
 const supplementalDocuments = JSON.parse(await readFile(new URL('../data/supplemental-sources.json', import.meta.url), 'utf8')).documents;
 const localCompendia = JSON.parse(await readFile(new URL('../data/local-compendia.json', import.meta.url), 'utf8')).documents;
 
-export const sourceManifest = [
+const baseSourceManifest = [
   ...moe2022,
   ...moe2011,
   ...highSchool2020,
@@ -243,3 +251,12 @@ export const sourceManifest = [
   ...supplementalDocuments,
   ...localCompendia,
 ];
+
+export const sourceManifest = baseSourceManifest.map((record) =>
+  pagePublishedDocumentIds.has(record.id)
+    ? {
+      ...record,
+      citation_allowed: true,
+      ocr_audit_ref: 'data/ocr-publication-receipt.json',
+    }
+    : record);

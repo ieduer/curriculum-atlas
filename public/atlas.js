@@ -1,4 +1,4 @@
-import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v42';
+import { CURRICULUM_STAGES } from './historical-stages.js?v=20260724v43';
 
 const TAU = Math.PI * 2;
 const MIN_ZOOM = .2;
@@ -170,6 +170,10 @@ const THEME_PALETTES = {
     gateLabelCurrent: 'rgba(242,205,124,.9)',
     edgeLabelBackground: 'rgba(4,7,17,.9)',
     edgeLabel: 'rgba(244,220,165,.92)',
+    edgeCorrespondence: 'rgba(242,198,105,.76)',
+    edgeLineage: 'rgba(182,211,255,.62)',
+    edgeDiscipline: 'rgba(118,223,255,.82)',
+    edgeCross: 'rgba(239,204,126,.58)',
     nodeLabelBackground: 'rgba(3,6,16,.8)',
     nodeLabelRelatedBackground: 'rgba(5,9,22,.9)',
     nodeLabelSelectedBackground: 'rgba(7,10,22,.94)',
@@ -188,6 +192,10 @@ const THEME_PALETTES = {
     gateLabelCurrent: 'rgba(112,70,10,.92)',
     edgeLabelBackground: 'rgba(250,251,247,.94)',
     edgeLabel: 'rgba(91,57,10,.94)',
+    edgeCorrespondence: '#6f4205',
+    edgeLineage: '#234269',
+    edgeDiscipline: '#005373',
+    edgeCross: '#6a4305',
     nodeLabelBackground: 'rgba(250,251,247,.9)',
     nodeLabelRelatedBackground: 'rgba(245,248,245,.94)',
     nodeLabelSelectedBackground: 'rgba(255,252,241,.97)',
@@ -816,6 +824,8 @@ export class CurriculumCosmos {
     this.drawBackground(time);
     this.drawEraGates();
     if (this.activeSelectionIds.size) {
+      const palette = THEME_PALETTES[this.theme];
+      const light = this.theme === 'light';
       for (const edge of this.evolutionEdges.filter((item) =>
         this.activeSelectionIds.has(item.source) && this.activeSelectionIds.has(item.target))) {
         const span = Math.abs(Number(edge.target_year) - Number(edge.source_year));
@@ -823,20 +833,26 @@ export class CurriculumCosmos {
           ? `${edge.source_year}→${edge.target_year} · ${edge.label}`
           : null;
         const color = edge.type === 'editorial_correspondence'
-          ? 'rgba(242,198,105,.76)'
-          : rgba(edge.sourceNode.color, .48);
-        this.drawEdge(edge.sourceNode, edge.targetNode, color, edge.type === 'editorial_correspondence' ? 1.55 : 1.08, {
+          ? palette.edgeCorrespondence
+          : light ? palette.edgeLineage : rgba(edge.sourceNode.color, .62);
+        this.drawEdge(
+          edge.sourceNode,
+          edge.targetNode,
+          color,
+          edge.type === 'editorial_correspondence' ? (light ? 2.1 : 1.55) : (light ? 1.6 : 1.08),
+          {
           arrow: true,
           label: relationLabel,
-        });
+          },
+        );
       }
       for (const edge of this.selectionRelationshipEdges) {
         const discipline = edge.mode === 'discipline';
         this.drawEdge(
           edge.sourceNode,
           edge.targetNode,
-          discipline ? 'rgba(118,223,255,.82)' : 'rgba(239,204,126,.58)',
-          discipline ? 1.65 : 1.08,
+          discipline ? palette.edgeDiscipline : palette.edgeCross,
+          discipline ? (light ? 2.2 : 1.65) : (light ? 1.65 : 1.08),
           {
             arrow: discipline,
             label: discipline ? `学科分合 · ${edge.source_year}` : null,

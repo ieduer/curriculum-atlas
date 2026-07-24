@@ -10,7 +10,7 @@ const [html, styles, appJs, atlasJs] = await Promise.all([
   readFile(new URL('public/atlas.js', root), 'utf8'),
 ]);
 
-const assetVersion = '20260723v42';
+const assetVersion = '20260724v43';
 
 function block(source, opening, closing = '}') {
   const start = source.indexOf(opening);

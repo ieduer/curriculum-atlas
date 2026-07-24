@@ -25,7 +25,7 @@ function contrast(left, right) {
 test('dark remains the default and the explicit user choice persists before first paint', () => {
   assert.match(html, /data-theme-choice="dark"[^>]*aria-pressed="true"/);
   assert.match(html, /data-theme-choice="light"[^>]*aria-pressed="false"/);
-  assert.ok(html.indexOf('/theme-init.js?v=20260723v42') < html.indexOf('/styles.css?v=20260723v42'));
+  assert.ok(html.indexOf('/theme-init.js?v=20260724v43') < html.indexOf('/styles.css?v=20260724v43'));
   assert.match(themeInit, /curriculum-atlas-theme-v1/);
   assert.match(themeInit, /stored === 'dark' \|\| stored === 'light'/);
   assert.match(app, /state\.cosmos\?\.setTheme\(state\.theme\)/);
@@ -39,6 +39,20 @@ test('light theme primary and muted text pass WCAG AA against the paper surface'
   assert.match(styles, /\[data-theme="light"\]\s*\{[\s\S]*--ink:\s*#16213a;[\s\S]*--muted:\s*#4f5e75;/);
   assert.match(styles, /\[data-theme="light"\] \.star-inspector/);
   assert.match(atlas, /light:\s*\{[\s\S]*nodeLabel:\s*'rgba\(23,34,53,.98\)'/);
+});
+
+test('light theme renders every selected relation as a solid high-contrast line', () => {
+  for (const color of ['#6f4205', '#234269', '#005373', '#6a4305']) {
+    assert.ok(contrast(color, '#edf1ee') >= 4.5, `${color} edge contrast`);
+    assert.ok(atlas.includes(color), `${color} is wired into the Canvas palette`);
+  }
+  assert.match(atlas, /edgeCorrespondence:\s*'#6f4205'/);
+  assert.match(atlas, /edgeLineage:\s*'#234269'/);
+  assert.match(atlas, /edgeDiscipline:\s*'#005373'/);
+  assert.match(atlas, /edgeCross:\s*'#6a4305'/);
+  assert.match(atlas, /light \? 2\.1 : 1\.55/);
+  assert.match(atlas, /light \? 2\.2 : 1\.65/);
+  assert.doesNotMatch(atlas, /setLineDash|stroke-dasharray/);
 });
 
 test('stage navigation and exact-year comparison are mutually exclusive panels', () => {

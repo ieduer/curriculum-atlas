@@ -84,7 +84,12 @@ test('review queue is exhaustively triaged without opening citation gates', () =
   assert.equal(publicOcrSummary.coverage.candidate_covered_pages, 11847);
   assert.equal(publicOcrSummary.coverage.candidate_remaining_pages, 0);
   assert.equal(publicOcrSummary.coverage.dual_witness_audited_pages, 6947);
-  assert.equal(publicOcrSummary.release_gate.citation_allowed, false);
+  assert.equal(publicOcrSummary.machine_verification.policy_id, 'curriculum-ocr-machine-verification-v2');
+  assert.equal(publicOcrSummary.machine_verification.machine_adjudicated_pages, 6947);
+  assert.equal(publicOcrSummary.machine_verification.machine_adjudication_pending_pages, 0);
+  assert.equal(publicOcrSummary.publication.source_exact_receipts, 31);
+  assert.equal(publicOcrSummary.publication.materialized_unique_pages, 30);
+  assert.equal(publicOcrSummary.release_gate.citation_allowed, true);
 });
 
 test('inspector reserves a graph-safe viewport and uses a compact mobile fallback', () => {

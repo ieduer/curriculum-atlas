@@ -63,14 +63,14 @@
         {
           "id": "literacy-writing",
           "label": "识字与写字",
-          "first_observed_year": 2016,
+          "first_observed_year": 2001,
           "last_observed_year": 2022,
-          "episode_count": 4
+          "episode_count": 6
         }
       ],
       "first_observed_year": 1923,
       "last_observed_year": 2022,
-      "episode_count": 35
+      "episode_count": 37
     },
     {
       "id": "reading-and-appreciation",
@@ -112,14 +112,14 @@
         {
           "id": "reading-appreciation",
           "label": "阅读与鉴赏",
-          "first_observed_year": 2017,
+          "first_observed_year": 2003,
           "last_observed_year": 2022,
-          "episode_count": 4
+          "episode_count": 5
         }
       ],
       "first_observed_year": 1904,
       "last_observed_year": 2022,
-      "episode_count": 57
+      "episode_count": 58
     },
     {
       "id": "expression-and-communication",
@@ -177,14 +177,14 @@
         {
           "id": "expression-communication",
           "label": "表达与交流",
-          "first_observed_year": 2016,
+          "first_observed_year": 2001,
           "last_observed_year": 2022,
-          "episode_count": 5
+          "episode_count": 8
         }
       ],
       "first_observed_year": 1902,
       "last_observed_year": 2022,
-      "episode_count": 72
+      "episode_count": 75
     },
     {
       "id": "language-knowledge-and-use",
@@ -228,12 +228,12 @@
           "label": "语言文字运用",
           "first_observed_year": 2000,
           "last_observed_year": 2022,
-          "episode_count": 6
+          "episode_count": 7
         }
       ],
       "first_observed_year": 1904,
       "last_observed_year": 2022,
-      "episode_count": 53
+      "episode_count": 54
     },
     {
       "id": "literature-reading-and-writing",
@@ -262,7 +262,7 @@
           "label": "鉴赏文学作品",
           "first_observed_year": 1986,
           "last_observed_year": 2022,
-          "episode_count": 8
+          "episode_count": 10
         },
         {
           "id": "literary-reading-writing",
@@ -274,7 +274,7 @@
       ],
       "first_observed_year": 1904,
       "last_observed_year": 2022,
-      "episode_count": 35
+      "episode_count": 37
     },
     {
       "id": "classics-and-cultural-study",
@@ -1243,12 +1243,12 @@
           "label": "科学探究",
           "first_observed_year": 2001,
           "last_observed_year": 2022,
-          "episode_count": 15
+          "episode_count": 32
         }
       ],
       "first_observed_year": 1904,
       "last_observed_year": 2022,
-      "episode_count": 81
+      "episode_count": 98
     },
     {
       "id": "subject-practice-technology",
@@ -1878,12 +1878,12 @@
           "label": "语言能力",
           "first_observed_year": 2001,
           "last_observed_year": 2022,
-          "episode_count": 16
+          "episode_count": 25
         }
       ],
       "first_observed_year": 1923,
       "last_observed_year": 2022,
-      "episode_count": 17
+      "episode_count": 26
     },
     {
       "id": "subject-ability-civics",
@@ -1911,12 +1911,12 @@
           "label": "责任意识",
           "first_observed_year": 2001,
           "last_observed_year": 2022,
-          "episode_count": 6
+          "episode_count": 9
         }
       ],
       "first_observed_year": 1923,
       "last_observed_year": 2022,
-      "episode_count": 8
+      "episode_count": 11
     },
     {
       "id": "subject-ability-history",
@@ -2018,12 +2018,12 @@
           "label": "地理实践力",
           "first_observed_year": 2017,
           "last_observed_year": 2022,
-          "episode_count": 3
+          "episode_count": 4
         }
       ],
       "first_observed_year": 1950,
       "last_observed_year": 2022,
-      "episode_count": 8
+      "episode_count": 9
     },
     {
       "id": "subject-ability-science",
@@ -2150,12 +2150,12 @@
           "label": "艺术表现",
           "first_observed_year": 2001,
           "last_observed_year": 2022,
-          "episode_count": 8
+          "episode_count": 16
         }
       ],
       "first_observed_year": 1929,
       "last_observed_year": 2022,
-      "episode_count": 9
+      "episode_count": 17
     },
     {
       "id": "subject-ability-sports-health",
@@ -2183,12 +2183,12 @@
           "label": "运动能力",
           "first_observed_year": 2001,
           "last_observed_year": 2022,
-          "episode_count": 8
+          "episode_count": 12
         }
       ],
       "first_observed_year": 1904,
       "last_observed_year": 2022,
-      "episode_count": 9
+      "episode_count": 13
     }
   ],
   "episode_memberships": [
@@ -11895,6 +11895,41 @@
       "year": 2000
     },
     {
+      "episode_id": "ocr-candidate:ictr-afedc894b8c4:expression-communication",
+      "concept_id": "expression-communication",
+      "family_id": "expression-and-communication",
+      "concept_tier_id": "language-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-afedc894b8c4:literacy-writing",
+      "concept_id": "literacy-writing",
+      "family_id": "literacy-and-handwriting",
+      "concept_tier_id": "language-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-afedc894b8c4:literary-works-appreciation",
+      "concept_id": "literary-works-appreciation",
+      "family_id": "literature-reading-and-writing",
+      "concept_tier_id": "language-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-197f8a2e1cca:artistic-expression",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-7759fd25e216:artistic-expression",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
       "episode_id": "subject-detail:ictr-7759fd25e216:artistic-expression",
       "concept_id": "artistic-expression",
       "family_id": "subject-ability-art",
@@ -11909,9 +11944,37 @@
       "year": 2001
     },
     {
+      "episode_id": "ocr-candidate:ictr-d692b0ff2e6c:responsibility-awareness",
+      "concept_id": "responsibility-awareness",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
       "episode_id": "subject-detail:ictr-d692b0ff2e6c:responsibility-awareness",
       "concept_id": "responsibility-awareness",
       "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-d39597b0d7f5:english-language-ability",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-ddd18cff2338:english-language-ability",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-f985431f376f:english-language-ability",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
       "concept_tier_id": "subject-ability-domain",
       "year": 2001
     },
@@ -11954,6 +12017,13 @@
       "episode_id": "subject-detail:ictr-ceb759a85c4b:detail-science-inquiry-ability",
       "concept_id": "detail-science-inquiry-ability",
       "family_id": "subject-ability-science",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-4509b6ddd5b8:sports-ability",
+      "concept_id": "sports-ability",
+      "family_id": "subject-ability-sports-health",
       "concept_tier_id": "subject-ability-domain",
       "year": 2001
     },
@@ -12105,6 +12175,41 @@
       "year": 2001
     },
     {
+      "episode_id": "ocr-candidate:ictr-1ad5d5beabb0:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-8706c7766742:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-bbbc097abd83:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-ceb759a85c4b:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-fb05d8088959:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2001
+    },
+    {
       "episode_id": "subject-detail:ictr-ceb759a85c4b:scientific-inquiry",
       "concept_id": "scientific-inquiry",
       "family_id": "subject-practice-science",
@@ -12126,6 +12231,125 @@
       "year": 2001
     },
     {
+      "episode_id": "ocr-candidate:ictr-0bcfe4b915df:expression-communication",
+      "concept_id": "expression-communication",
+      "family_id": "expression-and-communication",
+      "concept_tier_id": "language-practice-domain",
+      "year": 2003
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-0bcfe4b915df:reading-appreciation",
+      "concept_id": "reading-appreciation",
+      "family_id": "reading-and-appreciation",
+      "concept_tier_id": "language-practice-domain",
+      "year": 2003
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-7c995a071399:artistic-expression",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2003
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-8c4134098f38:artistic-expression",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2003
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-e096e4d65c97:artistic-expression",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2003
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-3db457c6f361:english-language-ability",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2003
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-bb00e7fd186f:english-language-ability",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2003
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-8176ab3ce84b:sports-ability",
+      "concept_id": "sports-ability",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2003
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-06ce7a4eb5fa:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2003
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-1adc57fe27b4:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2003
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-c198f8ed538f:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2003
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2011-01:expression-communication",
+      "concept_id": "expression-communication",
+      "family_id": "expression-and-communication",
+      "concept_tier_id": "language-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2011-01:language-use",
+      "concept_id": "language-use",
+      "family_id": "language-knowledge-and-use",
+      "concept_tier_id": "language-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2011-01:literacy-writing",
+      "concept_id": "literacy-writing",
+      "family_id": "literacy-and-handwriting",
+      "concept_tier_id": "language-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2011-01:literary-works-appreciation",
+      "concept_id": "literary-works-appreciation",
+      "family_id": "literature-reading-and-writing",
+      "concept_tier_id": "language-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2011-16:artistic-expression",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2011-17:artistic-expression",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
       "episode_id": "subject-detail:moe-2011-16:artistic-expression",
       "concept_id": "artistic-expression",
       "family_id": "subject-ability-art",
@@ -12140,9 +12364,23 @@
       "year": 2011
     },
     {
+      "episode_id": "ocr-candidate:moe-2011-07:responsibility-awareness",
+      "concept_id": "responsibility-awareness",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
       "episode_id": "subject-detail:moe-2011-07:responsibility-awareness",
       "concept_id": "responsibility-awareness",
       "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2011-02:english-language-ability",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
       "concept_tier_id": "subject-ability-domain",
       "year": 2011
     },
@@ -12185,6 +12423,13 @@
       "episode_id": "subject-detail:moe-2011-12:detail-science-inquiry-ability",
       "concept_id": "detail-science-inquiry-ability",
       "family_id": "subject-ability-science",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2011-19:sports-ability",
+      "concept_id": "sports-ability",
+      "family_id": "subject-ability-sports-health",
       "concept_tier_id": "subject-ability-domain",
       "year": 2011
     },
@@ -12423,6 +12668,41 @@
       "episode_id": "subject-detail:moe-2011-08:detail-mathematics-activities",
       "concept_id": "detail-mathematics-activities",
       "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "ocr-candidate:ictr-f6754fe2f491:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2011-09:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2011-10:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2011-11:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2011
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2011-12:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
       "concept_tier_id": "subject-practice-domain",
       "year": 2011
     },
@@ -13036,6 +13316,13 @@
       "year": 2022
     },
     {
+      "episode_id": "ocr-candidate:moe-2022-16:artistic-expression",
+      "concept_id": "artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
       "episode_id": "subject-detail:moe-2022-16:artistic-expression",
       "concept_id": "artistic-expression",
       "family_id": "subject-ability-art",
@@ -13050,6 +13337,13 @@
       "year": 2022
     },
     {
+      "episode_id": "ocr-candidate:moe-2022-02:responsibility-awareness",
+      "concept_id": "responsibility-awareness",
+      "family_id": "subject-ability-civics",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
       "episode_id": "subject-detail:moe-2022-02:responsibility-awareness",
       "concept_id": "responsibility-awareness",
       "family_id": "subject-ability-civics",
@@ -13057,9 +13351,37 @@
       "year": 2022
     },
     {
+      "episode_id": "ocr-candidate:moe-2022-06:english-language-ability",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2022-07:english-language-ability",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2022-08:english-language-ability",
+      "concept_id": "english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
       "episode_id": "subject-detail:moe-2022-06:english-language-ability",
       "concept_id": "english-language-ability",
       "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2022-09:geographical-practice",
+      "concept_id": "geographical-practice",
+      "family_id": "subject-ability-geography",
       "concept_tier_id": "subject-ability-domain",
       "year": 2022
     },
@@ -13095,6 +13417,13 @@
       "episode_id": "subject-detail:moe-2022-10:detail-science-inquiry-ability",
       "concept_id": "detail-science-inquiry-ability",
       "family_id": "subject-ability-science",
+      "concept_tier_id": "subject-ability-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2022-15:sports-ability",
+      "concept_id": "sports-ability",
+      "family_id": "subject-ability-sports-health",
       "concept_tier_id": "subject-ability-domain",
       "year": 2022
     },
@@ -13347,6 +13676,34 @@
       "episode_id": "subject-detail:moe-2022-05:detail-mathematics-activities",
       "concept_id": "detail-mathematics-activities",
       "family_id": "subject-practice-mathematics",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2022-10:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2022-11:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2022-12:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "year": 2022
+    },
+    {
+      "episode_id": "ocr-candidate:moe-2022-13:scientific-inquiry",
+      "concept_id": "scientific-inquiry",
+      "family_id": "subject-practice-science",
       "concept_tier_id": "subject-practice-domain",
       "year": 2022
     },
@@ -14509,36 +14866,84 @@
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
     },
     {
-      "id": "evolution-family:3d1288abfd555ea9af7c",
-      "source": "century-concept:dc6c64416b9c971a9efc",
-      "target": "concept:924c3e981db50c4d",
-      "family_id": "expression-and-communication",
-      "concept_tier_id": "language-practice-domain",
-      "type": "editorial_correspondence",
-      "mode": "evolution",
-      "label": "书面表达进入综合领域",
-      "source_year": 2000,
-      "target_year": 2016,
-      "semantic": false,
-      "citation_allowed": false,
-      "influence_claim_allowed": false,
-      "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
-    },
-    {
-      "id": "evolution-family:988bf8cb10d9f64352bf",
+      "id": "evolution-family:186550bef1e92bd3e46e",
       "source": "century-concept:fb336521ef54beead304",
-      "target": "concept:924c3e981db50c4d",
+      "target": "ocr-candidate:ictr-afedc894b8c4:expression-communication",
       "family_id": "expression-and-communication",
       "concept_tier_id": "language-practice-domain",
       "type": "editorial_correspondence",
       "mode": "evolution",
       "label": "口语实践进入综合领域",
       "source_year": 2000,
-      "target_year": 2016,
+      "target_year": 2001,
       "semantic": false,
       "citation_allowed": false,
       "influence_claim_allowed": false,
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
+    },
+    {
+      "id": "evolution-family:252e5f21e4e799d5e525",
+      "source": "century-concept:dc6c64416b9c971a9efc",
+      "target": "ocr-candidate:ictr-afedc894b8c4:expression-communication",
+      "family_id": "expression-and-communication",
+      "concept_tier_id": "language-practice-domain",
+      "type": "editorial_correspondence",
+      "mode": "evolution",
+      "label": "书面表达进入综合领域",
+      "source_year": 2000,
+      "target_year": 2001,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
+    },
+    {
+      "id": "evolution-family:56d1d349062a4227a320",
+      "source": "ocr-candidate:ictr-afedc894b8c4:expression-communication",
+      "target": "ocr-candidate:ictr-0bcfe4b915df:expression-communication",
+      "family_id": "expression-and-communication",
+      "concept_tier_id": "language-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2003,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:c4aa785ef95c9c485b49",
+      "source": "ocr-candidate:ictr-0bcfe4b915df:expression-communication",
+      "target": "ocr-candidate:moe-2011-01:expression-communication",
+      "family_id": "expression-and-communication",
+      "concept_tier_id": "language-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2003,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:860b4b586499b95caab0",
+      "source": "ocr-candidate:moe-2011-01:expression-communication",
+      "target": "concept:924c3e981db50c4d",
+      "family_id": "expression-and-communication",
+      "concept_tier_id": "language-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2016,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
       "id": "evolution-family:de7eabdc247ce123703b",
@@ -15341,15 +15746,31 @@
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
     },
     {
-      "id": "evolution-family:f4ac6ce6a127987bf495",
+      "id": "evolution-family:ae935f9ed83cc512bc95",
       "source": "century-concept:27c4447ca703206be7b8",
-      "target": "concept:dac7d88ef5d2c3c2",
+      "target": "ocr-candidate:moe-2011-01:language-use",
       "family_id": "language-knowledge-and-use",
       "concept_tier_id": "language-practice-domain",
       "type": "same_surface_observed_again",
       "mode": "evolution",
       "label": "同词再现",
       "source_year": 2000,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:c60c70a3781425939324",
+      "source": "ocr-candidate:moe-2011-01:language-use",
+      "target": "concept:dac7d88ef5d2c3c2",
+      "family_id": "language-knowledge-and-use",
+      "concept_tier_id": "language-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
       "target_year": 2016,
       "semantic": false,
       "citation_allowed": false,
@@ -15869,36 +16290,68 @@
       "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
-      "id": "evolution-family:0a39ec71b81423fce759",
+      "id": "evolution-family:61856aed7963e89330ff",
       "source": "century-concept:c09610250a3dd2511ca9",
-      "target": "concept:12848673a952d71f",
+      "target": "ocr-candidate:ictr-afedc894b8c4:literacy-writing",
       "family_id": "literacy-and-handwriting",
       "concept_tier_id": "language-practice-domain",
       "type": "editorial_correspondence",
       "mode": "evolution",
       "label": "分项词面进入合并领域",
       "source_year": 2000,
-      "target_year": 2016,
+      "target_year": 2001,
       "semantic": false,
       "citation_allowed": false,
       "influence_claim_allowed": false,
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
     },
     {
-      "id": "evolution-family:3c7e2f0e553c02edf39d",
+      "id": "evolution-family:dae5ac54ee96350fd931",
       "source": "century-concept:d5594a63854fc5a432bd",
-      "target": "concept:12848673a952d71f",
+      "target": "ocr-candidate:ictr-afedc894b8c4:literacy-writing",
       "family_id": "literacy-and-handwriting",
       "concept_tier_id": "language-practice-domain",
       "type": "editorial_correspondence",
       "mode": "evolution",
       "label": "分项词面进入合并领域",
       "source_year": 2000,
-      "target_year": 2016,
+      "target_year": 2001,
       "semantic": false,
       "citation_allowed": false,
       "influence_claim_allowed": false,
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
+    },
+    {
+      "id": "evolution-family:73bb0bcaf40384a6a9d1",
+      "source": "ocr-candidate:ictr-afedc894b8c4:literacy-writing",
+      "target": "ocr-candidate:moe-2011-01:literacy-writing",
+      "family_id": "literacy-and-handwriting",
+      "concept_tier_id": "language-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:cd4b1b4c01157a84c5c7",
+      "source": "ocr-candidate:moe-2011-01:literacy-writing",
+      "target": "concept:12848673a952d71f",
+      "family_id": "literacy-and-handwriting",
+      "concept_tier_id": "language-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
+      "target_year": 2016,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
       "id": "evolution-family:61f54e12bb3bb3ba594d",
@@ -16349,15 +16802,47 @@
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
     },
     {
-      "id": "evolution-family:bec824a8c661d15539af",
+      "id": "evolution-family:7dcee74961795f866edf",
       "source": "century-concept:66ab82a5153467321f9d",
-      "target": "concept:a7516dba9bc6f048",
+      "target": "ocr-candidate:ictr-afedc894b8c4:literary-works-appreciation",
       "family_id": "literature-reading-and-writing",
       "concept_tier_id": "language-practice-domain",
       "type": "same_surface_observed_again",
       "mode": "evolution",
       "label": "同词再现",
       "source_year": 2000,
+      "target_year": 2001,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:84c39c8ad48c46fbeb6b",
+      "source": "ocr-candidate:ictr-afedc894b8c4:literary-works-appreciation",
+      "target": "ocr-candidate:moe-2011-01:literary-works-appreciation",
+      "family_id": "literature-reading-and-writing",
+      "concept_tier_id": "language-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2001,
+      "target_year": 2011,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:9d4c7df35d02cf7e1383",
+      "source": "ocr-candidate:moe-2011-01:literary-works-appreciation",
+      "target": "concept:a7516dba9bc6f048",
+      "family_id": "literature-reading-and-writing",
+      "concept_tier_id": "language-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2011,
       "target_year": 2016,
       "semantic": false,
       "citation_allowed": false,
@@ -17437,20 +17922,36 @@
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
     },
     {
-      "id": "evolution-family:f5c000460d2512762bab",
+      "id": "evolution-family:19ffcdb43bd05798999b",
       "source": "century-concept:b18773f69708cfe867c9",
-      "target": "concept:48dd82a6aa7ac59e",
+      "target": "ocr-candidate:ictr-0bcfe4b915df:reading-appreciation",
       "family_id": "reading-and-appreciation",
       "concept_tier_id": "language-practice-domain",
       "type": "editorial_correspondence",
       "mode": "evolution",
       "label": "实践领域扩展",
       "source_year": 2000,
-      "target_year": 2017,
+      "target_year": 2003,
       "semantic": false,
       "citation_allowed": false,
       "influence_claim_allowed": false,
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
+    },
+    {
+      "id": "evolution-family:c6f3de4848f215677454",
+      "source": "ocr-candidate:ictr-0bcfe4b915df:reading-appreciation",
+      "target": "concept:48dd82a6aa7ac59e",
+      "family_id": "reading-and-appreciation",
+      "concept_tier_id": "language-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2003,
+      "target_year": 2017,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
     },
     {
       "id": "evolution-family:ccf6ce0dc775942dc3dd",
@@ -17517,15 +18018,31 @@
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
     },
     {
-      "id": "evolution-family:a24028b189b8be19afb3",
+      "id": "evolution-family:4761f6538fe3d4995b01",
       "source": "subject-detail:ictr-7759fd25e216:artistic-expression",
-      "target": "subject-detail:moe-2011-16:artistic-expression",
+      "target": "ocr-candidate:ictr-7c995a071399:artistic-expression",
       "family_id": "subject-ability-art",
       "concept_tier_id": "subject-ability-domain",
       "type": "same_surface_observed_again",
       "mode": "evolution",
       "label": "同词再现",
       "source_year": 2001,
+      "target_year": 2003,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:5fbe69a76a3a624bac7a",
+      "source": "ocr-candidate:ictr-7c995a071399:artistic-expression",
+      "target": "subject-detail:moe-2011-16:artistic-expression",
+      "family_id": "subject-ability-art",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2003,
       "target_year": 2011,
       "semantic": false,
       "citation_allowed": false,
@@ -17773,15 +18290,31 @@
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
     },
     {
-      "id": "evolution-family:21778a555adad8a5bf49",
+      "id": "evolution-family:5fa21b87a071e3482719",
       "source": "subject-detail:ictr-ddd18cff2338:english-language-ability",
-      "target": "subject-detail:moe-2011-02:english-language-ability",
+      "target": "ocr-candidate:ictr-bb00e7fd186f:english-language-ability",
       "family_id": "subject-ability-foreign-language",
       "concept_tier_id": "subject-ability-domain",
       "type": "same_surface_observed_again",
       "mode": "evolution",
       "label": "同词再现",
       "source_year": 2001,
+      "target_year": 2003,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:484a49db93aa386cee59",
+      "source": "ocr-candidate:ictr-bb00e7fd186f:english-language-ability",
+      "target": "subject-detail:moe-2011-02:english-language-ability",
+      "family_id": "subject-ability-foreign-language",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2003,
       "target_year": 2011,
       "semantic": false,
       "citation_allowed": false,
@@ -18445,15 +18978,31 @@
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
     },
     {
-      "id": "evolution-family:dc3593ea6110c63cadba",
+      "id": "evolution-family:d16d21f34c03eef1028d",
       "source": "subject-detail:ictr-4509b6ddd5b8:sports-ability",
-      "target": "subject-detail:moe-2011-19:sports-ability",
+      "target": "ocr-candidate:ictr-8176ab3ce84b:sports-ability",
       "family_id": "subject-ability-sports-health",
       "concept_tier_id": "subject-ability-domain",
       "type": "same_surface_observed_again",
       "mode": "evolution",
       "label": "同词再现",
       "source_year": 2001,
+      "target_year": 2003,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:feebd5b39764c66e4f0d",
+      "source": "ocr-candidate:ictr-8176ab3ce84b:sports-ability",
+      "target": "subject-detail:moe-2011-19:sports-ability",
+      "family_id": "subject-ability-sports-health",
+      "concept_tier_id": "subject-ability-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2003,
       "target_year": 2011,
       "semantic": false,
       "citation_allowed": false,
@@ -34557,15 +35106,31 @@
       "claim_boundary": "概念族与转写关系是项目编辑层的跨版本比较索引，只用于同时照亮可比较词面。它不证明首次出现、消失、制度替代、语义等同、影响或因果；每个观察点仍以自身文件和页段证据为准。"
     },
     {
-      "id": "evolution-family:6112978bf9337e1ef32a",
+      "id": "evolution-family:766c6ba9930053d62175",
       "source": "subject-detail:ictr-ceb759a85c4b:scientific-inquiry",
-      "target": "subject-detail:moe-2011-12:scientific-inquiry",
+      "target": "ocr-candidate:ictr-1adc57fe27b4:scientific-inquiry",
       "family_id": "subject-practice-science",
       "concept_tier_id": "subject-practice-domain",
       "type": "same_surface_observed_again",
       "mode": "evolution",
       "label": "同词再现",
       "source_year": 2001,
+      "target_year": 2003,
+      "semantic": false,
+      "citation_allowed": false,
+      "influence_claim_allowed": false,
+      "claim_boundary": "只表示同一受控词面在当前资料层中的下一次年份观察，不表示连续存在、首次出现、影响或因果。"
+    },
+    {
+      "id": "evolution-family:3a3e309ba2a86f9ac2fa",
+      "source": "ocr-candidate:ictr-1adc57fe27b4:scientific-inquiry",
+      "target": "subject-detail:moe-2011-12:scientific-inquiry",
+      "family_id": "subject-practice-science",
+      "concept_tier_id": "subject-practice-domain",
+      "type": "same_surface_observed_again",
+      "mode": "evolution",
+      "label": "同词再现",
+      "source_year": 2003,
       "target_year": 2011,
       "semantic": false,
       "citation_allowed": false,
@@ -34755,8 +35320,8 @@
     "subject_facets": 12,
     "configured_concepts": 153,
     "observed_concepts": 153,
-    "episode_memberships": 1597,
-    "same_surface_edges": 1238,
+    "episode_memberships": 1648,
+    "same_surface_edges": 1251,
     "correspondence_edges": 94,
     "discipline_edges": 3,
     "detailed_families": 36,

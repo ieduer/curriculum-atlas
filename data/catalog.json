@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-17T02:36:17.522Z",
+  "generated_at": "2026-07-24T06:48:56.793Z",
   "source_policy": "Primary official sources first; missing originals stay explicitly missing.",
   "counts": {
     "documents": 196,
     "verified_online": 176,
     "local_verified_scan": 12,
     "metadata_only": 6,
-    "citation_ready": 101,
+    "citation_ready": 127,
     "ocr_review_pending": 88
   },
   "documents": [
@@ -35,8 +35,9 @@
       "page_count": 23,
       "checksum_sha256": "976efdf360bf6a28156f5b232aec48566104726ae2617c379cf4cdb4b60aef73",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "local_verification_status": "verified_local_pdf_scan"
+      "citation_allowed": true,
+      "local_verification_status": "verified_local_pdf_scan",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "moe-2022-02",
@@ -62,8 +63,9 @@
       "page_count": 73,
       "checksum_sha256": "16c0a291b522ce5b0afe3b1a28e696d8cca0d4d63cc01ff552a1d6ce06506cf0",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "local_verification_status": "verified_local_pdf_scan"
+      "citation_allowed": true,
+      "local_verification_status": "verified_local_pdf_scan",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "moe-2022-03",
@@ -89,8 +91,9 @@
       "page_count": 109,
       "checksum_sha256": "3ef0ec8a30b5a950211202658df07d99f5427f750f8ba0c3cfda12736b7bd71a",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "local_verification_status": "verified_local_pdf_scan"
+      "citation_allowed": true,
+      "local_verification_status": "verified_local_pdf_scan",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "moe-2022-04",
@@ -116,8 +119,9 @@
       "page_count": 86,
       "checksum_sha256": "c807b9162d7f7a652c9acedc187c39b28d29b73edfa9e6964045f9a8672a90ef",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "local_verification_status": "verified_local_pdf_scan"
+      "citation_allowed": true,
+      "local_verification_status": "verified_local_pdf_scan",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "moe-2022-05",
@@ -143,8 +147,9 @@
       "page_count": 189,
       "checksum_sha256": "1183b95c58a65eaac4c456f2d2b329bbe42f65a6482993edb537e3eaf8baa144",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "local_verification_status": "verified_local_pdf_scan"
+      "citation_allowed": true,
+      "local_verification_status": "verified_local_pdf_scan",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "moe-2022-06",
@@ -197,8 +202,9 @@
       "page_count": 147,
       "checksum_sha256": "1ecd0cc391376ce76fb61a705f90ef804f746426c99f4813cc8367c0496851c6",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "local_verification_status": "verified_local_pdf_scan"
+      "citation_allowed": true,
+      "local_verification_status": "verified_local_pdf_scan",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "moe-2022-08",
@@ -251,8 +257,9 @@
       "page_count": 65,
       "checksum_sha256": "5aade5cb5cfa103c48277c8ff663783df69cafb0fec2411f4aad1924d75c67b8",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "local_verification_status": "verified_local_pdf_scan"
+      "citation_allowed": true,
+      "local_verification_status": "verified_local_pdf_scan",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "moe-2022-10",
@@ -278,8 +285,9 @@
       "page_count": 193,
       "checksum_sha256": "630b2fb082aed2f0b6aaff1cd30cdea530c41459ee0ffd5847e3e07b7324546f",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "local_verification_status": "verified_local_pdf_scan"
+      "citation_allowed": true,
+      "local_verification_status": "verified_local_pdf_scan",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "moe-2022-11",
@@ -305,8 +313,9 @@
       "page_count": 71,
       "checksum_sha256": "884069da6c924acb27b966ea20b9c7a4d8f0d6dfc828c80cd252aa72bf990340",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "local_verification_status": "verified_local_pdf_scan"
+      "citation_allowed": true,
+      "local_verification_status": "verified_local_pdf_scan",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "moe-2022-12",
@@ -332,8 +341,9 @@
       "page_count": 87,
       "checksum_sha256": "8e04592efba9a6baf41ebf6970d868f2461fbd8e43328fb2ddb57165aa0c2b5c",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "local_verification_status": "verified_local_pdf_scan"
+      "citation_allowed": true,
+      "local_verification_status": "verified_local_pdf_scan",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "moe-2022-13",
@@ -359,8 +369,9 @@
       "page_count": 76,
       "checksum_sha256": "95993bea87c30104631fa10f2f20f11b98d0718d69c4aeeac46c53a387f43c00",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "local_verification_status": "verified_local_pdf_scan"
+      "citation_allowed": true,
+      "local_verification_status": "verified_local_pdf_scan",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "moe-2022-14",
@@ -386,8 +397,9 @@
       "page_count": 74,
       "checksum_sha256": "065f9df22d35da8813508c23782c7853dab3c54e34f552a627f8dd1698fa1e01",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "local_verification_status": "verified_local_pdf_scan"
+      "citation_allowed": true,
+      "local_verification_status": "verified_local_pdf_scan",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "moe-2022-15",
@@ -440,8 +452,9 @@
       "page_count": 131,
       "checksum_sha256": "7c5c688f5e1b9d8e5c2a0ef908055322df67bb36d5b85ca1c540f1c35807230d",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "local_verification_status": "verified_local_pdf_scan"
+      "citation_allowed": true,
+      "local_verification_status": "verified_local_pdf_scan",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "moe-2022-17",
@@ -467,8 +480,9 @@
       "page_count": 68,
       "checksum_sha256": "d5f080fee80df073ef67f6b0dbe303250913777aee32f98bea4f22df1c6247d8",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
-      "local_verification_status": "verified_local_pdf_scan"
+      "citation_allowed": true,
+      "local_verification_status": "verified_local_pdf_scan",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "moe-2011-01",
@@ -3114,9 +3128,10 @@
       "page_count": 76,
       "local_cache_path": ".cache/sources/ictr/全日制义务教育课程标准（实验稿）/全日制义务教育 普通高级中学 体育（1~6）体育与健康（7~12）课程标准（实验稿）.pdf",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
+      "citation_allowed": true,
       "note": "课程教材研究所下载中心“全日制义务教育课程标准（实验稿）”栏目收录。",
-      "original_filename": "全日制义务教育 普通高级中学 体育（1~6）体育与健康（7~12）课程标准（实验稿）.pdf"
+      "original_filename": "全日制义务教育 普通高级中学 体育（1~6）体育与健康（7~12）课程标准（实验稿）.pdf",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "ictr-ddde78e17189",
@@ -3168,9 +3183,10 @@
       "page_count": 106,
       "local_cache_path": ".cache/sources/ictr/全日制义务教育课程标准（实验稿）/全日制义务教育俄语课程标准（实验稿）.pdf",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
+      "citation_allowed": true,
       "note": "课程教材研究所下载中心“全日制义务教育课程标准（实验稿）”栏目收录。",
-      "original_filename": "全日制义务教育俄语课程标准（实验稿）.pdf"
+      "original_filename": "全日制义务教育俄语课程标准（实验稿）.pdf",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "ictr-1ad5d5beabb0",
@@ -3222,9 +3238,10 @@
       "page_count": 77,
       "local_cache_path": ".cache/sources/ictr/全日制义务教育课程标准（实验稿）/全日制义务教育科学（3~6年级）课程标准（实验稿）.pdf",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
+      "citation_allowed": true,
       "note": "课程教材研究所下载中心“全日制义务教育课程标准（实验稿）”栏目收录。",
-      "original_filename": "全日制义务教育科学（3~6年级）课程标准（实验稿）.pdf"
+      "original_filename": "全日制义务教育科学（3~6年级）课程标准（实验稿）.pdf",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "ictr-bbbc097abd83",
@@ -3276,9 +3293,10 @@
       "page_count": 54,
       "local_cache_path": ".cache/sources/ictr/全日制义务教育课程标准（实验稿）/全日制义务教育历史课程标准（实验稿）.pdf",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
+      "citation_allowed": true,
       "note": "课程教材研究所下载中心“全日制义务教育课程标准（实验稿）”栏目收录。",
-      "original_filename": "全日制义务教育历史课程标准（实验稿）.pdf"
+      "original_filename": "全日制义务教育历史课程标准（实验稿）.pdf",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "ictr-2aeee929041c",
@@ -3411,9 +3429,10 @@
       "page_count": 26,
       "local_cache_path": ".cache/sources/ictr/全日制义务教育课程标准（实验稿）/全日制义务教育品德与生活课程标准（实验稿）.pdf",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
+      "citation_allowed": true,
       "note": "课程教材研究所下载中心“全日制义务教育课程标准（实验稿）”栏目收录。",
-      "original_filename": "全日制义务教育品德与生活课程标准（实验稿）.pdf"
+      "original_filename": "全日制义务教育品德与生活课程标准（实验稿）.pdf",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "ictr-f985431f376f",
@@ -3465,9 +3484,10 @@
       "page_count": 50,
       "local_cache_path": ".cache/sources/ictr/全日制义务教育课程标准（实验稿）/全日制义务教育生物课程标准（实验稿）.pdf",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
+      "citation_allowed": true,
       "note": "课程教材研究所下载中心“全日制义务教育课程标准（实验稿）”栏目收录。",
-      "original_filename": "全日制义务教育生物课程标准（实验稿）.pdf"
+      "original_filename": "全日制义务教育生物课程标准（实验稿）.pdf",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "ictr-f36cc1469a0c",
@@ -3546,9 +3566,10 @@
       "page_count": 57,
       "local_cache_path": ".cache/sources/ictr/全日制义务教育课程标准（实验稿）/全日制义务教育物理课程标准（实验稿）.pdf",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
+      "citation_allowed": true,
       "note": "课程教材研究所下载中心“全日制义务教育课程标准（实验稿）”栏目收录。",
-      "original_filename": "全日制义务教育物理课程标准（实验稿）.pdf"
+      "original_filename": "全日制义务教育物理课程标准（实验稿）.pdf",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "ictr-7759fd25e216",
@@ -3573,9 +3594,10 @@
       "page_count": 59,
       "local_cache_path": ".cache/sources/ictr/全日制义务教育课程标准（实验稿）/全日制义务教育艺术课程标准（实验稿）.pdf",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
+      "citation_allowed": true,
       "note": "课程教材研究所下载中心“全日制义务教育课程标准（实验稿）”栏目收录。",
-      "original_filename": "全日制义务教育艺术课程标准（实验稿）.pdf"
+      "original_filename": "全日制义务教育艺术课程标准（实验稿）.pdf",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "ictr-197f8a2e1cca",
@@ -3627,9 +3649,10 @@
       "page_count": 241,
       "local_cache_path": ".cache/sources/ictr/全日制义务教育课程标准（实验稿）/全日制义务教育英语课程标准（实验稿）.pdf",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
+      "citation_allowed": true,
       "note": "课程教材研究所下载中心“全日制义务教育课程标准（实验稿）”栏目收录。",
-      "original_filename": "全日制义务教育英语课程标准（实验稿）.pdf"
+      "original_filename": "全日制义务教育英语课程标准（实验稿）.pdf",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "ictr-afedc894b8c4",
@@ -4518,9 +4541,10 @@
       "page_count": 75,
       "local_cache_path": ".cache/sources/ictr/普通高中课程标准（实验）/普通高中物理课程标准（实验）.pdf",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
+      "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中物理课程标准（实验）.pdf"
+      "original_filename": "普通高中物理课程标准（实验）.pdf",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "ictr-7c995a071399",
@@ -4545,9 +4569,10 @@
       "page_count": 46,
       "local_cache_path": ".cache/sources/ictr/普通高中课程标准（实验）/普通高中艺术课程标准（实验）.pdf",
       "text_quality_status": "ocr_required",
-      "citation_allowed": false,
+      "citation_allowed": true,
       "note": "课程教材研究所下载中心“普通高中课程标准（实验）”栏目收录。",
-      "original_filename": "普通高中艺术课程标准（实验）.pdf"
+      "original_filename": "普通高中艺术课程标准（实验）.pdf",
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "ictr-8c4134098f38",
@@ -4888,7 +4913,8 @@
       "page_count": 518,
       "local_cache_path": ".cache/sources/local-compendia/geography.pdf",
       "text_quality_status": "ocr_in_quality_review",
-      "citation_allowed": false
+      "citation_allowed": true,
+      "ocr_audit_ref": "data/ocr-publication-receipt.json"
     },
     {
       "id": "legacy-compendium-english",

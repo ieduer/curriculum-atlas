@@ -25,19 +25,14 @@ test('solid stars have paragraph-level citation evidence', () => {
   }
 });
 
-test('OCR observations stay non-quotable and outside formal lineage edges', () => {
+test('candidate OCR observations stay outside the formal citation-ready graph', () => {
   const ocr = graph.episodes.filter((episode) => episode.claim_policy.display_level !== 'solid');
-  if (graph.coverage.ocr_display_accepted_pages === 0) {
-    assert.deepEqual(ocr, []);
-    return;
-  }
-  assert.ok(ocr.length > 0);
-  for (const episode of ocr) {
-    assert.equal(episode.claim_policy.quotation_allowed, false);
-    assert.equal(episode.claim_policy.historical_superlative_allowed, false);
-    assert.ok(episode.evidence_ids.every((id) => evidence.get(id)?.citation_allowed === false));
-    assert.ok(graph.edges.every((edge) => edge.source !== episode.id && edge.target !== episode.id));
-  }
+  assert.equal(graph.coverage.ocr_display_accepted_pages, 30);
+  assert.deepEqual(ocr, []);
+  assert.ok(graph.episodes.every((episode) =>
+    episode.observation.status === 'citation_ready'
+    && episode.claim_policy.display_level === 'solid'));
+  assert.match(app, /ocrLayer\.episodes/);
 });
 
 test('automatic lineage only joins the same concept, subject, and curriculum line', () => {

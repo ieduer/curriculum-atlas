@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "standard_id": "curriculum-atlas-data-quality-v1",
+  "standard_id": "curriculum-atlas-data-quality-v2",
   "title": "課標百年數據層加工細度與準確度核查標準",
   "release_policy": {
     "failure_blocks_preview": true,
@@ -84,7 +84,7 @@
     "single_witness_candidate_fallback_pages": 1077,
     "dual_witness_audited_pages": 6947,
     "human_decided_non_citation_pages": 4,
-    "citation_ready_pages": 0,
+    "citation_ready_pages": 30,
     "required_gap_documents": [],
     "required_candidate_gap_ranges": {}
   },
@@ -98,15 +98,54 @@
     "unclassified_pages": 0
   },
   "ocr_machine_verification": {
-    "policy_id": "curriculum-ocr-machine-verification-v1",
+    "policy_id": "curriculum-ocr-machine-verification-v2",
     "audited_pages": 6947,
+    "machine_adjudicated_pages": 6947,
+    "machine_adjudication_pending_pages": 0,
     "machine_verified_exact_pages": 31,
-    "third_engine_text_consensus_pages": 5063,
-    "table_structure_consensus_pages": 1780,
-    "blank_raster_consensus_pages": 73,
+    "machine_verified_blank_pages": 73,
+    "text_conflict_fail_closed_pages": 5063,
+    "table_conflict_fail_closed_pages": 1780,
     "publication_manifest_eligible_pages": 31,
     "production_citation_ready_pages": 0,
     "human_required_pages": 0
+  },
+  "ocr_publication": {
+    "artifact_profile": "curriculum-ocr-publication-receipt-v1",
+    "source_exact_receipts": 31,
+    "materialized_unique_pages": 30,
+    "deduplicated_alias_receipts": 1,
+    "manifest_documents": 26,
+    "display_allowed_pages": 30,
+    "citation_allowed_pages": 30,
+    "paragraph_candidates": 44,
+    "generated_text_assets": 26,
+    "unresolved_manifest_pages": 0
+  },
+  "ocr_observation_layer": {
+    "schema_version": 2,
+    "artifact_profile": "curriculum-ocr-observation-layer-v2",
+    "complete_documents": 83,
+    "complete_pages": 10210,
+    "projected_documents": 70,
+    "bounded_item_documents": 9,
+    "deduplicated_alias_documents": 1,
+    "non_subject_scope_documents": 3,
+    "concept_candidates": 308,
+    "evidence_pages": 308,
+    "subject_facets": 12,
+    "unresolved_year_documents": 0
+  },
+  "pre2001_bounded_identity": {
+    "artifact_profile": "curriculum-pre2001-bounded-identity-verification-v1",
+    "items": 462,
+    "unique_item_ids": 462,
+    "unique_identity_keys": 462,
+    "unique_physical_ranges": 461,
+    "intentional_shared_physical_ranges": 1,
+    "source_item_links": 135,
+    "distinct_source_items_resolved": 134,
+    "failed_receipts": 0
   },
   "interface_policy": {
     "default_theme": "dark",
@@ -115,7 +154,14 @@
     "light_surface": "#edf1ee",
     "light_primary_text": "#16213a",
     "light_muted_text": "#4f5e75",
+    "light_edge_colors": {
+      "correspondence": "#6f4205",
+      "lineage": "#234269",
+      "discipline": "#005373",
+      "cross": "#6a4305"
+    },
     "minimum_text_contrast_ratio": 4.5,
+    "minimum_edge_contrast_ratio": 4.5,
     "chronology_modes": ["era", "compare"],
     "chronology_panels_mutually_exclusive": true,
     "maximum_mobile_dock_clearance_px": 150

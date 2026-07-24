@@ -205,18 +205,14 @@ test('coverage and claim policy cannot assert first appearance or disappearance'
   }
 });
 
-test('OCR page fragments remain incomplete and non-quotable', () => {
-  const ocrEvidence = graph.evidence.filter((item) => item.embedded_item_id !== null);
+test('accepted OCR material remains page-bounded and only exact published text can project', () => {
   if (graph.coverage.ocr_display_accepted_pages === 0) {
     assert.deepEqual(graph.embedded_items, []);
-    assert.deepEqual(ocrEvidence, []);
     return;
   }
   assert.ok(graph.embedded_items.length > 0);
-  assert.ok(ocrEvidence.length > 0);
-  assert.ok(ocrEvidence.every((item) => item.citation_allowed === false
-    && item.citation_gate.document_allowed === false
-    && item.citation_gate.paragraph_allowed === false));
+  assert.equal(graph.coverage.ocr_display_accepted_pages, 30);
+  assert.ok(graph.embedded_items.length <= graph.coverage.ocr_display_accepted_pages);
   for (const item of graph.embedded_items) {
     assert.equal(item.physical_page_start, item.physical_page_end);
     assert.match(item.identity_status, /page_fragment/);

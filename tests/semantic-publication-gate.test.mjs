@@ -15,11 +15,12 @@ import {
 import { sha256Text } from '../scripts/page-publication-gate.mjs';
 
 const root = new URL('../', import.meta.url);
-const [catalog, queue, policy, schema] = await Promise.all([
+const [catalog, queue, policy, schema, pagePublicationManifest] = await Promise.all([
   readFile(new URL('data/catalog.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('data/ocr-queue.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('data/semantic-publication-policy.json', root), 'utf8').then(JSON.parse),
   readFile(new URL('data/semantic-publication-policy.schema.json', root), 'utf8').then(JSON.parse),
+  readFile(new URL('data/page-publication-manifest.json', root), 'utf8').then(JSON.parse),
 ]);
 const catalogById = new Map(catalog.documents.map((record) => [record.id, record]));
 const realGate = createSemanticPublicationGate({ policy, records: catalog.documents });
@@ -230,12 +231,30 @@ test('moe-2022-03 visual defects bind exact catalog identity and structure-speci
     .required_resolution_attestations.includes('running_header_removed'));
 });
 
-test('all OCR queue records remain document-level citation false', () => {
+test('OCR document-level citation opens only when an explicit sparse page manifest exists', () => {
+  const publishedPagesByDocument = new Map(pagePublicationManifest.documents.map((document) => [
+    document.document_id,
+    document.pages.filter((page) => page.citation_allowed === true),
+  ]));
+  let openDocuments = 0;
+  let openPages = 0;
   for (const queueRecord of queue.documents) {
     const catalogRecord = catalogById.get(queueRecord.id);
     assert.ok(catalogRecord, `${queueRecord.id} missing from catalog`);
-    assert.equal(catalogRecord.citation_allowed, false, `${queueRecord.id} must remain non-citable`);
+    const publishedPages = publishedPagesByDocument.get(queueRecord.id) || [];
+    if (publishedPages.length) {
+      assert.equal(catalogRecord.citation_allowed, true,
+        `${queueRecord.id} must open only its explicitly manifested pages`);
+      assert.equal(catalogRecord.ocr_audit_ref, 'data/ocr-publication-receipt.json');
+      openDocuments += 1;
+      openPages += publishedPages.length;
+    } else {
+      assert.equal(catalogRecord.citation_allowed, false,
+        `${queueRecord.id} without a page manifest must remain non-citable`);
+    }
   }
+  assert.equal(openDocuments, 26);
+  assert.equal(openPages, 30);
 });
 
 test('unresolved page controls override an accepted page and remove its semantic payload', () => {

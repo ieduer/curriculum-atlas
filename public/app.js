@@ -1,5 +1,5 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v42';
-import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v42';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260724v43';
+import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260724v43';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -8,7 +8,7 @@ import {
   normalizeSubjectFacet,
   planSubjectFacetQueries,
   publicSubjectFacet,
-} from './subject-facets.js?v=20260723v42';
+} from './subject-facets.js?v=20260724v43';
 
 const diagnosticsStartedAt = performance.now();
 let diagnosticsReadyAt = null;
@@ -240,14 +240,14 @@ async function api(path, options) {
 async function loadBase() {
   if (state.meta) return;
   const [conceptGraph, ocrLayer, detailLayer, pre2001Layer, centuryLayer, evolutionLayer, disciplineLifecycle, ocrCoverageSummary, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v42'),
-    api('/data/ocr-observation-layer.json?v=20260723v42'),
-    api('/data/subject-detail-observation-layer.json?v=20260723v42'),
-    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v42'),
-    api('/data/century-observation-layer.json?v=20260723v42'),
-    api('/data/concept-evolution-families.json?v=20260723v42'),
-    api('/data/discipline-lifecycle.json?v=20260723v42'),
-    api('/data/ocr-coverage-summary.json?v=20260723v42'),
+    api('/data/concept-evolution.json?v=20260724v43'),
+    api('/data/ocr-observation-layer.json?v=20260724v43'),
+    api('/data/subject-detail-observation-layer.json?v=20260724v43'),
+    api('/data/pre2001-subject-detail-observation-layer.json?v=20260724v43'),
+    api('/data/century-observation-layer.json?v=20260724v43'),
+    api('/data/concept-evolution-families.json?v=20260724v43'),
+    api('/data/discipline-lifecycle.json?v=20260724v43'),
+    api('/data/ocr-coverage-summary.json?v=20260724v43'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -259,10 +259,15 @@ async function loadBase() {
     || ocrCoverageSummary.artifact_profile !== 'curriculum-ocr-public-coverage-summary-v1'
     || ocrCoverageSummary.coverage?.candidate_remaining_pages !== 0
     || ocrCoverageSummary.coverage?.candidate_covered_pages !== ocrCoverageSummary.coverage?.nominal_pages
-    || ocrCoverageSummary.machine_verification?.policy_id !== 'curriculum-ocr-machine-verification-v1'
-    || ocrCoverageSummary.machine_verification?.machine_verified_exact_pages < 1
+    || ocrCoverageSummary.machine_verification?.policy_id !== 'curriculum-ocr-machine-verification-v2'
+    || ocrCoverageSummary.machine_verification?.machine_adjudicated_pages !== 6947
+    || ocrCoverageSummary.machine_verification?.machine_verified_exact_pages !== 31
+    || ocrCoverageSummary.machine_verification?.machine_adjudication_pending_pages !== 0
     || ocrCoverageSummary.machine_verification?.human_required_pages !== 0
-    || ocrCoverageSummary.release_gate?.citation_allowed !== false) {
+    || ocrCoverageSummary.publication?.source_exact_receipts !== 31
+    || ocrCoverageSummary.publication?.materialized_unique_pages !== 30
+    || ocrCoverageSummary.publication?.citation_allowed_pages !== 30
+    || ocrCoverageSummary.release_gate?.citation_allowed !== true) {
     throw new Error('OCR 覆盖摘要未通过结构校验');
   }
   if (conceptGraph.schema_version !== 1
@@ -276,13 +281,24 @@ async function loadBase() {
     || !Array.isArray(conceptGraph.ontology_evidence)) {
     throw new Error('概念星图数据未通过结构校验');
   }
-  if (ocrLayer.schema_version !== 1
-    || ocrLayer.artifact_profile !== 'curriculum-ocr-observation-layer-v1'
+  if (ocrLayer.schema_version !== 2
+    || ocrLayer.artifact_profile !== 'curriculum-ocr-observation-layer-v2'
+    || ocrLayer.publication_status !== 'candidate_fail_closed'
     || !Array.isArray(ocrLayer.pages)
+    || !Array.isArray(ocrLayer.documents)
     || !Array.isArray(ocrLayer.episodes)
     || !Array.isArray(ocrLayer.edges)
     || !Array.isArray(ocrLayer.evidence)
-    || ocrLayer.source?.citation_allowed !== false) {
+    || ocrLayer.source?.citation_allowed !== false
+    || ocrLayer.source?.semantic_claim_allowed !== false
+    || ocrLayer.counts?.complete_documents !== 83
+    || ocrLayer.counts?.complete_pages !== 10210
+    || ocrLayer.counts?.unresolved_year_documents !== 0
+    || ocrLayer.documents.some((document) =>
+      document.completed_pages !== document.page_count
+      || document.failed_pages !== 0
+      || document.citation_allowed !== false
+      || document.semantic_claim_allowed !== false)) {
     throw new Error('OCR 观察层数据未通过结构校验');
   }
   if (detailLayer.schema_version !== 1
@@ -497,7 +513,7 @@ async function loadBase() {
   state.availableYears = [...new Set(years)].sort((left, right) => left - right);
   state.selectedYears.clear();
   buildDeepModels();
-  ocrLayerStatus.innerHTML = `<b>百年资料与证据</b><span>11/11 检索分面 · ${escapeHtml(state.archiveItems.length)} 个 bounded items · 候选页 ${escapeHtml(ocrCoverageSummary.coverage.candidate_covered_pages)}/${escapeHtml(ocrCoverageSummary.coverage.nominal_pages)}</span><small>${escapeHtml(evolutionLayer.counts.detailed_families)} 条实践／内容／能力演进族 · ${escapeHtml(pre2001Layer.counts.episodes)} 个早期观察 · 机器精确核验 ${escapeHtml(ocrCoverageSummary.machine_verification?.machine_verified_exact_pages || 0)} 页，其余进入自动仲裁</small>`;
+  ocrLayerStatus.innerHTML = `<b>百年资料与证据</b><span>11/11 检索分面 · ${escapeHtml(state.archiveItems.length)} 个 bounded items · 候选覆盖 ${escapeHtml(ocrCoverageSummary.coverage.candidate_covered_pages)}/${escapeHtml(ocrCoverageSummary.coverage.nominal_pages)} 页</span><small>${escapeHtml(evolutionLayer.counts.detailed_families)} 条实践／内容／能力演进族 · ${escapeHtml(pre2001Layer.counts.episodes)} 个早期观察 · ${escapeHtml(ocrCoverageSummary.machine_verification.machine_adjudicated_pages)} 页自动裁决完毕，31 份精确回执折叠发布为 30 页</small>`;
   ocrLayerStatus.hidden = false;
 }
 
@@ -519,8 +535,9 @@ function navigate(href, replace = false) {
 function qualityLabel(doc) {
   if (Number(doc.citation_allowed) === 1) return '图文与来源已过引文门槛';
   const ocrDocument = state.ocrLayer?.documents?.find((item) => item.id === doc.id);
-  if (ocrDocument?.status === 'complete') return `OCR ${ocrDocument.page_count} 页完成 · 机器仲裁中不可引用`;
-  if (ocrDocument?.status === 'active') return `OCR ${ocrDocument.completed_pages}/${ocrDocument.page_count} 页处理中`;
+  if (ocrDocument?.completed_pages === ocrDocument?.page_count) {
+    return `OCR ${ocrDocument.page_count} 页完成 · 候选观察不可引用`;
+  }
   if (/ocr/i.test(String(doc.text_quality_status || ''))) return 'OCR 机器复核中 · 禁止 AI 引用';
   return '元数据已确认 · 正文仍待核';
 }
@@ -785,8 +802,9 @@ function conceptStatusLabel(status) {
     citation_ready: '段落与来源已过引文门槛',
     verified_non_citation: '图文人工复核 · 禁止逐字引用',
     source_text_candidate: '来源文本候选 · 段落门槛未过',
-    ocr_candidate: '双引擎 OCR 候选 · 待机器仲裁',
-    ocr_complete_pending_audit: 'OCR 全页完成 · 待机器仲裁',
+    ocr_candidate: 'OCR 候选 · 自动裁决后仍不可引用',
+    ocr_complete_pending_audit: 'OCR 全页完成 · 候选观察不可引用',
+    ocr_complete_machine_candidate: 'OCR 全页完成 · 已进入自动候选观察层',
     ocr_complete_pending_item_audit: 'OCR 篇目完成 · 待自动逐项核查',
     catalog_title_candidate: '教育部编目标题候选 · 不可引用',
     conflict: '识别冲突 · 保留疑点',
@@ -1659,16 +1677,29 @@ async function searchSubjectFacet(query, facet) {
 }
 
 function searchOcrCandidatePages(query, facet) {
-  if (!state.ocrLayer || (facet && facet !== '语文')) return [];
+  if (!state.ocrLayer) return [];
   const needle = query.trim().toLocaleLowerCase('zh-CN');
   if (needle.length < 2) return [];
-  return state.ocrLayer.pages.flatMap((page) => {
-    const searchable = page.content.replace(/\s+/g, ' ');
+  return state.ocrLayer.evidence.flatMap((evidence) => {
+    const visibleFacets = (evidence.visibility_facets || [evidence.subject])
+      .map(publicSubjectFacet);
+    if (facet && !visibleFacets.includes(facet)) return [];
+    const searchable = [
+      evidence.document_title,
+      evidence.matched_surface,
+      evidence.snippet,
+    ].filter(Boolean).join(' ').replace(/\s+/g, ' ');
     const offset = searchable.toLocaleLowerCase('zh-CN').indexOf(needle);
     if (offset === -1) return [];
     const start = Math.max(0, offset - 80);
     const end = Math.min(searchable.length, offset + needle.length + 140);
-    return [{ page: page.page, snippet: searchable.slice(start, end).trim() }];
+    return [{
+      document_id: evidence.document_id,
+      document_title: evidence.document_title,
+      subject: publicSubjectFacet(evidence.subject),
+      page: evidence.page_number,
+      snippet: searchable.slice(start, end).trim(),
+    }];
   }).slice(0, 20);
 }
 
@@ -1676,8 +1707,7 @@ function ocrPipelineSummaryHtml() {
   const layer = state.ocrLayer;
   const summary = state.ocrCoverageSummary;
   if (!layer || !summary) return '';
-  const active = layer.documents.find((document) => document.status === 'active');
-  return `<section class="ocr-data-summary"><p><b>OCR 候选覆盖已闭合</b><span>${escapeHtml(summary.coverage.candidate_covered_pages)}/${escapeHtml(summary.coverage.nominal_pages)} 页 · 缺口 ${escapeHtml(summary.coverage.candidate_remaining_pages)}</span></p><p>双引擎逐字精确一致并完成来源绑定 ${escapeHtml(summary.machine_verification?.machine_verified_exact_pages || 0)} 页；其余 ${escapeHtml(summary.machine_verification?.machine_adjudication_pending_pages || 0)} 页进入第三引擎、表格结构或空白栅格自动仲裁，人工必审 ${escapeHtml(summary.machine_verification?.human_required_pages || 0)} 页。正式引文仍为 ${escapeHtml(summary.coverage.citation_ready_pages)}。${active ? ` 当前任务：${escapeHtml(active.completed_pages)}/${escapeHtml(active.page_count)} 页。` : ''}</p></section>`;
+  return `<section class="ocr-data-summary"><p><b>OCR 候选覆盖与机器裁决均已闭合</b><span>${escapeHtml(summary.coverage.candidate_covered_pages)}/${escapeHtml(summary.coverage.nominal_pages)} 页 · 候选缺口 ${escapeHtml(summary.coverage.candidate_remaining_pages)}</span></p><p>${escapeHtml(layer.counts.complete_documents)} 份完整文件、${escapeHtml(layer.counts.complete_pages)} 页已进入全学科候选观察层；${escapeHtml(summary.machine_verification.machine_adjudicated_pages)} 个双证据页全部完成机器裁决，待裁决 ${escapeHtml(summary.machine_verification.machine_adjudication_pending_pages)}。31 份精确回执去重为 ${escapeHtml(summary.publication.materialized_unique_pages)} 个可引页面，冲突页继续按缺省拒绝，不会冒充正式引文。</p></section>`;
 }
 
 async function renderCompare(url) {
@@ -1725,7 +1755,7 @@ async function renderSources(url) {
       toast(error.message);
     }
     const citationHtml = passages.length ? `<h2>可引文正文</h2><div class="result-list">${passages.map((passage) => `<article class="result-row"><a href="/document/${encodeURIComponent(passage.document_id)}#p-${passage.id}" data-link>${escapeHtml(passage.title)}</a><small>${escapeHtml(passage.entity_label || passage.subject)} · ${escapeHtml(passage.version_label)} · ${escapeHtml(passage.source_locator)}</small><p>${escapeHtml(passage.body)}</p></article>`).join('')}</div>` : '';
-    const ocrHtml = ocrMatches.length ? `<h2>OCR 待核命中</h2><p class="candidate-boundary">以下来自 2022 版语文课标全页 OCR，只用于浏览与概念发现，不可引用，也不进入证据 AI。</p><div class="result-list">${ocrMatches.map((match) => `<article class="result-row ocr-candidate-row"><a href="/document/moe-2022-03#ocr-p-${match.page}" data-link>义务教育语文课程标准（2022年版）</a><small>语文 · 2022年版 · PDF p.${escapeHtml(match.page)} · OCR待核</small><p>${escapeHtml(match.snippet)}</p></article>`).join('')}</div>` : '';
+    const ocrHtml = ocrMatches.length ? `<h2>OCR 候选命中</h2><p class="candidate-boundary">以下来自 83 份已完成 OCR 文件的全学科候选观察层，只用于定位与概念发现；未进入 30 个精确页发布清单的内容不可引用，也不进入证据 AI。</p><div class="result-list">${ocrMatches.map((match) => `<article class="result-row ocr-candidate-row"><a href="/document/${encodeURIComponent(match.document_id)}#ocr-p-${match.page}" data-link>${escapeHtml(match.document_title)}</a><small>${escapeHtml(match.subject)} · PDF p.${escapeHtml(match.page)} · OCR候选</small><p>${escapeHtml(match.snippet)}</p></article>`).join('')}</div>` : '';
     document.querySelector('#source-results').innerHTML = `${ocrPipelineSummaryHtml()}${citationHtml}${ocrHtml}<h2>元数据匹配</h2>${documentRows(docs.slice(0, 40))}`;
   }
 }
@@ -1736,11 +1766,15 @@ async function renderDocument(id) {
     const doc = data.document;
     state.selectedDocument = doc;
     const source = doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener">发布页 / 原件 ↗</a>` : '原件链接待补';
-    const ocrCandidate = state.ocrLayer?.source?.document_id === id ? state.ocrLayer : null;
+    const ocrCandidate = state.ocrLayer?.documents?.find((document) => document.id === id) || null;
+    const ocrEvidence = uniqueRows(
+      state.ocrLayer?.evidence?.filter((item) => item.document_id === id) || [],
+      (item) => item.page_number,
+    );
     const citationParagraphs = data.paragraphs.map((paragraph) => `<section class="paragraph ${paragraph.uncertainty_note ? 'uncertain' : ''}" id="p-${paragraph.id}"><span class="paragraph-number">P:${paragraph.id}<br>${escapeHtml(paragraph.source_locator)}</span>${escapeHtml(paragraph.body)}${paragraph.uncertainty_note ? `<small class="uncertainty-note">可能有问题：${escapeHtml(paragraph.uncertainty_note)}</small>` : ''}</section>`).join('');
-    const ocrParagraphs = ocrCandidate?.pages.map((page) => `<section class="paragraph ocr-candidate" id="ocr-p-${page.page}"><span class="paragraph-number">OCR<br>PDF p.${escapeHtml(page.page)}</span><div>${escapeHtml(page.content)}</div></section>`).join('') || '';
+    const ocrParagraphs = ocrEvidence.map((item) => `<section class="paragraph ocr-candidate" id="ocr-p-${item.page_number}"><span class="paragraph-number">OCR 候选<br>PDF p.${escapeHtml(item.page_number)}</span><div>${escapeHtml(item.snippet)}</div></section>`).join('');
     const paragraphs = citationParagraphs || ocrParagraphs || '<div class="empty-state">该记录目前只有已核元数据，正文尚未达到上线门槛。</div>';
-    const textLayerIntro = ocrCandidate && !citationParagraphs ? `<section class="candidate-boundary reader-candidate-boundary"><b>OCR 待核全文 · 109/109 页完成</b><p>已绑定原 PDF SHA 并逐页校验 OCR 文件哈希，可用于浏览、检索和概念发现；尚未通过版面与引文复核，不可逐字引用，也不进入证据 AI。</p></section>` : '';
+    const textLayerIntro = ocrCandidate && !citationParagraphs ? `<section class="candidate-boundary reader-candidate-boundary"><b>OCR 候选观察 · ${escapeHtml(ocrCandidate.completed_pages)}/${escapeHtml(ocrCandidate.page_count)} 页完成</b><p>原 PDF、OCR 状态与逐页内容哈希已绑定；此处只展示命中概念的定位片段，不是逐字全文。未进入精确页发布清单的内容不可引用，也不进入证据 AI。</p></section>` : '';
     const verification = data.verifications.length ? data.verifications.map((item) => `<article class="verification-row"><b>${escapeHtml(item.entity_label)} · ${escapeHtml(verificationLabel(item.verification_status))}</b><p>${escapeHtml(item.resolution)}</p>${item.uncertainty_note ? `<small class="uncertainty-note">可能有问题：${escapeHtml(item.uncertainty_note)}</small>` : ''}${(item.evidence || []).map((evidence) => `<p><a href="${escapeHtml(evidence.sourceUrl)}" target="_blank" rel="noopener">${escapeHtml(evidence.publisher)}</a> · ${escapeHtml(verificationLabel(evidence.versionMatch))} · ${escapeHtml(evidence.factSummary)}</p>`).join('')}</article>`).join('') : '<div class="empty-state">尚无在线同版核查记录。</div>';
     const documentIdentityKind = documentIdentityKindLabel(doc);
     const documentFacet = documentDisplayFacet(doc);

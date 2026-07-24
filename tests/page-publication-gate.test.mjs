@@ -130,11 +130,19 @@ test('accepted OCR manifests fail closed on source, page-count, text, or citatio
   );
 });
 
-test('manifest requires contiguous pages, stable locators, evidence hashes, and uncertainty notes', () => {
+test('manifest permits sparse pages but requires strict ordering, stable locators, evidence hashes, and uncertainty notes', () => {
   const rawPages = ['第一页最终文本\n'];
-  const missingPage = manifestFor(rawPages);
-  missingPage.documents[0].pages[0].page_number = 2;
-  assert.throws(() => validatePagePublicationManifest(missingPage), /contiguous 1-based page number/);
+  const sparsePage = manifestFor(rawPages);
+  sparsePage.documents[0].pages[0].page_number = 2;
+  sparsePage.documents[0].pages[0].stable_locator = 'ocr-document:page:2';
+  assert.equal(validatePagePublicationManifest(sparsePage).documents[0].pages[0].page_number, 2);
+
+  const duplicatePage = manifestFor(['第一页最终文本\n', '第二页最终文本\n']);
+  duplicatePage.documents[0].pages[0].page_number = 2;
+  duplicatePage.documents[0].pages[0].stable_locator = 'ocr-document:page:2';
+  duplicatePage.documents[0].pages[1].page_number = 2;
+  duplicatePage.documents[0].pages[1].stable_locator = 'ocr-document:page:2';
+  assert.throws(() => validatePagePublicationManifest(duplicatePage), /strictly increasing/);
 
   const wrongLocator = manifestFor(rawPages);
   wrongLocator.documents[0].pages[0].stable_locator = 'unstable';
@@ -171,7 +179,13 @@ test('builder and migration encode fail-closed display defaults and complete OCR
   ]);
 
   assert.equal(schema.properties.schema_version.const, 1);
-  assert.deepEqual(seedManifest.documents, []);
+  assert.equal(seedManifest.documents.length, 26);
+  assert.equal(seedManifest.documents.flatMap((document) => document.pages).length, 30);
+  assert.ok(seedManifest.documents.flatMap((document) => document.pages).every((page) =>
+    page.review_status === 'accepted'
+    && page.display_allowed === true
+    && page.citation_allowed === true
+    && page.source_receipt_sha256s.length >= 1));
   assert.match(migration, /display_allowed INTEGER NOT NULL DEFAULT 0/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS page_publication_gates/);
   assert.match(migration, /paragraphs_fail_closed_citation_insert/);

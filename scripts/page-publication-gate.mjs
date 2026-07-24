@@ -50,6 +50,14 @@ function optionalBoolean(value, label) {
   return value;
 }
 
+function optionalUniqueSha256Array(value, label) {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length === 0) fail(`${label} must be a non-empty array`);
+  const values = value.map((item, index) => requireSha256(item, `${label}[${index}]`));
+  if (new Set(values).size !== values.length) fail(`${label} must contain unique hashes`);
+  return values;
+}
+
 export function sha256Text(value) {
   return createHash('sha256').update(String(value), 'utf8').digest('hex');
 }
@@ -97,6 +105,7 @@ export function validatePagePublicationManifest(manifest) {
       fail(`${documentLabel}.pages must be a non-empty array`);
     }
 
+    let previousPageNumber = 0;
     const pages = document.pages.map((page, pageIndex) => {
       const pageLabel = `${documentLabel}.pages[${pageIndex}]`;
       requireExactKeys(page, pageLabel, [
@@ -106,10 +115,14 @@ export function validatePagePublicationManifest(manifest) {
         'evidence_bundle_sha256',
         'stable_locator',
         'review_status',
-      ], ['display_allowed', 'citation_allowed', 'uncertainty_note']);
-      if (!Number.isInteger(page.page_number) || page.page_number !== pageIndex + 1) {
-        fail(`${pageLabel}.page_number must be the contiguous 1-based page number ${pageIndex + 1}`);
+      ], ['display_allowed', 'citation_allowed', 'uncertainty_note', 'source_receipt_sha256s']);
+      if (!Number.isInteger(page.page_number) || page.page_number < 1) {
+        fail(`${pageLabel}.page_number must be a positive integer`);
       }
+      if (page.page_number <= previousPageNumber) {
+        fail(`${pageLabel}.page_number must be unique and strictly increasing`);
+      }
+      previousPageNumber = page.page_number;
       requireSha256(page.source_page_sha256, `${pageLabel}.source_page_sha256`);
       requireSha256(page.final_text_sha256, `${pageLabel}.final_text_sha256`);
       requireSha256(page.evidence_bundle_sha256, `${pageLabel}.evidence_bundle_sha256`);
@@ -137,6 +150,10 @@ export function validatePagePublicationManifest(manifest) {
         display_allowed: displayAllowed,
         citation_allowed: citationAllowed,
         uncertainty_note: uncertaintyNote,
+        source_receipt_sha256s: optionalUniqueSha256Array(
+          page.source_receipt_sha256s,
+          `${pageLabel}.source_receipt_sha256s`,
+        ),
       };
     });
     return { ...document, pages };
@@ -162,20 +179,47 @@ export function bindAcceptedOcrDocument({
   if (manifestDocument.source_artifact_sha256 !== sourceArtifactSha256) {
     fail(`${record.id}: source artifact hash drift`);
   }
-  if (!Array.isArray(rawPages) || rawPages.length !== manifestDocument.pages.length) {
-    fail(`${record.id}: final text page count does not match the accepted manifest`);
-  }
-  if (Number.isInteger(record.page_count) && record.page_count !== rawPages.length) {
+  if (!Array.isArray(rawPages)
+    || !Number.isInteger(record.page_count)
+    || record.page_count !== rawPages.length) {
     fail(`${record.id}: final text page count does not match catalog page_count`);
   }
 
-  return manifestDocument.pages.map((page, index) => {
-    const actualFinalTextSha256 = sha256Text(rawPages[index]);
+  const manifestPageByNumber = new Map(
+    manifestDocument.pages.map((page) => [page.page_number, page]),
+  );
+  for (const page of manifestDocument.pages) {
+    if (page.page_number > rawPages.length) {
+      fail(`${record.id}: manifest page ${page.page_number} exceeds catalog page_count`);
+    }
+    const actualFinalTextSha256 = sha256Text(rawPages[page.page_number - 1]);
     if (actualFinalTextSha256 !== page.final_text_sha256) {
       fail(`${record.id}: page ${page.page_number} final text hash drift`);
     }
     if (page.citation_allowed && !documentCitationAllowed) {
       fail(`${record.id}: page ${page.page_number} citation is open while the document gate is closed`);
+    }
+  }
+
+  return rawPages.map((rawPage, index) => {
+    const pageNumber = index + 1;
+    const page = manifestPageByNumber.get(pageNumber);
+    if (!page) {
+      return {
+        page_number: pageNumber,
+        source_artifact_sha256: sourceArtifactSha256,
+        source_page_sha256: null,
+        page_final_text_sha256: sha256Text(rawPage),
+        evidence_bundle_sha256: null,
+        source_receipt_sha256s: [],
+        stable_locator: `${record.id}:page:${pageNumber}`,
+        review_status: 'unresolved_fail_closed',
+        reviewed_by: manifestDocument.reviewed_by,
+        reviewed_at: manifestDocument.reviewed_at,
+        uncertainty_note: 'No exact machine publication receipt exists for this page.',
+        display_allowed: false,
+        citation_allowed: false,
+      };
     }
     return {
       page_number: page.page_number,
@@ -183,6 +227,7 @@ export function bindAcceptedOcrDocument({
       source_page_sha256: page.source_page_sha256,
       page_final_text_sha256: page.final_text_sha256,
       evidence_bundle_sha256: page.evidence_bundle_sha256,
+      source_receipt_sha256s: page.source_receipt_sha256s,
       stable_locator: page.stable_locator,
       review_status: page.review_status,
       reviewed_by: manifestDocument.reviewed_by,

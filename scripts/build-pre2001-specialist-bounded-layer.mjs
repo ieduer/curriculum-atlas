@@ -10,6 +10,7 @@ const SOURCE_PATH = path.join(ROOT, 'data/pre2001-specialist-bounded-source.json
 const FAMILY_PATH = path.join(ROOT, 'data/concept-evolution-families.json');
 const COMPENDIA_PATH = path.join(ROOT, 'data/local-compendia.json');
 const ITEMS_PATH = path.join(ROOT, 'data/pre2001-specialist-bounded-items.json');
+const IDENTITY_RECEIPT_PATH = path.join(ROOT, 'data/pre2001-bounded-identity-verification.json');
 const OUTPUT_PATH = path.join(ROOT, 'public/data/pre2001-subject-detail-observation-layer.json');
 const PROFILE_ROOTS = {
   frozen_readback_20260718_b3_final: path.join(
@@ -348,12 +349,17 @@ async function headingItems(config, source) {
 }
 
 async function build() {
-  const [config, familyConfig, compendia, embeddedManifest] = await Promise.all([
-    readFile(SOURCE_PATH, 'utf8').then(JSON.parse),
-    readFile(FAMILY_PATH, 'utf8').then(JSON.parse),
-    readFile(COMPENDIA_PATH, 'utf8').then(JSON.parse),
-    readFile(path.join(ROOT, 'data/embedded-items-century-v1.json'), 'utf8').then(JSON.parse),
+  const embeddedManifestPath = path.join(ROOT, 'data/embedded-items-century-v1.json');
+  const [configBytes, familyBytes, compendiaBytes, embeddedManifestBytes] = await Promise.all([
+    readFile(SOURCE_PATH),
+    readFile(FAMILY_PATH),
+    readFile(COMPENDIA_PATH),
+    readFile(embeddedManifestPath),
   ]);
+  const config = JSON.parse(configBytes);
+  const familyConfig = JSON.parse(familyBytes);
+  const compendia = JSON.parse(compendiaBytes);
+  const embeddedManifest = JSON.parse(embeddedManifestBytes);
   requireValue(config.schema_version === 1
     && config.artifact_profile === 'curriculum-pre2001-specialist-bounded-source-v1',
   'pre-2001 specialist source config failed structural validation');
@@ -565,6 +571,199 @@ async function build() {
       last_year: Math.max(...items.map((item) => item.year)),
     },
   };
+  const embeddedItemsById = new Map(embeddedManifest.items.map((item) => [item.id, item]));
+  const itemIds = new Set();
+  const identityKeys = new Set();
+  const physicalRanges = new Map();
+  const identityReceipts = items.map((item) => {
+    requireValue(item.title.trim().length > 0, `bounded item title is empty: ${item.id}`);
+    requireValue(Number.isInteger(item.year) && item.year >= 1902 && item.year <= 2000,
+      `bounded item year is outside 1902-2000: ${item.id}`);
+    requireValue(item.visibility_facets.length >= 1 && new Set(item.visibility_facets).size === item.visibility_facets.length,
+      `bounded item must have one or more unique visibility facets: ${item.id}`);
+    requireValue(!itemIds.has(item.id), `duplicate bounded item id: ${item.id}`);
+    itemIds.add(item.id);
+    requireValue(
+      item.id === itemId(
+        item.parent_document_id,
+        item.year,
+        item.physical_page_start,
+        item.title,
+        item.visibility_facets,
+      ),
+      `bounded item stable id is not reproducible: ${item.id}`,
+    );
+    const source = stateCache.get(`${item.parent_document_id}|${item.ocr_profile}`);
+    requireValue(source, `bounded item OCR state is unavailable: ${item.id}`);
+    requireValue(item.source_sha256 === source.document.checksum_sha256,
+      `bounded item source hash mismatch: ${item.id}`);
+    requireValue(
+      item.physical_page_start >= 1
+      && item.physical_page_end >= item.physical_page_start
+      && item.physical_page_end <= source.document.page_count,
+      `bounded item physical page range is invalid: ${item.id}`,
+    );
+    requireValue(
+      item.pages.length === item.physical_page_end - item.physical_page_start + 1,
+      `bounded item page count does not match its range: ${item.id}`,
+    );
+    item.pages.forEach((page, index) => {
+      requireValue(
+        page.page === item.physical_page_start + index,
+        `bounded item pages are not contiguous: ${item.id}`,
+      );
+      requireValue(sha256(Buffer.from(page.content)) === page.content_sha256,
+        `bounded item page content hash mismatch: ${item.id} p.${page.page}`);
+    });
+    const recomputedRangeHash = sha256(
+      item.pages.map((page) => `${page.page}:${page.content_sha256}`).join('\n'),
+    );
+    requireValue(recomputedRangeHash === item.range_content_sha256,
+      `bounded item range content hash mismatch: ${item.id}`);
+    let sourceItem = null;
+    if (item.source_item_id) {
+      sourceItem = embeddedItemsById.get(item.source_item_id);
+      requireValue(sourceItem, `bounded item source item does not resolve: ${item.id}`);
+      requireValue(sourceItem.parent_document_id === item.parent_document_id,
+        `bounded item source item belongs to another document: ${item.id}`);
+      const sourceStart = Math.min(...sourceItem.segments.map((segment) => segment.physical_page_start));
+      const sourceEnd = Math.max(...sourceItem.segments.map((segment) => segment.physical_page_end));
+      requireValue(sourceStart === item.physical_page_start && sourceEnd === item.physical_page_end,
+        `bounded item source item page range mismatch: ${item.id}`);
+    }
+    const identityPayload = {
+      parent_document_id: item.parent_document_id,
+      source_sha256: item.source_sha256,
+      year: item.year,
+      title: item.title,
+      visibility_facets: item.visibility_facets,
+      physical_page_start: item.physical_page_start,
+      physical_page_end: item.physical_page_end,
+      range_content_sha256: recomputedRangeHash,
+      source_item_id: item.source_item_id,
+      boundary_basis: item.boundary_basis,
+    };
+    const identitySha256 = sha256(JSON.stringify(identityPayload));
+    requireValue(!identityKeys.has(identitySha256),
+      `duplicate bounded item identity: ${item.id}`);
+    identityKeys.add(identitySha256);
+    const physicalRangeKey = [
+      item.parent_document_id,
+      item.physical_page_start,
+      item.physical_page_end,
+    ].join('|');
+    if (!physicalRanges.has(physicalRangeKey)) physicalRanges.set(physicalRangeKey, []);
+    physicalRanges.get(physicalRangeKey).push(item);
+    return {
+      receipt_id: `pre2001-identity-receipt:${sha256(item.id).slice(0, 20)}`,
+      item_id: item.id,
+      identity_sha256: identitySha256,
+      parent_document_id: item.parent_document_id,
+      source_sha256: item.source_sha256,
+      ocr_profile: item.ocr_profile,
+      ocr_state_sha256: source.state_sha256,
+      year: item.year,
+      title: item.title,
+      visibility_facets: item.visibility_facets,
+      physical_page_start: item.physical_page_start,
+      physical_page_end: item.physical_page_end,
+      page_count: item.pages.length,
+      range_content_sha256: recomputedRangeHash,
+      source_item_id: item.source_item_id,
+      source_item_resolved: !item.source_item_id || Boolean(sourceItem),
+      boundary_basis: item.boundary_basis,
+      checks: {
+        stable_item_id: true,
+        source_document_bound: true,
+        source_pdf_hash_bound: true,
+        ocr_state_hash_bound: true,
+        contiguous_page_range: true,
+        page_content_hashes_recomputed: true,
+        range_content_hash_recomputed: true,
+        year_in_policy_range: true,
+        visibility_facets_are_nonempty_and_unique: true,
+        source_item_resolved: !item.source_item_id || Boolean(sourceItem),
+      },
+    };
+  });
+  const sharedPhysicalRanges = [...physicalRanges.entries()]
+    .filter(([, entries]) => entries.length > 1)
+    .map(([rangeKey, entries]) => ({
+      range_key: rangeKey,
+      item_ids: entries.map((item) => item.id).sort((left, right) => left.localeCompare(right, 'en')),
+      visibility_facets: entries
+        .map((item) => item.visibility_facets[0])
+        .sort((left, right) => left.localeCompare(right, 'zh-CN')),
+      disposition: 'intentional_distinct_facet_identities_on_shared_source_range',
+    }))
+    .sort((left, right) => left.range_key.localeCompare(right.range_key, 'en'));
+  requireValue(sharedPhysicalRanges.length === 1,
+    `expected one intentional shared physical range, received ${sharedPhysicalRanges.length}`);
+  requireValue(
+    sharedPhysicalRanges[0].range_key === 'legacy-compendium-plans|122|125'
+    && sharedPhysicalRanges[0].visibility_facets.join('|') === '历史与社会|体育与健康',
+    'intentional shared physical range disposition drifted',
+  );
+  const sourceItemLinks = identityReceipts.filter((receipt) => receipt.source_item_id);
+  requireValue(sourceItemLinks.length === 135, `expected 135 source-item links, received ${sourceItemLinks.length}`);
+  requireValue(
+    new Set(sourceItemLinks.map((receipt) => receipt.source_item_id)).size === embeddedManifest.items.length,
+    'not every embedded source item resolves into the bounded layer',
+  );
+  const identityReceipt = {
+    schema_version: 1,
+    artifact_profile: 'curriculum-pre2001-bounded-identity-verification-v1',
+    snapshot_id: config.snapshot_id,
+    generated_at: '2026-07-24T00:00:00.000Z',
+    verification_policy: {
+      execution: 'fully_machine_reproducible_fail_closed',
+      identity_unit: 'source_pdf_hash_plus_bounded_range_plus_year_title_and_visibility_facets',
+      shared_physical_range_policy: 'allowed_only_when_distinct_visibility_facets_produce_distinct_identities',
+      citation_allowed: false,
+      semantic_claim_allowed: false,
+      deployment_requires_zero_failed_receipts: true,
+    },
+    source_bindings: {
+      bounded_source: {
+        path: path.relative(ROOT, SOURCE_PATH),
+        sha256: sha256(configBytes),
+      },
+      embedded_items: {
+        path: path.relative(ROOT, embeddedManifestPath),
+        sha256: sha256(embeddedManifestBytes),
+      },
+      local_compendia: {
+        path: path.relative(ROOT, COMPENDIA_PATH),
+        sha256: sha256(compendiaBytes),
+      },
+      concept_families: {
+        path: path.relative(ROOT, FAMILY_PATH),
+        sha256: sha256(familyBytes),
+      },
+    },
+    counts: {
+      items: identityReceipts.length,
+      unique_item_ids: itemIds.size,
+      unique_identity_keys: identityKeys.size,
+      unique_physical_ranges: physicalRanges.size,
+      intentional_shared_physical_ranges: sharedPhysicalRanges.length,
+      source_item_links: sourceItemLinks.length,
+      distinct_source_items_resolved: new Set(
+        sourceItemLinks.map((receipt) => receipt.source_item_id),
+      ).size,
+      failed_receipts: identityReceipts.filter((receipt) =>
+        Object.values(receipt.checks).some((passed) => !passed)).length,
+    },
+    shared_physical_ranges: sharedPhysicalRanges,
+    receipts: identityReceipts.sort((left, right) => left.item_id.localeCompare(right.item_id, 'en')),
+    release_gate: {
+      deployment_allowed: true,
+      candidate_display_allowed: true,
+      citation_allowed: false,
+      semantic_claim_allowed: false,
+      reason: 'all_462_bounded_item_identities_are_reproducible_and_source_hash_bound',
+    },
+  };
   const layer = {
     schema_version: 1,
     artifact_profile: 'curriculum-pre2001-subject-detail-observation-layer-v1',
@@ -612,34 +811,43 @@ async function build() {
       last_year: Math.max(...episodes.map((episode) => episode.time.year)),
     },
   };
-  return { itemArtifact, layer };
+  return { itemArtifact, identityReceipt, layer };
 }
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const { itemArtifact, layer } = await build();
+  const { itemArtifact, identityReceipt, layer } = await build();
   const expectedItems = stableJson(itemArtifact);
+  const expectedIdentityReceipt = stableJson(identityReceipt);
   const expectedLayer = stableJson(layer);
   if (options.check) {
-    const [actualItems, actualLayer] = await Promise.all([
+    const [actualItems, actualIdentityReceipt, actualLayer] = await Promise.all([
       readFile(ITEMS_PATH, 'utf8'),
+      readFile(IDENTITY_RECEIPT_PATH, 'utf8'),
       readFile(OUTPUT_PATH, 'utf8'),
     ]);
-    if (actualItems !== expectedItems || actualLayer !== expectedLayer) {
+    if (
+      actualItems !== expectedItems
+      || actualIdentityReceipt !== expectedIdentityReceipt
+      || actualLayer !== expectedLayer
+    ) {
       throw new Error('pre-2001 specialist artifacts are stale; run npm run pre2001:build');
     }
     process.stdout.write(
       `Pre-2001 specialist layer verified: ${layer.counts.bounded_items} items, `
+      + `${identityReceipt.counts.unique_identity_keys} identities, `
       + `${layer.counts.observed_concepts} concepts, ${layer.counts.episodes} episodes.\n`,
     );
     return;
   }
   await Promise.all([
     writeFile(ITEMS_PATH, expectedItems),
+    writeFile(IDENTITY_RECEIPT_PATH, expectedIdentityReceipt),
     writeFile(OUTPUT_PATH, expectedLayer),
   ]);
   process.stdout.write(
     `Pre-2001 specialist layer built: ${layer.counts.bounded_items} items, `
+    + `${identityReceipt.counts.unique_identity_keys} identities, `
     + `${layer.counts.observed_concepts} concepts, ${layer.counts.episodes} episodes.\n`,
   );
 }

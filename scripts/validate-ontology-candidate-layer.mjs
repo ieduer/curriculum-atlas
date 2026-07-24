@@ -174,7 +174,8 @@ function validateSourceIdentity(layer, catalog) {
     checksum_sha256: EXPECTED_SOURCE.source_artifact_sha256,
     page_count: EXPECTED_SOURCE.page_count,
     local_cache_path: EXPECTED_SOURCE.local_cache_path,
-    citation_allowed: false,
+    text_quality_status: 'ocr_required',
+    ocr_audit_ref: 'data/ocr-publication-receipt.json',
   };
   for (const [key, expected] of Object.entries(catalogChecks)) {
     invariant(record[key] === expected, `catalog ${EXPECTED_SOURCE.document_id}.${key} drift`);

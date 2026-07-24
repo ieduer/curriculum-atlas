@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "policy_id": "curriculum-ocr-document-year-v1",
+  "purpose": "Resolve a star-map year only from explicit catalog metadata or an official issuance batch. OCR completion alone never supplies a year.",
+  "metadata_precedence": [
+    "issued_date",
+    "published_date",
+    "version_label",
+    "title"
+  ],
+  "batch_rules": [
+    {
+      "rule_id": "moe-compulsory-experimental-standards-2001",
+      "document_id_prefix": "ictr-",
+      "title_prefix": "全日制义务教育",
+      "title_suffix_any": [
+        "（实验稿）"
+      ],
+      "year": 2001,
+      "precision": "issuance_batch_year",
+      "evidence": [
+        {
+          "publisher": "中华人民共和国教育部",
+          "title": "教育部基础教育课程教材专家工作委员会就印发义务教育课程标准（2011年版）答记者问",
+          "url": "https://www.moe.gov.cn/jyb_xwfb/s271/201202/t20120207_130063.html",
+          "fact": "教育部明确说明2001年印发义务教育各学科课程标准（实验稿）。"
+        },
+        {
+          "publisher": "中华人民共和国教育部",
+          "title": "教育部关于印发《开展基础教育新课程实验推广工作的意见》的通知",
+          "url": "https://www.moe.gov.cn/srcsite/A26/moe_714/200107/t20010716_167350.html",
+          "fact": "2001年秋季绝大多数义务教育各学科课程标准及实验教材进入国家实验区。"
+        }
+      ]
+    },
+    {
+      "rule_id": "moe-high-school-experimental-standards-2003",
+      "document_id_prefix": "ictr-",
+      "title_prefix": "普通高中",
+      "title_suffix_any": [
+        "（实验）"
+      ],
+      "year": 2003,
+      "precision": "issued_date",
+      "evidence": [
+        {
+          "publisher": "中华人民共和国教育部",
+          "title": "教育部关于印发《普通高中课程方案（实验）》和语文等十五个学科课程标准（实验）的通知",
+          "url": "https://www.moe.gov.cn/srcsite/A26/s8001/200303/t20030331_167349.html",
+          "fact": "教基〔2003〕6号于2003年3月31日印发普通高中课程方案和十五个学科课程标准（实验）。"
+        }
+      ]
+    }
+  ],
+  "release_gate": {
+    "all_complete_documents_must_have_a_terminal_year_disposition": true,
+    "unresolved_year_documents_must_not_project_to_star_map": true,
+    "manual_override_allowed": false
+  }
+}
