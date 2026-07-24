@@ -12,9 +12,9 @@
     "public/data/pre2001-subject-detail-observation-layer.json": "f6e0c70ebd762fb23d4127bee64fcbaf84380be59a4e13426c608d3b0466137c",
     "public/data/century-observation-layer.json": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
     "public/data/concept-evolution-families.json": "04932aa7b1fac24614334212c9c83701342417ba309447fa0e583d8202beb06b",
-    "public/index.html": "e1b03f55c32956bbddd95251b450d411717247870bd3db2bd6960974e6e46791",
-    "public/app.js": "40348f89dd9b4cf985fc2110f99c7ab9ed2607c50f0a389f008c6bf4b18b8d85",
-    "public/atlas.js": "90b281d17ad23e3814620cec96f9a83ef912d0dfac463a640deb3c67ad8227ac",
+    "public/index.html": "e279117dd8281f05744eba5eac609bf5f12b7c1097127fdab060e3b6af1347ae",
+    "public/app.js": "4cd16c00a556bbfdc8b6e5427fe940fb1159ce3a6b43e8730f09556030f6ee96",
+    "public/atlas.js": "fc02c3e3eb4ae3c6351d8f58f0bbafdd5e6eba3d12b5566bea8a11243aaa836e",
     "public/styles.css": "6b4fb75e4f32df40b310453b3e5bb512af24eef9adc3034192cd8fd9bf9ac914",
     "public/data/concept-evolution-academic.json": "ac8c91bf3efae62f62c83d33595ab8367039dfc0a035cb00b2062bd9e26fce2a"
   },
@@ -23,7 +23,7 @@
     "academic_graph_index_raw_bytes": 30220,
     "academic_graph_shard_raw_bytes": 524250,
     "academic_graph_total_shard_raw_bytes": 23208620,
-    "frontend_raw_bytes": 252634,
+    "frontend_raw_bytes": 252705,
     "merged_episode_count": 2415,
     "merged_edge_count": 3144,
     "merged_evidence_count": 5304,
@@ -59,7 +59,7 @@
     {
       "id": "static.frontend_raw_bytes",
       "passed": true,
-      "observed": 252634,
+      "observed": 252705,
       "maximum": 260000
     },
     {

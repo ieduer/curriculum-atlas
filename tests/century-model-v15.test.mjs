@@ -87,6 +87,7 @@ test('social studies grouping excludes Chinese and activates century-wide relate
   assert.equal(event.public_facets.includes('语文'), false);
   assert.doesNotMatch(app, /activateYearSelection\(\[event\.year\]/);
   assert.match(app, /applyDisciplineGraphFocus\(disciplineLineagesForEvent\(event\)\)/);
+  assert.match(app, /function applyDisciplineGraphFocus\(lineages\) \{[\s\S]*state\.introRevealActive = false;[\s\S]*state\.maxYear = state\.availableYears\.at\(-1\);/);
   assert.match(app, /state\.activeDisciplineEventId === event\.id/);
 });
 
