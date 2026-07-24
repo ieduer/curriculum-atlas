@@ -1,4 +1,4 @@
-import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v41';
+import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v42';
 
 const TAU = Math.PI * 2;
 const MIN_ZOOM = .2;
@@ -502,9 +502,9 @@ export class CurriculumCosmos {
     } else {
       viewport = { left: 54, top: 96, right: this.width - 24, bottom: this.height - 84 };
     }
-    const chronology = document.querySelector('.cosmos-year-control');
+    const chronology = typeof document === 'undefined' ? null : document.querySelector('.cosmos-year-control');
     const chronologyRect = chronology?.getBoundingClientRect();
-    const canvasRect = this.canvas.getBoundingClientRect();
+    const canvasRect = this.canvas?.getBoundingClientRect?.();
     if (chronologyRect && canvasRect && chronologyRect.top < canvasRect.bottom) {
       viewport.bottom = Math.min(viewport.bottom, chronologyRect.top - canvasRect.top - 12);
     }
@@ -633,11 +633,11 @@ export class CurriculumCosmos {
         const label = `${gate.year}  ${gate.label}`;
         const earlyIndex = gate.early ? index : 0;
         context.font = `${gate.early ? '650 9px' : '600 11px'} ui-sans-serif, system-ui, sans-serif`;
-        const labelX = top.x + 7;
         const labelY = gate.early
           ? safe.top + 13 + (this.width <= 640 ? 50 : 0) + earlyIndex * 17
           : Math.max(safe.top + 13, top.y + 17);
         const labelWidth = context.measureText(label).width;
+        const labelX = clamp(top.x + 7, safe.left + 4, Math.max(safe.left + 4, safe.right - labelWidth - 4));
         context.fillStyle = palette.gateLabelBackground;
         context.fillRect(labelX - 4, labelY - 13, labelWidth + 8, 18);
         context.fillStyle = gate.year === 2022

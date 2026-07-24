@@ -3,13 +3,14 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const root = new URL('../', import.meta.url);
-const [html, styles, appJs] = await Promise.all([
+const [html, styles, appJs, atlasJs] = await Promise.all([
   readFile(new URL('public/index.html', root), 'utf8'),
   readFile(new URL('public/styles.css', root), 'utf8'),
   readFile(new URL('public/app.js', root), 'utf8'),
+  readFile(new URL('public/atlas.js', root), 'utf8'),
 ]);
 
-const assetVersion = '20260723v41';
+const assetVersion = '20260723v42';
 
 function block(source, opening, closing = '}') {
   const start = source.indexOf(opening);
@@ -62,4 +63,5 @@ test('mobile inspector and workbench preserve the two-entry dock in the collapse
   assert.match(styles, /\.workbench-body \{[\s\S]*?scroll-padding-bottom:\s*calc\(var\(--mobile-dock-clearance\) \+ 24px\);/);
   assert.match(styles, /\.scrim \{ position: fixed; z-index: 79;/);
   assert.match(styles, /\.workbench \{[\s\S]*?z-index: 80;/);
+  assert.match(atlasJs, /const labelX = clamp\(top\.x \+ 7, safe\.left \+ 4, Math\.max\(safe\.left \+ 4, safe\.right - labelWidth - 4\)\);/);
 });

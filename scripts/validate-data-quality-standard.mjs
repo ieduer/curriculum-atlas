@@ -261,8 +261,8 @@ const mobileDockClearance = Number(mobileDockMatch?.[1]);
 record('interface.theme_and_chronology_contract',
   sourceText.index.includes('data-theme-choice="dark" aria-pressed="true"')
     && sourceText.index.includes('data-theme-choice="light" aria-pressed="false"')
-    && sourceText.index.indexOf('/theme-init.js?v=20260723v41')
-      < sourceText.index.indexOf('/styles.css?v=20260723v41')
+    && sourceText.index.indexOf('/theme-init.js?v=20260723v42')
+      < sourceText.index.indexOf('/styles.css?v=20260723v42')
     && sourceText.themeInit.includes(interfacePolicy.theme_storage_key)
     && sourceText.app.includes('chronologyComparePanel.hidden = !compareActive')
     && sourceText.app.includes('chronologyEraPanel.hidden = compareActive')
