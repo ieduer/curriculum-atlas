@@ -1,5 +1,5 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v34';
-import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v34';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260723v35';
+import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260723v35';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -7,7 +7,7 @@ import {
   filterDocumentsBySubjectFacet,
   normalizeSubjectFacet,
   planSubjectFacetQueries,
-} from './subject-facets.js?v=20260723v34';
+} from './subject-facets.js?v=20260723v35';
 
 const diagnosticsStartedAt = performance.now();
 let diagnosticsReadyAt = null;
@@ -140,12 +140,12 @@ async function api(path, options) {
 async function loadBase() {
   if (state.meta) return;
   const [conceptGraph, ocrLayer, detailLayer, pre2001Layer, centuryLayer, evolutionLayer, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260723v34'),
-    api('/data/ocr-observation-layer.json?v=20260723v34'),
-    api('/data/subject-detail-observation-layer.json?v=20260723v34'),
-    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v34'),
-    api('/data/century-observation-layer.json?v=20260723v34'),
-    api('/data/concept-evolution-families.json?v=20260723v34'),
+    api('/data/concept-evolution.json?v=20260723v35'),
+    api('/data/ocr-observation-layer.json?v=20260723v35'),
+    api('/data/subject-detail-observation-layer.json?v=20260723v35'),
+    api('/data/pre2001-subject-detail-observation-layer.json?v=20260723v35'),
+    api('/data/century-observation-layer.json?v=20260723v35'),
+    api('/data/concept-evolution-families.json?v=20260723v35'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),

@@ -27,6 +27,7 @@ test('the checked-in static performance receipt passes all budgets', () => {
 test('the Canvas publishes bounded runtime diagnostics without adding a second view', () => {
   assert.match(atlas, /performanceSnapshot\(\)/);
   assert.match(atlas, /this\.drawDurations\.length > 120/);
+  assert.match(atlas, /this\.animationFrameInterval = 50/);
   assert.match(app, /__CURRICULUM_ATLAS_DIAGNOSTICS__/);
   assert.match(app, /PerformanceObserver\.supportedEntryTypes\?\.includes\('longtask'\)/);
   assert.match(app, /diagnosticsReadyAt - diagnosticsStartedAt/);

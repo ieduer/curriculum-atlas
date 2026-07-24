@@ -10,8 +10,8 @@
     "candidateSchema": "d985d3c4d89440c4e2890694c10f20fb0fd291fcea68d9d13f28170843e4f212",
     "coverage": "65302bc99a9bdf7ddce2f8bda9484b93a3b2a4140b22f1ca8cfcff8babd0be49",
     "releaseDiff": "19c73d5b1ff582366d5b41d02bb04c01e54e48a4bc54950d50c1386506ef658f",
-    "performanceBudget": "d550d51061364473f80ce0c718edc4effc8056ca0437fbc744f714c391bd18c4",
-    "performanceValidation": "2729495da550fb48dc80aefc20dcf87e96483ca3062a05caa1528f1f4e542b6f",
+    "performanceBudget": "278166d22e58c009027ef8e2f9258e7e09b9d494f568e63759a07aa3d78c38ba",
+    "performanceValidation": "523f59cbe857b1b4cba4aad63d9e10cd35475d21e9e551a6eb786ac400e943c7",
     "familiesConfig": "e891fce9b7b025b23fedbde6c90b734367673c8592a6d44c2b3bc2c0f80651c8",
     "families": "720aa6edf19e6e89faff61dc8b8d8c66007135fe35b8000dcfe94bc8eaf7b531",
     "core": "0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8",
@@ -19,10 +19,10 @@
     "detail": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
     "pre2001": "399e0c750329effe75ab0dbc8bfb335a5943e152cdbff0069e14bfc88369d6c1",
     "century": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
-    "app": "4ba25352e00528fd9dd0b55d61b17a4bfc1cf049f17bb5f71b3d45a23016b224",
-    "atlas": "32fe70b869a943204c2b262e5d21487b80ffac53c576d8526f3f84b86daab66a",
+    "app": "30cbc81f62ff389291d7da032c869a4748d1b520a03138ad5f24d5cd91cf7f56",
+    "atlas": "a2533434f53a360707b39517cc6feb8ece76efd6a35f2a417504770a09549ad0",
     "styles": "afb6503b14f021180f088fbd3769ae07f5dfbe523f989db0a8d7dec9fca2347f",
-    "index": "daf04318640eed76a47dbb492f10466a578e384cbb384f909c507ace8feb220a"
+    "index": "c185b6c85ded1fa2d29d6e24a5db30b5ccaa340caa4db145c9b928253afacc6a"
   },
   "counts": {
     "checks": 24,
@@ -535,12 +535,12 @@
       "passed": true,
       "observed": {
         "budget_id": "curriculum-star-map-performance-v1",
-        "checks": 7,
+        "checks": 8,
         "failed": 0
       },
       "expected": {
         "budget_id": "curriculum-star-map-performance-v1",
-        "checks": 7,
+        "checks": 8,
         "failed": 0
       }
     }

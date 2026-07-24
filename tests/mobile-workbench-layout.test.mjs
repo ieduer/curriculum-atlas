@@ -9,7 +9,7 @@ const [html, styles, appJs] = await Promise.all([
   readFile(new URL('public/app.js', root), 'utf8'),
 ]);
 
-const assetVersion = '20260723v34';
+const assetVersion = '20260723v35';
 
 function block(source, opening, closing = '}') {
   const start = source.indexOf(opening);

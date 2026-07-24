@@ -5,26 +5,27 @@
   "release_decision": "pass",
   "deployment_allowed": true,
   "source_fingerprints": {
-    "data/star-map-performance-budget.json": "d550d51061364473f80ce0c718edc4effc8056ca0437fbc744f714c391bd18c4",
+    "data/star-map-performance-budget.json": "278166d22e58c009027ef8e2f9258e7e09b9d494f568e63759a07aa3d78c38ba",
     "public/data/concept-evolution.json": "0d14b71f56d6ec70fea1840a4f1068a8cef04e8a26b0467bc512c928e6e88ee8",
     "public/data/ocr-observation-layer.json": "5c95361d8e157231b7fe28bc940fbab45baf0836d143a94f7c8db3fbc4ce1e39",
     "public/data/subject-detail-observation-layer.json": "30eb4adde5f906247c53f393e1083ac3aa3394d3642a784cf40e50ee825d0634",
     "public/data/pre2001-subject-detail-observation-layer.json": "399e0c750329effe75ab0dbc8bfb335a5943e152cdbff0069e14bfc88369d6c1",
     "public/data/century-observation-layer.json": "e9fd7ef785a4d02044486fe0aff09ec54ae8a345c7a26e370157e309bbf5d38b",
     "public/data/concept-evolution-families.json": "720aa6edf19e6e89faff61dc8b8d8c66007135fe35b8000dcfe94bc8eaf7b531",
-    "public/index.html": "daf04318640eed76a47dbb492f10466a578e384cbb384f909c507ace8feb220a",
-    "public/app.js": "4ba25352e00528fd9dd0b55d61b17a4bfc1cf049f17bb5f71b3d45a23016b224",
-    "public/atlas.js": "32fe70b869a943204c2b262e5d21487b80ffac53c576d8526f3f84b86daab66a",
+    "public/index.html": "c185b6c85ded1fa2d29d6e24a5db30b5ccaa340caa4db145c9b928253afacc6a",
+    "public/app.js": "30cbc81f62ff389291d7da032c869a4748d1b520a03138ad5f24d5cd91cf7f56",
+    "public/atlas.js": "a2533434f53a360707b39517cc6feb8ece76efd6a35f2a417504770a09549ad0",
     "public/styles.css": "afb6503b14f021180f088fbd3769ae07f5dfbe523f989db0a8d7dec9fca2347f"
   },
   "observed": {
     "initial_graph_data_raw_bytes": 20709970,
-    "frontend_raw_bytes": 186776,
+    "frontend_raw_bytes": 187089,
     "merged_episode_count": 2030,
     "merged_edge_count": 2916,
     "merged_evidence_count": 4957,
     "canvas_device_pixel_ratio": 2,
-    "mobile_automatic_label_count": 9
+    "mobile_automatic_label_count": 9,
+    "canvas_animation_fps": 20
   },
   "checks": [
     {
@@ -36,7 +37,7 @@
     {
       "id": "static.frontend_raw_bytes",
       "passed": true,
-      "observed": 186776,
+      "observed": 187089,
       "maximum": 200000
     },
     {
@@ -68,6 +69,12 @@
       "passed": true,
       "observed": 9,
       "maximum": 9
+    },
+    {
+      "id": "static.canvas_animation_fps",
+      "passed": true,
+      "observed": 20,
+      "maximum": 20
     }
   ]
 }

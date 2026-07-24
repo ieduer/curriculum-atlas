@@ -53,6 +53,8 @@ const observed = {
   canvas_device_pixel_ratio: Number(texts['public/atlas.js'].match(/this\.dpr = Math\.min\((\d+)/)?.[1]),
   mobile_automatic_label_count: Number(texts['public/atlas.js']
     .match(/const automaticLimit = this\.width <= 640 \? (\d+)/)?.[1]),
+  canvas_animation_fps: 1000 / Number(texts['public/atlas.js']
+    .match(/this\.animationFrameInterval = (\d+)/)?.[1]),
 };
 const checks = Object.entries(budget.static).map(([budgetKey, maximum]) => {
   const observedKey = budgetKey.replace(/_max$/, '');

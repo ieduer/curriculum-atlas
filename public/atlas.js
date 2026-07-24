@@ -1,4 +1,4 @@
-import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v34';
+import { CURRICULUM_STAGES } from './historical-stages.js?v=20260723v35';
 
 const TAU = Math.PI * 2;
 const MIN_ZOOM = .2;
@@ -249,6 +249,8 @@ export class CurriculumCosmos {
     this.dpr = 1;
     this.frame = 0;
     this.raf = 0;
+    this.animationFrameInterval = 50;
+    this.lastAnimatedFrameAt = 0;
     this.drawDurations = [];
     this.motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
     this.stable = this.motionQuery.matches;
@@ -751,6 +753,11 @@ export class CurriculumCosmos {
   loop(time = performance.now()) {
     this.raf = 0;
     if (document.hidden) return;
+    if (!this.stable && this.lastAnimatedFrameAt && time - this.lastAnimatedFrameAt < this.animationFrameInterval) {
+      this.raf = requestAnimationFrame((next) => this.loop(next));
+      return;
+    }
+    this.lastAnimatedFrameAt = time;
     const easing = this.stable ? 1 : .085;
     let moving = false;
     for (const key of ['yaw', 'pitch', 'zoom', 'panX', 'panY']) {
