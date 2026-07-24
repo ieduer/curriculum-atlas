@@ -67,7 +67,30 @@ function readyCorpus(overrides = {}) {
   };
 }
 
-function makeEnv(classification, corpus = readyCorpus()) {
+function healthyHistoricalSources() {
+  const bytes = new TextEncoder().encode(`${JSON.stringify({
+    schema_version: 1,
+    artifact_profile: 'curriculum-authenticated-bounded-reader-pointer-v1',
+    release_id: `release-${'4'.repeat(32)}`,
+    manifest_key: `historical-reader/releases/release-${'4'.repeat(32)}/manifest.json`,
+    manifest_sha256: '5'.repeat(64),
+    manifest_bytes: 256,
+    item_count: 461,
+  })}\n`);
+  return {
+    async get(key) {
+      if (key !== 'historical-reader/current.json') return null;
+      return {
+        size: bytes.byteLength,
+        async arrayBuffer() {
+          return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+        },
+      };
+    },
+  };
+}
+
+function makeEnv(classification, corpus = readyCorpus(), sources = healthyHistoricalSources()) {
   const classificationWithTaxonomy = {
     academic_identity_documents: 160,
     assessment_subject_documents: 1,
@@ -99,7 +122,7 @@ function makeEnv(classification, corpus = readyCorpus()) {
         };
       },
     },
-    SOURCES: {},
+    SOURCES: sources,
     APIS: {},
     USER_CENTER: {},
     ASSETS: {},
@@ -184,7 +207,8 @@ test('Worker health fails closed unless the complete taxonomy distribution match
   assert.match(source, /classificationCounts\.scopes === REQUIRED_CLASSIFICATION_COUNTS\.scopes/);
   assert.match(source, /classificationCounts\.unclassified === REQUIRED_CLASSIFICATION_COUNTS\.unclassified/);
   assert.match(source, /schemaMeta\.get\('page_publication_schema_version'\) === '1'/);
-  assert.match(source, /schemaReady && classificationReady && corpusReady && releaseSourceReady \? 200 : 503/);
+  assert.match(source, /healthReady \? 200 : 503/);
+  assert.match(source, /historicalReaderReady/);
   assert.match(source, /corpusReleaseReady\(corpus\)/);
   assert.match(source, /coreTableCountsEqual\(expectedCore, actualCore\)/);
   assert.match(source, /coreTableCountsEqual\(expectedCore, liveCore\)/);
@@ -210,6 +234,8 @@ test('Worker health accepts 159 subjects plus one assessment identity and reject
   assert.equal(validBody.classification.assessmentSubjectDocuments, 1);
   assert.equal(validBody.classification.displayFacets, 12);
   assert.equal(validBody.pagePublicationSchemaVersion, '1');
+  assert.equal(validBody.release.historicalReader.ready, true);
+  assert.equal(validBody.release.historicalReader.items, 461);
   assert.deepEqual(validBody.corpus.expected.coreTables, readyCoreCounts);
   assert.deepEqual(validBody.corpus.actual.coreTables, readyCoreCounts);
   assert.deepEqual(validBody.corpus.live.coreTables, readyCoreCounts);
@@ -267,6 +293,18 @@ test('Worker health accepts 159 subjects plus one assessment identity and reject
   assert.equal(extraCoreKey.status, 503);
   assert.equal(extraCoreKeyBody.corpus.ready, false);
   assert.equal(extraCoreKeyBody.corpus.live.coreTables, null);
+
+  const missingHistoricalReader = await worker.fetch(request, makeEnv({
+    documents: 196,
+    classified: 196,
+    subject_documents: 159,
+    course_documents: 16,
+    scope_documents: 20,
+    unclassified_documents: 0,
+  }, readyCorpus(), { async get() { return null; } }));
+  const missingHistoricalReaderBody = await missingHistoricalReader.json();
+  assert.equal(missingHistoricalReader.status, 503);
+  assert.equal(missingHistoricalReaderBody.release.historicalReader.ready, false);
 
   const legacyCoreRow = await worker.fetch(request, makeEnv({
     documents: 196,

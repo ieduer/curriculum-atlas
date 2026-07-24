@@ -128,7 +128,7 @@
 
 - `/archive`：百年資料目錄；
 - `/timeline`：舊連結兼容，顯示同一 `/archive` 工作台，不再渲染時間軸；
-- `/historical/<id>`：嵌入篇目與 OCR 候選頁段；
+- `/historical/<id>`：嵌入篇目詳情；登入統一用戶後按需讀取該條 bounded item 的來源掃描頁片段與逐頁 OCR 候選；
 - `/sources`、`/search`：正式資料與全文檢索；
 - `/document/<id>`：正式文件詳情；
 - `/terms?term=<concept_id>`：回到主星圖並選中概念觀測。
@@ -189,6 +189,8 @@ concept
 - 全部 `citation_allowed=false`、`semantic_claim_allowed=false`。
 
 所有 bounded items 都是**資料目錄與 evidence container**。只有實際產生的受控 OCR 詞面觀測進入星圖；沒有觀測的條目仍可在 `/archive` 與 `/historical/<id>` 被查找。
+
+461 個去重條目另有一份私有、可重建的原頁閱讀包。Builder 只從來源 SHA-256、連續物理頁範圍和已固定 OCR profile 切出該條目的 PDF 頁片段，並把逐頁候選文字、文字 hash、原始頁碼與印刷頁碼一起封裝；不複製整卷。Worker 必須先經 `USER_CENTER` 驗證登入，再核對 pointer、manifest、item、header、PDF 五層 hash 才回傳；匿名請求在讀 R2 前即返回 401。前端必須明示「原圖優先、OCR 候選不可引用、不可公開再分發」。
 
 當前固定輸入保留 1,526 條來源觀測：1,482 條 1902–2000 bounded-item OCR 詞面與 44 條 2011／2020／2022 教育部編目標題詞面。星圖按照「概念 × 年份 × 學科分面」選出最強的一條有界證據，得到 1,031 個 1902–2022 候選星點與 3,202 條 evidence；全部來源觀測仍留在資料層供篇目檢索，不因視覺聚合而刪除。
 
@@ -335,6 +337,7 @@ v19/v46 同一發布候選的真實 preview runtime 收據為：桌面 1440×100
 | `data/pre2001-specialist-bounded-items.json` | 462 個來源哈希與物理頁範圍綁定的 1902–2000 items | `pre2001:build` / `pre2001:check` |
 | `data/pre2001-bounded-identity-verification.json` | 462 個穩定 ID／462 個唯一身份／461 個物理範圍的全量身份 receipt；134 seed 全解析、唯一共用範圍明示雙分面、失敗 0 | `pre2001:build` / `pre2001:check` |
 | `public/data/pre2001-subject-detail-observation-layer.json` | 36 個早期同粒度概念、426 個星點、821 條 evidence 與學科分合關係 | `pre2001:build` / `pre2001:check` |
+| 私有 historical reader package | 461 個去重 bounded items、4,604 個頁片段實例；逐條 PDF 原頁片段與逐頁 OCR 候選，不進 Git／公開 Assets | `historical:reader:build` / `historical:reader:check` / `historical:reader:publish:*` |
 | `data/embedded-items-century-v1.json` | 134 份嵌入篇目目錄 | `century:build` / `century:check` |
 | `public/data/century-observation-layer.json` | 1902–2000 OCR 與 2011–2022 編目標題候選；投影為 1902–2022 單星圖 | `century:build` / `century:check` |
 | `data/concept-evolution-families.json` | 五個固定概念層級、55 族、歷史詞面、12 科實踐／內容／能力詞面與非因果轉寫配置 | 人工受控配置 |
@@ -356,9 +359,10 @@ v19/v46 同一發布候選的真實 preview runtime 收據為：桌面 1440×100
 | `public/historical-stages.js` | 1902–2022 單一導航分期；Canvas、底部多選、archive 分組與無障礙年份文案共用 | `tests/historical-stages.test.mjs` |
 | `data/page-publication-manifest.json` | 26 文件／30 頁的稀疏 display/citation gate；未列頁自動關閉 | `ocr:publication:build` / `ocr:publication:check` |
 | D1 corpus release | 正式文件、段落、FTS、頁門與使用者資料 | `corpus:build` / importer |
-| R2 release manifest | 可重建公開元資料 | metadata publisher |
+| R2 public release manifest | 可重建公開元資料 | metadata publisher |
+| R2 private historical reader pointer | 登入後按單條 bounded item 讀取的原頁片段與 OCR 候選 | historical reader publisher |
 
-公開 JSON 只承載允許公開的 metadata、候選定位和短證據摘要；原始掃描與完整受限 OCR 不進 Git 或公開 R2。
+公開 JSON 只承載允許公開的 metadata、候選定位和短證據摘要；原始掃描與完整受限 OCR 不進 Git 或公開 R2。私有 reader 只保存已切分的單條連續頁片段，經統一用戶認證、`private, no-store`、`noindex` API 讀取，不提供整卷物件或公開 bucket URL。
 
 v19 新增 11 條學科百年設置鏈、來源明示里程碑與可逆互動，前端 raw 固定增加約 15KB；v5 靜態上限採 25MB、2,500、3,300、5,600，前端 raw 上限由 240KB 有界調整為 260KB，DPR 2、手機 9 標籤與 20fps 動畫上限不變。亮色四類選中線對紙面背景均需 ≥4.5:1，且代碼不得包含 dashed primitive。production 仍必須由 preview 真實 transfer／ready／draw p95 門檻決定，不能只提高 raw 上限繞過 runtime 回歸。
 

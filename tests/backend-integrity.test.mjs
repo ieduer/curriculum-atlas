@@ -636,3 +636,118 @@ test('source manifest never falls back to stale data when a pointed release drif
   assert.equal((await response.json()).error, '来源校验清单发布状态异常');
   assert.equal(calls.includes('catalog/ingest-manifest.json'), false);
 });
+
+test('historical reader requires login and serves only the hash-bound item package', async () => {
+  const worker = await loadWorker();
+  const itemId = 'embedded-century:legacy-compendium-plans:ab0d59effc211331';
+  const itemHash = sha256(itemId);
+  const releaseId = `release-${'4'.repeat(32)}`;
+  const objectKey = `historical-reader/releases/${releaseId}/items/${itemHash}.bin`;
+  const manifestKey = `historical-reader/releases/${releaseId}/manifest.json`;
+  const pdfBytes = Buffer.from('%PDF-1.7\nbounded historical page fragment\n%%EOF\n');
+  const headerBytes = Buffer.from(`${JSON.stringify({
+    schema_version: 1,
+    artifact_profile: 'curriculum-authenticated-bounded-reader-item-v1',
+    item_id: itemId,
+    title: '钦定蒙学堂章程',
+    year: 1902,
+    page_count: 1,
+    pages: [{
+      ordinal: 1,
+      physical_page: 15,
+      printed_page: 1,
+      text: '测试候选正文',
+      text_sha256: sha256('测试候选正文'),
+    }],
+    access_policy: {
+      audience: 'authenticated_bdfz_user',
+      citation_allowed: false,
+      public_redistribution_allowed: false,
+    },
+  })}\n`);
+  const prefix = Buffer.alloc(4);
+  prefix.writeUInt32BE(headerBytes.byteLength);
+  const itemBytes = Buffer.concat([prefix, headerBytes, pdfBytes]);
+  const targetRecord = {
+    item_id: itemId,
+    item_hash: itemHash,
+    object_key: objectKey,
+    sha256: sha256(itemBytes),
+    bytes: itemBytes.byteLength,
+    header_sha256: sha256(headerBytes),
+    header_bytes: headerBytes.byteLength,
+    pdf_sha256: sha256(pdfBytes),
+    pdf_bytes: pdfBytes.byteLength,
+    page_count: 1,
+  };
+  const filler = Array.from({ length: 460 }, (_, index) => ({
+    item_id: `pre2001-item:filler:${String(index).padStart(4, '0')}`,
+    item_hash: String(index).padStart(64, '0'),
+    object_key: `historical-reader/releases/${releaseId}/items/${String(index).padStart(64, '0')}.bin`,
+    sha256: '1'.repeat(64),
+    bytes: 8,
+    header_sha256: '2'.repeat(64),
+    header_bytes: 2,
+    pdf_sha256: '3'.repeat(64),
+    pdf_bytes: 2,
+    page_count: 1,
+  }));
+  const manifestBytes = Buffer.from(`${JSON.stringify({
+    schema_version: 1,
+    artifact_profile: 'curriculum-authenticated-bounded-reader-manifest-v1',
+    release_id: releaseId,
+    item_count: 461,
+    objects: [targetRecord, ...filler],
+  })}\n`);
+  const pointerBytes = Buffer.from(`${JSON.stringify({
+    schema_version: 1,
+    artifact_profile: 'curriculum-authenticated-bounded-reader-pointer-v1',
+    release_id: releaseId,
+    manifest_key: manifestKey,
+    manifest_sha256: sha256(manifestBytes),
+    manifest_bytes: manifestBytes.byteLength,
+    item_count: 461,
+  })}\n`);
+  const calls = [];
+  const objects = new Map([
+    ['historical-reader/current.json', mockR2Object(pointerBytes)],
+    [manifestKey, mockR2Object(manifestBytes)],
+    [objectKey, mockR2Object(itemBytes, 'application/octet-stream')],
+  ]);
+  const { env } = makeCommentEnv({
+    sources: {
+      async get(key) {
+        calls.push(key);
+        return objects.get(key) || null;
+      },
+    },
+  });
+  const anonymous = await worker.fetch(new Request(
+    `https://curriculum.example/api/historical/${encodeURIComponent(itemId)}`,
+  ), env);
+  assert.equal(anonymous.status, 401);
+  assert.equal(calls.length, 0);
+
+  const content = await worker.fetch(new Request(
+    `https://curriculum.example/api/historical/${encodeURIComponent(itemId)}`,
+    { headers: { cookie: 'bdfz_uc_session=test' } },
+  ), env);
+  assert.equal(content.status, 200);
+  const contentJson = await content.json();
+  assert.equal(contentJson.item_id, itemId);
+  assert.equal(contentJson.pages[0].text, '测试候选正文');
+  assert.equal(content.headers.get('cache-control'), 'private, no-store');
+
+  const pdf = await worker.fetch(new Request(
+    `https://curriculum.example/api/historical/${encodeURIComponent(itemId)}/source.pdf`,
+    {
+      headers: {
+        cookie: 'bdfz_uc_session=test',
+        range: 'bytes=0-7',
+      },
+    },
+  ), env);
+  assert.equal(pdf.status, 206);
+  assert.equal(pdf.headers.get('content-range'), `bytes 0-7/${pdfBytes.byteLength}`);
+  assert.equal(Buffer.from(await pdf.arrayBuffer()).toString(), pdfBytes.subarray(0, 8).toString());
+});

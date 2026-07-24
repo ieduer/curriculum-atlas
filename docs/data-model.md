@@ -85,3 +85,16 @@ R2 只保存可公开重建的质量元数据。发布顺序固定为 17 个 `re
 - production：`7b2b836ae29c98743b3a3248eac8e013a4b6c048ac473b0c95685804fb365018`，188,566 bytes。
 
 Environment evidence 是采集时快照；随后发生的 pointer 激活由 append-only action-log readback 证明，不能回写伪造采集时间。
+
+## 私有百年原页阅读层
+
+1902–2000 目录的 462 个来源身份按 `source_item_id || id` 去重为 461 个阅读身份；唯一共用页段只生成一个物理包并保留两个公开分面。每个包由 4-byte header 长度、JSON header 和单条 PDF 页片段组成，header 保存逐页 OCR 候选及其 hash。当前固定计数为 461 个 item、4,604 个 bounded page instances。
+
+发布契约：
+
+- `historical-reader/releases/<release_id>/items/<sha256(item_id)>.bin` 为 immutable object；
+- manifest 精确列出 461 个 item 的 object/header/PDF hash 与 bytes；
+- 所有对象上传并逐一 readback 后，才切换 `historical-reader/current.json`；
+- Worker 在返回内容前复核 pointer → manifest → item → header → PDF 全链；
+- 匿名请求不得读取 R2；登录响应使用 `private, no-store` 与 `noindex, noarchive`；
+- OCR 文字恒为 candidate、`citation_allowed=false`、`semantic_claim_allowed=false`，不进入 D1 正式全文检索与证据 AI。

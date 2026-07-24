@@ -7,12 +7,12 @@ Browser
   ├─ Worker Assets: SPA, stable reading interface, atlas visualization
   └─ Worker API
        ├─ D1: catalog, FTS5, verification evidence, comments, AI audit
-       ├─ R2: rebuildable public metadata manifests
+       ├─ R2: public metadata manifests + authenticated bounded-item reader
        ├─ USER_CENTER binding: session, role and privacy-bounded events
        └─ APIS binding: managed Gemini gateway
 ```
 
-原始 PDF、OCR 中间图像和受再分发限制的扫描件仅保存在本地研究区，不属于公开部署资产。生成流程把可公开元数据写入 D1/R2；未通过文档级与段落级闸门的文本不能进入搜索或 AI 引文。
+整卷原始 PDF、OCR 中间图像和受再分发限制的完整转录仅保存在本地研究区，不属于公开部署资产。生成流程把可公开元数据写入 D1/R2；另把每个历史条目的连续物理页切成独立私有 R2 包，只有统一用户认证后的 `/api/historical/<id>` 与 `/source.pdf` 可以读取。未通过文档级与段落级闸门的文本不能进入正式搜索或 AI 引文。
 
 产品和工程的唯一总入口是 `docs/PROJECT_MANUAL.md`。本文件只解释技术分层，不能另行定义第二套产品轴线。
 
@@ -28,12 +28,14 @@ Browser
 - `src/retrieval.ts` / `src/ai.ts`：白名单检索、共享模型网关和引文完整性检查。
 - `src/auth.ts`：User Center service binding 优先的会话验证。
 - `src/security.ts`：CSP、CORS、HMAC 限流标识和输入边界。
+- `scripts/build-historical-reader-package.mjs`：从本地固定来源与 OCR 证据生成 461 个 bounded-item 私有包，并逐对象核对哈希。
+- `scripts/publish-historical-reader.mjs`：immutable objects 全量上传、逐对象 readback 后才原子切换 `historical-reader/current.json`。
 - `public/`：无框架 SPA；`scripts/build-site.mjs` 生成 `dist/`。
 - `migrations/`：D1 schema 的唯一来源；不可直接手改生产表结构。
 
 ## 数据发布
 
-`data/*.json` 是可审计清单，`scripts/build-corpus.mjs` 生成未纳入 Git 的 SQL 分片，`scripts/import-corpus.mjs` 幂等导入 D1。R2 只保存可重建的来源与质量清单。完整命令见 `docs/deployment.md`。
+`data/*.json` 是可审计清单，`scripts/build-corpus.mjs` 生成未纳入 Git 的 SQL 分片，`scripts/import-corpus.mjs` 幂等导入 D1。R2 公共区保存可重建的来源与质量清单；私有 historical reader 区只保存来源哈希与物理頁範圍閉合的條目包。完整命令见 `docs/deployment.md`。
 
 ## 依赖
 

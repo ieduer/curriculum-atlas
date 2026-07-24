@@ -10,7 +10,7 @@ import {
 } from './subject-facets';
 import type { Env, Session } from './types';
 
-const VERSION = '2026.07.24-v19';
+const VERSION = '2026.07.24-v20';
 const R2_CURRENT_POINTER_KEY = 'release/current.json';
 const R2_INGEST_MANIFEST_KEY = 'catalog/ingest-manifest.json';
 const R2_RELEASE_PREFIX = 'releases';
@@ -18,6 +18,14 @@ const R2_RELEASE_ID_PATTERN = /^release-[a-f0-9]{32}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const MAX_RELEASE_MANIFEST_BYTES = 16 * 1024 * 1024;
 const MAX_INGEST_MANIFEST_BYTES = 64 * 1024 * 1024;
+const HISTORICAL_READER_POINTER_KEY = 'historical-reader/current.json';
+const HISTORICAL_READER_PREFIX = 'historical-reader/releases';
+const HISTORICAL_READER_POINTER_PROFILE = 'curriculum-authenticated-bounded-reader-pointer-v1';
+const HISTORICAL_READER_MANIFEST_PROFILE = 'curriculum-authenticated-bounded-reader-manifest-v1';
+const HISTORICAL_READER_ITEM_PROFILE = 'curriculum-authenticated-bounded-reader-item-v1';
+const MAX_HISTORICAL_READER_MANIFEST_BYTES = 4 * 1024 * 1024;
+const MAX_HISTORICAL_READER_ITEM_BYTES = 96 * 1024 * 1024;
+const MAX_HISTORICAL_READER_HEADER_BYTES = 16 * 1024 * 1024;
 const REQUIRED_CLASSIFICATION_COUNTS = {
   documents: 196,
   academicIdentities: 160,
@@ -111,6 +119,37 @@ interface R2ReleaseAsset {
   sha256: string;
   bytes: number;
   content_type?: string;
+}
+
+interface HistoricalReaderPointer {
+  schema_version: 1;
+  artifact_profile: typeof HISTORICAL_READER_POINTER_PROFILE;
+  release_id: string;
+  manifest_key: string;
+  manifest_sha256: string;
+  manifest_bytes: number;
+  item_count: number;
+}
+
+interface HistoricalReaderObject {
+  item_id: string;
+  item_hash: string;
+  object_key: string;
+  sha256: string;
+  bytes: number;
+  header_sha256: string;
+  header_bytes: number;
+  pdf_sha256: string;
+  pdf_bytes: number;
+  page_count: number;
+}
+
+interface HistoricalReaderManifest {
+  schema_version: 1;
+  artifact_profile: typeof HISTORICAL_READER_MANIFEST_PROFILE;
+  release_id: string;
+  item_count: number;
+  objects: HistoricalReaderObject[];
 }
 
 function optionalParagraphId(value: unknown): number | null {
@@ -216,12 +255,38 @@ async function requireCorpusReady(env: Env): Promise<void> {
   }
 }
 
+async function currentHistoricalReaderPointer(env: Env): Promise<HistoricalReaderPointer | null> {
+  try {
+    const object = await env.SOURCES.get(HISTORICAL_READER_POINTER_KEY);
+    if (!object || object.size < 1 || object.size > 4_096) return null;
+    const bytes = await object.arrayBuffer();
+    if (bytes.byteLength !== object.size) return null;
+    const pointer = JSON.parse(new TextDecoder().decode(bytes)) as Partial<HistoricalReaderPointer>;
+    if (pointer.schema_version !== 1
+      || pointer.artifact_profile !== HISTORICAL_READER_POINTER_PROFILE
+      || typeof pointer.release_id !== 'string'
+      || !R2_RELEASE_ID_PATTERN.test(pointer.release_id)
+      || pointer.manifest_key !== `${HISTORICAL_READER_PREFIX}/${pointer.release_id}/manifest.json`
+      || typeof pointer.manifest_sha256 !== 'string'
+      || !SHA256_PATTERN.test(pointer.manifest_sha256)
+      || !positiveSafeInteger(pointer.manifest_bytes)
+      || pointer.manifest_bytes > MAX_HISTORICAL_READER_MANIFEST_BYTES
+      || pointer.item_count !== 461) return null;
+    return pointer as HistoricalReaderPointer;
+  } catch {
+    return null;
+  }
+}
+
 async function health(env: Env): Promise<Response> {
-  const metaRows = await env.DB.prepare(
-    "SELECT key,value FROM site_meta WHERE key IN ('schema_version','document_classification_schema_version','page_publication_schema_version')",
-  ).all<{ key: string; value: string }>();
+  const [metaRows, corpus, historicalReaderPointer] = await Promise.all([
+    env.DB.prepare(
+      "SELECT key,value FROM site_meta WHERE key IN ('schema_version','document_classification_schema_version','page_publication_schema_version')",
+    ).all<{ key: string; value: string }>(),
+    currentCorpusRelease(env),
+    currentHistoricalReaderPointer(env),
+  ]);
   const schemaMeta = new Map(metaRows.results.map((row) => [row.key, row.value]));
-  const corpus = await currentCorpusRelease(env);
   let classifications: { documents: number; classified: number; academic_identity_documents: number; subject_documents: number; assessment_subject_documents: number; display_facets: number; course_documents: number; scope_documents: number; unclassified_documents: number } | null = null;
   try {
     classifications = await env.DB.prepare(`SELECT COUNT(d.id) AS documents, COUNT(dc.document_id) AS classified,
@@ -267,14 +332,25 @@ async function health(env: Env): Promise<Response> {
   const actualCoreCounts = parseCoreTableCounts(corpus?.actual_core_counts_json);
   const liveCoreCounts = parseCoreTableCounts(corpus?.live_core_counts_json);
   const releaseSourceReady = /^[a-f0-9]{40}$/.test(env.RELEASE_GIT_COMMIT || '');
+  const historicalReaderReady = historicalReaderPointer !== null;
+  const healthReady = schemaReady
+    && classificationReady
+    && corpusReady
+    && releaseSourceReady
+    && historicalReaderReady;
   return json({
-    ok: schemaReady && classificationReady && corpusReady && releaseSourceReady,
+    ok: healthReady,
     service: 'bdfz-curriculum-atlas',
     version: VERSION,
     environment: env.ENVIRONMENT,
     release: {
       gitCommit: releaseSourceReady ? env.RELEASE_GIT_COMMIT : null,
       r2Reader: 'versioned_manifest_v1',
+      historicalReader: {
+        ready: historicalReaderReady,
+        releaseId: historicalReaderPointer?.release_id || null,
+        items: historicalReaderPointer?.item_count || 0,
+      },
     },
     schemaVersion: schemaMeta.get('schema_version') || null,
     classificationSchemaVersion: schemaMeta.get('document_classification_schema_version') || null,
@@ -334,7 +410,7 @@ async function health(env: Env): Promise<Response> {
       userCenter: Boolean(env.USER_CENTER),
       assets: Boolean(env.ASSETS),
     },
-  }, schemaReady && classificationReady && corpusReady && releaseSourceReady ? 200 : 503);
+  }, healthReady ? 200 : 503);
 }
 
 async function requireExactQueryIdentity(env: Env, identity: string): Promise<void> {
@@ -735,6 +811,10 @@ async function requireSha256(bytes: ArrayBuffer, expected: string): Promise<void
   if (!SHA256_PATTERN.test(expected) || await sha256Hex(bytes) !== expected) sourceManifestFailure();
 }
 
+async function requireHistoricalReaderSha256(bytes: ArrayBuffer, expected: string): Promise<void> {
+  if (!SHA256_PATTERN.test(expected) || await sha256Hex(bytes) !== expected) historicalReaderFailure();
+}
+
 function sourceManifestResponse(object: R2ObjectBody, bytes: ArrayBuffer, contentType?: string): Response {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
@@ -796,6 +876,219 @@ async function sourceManifest(env: Env): Promise<Response> {
   return sourceManifestResponse(object, bytes, asset.content_type || 'application/json');
 }
 
+function historicalReaderFailure(message = '百年资料原图阅读包发布状态异常'): never {
+  throw new HttpError(503, message);
+}
+
+async function historicalReaderBytes(
+  object: R2ObjectBody,
+  expectedBytes: number,
+  maximumBytes: number,
+): Promise<ArrayBuffer> {
+  if (!positiveSafeInteger(expectedBytes)
+    || object.size !== expectedBytes
+    || object.size > maximumBytes) {
+    return historicalReaderFailure();
+  }
+  const bytes = await object.arrayBuffer();
+  if (bytes.byteLength !== expectedBytes || bytes.byteLength > maximumBytes) {
+    return historicalReaderFailure();
+  }
+  return bytes;
+}
+
+function parseHistoricalReaderJson<T>(bytes: ArrayBuffer): T {
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes)) as T;
+  } catch {
+    return historicalReaderFailure();
+  }
+}
+
+async function sha256Text(value: string): Promise<string> {
+  return sha256Hex(new TextEncoder().encode(value).buffer);
+}
+
+function historicalReaderItemId(pathValue: string): string {
+  let value = '';
+  try {
+    value = decodeURIComponent(pathValue);
+  } catch {
+    throw new HttpError(400, '百年资料编号无效');
+  }
+  if (value.length < 8 || value.length > 240
+    || !/^(?:embedded-century|pre2001-item):[a-z0-9:-]+$/u.test(value)) {
+    throw new HttpError(400, '百年资料编号无效');
+  }
+  return value;
+}
+
+async function historicalReaderBundle(env: Env, itemId: string): Promise<{
+  pointer: HistoricalReaderPointer;
+  record: HistoricalReaderObject;
+  header: Record<string, unknown>;
+  pdfBytes: ArrayBuffer;
+}> {
+  const pointerObject = await env.SOURCES.get(HISTORICAL_READER_POINTER_KEY);
+  if (!pointerObject) return historicalReaderFailure('百年资料原图阅读包尚未发布');
+  const pointerBytes = await historicalReaderBytes(
+    pointerObject,
+    pointerObject.size,
+    MAX_HISTORICAL_READER_MANIFEST_BYTES,
+  );
+  const pointer = parseHistoricalReaderJson<HistoricalReaderPointer>(pointerBytes);
+  if (pointer.schema_version !== 1
+    || pointer.artifact_profile !== HISTORICAL_READER_POINTER_PROFILE
+    || !R2_RELEASE_ID_PATTERN.test(pointer.release_id)
+    || pointer.manifest_key !== `${HISTORICAL_READER_PREFIX}/${pointer.release_id}/manifest.json`
+    || !SHA256_PATTERN.test(pointer.manifest_sha256)
+    || !positiveSafeInteger(pointer.manifest_bytes)
+    || pointer.manifest_bytes > MAX_HISTORICAL_READER_MANIFEST_BYTES
+    || pointer.item_count !== 461) {
+    return historicalReaderFailure();
+  }
+  const manifestObject = await env.SOURCES.get(pointer.manifest_key);
+  if (!manifestObject) return historicalReaderFailure();
+  const manifestBytes = await historicalReaderBytes(
+    manifestObject,
+    pointer.manifest_bytes,
+    MAX_HISTORICAL_READER_MANIFEST_BYTES,
+  );
+  await requireHistoricalReaderSha256(manifestBytes, pointer.manifest_sha256);
+  const manifest = parseHistoricalReaderJson<HistoricalReaderManifest>(manifestBytes);
+  if (manifest.schema_version !== 1
+    || manifest.artifact_profile !== HISTORICAL_READER_MANIFEST_PROFILE
+    || manifest.release_id !== pointer.release_id
+    || manifest.item_count !== pointer.item_count
+    || !Array.isArray(manifest.objects)
+    || manifest.objects.length !== pointer.item_count) {
+    return historicalReaderFailure();
+  }
+  const itemHash = await sha256Text(itemId);
+  const matches = manifest.objects.filter((candidate) =>
+    candidate?.item_id === itemId && candidate?.item_hash === itemHash);
+  if (matches.length !== 1) throw new HttpError(404, '未找到这条百年资料的原图阅读包');
+  const record = matches[0];
+  if (record.object_key !== `${HISTORICAL_READER_PREFIX}/${pointer.release_id}/items/${itemHash}.bin`
+    || !SHA256_PATTERN.test(record.sha256)
+    || !SHA256_PATTERN.test(record.header_sha256)
+    || !SHA256_PATTERN.test(record.pdf_sha256)
+    || !positiveSafeInteger(record.bytes)
+    || !positiveSafeInteger(record.header_bytes)
+    || !positiveSafeInteger(record.pdf_bytes)
+    || !positiveSafeInteger(record.page_count)
+    || record.header_bytes > MAX_HISTORICAL_READER_HEADER_BYTES
+    || record.bytes !== 4 + record.header_bytes + record.pdf_bytes) {
+    return historicalReaderFailure();
+  }
+  const itemObject = await env.SOURCES.get(record.object_key);
+  if (!itemObject) return historicalReaderFailure();
+  const itemBytes = await historicalReaderBytes(
+    itemObject,
+    record.bytes,
+    MAX_HISTORICAL_READER_ITEM_BYTES,
+  );
+  await requireHistoricalReaderSha256(itemBytes, record.sha256);
+  const view = new DataView(itemBytes);
+  const headerBytesLength = view.getUint32(0);
+  if (headerBytesLength !== record.header_bytes) return historicalReaderFailure();
+  const headerBytes = itemBytes.slice(4, 4 + headerBytesLength);
+  await requireHistoricalReaderSha256(headerBytes, record.header_sha256);
+  const header = parseHistoricalReaderJson<Record<string, unknown>>(headerBytes);
+  if (header.schema_version !== 1
+    || header.artifact_profile !== HISTORICAL_READER_ITEM_PROFILE
+    || header.item_id !== itemId
+    || header.page_count !== record.page_count
+    || !Array.isArray(header.pages)
+    || header.pages.length !== record.page_count
+    || (header.access_policy as { audience?: unknown } | undefined)?.audience !== 'authenticated_bdfz_user'
+    || (header.access_policy as { citation_allowed?: unknown } | undefined)?.citation_allowed !== false
+    || (header.access_policy as { public_redistribution_allowed?: unknown } | undefined)?.public_redistribution_allowed !== false) {
+    return historicalReaderFailure();
+  }
+  const pdfBytes = itemBytes.slice(4 + headerBytesLength);
+  if (pdfBytes.byteLength !== record.pdf_bytes) return historicalReaderFailure();
+  await requireHistoricalReaderSha256(pdfBytes, record.pdf_sha256);
+  return { pointer, record, header, pdfBytes };
+}
+
+async function historicalReaderItem(
+  env: Env,
+  session: Session,
+  encodedItemId: string,
+): Promise<Response> {
+  requireAuthenticated(session);
+  const itemId = historicalReaderItemId(encodedItemId);
+  const bundle = await historicalReaderBundle(env, itemId);
+  return json({
+    ...bundle.header,
+    reader_release_id: bundle.pointer.release_id,
+  }, 200, {
+    'cache-control': 'private, no-store',
+    'x-robots-tag': 'noindex, noarchive',
+  });
+}
+
+function pdfRangeResponse(bytes: ArrayBuffer, request: Request, filename: string): Response {
+  const headers = new Headers({
+    'accept-ranges': 'bytes',
+    'cache-control': 'private, no-store',
+    'content-disposition': `inline; filename="${filename}"`,
+    'content-type': 'application/pdf',
+    'x-content-type-options': 'nosniff',
+    'x-robots-tag': 'noindex, noarchive',
+  });
+  const range = request.headers.get('range');
+  if (!range) {
+    headers.set('content-length', String(bytes.byteLength));
+    return new Response(bytes, { headers });
+  }
+  const match = range.match(/^bytes=(\d*)-(\d*)$/);
+  if (!match || (!match[1] && !match[2])) {
+    return new Response(null, {
+      status: 416,
+      headers: { 'content-range': `bytes */${bytes.byteLength}` },
+    });
+  }
+  const start = match[1]
+    ? Number(match[1])
+    : Math.max(0, bytes.byteLength - Number(match[2]));
+  const end = match[2] && match[1]
+    ? Number(match[2])
+    : bytes.byteLength - 1;
+  if (!Number.isSafeInteger(start)
+    || !Number.isSafeInteger(end)
+    || start < 0
+    || end < start
+    || start >= bytes.byteLength) {
+    return new Response(null, {
+      status: 416,
+      headers: { 'content-range': `bytes */${bytes.byteLength}` },
+    });
+  }
+  const boundedEnd = Math.min(end, bytes.byteLength - 1);
+  const body = bytes.slice(start, boundedEnd + 1);
+  headers.set('content-length', String(body.byteLength));
+  headers.set('content-range', `bytes ${start}-${boundedEnd}/${bytes.byteLength}`);
+  return new Response(body, { status: 206, headers });
+}
+
+async function historicalReaderPdf(
+  request: Request,
+  env: Env,
+  session: Session,
+  encodedItemId: string,
+): Promise<Response> {
+  requireAuthenticated(session);
+  const itemId = historicalReaderItemId(encodedItemId);
+  const bundle = await historicalReaderBundle(env, itemId);
+  return pdfRangeResponse(
+    bundle.pdfBytes,
+    request,
+    `curriculum-${bundle.record.item_hash.slice(0, 16)}.pdf`,
+  );
+}
+
 async function api(request: Request, env: Env, url: URL): Promise<Response> {
   const { pathname } = url;
   const method = request.method;
@@ -812,8 +1105,19 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
   if (pathname === '/api/terms' && method === 'GET') return terminology(env);
   if (pathname === '/api/compare' && method === 'GET') return compare(url, env);
   if (pathname === '/api/source-manifest' && method === 'GET') return sourceManifest(env);
-  const needsSession = pathname.startsWith('/api/comments') || pathname.startsWith('/api/ai') || pathname.startsWith('/api/admin');
+  const needsSession = pathname.startsWith('/api/comments')
+    || pathname.startsWith('/api/ai')
+    || pathname.startsWith('/api/admin')
+    || pathname.startsWith('/api/historical/');
   const session = needsSession ? await getSession(request, env) : { authenticated: false, user: null, admin: false };
+  const historicalPdfMatch = pathname.match(/^\/api\/historical\/(.+)\/source\.pdf$/);
+  if (historicalPdfMatch && method === 'GET') {
+    return historicalReaderPdf(request, env, session, historicalPdfMatch[1]);
+  }
+  const historicalItemMatch = pathname.match(/^\/api\/historical\/(.+)$/);
+  if (historicalItemMatch && method === 'GET') {
+    return historicalReaderItem(env, session, historicalItemMatch[1]);
+  }
   if (pathname === '/api/comments' && method === 'GET') return listComments(url, env, session);
   if (pathname === '/api/comments' && method === 'POST') return createComment(request, env, session);
   const reportMatch = pathname.match(/^\/api\/comments\/([a-f0-9-]+)\/report$/);

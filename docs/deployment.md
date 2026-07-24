@@ -27,6 +27,7 @@
 - core graph 与 64 个 academic shards 的 build revision/hash/bytes parity；
 - D1 migration、唯一 100% Worker version、五项 live asset byte parity 与 health provenance；
 - 17 个 R2 immutable objects、manifest、current pointer 的完整 readback；
+- 若 historical reader 有变更：461 个私有 item objects、manifest 与 `historical-reader/current.json` 的逐对象 hash/bytes readback；
 - desktop/mobile 单一 Canvas、亮/暗主题、多年份比较、inspector safe viewport、零横向溢出与 console 检查。
 
 任一失败在远端 mutation 或 pointer 切换前 fail closed；`manual_override_allowed=false`。
@@ -102,6 +103,19 @@ npm run metadata:publish:production
 
 发布器顺序固定：immutable objects → 每对象 readback → manifest/readback → current pointer → pointer readback。中断时先读当前 pointer 和目标对象；pointer 未切换则旧版仍在线，已上传的未引用 immutable objects 可保留；pointer 已切换则先完成 readback。不得覆盖 immutable key 或盲目重跑。
 
+历史原页阅读包独立于公开 metadata pointer，固定先 preview、后 production：
+
+```bash
+npm run historical:reader:build
+npm run historical:reader:check
+npm run historical:reader:publish:preview
+npm run historical:reader:publish:preview -- --apply
+npm run historical:reader:publish:production
+npm run historical:reader:publish:production -- --apply
+```
+
+发布命令不带 `--apply` 时只读取远端 pointer 并输出 dry-run。`--apply` 顺序为 461 个 item objects 与 manifest 上传 → 462/462 全量 readback → 最后写入 `historical-reader/current.json` → pointer readback。中断且 pointer 未切换时，旧版不受影响；pointer 已切换时必须完成 readback。回滚只恢复 predecessor pointer 原始 bytes，immutable objects 保留供审计；若 predecessor 为 `null`，移除 current pointer 即关闭入口，不能删除整桶。
+
 ### 6. API、浏览器与依赖验收
 
 ```bash
@@ -119,6 +133,8 @@ curl -fsS https://curriculum.bdfz.net/api/source-manifest
 - 实际点击星点会高亮同层概念族并适配镜头；
 - inspector 在桌面选择星群对侧，在手机位于底部安全视窗外；
 - 1440×1000 与 390×844 无横向溢出，console errors/warnings 为 0；
+- `/compare` 与 `/sources` 均无 `page_count` 例外；`/archive` 条目可进入 `/historical/<id>`；
+- 匿名调用 `/api/historical/<id>` 返回 401 且不读 R2；登录后可加载单条 PDF 原页与逐页 OCR 候选，响应不可缓存且不提供整卷；
 - 关闭命名会话，执行 orphan dry-run。
 
 共享 hub 仅做只读依赖 smoke，不修改合同。

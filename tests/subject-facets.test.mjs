@@ -236,7 +236,10 @@ test('subject focus fits visible nodes, restores the full map, preserves Shift c
   assert.ok(controlsStart >= 0 && controlsEnd > controlsStart, 'subject control handler missing');
   const controls = app.slice(controlsStart, controlsEnd);
   assert.match(controls, /if \(event\.shiftKey\)/);
-  assert.match(controls, /visibleSubjects\.length === 1 && visibleSubjects\[0\] === subject[\s\S]*state\.hiddenSubjects\.clear\(\)/);
+  assert.match(controls, /state\.activeSubjectToggle === subject && state\.subjectToggleSnapshot[\s\S]*state\.hiddenSubjects = new Set\(state\.subjectToggleSnapshot\.hiddenSubjects\)/,
+    'second click must restore the exact pre-isolation subject state');
+  assert.match(controls, /state\.activeSubjectToggle = subject[\s\S]*state\.hiddenSubjects\.clear\(\)[\s\S]*name !== subject/,
+    'first click must isolate only the requested subject');
   assert.match(controls, /updateMapStatus\(\{ fitVisible: !event\.shiftKey \}\)/,
     'ordinary isolate and restore-all clicks must fit, while Shift multi-select must not');
   assert.match(app, /visibleSubjectCount === 1 \? 1\.32 : 1/,

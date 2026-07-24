@@ -1,5 +1,5 @@
-import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260724v46';
-import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260724v46';
+import { CurriculumCosmos, episodeCanonicalSubject, episodeCourseEntity, episodeEntityLabel, episodeVisibleForSubjectFilter, subjectColor } from './atlas.js?v=20260724v47';
+import { CURRICULUM_STAGES, curriculumStageForYear } from './historical-stages.js?v=20260724v47';
 import {
   DISPLAY_SUBJECT_FACETS,
   buildSubjectFacetIndex,
@@ -8,7 +8,7 @@ import {
   normalizeSubjectFacet,
   planSubjectFacetQueries,
   publicSubjectFacet,
-} from './subject-facets.js?v=20260724v46';
+} from './subject-facets.js?v=20260724v47';
 
 const diagnosticsStartedAt = performance.now();
 let diagnosticsReadyAt = null;
@@ -276,14 +276,14 @@ async function api(path, options) {
 async function loadBase() {
   if (state.meta) return;
   const [conceptGraph, ocrLayer, detailLayer, pre2001Layer, centuryLayer, evolutionLayer, disciplineLifecycle, ocrCoverageSummary, meta, documents, insights] = await Promise.all([
-    api('/data/concept-evolution.json?v=20260724v46'),
-    api('/data/ocr-observation-layer.json?v=20260724v46'),
-    api('/data/subject-detail-observation-layer.json?v=20260724v46'),
-    api('/data/pre2001-subject-detail-observation-layer.json?v=20260724v46'),
-    api('/data/century-observation-layer.json?v=20260724v46'),
-    api('/data/concept-evolution-families.json?v=20260724v46'),
-    api('/data/discipline-lifecycle.json?v=20260724v46'),
-    api('/data/ocr-coverage-summary.json?v=20260724v46'),
+    api('/data/concept-evolution.json?v=20260724v47'),
+    api('/data/ocr-observation-layer.json?v=20260724v47'),
+    api('/data/subject-detail-observation-layer.json?v=20260724v47'),
+    api('/data/pre2001-subject-detail-observation-layer.json?v=20260724v47'),
+    api('/data/century-observation-layer.json?v=20260724v47'),
+    api('/data/concept-evolution-families.json?v=20260724v47'),
+    api('/data/discipline-lifecycle.json?v=20260724v47'),
+    api('/data/ocr-coverage-summary.json?v=20260724v47'),
     api('/api/meta').catch(() => ({ turnstileSiteKey: null, degraded: true })),
     api('/api/documents?limit=200').catch(() => ({ documents: [] })),
     api('/api/insights').catch(() => ({ insights: [] })),
@@ -578,7 +578,7 @@ function navigate(href, replace = false) {
 function qualityLabel(doc) {
   if (Number(doc.citation_allowed) === 1) return '图文与来源已过引文门槛';
   const ocrDocument = state.ocrLayer?.documents?.find((item) => item.id === doc.id);
-  if (ocrDocument?.completed_pages === ocrDocument?.page_count) {
+  if (ocrDocument && ocrDocument.completed_pages === ocrDocument.page_count) {
     return `OCR ${ocrDocument.page_count} 页完成 · 候选观察不可引用`;
   }
   if (/ocr/i.test(String(doc.text_quality_status || ''))) return 'OCR 机器复核中 · 禁止 AI 引用';
@@ -1871,7 +1871,7 @@ function renderCenturyArchive(url) {
   });
 }
 
-function renderHistoricalItem(id) {
+async function renderHistoricalItem(id) {
   const item = state.centuryItemById.get(id);
   if (!item) {
     workbenchBody.innerHTML = '<div class="empty-state">未找到这条百年文件记录。</div>';
@@ -1909,7 +1909,49 @@ function renderHistoricalItem(id) {
     ? related.map(({ candidate, shared }) => `<article class="result-row"><a href="/historical/${encodeURIComponent(candidate.id)}" data-link>${escapeHtml(candidate.year)} · ${escapeHtml(candidate.title)}</a><small>${escapeHtml(candidate.subject)} · 共同词面 ${escapeHtml(shared.map((concept) => concept.label).join('、'))}</small></article>`).join('')
     : '<div class="empty-state">当前没有按共同词面连接的其他条目。</div>';
   const itemFacets = (item.visibility_facets || []).join(' · ') || item.subject;
-  workbenchBody.innerHTML = `<div class="reader-grid century-reader"><article class="reader-document"><p class="century-document-kicker">${escapeHtml(item.year)} · ${escapeHtml(itemFacets)} · 候选文件身份</p><h2>${escapeHtml(item.title)}</h2><div class="reader-candidate-boundary"><b>候选层边界</b><p>${escapeHtml(item.assertion_boundary || state.centuryLayer.assertion_boundary)}</p></div><h2>目录绑定页段</h2><ol class="century-segments">${segments}</ol><h2>OCR 词面观察</h2><div class="century-concepts">${observations}</div></article><aside class="reader-facts"><h3>文件身份</h3><p>年份：${escapeHtml(item.year)}<br>学科分面：${escapeHtml(itemFacets)}<br>学段：${escapeHtml(item.stage)}<br>类型：${escapeHtml(item.document_type)}<br>题名状态：${escapeHtml(item.title_status)}<br>身份：目录／标题绑定候选<br>引文权限：关闭<br>语义断言：关闭</p><p>父级资料：${escapeHtml(item.parent_title)}</p><a class="action-button primary" href="/archive?subject=${encodeURIComponent(item.visibility_facets?.[0] || item.subject)}" data-link>返回百年资料目录</a><h3>候选词面关系</h3><ul class="century-relation-list">${relationRows}</ul><h3>共同词面文件</h3>${relatedRows}</aside></div>`;
+  workbenchBody.innerHTML = `<div class="reader-grid century-reader"><article class="reader-document"><p class="century-document-kicker">${escapeHtml(item.year)} · ${escapeHtml(itemFacets)} · 候选文件身份</p><h2>${escapeHtml(item.title)}</h2><div class="reader-candidate-boundary"><b>候选层边界</b><p>${escapeHtml(item.assertion_boundary || state.centuryLayer.assertion_boundary)}</p></div><h2>目录绑定页段</h2><ol class="century-segments">${segments}</ol><section class="historical-reader-access" id="historical-reader-access"><div class="empty-state">正在核对原图阅读权限…</div></section><h2>OCR 词面观察</h2><div class="century-concepts">${observations}</div></article><aside class="reader-facts"><h3>文件身份</h3><p>年份：${escapeHtml(item.year)}<br>学科分面：${escapeHtml(itemFacets)}<br>学段：${escapeHtml(item.stage)}<br>类型：${escapeHtml(item.document_type)}<br>题名状态：${escapeHtml(item.title_status)}<br>身份：目录／标题绑定候选<br>引文权限：关闭<br>语义断言：关闭</p><p>父级资料：${escapeHtml(item.parent_title)}</p><a class="action-button primary" href="/archive?subject=${encodeURIComponent(item.visibility_facets?.[0] || item.subject)}" data-link>返回百年资料目录</a><h3>候选词面关系</h3><ul class="century-relation-list">${relationRows}</ul><h3>共同词面文件</h3>${relatedRows}</aside></div>`;
+  const readerAccess = document.querySelector('#historical-reader-access');
+  const me = await loadMe();
+  let activeHistoricalId = null;
+  try {
+    activeHistoricalId = location.pathname.startsWith('/historical/')
+      ? decodeURIComponent(location.pathname.slice('/historical/'.length))
+      : null;
+  } catch {
+    activeHistoricalId = null;
+  }
+  if (activeHistoricalId !== id) return;
+  if (!me.authenticated) {
+    readerAccess.innerHTML = `<div class="historical-reader-gate"><p class="century-document-kicker">原图与候选内容</p><h2>登录后按本条页段查看</h2><p>原扫描与完整 OCR 不公开分发。统一用户登录后，只加载本条 bounded item 的原始页图片段和逐页 OCR 候选；它们仍不可作为正式引文。</p><a class="work-button" href="https://my.bdfz.net/?returnTo=${encodeURIComponent(location.href)}">登录并查看原图</a></div>`;
+  } else {
+    readerAccess.innerHTML = `<div class="historical-reader-gate"><p class="century-document-kicker">原图与候选内容</p><h2>本条物理页段已闭合</h2><p>按需加载来源扫描的本条页段及其逐页 OCR 候选。页图是核对底本；OCR 只辅助阅读，任何冲突以原图为准且不可引用。</p><button class="work-button" type="button" id="load-historical-reader">查看原图与内容</button></div>`;
+    document.querySelector('#load-historical-reader').addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      button.textContent = '正在读取本条页段…';
+      try {
+        const encodedId = encodeURIComponent(id);
+        const data = await api(`/api/historical/${encodedId}`);
+        const frameId = `historical-pdf-${data.item_id.replace(/[^a-z0-9]/gi, '-')}`;
+        const pageButtons = data.pages.map((page) => `<button type="button" data-reader-page="${escapeHtml(page.ordinal)}" aria-label="查看原图第 ${escapeHtml(page.ordinal)} 页，对应扫描物理页 ${escapeHtml(page.physical_page)}">${escapeHtml(page.printed_page === null ? `物理页 ${page.physical_page}` : `印刷页 ${page.printed_page}`)}</button>`).join('');
+        const textPages = data.pages.map((page) => `<details class="historical-text-page"><summary>第 ${escapeHtml(page.ordinal)} 页 · 扫描物理页 ${escapeHtml(page.physical_page)}${page.printed_page === null ? '' : ` · 印刷页 ${escapeHtml(page.printed_page)}`}</summary><pre>${escapeHtml(page.text || '本页 OCR 未识别出可读文字。')}</pre></details>`).join('');
+        readerAccess.innerHTML = `<div class="historical-reader-shell"><div class="historical-reader-heading"><div><p class="century-document-kicker">原图 · ${escapeHtml(data.page_count)} 页</p><h2>${escapeHtml(data.title)}</h2></div><span>登录可见 · 不可公开分发</span></div><p class="candidate-boundary">原图来自来源哈希绑定的扫描页片段；下方文字为 OCR 候选，不是校定本，不进入正式引文与证据 AI。</p><nav class="historical-page-nav" aria-label="原图页码">${pageButtons}</nav><iframe id="${escapeHtml(frameId)}" title="${escapeHtml(data.title)} 原图页段" loading="lazy" src="/api/historical/${encodedId}/source.pdf#page=1&view=FitH"></iframe><div class="historical-text-pages"><h3>逐页候选内容</h3>${textPages}</div></div>`;
+        const frame = document.querySelector(`#${CSS.escape(frameId)}`);
+        readerAccess.querySelectorAll('[data-reader-page]').forEach((pageButton) => {
+          pageButton.addEventListener('click', () => {
+            const page = Number(pageButton.dataset.readerPage);
+            frame.src = `/api/historical/${encodedId}/source.pdf#page=${page}&view=FitH`;
+            readerAccess.querySelectorAll('[data-reader-page]').forEach((candidate) =>
+              candidate.classList.toggle('active', candidate === pageButton));
+          });
+        });
+        readerAccess.querySelector('[data-reader-page]')?.classList.add('active');
+      } catch (error) {
+        readerAccess.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+        toast(error.message);
+      }
+    });
+  }
   if (location.hash) requestAnimationFrame(() => document.querySelector(location.hash)?.scrollIntoView({ block: 'center' }));
 }
 
@@ -2296,9 +2338,9 @@ async function route() {
     if (path.startsWith('/historical/')) {
       const id = decodeURIComponent(path.slice('/historical/'.length));
       const item = state.centuryItemById.get(id);
-      const tabs = [{ id: 'historical', label: '候选页段与词面', href: `${path}${url.hash}` }, { id: 'archive', label: '百年资料', href: `/archive${item ? `?subject=${encodeURIComponent(item.subject)}` : ''}` }];
+      const tabs = [{ id: 'historical', label: '原图与候选内容', href: `${path}${url.hash}` }, { id: 'archive', label: '百年资料', href: `/archive${item ? `?subject=${encodeURIComponent(item.subject)}` : ''}` }];
       openWorkbench({ kicker: '百年文件候选层', title: '文件定位与关系', tabs, active: 'historical' });
-      renderHistoricalItem(id);
+      await renderHistoricalItem(id);
       return;
     }
     if (path === '/ai') {
