@@ -27,7 +27,7 @@ test('operations ledger exposes the current staged-release lifecycle and fail-cl
 
   assert.match(ledger, /名义 86 docs \/ 11847 pages；唯一实体 85 docs \/ 11779 pages/u);
   assert.match(ledger, /OCR publication \| 0 accepted documents \/ 0 accepted pages/u);
-  assert.equal(evidence.environments.production.health.version, '2026.07.16-v10');
+  assert.equal(evidence.environments.production.health.version, '2026.07.23-v14');
   assert.equal(evidence.environments.preview.health.version, '2026.07.23-v14');
   assert.deepEqual(evidence.environments.production.pending_migrations, []);
   assert.deepEqual(evidence.environments.preview.pending_migrations, []);
