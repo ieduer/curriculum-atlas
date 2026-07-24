@@ -1,12 +1,12 @@
 # Curriculum Atlas 项目运维总账
 
-<!-- curriculum-operations-ledger-snapshot {"schema_version":1,"action_log_line_cutoff":2239,"action_log_prefix_sha256":"6abef94a974671821ba0b0c680064b73ff8c0c295bbcdea78486bb5347c55676","included_event_count":1155,"included_task_count":206,"included_event_sha256":"6978fbde26f86fd286ed2cb35051ff7c3708ca94548580a7ea515dbc5fa4dc8e","included_through":"2026-07-23T15:27:38.564Z"} -->
+<!-- curriculum-operations-ledger-snapshot {"schema_version":1,"action_log_line_cutoff":2241,"action_log_prefix_sha256":"4770c56d7d57559e454f045cca03c94d82c05e9f926d1b0121f4aa43364710ca","included_event_count":1157,"included_task_count":206,"included_event_sha256":"5ab50f677416bfd7db15bac1dc157bb2d7ead2e6d3741c13500e938bdb60710c","included_through":"2026-07-24T01:44:53.200Z"} -->
 
-生成时间：`2026-07-23T15:42:10.944Z`（America/Los_Angeles：`2026/07/23 08:42:10`）
+生成时间：`2026-07-24T01:44:53.550Z`（America/Los_Angeles：`2026/07/23 18:44:53`）
 
-覆盖区间：`2026-07-15T02:01:17.143Z` 至 `2026-07-23T15:27:38.564Z`；共 `206` 个任务、`1155` 条运维事件。
+覆盖区间：`2026-07-15T02:01:17.143Z` 至 `2026-07-24T01:44:53.200Z`；共 `206` 个任务、`1157` 条运维事件。
 
-本文件是项目内的可重建运维总账快照。事件明细来自 `/Users/ylsuen/CF/reports/agent_action_log.jsonl` 的 append-only 前 2239 行；前缀 SHA-256 为 `6abef94a974671821ba0b0c680064b73ff8c0c295bbcdea78486bb5347c55676`。本地数据数字来自生成时实际文件；Cloudflare 与远端 OCR 数字只引用带时间戳的最后一次只读核验。快照之后新增的日志属于待纳入事件，不会使已冻结发布提交失真；后来的状态不得回写覆盖历史，只能新增事件并在下一发布快照重新生成。
+本文件是项目内的可重建运维总账快照。事件明细来自 `/Users/ylsuen/CF/reports/agent_action_log.jsonl` 的 append-only 前 2241 行；前缀 SHA-256 为 `4770c56d7d57559e454f045cca03c94d82c05e9f926d1b0121f4aa43364710ca`。本地数据数字来自生成时实际文件；Cloudflare 与远端 OCR 数字只引用带时间戳的最后一次只读核验。快照之后新增的日志属于待纳入事件，不会使已冻结发布提交失真；后来的状态不得回写覆盖历史，只能新增事件并在下一发布快照重新生成。
 
 ## 读数规则
 
@@ -39,12 +39,12 @@
 
 | 层 | 当前事实 | 状态判定 |
 |---|---|---|
-| Git | branch `main`; HEAD `ec8e99ebdf096e94dee1f85302f559831b068d95`; origin/main `ec8e99ebdf096e94dee1f85302f559831b068d95`; modified 15; untracked 21 | 生成器工作树含待提交文档变更；发布证据仍绑定已推送 commit；production environment evidence commit `b8917c6f2cc6a3a77bb8df5983b76ca1d3b6ef2e` |
+| Git | branch `main`; HEAD `0735488041f4d1cc7767d9315147559e7b8ffef2`; origin/main `0735488041f4d1cc7767d9315147559e7b8ffef2`; modified 1; untracked 0 | 生成器工作树含待提交文档变更；发布证据仍绑定已推送 commit；production environment evidence commit `0735488041f4d1cc7767d9315147559e7b8ffef2` |
 | Catalog | 196 records；verified_online 176；local_verified_scan 12；metadata_only 6；citation_ready 101；ocr_review_pending 88 | checked-in generated snapshot |
 | Ingest | 196 entries | 与 catalog ID 集合精确一致；物理文件另由 artifact registry 审计 |
 | Asset registry | 245 PDF paths / 209 unique SHA-256；201 canonical、3 variant、2 derived、3 quarantine | 遗漏 hash、处置冲突、路径/校验和漂移均 fail closed |
 | OCR queue | 名义 86 docs / 11847 pages；唯一实体 85 docs / 11779 pages；blocked 2 | 未完成且全部 fail-closed |
-| Local OCR evidence | 主 OCR/audit 名义 6947/11847，唯一实体 6879/11779；Vision 名义 7012，唯一实体 6944；failed 1 | 2026-07-23T15:41:58.489Z 本机快照；显示/引文合格 0 |
+| Local OCR evidence | 主 OCR/audit 名义 6947/11847，唯一实体 6879/11779；Vision 名义 7012，唯一实体 6944；failed 1 | 2026-07-24T01:44:44.283Z 本机快照；显示/引文合格 0 |
 | OCR publication | 0 accepted documents / 0 accepted pages | 0 页进入显示/引文发布 |
 | Semantic quarantine | aliases 1；page controls 21 | unresolved controls override future page acceptance |
 | Corpus release | `corpus-358471fcce862b2f0ae446fc`；196 documents / 16456 paragraphs / 16456 FTS / 6031 page gates / 16456 displayed / 0 accepted OCR / 91 chunks | preview 与 production evidence 均为 ready；OCR 正文仍未接入 |
@@ -69,7 +69,7 @@
 | 环境 | 已核验状态 | 回滚 / 阻断 |
 |---|---|---|
 | Production Worker | `7cedbe95-fed7-432b-85ef-d89a3baf2d6f` / `a965580c-2e09-4b59-be0c-f1303539bb3d` / `2026.07.16-v10`；Assets Git `b39abba278836305bb031570d06c44767d8e1d1a`；health 200 | coupled rollback：D1 bookmark `0000002b-00002585-000050ab-8645885d977dc9bf5678e6cdf12b084f` + Worker `7d1766b2-32be-4ce1-9528-f6c69bb2a092`，仅在确认无后续用户写入后执行 |
-| Preview Worker | `4235f005-881c-445b-bd68-8cb45361112a` / `683dc5f8-1904-4807-81be-83df7f885f0d` / `2026.07.16-v10`；Assets Git `b683446e68440ca0353da283a8ebafc6585ee1ad`；health 200 | rollback：preview D1 bookmark 与 Worker predecessor 由发布任务私有锚点保存 |
+| Preview Worker | `e50ac212-0640-4159-b972-04eb31b92fa1` / `e27bae23-e66a-4d22-9a8d-2c296243bb2a` / `2026.07.23-v14`；Assets Git `f6e387b4098b90c97d8eaedbdc27473e43600b2a`；health 200 | rollback：preview D1 bookmark 与 Worker predecessor 由发布任务私有锚点保存 |
 | D1 prod + preview | 两端 applied migrations 均为 `0001_initial.sql`、`0002_source_provenance_and_ocr_quality.sql`、`0003_online_verification.sql`、`0004_document_classifications.sql`、`0005_page_publication_gate.sql`、`0006_corpus_import_release.sql`、`0007_document_taxonomy_contract.sql`；pending 0；schema 3 / taxonomy 2 / page 1 | corpus 非 ready 或实时计数漂移时 API fail closed 503 |
 | Corpus prod + preview | `corpus-358471fcce862b2f0ae446fc` ready；196/16456/16456/6031/16456/0/91 | documents / paragraphs / FTS / page gates / displayed / accepted OCR / chunks 必须精确相等 |
 | Production R2（post-evidence） | Pointer stable across two reads at 388 bytes SHA256 5142166d000fbf82e6d0a9d135a5340ba3c9d77f3bed803967ad565ff8c2133a; manifest 107777 bytes SHA256 a6a15ea83cc58b1b84f5587a110c0fddeb414f24c77ff534507ea96868c03964; 17 unique release-prefixed objects total 546648 bytes match manifest and local sources with zero mismatch; API returns exact 55183-byte 196-entry ingest manifest SHA256 0f0fda279b10ef40011ea28477deb528ed5d45b7478dfd93a8b7bf6d0b1cb16e | 删除且只删除 `release/current.json` 可恢复 v10 stable-key fallback；不可变 release objects 保留 |
@@ -78,8 +78,8 @@
 | Local OCR | primary+audit 6947/11847；Vision 7012；accepted 0 | OCR 未完成、未上线；page publication 与 citation 保持 fail closed |
 | DMITPro2 shard B-r1 | Read-only samples were 981131264 and 966483968 bytes MemAvailable, both below the one-GiB stop gate; B had 1259 of 3182 pages, zero failed pages and zero quarantine; explicit user-unit stop left MainPID zero and NRestarts zero while MemAvailable recovered to 2839844 kB | parent-must-cherry-pick-test-and-run-real-seed；不得无 lineage 复制旧 state |
 | Private encrypted archive | Final exact prefix is 15 objects and 3304581750 bytes; index GET is 8581 bytes SHA256 2ee9d8088dd89f77123c01da67916912f43c65c582c2ba6909fcb2904772bf2f; restored raw set is 246 of 246 files and 3245326023 bytes and OCR evidence is 81318 of 81318 files and 813926562 bytes with zero missing extra or problems; remote-readback contains exactly 15 files and 3304581750 bytes with zero partial or temp files; no browser session was opened and required dry-run found zero cliDaemon processes | index `backups/curriculum-atlas/private-archive/20260717T021000Z/archive-index.json`；远端精确前缀回滚需另行明确授权 |
-| Production browser / API / Pulse | 577 Node and 14 Python tests passed; release blockers 0; production 1440x1000 and 390x844 one Canvas ten stages five pre-1950 no horizontal overflow no century axis no console errors; 1937 stage selects 1949; health ok corpus 196/16456/16456/6031 bindings all true; User Center and APIS 200; Nav unique; Pulse tracked worker_analytics 769 requests 0 errors | 只读 QA 无状态回滚；下一 release 必须重新产生事件。当前本地候选层为 1031 stars / 55 families / 12 facets；只有包含这些计数的后续生产事件才可证明已上线 |
-| Full governed verify | Immediately before bootstrap pointer was absent; release manifest production readiness true with zero blockers after 380 of 380 tests; publisher staged and verified 17 immutable objects then activated current pointer for release-9cb02f77c06ee0535e7981a22b312373; ingest manifest verified at 55183 bytes SHA256 0f0fda279b10ef40011ea28477deb528ed5d45b7478dfd93a8b7bf6d0b1cb16e | Git evidence commit `b8917c6f2cc6a3a77bb8df5983b76ca1d3b6ef2e` |
+| Production browser / API / Pulse | API/R2 已核验；生产桌面/移动视觉 QA 仍待 release owner 回传，本快照不声明通过 | 视觉门未有 append-only verify 事件前不得写成已通过 |
+| Full governed verify | Immediately before bootstrap pointer was absent; release manifest production readiness true with zero blockers after 380 of 380 tests; publisher staged and verified 17 immutable objects then activated current pointer for release-9cb02f77c06ee0535e7981a22b312373; ingest manifest verified at 55183 bytes SHA256 0f0fda279b10ef40011ea28477deb528ed5d45b7478dfd93a8b7bf6d0b1cb16e | Git evidence commit `0735488041f4d1cc7767d9315147559e7b8ffef2` |
 | Public registration | User Center、Nav、Portal、Companion source、Pulse 已登记；Pulse tracked | Companion 新 APK 因无真实 Android 设备验证而显式延期 |
 
 ## 生命周期里程碑
@@ -96,7 +96,7 @@
 | 2026-07-16 | R6 72 卷回传与 6 页修复 | 72/5,483 whole-document 接收、receipt/rollback/idempotence 验证；Apple Vision evidence drain 完成 | 大部分页面仍未人工/在线同版裁决 |
 | 2026-07-16 | page/semantic publication gates | 新增 page manifest、semantic quarantine、duplicate alias、外语/表格/精确字符规则；accepted=0 | migrations、D1/R2/Worker 三层尚未形成同一 release |
 | 2026-07-16 至 07-17 | partial14 整卷重跑和全项目资产审计 | 资产主账、D1 release gate、R2 manifest 和 importer 原子性缺陷已收口；B-r1 因低内存冻结于 1,259/3,182 | hash-bound B-r2 seed lineage 与 OCR 质量闭环仍未完成 |
-| 2026-07-17 | v10 taxonomy/corpus/R2 preview 与 production 发布 | 两端 D1 0001–0007、taxonomy schema 2、corpus 91/91 receipts、Worker v10、17-object versioned R2 release；production evidence commit `2907557`；production API/D1/browser/Pulse 终验通过 | OCR accepted 仍为 0；observation 数据止于 2020，全学科深层 ontology 仍须继续建设 |
+| 2026-07-17 | v10 taxonomy/corpus/R2 preview 与 production 发布 | 两端 D1 0001–0007、taxonomy schema 2、corpus 91/91 receipts、Worker v10、17-object versioned R2 release；production evidence commit `2907557` | OCR accepted 仍为 0；observation 数据止于 2020，全学科深层 ontology 仍须继续建设 |
 | 2026-07-17 | 私有加密档案远端恢复演练 | 14 个 parts + index 共 15 objects/3,304,581,750 bytes；完整 GET/hash/decrypt/decompress/replay 零差异 | 不公开密钥；保留受控前缀与本地 index |
 
 ## Git 提交时间线
@@ -188,6 +188,12 @@
 | `b39abba27883` | 2026-07-23T07:29:16-07:00 | chore: record early-stage preview evidence |
 | `b8917c6f2cc6` | 2026-07-23T07:30:45-07:00 | chore: record early-stage production evidence |
 | `ec8e99ebdf09` | 2026-07-23T07:52:57-07:00 | docs: freeze production baseline before unresolved work |
+| `5a002f57571d` | 2026-07-23T08:49:30-07:00 | feat: gate century atlas data release |
+| `48b21c0a6de7` | 2026-07-23T18:18:11-07:00 | fix: scope runtime metrics to current load |
+| `1e39c660afcb` | 2026-07-23T18:27:21-07:00 | perf: bound star map animation work |
+| `2d6168dff5b3` | 2026-07-23T18:34:37-07:00 | fix: activate keyboard concept selection |
+| `f6e387b4098b` | 2026-07-23T18:41:49-07:00 | docs: seal preview runtime release gate |
+| `0735488041f4` | 2026-07-23T18:43:17-07:00 | chore: refresh release environment evidence |
 
 ## 任务索引
 
@@ -398,7 +404,7 @@
 | 2026-07-23T10:28:29.439Z | 2026-07-23T11:13:59.928Z | `curriculum-atlas-subject-detail-drilldown-20260723` | 7 | start, change, verify, closeout | pre-2001 subject detail bounded parsing and human page edition semantic citation review remain |
 | 2026-07-23T11:47:10.279Z | 2026-07-23T13:24:31.148Z | `curriculum-atlas-pre2001-subject-detail-20260723` | 9 | start, change, verify, closeout | candidate evidence review boundaries unchanged |
 | 2026-07-23T13:57:21.993Z | 2026-07-23T14:38:55.740Z | `curriculum-atlas-whole-audit-early-stages-20260723` | 6 | start, change, verify, closeout | candidate evidence remains fail-closed until page edition citation and semantic review; remaining priorities are recorded in audit and canonical report |
-| 2026-07-23T14:50:35.958Z | 2026-07-23T15:27:38.564Z | `curriculum-atlas-unresolved-closeout-20260723` | 3 | start, change | performance budget, candidate schema, release episode diff, full verify, preview and production browser evidence remain |
+| 2026-07-23T14:50:35.958Z | 2026-07-24T01:44:53.200Z | `curriculum-atlas-unresolved-closeout-20260723` | 5 | start, change | full verify and production deployment remain; citation-ready OCR stays zero and 1077 explicit candidate-gap pages remain |
 
 ### 未以 closeout 结束的历史任务（29）
 
@@ -432,11 +438,11 @@
 - `curriculum-atlas-A2-sealed-4e65975-Linux-gate`：最后阶段 `verify`，最后时间 `2026-07-22T12:31:22.515Z`；actual-hash-bound-state-omits-selected_pages-and-selected_pages_complete-while-validator-required-false-follow-up-review-needed
 - `curriculum-atlas-final-19-section-completion-20260722`：最后阶段 `start`，最后时间 `2026-07-22T12:43:11.852Z`；no-sealed-runtime-no-live-dry-run-no-service-start-no-apply-no-deploy-no-shared-hub-write-package-graph-bridge-excluded-until-research-merge
 - `curriculum-atlas-final-19-live-verified-981394d3`：最后阶段 `change`，最后时间 `2026-07-22T15:56:30.858Z`；corrected-ca8b2df-apply-requires-new-explicit-user-approval
-- `curriculum-atlas-unresolved-closeout-20260723`：最后阶段 `change`，最后时间 `2026-07-23T15:27:38.564Z`；performance budget, candidate schema, release episode diff, full verify, preview and production browser evidence remain
+- `curriculum-atlas-unresolved-closeout-20260723`：最后阶段 `change`，最后时间 `2026-07-24T01:44:53.200Z`；full verify and production deployment remain; citation-ready OCR stays zero and 1077 explicit candidate-gap pages remain
 
 ## 截止点内完整 append-only 运维事件
 
-事件子集 SHA-256：`6978fbde26f86fd286ed2cb35051ff7c3708ca94548580a7ea515dbc5fa4dc8e`。以下 1155 条按任务首次 UTC 排序，任务内事件再按 UTC 排序；逐条保留 scope、resources、evidence、rollback 和 unresolved。
+事件子集 SHA-256：`5ab50f677416bfd7db15bac1dc157bb2d7ead2e6d3741c13500e938bdb60710c`。以下 1157 条按任务首次 UTC 排序，任务内事件再按 UTC 排序；逐条保留 scope、resources、evidence、rollback 和 unresolved。
 
 <details><summary><code>curriculum-atlas-launch-20260714</code> · 3 events · 2026-07-15T02:01:17.143Z → 2026-07-17T02:04:05.894Z</summary>
 
@@ -11089,10 +11095,10 @@ Resources：`/Users/ylsuen/CF/curriculum-atlas/public`、`/Users/ylsuen/CF/curri
 
 </details>
 
-<details><summary><code>curriculum-atlas-unresolved-closeout-20260723</code> · 3 events · 2026-07-23T14:50:35.958Z → 2026-07-23T15:27:38.564Z</summary>
+<details><summary><code>curriculum-atlas-unresolved-closeout-20260723</code> · 5 events · 2026-07-23T14:50:35.958Z → 2026-07-24T01:44:53.200Z</summary>
 
 Agents：`Codex-root`
-Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`curriculum.bdfz.net`、`curriculum-atlas-tag-curriculum-baseline-20260723-7cedbe95`、`curriculum-atlas-backup/unresolved-closeout-20260723`、`curriculum-atlas/docs/releases/2026-07-23-production-baseline.json`、`curriculum-atlas/data/ocr-coverage-ledger.json`、`curriculum-atlas/data/ocr-review-queue-index.json`、`curriculum-atlas/data/data-quality-standard.json`、`curriculum-atlas/data/data-quality-validation.json`、`curriculum-atlas/public/data/ocr-observation-layer.json`、`curriculum-atlas/public/app.js`、`curriculum-atlas/public/index.html`、`curriculum-atlas/public/styles.css`
+Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas-preview`、`bdfz-curriculum-atlas`、`curriculum.bdfz.net`、`curriculum-atlas-tag-curriculum-baseline-20260723-7cedbe95`、`curriculum-atlas-backup/unresolved-closeout-20260723`、`curriculum-atlas/docs/releases/2026-07-23-production-baseline.json`、`curriculum-atlas/data/ocr-coverage-ledger.json`、`curriculum-atlas/data/ocr-review-queue-index.json`、`curriculum-atlas/data/data-quality-standard.json`、`curriculum-atlas/data/data-quality-validation.json`、`curriculum-atlas/public/data/ocr-observation-layer.json`、`curriculum-atlas/public/app.js`、`curriculum-atlas/public/index.html`、`curriculum-atlas/public/styles.css`、`curriculum-atlas/data/candidate-observation-layer.schema.json`、`curriculum-atlas/data/release-episode-diff.json`、`curriculum-atlas/data/star-map-performance-budget.json`、`curriculum-atlas/scripts/deploy-worker.mjs`、`curriculum-atlas/public/atlas.js`、`bdfz-curriculum-atlas-preview e50ac212-0640-4159-b972-04eb31b92fa1`、`curriculum-atlas/data/star-map-runtime-performance.json`
 
 ### 2026-07-23T14:50:35.958Z · start · Codex-root
 
@@ -11117,6 +11123,22 @@ Resources：`/Users/ylsuen/CF/curriculum-atlas`、`bdfz-curriculum-atlas-preview
 - Evidence：English OCR now complete 649 of 649; nominal 86 documents and 11847 pages; physical 85 documents and 11779 pages; candidate coverage 10770 pages; 1077 explicit gap pages; citation-ready pages zero; 21 of 21 quality checks and focused tests pass; no dashed runtime metadata remains
 - Rollback：revert task commit or restore baseline tag curriculum-baseline-20260723-7cedbe95; no VPS OCR D1 R2 or production mutation performed
 - Unresolved：performance budget, candidate schema, release episode diff, full verify, preview and production browser evidence remain
+
+### 2026-07-23T15:47:36.453Z · change · Codex-root
+
+- Scope：added candidate JSON Schema, release episode identity diff, static and preview-runtime performance gates, and production deploy hard gate; documentation and source only, no runtime mutation
+- Resources：`curriculum-atlas/data/candidate-observation-layer.schema.json`、`curriculum-atlas/data/release-episode-diff.json`、`curriculum-atlas/data/star-map-performance-budget.json`、`curriculum-atlas/scripts/deploy-worker.mjs`
+- Evidence：1477 candidate episodes pass schema; release episode count 2030 to 2030 with zero removals or cross-layer moves; 24 of 24 data checks and 7 of 7 static performance budgets pass; production wrapper now requires a current passing preview-runtime receipt
+- Rollback：revert task commit or restore baseline tag curriculum-baseline-20260723-7cedbe95; no production preview D1 R2 VPS or OCR runtime mutation performed
+- Unresolved：full verify, clean preview deploy, browser runtime receipt, production deploy and post-deploy smoke remain
+
+### 2026-07-24T01:44:53.200Z · change · Codex-root
+
+- Scope：fixed load-scoped diagnostics, bounded unchanged star-map animation effects at 20 FPS, made Enter and Space explicit same-path concept selection, deployed exact-source preview and recorded browser runtime receipt; no D1 R2 VPS OCR runtime or shared-hub mutation
+- Resources：`curriculum-atlas/public/app.js`、`curriculum-atlas/public/atlas.js`、`bdfz-curriculum-atlas-preview e50ac212-0640-4159-b972-04eb31b92fa1`、`curriculum-atlas/data/star-map-runtime-performance.json`
+- Evidence：preview v14 asset commit f6e387b; desktop 1440x1000 ready 371.4 ms draw p95 11.3 ms; mobile 390x844 ready 424.4 ms draw p95 9.1 ms; zero long tasks; Enter selection reduces 2030 nodes to 60 related history nodes; runtime gate 16 of 16
+- Rollback：restore preview version 9dbadd68-8ecf-4eb0-9521-1d17b37ae136 or baseline 4235f005-881c-445b-bd68-8cb45361112a at 100 percent; revert task commits
+- Unresolved：full verify and production deployment remain; citation-ready OCR stays zero and 1077 explicit candidate-gap pages remain
 
 </details>
 
