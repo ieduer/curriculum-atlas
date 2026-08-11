@@ -75,7 +75,9 @@
     "dev": "wrangler dev",
     "db:local": "wrangler d1 migrations apply bdfz-curriculum-atlas --local",
     "deploy:preview": "node scripts/deploy-worker.mjs --environment preview",
-    "deploy:production": "node scripts/deploy-worker.mjs --environment production"
+    "deploy:production": "node scripts/deploy-worker.mjs --environment production",
+    "predeploy:preview": "bash /Users/ylsuen/CF/scripts/git-deploy-gate.sh",
+    "predeploy:production": "bash /Users/ylsuen/CF/scripts/git-deploy-gate.sh"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260715.1",
