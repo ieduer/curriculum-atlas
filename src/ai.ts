@@ -169,6 +169,11 @@ export async function answerWithEvidence(
   query: string,
   subject: string,
 ): Promise<{ answer: string; citations: AiCitation[]; retrievalCount: number }> {
+  if (String(env.APIS_ENABLED || 'true').toLowerCase() !== 'true') {
+    throw new HttpError(503, '当前环境已停用共享 AI 路径');
+  }
+  const callerToken = String(env.APIS_CALLER_TOKEN || '').trim();
+  if (!callerToken) throw new HttpError(503, '共享 AI 调用凭证不可用');
   const passages = await retrieve(env, { query, subject, limit: 10 });
   if (passages.length === 0) throw new HttpError(422, '资料库中没有找到足够证据，请调整关键词或取消学科筛选');
   const context = passages.map((passage) =>
@@ -183,6 +188,7 @@ export async function answerWithEvidence(
       'X-Project-Name': 'curriculum-atlas',
       'X-Task-Type': 'chat',
       'X-Thinking-Level': 'medium',
+      'X-Internal-Token': callerToken,
     },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],

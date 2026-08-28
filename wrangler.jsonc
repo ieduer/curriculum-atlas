@@ -47,6 +47,7 @@
     "USER_CENTER_ORIGIN": "https://my.bdfz.net",
     "AI_GATEWAY_URL": "https://apis.bdfz.net/",
     "AI_MODEL_LABEL": "apis-gemini-managed",
+    "APIS_ENABLED": "true",
     "TURNSTILE_SITE_KEY": "0x4AAAAAAD2L69XnvdMMWYuw",
     "ADMIN_SLUGS": "suen"
   },
@@ -102,6 +103,7 @@
         "USER_CENTER_ORIGIN": "https://my.bdfz.net",
         "AI_GATEWAY_URL": "https://apis.bdfz.net/",
         "AI_MODEL_LABEL": "apis-gemini-managed",
+        "APIS_ENABLED": "false",
         "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
         "ADMIN_SLUGS": "suen"
       }

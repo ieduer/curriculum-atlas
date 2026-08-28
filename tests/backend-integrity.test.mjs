@@ -167,7 +167,7 @@ test('AI citation validator fails closed on invalid, malformed, loose, or missin
 });
 
 function makeAiEnv(answer, passageOverrides = {}) {
-  const state = { logBindings: [], aiPrompt: null };
+  const state = { logBindings: [], aiPrompt: null, aiCallerToken: null };
   const passage = {
     id: 12,
     document_id: 'doc-a',
@@ -218,11 +218,13 @@ function makeAiEnv(answer, passageOverrides = {}) {
         async fetch(request) {
           const body = JSON.parse(await request.text());
           state.aiPrompt = body.contents?.[0]?.parts?.[0]?.text || null;
+          state.aiCallerToken = request.headers.get('X-Internal-Token');
           return Response.json({ answer });
         },
       },
       AI_ORIGIN: 'https://curriculum.example',
       AI_MODEL_LABEL: 'test',
+      APIS_CALLER_TOKEN: 'fixture-caller-token',
     },
   };
 }
@@ -242,6 +244,17 @@ test('answerWithEvidence uses sentence-level validation and logs fail-closed rej
   );
   assert.equal(state.logBindings.length, 1);
   assert.equal(state.logBindings[0].at(-1), 'citation_validation_failed');
+  assert.equal(state.aiCallerToken, 'fixture-caller-token');
+});
+
+test('preview AI path is explicitly disabled and fails closed before retrieval', async () => {
+  const { answerWithEvidence } = await loadAiModule();
+  const { env } = makeAiEnv('unused');
+  env.APIS_ENABLED = 'false';
+  await assert.rejects(
+    () => answerWithEvidence(env, { authenticated: false, user: null, admin: false }, '问题', ''),
+    (error) => error?.status === 503 && error.message === '当前环境已停用共享 AI 路径',
+  );
 });
 
 test('answerWithEvidence permits a fully explicit uncertainty response with no fabricated citation', async () => {

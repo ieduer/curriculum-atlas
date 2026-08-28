@@ -10,6 +10,8 @@ export interface Env {
   AI_ORIGIN: string;
   USER_CENTER_ORIGIN: string;
   AI_GATEWAY_URL?: string;
+  APIS_CALLER_TOKEN?: string;
+  APIS_ENABLED?: string;
   AI_MODEL_LABEL: string;
   TURNSTILE_SITE_KEY: string;
   TURNSTILE_SECRET?: string;
