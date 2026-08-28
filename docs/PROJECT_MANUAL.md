@@ -260,6 +260,20 @@ L5 Citation and semantic release
 
 ## 7. OCR 到星圖的持續生成合同
 
+### 7.0 2026-08-12 本機自動 OCR 生命週期終止
+
+使用者已正式終止未完成的本機自動 OCR。終止時固定分母為 11,847
+頁：6,947 頁完成、4,900 頁待處理、1 頁隔離；watchdog 沒有活躍 OCR
+子程序。`com.suen.curriculum-ocr-watchdog` 已從本機 launchd 卸載並移除，
+現有 source PDF、primary／witness、audit、manifest、quarantine、私有 R2
+與加密 archive 全部保留。未完成頁不因專案產品完成而被推定完成，也不
+取得候選、語義或引文資格。
+
+以下持續生成合同仍定義未來新來源或明確重啟時的正確方法，但不構成自
+動續跑授權。任何重啟都必須是新的明確任務，重新核對來源、分母、模型
+與 runtime identity、磁碟預算、證據保留及發布門禁；禁止只恢復
+LaunchAgent 便讓舊佇列自行前進。
+
 ### 7.1 原則
 
 OCR 是持續輸入，不是一次性前置任務。每當新的完整文件或完整 bounded item 通過輸入完整性檢查，就重新生成候選觀測層與星圖投影。全量 OCR 結束後仍沿用同一流程處理：

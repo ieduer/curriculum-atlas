@@ -8,7 +8,7 @@
 - Preview：Worker `f90b350a-6880-43f3-a6ec-c93a602829e3`，deployment `e166e393-68d6-4f57-9469-46a4bde7bd21`，Assets Git `67733f9c2203dd8b41612847037b90cfd0cba226`。
 - 两端 D1 migration `0001`–`0007`，corpus `corpus-1c4f6b41737380f3e71246dd` ready，R2 current `release-cd9ec4a050cbabbede744192398ebfa7`。
 - 单一星图：2,415 episodes、3,144 edges、5,304 evidence；55 families、1,648 memberships；11 个公开学科分面。
-- OCR：6,947/6,947 页机器终局；30 个唯一可引页；83 份完整文件／10,210 页进入 308 个候选观察；462/462 个 2001 年前 bounded identities 通过。
+- OCR：已完成子集 6,947/6,947 页机器终局；30 个唯一可引页；83 份完整文件／10,210 页进入 308 个候选观察；462/462 个 2001 年前 bounded identities 通过。2026-08-12 用户正式终止未完成的本机自动 OCR：冻结总分母为 11,847 页，其中 6,947 完成、4,900 待处理、1 页隔离；未完成页不再自动续跑，也不取得候选或引文资格。
 
 ## 1. Source of truth
 
@@ -73,6 +73,26 @@ v18 实测：1902 + 2022 对比 223 个可见星点；“阅读与鉴赏”4 个
 - Preview D1：bookmark `00000071-00000000-000050b2-0b529d53eb22aae53e6dc536a85995cc`；非 FTS 业务 SQL backup SHA-256 `1d082642da0e5b8b0ea44c71ba12c903c39a558ea3a86591859127139e62533e`，27,806,245 bytes。
 - Git：tag `curriculum-baseline-20260724-v17-3f8951d8`；backup branch `backup/curriculum-v18-machine-publication-light-lines-20260724`。
 - 私有加密档案索引：`backups/curriculum-atlas/private-archive/20260717T021000Z/archive-index.json`。密钥不进入 Git、报告或日志。
+
+### Retired local OCR automation
+
+- Retirement authority: explicit user decision on 2026-08-12.
+- Frozen status before stop: 11,847 total pages, 6,947 completed, 4,900
+  pending, one quarantined page (`legacy-compendium-chemistry:84:paddle`),
+  watchdog held, and no active OCR child.
+- The installed LaunchAgent
+  `~/Library/LaunchAgents/com.suen.curriculum-ocr-watchdog.plist` was unloaded
+  and removed. The project template remains at
+  `ops/launchd/com.suen.curriculum-ocr-watchdog.plist` as historical/recovery
+  documentation only.
+- The watchdog wrote terminal state `stopped`; its PID, `caffeinate` child,
+  launchd label, and lock are absent. Source PDFs, completed primary/witness
+  evidence, audits, manifests, quarantine records, private R2 objects, and
+  encrypted archives were not deleted or modified.
+- Do not reinstall, bootstrap, or change `watchdog-control.json` from `hold`
+  without a new explicit authorization. A future restart is a new OCR project,
+  not routine maintenance, and must first revalidate the frozen denominator,
+  disk budget, runtime/model identities, retention, and publication gates.
 
 Time Travel 恢复前先检查 bookmark 后的合法用户写入；业务 SQL 是辅助审计副本，不包含 FTS virtual table，不能描述为整库备份。
 
