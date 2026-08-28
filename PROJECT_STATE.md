@@ -1,13 +1,13 @@
 # Project State
 
-Last updated: 2026-08-12 PDT
-Current version: accepted production/runtime source remains `d073750181f19245a993e9cacabccb76ef0f8799` (v20); the 2026-08-12 OCR-retirement documentation is source-only and does not change that runtime
-Current objective: preserve the completed public product and frozen evidence while keeping the retired incomplete OCR backlog fail closed
-Completed work: project-local operations authority normalized; on 2026-08-12 the user formally retired the incomplete local OCR automation, the exact LaunchAgent was unloaded and removed, watchdog/caffeinate exited, the watchdog lock disappeared, and all source/evidence/archive bytes were preserved
-Pending work: no OCR continuation is authorized; any future source update or backfill requires a new explicit task and fresh review
-Known problems: the retired queue denominator remains 11,847 pages with 6,947 completed, 4,900 pending and one quarantined Paddle page; zero additional pages become citation-eligible merely from this retirement decision
-Next recommended task: perform a project-scoped retention review of redundant local encrypted archive transport/readback copies without deleting the remote R2 authority, source PDFs, completed OCR evidence, manifests, or quarantine records
-Deployment status: production was not changed by OCR retirement; use live readback before any future release claim
-Rollback anchor: retirement reversal requires new explicit authorization, review of the frozen incomplete denominator, installation of the project-owned LaunchAgent plist in hold mode, and no child start before a deliberate release; production rollback anchors are unchanged
+Last updated: 2026-08-28 PDT
+Current version: GitHub/local main `d1568222d6998d36644d56be0c70fe7a02aed489`; production Worker `104ccefa-baf0-4c96-ae4b-8c1c4e25dc38`, preview Worker `3c6f19e3-51b6-456f-9258-b09671d4d2cf`
+Current objective: preserve the completed public product and frozen evidence while using one server-only APIS caller identity in production and keeping preview AI fail closed
+Completed work: production AI now requires the Cloudflare secret `APIS_CALLER_TOKEN` and sends caller `curriculum-atlas`; preview sets `APIS_ENABLED=false` and rejects before retrieval. Production and preview health read back release Git `d156822…` with the existing corpus and all five bindings ready. The 2026-08-12 OCR retirement remains unchanged.
+Pending work: the shared APIS transaction must enroll the recorded SHA-256 digest and obtain one product-path verified request before gateway enforce; no OCR continuation is authorized
+Known problems: the legacy full `npm run verify` still expects removed `.cache/ocr-production/*/state.json` from the formally retired OCR runtime and therefore fails before code checks. The APIS change instead passed TypeScript, 34/34 backend integrity tests, build, strict Worker dry-run and commit-scoped gitleaks; this stale gate must be repaired only in a separately scoped verification-standard update.
+Next recommended task: complete the shared APIS registry/enforce acceptance, then separately align the retired-OCR verification gate without restoring or synthesizing retired hot state
+Deployment status: production deployment `5b5ed424-b184-4b5e-95ea-b978207b21a9` runs `104ccefa…` at 100%; preview deployment `fc259ebe-2ba0-40b9-8e5e-493d4c270eb4` runs `3c6f19e3…` at 100%
+Rollback anchor: restore production `c6fa8f68-747e-4d65-a743-2498ab2e0591` or preview `fdc9b9f2-7698-47b6-9663-44475786de34` at 100%; do not reset D1/R2 or restart retired OCR
 Operations authority: /Users/ylsuen/CF/curriculum-atlas/docs/OPERATIONS.md
-Ownership status: no mutation authority is implied; consult reports/agent_action_log.jsonl
+Ownership status: APIS migration is owned by task `20260827-apis-caller-auth-containment`; consult reports/agent_action_log.jsonl

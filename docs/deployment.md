@@ -4,8 +4,8 @@
 
 | 环境 | Worker version / deployment | Assets Git | Corpus | R2 current | Private historical reader |
 |---|---|---|---|---|---|
-| preview | `fdc9b9f2-7698-47b6-9663-44475786de34` / `ff1a0ab5-22de-4420-a0b9-0b53450f457a` | `c576525df8d2a0590b35999e6e147d7a30800ca3` | `corpus-1c4f6b41737380f3e71246dd` ready | `release-cd9ec4a050cbabbede744192398ebfa7` | `release-88cd0a6b349a0eda911080a28a842506` · 461 ready |
-| production | `c6fa8f68-747e-4d65-a743-2498ab2e0591` / `7d62062e-b8e9-40b5-beef-cc30ccba8081` | `18f7ef702a8be39c3a0eafc963f2b532a4a57cf4` | `corpus-1c4f6b41737380f3e71246dd` ready | `release-cd9ec4a050cbabbede744192398ebfa7` | `release-88cd0a6b349a0eda911080a28a842506` · 461 ready |
+| preview | `3c6f19e3-51b6-456f-9258-b09671d4d2cf` / `fc259ebe-2ba0-40b9-8e5e-493d4c270eb4` | `d1568222d6998d36644d56be0c70fe7a02aed489` | `corpus-1c4f6b41737380f3e71246dd` ready | `release-cd9ec4a050cbabbede744192398ebfa7` | `release-88cd0a6b349a0eda911080a28a842506` · 461 ready |
+| production | `104ccefa-baf0-4c96-ae4b-8c1c4e25dc38` / `5b5ed424-b184-4b5e-95ea-b978207b21a9` | `d1568222d6998d36644d56be0c70fe7a02aed489` | `corpus-1c4f6b41737380f3e71246dd` ready | `release-cd9ec4a050cbabbede744192398ebfa7` | `release-88cd0a6b349a0eda911080a28a842506` · 461 ready |
 
 两端 health 均为 `2026.07.24-v20`、schema 3 / taxonomy 2 / page-publication 1，migration `0001`–`0007`，D1/R2/APIS/User Center/Assets 五项 binding 全真。Corpus 精确为 196 / 16,500 / 16,500 / 8,808 / 16,500 / 26 / 103（documents / paragraphs / FTS / page gates / displayed / accepted OCR documents / chunks）。私有 historical reader 两端各完成 462/462 bytes/SHA-256 readback 后才切换相同 pointer，pointer SHA-256 为 `91b9686e601a78cd46546eec28589aac37d557724b88225c33e5222dcc32b621`。
 
