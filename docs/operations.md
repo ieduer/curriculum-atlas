@@ -1,11 +1,11 @@
 # 运维与八点验证标准
 
-> 完整 Git 时间线、append-only 事件和历史回滚见 [`project-operations-ledger.md`](project-operations-ledger.md)。本文件只定义当前 v18 运行标准。
+> 完整 Git 时间线、append-only 事件和历史回滚见 [`project-operations-ledger.md`](project-operations-ledger.md)。本文件定义当前 v20 运行标准。
 
 ## 当前检查点
 
-- Production：Worker `10c8d648-26d7-4e26-bd99-61b80dd9e0cc`，deployment `38cb4825-ff25-498b-9fbb-c9fb4c9d394a`，Assets Git `e34e5af224f3c431618d11bcf7f6866f7636b69f`。
-- Preview：Worker `f90b350a-6880-43f3-a6ec-c93a602829e3`，deployment `e166e393-68d6-4f57-9469-46a4bde7bd21`，Assets Git `67733f9c2203dd8b41612847037b90cfd0cba226`。
+- Production：Worker `104ccefa-baf0-4c96-ae4b-8c1c4e25dc38`，deployment `5b5ed424-b184-4b5e-95ea-b978207b21a9`，release Git `d1568222d6998d36644d56be0c70fe7a02aed489`。
+- Preview：Worker `3c6f19e3-51b6-456f-9258-b09671d4d2cf`，deployment `fc259ebe-2ba0-40b9-8e5e-493d4c270eb4`，release Git `d1568222d6998d36644d56be0c70fe7a02aed489`。
 - 两端 D1 migration `0001`–`0007`，corpus `corpus-1c4f6b41737380f3e71246dd` ready，R2 current `release-cd9ec4a050cbabbede744192398ebfa7`。
 - 单一星图：2,415 episodes、3,144 edges、5,304 evidence；55 families、1,648 memberships；11 个公开学科分面。
 - OCR：已完成子集 6,947/6,947 页机器终局；30 个唯一可引页；83 份完整文件／10,210 页进入 308 个候选观察；462/462 个 2001 年前 bounded identities 通过。2026-08-12 用户正式终止未完成的本机自动 OCR：冻结总分母为 11,847 页，其中 6,947 完成、4,900 待处理、1 页隔离；未完成页不再自动续跑，也不取得候选或引文资格。
@@ -53,6 +53,13 @@
 
 禁止 dirty-tree 部署、跳过 receipt、覆盖 immutable R2 key、把 candidate 冒充 citation、生成冲突页第三份文本、修改共享 hub 或旧 OCR runtime。
 
+### APIS caller contract（2026-08-28）
+
+- Production 只走 `APIS` Service Binding，caller ID 固定为 `curriculum-atlas`，专用凭证只存在 Cloudflare secret `APIS_CALLER_TOKEN`；缺失时 503 fail closed。
+- Preview 明确配置 `APIS_ENABLED=false`，在检索和 provider 调用前 503；它不注册 caller，也不领取凭证。
+- 不允许 binding 回应后再向公开 `apis.bdfz.net` 发第二次请求。
+- 当前 retired-OCR 状态使旧 `npm run verify` 在读取已删除的 `.cache/ocr-production/*/state.json` 时先行失败。不得恢复或合成该热状态来取得绿灯；本次 APIS-only 发布门为 TypeScript、34/34 backend tests、build、strict dry-run、commit gitleaks 与双环境 live health。验证标准的退役态修订必须另行审查。
+
 ## 5. Dependency and browser regression
 
 每次生产发布至少验证：
@@ -97,6 +104,10 @@ v18 实测：1902 + 2022 对比 223 个可见星点；“阅读与鉴赏”4 个
 Time Travel 恢复前先检查 bookmark 后的合法用户写入；业务 SQL 是辅助审计副本，不包含 FTS virtual table，不能描述为整库备份。
 
 ## 7. Rollback
+
+- Current APIS migration production predecessor：`c6fa8f68-747e-4d65-a743-2498ab2e0591`
+- Current APIS migration preview predecessor：`fdc9b9f2-7698-47b6-9663-44475786de34`
+- 回滚只恢复对应 Worker version；D1、R2、corpus pointer 和专用 secret 不变。确认旧版本不再有候选流量后才可移除 secret。
 
 - Production Worker predecessor：`3f8951d8-28ce-4b53-b936-5411b4d23b73`
 - Preview Worker predecessor：`faa7a9bf-e010-42d7-b635-332486f4b0fc`
