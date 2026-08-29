@@ -26,6 +26,9 @@ const HISTORICAL_READER_ITEM_PROFILE = 'curriculum-authenticated-bounded-reader-
 const MAX_HISTORICAL_READER_MANIFEST_BYTES = 4 * 1024 * 1024;
 const MAX_HISTORICAL_READER_ITEM_BYTES = 96 * 1024 * 1024;
 const MAX_HISTORICAL_READER_HEADER_BYTES = 16 * 1024 * 1024;
+const CALLER_ID = 'curriculum-atlas';
+const CALLER_IDENTITY_URL = 'https://apis.internal/caller-identity';
+const CALLER_CHECK_TIMEOUT_MS = 5_000;
 const REQUIRED_CLASSIFICATION_COUNTS = {
   documents: 196,
   academicIdentities: 160,
@@ -411,6 +414,60 @@ async function health(env: Env): Promise<Response> {
       assets: Boolean(env.ASSETS),
     },
   }, healthReady ? 200 : 503);
+}
+
+async function callerCheck(request: Request, env: Env): Promise<Response> {
+  if (request.method !== 'GET') {
+    return json({ error: 'method not allowed' }, 405, { allow: 'GET' });
+  }
+
+  const callerToken = String(env.APIS_CALLER_TOKEN || '').trim();
+  if (String(env.APIS_ENABLED || 'true').toLowerCase() !== 'true'
+    || !env.APIS
+    || typeof env.APIS.fetch !== 'function'
+    || !callerToken) {
+    return json({
+      ok: false,
+      callerId: CALLER_ID,
+      identityStatus: 'configuration_unavailable',
+      requestId: null,
+    }, 503);
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CALLER_CHECK_TIMEOUT_MS);
+  try {
+    const upstream = await env.APIS.fetch(new Request(CALLER_IDENTITY_URL, {
+      method: 'POST',
+      headers: {
+        Origin: env.AI_ORIGIN,
+        'X-Project-Name': CALLER_ID,
+        'X-Internal-Token': callerToken,
+      },
+      signal: controller.signal,
+    }));
+    const payload = await upstream.json<Record<string, unknown>>()
+      .catch(() => ({} as Record<string, unknown>));
+    const callerId = typeof payload.callerId === 'string' ? payload.callerId : CALLER_ID;
+    const identityStatus = typeof payload.identityStatus === 'string'
+      ? payload.identityStatus
+      : 'unavailable';
+    const requestId = typeof payload.requestId === 'string' && payload.requestId
+      ? payload.requestId
+      : upstream.headers.get('x-request-id');
+    const ok = upstream.ok && callerId === CALLER_ID && identityStatus === 'verified';
+    return json({ ok, callerId, identityStatus, requestId },
+      ok ? 200 : (upstream.ok ? 502 : (upstream.status || 502)));
+  } catch {
+    return json({
+      ok: false,
+      callerId: CALLER_ID,
+      identityStatus: 'unavailable',
+      requestId: null,
+    }, 503);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function requireExactQueryIdentity(env: Env, identity: string): Promise<void> {
@@ -1134,7 +1191,9 @@ export default {
     const requestId = crypto.randomUUID();
     const url = new URL(request.url);
     try {
-      const response = url.pathname.startsWith('/api/')
+      const response = url.pathname === '/__caller-check'
+        ? await callerCheck(request, env)
+        : url.pathname.startsWith('/api/')
         ? await api(request, env, url)
         : await env.ASSETS.fetch(request);
       const headers = new Headers(response.headers);

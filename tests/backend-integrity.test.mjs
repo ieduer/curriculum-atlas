@@ -257,6 +257,79 @@ test('preview AI path is explicitly disabled and fails closed before retrieval',
   );
 });
 
+test('caller check reuses the production APIS identity without provider input', async () => {
+  const worker = await loadWorker();
+  let upstream;
+  const response = await worker.fetch(new Request('https://curriculum.bdfz.net/__caller-check'), {
+    APIS_ENABLED: 'true',
+    APIS_CALLER_TOKEN: 'fixture-caller-token',
+    AI_ORIGIN: 'https://curriculum.bdfz.net',
+    APIS: {
+      async fetch(value) {
+        upstream = value;
+        return Response.json({
+          ok: true,
+          callerId: 'curriculum-atlas',
+          identityStatus: 'verified',
+          requestId: 'request-1',
+        });
+      },
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    ok: true,
+    callerId: 'curriculum-atlas',
+    identityStatus: 'verified',
+    requestId: 'request-1',
+  });
+  assert.equal(upstream.url, 'https://apis.internal/caller-identity');
+  assert.equal(upstream.method, 'POST');
+  assert.equal(upstream.headers.get('Origin'), 'https://curriculum.bdfz.net');
+  assert.equal(upstream.headers.get('X-Project-Name'), 'curriculum-atlas');
+  assert.equal(upstream.headers.get('X-Internal-Token'), 'fixture-caller-token');
+  assert.equal(upstream.headers.has('X-Task-Type'), false);
+  assert.equal(upstream.body, null);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+});
+
+test('preview caller check reports configuration unavailable without invoking APIS', async () => {
+  const worker = await loadWorker();
+  let calls = 0;
+  const response = await worker.fetch(new Request('https://preview.example/__caller-check'), {
+    APIS_ENABLED: 'false',
+    AI_ORIGIN: 'https://curriculum.bdfz.net',
+    APIS: { async fetch() { calls += 1; } },
+  });
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), {
+    ok: false,
+    callerId: 'curriculum-atlas',
+    identityStatus: 'configuration_unavailable',
+    requestId: null,
+  });
+  assert.equal(calls, 0);
+});
+
+test('caller check rejects non-GET methods before invoking APIS', async () => {
+  const worker = await loadWorker();
+  let calls = 0;
+  const response = await worker.fetch(new Request('https://curriculum.bdfz.net/__caller-check', {
+    method: 'POST',
+  }), {
+    APIS_ENABLED: 'true',
+    APIS_CALLER_TOKEN: 'fixture-caller-token',
+    AI_ORIGIN: 'https://curriculum.bdfz.net',
+    APIS: { async fetch() { calls += 1; } },
+  });
+
+  assert.equal(response.status, 405);
+  assert.equal(response.headers.get('allow'), 'GET');
+  assert.equal(calls, 0);
+});
+
 test('answerWithEvidence permits a fully explicit uncertainty response with no fabricated citation', async () => {
   const { answerWithEvidence } = await loadAiModule();
   const { env, state } = makeAiEnv('现有证据不足，无法确认该版本的地方实施情况。');
