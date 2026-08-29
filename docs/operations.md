@@ -6,7 +6,7 @@
 
 - Production：Worker `104ccefa-baf0-4c96-ae4b-8c1c4e25dc38`，deployment `b05cc96f-30ae-4b04-b652-a1f053314163`，release Git `d1568222d6998d36644d56be0c70fe7a02aed489`。
 - Preview：Worker `3c6f19e3-51b6-456f-9258-b09671d4d2cf`，deployment `fc259ebe-2ba0-40b9-8e5e-493d4c270eb4`，release Git `d1568222d6998d36644d56be0c70fe7a02aed489`。
-- GitHub/local main `0f8763b` 含 caller-check handler，但 production 已由 D20 停止门恢复到 `104ccefa…`，当前 deployment `b05cc96f-30ae-4b04-b652-a1f053314163`。候选 `11555d36-e0cf-46d7-b991-bad793668cce` 的 0% 精确探测于 `2026-08-29T14:58:27Z` 返回 HTML 200：`assets.run_worker_first` 尚未纳入 `/__caller-check`，所以路由未进入 Worker。Preview 未部署、未改配置。
+- GitHub main 含 caller-check functional source `0f8763b`，但 production 已由 D20 停止门恢复到 `104ccefa…`，当前 deployment `b05cc96f-30ae-4b04-b652-a1f053314163`。候选 `11555d36-e0cf-46d7-b991-bad793668cce` 的 0% 精确探测于 `2026-08-29T14:58:27Z` 返回 HTML 200：`assets.run_worker_first` 尚未纳入 `/__caller-check`，所以路由未进入 Worker。Preview 未部署、未改配置。
 - 两端 D1 migration `0001`–`0007`，corpus `corpus-1c4f6b41737380f3e71246dd` ready，R2 current `release-cd9ec4a050cbabbede744192398ebfa7`。
 - 单一星图：2,415 episodes、3,144 edges、5,304 evidence；55 families、1,648 memberships；11 个公开学科分面。
 - OCR：已完成子集 6,947/6,947 页机器终局；30 个唯一可引页；83 份完整文件／10,210 页进入 308 个候选观察；462/462 个 2001 年前 bounded identities 通过。2026-08-12 用户正式终止未完成的本机自动 OCR：冻结总分母为 11,847 页，其中 6,947 完成、4,900 待处理、1 页隔离；未完成页不再自动续跑，也不取得候选或引文资格。
