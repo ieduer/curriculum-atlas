@@ -4,8 +4,9 @@
 
 ## 当前检查点
 
-- Production：Worker `104ccefa-baf0-4c96-ae4b-8c1c4e25dc38`，deployment `5b5ed424-b184-4b5e-95ea-b978207b21a9`，release Git `d1568222d6998d36644d56be0c70fe7a02aed489`。
+- Production：Worker `104ccefa-baf0-4c96-ae4b-8c1c4e25dc38`，deployment `b05cc96f-30ae-4b04-b652-a1f053314163`，release Git `d1568222d6998d36644d56be0c70fe7a02aed489`。
 - Preview：Worker `3c6f19e3-51b6-456f-9258-b09671d4d2cf`，deployment `fc259ebe-2ba0-40b9-8e5e-493d4c270eb4`，release Git `d1568222d6998d36644d56be0c70fe7a02aed489`。
+- GitHub/local main `0f8763b` 含 caller-check handler，但 production 已由 D20 停止门恢复到 `104ccefa…`，当前 deployment `b05cc96f-30ae-4b04-b652-a1f053314163`。候选 `11555d36-e0cf-46d7-b991-bad793668cce` 的 0% 精确探测于 `2026-08-29T14:58:27Z` 返回 HTML 200：`assets.run_worker_first` 尚未纳入 `/__caller-check`，所以路由未进入 Worker。Preview 未部署、未改配置。
 - 两端 D1 migration `0001`–`0007`，corpus `corpus-1c4f6b41737380f3e71246dd` ready，R2 current `release-cd9ec4a050cbabbede744192398ebfa7`。
 - 单一星图：2,415 episodes、3,144 edges、5,304 evidence；55 families、1,648 memberships；11 个公开学科分面。
 - OCR：已完成子集 6,947/6,947 页机器终局；30 个唯一可引页；83 份完整文件／10,210 页进入 308 个候选观察；462/462 个 2001 年前 bounded identities 通过。2026-08-12 用户正式终止未完成的本机自动 OCR：冻结总分母为 11,847 页，其中 6,947 完成、4,900 待处理、1 页隔离；未完成页不再自动续跑，也不取得候选或引文资格。
@@ -58,7 +59,8 @@
 - Production 只走 `APIS` Service Binding，caller ID 固定为 `curriculum-atlas`，专用凭证只存在 Cloudflare secret `APIS_CALLER_TOKEN`；缺失时 503 fail closed。
 - Preview 明确配置 `APIS_ENABLED=false`，在检索和 provider 调用前 503；它不注册 caller，也不领取凭证。
 - 不允许 binding 回应后再向公开 `apis.bdfz.net` 发第二次请求。
-- 当前 retired-OCR 状态使旧 `npm run verify` 在读取已删除的 `.cache/ocr-production/*/state.json` 时先行失败。不得恢复或合成该热状态来取得绿灯；本次 APIS-only 发布门为 TypeScript、34/34 backend tests、build、strict dry-run、commit gitleaks 与双环境 live health。验证标准的退役态修订必须另行审查。
+- Main 的 caller-check handler 沿用 production `AI_ORIGIN=https://curriculum.bdfz.net`、caller ID、binding 与凭证，只访问 `/caller-identity`；preview 单测为 `configuration_unavailable` 503 且不调用 APIS。该 handler 当前未上线，因为 Static Assets `run_worker_first` 不含此路径。D20 将 HTML fallback 分类为确定性失败，因此不得把 source presence 写成 live evidence。
+- 当前 retired-OCR 状态使旧 `npm run verify` 在读取已删除的 `.cache/ocr-production/*/state.json` 时先行失败。不得恢复或合成该热状态来取得绿灯；本次 APIS-only 发布门为 TypeScript、37/37 backend tests、build、strict dry-run、commit gitleaks 与双环境 live health。验证标准的退役态修订必须另行审查。
 
 ## 5. Dependency and browser regression
 
@@ -108,6 +110,7 @@ Time Travel 恢复前先检查 bookmark 后的合法用户写入；业务 SQL �
 - Current APIS migration production predecessor：`c6fa8f68-747e-4d65-a743-2498ab2e0591`
 - Current APIS migration preview predecessor：`fdc9b9f2-7698-47b6-9663-44475786de34`
 - 回滚只恢复对应 Worker version；D1、R2、corpus pointer 和专用 secret 不变。确认旧版本不再有候选流量后才可移除 secret。
+- B5-2 caller-check 候选的即时回退已完成：production `104ccefa-baf0-4c96-ae4b-8c1c4e25dc38@100%`；候选 `11555d36-e0cf-46d7-b991-bad793668cce` 无流量。Preview 保持 `3c6f19e3-51b6-456f-9258-b09671d4d2cf@100%`。
 
 - Production Worker predecessor：`3f8951d8-28ce-4b53-b936-5411b4d23b73`
 - Preview Worker predecessor：`faa7a9bf-e010-42d7-b635-332486f4b0fc`
@@ -117,6 +120,8 @@ Time Travel 恢复前先检查 bookmark 后的合法用户写入；业务 SQL �
 R2-only 回滚只恢复 predecessor pointer bytes，保留 immutable v18 objects。回到 v17 Worker 时必须耦合评估 D1，因为旧 Worker 内嵌旧 corpus fingerprint/counts。
 
 ## 8. Last verified
+
+B5-2 于 2026-08-29 验证 main `0f8763b`：Node 24 TypeScript、37/37 backend tests、deterministic build、strict production dry-run 与 exact-commit gitleaks 通过。0% 精确候选请求返回 HTML 200 后立即按 D20 回退；最终完整 caller 表为 23/27，失败为 `curriculum-atlas`、`my.bdfz.net`、`weibian`、`yw.bdfz.net`，没有抖动事件。
 
 Production evidence 采集于 `2026-07-24T09:15:43.645Z`：Worker `10c8d648…`、deployment `38cb4825…`、health 200、corpus ready、五项 assets byte parity 通过。随后 production R2 在 17/17 object readback 后于 `2026-07-24T09:18:57.787Z` 激活 `release-cd9ec4…`。
 
