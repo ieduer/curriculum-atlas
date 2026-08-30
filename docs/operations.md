@@ -107,10 +107,10 @@ Time Travel 恢复前先检查 bookmark 后的合法用户写入；业务 SQL �
 
 ## 7. Rollback
 
-- Current APIS migration production predecessor：`c6fa8f68-747e-4d65-a743-2498ab2e0591`
+- Current APIS migration production predecessor：`104ccefa-baf0-4c96-ae4b-8c1c4e25dc38`
 - Current APIS migration preview predecessor：`fdc9b9f2-7698-47b6-9663-44475786de34`
 - 回滚只恢复对应 Worker version；D1、R2、corpus pointer 和专用 secret 不变。确认旧版本不再有候选流量后才可移除 secret。
-- B5-2 caller-check 候选的即时回退已完成：production `104ccefa-baf0-4c96-ae4b-8c1c4e25dc38@100%`；候选 `11555d36-e0cf-46d7-b991-bad793668cce` 无流量。Preview 保持 `3c6f19e3-51b6-456f-9258-b09671d4d2cf@100%`。
+- B5-3 将 `/__caller-check` 加入 Static Assets `run_worker_first`，production 通过 0% / 1% / 5% / 100% 逐级读回后运行 `806c690c-e31a-419e-94d2-796e9f5e4bbc@100%`；即时回退为 `104ccefa-baf0-4c96-ae4b-8c1c4e25dc38`。Preview 保持 `3c6f19e3-51b6-456f-9258-b09671d4d2cf@100%`。
 
 - Production Worker predecessor：`3f8951d8-28ce-4b53-b936-5411b4d23b73`
 - Preview Worker predecessor：`faa7a9bf-e010-42d7-b635-332486f4b0fc`
@@ -121,7 +121,7 @@ R2-only 回滚只恢复 predecessor pointer bytes，保留 immutable v18 objects
 
 ## 8. Last verified
 
-B5-2 于 2026-08-29 验证 main `0f8763b`：Node 24 TypeScript、37/37 backend tests、deterministic build、strict production dry-run 与 exact-commit gitleaks 通过。0% 精确候选请求返回 HTML 200 后立即按 D20 回退；最终完整 caller 表为 23/27，失败为 `curriculum-atlas`、`my.bdfz.net`、`weibian`、`yw.bdfz.net`，没有抖动事件。
+B5-3 于 2026-08-29 验证 main `31f9dfb`：Node 24.18.0 TypeScript、37/37 backend tests、deterministic build、strict production dry-run、exact-commit gitleaks 和 clean-source deploy gate 通过。候选 `806c690c-e31a-419e-94d2-796e9f5e4bbc` 在 0% / 1% / 5% / 100% 均返回 HTTP 200 `application/json`且 `identityStatus=verified`；production deployment 为 `d5574ab0-a6f0-4d90-ad7f-df5e71bf2538`，preview 未变。发布后完整 caller 表为 24/27；`flx` 首次出现一次 fetch failure，两次 no-cache 确认与下一次全表均通过，按 D20 记为 1/3 抖动而非回归。
 
 Production evidence 采集于 `2026-07-24T09:15:43.645Z`：Worker `10c8d648…`、deployment `38cb4825…`、health 200、corpus ready、五项 assets byte parity 通过。随后 production R2 在 17/17 object readback 后于 `2026-07-24T09:18:57.787Z` 激活 `release-cd9ec4…`。
 
