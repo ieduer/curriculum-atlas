@@ -149,3 +149,8 @@ Production evidence 采集于 `2026-07-24T09:15:43.645Z`：Worker `10c8d648…`�
 验证：Node 24.18.0 `npm run check` 与完整 `npm test` 通过；
 preview 未改。生产回滚锚点为
 `806c690c-e31a-419e-94d2-796e9f5e4bbc`。
+
+正式回读：GitHub merge `ab5ef83`；Worker deployment
+`1108163c-f95b-4d8b-afcd-a3941253f5f1` / version
+`c7259ead-9cf9-4f93-94db-dfeba4b9520e` at 100%；`/api/health`
+为 `ok:true` 且 `release.gitCommit=ab5ef83...`。preview 未改。
