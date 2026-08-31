@@ -11,3 +11,11 @@ Deployment status: production deployment `d5574ab0-a6f0-4d90-ad7f-df5e71bf2538` 
 Rollback anchor: restore production `104ccefa-baf0-4c96-ae4b-8c1c4e25dc38` at 100%; preview was not changed. Do not reset D1/R2 or restart retired OCR.
 Operations authority: /Users/ylsuen/CF/curriculum-atlas/docs/OPERATIONS.md
 Ownership status: APIS migration is owned by task `20260827-apis-caller-auth-containment`; consult reports/agent_action_log.jsonl
+
+2026-08-30 Turnstile closeout: anonymous comments remain fresh-token-per-write
+with exact `curriculum_comment` action/hostname and fail-closed Siteverify.
+Production source `ab5ef83efcb739461738a0e905eb949e06b62266` is deployment
+`1108163c-f95b-4d8b-afcd-a3941253f5f1`, version
+`c7259ead-9cf9-4f93-94db-dfeba4b9520e` at 100%. Health returned `ok:true`;
+preview remained unchanged. Rollback is
+`806c690c-e31a-419e-94d2-796e9f5e4bbc@100%`.
