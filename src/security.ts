@@ -1,6 +1,11 @@
 import { HttpError } from './http';
 import type { Env } from './types';
 
+const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+const TURNSTILE_EXPECTED_HOSTNAME = 'curriculum.bdfz.net';
+const TURNSTILE_COMMENT_ACTION = 'curriculum_comment';
+const TURNSTILE_TIMEOUT_MS = 8_000;
+
 function bytesToHex(bytes: ArrayBuffer): string {
   return [...new Uint8Array(bytes)].map((value) => value.toString(16).padStart(2, '0')).join('');
 }
@@ -45,11 +50,42 @@ export async function verifyTurnstile(request: Request, env: Env, token: string)
   if (!env.TURNSTILE_SECRET) throw new HttpError(503, '匿名讨论暂未开放');
   if (!token) throw new HttpError(400, '请完成人机验证');
   const ip = request.headers.get('cf-connecting-ip') || '';
-  const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ secret: env.TURNSTILE_SECRET, response: token, remoteip: ip }),
+  const form = new URLSearchParams({
+    secret: env.TURNSTILE_SECRET,
+    response: token,
+    idempotency_key: crypto.randomUUID(),
   });
-  const result = await response.json<{ success?: boolean }>().catch(() => ({} as { success?: boolean }));
-  if (!response.ok || !result.success) throw new HttpError(403, '人机验证失败或已过期');
+  if (ip) form.set('remoteip', ip);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort('Turnstile deadline exceeded'), TURNSTILE_TIMEOUT_MS);
+  try {
+    const response = await fetch(TURNSTILE_VERIFY_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+      signal: controller.signal,
+    });
+    const result = await response.json<{
+      success?: boolean;
+      hostname?: string;
+      action?: string;
+    }>().catch(() => ({ success: false } as {
+      success?: boolean;
+      hostname?: string;
+      action?: string;
+    }));
+    if (
+      !response.ok ||
+      result.success !== true ||
+      result.hostname !== TURNSTILE_EXPECTED_HOSTNAME ||
+      result.action !== TURNSTILE_COMMENT_ACTION
+    ) {
+      throw new HttpError(403, '人机验证失败或已过期');
+    }
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(503, '人机验证服务暂时不可用');
+  } finally {
+    clearTimeout(timer);
+  }
 }
