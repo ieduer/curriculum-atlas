@@ -137,3 +137,15 @@ Production evidence 采集于 `2026-07-24T09:15:43.645Z`：Worker `10c8d648…`�
 - 每周：OCR failure/quarantine、机器 disposition 总量、publication manifest diff、AI 引文失败、Worker 错误率。
 - 每月：官方修订动态、来源 URL、D1 corpus counts、R2 pointer/manifest/object 与本地 hash 对账。
 - 新增或更换扫描：重算源 SHA，重新入队，不继承旧页通过状态。
+
+## 2026-08-30 Turnstile 提交边界加固
+
+匿名评论仍是逐次写入、逐次验证：每次提交必须取得 action
+`curriculum_comment` 的新 token，Worker 仅接受
+`curriculum.bdfz.net`，并在 8 秒内向 Siteverify 以表单编码和幂等键
+校验，任何超时或响应异常均 fail closed。本次不建立 30 分钟会话，
+因为评论是公开写入面；30 分钟复用只适用于受限流保护的 AI 读取/推理。
+
+验证：Node 24.18.0 `npm run check` 与完整 `npm test` 通过；
+preview 未改。生产回滚锚点为
+`806c690c-e31a-419e-94d2-796e9f5e4bbc`。

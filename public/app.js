@@ -2188,7 +2188,13 @@ function setupTurnstile(container, callback) {
     container.innerHTML = '<p>匿名讨论暂不可提交；请先统一登录。</p>';
     return;
   }
-  const render = () => window.turnstile.render(container, { sitekey: state.meta.turnstileSiteKey, callback, 'expired-callback': () => callback('') });
+  const render = () => window.turnstile.render(container, {
+    sitekey: state.meta.turnstileSiteKey,
+    action: 'curriculum_comment',
+    appearance: 'interaction-only',
+    callback,
+    'expired-callback': () => callback(''),
+  });
   if (window.turnstile) { render(); return; }
   const script = document.createElement('script');
   script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
