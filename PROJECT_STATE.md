@@ -19,3 +19,36 @@ Production source `ab5ef83efcb739461738a0e905eb949e06b62266` is deployment
 `c7259ead-9cf9-4f93-94db-dfeba4b9520e` at 100%. Health returned `ok:true`;
 preview remained unchanged. Rollback is
 `806c690c-e31a-419e-94d2-796e9f5e4bbc@100%`.
+
+## 2026-09-20 query-cost release
+
+Production source `b74659c742e692c07f5205fdb3c0dc67ba17f3a4` is deployment
+`411fa14b-f7c4-465a-9e57-9404b7578ded`, Worker
+`09832541-e347-4fab-b64e-8b2072010c80` at100%. Rollback is
+`c7259ead-9cf9-4f93-94db-dfeba4b9520e`; use a new registered rollback receipt,
+never replay the consumed release receipt. No D1/R2 migration or data write.
+
+Unknown/wrong-method API routes return404 before corpus/session reads. Valid
+routes keep live corpus integrity and citation/authentication gates. Eligible
+fallback searches use existing trigram LIKE; fewer than3 Unicode characters
+or backslash/percent/underscore/NUL keep the original fallback semantics.
+The original MATCH path and ranking are unchanged.
+
+Read-only production evidence: no-result long searches16501→1 row; 核心素养
+fallback20616→6860; a subject-filtered case17873→4117. Six before/after
+queries had identical full returned rows and order;16500-row FTS projection
+matched paragraphs. Two-character and special-character queries remain costly.
+Valid requests still perform full corpus integrity counts; this is no account
+spending cap.75 focused backend/security/retrieval tests, TypeScript, build,
+strict pinned-Wrangler dry run and exact-commit gitleaks passed.
+
+Validation for this runtime-only release compared all unchanged public assets,
+source/migration/config hashes and live corpus counts instead of rebuilding
+retired OCR state. Legacy full verify still requires deleted OCR hot state and
+was not claimed passed or restored. Immutable isolated preview and production
+candidate bundles were byte-identical;83 public assets and13 HTTP cases passed
+in preview and production. Cross-environment paragraph primary keys differ;
+all other search fields and ordering matched exactly. Production before/after
+results also matched including IDs.1440×1000/390×844 browser checks passed.
+Production preview URLs stayed disabled; isolated preview's active deployment
+was unchanged. Exact evidence: `/Users/ylsuen/CF/reports/operations/cloudflare-risk-atlas-20260920/REPORT.md`.
