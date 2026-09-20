@@ -42,16 +42,20 @@ export async function retrieve(env: Env, filters: SearchFilters): Promise<Passag
   }
 
   const like = `%${query.replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
+  // Trigram LIKE can use the existing index only without ESCAPE and with a
+  // literal run of at least 3 Unicode characters. Preserve the original
+  // fallback (including escape semantics) for short/special-character input.
+  const indexedLike = [...query].length >= 3 && !/[\\%_\u0000]/u.test(query);
   const fallback = await env.DB.prepare(
     `SELECT p.id, p.document_id, d.title, dc.entity_kind, dc.taxonomy_entity_kind, dc.display_facet,
             dc.canonical_subject AS subject,
             COALESCE(dc.canonical_subject, dc.scope_label, dc.source_subject_label) AS entity_label,
             dc.subject_family, dc.scope_kind, dc.scope_label, d.version_label,
             p.page_number, p.source_locator, p.body, d.source_url, 0 AS score
-     FROM paragraphs p
+     FROM ${indexedLike ? 'paragraph_fts JOIN paragraphs p ON p.id = paragraph_fts.paragraph_id' : 'paragraphs p'}
      JOIN documents d ON d.id = p.document_id
      JOIN document_classifications dc ON dc.document_id = d.id
-     WHERE p.body LIKE ? ESCAPE '\\'
+     WHERE ${indexedLike ? 'paragraph_fts.body LIKE ?' : "p.body LIKE ? ESCAPE '\\'"}
        AND p.citation_allowed = 1
        AND d.citation_allowed = 1
        AND (? = '' OR (dc.taxonomy_entity_kind = 'subject' AND dc.canonical_subject IN (?, ?)))

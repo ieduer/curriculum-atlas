@@ -1,4 +1,5 @@
 import { answerWithEvidence } from './ai';
+import { resolveApiRoute } from './api-route';
 import { getSession, requireAdmin, requireAuthenticated } from './auth';
 import { clampInt, HttpError, json, readJson, requireSameOrigin, secureHeaders, textParam } from './http';
 import { retrieve } from './retrieval';
@@ -1150,39 +1151,36 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
   const { pathname } = url;
   const method = request.method;
   if (method === 'OPTIONS') return new Response(null, { status: 204, headers: { allow: 'GET, POST, PATCH, OPTIONS' } });
-  if (pathname === '/api/health' && method === 'GET') return health(env);
-  if (pathname === '/api/me' && method === 'GET') return me(request, env);
+  const route = resolveApiRoute(pathname, method);
+  if (!route) throw new HttpError(404, 'API 路径不存在');
+  if (route.kind === 'health') return health(env);
+  if (route.kind === 'me') return me(request, env);
   await requireCorpusReady(env);
-  if (pathname === '/api/meta' && method === 'GET') return meta(env);
-  if (pathname === '/api/documents' && method === 'GET') return listDocuments(url, env);
-  const detailMatch = pathname.match(/^\/api\/documents\/([a-z0-9-]+)$/);
-  if (detailMatch && method === 'GET') return documentDetail(detailMatch[1], url, env);
-  if (pathname === '/api/search' && method === 'GET') return search(url, env);
-  if (pathname === '/api/insights' && method === 'GET') return insights(url, env);
-  if (pathname === '/api/terms' && method === 'GET') return terminology(env);
-  if (pathname === '/api/compare' && method === 'GET') return compare(url, env);
-  if (pathname === '/api/source-manifest' && method === 'GET') return sourceManifest(env);
+  if (route.kind === 'meta') return meta(env);
+  if (route.kind === 'documents') return listDocuments(url, env);
+  if (route.kind === 'document') return documentDetail(route.id, url, env);
+  if (route.kind === 'search') return search(url, env);
+  if (route.kind === 'insights') return insights(url, env);
+  if (route.kind === 'terms') return terminology(env);
+  if (route.kind === 'compare') return compare(url, env);
+  if (route.kind === 'source-manifest') return sourceManifest(env);
   const needsSession = pathname.startsWith('/api/comments')
     || pathname.startsWith('/api/ai')
     || pathname.startsWith('/api/admin')
     || pathname.startsWith('/api/historical/');
   const session = needsSession ? await getSession(request, env) : { authenticated: false, user: null, admin: false };
-  const historicalPdfMatch = pathname.match(/^\/api\/historical\/(.+)\/source\.pdf$/);
-  if (historicalPdfMatch && method === 'GET') {
-    return historicalReaderPdf(request, env, session, historicalPdfMatch[1]);
+  if (route.kind === 'historical-pdf') {
+    return historicalReaderPdf(request, env, session, route.id);
   }
-  const historicalItemMatch = pathname.match(/^\/api\/historical\/(.+)$/);
-  if (historicalItemMatch && method === 'GET') {
-    return historicalReaderItem(env, session, historicalItemMatch[1]);
+  if (route.kind === 'historical-item') {
+    return historicalReaderItem(env, session, route.id);
   }
-  if (pathname === '/api/comments' && method === 'GET') return listComments(url, env, session);
-  if (pathname === '/api/comments' && method === 'POST') return createComment(request, env, session);
-  const reportMatch = pathname.match(/^\/api\/comments\/([a-f0-9-]+)\/report$/);
-  if (reportMatch && method === 'POST') return reportComment(request, env, session, reportMatch[1]);
-  const moderateMatch = pathname.match(/^\/api\/admin\/comments\/([a-f0-9-]+)$/);
-  if (moderateMatch && method === 'PATCH') return moderateComment(request, env, session, moderateMatch[1]);
-  if (pathname === '/api/admin/summary' && method === 'GET') return adminSummary(env, session);
-  if (pathname === '/api/ai/chat' && method === 'POST') return aiChat(request, env, session);
+  if (route.kind === 'comments') return listComments(url, env, session);
+  if (route.kind === 'create-comment') return createComment(request, env, session);
+  if (route.kind === 'report-comment') return reportComment(request, env, session, route.id);
+  if (route.kind === 'moderate-comment') return moderateComment(request, env, session, route.id);
+  if (route.kind === 'admin-summary') return adminSummary(env, session);
+  if (route.kind === 'ai-chat') return aiChat(request, env, session);
   throw new HttpError(404, 'API 路径不存在');
 }
 
