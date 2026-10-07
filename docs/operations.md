@@ -1,3 +1,33 @@
+## Current accepted state — 2026-10-07 12:08 UTC
+
+Owner: suen. Runtime source `04c6831a2b412c1ef1d79d694dfe69b2dff2f37b`,
+Worker `f3e955af-89ca-4daf-8aab-79f3200d0123` at 100%, deployment
+`c2b2baa4-db7c-4054-828b-ac404ea389ab`. Production became effective at
+12:03:37 UTC and was accepted after runtime/configuration, real API, asset
+and desktop/mobile readback. Rollback is the prior Worker
+`09832541-e347-4fab-b64e-8b2072010c80` via a new registered transaction;
+retain all forward D1/R2 data. The existing preview deployment is unchanged.
+
+Paragraph and publication-gate totals now use one scan per current-release
+set. The metadata response reuses the freshly validated document/paragraph
+counts within the same request. Every request retains live release, manifest,
+state and corpus integrity checks; there is no cached acceptance or new job.
+Public assets, corpus, citations, authentication and retired OCR stay intact.
+
+Validation: TypeScript, build, 63 focused Node 24 tests, strict dry-run,
+exact-source secret scan, isolated candidate bundle parity, 83 public assets,
+API and desktop/mobile acceptance. Initial raw metadata hash mismatches were
+not payload-captured; their exact cause remains unknown. Bounded same-path
+comparison of predecessor, candidate and production then proved every nested
+value identical. Do not characterize the initial mismatch as a proven
+serialization issue or use it to justify unbounded rechecking.
+
+The central release authority stores the exact acceptance and rollback
+receipts. Public maintenance record: `curriculum-reduce-repeated-reads-20261007`;
+the registered publisher, immutable API, public page and both RSS views passed.
+No further provider/OCR calls are authorized by this checkpoint. The dated
+records below are history where superseded by this current state.
+
 # 运维与八点验证标准
 
 > 完整 Git 时间线、append-only 事件和历史回滚见 [`project-operations-ledger.md`](project-operations-ledger.md)。本文件定义当前 v20 运行标准。
