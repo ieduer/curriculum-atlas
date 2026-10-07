@@ -219,14 +219,28 @@ function corpusReleaseReady(corpus: CorpusReleaseStatus | null): boolean {
 
 async function currentCorpusRelease(env: Env): Promise<CorpusReleaseStatus | null> {
   try {
-    return await env.DB.prepare(`SELECT r.*,
+    return await env.DB.prepare(`WITH current AS MATERIALIZED (SELECT r.*
+      FROM corpus_import_releases r
+      JOIN site_meta release_meta ON release_meta.key='current_corpus_release_id' AND release_meta.value=r.release_id
+      JOIN site_meta state_meta ON state_meta.key='corpus_import_state' AND state_meta.value=r.state
+      JOIN site_meta manifest_meta ON manifest_meta.key='current_corpus_manifest_sha256' AND manifest_meta.value=r.manifest_sha256
+      LIMIT 1),
+      paragraph_counts AS MATERIALIZED (
+        SELECT COUNT(*) AS total, COUNT(CASE WHEN display_allowed=1 THEN 1 END) AS displayed
+        FROM paragraphs WHERE corpus_release_id=(SELECT release_id FROM current)
+      ),
+      gate_counts AS MATERIALIZED (
+        SELECT COUNT(*) AS total,
+          COUNT(DISTINCT CASE WHEN publication_basis='accepted_ocr_page_manifest' THEN document_id END) AS accepted
+        FROM page_publication_gates WHERE corpus_release_id=(SELECT release_id FROM current)
+      )
+      SELECT r.*,
       (SELECT COUNT(*) FROM documents d WHERE d.corpus_release_id=r.release_id) AS live_documents,
-      (SELECT COUNT(*) FROM paragraphs p WHERE p.corpus_release_id=r.release_id) AS live_paragraphs,
+      pc.total AS live_paragraphs,
       (SELECT COUNT(*) FROM paragraph_fts) AS live_fts_rows,
-      (SELECT COUNT(*) FROM page_publication_gates g WHERE g.corpus_release_id=r.release_id) AS live_page_gates,
-      (SELECT COUNT(*) FROM paragraphs p WHERE p.corpus_release_id=r.release_id AND p.display_allowed=1) AS live_displayed_paragraphs,
-      (SELECT COUNT(DISTINCT g.document_id) FROM page_publication_gates g
-        WHERE g.corpus_release_id=r.release_id AND g.publication_basis='accepted_ocr_page_manifest') AS live_accepted_ocr_documents,
+      gc.total AS live_page_gates,
+      pc.displayed AS live_displayed_paragraphs,
+      gc.accepted AS live_accepted_ocr_documents,
       (SELECT COUNT(*) FROM corpus_import_chunks c WHERE c.release_id=r.release_id) AS live_chunks,
       json_object(
         'subjects',(SELECT COUNT(*) FROM subjects),
@@ -243,20 +257,18 @@ async function currentCorpusRelease(env: Env): Promise<CorpusReleaseStatus | nul
         'online_verifications',(SELECT COUNT(*) FROM online_verifications ov WHERE ov.corpus_release_id=r.release_id),
         'online_evidence',(SELECT COUNT(*) FROM online_evidence oe JOIN online_verifications ov ON ov.id=oe.verification_id WHERE ov.corpus_release_id=r.release_id)
       ) AS live_core_counts_json
-      FROM corpus_import_releases r
-      JOIN site_meta release_meta ON release_meta.key='current_corpus_release_id' AND release_meta.value=r.release_id
-      JOIN site_meta state_meta ON state_meta.key='corpus_import_state' AND state_meta.value=r.state
-      JOIN site_meta manifest_meta ON manifest_meta.key='current_corpus_manifest_sha256' AND manifest_meta.value=r.manifest_sha256
-      LIMIT 1`).first<CorpusReleaseStatus>();
+      FROM current r CROSS JOIN paragraph_counts pc CROSS JOIN gate_counts gc`).first<CorpusReleaseStatus>();
   } catch {
     return null;
   }
 }
 
-async function requireCorpusReady(env: Env): Promise<void> {
-  if (!corpusReleaseReady(await currentCorpusRelease(env))) {
+async function requireCorpusReady(env: Env): Promise<CorpusReleaseStatus> {
+  const corpus = await currentCorpusRelease(env);
+  if (!corpus || !corpusReleaseReady(corpus)) {
     throw new HttpError(503, '资料库正在进行一致性更新，请稍后重试');
   }
+  return corpus;
 }
 
 async function currentHistoricalReaderPointer(env: Env): Promise<HistoricalReaderPointer | null> {
@@ -483,10 +495,8 @@ async function requireExactQueryIdentity(env: Env, identity: string): Promise<vo
   if (!match) throw new HttpError(400, '精确分类身份不存在或不可检索');
 }
 
-async function meta(env: Env): Promise<Response> {
-  const [documents, paragraphs, comments, citationReady, onlineVerified, subjects, queryIdentities, assessmentIdentities, courses, periods] = await Promise.all([
-    env.DB.prepare("SELECT COUNT(*) AS count FROM documents WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>(),
-    env.DB.prepare("SELECT COUNT(*) AS count FROM paragraphs WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>(),
+async function meta(env: Env, corpus: CorpusReleaseStatus): Promise<Response> {
+  const [comments, citationReady, onlineVerified, subjects, queryIdentities, assessmentIdentities, courses, periods] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) AS count FROM comments WHERE status = 'approved'").first<{ count: number }>(),
     env.DB.prepare("SELECT COUNT(*) AS count FROM documents WHERE citation_allowed=1 AND corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id')").first<{ count: number }>(),
     env.DB.prepare("SELECT COUNT(*) AS count FROM online_verifications WHERE corpus_release_id=(SELECT value FROM site_meta WHERE key='current_corpus_release_id') AND verification_status IN ('verified_exact','verified_stable_fact_only')").first<{ count: number }>(),
@@ -536,8 +546,8 @@ async function meta(env: Env): Promise<Response> {
     dataClass: 'teacher_owned',
     currentVersionNote: '现行标签依据已核验的教育部公开目录；处于修订过程的版本标注 revision watch。',
     counts: {
-      documents: documents?.count || 0,
-      paragraphs: paragraphs?.count || 0,
+      documents: Number(corpus.live_documents),
+      paragraphs: Number(corpus.live_paragraphs),
       comments: comments?.count || 0,
       citationReadyDocuments: citationReady?.count || 0,
       onlineVerifications: onlineVerified?.count || 0,
@@ -1155,8 +1165,8 @@ async function api(request: Request, env: Env, url: URL): Promise<Response> {
   if (!route) throw new HttpError(404, 'API 路径不存在');
   if (route.kind === 'health') return health(env);
   if (route.kind === 'me') return me(request, env);
-  await requireCorpusReady(env);
-  if (route.kind === 'meta') return meta(env);
+  const corpus = await requireCorpusReady(env);
+  if (route.kind === 'meta') return meta(env, corpus);
   if (route.kind === 'documents') return listDocuments(url, env);
   if (route.kind === 'document') return documentDetail(route.id, url, env);
   if (route.kind === 'search') return search(url, env);

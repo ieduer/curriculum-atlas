@@ -1,3 +1,20 @@
+## Current candidate — 2026-10-07 — strict corpus count consolidation
+
+The runtime query combines paragraph totals/display eligibility and publication
+gate totals/distinct accepted OCR documents into one scan of each current-release
+set. Current release/manifest/state and all live integrity checks remain exact
+on every request; there is no cached acceptance, new polling or metadata write.
+The metadata response reuses the document and paragraph counts just verified
+in the same request instead of issuing two duplicate COUNT queries.
+Public assets, migrations, citations, authentication, APIS, OCR retirement and
+R2 pointers are unchanged. Validate against the accepted predecessor SQL using
+synthetic SQLite data, including other releases, hidden content, missing rows,
+empty sets and mismatched metadata. Local checks and immutable candidates do
+not establish production acceptance; use the central registered transaction
+and verify the actual affected path. Rollback changes only the Worker version.
+
+Prior dated release records below remain historical until candidate acceptance.
+
 # 运维与八点验证标准
 
 > 完整 Git 时间线、append-only 事件和历史回滚见 [`project-operations-ledger.md`](project-operations-ledger.md)。本文件定义当前 v20 运行标准。
