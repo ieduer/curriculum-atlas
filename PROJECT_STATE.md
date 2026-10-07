@@ -1,19 +1,32 @@
-## Current candidate — 2026-10-07 — strict corpus count consolidation
+## Current accepted state — 2026-10-07 12:08 UTC
 
-The runtime query combines paragraph totals/display eligibility and publication
-gate totals/distinct accepted OCR documents into one scan of each current-release
-set. Current release/manifest/state and all live integrity checks remain exact
-on every request; there is no cached acceptance, new polling or metadata write.
-The metadata response reuses the document and paragraph counts just verified
-in the same request instead of issuing two duplicate COUNT queries.
-Public assets, migrations, citations, authentication, APIS, OCR retirement and
-R2 pointers are unchanged. Validate against the accepted predecessor SQL using
-synthetic SQLite data, including other releases, hidden content, missing rows,
-empty sets and mismatched metadata. Local checks and immutable candidates do
-not establish production acceptance; use the central registered transaction
-and verify the actual affected path. Rollback changes only the Worker version.
+Owner: suen. Runtime source `04c6831a2b412c1ef1d79d694dfe69b2dff2f37b`,
+Worker `f3e955af-89ca-4daf-8aab-79f3200d0123` at 100%, deployment
+`c2b2baa4-db7c-4054-828b-ac404ea389ab`. Production became effective at
+12:03:37 UTC and was accepted after runtime/configuration, real API, asset
+and desktop/mobile readback. Rollback is the prior Worker
+`09832541-e347-4fab-b64e-8b2072010c80` via a new registered transaction;
+retain all forward D1/R2 data. The existing preview deployment is unchanged.
 
-Prior dated release records below remain historical until candidate acceptance.
+Paragraph and publication-gate totals now use one scan per current-release
+set. The metadata response reuses the freshly validated document/paragraph
+counts within the same request. Every request retains live release, manifest,
+state and corpus integrity checks; there is no cached acceptance or new job.
+Public assets, corpus, citations, authentication and retired OCR stay intact.
+
+Validation: TypeScript, build, 63 focused Node 24 tests, strict dry-run,
+exact-source secret scan, isolated candidate bundle parity, 83 public assets,
+API and desktop/mobile acceptance. Initial raw metadata hash mismatches were
+not payload-captured; their exact cause remains unknown. Bounded same-path
+comparison of predecessor, candidate and production then proved every nested
+value identical. Do not characterize the initial mismatch as a proven
+serialization issue or use it to justify unbounded rechecking.
+
+The central release authority stores the exact acceptance and rollback
+receipts. Public maintenance record: `curriculum-reduce-repeated-reads-20261007`;
+the registered publisher, immutable API, public page and both RSS views passed.
+No further provider/OCR calls are authorized by this checkpoint. The dated
+records below are history where superseded by this current state.
 
 # Project State
 
