@@ -1,7 +1,7 @@
 import { HttpError } from './http';
 import { hashPrivate, sha256 } from './security';
 import { retrieve } from './retrieval';
-import type { AiCitation, Env, Session } from './types';
+import type { AiCitation, Env, Passage, Session } from './types';
 
 const STRUCTURAL_HEADINGS = new Set([
   '原文事实',
@@ -163,22 +163,46 @@ export function validateAiAnswerCitations(
   };
 }
 
+// APIS payload contract 2026-10-15.v1 for caller "curriculum-atlas": text at most 256 KiB (UTF-8 bytes of the
+// request JSON). Retrieved passages are taken whole, in retrieval order, within CONTEXT_BUDGET_BYTES; one that does
+// not fit is skipped and later ones may still be used (corpus
+// paragraphs are <= 2,200 chars, so ten fit with room; the bound also covers any longer published body). Only the
+// passages sent can be cited; the response says how many were retrieved and how many were used.
+export const CONTEXT_BUDGET_BYTES = 160 * 1024;
+
+export function contextEntry(passage: Passage): string {
+  return `[P:${passage.id}] ${passage.title}｜${passage.source_locator}｜${passageIdentityContext(passage)}\n${passage.body}`;
+}
+
+export function selectContextPassages(passages: Passage[], budgetBytes = CONTEXT_BUDGET_BYTES): Passage[] {
+  const encoder = new TextEncoder();
+  const kept: Passage[] = [];
+  let used = 0;
+  for (const passage of passages) {
+    const bytes = encoder.encode(JSON.stringify(contextEntry(passage))).length + 4;
+    if (used + bytes > budgetBytes) continue; // a passage that does not fit is skipped whole, never cut
+    kept.push(passage);
+    used += bytes;
+  }
+  return kept;
+}
+
 export async function answerWithEvidence(
   env: Env,
   session: Session,
   query: string,
   subject: string,
-): Promise<{ answer: string; citations: AiCitation[]; retrievalCount: number }> {
+): Promise<{ answer: string; citations: AiCitation[]; retrievalCount: number; contextCount: number }> {
   if (String(env.APIS_ENABLED || 'true').toLowerCase() !== 'true') {
     throw new HttpError(503, '当前环境已停用共享 AI 路径');
   }
   const callerToken = String(env.APIS_CALLER_TOKEN || '').trim();
   if (!callerToken) throw new HttpError(503, '共享 AI 调用凭证不可用');
-  const passages = await retrieve(env, { query, subject, limit: 10 });
-  if (passages.length === 0) throw new HttpError(422, '资料库中没有找到足够证据，请调整关键词或取消学科筛选');
-  const context = passages.map((passage) =>
-    `[P:${passage.id}] ${passage.title}｜${passage.source_locator}｜${passageIdentityContext(passage)}\n${passage.body}`,
-  ).join('\n\n');
+  const retrieved = await retrieve(env, { query, subject, limit: 10 });
+  if (retrieved.length === 0) throw new HttpError(422, '资料库中没有找到足够证据，请调整关键词或取消学科筛选');
+  const passages = selectContextPassages(retrieved);
+  if (passages.length === 0) throw new HttpError(422, '检索到的证据篇幅超出 AI 服务上限，请直接查看检索证据');
+  const context = passages.map(contextEntry).join('\n\n');
   const prompt = `你是“中国历年课程标准与考试评价演变”教师研究助手。只使用下列检索证据回答。\n\n规则：\n1. 每个事实句必须在同一句紧跟 [P:数字] 引文；只能使用提供的编号，不能让多句事实共用末尾的一个引文。\n2. 区分原文事实、跨版本比较和教学建议；教学建议明确以“建议”或“教学建议”开头。\n3. 只有不陈述标准事实的教学建议和明确的证据不足句可以不带引文。\n4. 证据不足时直说，不补写不存在的标准条文。\n5. 不把修订动态误报为已发布标准。\n6. 用简洁中文回答，末尾给出“证据边界”。\n\n教师问题：${query}\n${subject ? `学科筛选：${subject}\n` : ''}\n检索证据：\n${context}`;
   const init: RequestInit = {
     method: 'POST',
@@ -229,7 +253,7 @@ export async function answerWithEvidence(
     };
   });
   await logAi(env, session, query, subject, passages.map((item) => item.id), ids, 'ok');
-  return { answer, citations, retrievalCount: passages.length };
+  return { answer, citations, retrievalCount: retrieved.length, contextCount: passages.length };
 }
 
 async function logAi(env: Env, session: Session, query: string, subject: string, retrieved: number[], cited: number[], status: string) {
