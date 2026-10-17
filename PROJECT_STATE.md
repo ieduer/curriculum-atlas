@@ -1,4 +1,45 @@
-## Current accepted state — 2026-10-07 12:08 UTC
+## Current accepted state — 2026-10-17 08:50 UTC
+
+Owner: suen. Runtime source `93fece839bdebbc27486d72214aa33700ef1b205`
+(branch `claude/apis-compat-20261015`, merged into `main`), Worker
+`e4c24bc4-1015-4a35-84d2-77a5466c37f8` at 100%, deployment
+`f38e0f33-feb5-49c7-9de3-ffc984b939e0`, effective 08:50:38 UTC. Accepted after
+version-pinned and production probes (health ok naming the source, `/` and all
+84 `dist` files byte-equal to the build, unauthenticated AI refused) and the
+owner's signed-in cited answer. Rollback: Worker
+`f3e955af-89ca-4daf-8aab-79f3200d0123` (source `04c6831`, deployment
+`c2b2baa4`) via a new registered transaction; retain all forward D1/R2 data.
+The preview Worker's active deployment is unchanged (`fc259ebe`); immutable
+preview version `53ef5ba4` (source `93fece8`) exists and is not deployed.
+
+Change (APIS payload-contract rollout, phase A1): AI evidence answers send
+retrieved passages whole, in retrieval order, within 160 KiB; an oversize
+passage is skipped whole; only sent passages can be cited; responses add
+`contextCount` next to `retrievalCount`; a typed 422 when no passage fits. No
+asset, corpus, data, binding, route or schema change.
+
+Release gate: `npm run release:gates:check` fails identically on `04c6831` and
+`93fece8` because the retired OCR `.cache` state is deleted (7 of 10
+sub-gates). Do not recreate that state. For this code-only release the owner
+approved the code-only gate: TypeScript; the full suite (645 pass, 3 fail, 2
+skipped, the same 3 failures as the base); the 3 runnable sub-gates
+(`ocr:coverage`, `candidate:schema`, `release:episodes`); build and strict
+dry-run; base build byte-identical to the live bundle; reviewed bundle diff;
+secret scan. Run `npm test` with `TMPDIR` in a directory owned by the user's
+group (`staff`): under `/private/tmp` new files get group `wheel` and 49 OCR
+runner tests fail spuriously.
+
+Upload: pass `--keep-vars --var RELEASE_GIT_COMMIT:<sha>` (as
+`scripts/deploy-worker.mjs` does), so `/api/health` names the source. Script
+settings carry that variable too, so configuration reconciliation must
+account for it.
+
+Public record: status.bdfz.net `20261017-curriculum-ai-evidence-context` r1.
+Evidence and receipts:
+`/Users/ylsuen/CF/_meta/reports/operations/apis-upgrade-design-20261014/RELEASE-ATLAS-20261017/README.md`.
+The dated records below are history where superseded by this state.
+
+## Previous accepted state — 2026-10-07 12:08 UTC (superseded 2026-10-17)
 
 Owner: suen. Runtime source `04c6831a2b412c1ef1d79d694dfe69b2dff2f37b`,
 Worker `f3e955af-89ca-4daf-8aab-79f3200d0123` at 100%, deployment
