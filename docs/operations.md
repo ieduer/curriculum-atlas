@@ -159,6 +159,15 @@ records below are history where superseded by this current state.
 - 视觉（2026-10-26 二次改版）：与辞渊 sy.bdfz.net、风雅千载 cp.bdfz.net 同系——宣纸底色、朱砂主色、系统宋体标题、朱印徽标、居中衬线标题与胶囊检索框、红条小节标题、左侧色边学科卡片、“全部”在前的单选筛选、手机底部导航栏（共享登录挂件经 `data-mobile-inset-bottom=76` 抬到底栏上方）。墨色主题沿用 cp 的深纸配色。为可读性，辅助文字比 sy 原色加深（`#6b6253`），所有文字对比度 ≥4.5:1。不加载网络字体。
 - 门槛：`tests/site-build.test.mjs`（年份规则、19 页齐全、196 份文件无遗漏、历史条目身份规则、页面无内联脚本与星图数据、内容引用一致）；逐路由对比度量测（亮/暗 × 1440/390，文字对比度 ≥4.5:1、大字 ≥3:1、无横向溢出）；生产发布按已登记的 Worker 交易（预览版本 → 0% 附挂 → 版本固定探测 → 推广 → 生产探测）。
 
+## 语料完整性计数复用（2026-10-26 起；站长在会话中批准）
+
+全语料完整性计数（`currentCorpusRelease()`：当前 release 的段落、FTS、页级发布门、文件与 13 张核心表计数）每次约读 4.5 万行。自 2026-10-26 起：
+
+- 读路由（`requireCorpusReady()` 之后的 meta、documents、search、insights、terms、compare、source-manifest、comments、historical、AI）先做一次只读 release 行的指针查询（`currentCorpusPointer()`：`corpus_import_releases` 经 `site_meta` 的 `current_corpus_release_id`、`corpus_import_state`、`current_corpus_manifest_sha256` 联结）。指针行除 `live_*` 外每一列都参与身份比较；身份不变且同一 isolate 内距上次完整计数不足 1 小时，就复用那次通过的结果，否则重新完整计数。
+- 只复用通过的结果；任何一次完整计数不通过都会清除复用，下一次读请求重新计数。指针查不到（release、manifest 或 state 不符）直接 503，不看复用。
+- `/api/health` 每次都完整计数，并用结果替换或清除复用；发布验收与漂移排查以 `/api/health` 为准。同一指针下的表数据漂移，读路由最迟 1 小时或下一次 `/api/health` 后看到。
+- 复用只存在 isolate 内存，不新增绑定、KV、Cache API 或 D1 写入。门槛：`tests/corpus-count-reuse.test.mjs`（指针查询与完整计数的 release 列一致、失配即无行、任一 release 列变化即换身份）与 `tests/worker-api-cost-boundary.test.mjs`（复用、health 重算、失败不复用、指针变化与 1 小时过期即重算）。
+
 # 运维与八点验证标准
 
 > 完整 Git 时间线、append-only 事件和历史回滚见 [`project-operations-ledger.md`](project-operations-ledger.md)。本文件定义当前 v20 运行标准。

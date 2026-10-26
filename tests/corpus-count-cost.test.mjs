@@ -31,5 +31,5 @@ for(const [name,change] of [
  ['wrong manifest',"UPDATE site_meta SET value='wrong' WHERE key='current_corpus_manifest_sha256'"],
  ['wrong state',"UPDATE site_meta SET value='in_progress' WHERE key='corpus_import_state'"],
  ['FTS-only drift',"INSERT INTO paragraph_fts(body,heading,document_id,paragraph_id) VALUES('drift','','other',999)"],
-])test(`${name} remains immediately observable without cached acceptance`,t=>{const f=fixture(t);f.check();f.db.exec(change);f.check()});
+])test(`${name} remains immediately observable by the full integrity count`,t=>{const f=fixture(t);f.check();f.db.exec(change);f.check()});
 test('missing required table remains an error, caught by the existing fail-closed runtime',t=>{const f=fixture(t);f.db.exec('DROP TABLE term_relations');assert.throws(()=>f.db.prepare(before).all());assert.throws(()=>f.db.prepare(candidate).all());assert.match(source,/catch \{\s+return null;\s+\}\s+\}\s+\nasync function requireCorpusReady/)});

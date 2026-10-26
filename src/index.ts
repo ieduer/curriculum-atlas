@@ -264,10 +264,57 @@ async function currentCorpusRelease(env: Env): Promise<CorpusReleaseStatus | nul
 }
 
 async function requireCorpusReady(env: Env): Promise<CorpusReleaseStatus> {
-  const corpus = await currentCorpusRelease(env);
+  const corpus = await corpusForReads(env);
   if (!corpus || !corpusReleaseReady(corpus)) {
     throw new HttpError(503, '资料库正在进行一致性更新，请稍后重试');
   }
+  return corpus;
+}
+
+// The full integrity count reads every current paragraph, FTS row and page gate (about 45k rows).
+// Read routes reuse a ready result while the active release pointer — the corpus_import_releases row
+// joined through site_meta — is unchanged, for at most CORPUS_COUNT_REUSE_MS in this isolate.
+// /api/health always recounts and replaces or clears the reused result.
+const CORPUS_COUNT_REUSE_MS = 60 * 60 * 1000;
+let reusedCorpusCounts: { pointer: string; at: number; corpus: CorpusReleaseStatus } | null = null;
+
+// Identity of the release row: every column except the live_* counts added by the full query.
+function corpusPointerIdentity(row: object): string {
+  return JSON.stringify(Object.entries(row)
+    .filter(([key]) => !key.startsWith('live_'))
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)));
+}
+
+async function currentCorpusPointer(env: Env): Promise<Record<string, unknown> | null> {
+  try {
+    return await env.DB.prepare(`SELECT r.*
+      FROM corpus_import_releases r
+      JOIN site_meta release_meta ON release_meta.key='current_corpus_release_id' AND release_meta.value=r.release_id
+      JOIN site_meta state_meta ON state_meta.key='corpus_import_state' AND state_meta.value=r.state
+      JOIN site_meta manifest_meta ON manifest_meta.key='current_corpus_manifest_sha256' AND manifest_meta.value=r.manifest_sha256
+      LIMIT 1`).first<Record<string, unknown>>();
+  } catch {
+    return null;
+  }
+}
+
+function rememberCorpusCounts(corpus: CorpusReleaseStatus | null, at: number): void {
+  reusedCorpusCounts = corpus && corpusReleaseReady(corpus)
+    ? { pointer: corpusPointerIdentity(corpus), at, corpus }
+    : null;
+}
+
+async function corpusForReads(env: Env): Promise<CorpusReleaseStatus | null> {
+  const pointer = await currentCorpusPointer(env);
+  if (!pointer) return null;
+  const now = Date.now();
+  const reused = reusedCorpusCounts;
+  if (reused
+    && reused.pointer === corpusPointerIdentity(pointer)
+    && now >= reused.at
+    && now - reused.at < CORPUS_COUNT_REUSE_MS) return reused.corpus;
+  const corpus = await currentCorpusRelease(env);
+  rememberCorpusCounts(corpus, now);
   return corpus;
 }
 
@@ -295,6 +342,7 @@ async function currentHistoricalReaderPointer(env: Env): Promise<HistoricalReade
 }
 
 async function health(env: Env): Promise<Response> {
+  const countedAt = Date.now();
   const [metaRows, corpus, historicalReaderPointer] = await Promise.all([
     env.DB.prepare(
       "SELECT key,value FROM site_meta WHERE key IN ('schema_version','document_classification_schema_version','page_publication_schema_version')",
@@ -302,6 +350,7 @@ async function health(env: Env): Promise<Response> {
     currentCorpusRelease(env),
     currentHistoricalReaderPointer(env),
   ]);
+  rememberCorpusCounts(corpus, countedAt);
   const schemaMeta = new Map(metaRows.results.map((row) => [row.key, row.value]));
   let classifications: { documents: number; classified: number; academic_identity_documents: number; subject_documents: number; assessment_subject_documents: number; display_facets: number; course_documents: number; scope_documents: number; unclassified_documents: number } | null = null;
   try {

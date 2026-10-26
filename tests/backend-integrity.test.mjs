@@ -574,8 +574,8 @@ test('comment creation rejects non-integer paragraph ids', async (t) => {
       const response = await worker.fetch(commentRequest({ paragraphId }), env);
       assert.equal(response.status, 400);
       assert.equal((await response.json()).error, '段落编号无效');
-      assert.equal(state.queries.length, 1);
-      assert.match(state.queries[0].sql, /FROM corpus_import_releases r/);
+      assert.ok(state.queries.length >= 1 && state.queries.length <= 2, 'only the corpus pointer and, when not reused, the full count');
+      assert.ok(state.queries.every((query) => /FROM corpus_import_releases r/.test(query.sql)));
     });
   }
 });
