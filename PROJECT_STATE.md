@@ -1,4 +1,34 @@
-## Current accepted state — 2026-10-17 08:50 UTC
+## Current accepted state — 2026-10-26 12:50 UTC
+
+Owner: suen. Runtime source `538e2cfcaf9b31b9f20d7536edee80a58a61bb98`
+(branch `claude/curriculum-redesign-20261026`, fast-forwarded into `main`),
+Worker version `e078241f-55c0-4e1b-a722-5764e5f71002` at 100%, deployment
+`474b1e56-85d8-4cdc-9403-dc2927cb59da`, effective 12:50:15 UTC. The Worker
+module is byte-identical to the previous accepted bundle (`e70685f2…`); the
+release changes static assets only (per-subject static redesign; see “前端合同”
+below) and `RELEASE_GIT_COMMIT`. Asset header rules changed exactly as
+`dist/_headers` (root `/*.js`, `/*.css` one-hour rules dropped; hashed
+`/assets/*` immutable). Rollback: version `e4c24bc4-1015-4a35-84d2-77a5466c37f8`
+(source `93fece8`, deployment `f38e0f33`) via a new registered transaction; no
+data to restore. Preview Worker active deployment unchanged (`fc259ebe`);
+immutable preview version `e935b39d` (source `538e2cf`) exists, not deployed.
+
+Gate (front-end release): `tsc`; full suite 652 pass / 3 fail / 2 skipped with
+the same 3 failures as base `fd63e2d` (645/3/2) and +7 site-build tests; build
+and dry-run (production and preview bundles equal the live module); readability
+audit 12 routes × light/dark × 1440/390, 0 failures, minimum contrast 6.21:1;
+gitleaks clean; preview-version, version-pinned and production probes (all dist
+files byte-equal after stripping edge-injected Zaraz/Web Analytics/bot links;
+fallback routes; immutable asset cache; CSP; document/search 200; unauthenticated
+AI refused); live browser check with no `/api` call on home load. Signed-in
+paths (AI answer, historical scans, posting) were not exercised by the agent;
+their Worker code is unchanged. `release:gates:check` still fails on the retired
+OCR state and was not run.
+
+Public record: status.bdfz.net `20261026-curriculum-subject-redesign` r1.
+Evidence and receipts: `/Users/ylsuen/CF/_meta/reports/operations/curriculum-redesign-20261026/README.md`.
+
+## Previous accepted state — 2026-10-17 08:50 UTC (superseded 2026-10-26)
 
 Owner: suen. Runtime source `93fece839bdebbc27486d72214aa33700ef1b205`
 (branch `claude/apis-compat-20261015`, merged into `main`), Worker
