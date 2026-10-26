@@ -1,4 +1,25 @@
-## Current accepted state — 2026-10-26 12:50 UTC
+## Current accepted state — 2026-10-26 13:24 UTC
+
+Owner: suen. Runtime source `085f65677ca7412995204049354243cd729fed65`
+(branch `claude/curriculum-family-style-20261026`, fast-forwarded into
+`main`), Worker version `02fcf5dc-e882-47aa-a1f0-3f93323cb04f` at 100%,
+deployment `183f3227-83c3-4060-8dde-fb2b93a268d8`, effective 13:24:57 UTC.
+Front-end restyle after the sy/cp series (see “前端合同” visual bullet); Worker
+module, data, content and routes unchanged. Reviewed required-file changes:
+`scripts/build-site.mjs`, `site/app.js`, `site/styles.css`,
+`content/subjects.json`. Rollback: version `e078241f-55c0-4e1b-a722-5764e5f71002`
+(source `538e2cf`, deployment `474b1e56`) via a new registered transaction.
+Preview Worker active deployment unchanged; immutable preview version
+`7fc28170` (source `085f656`) exists, not deployed.
+
+Gate: `tsc`; full suite 652/3/2 on candidate and base `4c8a358` with identical
+failures; build and dry-run (bundle = live module); readability audit 48 runs,
+0 failures, minimum 4.62:1, no overflow; gitleaks clean; preview-version,
+version-pinned and production probes; live browser check. Public record:
+status.bdfz.net `20261026-curriculum-series-style` r1. Evidence:
+`/Users/ylsuen/CF/_meta/reports/operations/curriculum-restyle-20261026/README.md`.
+
+## Previous accepted state — 2026-10-26 12:50 UTC (superseded 13:24 UTC)
 
 Owner: suen. Runtime source `538e2cfcaf9b31b9f20d7536edee80a58a61bb98`
 (branch `claude/curriculum-redesign-20261026`, fast-forwarded into `main`),
