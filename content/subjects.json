@@ -1,0 +1,721 @@
+{
+  "schema_version": 1,
+  "boundary": "学科页按课程身份分开列出文件。同一份综合课程文件（如“艺术”“科学”“技术（实验）”）可能同时出现在相关学科页，并标注“综合课程”。历史条目来自《20世纪中国中小学课程标准·教学大纲汇编》各卷目录，只表示目录与页段身份，不是校定全文。",
+  "groups": [
+    {
+      "id": "core",
+      "label": "语言与数学"
+    },
+    {
+      "id": "humanities",
+      "label": "人文与社会"
+    },
+    {
+      "id": "science",
+      "label": "科学"
+    },
+    {
+      "id": "arts",
+      "label": "艺术·体育·技术·劳动"
+    },
+    {
+      "id": "frame",
+      "label": "方案·考试·特殊教育"
+    }
+  ],
+  "subjects": [
+    {
+      "slug": "chinese",
+      "name": "语文",
+      "group": "core",
+      "intro": "清末章程设“中国文字”“中国文学”，民国中学称“国文”、新学制小学改称“国语”，1950 年起统称“语文”。2001 年起以课程标准取代教学大纲，2017 年高中、2022 年义务教育课程标准以学习任务群组织内容。",
+      "catalog_subjects": [
+        "语文",
+        "汉语"
+      ],
+      "api_subjects": [
+        "语文"
+      ],
+      "historical_volumes": [
+        "legacy-compendium-chinese"
+      ],
+      "lifecycle_facet": "语文",
+      "title_forms": [
+        "中国文字",
+        "中国文学",
+        "国文",
+        "国语",
+        "语文"
+      ],
+      "concept_subjects": [
+        "语文",
+        "汉语"
+      ],
+      "related": [
+        "taiwan",
+        "english",
+        "politics"
+      ]
+    },
+    {
+      "slug": "math",
+      "name": "数学",
+      "group": "core",
+      "intro": "从清末的“算学”“算术”到“数学”。本页按年份列出各学段的课程标准、教学大纲和高考考试大纲。",
+      "catalog_subjects": [
+        "数学",
+        "文科数学",
+        "理科数学"
+      ],
+      "api_subjects": [
+        "数学"
+      ],
+      "historical_volumes": [
+        "legacy-compendium-mathematics"
+      ],
+      "lifecycle_facet": "数学",
+      "title_forms": [
+        "算学",
+        "算术",
+        "数学",
+        "代数",
+        "几何",
+        "三角"
+      ],
+      "concept_subjects": [
+        "数学"
+      ],
+      "related": [
+        "physics",
+        "it"
+      ]
+    },
+    {
+      "slug": "english",
+      "name": "外语",
+      "group": "core",
+      "intro": "以英语为主，也收俄语、日语、德语、法语、西班牙语课程标准。2017 年版高中课程方案在英语、日语、俄语之外增设德语、法语、西班牙语。",
+      "catalog_subjects": [
+        "英语",
+        "俄语",
+        "日语",
+        "德语",
+        "法语",
+        "西班牙语"
+      ],
+      "api_subjects": [
+        "英语",
+        "俄语",
+        "日语",
+        "德语",
+        "法语",
+        "西班牙语"
+      ],
+      "historical_volumes": [
+        "legacy-compendium-english"
+      ],
+      "lifecycle_facet": "外语",
+      "title_forms": [
+        "外国语",
+        "英文",
+        "英语",
+        "俄语",
+        "日语",
+        "德语",
+        "法语",
+        "西班牙语"
+      ],
+      "filters": {
+        "label": "语种",
+        "values": [
+          "英语",
+          "俄语",
+          "日语",
+          "德语",
+          "法语",
+          "西班牙语"
+        ]
+      },
+      "concept_subjects": [
+        "英语",
+        "俄语",
+        "日语",
+        "德语",
+        "法语",
+        "西班牙语"
+      ],
+      "related": [
+        "chinese"
+      ]
+    },
+    {
+      "slug": "politics",
+      "name": "道德与法治·思想政治",
+      "short": "思政",
+      "group": "humanities",
+      "intro": "清末“修身”，民国“公民”“党义”，此后为思想品德、思想政治；2001 年起小学设品德与生活、品德与社会，2022 年小学至初中统一为“道德与法治”。",
+      "catalog_subjects": [
+        "思想政治",
+        "思想品德",
+        "品德与生活",
+        "品德与社会",
+        "道德与法治"
+      ],
+      "catalog_ids": [
+        "ictr-d692b0ff2e6c"
+      ],
+      "api_subjects": [
+        "思想政治",
+        "思想品德",
+        "品德与生活",
+        "品德与社会",
+        "道德与法治"
+      ],
+      "historical_volumes": [
+        "legacy-compendium-politics"
+      ],
+      "lifecycle_facet": "思想政治与道德法治",
+      "title_forms": [
+        "修身",
+        "公民",
+        "党义",
+        "政治",
+        "思想品德",
+        "思想政治",
+        "品德与生活",
+        "品德与社会",
+        "道德与法治"
+      ],
+      "concept_subjects": [
+        "思想政治",
+        "思想品德",
+        "品德与生活",
+        "品德与社会",
+        "道德与法治"
+      ],
+      "related": [
+        "history",
+        "plans"
+      ]
+    },
+    {
+      "slug": "history",
+      "name": "历史",
+      "group": "humanities",
+      "intro": "1923 年新学制曾把公民、历史、地理编为社会科；2001 年起初中可设“历史与社会”或分设历史、地理，2011 年三个课程标准并行，2022 年国家方案列历史、地理。",
+      "catalog_subjects": [
+        "历史",
+        "历史与社会"
+      ],
+      "api_subjects": [
+        "历史"
+      ],
+      "historical_volumes": [
+        "legacy-compendium-history"
+      ],
+      "historical_facets": [
+        "历史与社会"
+      ],
+      "lifecycle_facet": "历史",
+      "title_forms": [
+        "本国史",
+        "中国史",
+        "外国史",
+        "世界史",
+        "历史",
+        "社会",
+        "历史与社会"
+      ],
+      "concept_subjects": [
+        "历史",
+        "历史与社会"
+      ],
+      "related": [
+        "geography",
+        "politics"
+      ]
+    },
+    {
+      "slug": "geography",
+      "name": "地理",
+      "group": "humanities",
+      "intro": "从清末“舆地”到本国地理、世界地理分设，再到统一的地理课程。初中阶段曾可由“历史与社会”综合课程替代分科地理。",
+      "catalog_subjects": [
+        "地理"
+      ],
+      "catalog_ids": [
+        "ictr-d83c38caeafd",
+        "ictr-2aeee929041c",
+        "moe-2011-15"
+      ],
+      "integrated_ids": [
+        "ictr-d83c38caeafd",
+        "ictr-2aeee929041c",
+        "moe-2011-15"
+      ],
+      "api_subjects": [
+        "地理"
+      ],
+      "historical_volumes": [
+        "legacy-compendium-geography"
+      ],
+      "lifecycle_facet": "地理",
+      "title_forms": [
+        "舆地",
+        "本国地理",
+        "外国地理",
+        "世界地理",
+        "地理"
+      ],
+      "concept_subjects": [
+        "地理"
+      ],
+      "related": [
+        "history",
+        "biology"
+      ]
+    },
+    {
+      "slug": "physics",
+      "name": "物理",
+      "group": "science",
+      "intro": "清末中学设“理化”，此后物理逐步单独设科。2001 年起初中可设综合“科学”，或分设物理、化学、生物。",
+      "catalog_subjects": [
+        "物理"
+      ],
+      "api_subjects": [
+        "物理"
+      ],
+      "historical_volumes": [
+        "legacy-compendium-physics"
+      ],
+      "lifecycle_facet": "科学类",
+      "title_forms": [
+        "格致",
+        "理化",
+        "物理",
+        "自然"
+      ],
+      "concept_subjects": [
+        "物理"
+      ],
+      "related": [
+        "chemistry",
+        "biology",
+        "science"
+      ]
+    },
+    {
+      "slug": "chemistry",
+      "name": "化学",
+      "group": "science",
+      "intro": "从“理化”合设到化学单独设科。本页同时列出初中、高中化学课程标准和高考化学考试大纲。",
+      "catalog_subjects": [
+        "化学"
+      ],
+      "api_subjects": [
+        "化学"
+      ],
+      "historical_volumes": [
+        "legacy-compendium-chemistry"
+      ],
+      "lifecycle_facet": "科学类",
+      "title_forms": [
+        "理化",
+        "化学",
+        "自然"
+      ],
+      "concept_subjects": [
+        "化学"
+      ],
+      "related": [
+        "physics",
+        "biology",
+        "science"
+      ]
+    },
+    {
+      "slug": "biology",
+      "name": "生物学",
+      "group": "science",
+      "intro": "清末“博物”，民国“植物”“动物”“生理卫生”，此后为生物、生物学。2011 年起课程标准名称为“生物学”。",
+      "catalog_subjects": [
+        "生物",
+        "生物学"
+      ],
+      "api_subjects": [
+        "生物学"
+      ],
+      "historical_volumes": [
+        "legacy-compendium-biology"
+      ],
+      "lifecycle_facet": "科学类",
+      "title_forms": [
+        "博物",
+        "植物",
+        "动物",
+        "生理",
+        "卫生",
+        "生物",
+        "生物学"
+      ],
+      "concept_subjects": [
+        "生物学"
+      ],
+      "related": [
+        "physics",
+        "chemistry",
+        "geography"
+      ]
+    },
+    {
+      "slug": "science",
+      "name": "科学",
+      "group": "science",
+      "intro": "小学“格致”“自然”“常识”一线，以及 2001 年起小学科学和初中综合科学课程标准。",
+      "catalog_subjects": [
+        "科学",
+        "初中科学"
+      ],
+      "api_subjects": [
+        "科学"
+      ],
+      "historical_volumes": [],
+      "historical_volume_facets": {
+        "legacy-compendium-general-primary": [
+          "科学类"
+        ]
+      },
+      "lifecycle_facet": "科学类",
+      "title_forms": [
+        "格致",
+        "自然",
+        "常识",
+        "科学"
+      ],
+      "concept_subjects": [
+        "科学"
+      ],
+      "related": [
+        "physics",
+        "chemistry",
+        "biology"
+      ]
+    },
+    {
+      "slug": "music",
+      "name": "音乐",
+      "group": "arts",
+      "intro": "民国初年中学设“乐歌”，后称“音乐”；小学低年级曾设“唱游”。2001 年起可设综合“艺术”或分设音乐、美术，2022 年义务教育只发布综合艺术课程标准。",
+      "catalog_subjects": [
+        "音乐"
+      ],
+      "catalog_ids": [
+        "ictr-197f8a2e1cca",
+        "ictr-7759fd25e216",
+        "moe-2011-16",
+        "ictr-ee910e3b7681",
+        "moe-hs-2020-13",
+        "moe-2022-16",
+        "ictr-7c995a071399"
+      ],
+      "integrated_ids": [
+        "ictr-7759fd25e216",
+        "moe-2011-16",
+        "ictr-ee910e3b7681",
+        "moe-hs-2020-13",
+        "moe-2022-16",
+        "ictr-7c995a071399"
+      ],
+      "api_subjects": [
+        "音乐",
+        "艺术"
+      ],
+      "historical_volumes": [],
+      "lifecycle_facet": "艺术",
+      "title_forms": [
+        "乐歌",
+        "唱歌",
+        "音乐",
+        "艺术"
+      ],
+      "concept_subjects": [
+        "音乐",
+        "艺术"
+      ],
+      "related": [
+        "art",
+        "pe"
+      ]
+    },
+    {
+      "slug": "art",
+      "name": "美术",
+      "group": "arts",
+      "intro": "清末“图画”，新学制小学“形象艺术”，此后为图画、美术。2022 年义务教育美术内容并入综合艺术课程标准。",
+      "catalog_subjects": [
+        "美术"
+      ],
+      "catalog_ids": [
+        "ictr-7759fd25e216",
+        "moe-2011-16",
+        "ictr-ee910e3b7681",
+        "moe-hs-2020-13",
+        "moe-2022-16",
+        "ictr-7c995a071399"
+      ],
+      "integrated_ids": [
+        "ictr-7759fd25e216",
+        "moe-2011-16",
+        "ictr-ee910e3b7681",
+        "moe-hs-2020-13",
+        "moe-2022-16",
+        "ictr-7c995a071399"
+      ],
+      "api_subjects": [
+        "美术",
+        "艺术"
+      ],
+      "historical_volume_facets": {
+        "legacy-compendium-arts-labor": [
+          "艺术"
+        ]
+      },
+      "historical_volumes": [],
+      "lifecycle_facet": "艺术",
+      "title_forms": [
+        "图画",
+        "形象艺术",
+        "美术",
+        "艺术"
+      ],
+      "concept_subjects": [
+        "美术",
+        "艺术"
+      ],
+      "related": [
+        "music",
+        "tech"
+      ]
+    },
+    {
+      "slug": "pe",
+      "name": "体育与健康",
+      "group": "arts",
+      "intro": "清末民初称“体操”，后改称“体育”，并有卫生、生理卫生等科目；2001 年起初中、高中课程名为“体育与健康”。百年汇编没有单列体育卷，1902—2000 年条目来自课程（教学）计划卷。",
+      "catalog_subjects": [
+        "体育与健康",
+        "普通高级中学 体育体育与健康"
+      ],
+      "api_subjects": [
+        "体育与健康"
+      ],
+      "historical_volume_facets": {
+        "legacy-compendium-plans": [
+          "体育与健康"
+        ]
+      },
+      "historical_volumes": [],
+      "historical_note": "这些条目是课程（教学）计划，不是体育单科标准；体育科目的设置与课时见各计划。",
+      "lifecycle_facet": "体育与健康",
+      "title_forms": [
+        "体操",
+        "体育",
+        "卫生",
+        "体育与健康"
+      ],
+      "concept_subjects": [
+        "体育与健康"
+      ],
+      "related": [
+        "music",
+        "labor"
+      ]
+    },
+    {
+      "slug": "it",
+      "name": "信息科技",
+      "group": "arts",
+      "intro": "高中“信息技术”（2003 年起属技术课程）与 2022 年独立设置的义务教育“信息科技”。",
+      "catalog_subjects": [
+        "信息技术",
+        "信息科技"
+      ],
+      "catalog_ids": [
+        "ictr-e1fab1e6823b"
+      ],
+      "integrated_ids": [
+        "ictr-e1fab1e6823b"
+      ],
+      "api_subjects": [
+        "信息技术",
+        "信息科技"
+      ],
+      "historical_volumes": [],
+      "lifecycle_facet": "技术",
+      "title_forms": [
+        "信息技术",
+        "信息科技",
+        "技术"
+      ],
+      "concept_subjects": [
+        "信息技术",
+        "信息科技"
+      ],
+      "related": [
+        "tech",
+        "math"
+      ]
+    },
+    {
+      "slug": "tech",
+      "name": "通用技术",
+      "group": "arts",
+      "intro": "新学制“手工”“工用艺术”、民国“工艺”“劳作”中的技术内容，到高中“通用技术”。",
+      "catalog_subjects": [
+        "通用技术"
+      ],
+      "catalog_ids": [
+        "ictr-e1fab1e6823b"
+      ],
+      "integrated_ids": [
+        "ictr-e1fab1e6823b"
+      ],
+      "api_subjects": [
+        "通用技术"
+      ],
+      "historical_volume_facets": {
+        "legacy-compendium-arts-labor": [
+          "技术"
+        ]
+      },
+      "historical_volumes": [],
+      "lifecycle_facet": "技术",
+      "title_forms": [
+        "手工",
+        "工用艺术",
+        "工艺",
+        "工业",
+        "劳作",
+        "技术"
+      ],
+      "concept_subjects": [
+        "通用技术"
+      ],
+      "related": [
+        "labor",
+        "it"
+      ]
+    },
+    {
+      "slug": "labor",
+      "name": "劳动",
+      "group": "arts",
+      "intro": "民国“劳作”（含农业、工艺、家事），此后的劳动技术教育，到 2022 年劳动从综合实践活动中独立设课并单独发布课程标准。",
+      "catalog_subjects": [
+        "劳动"
+      ],
+      "api_subjects": [
+        "劳动"
+      ],
+      "historical_volume_facets": {
+        "legacy-compendium-arts-labor": [
+          "劳动"
+        ]
+      },
+      "historical_volumes": [],
+      "lifecycle_facet": "劳动",
+      "title_forms": [
+        "劳作",
+        "农业",
+        "家事",
+        "工业",
+        "劳动"
+      ],
+      "concept_subjects": [
+        "劳动"
+      ],
+      "related": [
+        "tech",
+        "pe"
+      ]
+    },
+    {
+      "slug": "plans",
+      "name": "课程方案与学制",
+      "short": "课程方案",
+      "group": "frame",
+      "intro": "学堂章程、学校法令、课程（教学）计划与课程方案：规定开设哪些科目、各学段课时与培养目标，是各科课程标准的上位文件。",
+      "catalog_subjects": [
+        "课程方案",
+        "综合"
+      ],
+      "catalog_exclude_ids": [
+        "ictr-d692b0ff2e6c",
+        "ictr-197f8a2e1cca"
+      ],
+      "api_subjects": [],
+      "historical_volumes": [
+        "legacy-compendium-plans"
+      ],
+      "lifecycle_facet": null,
+      "title_forms": [
+        "章程",
+        "校令",
+        "课程标准总纲",
+        "教学计划",
+        "课程计划",
+        "课程方案"
+      ],
+      "concept_subjects": [],
+      "related": [
+        "exam",
+        "special"
+      ]
+    },
+    {
+      "slug": "exam",
+      "name": "考试与评价",
+      "short": "考试评价",
+      "group": "frame",
+      "intro": "2019 年高考考试大纲（总纲与各科）、2020 年中国高考评价体系和深化新时代教育评价改革总体方案。各科考纲也列在对应学科页。",
+      "catalog_subjects": [
+        "考试大纲",
+        "考试评价"
+      ],
+      "catalog_types": [
+        "考试大纲"
+      ],
+      "api_subjects": [],
+      "historical_volumes": [],
+      "lifecycle_facet": null,
+      "title_forms": [],
+      "concept_subjects": [],
+      "related": [
+        "plans"
+      ]
+    },
+    {
+      "slug": "special",
+      "name": "特殊教育",
+      "group": "frame",
+      "intro": "2007 年盲校、聋校、培智学校课程设置实验方案，以及 2016 年三类学校的义务教育课程标准（含定向行走、沟通与交往、生活语文等特有课程）。",
+      "catalog_stages": [
+        "特殊教育/义务教育"
+      ],
+      "catalog_ids": [
+        "ictr-cfb2a39a2016",
+        "ictr-8f02447b66ca",
+        "ictr-f74769862cc6"
+      ],
+      "api_subjects": [],
+      "historical_volumes": [],
+      "lifecycle_facet": null,
+      "title_forms": [],
+      "concept_subjects": [],
+      "related": [
+        "plans"
+      ]
+    }
+  ]
+}

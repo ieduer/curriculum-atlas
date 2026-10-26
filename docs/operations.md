@@ -69,6 +69,16 @@ the registered publisher, immutable API, public page and both RSS views passed.
 No further provider/OCR calls are authorized by this checkpoint. The dated
 records below are history where superseded by this current state.
 
+## 前端合同（2026-10-26 改版起；取代下文星图前端条款）
+
+站点改为按学科分页的静态网站。旧版单一 Canvas 星图（`public/index.html`、`public/app.js`、`public/atlas.js`、`public/styles.css` 等）不再发布，源文件留在仓库作历史与数据层输入；下文 §3 “首页只有一张 Canvas”与 §5 星图浏览器回归条款自本次起作废。
+
+- 生成：`npm run build` 运行 `scripts/build-site.mjs`，从 `data/catalog.json`、`public/data/century-observation-layer.json`、`public/data/pre2001-subject-detail-observation-layer.json`、`public/data/concept-evolution.json`、`public/data/discipline-lifecycle.json`、`data/subject-insights.json` 与 `content/*.json` 预渲染 `dist/`。前端源码在 `site/`（`boot.js`、`app.js`、`styles.css`），静态资源带内容哈希放在 `dist/assets/` 并按 `_headers` 长期缓存。
+- 页面：`/` 首页（全人培养要求矩阵：大陆 16 条、台湾 6 条正式表述 × 8 维度；学科入口）；`/s/<slug>` 19 个学科与专题页（语文、数学、外语、思政、历史、地理、物理、化学、生物学、科学、音乐、美术、体育与健康、信息科技、通用技术、劳动、课程方案与学制、考试与评价、特殊教育）；`/taiwan` 台湾国语文课程标准与课程纲要；`/search`、`/ai`、`/discussions`、`/admin` 为调用 API 的应用页。`/document/<id>`、`/historical/<id>` 由 SPA fallback 的 `index.html` 渲染；旧链接 `/compare`、`/archive`、`/timeline`、`/subjects`、`/sources`、`/terms` 在浏览器端转到对应学科页或检索页。
+- 资源与 API 约束：首页、学科页、台湾页加载时不调用 `/api/*`（旧版每次访问调用 `/api/meta`、`/api/documents?limit=200`、`/api/insights` 三次，各做一次全语料完整性计数，并解码约 24 MB 星图 JSON）。只有阅读正文、检索、AI 研究、讨论和审核时才调用 API。Worker 代码、D1、R2、绑定与路由不变。
+- 内容依据：`content/whole-person-aims.json` 每条表述带原文、出处与维度短语；`content/taiwan-guowen.json` 每个版本标“官方原文／研究文献／报道”，比例和选文只取官方原文；`content/subjects.json` 定义学科页的文件归属规则与检索身份（须是 Worker 接受的 `/api/search` 学科身份）。
+- 门槛：`tests/site-build.test.mjs`（年份规则、19 页齐全、196 份文件无遗漏、历史条目身份规则、页面无内联脚本与星图数据、内容引用一致）；逐路由对比度量测（亮/暗 × 1440/390，文字对比度 ≥4.5:1、大字 ≥3:1、无横向溢出）；生产发布按已登记的 Worker 交易（预览版本 → 0% 附挂 → 版本固定探测 → 推广 → 生产探测）。
+
 # 运维与八点验证标准
 
 > 完整 Git 时间线、append-only 事件和历史回滚见 [`project-operations-ledger.md`](project-operations-ledger.md)。本文件定义当前 v20 运行标准。
@@ -117,7 +127,7 @@ records below are history where superseded by this current state.
 - 462 个 pre-2001 identity receipts 必须唯一、来源页段闭包、failed 0。
 - 55 同层 families、1,648 memberships、1,348 edges 的端点、年份方向、证据和 fail-closed claim policy 必须全部有效。
 - 历史与历史社会在存储身份上分开、公开检索合并为“历史”；不得自动判为 identity equivalent。
-- 首页只有一张 Canvas；不得出现第二 timeline 或虚线 primitive。
+- （2026-10-26 起作废，见“前端合同”）首页只有一张 Canvas；不得出现第二 timeline 或虚线 primitive。
 
 ## 4. Deploy and forbidden actions
 
@@ -135,7 +145,7 @@ records below are history where superseded by this current state.
 
 ## 5. Dependency and browser regression
 
-每次生产发布至少验证：
+（星图条款自 2026-10-26 起作废；现行浏览器门槛见“前端合同”。共享依赖条款仍适用。）每次生产发布至少验证：
 
 - `my.bdfz.net/site-auth.js`、`apis.bdfz.net`、Nav 注册与 Pulse tracking 的只读合同；
 - 1440×1000 与 390×844；
