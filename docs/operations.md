@@ -1,4 +1,26 @@
-## Current accepted state — 2026-10-26 14:13 UTC
+## Current accepted state — 2026-10-26 14:34 UTC
+
+Owner: suen. Runtime source `59182954a4d7075850a24c42fb48aa34776ef078`
+(branch `claude/curriculum-integrity-cache-20261026`, fast-forwarded into
+`main`), Worker version `5fd7acd6-966a-4e9b-a4d9-d8ad095b98ae` at 100%,
+deployment `34a6bdfe-29bc-454d-96ca-2f1bf411dad2`, effective 14:34:47 UTC.
+Worker read-path change approved by the owner: read routes reuse the
+full-corpus integrity count per active release pointer for at most one hour
+per isolate; `/api/health` always recounts (see “语料完整性计数复用”). Only
+`src/index.ts` changed; static dist byte-identical to `b3ca312`; data, schema,
+bindings, routes and asset headers unchanged. Rollback: version
+`9742118f-aecd-4a38-8ecb-8bba53dfa88c` (source `b3ca312`, deployment
+`f964ed6c`) via a new registered transaction; no data to restore. Preview
+Worker active deployment unchanged; immutable preview version `015c9f1a`
+(source `5918295`) exists, not deployed.
+
+Gate: `tsc`; full suite candidate 667/662/3/2 vs base `bfa1faf` 658/653/3/2,
+identical failures (+9 tests); build and dry-run; runtime/bindings review;
+gitleaks clean; preview-version, version-pinned and production probes; D1
+rows-per-request measurement before/after. Evidence:
+`/Users/ylsuen/CF/_meta/reports/operations/curriculum-integrity-cache-20261026/README.md`.
+
+## Previous accepted state — 2026-10-26 14:13 UTC (superseded 14:34 UTC)
 
 Owner: suen. Runtime source `b3ca312944201f8a2f8f30567e744ee1c35a99c3`
 (branch `claude/curriculum-authority-20261026`, fast-forwarded into `main`),
