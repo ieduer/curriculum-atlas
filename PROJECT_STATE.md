@@ -1,4 +1,31 @@
-## Current accepted state — 2026-10-26 13:24 UTC
+## Current accepted state — 2026-10-26 14:13 UTC
+
+Owner: suen. Runtime source `b3ca312944201f8a2f8f30567e744ee1c35a99c3`
+(branch `claude/curriculum-authority-20261026`, fast-forwarded into `main`),
+Worker version `9742118f-aecd-4a38-8ecb-8bba53dfa88c` at 100%, deployment
+`f964ed6c-b5e3-4178-b549-919d081a522f`, effective 14:13:32 UTC. Static
+content release: `/library` 官方文库 and the Taiwan official-originals section
+from `content/official-library.json` (47 verified official documents, 60 files
+with size and SHA-256; see “前端合同” 官方文库 bullet), subject side panels,
+文库 navigation. Worker module, runtime and asset headers unchanged; D1/R2
+untouched. Reviewed required-file changes: `scripts/build-site.mjs`,
+`site/boot.js`, `site/styles.css`; added `content/official-library.json`.
+Rollback: version `02fcf5dc-e882-47aa-a1f0-3f93323cb04f` (source `085f656`,
+deployment `183f3227`) via a new registered transaction. Preview Worker active
+deployment unchanged; immutable preview version `4a638729` (source `b3ca312`)
+exists, not deployed.
+
+Gate: `tsc`; full suite candidate 658/653/3/2 vs base `859ce3c` 657/652/3/2,
+identical failures (+1 library test); build and dry-run (bundle = live module);
+readability audit 40 runs, 0 failures, minimum 4.62:1, no overflow; gitleaks
+clean; preview-version, version-pinned and production probes; live browser
+check. Public record: status.bdfz.net `20261026-curriculum-official-library`
+r1. Cloudflare usage analysis (30-day and hourly before/after, open
+recommendation on per-request corpus integrity counts):
+`/Users/ylsuen/CF/_meta/reports/operations/curriculum-authority-20261026/CLOUDFLARE-USAGE.md`.
+Evidence: `/Users/ylsuen/CF/_meta/reports/operations/curriculum-authority-20261026/README.md`.
+
+## Previous accepted state — 2026-10-26 13:24 UTC (superseded 14:13 UTC)
 
 Owner: suen. Runtime source `085f65677ca7412995204049354243cd729fed65`
 (branch `claude/curriculum-family-style-20261026`, fast-forwarded into
