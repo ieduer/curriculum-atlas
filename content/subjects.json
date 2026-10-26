@@ -55,7 +55,8 @@
         "taiwan",
         "english",
         "politics"
-      ]
+      ],
+      "color": "#9e2b25"
     },
     {
       "slug": "math",
@@ -88,7 +89,8 @@
       "related": [
         "physics",
         "it"
-      ]
+      ],
+      "color": "#1f5f8b"
     },
     {
       "slug": "english",
@@ -146,7 +148,8 @@
       ],
       "related": [
         "chinese"
-      ]
+      ],
+      "color": "#6b4a8a"
     },
     {
       "slug": "politics",
@@ -196,7 +199,8 @@
       "related": [
         "history",
         "plans"
-      ]
+      ],
+      "color": "#a9802f"
     },
     {
       "slug": "history",
@@ -233,7 +237,8 @@
       "related": [
         "geography",
         "politics"
-      ]
+      ],
+      "color": "#8a5a3c"
     },
     {
       "slug": "geography",
@@ -273,7 +278,8 @@
       "related": [
         "history",
         "biology"
-      ]
+      ],
+      "color": "#3d6b2e"
     },
     {
       "slug": "physics",
@@ -303,7 +309,8 @@
         "chemistry",
         "biology",
         "science"
-      ]
+      ],
+      "color": "#2c4f6e"
     },
     {
       "slug": "chemistry",
@@ -332,7 +339,8 @@
         "physics",
         "biology",
         "science"
-      ]
+      ],
+      "color": "#2c7873"
     },
     {
       "slug": "biology",
@@ -366,7 +374,8 @@
         "physics",
         "chemistry",
         "geography"
-      ]
+      ],
+      "color": "#56705a"
     },
     {
       "slug": "science",
@@ -400,7 +409,8 @@
         "physics",
         "chemistry",
         "biology"
-      ]
+      ],
+      "color": "#4f7a3a"
     },
     {
       "slug": "music",
@@ -446,7 +456,8 @@
       "related": [
         "art",
         "pe"
-      ]
+      ],
+      "color": "#6d4a8c"
     },
     {
       "slug": "art",
@@ -496,7 +507,8 @@
       "related": [
         "music",
         "tech"
-      ]
+      ],
+      "color": "#b06a2e"
     },
     {
       "slug": "pe",
@@ -530,7 +542,8 @@
       "related": [
         "music",
         "labor"
-      ]
+      ],
+      "color": "#3f6f8f"
     },
     {
       "slug": "it",
@@ -565,7 +578,8 @@
       "related": [
         "tech",
         "math"
-      ]
+      ],
+      "color": "#37566f"
     },
     {
       "slug": "tech",
@@ -605,7 +619,8 @@
       "related": [
         "labor",
         "it"
-      ]
+      ],
+      "color": "#7a6a3a"
     },
     {
       "slug": "labor",
@@ -638,7 +653,8 @@
       "related": [
         "tech",
         "pe"
-      ]
+      ],
+      "color": "#8a6a2a"
     },
     {
       "slug": "plans",
@@ -671,7 +687,8 @@
       "related": [
         "exam",
         "special"
-      ]
+      ],
+      "color": "#5c5347"
     },
     {
       "slug": "exam",
@@ -693,7 +710,8 @@
       "concept_subjects": [],
       "related": [
         "plans"
-      ]
+      ],
+      "color": "#9e2b25"
     },
     {
       "slug": "special",
@@ -715,7 +733,8 @@
       "concept_subjects": [],
       "related": [
         "plans"
-      ]
+      ],
+      "color": "#6b4a8a"
     }
   ]
 }

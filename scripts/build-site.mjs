@@ -253,11 +253,12 @@ function navigation(model, current) {
   const item = (href, label, key) => `<li><a href="${href}"${current === key ? ' aria-current="page"' : ''}>${label}</a></li>`;
   return `<header class="topbar">
   <div class="topbar-inner">
-    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">课</span><span><b>${SITE_NAME}</b><small>1902—2022 课程标准档案</small></span></a>
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">课</span><span><b>${SITE_NAME}</b><small>课程标准档案 · 1902—2022</small></span></a>
     <nav class="mainnav" aria-label="主导航">
       <ul>
+        ${item('/', '首页', 'home')}
         ${item('/#aims', '全人目标', 'aims')}
-        <li class="menu"><details><summary>学科</summary><div class="menu-panel">${groups}</div></details></li>
+        <li class="menu"><details><summary${model.subjects.some((subject) => subject.slug === current) ? ' class="is-current"' : ''}>学科</summary><div class="menu-panel">${groups}</div></details></li>
         ${item('/taiwan', '台湾国语文', 'taiwan')}
         ${item('/search', '检索', 'search')}
         ${item('/ai', '研究', 'ai')}
@@ -278,6 +279,13 @@ function footer() {
 </footer>`;
 }
 
+function mobileNav(model, current) {
+  const subjectSlugs = new Set(model.subjects.map((subject) => subject.slug));
+  const key = subjectSlugs.has(current) ? 'subjects' : current;
+  const link = (href, icon, label, name) => `<a href="${href}"${key === name ? ' aria-current="page"' : ''}><span class="ic" aria-hidden="true">${icon}</span>${label}</a>`;
+  return `<nav class="mobnav" aria-label="底部导航">${link('/', '⌂', '首页', 'home')}${link('/#subjects', '科', '学科', 'subjects')}${link('/taiwan', '台', '台湾', 'taiwan')}${link('/search', '检', '检索', 'search')}${link('/ai', '研', '研究', 'ai')}</nav>`;
+}
+
 function page({ assets, model, title, description, pathname, current, body, pageKind, noindex = false }) {
   const fullTitle = title ? `${title}｜${SITE_NAME}` : `${SITE_NAME}｜1902—2022 课程标准档案`;
   return `<!doctype html>
@@ -287,7 +295,7 @@ function page({ assets, model, title, description, pathname, current, body, page
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${h(fullTitle)}</title>
 <meta name="description" content="${h(description)}">
-${noindex ? '<meta name="robots" content="noindex">\n' : ''}<meta name="theme-color" content="#f7f5ef">
+${noindex ? '<meta name="robots" content="noindex">\n' : ''}<meta name="theme-color" content="#f6f1e6">
 <link rel="canonical" href="${ORIGIN}${pathname}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${h(fullTitle)}">
@@ -308,6 +316,7 @@ ${body}
 </main>
 <div id="app-view" class="app-view" hidden></div>
 ${footer()}
+${mobileNav(model, current)}
 </body>
 </html>
 `;
@@ -373,11 +382,9 @@ function aimsSection(aims) {
   const tabs = aims.regions.map((region, index) => `<button type="button" role="tab" data-region-tab="${h(region.id)}" aria-selected="${index === 0}">${h(region.label)}</button>`).join('');
   return `<section class="block" id="aims" aria-labelledby="aims-title">
   <div class="wrap">
-    <div class="block-head">
-      <h2 id="aims-title">${h(aims.title)}</h2>
-      <p>${h(aims.boundary)}</p>
-      <div class="tabs" role="tablist" aria-label="地区" data-js-only>${tabs}</div>
-    </div>
+    <h2 class="section-title" id="aims-title">${h(aims.title)}<small>大陆 ${aims.regions[0].milestones.length} 条 · 台湾 ${aims.regions[1].milestones.length} 条正式表述</small></h2>
+    <p class="section-lede">${h(aims.boundary)}</p>
+    <div class="toggle-row" role="tablist" aria-label="地区" data-js-only>${tabs}</div>
     ${regions}
   </div>
 </section>`;
@@ -419,7 +426,7 @@ function sparkline(entry) {
     const height = value ? Math.max(2, Math.round((value / max) * 28)) : 0;
     return value ? `<rect x="${(index * barWidth + 0.5).toFixed(1)}" y="${30 - height}" width="${(barWidth - 1.5).toFixed(1)}" height="${height}" rx="1"></rect>` : '';
   }).join('');
-  return `<svg class="spark" viewBox="0 0 ${width} 32" role="img" aria-label="1900—2020年代文件分布"><line x1="0" y1="30.5" x2="${width}" y2="30.5"></line>${bars}</svg>`;
+  return `<svg class="spark" viewBox="0 0 ${width} 32" preserveAspectRatio="none" role="img" aria-label="1900—2020年代文件分布"><line x1="0" y1="30.5" x2="${width}" y2="30.5"></line>${bars}</svg>`;
 }
 
 function yearSpan(entry) {
@@ -432,8 +439,9 @@ function subjectCards(model) {
   return model.subjectsFile.groups.map((group) => {
     const cards = model.subjects.filter((subject) => subject.group === group.id).map((subject) => {
       const entry = model.perSubject.get(subject.slug);
-      return `<li><a class="subject-card" href="/s/${subject.slug}">
-  <span class="subject-name">${h(subject.name)}</span>
+      return `<li><a class="subject-card" href="/s/${subject.slug}" style="--c:${h(subject.color)}">
+  <span class="subject-head"><span class="subject-name">${h(subject.name)}</span><span class="subject-count">${entry.docs.length + entry.historical.length} 份</span></span>
+  <span class="subject-desc">${h(subject.intro)}</span>
   <span class="subject-meta">${h(yearSpan(entry))} · 现代文件 ${entry.docs.length} · 历史条目 ${entry.historical.length}</span>
   ${sparkline(entry)}
 </a></li>`;
@@ -448,38 +456,40 @@ function homePage(context) {
   const totalItems = model.items.length;
   const body = `<section class="hero">
   <div class="wrap">
-    <p class="kicker">中国课程标准与教学大纲 · 1902—2022</p>
-    <h1>按学科逐份查看一百二十年的课程标准</h1>
-    <p class="lede">每个学科一页：从清末学堂章程、民国课程标准、建国后教学大纲，到 2001 年以来的课程标准和 2022 年版，按年份列出，附原件链接与可检索全文。另有全人培养要求的变迁和台湾国语文课程。</p>
+    <h1>${SITE_NAME}</h1>
+    <p class="lede">中国课程标准与教学大纲 1902—2022 · 按学科逐份查看，附原件与可检索全文；全人培养要求的变迁；台湾国语文课程</p>
     <form class="searchbar" action="/search" method="get" role="search">
       <label class="sr" for="home-q">检索课程标准正文</label>
-      <input id="home-q" name="q" type="search" placeholder="检索正文，例如：学习任务群、核心素养、劳动教育" autocomplete="off">
+      <input id="home-q" name="q" type="search" placeholder="检索正文或篇名（如：学习任务群 / 核心素养 / 劳动教育）" autocomplete="off">
       <button type="submit">检索</button>
     </form>
     <ul class="stats">
-      <li><b>${model.subjects.length}</b><span>个学科与专题页</span></li>
-      <li><b>${totalDocs}</b><span>份现代课程文件（2001 年起为主）</span></li>
-      <li><b>${totalItems}</b><span>条 1902—2000 年历史条目</span></li>
-      <li><b>${taiwan.tracks.reduce((sum, track) => sum + track.versions.length, 0)}</b><span>个台湾国语文版本</span></li>
+      <li><b>${model.subjects.length}</b><span>学科与专题</span></li>
+      <li><b>${totalDocs}</b><span>现代课程文件</span></li>
+      <li><b>${totalItems}</b><span>1902—2000 历史条目</span></li>
+      <li><b>${aims.regions.reduce((sum, region) => sum + region.milestones.length, 0)}</b><span>全人培养表述</span></li>
+      <li><b>${taiwan.tracks.reduce((sum, track) => sum + track.versions.length, 0)}</b><span>台湾国语文版本</span></li>
     </ul>
   </div>
 </section>
+<div class="wrap">
+  <p class="source-note"><b>资料说明</b> · 2001 年以来的文件来自教育部及教育考试院公开原件，已入库的正文可全文检索；1902—2000 年条目来自课程教材研究所编《20世纪中国中小学课程标准·教学大纲汇编》各卷目录与扫描页，只作定位，不作正式引文。</p>
+</div>
 ${aimsSection(aims)}
 <section class="block" id="subjects" aria-labelledby="subjects-title">
   <div class="wrap">
-    <div class="block-head">
-      <h2 id="subjects-title">学科</h2>
-      <p>${h(model.subjectsFile.boundary)}</p>
-    </div>
+    <h2 class="section-title" id="subjects-title">按学科浏览<small>${model.subjects.length} 个学科与专题</small></h2>
+    <p class="section-lede">${h(model.subjectsFile.boundary)}</p>
     ${subjectCards(model)}
   </div>
 </section>
 <section class="block" aria-labelledby="tw-title">
   <div class="wrap">
+    <h2 class="section-title" id="tw-title">台湾国语文<small>1948—2018 历次课程标准与课程纲要</small></h2>
     <a class="feature-card" href="/taiwan">
-      <span class="kicker">新增</span>
-      <span class="feature-title" id="tw-title">${h(taiwan.title)}</span>
-      <span>${h(taiwan.intro)}</span>
+      <span class="kicker">新增专题</span>
+      <span class="feature-title">${h(taiwan.title)}</span>
+      <span class="feature-facts">${h(taiwan.intro)}</span>
       <span class="feature-facts">高中文言比例：101 课纲 45%—65% → 108 课纲 35%—45% · 文言选文参考：30 篇 → 推荐 15 篇</span>
     </a>
   </div>
@@ -502,7 +512,7 @@ function documentRow(document, subject) {
     `<span class="badge">${h(document.document_type)}</span>`,
     integrated ? '<span class="badge badge-note">综合课程</span>' : '',
     document.current_status && STATUS_LABELS[document.current_status] === '现行' ? '<span class="badge badge-accent">现行</span>' : '',
-    `<span class="badge badge-quiet">${h(TEXT_LABELS[document.text_quality_status] || document.text_quality_status || '')}</span>`,
+    `<span class="badge ${document.text_quality_status === 'official_native_text' ? 'badge-jade' : 'badge-quiet'}">${h(TEXT_LABELS[document.text_quality_status] || document.text_quality_status || '')}</span>`,
   ].join('');
   const lang = subject.filters ? ` data-lang="${h(document.subject)}"` : '';
   const source = document.source_url ? `<a href="${h(document.source_url)}" rel="noopener" target="_blank">原件 ↗</a>` : '';
@@ -555,13 +565,13 @@ function filterBar(entry) {
   const stageOrder = ['小学', '中学', '义务教育', '高中', '高考', '特殊教育', '综合'];
   const types = new Set([...docs.map((document) => typeKey(document.document_type)), ...historical.map((item) => typeKey(item.type))]);
   const typeOrder = ['课程标准', '教学大纲', '课程纲要', '考试大纲', '课程计划', '章程法令', '其他文件'];
-  const chips = (name, values) => values.map((value) => `<button type="button" class="chip" data-filter="${name}" data-value="${h(value)}" aria-pressed="false">${h(value)}</button>`).join('');
-  const languages = subject.filters ? `<div class="filter-row"><span>${h(subject.filters.label)}</span>${chips('lang', subject.filters.values)}</div>` : '';
+  const group = (name, label, values) => `<div class="filter-row" role="group" aria-label="${h(label)}"><span>${h(label)}</span><div class="pills">${['', ...values].map((value) => `<button type="button" class="pill" data-filter="${name}" data-value="${h(value)}" aria-pressed="${value === ''}">${h(value || '全部')}</button>`).join('')}</div></div>`;
+  const languages = subject.filters ? group('lang', subject.filters.label, subject.filters.values) : '';
   return `<div class="filters" data-js-only>
-  <div class="filter-row"><span>学段</span>${chips('stage', stageOrder.filter((value) => stages.has(value)))}</div>
-  <div class="filter-row"><span>类型</span>${chips('type', typeOrder.filter((value) => types.has(value)))}</div>
+  ${group('stage', '学段', stageOrder.filter((value) => stages.has(value)))}
+  ${group('type', '类型', typeOrder.filter((value) => types.has(value)))}
   ${languages}
-  <div class="filter-row"><label for="filter-text">篇名</label><input id="filter-text" type="search" data-filter-text placeholder="在本页篇名中查找"><output data-filter-count aria-live="polite"></output></div>
+  <div class="filter-search"><label class="sr" for="filter-text">在本页篇名中查找</label><input id="filter-text" type="search" data-filter-text placeholder="在本页篇名中查找"><output data-filter-count aria-live="polite"></output></div>
 </div>`;
 }
 
@@ -687,12 +697,12 @@ function subjectPage(context, entry) {
   <header class="page-head">
     <h1>${h(subject.name)}</h1>
     <p class="lede">${h(subject.intro)}</p>
-    <ul class="stats compact">
-      <li><b>${h(yearSpan(entry) || '—')}</b><span>年份范围</span></li>
-      <li><b>${docs.length}</b><span>份现代课程文件</span></li>
-      <li><b>${historical.length}</b><span>条历史条目</span></li>
-    </ul>
-    <form class="searchbar small" action="/search" method="get" role="search">
+    <div class="cov-grid">
+      <div class="cov-card"><b>${h(yearSpan(entry) || '—')}</b><span>年份范围</span></div>
+      <div class="cov-card"><b>${docs.length}</b><span>现代课程文件</span></div>
+      <div class="cov-card"><b>${historical.length}</b><span>1902—2000 历史条目</span></div>
+    </div>
+    <form class="searchbar left" action="/search" method="get" role="search">
       <label class="sr" for="subject-q">在${h(subject.name)}中检索正文</label>
       <input id="subject-q" name="q" type="search" placeholder="在${h(subject.name)}课程文件正文中检索" autocomplete="off">
       ${searchSubject}
@@ -701,12 +711,11 @@ function subjectPage(context, entry) {
   </header>
   <div class="subject-layout">
     <div class="subject-main">
-      <section class="panel" aria-labelledby="timeline-title">
-        <h2 id="timeline-title">版本时间线</h2>
-        ${subject.historical_note ? `<p class="panel-note">${h(subject.historical_note)}</p>` : ''}
+      <section aria-labelledby="timeline-title">
+        <h2 class="section-title" id="timeline-title">版本时间线<small>${docs.length + historical.length} 份，按年代排列</small></h2>
+        ${subject.historical_note ? `<p class="section-lede">${h(subject.historical_note)}</p>` : ''}
         ${filterBar(entry)}
-        <div class="timeline">${timeline(entry)}</div>
-        <p class="empty" data-filter-empty hidden>没有符合条件的文件。</p>
+        <div class="timeline list-card">${timeline(entry)}<p class="empty" data-filter-empty hidden>没有符合条件的文件。</p></div>
       </section>
       ${conceptGrid(model, entry)}
     </div>

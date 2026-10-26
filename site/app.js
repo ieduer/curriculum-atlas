@@ -18,7 +18,8 @@ const h = escapeHtml;
 function loadProductionIntegrations() {
   if (location.hostname !== 'curriculum.bdfz.net') return;
   for (const integration of [
-    { src: 'https://my.bdfz.net/site-auth.js', data: { siteKey: 'curriculum', mobileInsetBottom: '16' } },
+    // The bottom tab bar on phones is about 60px tall; lift the shared widget above it.
+    { src: 'https://my.bdfz.net/site-auth.js', data: { siteKey: 'curriculum', mobileInsetBottom: '76' } },
     { src: 'https://pulse.bdfz.net/beacon.js', data: { site: 'curriculum.bdfz.net' } },
   ]) {
     const script = document.createElement('script');
@@ -38,7 +39,7 @@ function setupTheme() {
     const dark = document.documentElement.dataset.theme === 'dark';
     button.setAttribute('aria-pressed', String(dark));
     button.title = dark ? '切换为浅色' : '切换为深色';
-    $('meta[name="theme-color"]')?.setAttribute('content', dark ? '#141619' : '#f7f5ef');
+    $('meta[name="theme-color"]')?.setAttribute('content', dark ? '#161513' : '#f6f1e6');
   };
   button.addEventListener('click', () => {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
@@ -104,7 +105,8 @@ function setupFilters() {
   const root = $('.subject-page');
   const rows = $$('.timeline .row', root || document);
   if (!root || !rows.length) return;
-  const active = { stage: new Set(), type: new Set(), lang: new Set() };
+  // One value per group; '' means 全部.
+  const active = { stage: '', type: '', lang: '' };
   const text = $('[data-filter-text]', root);
   const count = $('[data-filter-count]', root);
   const empty = $('[data-filter-empty]', root);
@@ -112,9 +114,9 @@ function setupFilters() {
     const needle = (text?.value || '').trim();
     let visible = 0;
     for (const row of rows) {
-      const ok = (!active.stage.size || active.stage.has(row.dataset.stage))
-        && (!active.type.size || active.type.has(row.dataset.type))
-        && (!active.lang.size || !row.dataset.lang || active.lang.has(row.dataset.lang))
+      const ok = (!active.stage || active.stage === row.dataset.stage)
+        && (!active.type || active.type === row.dataset.type)
+        && (!active.lang || !row.dataset.lang || active.lang === row.dataset.lang)
         && (!needle || row.dataset.text.includes(needle));
       row.hidden = !ok;
       if (ok) visible += 1;
@@ -123,11 +125,10 @@ function setupFilters() {
     if (count) count.textContent = `${visible} / ${rows.length}`;
     if (empty) empty.hidden = visible > 0;
   };
-  $$('[data-filter]', root).forEach((chip) => chip.addEventListener('click', () => {
-    const set = active[chip.dataset.filter];
-    const on = chip.getAttribute('aria-pressed') !== 'true';
-    chip.setAttribute('aria-pressed', String(on));
-    if (on) set.add(chip.dataset.value); else set.delete(chip.dataset.value);
+  $$('[data-filter]', root).forEach((pill) => pill.addEventListener('click', () => {
+    const name = pill.dataset.filter;
+    active[name] = pill.dataset.value;
+    $$(`[data-filter="${name}"]`, root).forEach((other) => other.setAttribute('aria-pressed', String(other === pill)));
     apply();
   }));
   text?.addEventListener('input', apply);

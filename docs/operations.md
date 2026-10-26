@@ -107,6 +107,7 @@ records below are history where superseded by this current state.
 - 页面：`/` 首页（全人培养要求矩阵：大陆 16 条、台湾 6 条正式表述 × 8 维度；学科入口）；`/s/<slug>` 19 个学科与专题页（语文、数学、外语、思政、历史、地理、物理、化学、生物学、科学、音乐、美术、体育与健康、信息科技、通用技术、劳动、课程方案与学制、考试与评价、特殊教育）；`/taiwan` 台湾国语文课程标准与课程纲要；`/search`、`/ai`、`/discussions`、`/admin` 为调用 API 的应用页。`/document/<id>`、`/historical/<id>` 由 SPA fallback 的 `index.html` 渲染；旧链接 `/compare`、`/archive`、`/timeline`、`/subjects`、`/sources`、`/terms` 在浏览器端转到对应学科页或检索页。
 - 资源与 API 约束：首页、学科页、台湾页加载时不调用 `/api/*`（旧版每次访问调用 `/api/meta`、`/api/documents?limit=200`、`/api/insights` 三次，各做一次全语料完整性计数，并解码约 24 MB 星图 JSON）。只有阅读正文、检索、AI 研究、讨论和审核时才调用 API。Worker 代码、D1、R2、绑定与路由不变。
 - 内容依据：`content/whole-person-aims.json` 每条表述带原文、出处与维度短语；`content/taiwan-guowen.json` 每个版本标“官方原文／研究文献／报道”，比例和选文只取官方原文；`content/subjects.json` 定义学科页的文件归属规则与检索身份（须是 Worker 接受的 `/api/search` 学科身份）。
+- 视觉（2026-10-26 二次改版）：与辞渊 sy.bdfz.net、风雅千载 cp.bdfz.net 同系——宣纸底色、朱砂主色、系统宋体标题、朱印徽标、居中衬线标题与胶囊检索框、红条小节标题、左侧色边学科卡片、“全部”在前的单选筛选、手机底部导航栏（共享登录挂件经 `data-mobile-inset-bottom=76` 抬到底栏上方）。墨色主题沿用 cp 的深纸配色。为可读性，辅助文字比 sy 原色加深（`#6b6253`），所有文字对比度 ≥4.5:1。不加载网络字体。
 - 门槛：`tests/site-build.test.mjs`（年份规则、19 页齐全、196 份文件无遗漏、历史条目身份规则、页面无内联脚本与星图数据、内容引用一致）；逐路由对比度量测（亮/暗 × 1440/390，文字对比度 ≥4.5:1、大字 ≥3:1、无横向溢出）；生产发布按已登记的 Worker 交易（预览版本 → 0% 附挂 → 版本固定探测 → 推广 → 生产探测）。
 
 # 运维与八点验证标准
