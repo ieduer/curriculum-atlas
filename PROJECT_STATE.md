@@ -1,4 +1,27 @@
-## Current accepted state — 2026-10-26 14:34 UTC
+## Current accepted state — 2026-10-26 15:01 UTC
+
+Owner: suen. Runtime source `49a68d594bce0dcbed3083c2608d8b0ef45864ea`
+(branch `claude/curriculum-shared-reuse-20261026`, fast-forwarded into
+`main`), Worker version `c36204c9-f4a2-408b-aca0-669c20aea919` at 100%,
+deployment `81115fb6-d748-47ed-8b7e-31c8a6fe5834`, effective 15:01:01 UTC.
+Owner-approved: the integrity-count reuse is shared by the isolates of a data
+centre through the Cache API (`SITE_ORIGIN/__corpus-integrity/v1/<SHA-256 of
+the release pointer identity>`, max-age 1 h); `/api/health` always recounts
+and replaces or deletes the entry (see “语料完整性计数复用”). Only
+`src/index.ts` changed; static dist byte-identical to `b3ca312`; data,
+schema, bindings, routes and asset headers unchanged. Rollback: version
+`5fd7acd6-966a-4e9b-a4d9-d8ad095b98ae` (source `5918295`, deployment
+`34a6bdfe`) via a new registered transaction; no data to restore. Preview
+Worker active deployment unchanged; immutable preview version `dc2ae1a3`
+(source `49a68d5`) exists, not deployed.
+
+Gate: `tsc`; full suite candidate 671/666/3/2 vs base `edb6bd7` 667/662/3/2,
+identical failures (+4 tests); build and dry-run; runtime/bindings review;
+gitleaks clean; preview-version, version-pinned and production probes; D1
+rows-per-request re-measurement. Evidence:
+`/Users/ylsuen/CF/_meta/reports/operations/curriculum-shared-reuse-20261026/README.md`.
+
+## Previous accepted state — 2026-10-26 14:34 UTC (superseded 15:01 UTC)
 
 Owner: suen. Runtime source `59182954a4d7075850a24c42fb48aa34776ef078`
 (branch `claude/curriculum-integrity-cache-20261026`, fast-forwarded into
