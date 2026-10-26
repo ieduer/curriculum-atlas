@@ -63,7 +63,7 @@ test('historical item identities match the reader package rule', async () => {
 });
 
 test('pages are static: no inline scripts, no star-map data, no API calls in HTML', async () => {
-  const files = ['index.html', 'taiwan.html', 'search.html', ...(await readdir(path.join(outDir, 's'))).map((file) => `s/${file}`)];
+  const files = ['index.html', 'taiwan.html', 'library.html', 'search.html', ...(await readdir(path.join(outDir, 's'))).map((file) => `s/${file}`)];
   for (const file of files) {
     const html = await readFile(path.join(outDir, file), 'utf8');
     assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)[^>]*>/, `${file} has an inline script`);
@@ -112,4 +112,38 @@ test('Taiwan content keeps sources, ratios and reading-list mappings consistent'
   }
   const html = await readFile(path.join(outDir, 'taiwan.html'), 'utf8');
   assert.match(html, /id="src-k12-108"/);
+});
+
+test('official library lists only verified official originals with their digests', async () => {
+  const library = await readJson('content/official-library.json');
+  const groups = new Map(library.groups.map((group) => [group.id, group]));
+  const subjects = new Set((await readJson('content/subjects.json')).subjects.map((subject) => subject.slug));
+  const taiwan = await readJson('content/taiwan-guowen.json');
+  const versions = new Set(taiwan.tracks.flatMap((track) => track.versions.map((version) => `${track.id}:${version.year}`)));
+  const ids = new Set();
+  for (const item of library.items) {
+    assert.ok(!ids.has(item.id), `${item.id} is unique`);
+    ids.add(item.id);
+    assert.equal(groups.get(item.group)?.region, item.region, `${item.id} sits in a group of its region`);
+    assert.ok(['official_original', 'revision_watch'].includes(item.status));
+    assert.match(item.page.url, /^https?:\/\/(www\.moe\.gov\.cn|www\.gov\.cn|education\.news\.cn|www\.naer\.edu\.tw|www\.k12ea\.gov\.tw|edu\.law\.moe\.gov\.tw)\//, `${item.id}: publisher page`);
+    for (const subject of item.subjects) assert.ok(subjects.has(subject), `${item.id}: unknown subject ${subject}`);
+    for (const [track, year] of item.tracks || []) assert.ok(versions.has(`${track}:${year}`), `${item.id}: no Taiwan version ${track} ${year}`);
+    for (const file of item.files) {
+      assert.ok(file.bytes > 0, `${item.id}: ${file.label} size`);
+      if (file.format === 'RAR') assert.equal(file.sha256, null);
+      else assert.match(file.sha256, /^[0-9a-f]{64}$/, `${item.id}: ${file.label} digest`);
+    }
+    if (item.status === 'official_original' && item.region === 'cn') assert.match(item.page.url, /moe\.gov\.cn|gov\.cn/);
+  }
+  const html = await readFile(path.join(outDir, 'library.html'), 'utf8');
+  for (const item of library.items) assert.match(html, new RegExp(`id="lib-${item.id}"`));
+  const chinese = await readFile(path.join(outDir, 's/chinese.html'), 'utf8');
+  assert.match(chinese, /href="\/library#lib-cn-2020-zz-three"/);
+  assert.match(chinese, /href="\/taiwan#library"/);
+  const taiwanHtml = await readFile(path.join(outDir, 'taiwan.html'), 'utf8');
+  assert.match(taiwanHtml, /href="#lib-tw-hs-101"/);
+  assert.match(taiwanHtml, /id="lib-tw-hs-101"/);
+  const sitemap = await readFile(path.join(outDir, 'sitemap.xml'), 'utf8');
+  assert.match(sitemap, /\/library<\/loc>/);
 });

@@ -15,7 +15,7 @@
   // index.html is also the fallback for /document/…, /historical/… and old links;
   // hide the home content for those paths before it paints.
   const path = location.pathname.replace(/\/+$/, '') || '/';
-  if (path !== '/' && path !== '/index.html' && !/^\/(s\/[a-z]+|taiwan|search|ai|discussions|admin)(\.html)?$/.test(path)) {
+  if (path !== '/' && path !== '/index.html' && !/^\/(s\/[a-z]+|taiwan|library|search|ai|discussions|admin)(\.html)?$/.test(path)) {
     root.dataset.route = 'app';
   }
 })();

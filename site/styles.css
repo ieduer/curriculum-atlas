@@ -329,6 +329,20 @@ details > summary h2 { display: inline; }
 .sources { margin: 0; padding-left: 1.6em; font-size: 13px; color: var(--ink-soft); }
 .sources li { margin-bottom: 6px; scroll-margin-top: 90px; }
 .sources li:target { background: var(--seal-tint); border-radius: 6px; }
+
+/* official library */
+.lib-group + .lib-group { margin-top: 18px; }
+.lib-group h3 small { font-family: var(--sans); font-weight: 400; font-size: 12px; color: var(--ink-faint); }
+.lib-item { grid-template-columns: 52px minmax(0, 1fr); scroll-margin-top: 90px; }
+.lib-item:target, .lib-compact:target { background: var(--seal-tint); }
+.lib-meta { margin: 6px 0 0; font-size: 13px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.lib-quote { margin: 6px 0 0; font-family: var(--serif); color: var(--ink); }
+.lib-note { margin: 6px 0 0; font-size: 13px; color: var(--ink-soft); overflow-wrap: anywhere; }
+.lib-files { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 3px; font-size: 13px; }
+.lib-files small, .lib-compact small { color: var(--ink-faint); font-size: 12px; }
+.digest { font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 12px; }
+.lib-compact-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 6px 18px; }
+.lib-compact { padding: 4px 6px; border-radius: 6px; scroll-margin-top: 90px; overflow-wrap: anywhere; }
 .ratios { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 8px; }
 .ratios li { display: grid; grid-template-columns: 6em minmax(0, 1fr) 7.5em; gap: 10px; align-items: center; }
 .ratio-label { font-family: var(--serif); font-weight: 700; font-size: 15px; }

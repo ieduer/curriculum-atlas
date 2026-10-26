@@ -1,0 +1,1587 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-10-26",
+  "boundary": "本目录只收教育部、国务院、国家教材委员会及台湾教育部、国家教育研究院、国民及学前教育署官网公开的原件或通知页。每个链接于核对日返回 200；文件另记字节数与 SHA-256，可据此确认日后下载的是同一份原件。这些文件尚未导入本站全文检索与研究问答，正文以原件为准。",
+  "groups": [
+    {
+      "id": "cn-policy",
+      "region": "cn",
+      "label": "课程改革政策文件",
+      "note": "规定育人目标与课程改革方向的中央和教育部文件，课程方案与课程标准据此修订。"
+    },
+    {
+      "id": "cn-guides",
+      "region": "cn",
+      "label": "专题指导纲要与进课程教材指南",
+      "note": "针对某一领域或主题、跨学科适用的指导纲要和指南，与课程标准并行执行。"
+    },
+    {
+      "id": "cn-standards",
+      "region": "cn",
+      "label": "尚未收入全文库的课程标准",
+      "note": "官方原件已核对，正文尚未导入本站检索与研究问答。"
+    },
+    {
+      "id": "cn-vocational",
+      "region": "cn",
+      "label": "中等职业学校公共基础课程",
+      "note": "中职公共基础课的课程方案与课程标准（2020 年版），此前为教学大纲。"
+    },
+    {
+      "id": "cn-watch",
+      "region": "cn",
+      "label": "修订动态",
+      "note": "已有官方或权威报道、但本站尚未找到教育部原件在线公开的修订。"
+    },
+    {
+      "id": "tw-k12",
+      "region": "tw",
+      "label": "十二年國民基本教育課程綱要（108 課綱）",
+      "note": "教育部发布，国家教育研究院彙整公开。总纲与国语文领纲附发布令。"
+    },
+    {
+      "id": "tw-k12-domains",
+      "region": "tw",
+      "label": "十二年國教 其他領域／科目課程綱要",
+      "note": "与国语文同一体系的其他领纲，供跨科对照。"
+    },
+    {
+      "id": "tw-g19",
+      "region": "tw",
+      "label": "國民中小學九年一貫課程綱要",
+      "note": "2003 年（民國 92 年）正式纲要、2008 年（97 年）修正、2011 年（100 年）国语文再修正。"
+    },
+    {
+      "id": "tw-hs",
+      "region": "tw",
+      "label": "高級中學課程標準與普通高級中學課程綱要",
+      "note": "84 年课程标准、95 暂纲、98 课纲（99 学年度实施）、101 国文、103 微调及其废止。"
+    },
+    {
+      "id": "tw-watch",
+      "region": "tw",
+      "label": "研修動態",
+      "note": "国家教育研究院公开的课纲研修会议纪录。"
+    }
+  ],
+  "items": [
+    {
+      "id": "cn-2014-lideshuren",
+      "group": "cn-policy",
+      "title": "教育部关于全面深化课程改革落实立德树人根本任务的意见",
+      "issuer": "教育部",
+      "number": "教基二〔2014〕4号",
+      "signed": "2014-03-30",
+      "published": "2014-04-08",
+      "kind": "政策意见",
+      "subjects": [
+        "plans",
+        "politics"
+      ],
+      "page": {
+        "url": "http://www.moe.gov.cn/srcsite/A26/jcj_kcjcgh/201404/t20140408_167226.html",
+        "label": "教育部政府门户网站"
+      },
+      "note": "意见提出“组织研究提出各学段学生发展核心素养体系”；此后 2017 年版高中课标与 2022 年版义务教育课标都以核心素养组织目标。",
+      "region": "cn",
+      "status": "official_original",
+      "files": []
+    },
+    {
+      "id": "cn-2019-hs-reform",
+      "group": "cn-policy",
+      "title": "国务院办公厅关于新时代推进普通高中育人方式改革的指导意见",
+      "issuer": "国务院办公厅",
+      "number": "国办发〔2019〕29号",
+      "signed": "2019-06-11",
+      "published": "2019-06-19",
+      "kind": "政策意见",
+      "subjects": [
+        "plans",
+        "exam"
+      ],
+      "page": {
+        "url": "https://www.gov.cn/zhengce/content/2019-06/19/content_5401568.htm",
+        "label": "中国政府网"
+      },
+      "region": "cn",
+      "status": "official_original",
+      "files": []
+    },
+    {
+      "id": "cn-2019-compulsory-quality",
+      "group": "cn-policy",
+      "title": "中共中央 国务院关于深化教育教学改革全面提高义务教育质量的意见",
+      "issuer": "中共中央、国务院",
+      "number": null,
+      "signed": "2019-06-23",
+      "published": "2019-07-08",
+      "kind": "政策意见",
+      "subjects": [
+        "plans"
+      ],
+      "page": {
+        "url": "https://www.gov.cn/zhengce/2019-07/08/content_5407361.htm",
+        "label": "中国政府网"
+      },
+      "region": "cn",
+      "status": "official_original",
+      "files": []
+    },
+    {
+      "id": "cn-2023-action-plan",
+      "group": "cn-policy",
+      "title": "教育部办公厅关于印发《基础教育课程教学改革深化行动方案》的通知",
+      "issuer": "教育部办公厅",
+      "number": "教材厅函〔2023〕3号",
+      "signed": "2023-05-09",
+      "published": "2023-06-01",
+      "kind": "行动方案",
+      "subjects": [
+        "plans"
+      ],
+      "page": {
+        "url": "https://www.gov.cn/zhengce/zhengceku/202306/content_6884785.htm",
+        "label": "中国政府网"
+      },
+      "note": "列出五项行动：课程方案转化落地规划、教学方式变革、科学素养提升、教学评价牵引、专业支撑与数字赋能。",
+      "region": "cn",
+      "status": "official_original",
+      "files": []
+    },
+    {
+      "id": "cn-2013-calligraphy",
+      "group": "cn-guides",
+      "title": "教育部关于印发《中小学书法教育指导纲要》的通知",
+      "issuer": "教育部",
+      "number": "教基二〔2013〕1号",
+      "signed": "2013-01-18",
+      "published": "2013-01-25",
+      "kind": "指导纲要",
+      "subjects": [
+        "chinese",
+        "art"
+      ],
+      "page": {
+        "url": "http://www.moe.gov.cn/srcsite/A26/s8001/201301/t20130125_147389.html",
+        "label": "教育部政府门户网站"
+      },
+      "note": "纲要规定书法教育“以语文课程中识字和写字教学为基本内容”，义务教育阶段“以语文课为主”，小学 3—6 年级每周安排 1 课时。纲要全文在通知页内。",
+      "region": "cn",
+      "status": "official_original",
+      "files": []
+    },
+    {
+      "id": "cn-2017-moral-guide",
+      "group": "cn-guides",
+      "title": "教育部关于印发《中小学德育工作指南》的通知",
+      "issuer": "教育部",
+      "number": "教基〔2017〕8号",
+      "signed": "2017-08-17",
+      "published": "2017-08-22",
+      "kind": "工作指南",
+      "subjects": [
+        "politics",
+        "plans"
+      ],
+      "page": {
+        "url": "http://www.moe.gov.cn/srcsite/A06/s3325/201709/t20170904_313128.html",
+        "label": "教育部政府门户网站"
+      },
+      "region": "cn",
+      "status": "official_original",
+      "files": []
+    },
+    {
+      "id": "cn-2017-practice",
+      "group": "cn-guides",
+      "title": "教育部关于印发《中小学综合实践活动课程指导纲要》的通知",
+      "issuer": "教育部",
+      "number": "教材〔2017〕4号",
+      "signed": "2017-09-25",
+      "published": "2017-09-27",
+      "kind": "指导纲要",
+      "subjects": [
+        "plans",
+        "labor",
+        "it"
+      ],
+      "page": {
+        "url": "http://www.moe.gov.cn/srcsite/A26/s8001/201710/t20171017_316616.html",
+        "label": "教育部政府门户网站"
+      },
+      "note": "纲要称综合实践活动是义务教育和普通高中课程方案规定的必修课程，与学科课程并列设置；通知页附推荐主题及说明 6 个附件。",
+      "region": "cn",
+      "status": "official_original",
+      "files": []
+    },
+    {
+      "id": "cn-2020-labor",
+      "group": "cn-guides",
+      "title": "教育部关于印发《大中小学劳动教育指导纲要（试行）》的通知",
+      "issuer": "教育部",
+      "number": "教材〔2020〕4号",
+      "signed": "2020-07-07",
+      "published": "2020-07-09",
+      "kind": "指导纲要",
+      "subjects": [
+        "labor",
+        "plans"
+      ],
+      "page": {
+        "url": "http://www.moe.gov.cn/srcsite/A26/jcj_kcjcgh/202007/t20200715_472808.html",
+        "label": "教育部政府门户网站"
+      },
+      "note": "2022 年版义务教育课程方案随后把劳动从综合实践活动中独立出来，单独设课并发布课程标准。",
+      "region": "cn",
+      "status": "official_original",
+      "files": []
+    },
+    {
+      "id": "cn-2021-traditions",
+      "group": "cn-guides",
+      "title": "教育部关于印发《革命传统进中小学课程教材指南》《中华优秀传统文化进中小学课程教材指南》的通知",
+      "issuer": "教育部",
+      "number": "教材〔2021〕1号",
+      "signed": "2021-01-08",
+      "published": "2021-01-19",
+      "kind": "进课程教材指南",
+      "subjects": [
+        "chinese",
+        "history",
+        "politics",
+        "art"
+      ],
+      "page": {
+        "url": "http://www.moe.gov.cn/srcsite/A26/s8001/202102/t20210203_512359.html",
+        "label": "教育部政府门户网站"
+      },
+      "files": [
+        {
+          "label": "革命传统指南",
+          "url": "http://www.moe.gov.cn/srcsite/A26/s8001/202102/W020210303619346192083.doc",
+          "format": "DOC",
+          "bytes": 74240,
+          "sha256": "39e5944bae2db446d59fc75cb65674466a65c9ba77ee8b952e0a39416dd4ff80"
+        },
+        {
+          "label": "传统文化指南",
+          "url": "http://www.moe.gov.cn/srcsite/A26/s8001/202102/W020210303586086297350.docx",
+          "format": "DOCX",
+          "bytes": 67682,
+          "sha256": "f6f62472658b004cd060333cf69101bd05cc7a7926be2318651c2caad7b8499c"
+        }
+      ],
+      "note": "传统文化指南规定学科安排“以语文、历史、道德与法治（思想政治）三科为主，艺术（音乐、美术等）、体育与健康学科有重点地纳入，其他学科有机渗透”。",
+      "region": "cn",
+      "status": "official_original"
+    },
+    {
+      "id": "cn-2021-xi-thought",
+      "group": "cn-guides",
+      "title": "国家教材委员会关于印发《习近平新时代中国特色社会主义思想进课程教材指南》的通知",
+      "issuer": "国家教材委员会",
+      "number": "国教材〔2021〕2号",
+      "signed": "2021-07-21",
+      "published": "2021-07-23",
+      "kind": "进课程教材指南",
+      "subjects": [
+        "politics",
+        "plans"
+      ],
+      "page": {
+        "url": "http://www.moe.gov.cn/srcsite/A26/s8001/202107/t20210723_546307.html",
+        "label": "教育部政府门户网站"
+      },
+      "region": "cn",
+      "status": "official_original",
+      "files": []
+    },
+    {
+      "id": "cn-2017-primary-science",
+      "group": "cn-standards",
+      "title": "义务教育小学科学课程标准",
+      "issuer": "教育部",
+      "number": "教基二〔2017〕2号",
+      "signed": "2017-01-19",
+      "published": "2017-02-06",
+      "kind": "课程标准",
+      "subjects": [
+        "science"
+      ],
+      "page": {
+        "url": "http://www.moe.gov.cn/srcsite/A26/s8001/201702/t20170215_296305.html",
+        "label": "教育部政府门户网站"
+      },
+      "files": [
+        {
+          "label": "课程标准",
+          "url": "http://www.moe.gov.cn/srcsite/A26/s8001/201702/W020170215542129302110.pdf",
+          "format": "PDF",
+          "bytes": 2981502,
+          "sha256": "4c9ad9c14ac23cc82c57456497c01150f97fdc9f8da142650ab27042f4b48aa1"
+        }
+      ],
+      "note": "印发通知规定“小学科学课程起始年级调整为一年级”。本站全文库有 2011 年版小学科学课标和 2022 年版义务教育科学课标，缺这一版。",
+      "region": "cn",
+      "status": "official_original"
+    },
+    {
+      "id": "cn-2019-zz-plan",
+      "group": "cn-vocational",
+      "title": "教育部办公厅关于印发《中等职业学校公共基础课程方案》的通知",
+      "issuer": "教育部办公厅",
+      "number": "教职成厅〔2019〕6号",
+      "signed": "2019-10-22",
+      "published": "2019-10-24",
+      "kind": "课程方案",
+      "subjects": [
+        "plans"
+      ],
+      "page": {
+        "url": "http://www.moe.gov.cn/srcsite/A07/moe_953/201911/t20191129_410208.html",
+        "label": "教育部政府门户网站"
+      },
+      "region": "cn",
+      "status": "official_original",
+      "files": []
+    },
+    {
+      "id": "cn-2020-zz-three",
+      "group": "cn-vocational",
+      "title": "教育部关于印发《中等职业学校思想政治、语文、历史课程标准（2020年版）》的通知",
+      "issuer": "教育部",
+      "number": "教材〔2020〕2号",
+      "signed": "2020-01-19",
+      "published": "2020-02-14",
+      "kind": "课程标准",
+      "subjects": [
+        "politics",
+        "chinese",
+        "history"
+      ],
+      "page": {
+        "url": "http://www.moe.gov.cn/srcsite/A26/s8001/202002/t20200226_424148.html",
+        "label": "教育部政府门户网站"
+      },
+      "files": [
+        {
+          "label": "思想政治",
+          "url": "http://www.moe.gov.cn/srcsite/A26/s8001/202002/W020200226602559933392.pdf",
+          "format": "PDF",
+          "bytes": 968375,
+          "sha256": "f6a5fe1f9832c254fbdb595a6df42d589d9f5a7359592e76d9dd734cf80eb5a7"
+        },
+        {
+          "label": "语文",
+          "url": "http://www.moe.gov.cn/srcsite/A26/s8001/202002/W020200226602559993835.pdf",
+          "format": "PDF",
+          "bytes": 896875,
+          "sha256": "7cdfe4a80bb6972fb503e61e1a1a8fbfb7e5e4ccbcb8206b96ba23660bcc94f1"
+        },
+        {
+          "label": "历史",
+          "url": "http://www.moe.gov.cn/srcsite/A26/s8001/202002/W020200226602560031438.pdf",
+          "format": "PDF",
+          "bytes": 1050216,
+          "sha256": "a67cfb8fe89fd0f7d9e26d249d9b18bc077049004e8de0aa6321596118e4d98f"
+        }
+      ],
+      "region": "cn",
+      "status": "official_original"
+    },
+    {
+      "id": "cn-2020-zz-seven",
+      "group": "cn-vocational",
+      "title": "中等职业学校数学、英语、信息技术、体育与健康、艺术、物理、化学课程标准（2020年版）",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2020",
+      "kind": "课程标准",
+      "subjects": [
+        "math",
+        "english",
+        "it",
+        "pe",
+        "art",
+        "physics",
+        "chemistry"
+      ],
+      "page": {
+        "url": "http://www.moe.gov.cn/s78/A07/zcs_ztzl/2017_zt06/17zt06_bznr/bznr_zzggkdg/",
+        "label": "教育部政府门户网站·中等职业学校公共基础课程教学标准"
+      },
+      "files": [
+        {
+          "label": "数学",
+          "url": "http://www.moe.gov.cn/s78/A07/zcs_ztzl/2017_zt06/17zt06_bznr/bznr_zzggkdg/202008/P020200821549599961529.pdf",
+          "format": "PDF",
+          "bytes": 24533647,
+          "sha256": "475857a6138964f7076722454be9c1cfedac9f745b3b256360ebc0f59c62b1e4"
+        },
+        {
+          "label": "英语",
+          "url": "http://www.moe.gov.cn/s78/A07/zcs_ztzl/2017_zt06/17zt06_bznr/bznr_zzggkdg/202008/P020200821549837617092.pdf",
+          "format": "PDF",
+          "bytes": 18762109,
+          "sha256": "9b63729d54d122b2cacc44b897e9715434b3c753306c6ee59df16836fc2127b4"
+        },
+        {
+          "label": "信息技术",
+          "url": "http://www.moe.gov.cn/s78/A07/zcs_ztzl/2017_zt06/17zt06_bznr/bznr_zzggkdg/202008/P020200821548627819810.pdf",
+          "format": "PDF",
+          "bytes": 18195189,
+          "sha256": "dec25bf0298f177c0e2079ab2de1eee69590da8f265d8a8f111b80c841634583"
+        },
+        {
+          "label": "体育与健康",
+          "url": "http://www.moe.gov.cn/s78/A07/zcs_ztzl/2017_zt06/17zt06_bznr/bznr_zzggkdg/202008/P020200821549192078574.pdf",
+          "format": "PDF",
+          "bytes": 25885096,
+          "sha256": "2462324da3c16be1bac039acb98c53080417f8358b317fda52d9cf6ca36a6281"
+        },
+        {
+          "label": "艺术",
+          "url": "http://www.moe.gov.cn/s78/A07/zcs_ztzl/2017_zt06/17zt06_bznr/bznr_zzggkdg/202008/P020200821548905628448.pdf",
+          "format": "PDF",
+          "bytes": 7769811,
+          "sha256": "a92a639d2debada9a10ec25e5b871f7a9b21eefa5ac3e18b96060af36a2d6e6e"
+        },
+        {
+          "label": "物理",
+          "url": "http://www.moe.gov.cn/s78/A07/zcs_ztzl/2017_zt06/17zt06_bznr/bznr_zzggkdg/202008/P020200821547671209857.pdf",
+          "format": "PDF",
+          "bytes": 37562416,
+          "sha256": "fd8c19d634a6fb1b88643f55ded2089a0a6f7b5ce78e2d8fa6c36e1cd30ef2a2"
+        },
+        {
+          "label": "化学",
+          "url": "http://www.moe.gov.cn/s78/A07/zcs_ztzl/2017_zt06/17zt06_bznr/bznr_zzggkdg/202008/P020200821548324728261.pdf",
+          "format": "PDF",
+          "bytes": 27994153,
+          "sha256": "a6410dacb7c06bd51e2944dd8264d5a3540517c4cc2df814e0877090bfb7d2e8"
+        }
+      ],
+      "note": "原件取自教育部专题页（同页另列 2017 年中职教学大纲 9 种）；本站未找到这 7 门课标的印发通知页，故不列文号和日期。",
+      "region": "cn",
+      "status": "official_original"
+    },
+    {
+      "id": "cn-2025-routine-revision",
+      "group": "cn-watch",
+      "title": "义务教育、普通高中课程方案和课程标准日常修订版",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2025-10",
+      "kind": "日常修订",
+      "subjects": [
+        "plans",
+        "chinese"
+      ],
+      "status": "revision_watch",
+      "page": {
+        "url": "https://education.news.cn/20260105/3c15162da8544fe18af6ed391852378a/c.html",
+        "label": "新华网 2026-01-05"
+      },
+      "files": [
+        {
+          "label": "荣维东、刘畅《普通高中语文课程标准日常修订版变化阐释与实施要义》，《课程·教材·教法》2026 年第 5 期",
+          "url": "https://www.pep.com.cn/bks/kcjcjf/xszh/202606/W020260616573554792842.pdf",
+          "format": "PDF",
+          "bytes": 5075364,
+          "sha256": "44339b3792657b7a94a7e26b25fcdc16312ccde27a60987181ac37ade87581d6"
+        }
+      ],
+      "quote": "2025年10月，教育部印发义务教育、普通高中课程方案和课程标准日常修订版。",
+      "note": "高中语文为《普通高中语文课程标准日常修订版（2017年版2025年修订）》，据荣维东、刘畅文，学业质量水平由五级改为三级。核对时未找到教育部原件的在线公开版本；本站全文库仍为 2020 年修订版与 2022 年版。",
+      "region": "cn"
+    },
+    {
+      "id": "tw-k12-general",
+      "group": "tw-k12",
+      "title": "十二年國民基本教育課程綱要總綱",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2014-11-28",
+      "revised": [
+        "2017-05-10",
+        "2021-03-15"
+      ],
+      "kind": "總綱",
+      "subjects": [
+        "plans"
+      ],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=52",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "111 学年度实施版",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/288/(111學年度實施)十二年國教課程綱要總綱.pdf",
+          "format": "PDF",
+          "bytes": 1225399,
+          "sha256": "d9558786473e4cde3d9c05fbb8de6fb4c94cac33c4b14a8ff18a5b65e8a98b8c"
+        },
+        {
+          "label": "原发布版",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/288/十二年國教課程綱要總綱.pdf",
+          "format": "PDF",
+          "bytes": 497724,
+          "sha256": "89e3b2be83bb0bb49f59a38eab264c2cff1b572cb52e905ff98383424746f589"
+        },
+        {
+          "label": "103.11.28 发布令",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/288/103年11月28日教育部發布令.pdf",
+          "format": "PDF",
+          "bytes": 212866,
+          "sha256": "70605d197370e7a7ef9d7fdfcdfa73677bfd0cfde688cecc6dad69afc012a28e"
+        },
+        {
+          "label": "106.5.10 修正发布令",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/288/106年5月10日教育部修正發布令.pdf",
+          "format": "PDF",
+          "bytes": 243088,
+          "sha256": "8f4824f6800051882a7af20d105794060d25ef268e3f893238065e134c9bc680"
+        },
+        {
+          "label": "110.3.15 修正发布令",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/288/110年3月15日教育部修正發布令.pdf",
+          "format": "PDF",
+          "bytes": 160724,
+          "sha256": "2018286ea0eff4d75c5bb53e2d905257d042813e4bd0d591426422b1e644bb5b"
+        }
+      ],
+      "note": "“自發、互動、共好”与三面九项核心素养的出处；本站全人目标矩阵台湾一栏据此。",
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-guowen",
+      "group": "tw-k12",
+      "title": "十二年國民基本教育課程綱要 國民中小學暨普通型高級中等學校 語文領域－國語文",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2018-01-25",
+      "kind": "領域課程綱要",
+      "subjects": [
+        "chinese"
+      ],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/806/十二年國民基本教育課程綱要國民中小學暨普通型高級中等學校(語文領域─國語文).pdf",
+          "format": "PDF",
+          "bytes": 722557,
+          "sha256": "210b2bea291bbc294584a6ae5796f88e9481298e9ce82067138a0b6808dcd72c"
+        },
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/806/十二年國民基本教育課程綱要國民中小學暨普通型高級中等學校語文領域-國語文.odt",
+          "format": "ODT",
+          "bytes": 123316,
+          "sha256": "0eda94b0ed82375999e821d67a5cdffd8081cb4f66e94bfd29000547c5b9207a"
+        },
+        {
+          "label": "107.1.25 发布令",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/806/107年1月25日教育部發布令.pdf",
+          "format": "PDF",
+          "bytes": 323520,
+          "sha256": "9a4bc360fd25f3485070414769a10affc69e5cde97813dc9679795680b542499"
+        }
+      ],
+      "tracks": [
+        [
+          "primary",
+          2018
+        ],
+        [
+          "junior",
+          2018
+        ],
+        [
+          "senior",
+          2018
+        ]
+      ],
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-guowen-handbook",
+      "group": "tw-k12",
+      "title": "十二年國民基本教育課程綱要 語文領域－國語文課程手冊（定稿版）",
+      "issuer": "國家教育研究院",
+      "number": null,
+      "signed": null,
+      "published": null,
+      "kind": "課程手冊",
+      "subjects": [
+        "chinese"
+      ],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=197",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课程手册",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/2012/語文領域-國語文課程手冊(定稿版).pdf",
+          "format": "PDF",
+          "bytes": 7357668,
+          "sha256": "9d9eb6ddcf808daa24207ac1127e2df9807b5de09625e960a880215ee643b040"
+        },
+        {
+          "label": "公播版简报",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/2012/國語文課綱公播版簡報.pdf",
+          "format": "PDF",
+          "bytes": 4358367,
+          "sha256": "180f52246f83ca8b667f2a3fffcb369f68e92a5087a672678ef68d3ca7f6fed7"
+        }
+      ],
+      "note": "课程手册是对课纲的说明与示例，不是课纲本身。",
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-continuing",
+      "group": "tw-k12",
+      "title": "十二年國民基本教育高級中等學校進修部課程實施規範",
+      "edition": "111 学年度实施版",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2019-05-20",
+      "revised": [
+        "2021-07-30"
+      ],
+      "kind": "實施規範",
+      "subjects": [
+        "plans"
+      ],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=178",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "实施规范",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/849/(111學年度實施)十二年國民基本教育高級中等學校進修部課程實施規範.pdf",
+          "format": "PDF",
+          "bytes": 3193019,
+          "sha256": "49ae699485273d8e68164cabc4d1da0ad62a58dfd4f9d8c0a3696bb2e3addcb8"
+        }
+      ],
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-math",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 數學領域",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2018-07-26",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/815/十二年國民基本教育課程綱要國民中小學暨普通型高級中等學校-數學領域.pdf",
+          "format": "PDF",
+          "bytes": 2054481,
+          "sha256": "334bc052dc1812516470dc162c818074e9eca0c20a3d3a02af269dd42394188a"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-english",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 語文領域－英語文",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2018-04-16",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/812/(發布版)國民中小學暨普通型高級中等學校-語文領域-英語文課程綱要.pdf",
+          "format": "PDF",
+          "bytes": 1161222,
+          "sha256": "72c6a6a24dbfe843e2c510f12b4d5e3e9ea53d0586396a7b03f4eda6d17490e3"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-second-foreign",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 語文領域－第二外國語文",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2018-04-16",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/812/(發布版)國民中學暨普通型高級中等學校-語文領域-第二外國語文課程綱要.pdf",
+          "format": "PDF",
+          "bytes": 688019,
+          "sha256": "49fb993be5e163bf4624ffdc535292817aabaed2435aeab604830caa57524208"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-science",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 自然科學領域",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2018-11-02",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/820/十二年國民基本教育課程綱要國民中小學暨普通型高級中等校-自然科學領域.pdf",
+          "format": "PDF",
+          "bytes": 4558920,
+          "sha256": "f39ef4fc343e86db3e11174c1900563715816280b004c05e0e0bad22709c40ca"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-social",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 社會領域",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2018-10-26",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/819/十二年國民基本教育課程綱要國民中小學暨普通型高級中等校-社會領域.pdf",
+          "format": "PDF",
+          "bytes": 3697994,
+          "sha256": "5beaf5396830f1e3722f696c4ea08166913b86375da5ae6f03a6bd750f2becac"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-arts",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 藝術領域",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2018-10-23",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/818/十二年國民基本教育課程綱要國民中小學暨普通型高級中等校-藝術領域.pdf",
+          "format": "PDF",
+          "bytes": 1634912,
+          "sha256": "1a5eae21c78f62e7efff17dcbfebf7f0898f6167646edc627bded637b4055c58"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-health-pe",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 健康與體育領域",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2018-06-08",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/814/十二年國民基本教育課程綱要國民中小學暨普通型高級中等學校-健康與體育領域.pdf",
+          "format": "PDF",
+          "bytes": 1840361,
+          "sha256": "d569cb4cf1023bcc2b93e88e2b80e4533536dbbbc15a9f72c34290505cd263c3"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-technology",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 科技領域",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2018-09-20",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/816/十二年國民基本教育課程綱要國民中學暨普通型高級中等學校-科技領域.pdf",
+          "format": "PDF",
+          "bytes": 1136465,
+          "sha256": "f1d74a4d70c2d3d7930e001ac0f3474cf2821bc53c1872dbc505e44fa38045b1"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-integrative",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 綜合活動領域",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2018-10-23",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/817/十二年國民基本教育課程綱要國民中小學暨普通型高級中等校-綜合活動領域.pdf",
+          "format": "PDF",
+          "bytes": 2185519,
+          "sha256": "9fadbe3f184921997c705c3c1a2bfb7687ac2a7c4bf26a70159bc4941d33a443"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-life",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 生活課程（國民小學）",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2018-04-16",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/813/(發布版)生活課程課程綱要.pdf",
+          "format": "PDF",
+          "bytes": 727962,
+          "sha256": "273afd5274c4a182f4119317c0993ab66f599f7cb4aa3c36ccb5825c1eec6dea"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-defense",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 全民國防教育",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2018-03-02",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/811/十二年國民基本教育課程綱要-全民國防教育.pdf",
+          "format": "PDF",
+          "bytes": 494692,
+          "sha256": "159727652f56bd30375307a08891f7ef69843975db955a68e6c3e48e1201d03d"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-minnan",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 語文領域－本土語文（閩南語文）",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2021-11-26",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/1278/十二年國民基本教育課程綱要語文領域-本土語文(閩南語文)-發布版.pdf",
+          "format": "PDF",
+          "bytes": 843147,
+          "sha256": "60f7fc2e498a884170fc59ca47a5983c8b68ddc8aad4e2ce73e0ad1440f5f7cc"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-hakka",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 語文領域－本土語文（客語文）",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2021-11-26",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/1280/十二年國民基本教育課程綱要語文領域-本土語文(客語文)-發布版.pdf",
+          "format": "PDF",
+          "bytes": 1145275,
+          "sha256": "c1d71bf145bf3d7ec227b3b34727b47756356af50e0595f7a493ed538da4b4d9"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-indigenous",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 語文領域－本土語文（原住民族語文）",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2021-11-26",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/1282/十二年國民基本教育課程綱要語文領域-本土語文(原住民族語文)-發布版.pdf",
+          "format": "PDF",
+          "bytes": 1125381,
+          "sha256": "4ff13ddc042124e39b2905b9a60a48002a05f8c56501a796c1ea7e58b28f8666"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-mindong",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 語文領域－本土語文（閩東語文）",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2021-12-27",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/9/doc/3444/(111學年度實施)十二年國民基本教育課程綱要語文領域-本土語文(閩東語文)-發布版.pdf",
+          "format": "PDF",
+          "bytes": 1254593,
+          "sha256": "a83be622ca0b13b345dec3a8380c273b9daf512a61e9a608dd20a5fb0d3aa64a"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-sign",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 語文領域－臺灣手語",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2021-12-10",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/9/doc/3393/十二年國民基本教育課程綱要語文領域-臺灣手語-發布版.pdf",
+          "format": "PDF",
+          "bytes": 1434647,
+          "sha256": "7bd12291918de116ae3e9494d410b6fd079bccfeacf8a45ff9bf3dd596b09036"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-k12-new-residents",
+      "group": "tw-k12-domains",
+      "title": "十二年國民基本教育課程綱要 語文領域－新住民語文",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2018-03-02",
+      "kind": "領域課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.naer.edu.tw/PageSyllabus?fid=177",
+        "label": "國家教育研究院"
+      },
+      "files": [
+        {
+          "label": "课纲",
+          "url": "https://www.naer.edu.tw/upload/1/16/doc/1283/十二年國民基本教育課程綱要國民中小學語文領域-新住民語文.pdf",
+          "format": "PDF",
+          "bytes": 492507,
+          "sha256": "f78af60385eab8ae03b6e26893b26325f28fd6697e6971ef1c9e546099bc6517"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-g19-92-mandarin",
+      "group": "tw-g19",
+      "title": "國民中小學九年一貫課程綱要 語文學習領域（國語文）",
+      "edition": "92 年版",
+      "issuer": "教育部",
+      "number": "台國字第092006026號",
+      "signed": null,
+      "published": "2003-01-15",
+      "kind": "課程綱要",
+      "subjects": [
+        "chinese"
+      ],
+      "page": {
+        "url": "https://www.k12ea.gov.tw/Tw/Common/SinglePage?filter=22ABAF7F-245B-4966-AC87-9388AA1504BC",
+        "label": "教育部國民及學前教育署"
+      },
+      "files": [
+        {
+          "label": "国语文",
+          "url": "https://www.k12ea.gov.tw/files/92_sid17/mandarin.pdf",
+          "format": "PDF",
+          "bytes": 489029,
+          "sha256": "3cdb489d3cde5eed184b199a0b179ebabb6a69374e70a4a8ecb8c1345dbb099d"
+        },
+        {
+          "label": "总纲英文版",
+          "url": "https://www.k12ea.gov.tw/files/92_sid17/新總綱英文版.pdf",
+          "format": "PDF",
+          "bytes": 546213,
+          "sha256": "dacfd4794fac01d22dec7f80370d806390216f68d2baeccce5cb319c04601963"
+        }
+      ],
+      "note": "92 年版总纲分 6 部分，在国教署页面分别下载。",
+      "tracks": [
+        [
+          "primary",
+          2003
+        ],
+        [
+          "junior",
+          2003
+        ]
+      ],
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-g19-97",
+      "group": "tw-g19",
+      "title": "國民中小學九年一貫課程綱要",
+      "edition": "97 年修正：总纲与国语文",
+      "issuer": "教育部",
+      "number": "台國（二）字第0970082874B號",
+      "signed": null,
+      "published": "2008-05-23",
+      "kind": "課程綱要",
+      "subjects": [
+        "chinese",
+        "plans"
+      ],
+      "page": {
+        "url": "https://www.k12ea.gov.tw/Tw/Common/SinglePage?filter=F34E9417-8374-4A02-97CC-0DEDFD13514F",
+        "label": "教育部國民及學前教育署"
+      },
+      "files": [
+        {
+          "label": "总纲",
+          "url": "https://www.k12ea.gov.tw/files/97_sid17/總綱.pdf",
+          "format": "PDF",
+          "bytes": 320749,
+          "sha256": "9d0f51a8dc792c43beca009d0a744964110912fbc42261e37b6acc7ce3170b48"
+        },
+        {
+          "label": "国语文",
+          "url": "https://www.k12ea.gov.tw/files/97_sid17/國語文970505定稿.pdf",
+          "format": "PDF",
+          "bytes": 558597,
+          "sha256": "3054f4ea30c439ef7edb573465ea791b836ccfae15d9f5cbe0264f497c097505"
+        },
+        {
+          "label": "国语文修正对照表",
+          "url": "https://www.k12ea.gov.tw/files/97_sid17/國語文對照表2008.05.05.pdf",
+          "format": "PDF",
+          "bytes": 740507,
+          "sha256": "e16e0bbb8c97c4d0ac66dc7dfc1edec39c4394a03af604b36d611c76bfd44fa6"
+        },
+        {
+          "label": "国语文修订说明",
+          "url": "https://www.k12ea.gov.tw/files/97_sid17/語文學習領域(國語文)修訂說明.pdf",
+          "format": "PDF",
+          "bytes": 181710,
+          "sha256": "d387c48f76720c2961f4e09cfbd74cb4f080c457d960aef2ba6d4133536a6c7d"
+        },
+        {
+          "label": "国语文问答",
+          "url": "https://www.k12ea.gov.tw/files/97_sid17/語文學習領域(國語文)Q&A.pdf",
+          "format": "PDF",
+          "bytes": 247971,
+          "sha256": "d22b29891a8155aeaca72aa7959af2d0e9a67178c535823d91afe8d28276f273"
+        }
+      ],
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-g19-100-mandarin",
+      "group": "tw-g19",
+      "title": "國民中小學九年一貫課程綱要 語文學習領域（國語文）",
+      "edition": "100 年修正",
+      "issuer": "教育部",
+      "number": "臺國（二）字第1000060859B號",
+      "signed": null,
+      "published": "2011-04-26",
+      "kind": "課程綱要",
+      "subjects": [
+        "chinese"
+      ],
+      "page": {
+        "url": "https://www.k12ea.gov.tw/Tw/Common/SinglePage?filter=F34E9417-8374-4A02-97CC-0DEDFD13514F",
+        "label": "教育部國民及學前教育署"
+      },
+      "files": [
+        {
+          "label": "国语文",
+          "url": "https://www.k12ea.gov.tw/files/97_sid17/國語文課綱1000406.pdf",
+          "format": "PDF",
+          "bytes": 555605,
+          "sha256": "3091a1ed0b4072fa1544d376b7f81714197e747c8f38c04e3d966790131e34f5"
+        },
+        {
+          "label": "修正对照表",
+          "url": "https://www.k12ea.gov.tw/files/97_sid17/國語文課程綱要修正對照表-1000406.pdf",
+          "format": "PDF",
+          "bytes": 667266,
+          "sha256": "457348129c8ac4571c170c76b87c354303215bad252b431099cf61e6b78a8e10"
+        }
+      ],
+      "note": "自 100 学年度起生效。",
+      "tracks": [
+        [
+          "primary",
+          2011
+        ],
+        [
+          "junior",
+          2011
+        ]
+      ],
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-g19-law",
+      "group": "tw-g19",
+      "title": "國民中小學九年一貫課程綱要 法規沿革",
+      "issuer": "教育部主管法規共用系統",
+      "number": null,
+      "signed": null,
+      "published": null,
+      "kind": "法規沿革",
+      "subjects": [
+        "plans"
+      ],
+      "page": {
+        "url": "https://edu.law.moe.gov.tw/LawContentSource.aspx?id=GL000342",
+        "label": "教育部主管法規共用系統"
+      },
+      "note": "2003—2012 年 14 次发布与修正的日期和文号。",
+      "region": "tw",
+      "status": "official_original",
+      "files": []
+    },
+    {
+      "id": "tw-hs-84",
+      "group": "tw-hs",
+      "title": "高級中學課程標準",
+      "edition": "84 年版",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "1995",
+      "kind": "課程標準",
+      "subjects": [
+        "chinese",
+        "plans"
+      ],
+      "page": {
+        "url": "https://www.k12ea.gov.tw/Tw/Cur/Index?filter=693F41A9-9C10-4F04-AD6C-AF1852E681C7",
+        "label": "教育部國民及學前教育署"
+      },
+      "files": [
+        {
+          "label": "各科课程标准压缩包",
+          "url": "https://www.k12ea.gov.tw/files/common_unit/a7285432-45bf-4371-b514-3eb12aff9871/doc/00-84年高中課程標準.rar",
+          "format": "RAR",
+          "bytes": 960941,
+          "sha256": null
+        }
+      ],
+      "note": "国教署标注“88 学年度至 94 学年度高一新生适用”。",
+      "tracks": [
+        [
+          "senior",
+          1995
+        ]
+      ],
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-hs-95",
+      "group": "tw-hs",
+      "title": "普通高級中學課程暫行綱要",
+      "edition": "95 学年度高一新生适用（“95 暂纲”）",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2004-08-31",
+      "kind": "暫行綱要",
+      "subjects": [
+        "chinese",
+        "plans"
+      ],
+      "page": {
+        "url": "https://www.k12ea.gov.tw/Tw/Cur/Index?filter=693F41A9-9C10-4F04-AD6C-AF1852E681C7",
+        "label": "教育部國民及學前教育署"
+      },
+      "files": [
+        {
+          "label": "各科暂行纲要压缩包",
+          "url": "https://www.k12ea.gov.tw/files/common_unit/a7285432-45bf-4371-b514-3eb12aff9871/doc/95學年度各科暫行綱要1125.rar",
+          "format": "RAR",
+          "bytes": 1313485,
+          "sha256": null
+        }
+      ],
+      "note": "发布日期据 98 课纲封面所列沿革（民国 93 年 8 月 31 日发布）。",
+      "tracks": [
+        [
+          "senior",
+          2004
+        ]
+      ],
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-hs-98",
+      "group": "tw-hs",
+      "title": "普通高級中學課程綱要",
+      "edition": "97 年 1 月 24 日修正发布（“98 课纲”）",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2008-01-24",
+      "kind": "課程綱要",
+      "subjects": [
+        "chinese",
+        "plans"
+      ],
+      "page": {
+        "url": "https://www.k12ea.gov.tw/Tw/Cur/Index?filter=693F41A9-9C10-4F04-AD6C-AF1852E681C7",
+        "label": "教育部國民及學前教育署"
+      },
+      "files": [
+        {
+          "label": "98 年 8 月出版本",
+          "url": "https://www.k12ea.gov.tw/files/common_unit/a7285432-45bf-4371-b514-3eb12aff9871/doc/99普通高中課程綱要.pdf",
+          "format": "PDF",
+          "bytes": 8292646,
+          "sha256": "bca75f3864a2fa3ce8d98008d0cab03f35796e7b5b24bee4388a59c5b5f9f9f5"
+        }
+      ],
+      "note": "通称“98 课纲”；封面列有 93、94、95、97 年各次发布与修正日期。国教署标注“99 学年度高一新生适用”。",
+      "tracks": [
+        [
+          "senior",
+          2008
+        ]
+      ],
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-hs-101",
+      "group": "tw-hs",
+      "title": "普通高級中學國文課程綱要",
+      "edition": "100 年 7 月 14 日修正发布，101 学年度起实施（“101 课纲”）",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2011-07-14",
+      "kind": "課程綱要",
+      "subjects": [
+        "chinese"
+      ],
+      "page": {
+        "url": "https://www.k12ea.gov.tw/Tw/Cur/Index?filter=693F41A9-9C10-4F04-AD6C-AF1852E681C7",
+        "label": "教育部國民及學前教育署"
+      },
+      "files": [
+        {
+          "label": "国文",
+          "url": "https://www.k12ea.gov.tw/files/common_unit/a7285432-45bf-4371-b514-3eb12aff9871/doc/101學年度-普通高級中學國文課程綱要1000714修正發布.pdf",
+          "format": "PDF",
+          "bytes": 148919,
+          "sha256": "7bcdc3ed9757aad76ea13eb162c4e9029122839873e671ea65fd406cd19d99d7"
+        },
+        {
+          "label": "同期总纲",
+          "url": "https://www.k12ea.gov.tw/files/common_unit/a7285432-45bf-4371-b514-3eb12aff9871/doc/高中課程總綱.pdf",
+          "format": "PDF",
+          "bytes": 400068,
+          "sha256": "d28d18c3250ef8fdb8d72f604026cd6c9a15fd47c997c9b66c976b7e1c5dbabf"
+        }
+      ],
+      "note": "国教署标注适用至 104 年 7 月 31 日止。",
+      "tracks": [
+        [
+          "senior",
+          2011
+        ]
+      ],
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-hs-102",
+      "group": "tw-hs",
+      "title": "修正普通高級中學課程綱要",
+      "edition": "102 年 7 月 31 日发布：数学、自然等科",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2013-07-31",
+      "kind": "課程綱要",
+      "subjects": [],
+      "page": {
+        "url": "https://www.k12ea.gov.tw/Tw/Cur/Index?filter=693F41A9-9C10-4F04-AD6C-AF1852E681C7",
+        "label": "教育部國民及學前教育署"
+      },
+      "files": [
+        {
+          "label": "原件",
+          "url": "https://www.k12ea.gov.tw/files/common_unit/f5842ef3-b7be-4d54-b988-1385680464fa/doc/1073_普通高級中學課程綱要.pdf",
+          "format": "PDF",
+          "bytes": 1856885,
+          "sha256": "af2a90e7f2605c8727acd8e04749549a37ee3e8bb3ee8b3cf4d33036c07f650a"
+        }
+      ],
+      "compact": true,
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-hs-103",
+      "group": "tw-hs",
+      "title": "普通高級中學課程綱要 國文科",
+      "edition": "103 年 2 月微调（“103 微调”）",
+      "issuer": "教育部",
+      "number": null,
+      "signed": null,
+      "published": "2014-02",
+      "kind": "課程綱要（微調）",
+      "subjects": [
+        "chinese"
+      ],
+      "page": {
+        "url": "https://www.k12ea.gov.tw/Tw/Cur/Index?filter=693F41A9-9C10-4F04-AD6C-AF1852E681C7",
+        "label": "教育部國民及學前教育署"
+      },
+      "files": [
+        {
+          "label": "国文科",
+          "url": "https://www.k12ea.gov.tw/files/common_unit/a7285432-45bf-4371-b514-3eb12aff9871/doc/國文科103微調版本.pdf",
+          "format": "PDF",
+          "bytes": 653537,
+          "sha256": "3eb3acc8b4c28bea46b14dfdebeed0f0fc56cd4dd764125ac56fff93dc970b5a"
+        },
+        {
+          "label": "国文及社会领域微调重点说明",
+          "url": "https://www.k12ea.gov.tw/files/common_unit/a7285432-45bf-4371-b514-3eb12aff9871/doc/附件2-3分鐘看懂普通高級中等學校國文及社會領域課程綱要微調重點.pdf",
+          "format": "PDF",
+          "bytes": 236126,
+          "sha256": "b6a4aead808ddad49a892441c2fee5575189b8b8f4e32354b4fd92d3940327bf"
+        },
+        {
+          "label": "105.5.31 废止令",
+          "url": "https://www.k12ea.gov.tw/files/common_unit/a7285432-45bf-4371-b514-3eb12aff9871/doc/廢止令.pdf",
+          "format": "PDF",
+          "bytes": 27670,
+          "sha256": "869dc72a6f4127f0a820888a6bccd01dbb9c95663ce35773b186e8bce39dd4b1"
+        }
+      ],
+      "note": "103 微调课纲于 2016 年 5 月 31 日（民國 105 年）由教育部发布废止令。",
+      "tracks": [
+        [
+          "senior",
+          2014
+        ]
+      ],
+      "region": "tw",
+      "status": "official_original"
+    },
+    {
+      "id": "tw-2024-language-revision",
+      "group": "tw-watch",
+      "title": "因應國家語言發展報告十二年國民基本教育課程綱要修訂小組大會紀錄",
+      "edition": "第 1—3 次大会",
+      "issuer": "國家教育研究院",
+      "number": null,
+      "signed": null,
+      "published": "2024-09-02",
+      "kind": "研修紀錄",
+      "subjects": [
+        "chinese"
+      ],
+      "status": "revision_watch",
+      "page": {
+        "url": "https://www.naer.edu.tw/PageDoc?fid=55",
+        "label": "國家教育研究院·課綱研修歷程"
+      },
+      "links": [
+        {
+          "label": "第 1 次",
+          "url": "https://www.naer.edu.tw/PageDoc/Detail?fid=55&id=4759"
+        },
+        {
+          "label": "第 2 次",
+          "url": "https://www.naer.edu.tw/PageDoc/Detail?fid=55&id=4760"
+        },
+        {
+          "label": "第 3 次",
+          "url": "https://www.naer.edu.tw/PageDoc/Detail?fid=55&id=4761"
+        }
+      ],
+      "note": "研修尚在进行，本站未据此改动国语文版本列表。",
+      "region": "tw",
+      "files": []
+    }
+  ]
+}

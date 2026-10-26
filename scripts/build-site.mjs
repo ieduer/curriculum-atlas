@@ -87,7 +87,7 @@ const STATUS_LABELS = {
 // ---------- data ----------
 
 async function loadInputs() {
-  const [catalog, century, pre2001, concepts, lifecycle, insights, subjectsFile, aims, taiwan] = await Promise.all([
+  const [catalog, century, pre2001, concepts, lifecycle, insights, subjectsFile, aims, taiwan, library] = await Promise.all([
     readJson('data/catalog.json'),
     readJson('public/data/century-observation-layer.json'),
     readJson('public/data/pre2001-subject-detail-observation-layer.json'),
@@ -97,8 +97,9 @@ async function loadInputs() {
     readJson('content/subjects.json'),
     readJson('content/whole-person-aims.json'),
     readJson('content/taiwan-guowen.json'),
+    readJson('content/official-library.json'),
   ]);
-  return { catalog, century, pre2001, concepts, lifecycle, insights, subjectsFile, aims, taiwan };
+  return { catalog, century, pre2001, concepts, lifecycle, insights, subjectsFile, aims, taiwan, library };
 }
 
 // Same identity rule as the historical reader package: a pre-2001 item that points at a
@@ -260,6 +261,7 @@ function navigation(model, current) {
         ${item('/#aims', '全人目标', 'aims')}
         <li class="menu"><details><summary${model.subjects.some((subject) => subject.slug === current) ? ' class="is-current"' : ''}>学科</summary><div class="menu-panel">${groups}</div></details></li>
         ${item('/taiwan', '台湾国语文', 'taiwan')}
+        ${item('/library', '官方文库', 'library')}
         ${item('/search', '检索', 'search')}
         ${item('/ai', '研究', 'ai')}
       </ul>
@@ -274,7 +276,7 @@ function footer() {
   <div class="wrap">
     <p><b>${SITE_NAME}</b> · curriculum.bdfz.net · 面向教师的课程标准与教学大纲档案</p>
     <p>资料来源：教育部及教育考试院公开文件；课程教材研究所编《20世纪中国中小学课程标准·教学大纲汇编》各卷目录与扫描页；台湾教育部、国家教育研究院公开文件。历史条目的扫描与 OCR 只作定位，不作正式引文。</p>
-    <p><a href="/search">全文检索</a> · <a href="/ai">证据研究</a> · <a href="/discussions">教师讨论</a> · <a href="/s/plans">课程方案与学制</a> · <a href="/taiwan">台湾国语文</a></p>
+    <p><a href="/search">全文检索</a> · <a href="/ai">证据研究</a> · <a href="/discussions">教师讨论</a> · <a href="/s/plans">课程方案与学制</a> · <a href="/taiwan">台湾国语文</a> · <a href="/library">官方文库</a></p>
   </div>
 </footer>`;
 }
@@ -283,7 +285,7 @@ function mobileNav(model, current) {
   const subjectSlugs = new Set(model.subjects.map((subject) => subject.slug));
   const key = subjectSlugs.has(current) ? 'subjects' : current;
   const link = (href, icon, label, name) => `<a href="${href}"${key === name ? ' aria-current="page"' : ''}><span class="ic" aria-hidden="true">${icon}</span>${label}</a>`;
-  return `<nav class="mobnav" aria-label="底部导航">${link('/', '⌂', '首页', 'home')}${link('/#subjects', '科', '学科', 'subjects')}${link('/taiwan', '台', '台湾', 'taiwan')}${link('/search', '检', '检索', 'search')}${link('/ai', '研', '研究', 'ai')}</nav>`;
+  return `<nav class="mobnav" aria-label="底部导航">${link('/', '⌂', '首页', 'home')}${link('/#subjects', '科', '学科', 'subjects')}${link('/library', '库', '文库', 'library')}${link('/taiwan', '台', '台湾', 'taiwan')}${link('/search', '检', '检索', 'search')}${link('/ai', '研', '研究', 'ai')}</nav>`;
 }
 
 function page({ assets, model, title, description, pathname, current, body, pageKind, noindex = false }) {
@@ -451,7 +453,7 @@ function subjectCards(model) {
 }
 
 function homePage(context) {
-  const { model, aims, taiwan } = context;
+  const { model, aims, taiwan, library } = context;
   const totalDocs = model.timelineDocuments.length;
   const totalItems = model.items.length;
   const body = `<section class="hero">
@@ -491,6 +493,17 @@ ${aimsSection(aims)}
       <span class="feature-title">${h(taiwan.title)}</span>
       <span class="feature-facts">${h(taiwan.intro)}</span>
       <span class="feature-facts">高中文言比例：101 课纲 45%—65% → 108 课纲 35%—45% · 文言选文参考：30 篇 → 推荐 15 篇</span>
+    </a>
+  </div>
+</section>
+<section class="block" aria-labelledby="library-title">
+  <div class="wrap">
+    <h2 class="section-title" id="library-title">官方文库<small>全文库之外已核对的官方原件</small></h2>
+    <a class="feature-card" href="/library">
+      <span class="kicker">原件目录</span>
+      <span class="feature-title">课程政策、专题纲要、中职课标与台湾历次课纲</span>
+      <span class="feature-facts">大陆 ${libraryCount(library, 'cn')} 项 · 台湾 ${libraryCount(library, 'tw')} 项 · ${libraryFileCount(library)} 个文件逐一记录大小与 SHA-256 · 核对于 ${h(library.checked_at)}</span>
+      <span class="feature-facts">含 2025 年 10 月课程方案和课程标准日常修订版的修订动态。</span>
     </a>
   </div>
 </section>`;
@@ -723,6 +736,7 @@ function subjectPage(context, entry) {
       ${titleForms(entry)}
       ${lifecycleEvents(model, entry)}
       ${insightsPanel(model, entry)}
+      ${librarySubjectPanel(context.library, subject)}
       ${volumeLinks ? `<section class="panel"><h2>历史条目来源</h2><ul class="plain">${volumeLinks}</ul><p class="panel-note">课程教材研究所编，人民教育出版社 2001 年版。条目按各卷目录与页段定位；登录后可看原图。</p></section>` : ''}
       ${related ? `<section class="panel"><h2>相关</h2><p>${related}</p></section>` : ''}
     </aside>
@@ -734,7 +748,8 @@ function subjectPage(context, entry) {
 // ---------- Taiwan ----------
 
 function taiwanPage(context) {
-  const { model, taiwan } = context;
+  const { model, taiwan, library } = context;
+  const officialFor = (trackId, year) => library.items.filter((item) => (item.tracks || []).some(([id, y]) => id === trackId && y === year));
   // Sources are cited as numbered notes; the full list is rendered once at the end.
   const sourceOrder = [];
   const sourceRef = (id) => {
@@ -780,6 +795,7 @@ function taiwanPage(context) {
       <p class="row-badges"><span class="badge">${h(version.kind)}</span>${version.implemented ? `<span class="badge">${h(version.implemented)}</span>` : ''}${confidence(version.confidence)}</p>
       <ul class="tw-points">${version.points.map((value) => `<li>${point(value)}</li>`).join('')}</ul>
       ${historical ? `<p class="tw-link"><a href="/historical/${encodeURIComponent(historical.id)}">查看本站百年资料中的条目</a></p>` : ''}
+      ${officialFor(track.id, version.year).map((item) => `<p class="tw-link"><a href="#lib-${h(item.id)}">官方原件：${h(item.files[0]?.format || '通知页')} · ${h(LIBRARY_PUBLISHER[item.page.label] || item.page.label)}</a></p>`).join('')}
       <p class="tw-source">依据 ${version.sources.map(sourceRef).join(' ')}</p>
     </div>
   </li>`;
@@ -854,13 +870,132 @@ function taiwanPage(context) {
   ${readingsPanel}
   ${goals}
   ${sharedPanel}
-  <section class="panel"><h2>相关</h2><p><a href="/s/chinese">语文（大陆）</a> · <a href="/#aims">全人培养要求：台湾一栏</a></p></section>
+  <section class="panel" id="library" aria-labelledby="tw-library-title">
+    <h2 id="tw-library-title">官方课纲原件<small> ${libraryCount(library, 'tw')} 项，核对于 ${h(library.checked_at)}</small></h2>
+    <p class="panel-note">台湾教育部发布、国家教育研究院与国民及学前教育署公开的课纲原件。上方时间轴中标“研究文献”的版本，凡能找到官方原件的都在此列出；1990 年以前各版课程标准与 2000 年暂行纲要未见官方电子原件。</p>
+    ${libraryRegion(library, 'tw')}
+  </section>
+  <section class="panel"><h2>相关</h2><p><a href="/s/chinese">语文（大陆）</a> · <a href="/#aims">全人培养要求：台湾一栏</a> · <a href="/library">官方文库</a></p></section>
   <section class="panel" aria-labelledby="sources-title"><h2 id="sources-title">资料来源</h2><ol class="sources">${sourceOrder.map((id) => {
     const source = taiwan.sources[id];
     return `<li id="src-${h(id)}">${source.url ? `<a href="${h(source.url)}" rel="noopener" target="_blank">${h(source.label)} ↗</a>` : h(source.label)}</li>`;
   }).join('')}</ol></section>
 </div>`;
   return page({ ...context, title: '台湾国语文', description: '台湾国小国语、国中国文、高中国文课程标准与课程纲要的历次修订；文言文比例、选文清单与课程目标的变化。', pathname: '/taiwan', current: 'taiwan', body, pageKind: 'taiwan' });
+}
+
+// ---------- official library ----------
+
+const LIBRARY_PUBLISHER = { '國家教育研究院': '国家教育研究院', '教育部國民及學前教育署': '国民及学前教育署' };
+
+const libraryCount = (library, region) => library.items.filter((item) => item.region === region).length;
+const libraryFileCount = (library) => library.items.reduce((sum, item) => sum + item.files.length, 0);
+
+function fileSize(bytes) {
+  if (!bytes) return '';
+  return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function libraryFile(file) {
+  const facts = [file.format, fileSize(file.bytes)].filter(Boolean).join(' · ');
+  const digest = file.sha256 ? ` · <span class="digest" title="SHA-256 ${h(file.sha256)}">SHA-256 ${h(file.sha256.slice(0, 12))}…</span>` : ' · <span class="digest">只核对了大小</span>';
+  return `<li><a href="${h(file.url)}" rel="noopener" target="_blank">${h(file.label)}</a> <small>${h(facts)}${digest}</small></li>`;
+}
+
+function libraryItem(item) {
+  const tw = item.region === 'tw';
+  const lang = tw ? ' lang="zh-Hant"' : '';
+  const year = String(item.published || item.signed || '').slice(0, 4) || '—';
+  if (item.compact) {
+    const file = item.files[0];
+    return `<li class="lib-compact" id="lib-${h(item.id)}"><a href="${h(file.url)}" rel="noopener" target="_blank"${lang}>${h(item.title.replace(/^十二年國民基本教育課程綱要\s*/, ''))}</a> <small>发布 ${h(item.published)} · ${h(file.format)} ${h(fileSize(file.bytes))}</small></li>`;
+  }
+  const dates = [
+    item.edition || '',
+    item.signed ? `成文 ${item.signed}` : '',
+    item.published ? `发布 ${item.published}` : '',
+    item.revised?.length ? `修正 ${item.revised.join('、')}` : '',
+  ].filter(Boolean).join(' · ');
+  const watch = item.status === 'revision_watch';
+  const badges = [
+    `<span class="badge">${h(item.kind)}</span>`,
+    `<span class="badge"${tw ? ' lang="zh-Hant"' : ''}>${h(item.issuer)}</span>`,
+    item.number ? `<span class="badge badge-quiet"${lang}>${h(item.number)}</span>` : '',
+    watch ? '<span class="badge badge-accent">修订动态</span>' : '<span class="badge badge-jade">官方原件</span>',
+  ].join('');
+  const links = [
+    `<li><a href="${h(item.page.url)}" rel="noopener" target="_blank"${tw ? ' lang="zh-Hant"' : ''}>${h(item.page.label)} ↗</a></li>`,
+    ...(item.links || []).map((link) => `<li><a href="${h(link.url)}" rel="noopener" target="_blank">${h(link.label)} ↗</a></li>`),
+    ...item.files.map(libraryFile),
+  ].join('');
+  return `<li class="row lib-item" id="lib-${h(item.id)}">
+  <span class="row-year">${h(year)}</span>
+  <div class="row-main">
+    <span class="row-title"${lang}>${h(item.title)}</span>
+    <span class="row-badges">${badges}</span>
+    ${dates ? `<p class="lib-meta">${h(dates)}</p>` : ''}
+    ${item.quote ? `<p class="lib-quote">“${h(item.quote)}”</p>` : ''}
+    ${item.note ? `<p class="lib-note">${h(item.note)}</p>` : ''}
+    <ul class="lib-files">${links}</ul>
+  </div>
+</li>`;
+}
+
+function libraryRegion(library, region) {
+  return library.groups.filter((group) => group.region === region).map((group) => {
+    const items = library.items.filter((item) => item.group === group.id);
+    const compact = items.every((item) => item.compact);
+    const list = compact
+      ? `<ul class="lib-compact-list">${items.map(libraryItem).join('')}</ul>`
+      : `<ol class="rows">${items.map(libraryItem).join('')}</ol>`;
+    return `<section class="lib-group" aria-labelledby="group-${h(group.id)}">
+  <h3 class="sub" id="group-${h(group.id)}"${region === 'tw' ? ' lang="zh-Hant"' : ''}>${h(group.label)} <small>${items.length} 项</small></h3>
+  <p class="panel-note">${h(group.note)}</p>
+  ${list}
+</section>`;
+  }).join('');
+}
+
+function librarySubjectPanel(library, subject) {
+  const items = library.items.filter((item) => item.region === 'cn' && item.subjects.includes(subject.slug));
+  const taiwanLink = subject.slug === 'chinese' ? `<li><a href="/taiwan#library">台湾国语文官方课纲原件</a> <small>${libraryCount(library, 'tw')} 项</small></li>` : '';
+  if (!items.length && !taiwanLink) return '';
+  return `<section class="panel"><h2>官方补充文件</h2><ul class="plain">${items.map((item) => `<li><a href="/library#lib-${h(item.id)}">${h(item.title)}</a> <small>${h(String(item.published || '').slice(0, 4))} · ${h(item.status === 'revision_watch' ? '修订动态' : item.kind)}</small></li>`).join('')}${taiwanLink}</ul><p class="panel-note">已核对的官方原件或通知页，尚未收入本站全文检索。</p></section>`;
+}
+
+function libraryPage(context) {
+  const { model, library, catalogCounts } = context;
+  const counts = catalogCounts;
+  const corpus = `<section class="panel" aria-labelledby="corpus-title">
+    <h2 id="corpus-title">本站全文库</h2>
+    <p>全文库收课程文件 ${counts.documents} 份：在线原件已核验 ${counts.verified_online} 份，本地扫描件已核验 ${counts.local_verified_scan} 份，只有著录信息 ${counts.metadata_only} 份；其中 ${counts.citation_ready} 份正文可作引文，${counts.ocr_review_pending} 份扫描件的 OCR 仍待复核。按学科查看见 <a href="/#subjects">学科</a>，正文检索见 <a href="/search">检索</a>。</p>
+    <p class="panel-note">1950—1992 年部分教学大纲的原件仍在“原件待补目录”中，未补齐前不以其他来源替代。</p>
+  </section>`;
+  const body = `<div class="wrap subject-page library-page">
+  <nav class="crumbs" aria-label="位置"><a href="/">首页</a> / <span>官方文库</span></nav>
+  <header class="page-head">
+    <h1>官方文库</h1>
+    <p class="lede">全文库之外，已核对的官方原件与通知页：大陆课程改革政策、专题指导纲要、尚未入库的课程标准、中职公共基础课程与修订动态；台湾教育部历次课程纲要与课程标准。</p>
+    <div class="cov-grid">
+      <div class="cov-card"><b>${libraryCount(library, 'cn')}</b><span>大陆补充文件</span></div>
+      <div class="cov-card"><b>${libraryCount(library, 'tw')}</b><span>台湾课纲原件</span></div>
+      <div class="cov-card"><b>${libraryFileCount(library)}</b><span>已核对文件</span></div>
+      <div class="cov-card"><b>${h(library.checked_at.slice(5).replace('-', '.'))}</b><span>${h(library.checked_at.slice(0, 4))} 年核对</span></div>
+    </div>
+    <p class="panel-note">${h(library.boundary)}</p>
+  </header>
+  ${corpus}
+  <section class="panel" aria-labelledby="cn-library-title">
+    <h2 id="cn-library-title">大陆补充文件<small> ${libraryCount(library, 'cn')} 项</small></h2>
+    ${libraryRegion(library, 'cn')}
+  </section>
+  <section class="panel" aria-labelledby="tw-library-title">
+    <h2 id="tw-library-title">台湾课程纲要与课程标准原件<small> ${libraryCount(library, 'tw')} 项</small></h2>
+    <p class="panel-note">国语文各版本的变化、文言比例与选文见 <a href="/taiwan">台湾国语文</a>。</p>
+    ${libraryRegion(library, 'tw')}
+  </section>
+</div>`;
+  return page({ ...context, title: '官方文库', description: '已核对的课程政策、专题指导纲要、中职课程标准、修订动态与台湾历次课程纲要官方原件，逐一记录发布日期、文号、大小与 SHA-256。', pathname: '/library', current: 'library', body, pageKind: 'library' });
 }
 
 // ---------- app shells ----------
@@ -916,7 +1051,7 @@ const HEADERS = `/*
 `;
 
 function sitemap(model) {
-  const urls = ['/', '/taiwan', '/search', ...model.subjects.map((subject) => `/s/${subject.slug}`)];
+  const urls = ['/', '/taiwan', '/library', '/search', ...model.subjects.map((subject) => `/s/${subject.slug}`)];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((url) => `  <url><loc>${ORIGIN}${url}</loc></url>`).join('\n')}
@@ -963,10 +1098,11 @@ export async function buildSite({ outDir = DIST } = {}) {
     .replace('__HISTORICAL_URL__', `/assets/${assets['historical.json']}`);
   await hashedAsset(outDir, 'app.js', app, assets);
 
-  const context = { assets, model, aims: inputs.aims, taiwan: inputs.taiwan };
+  const context = { assets, model, aims: inputs.aims, taiwan: inputs.taiwan, library: inputs.library, catalogCounts: inputs.catalog.counts };
   const pages = new Map();
   pages.set('index.html', homePage(context));
   pages.set('taiwan.html', taiwanPage(context));
+  pages.set('library.html', libraryPage(context));
   for (const entry of model.perSubject.values()) pages.set(`s/${entry.subject.slug}.html`, subjectPage(context, entry));
   pages.set('search.html', shellPage(context, { title: '全文检索', description: '检索课程标准与教学大纲正文和篇名。', pathname: '/search', current: 'search', kind: 'search' }));
   pages.set('ai.html', shellPage(context, { title: '证据研究', description: '登录后基于已核正文的课程标准研究问答，每个结论都回到原文段落。', pathname: '/ai', current: 'ai', kind: 'ai' }));
