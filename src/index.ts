@@ -273,10 +273,13 @@ async function requireCorpusReady(env: Env): Promise<CorpusReleaseStatus> {
 
 // The full integrity count reads every current paragraph, FTS row and page gate (about 45k rows).
 // Read routes reuse a ready result while the active release pointer — the corpus_import_releases row
-// joined through site_meta — is unchanged, for at most CORPUS_COUNT_REUSE_MS in this isolate.
-// /api/health always recounts and replaces or clears the reused result.
+// joined through site_meta — is unchanged, for at most CORPUS_COUNT_REUSE_MS: first from this isolate's
+// memory, then from the data centre's Cache API entry keyed by the pointer identity, which isolates
+// share. /api/health always recounts and replaces or clears both.
 const CORPUS_COUNT_REUSE_MS = 60 * 60 * 1000;
-let reusedCorpusCounts: { pointer: string; at: number; corpus: CorpusReleaseStatus } | null = null;
+const CORPUS_COUNT_CACHE_PATH = '/__corpus-integrity/v1/';
+type ReusedCorpusCounts = { pointer: string; at: number; corpus: CorpusReleaseStatus };
+let reusedCorpusCounts: ReusedCorpusCounts | null = null;
 
 // Identity of the release row: every column except the live_* counts added by the full query.
 function corpusPointerIdentity(row: object): string {
@@ -298,6 +301,70 @@ async function currentCorpusPointer(env: Env): Promise<Record<string, unknown> |
   }
 }
 
+function reusable(entry: ReusedCorpusCounts | null, pointer: string, now: number): entry is ReusedCorpusCounts {
+  return Boolean(entry
+    && entry.pointer === pointer
+    && now >= entry.at
+    && now - entry.at < CORPUS_COUNT_REUSE_MS
+    && corpusReleaseReady(entry.corpus)
+    && corpusPointerIdentity(entry.corpus) === pointer);
+}
+
+function sharedCorpusCache(): Cache | null {
+  try {
+    return typeof caches === 'undefined' ? null : (caches as unknown as { default: Cache }).default;
+  } catch {
+    return null;
+  }
+}
+
+async function sharedCorpusKey(env: Env, pointer: string): Promise<string | null> {
+  let origin: string;
+  try {
+    const site = new URL(String(env.SITE_ORIGIN || ''));
+    if (site.protocol !== 'https:') return null;
+    origin = site.origin;
+  } catch {
+    return null;
+  }
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pointer));
+  const hex = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${origin}${CORPUS_COUNT_CACHE_PATH}${hex}`;
+}
+
+async function readSharedCorpusCounts(env: Env, pointer: string, now: number): Promise<ReusedCorpusCounts | null> {
+  const cache = sharedCorpusCache();
+  const key = cache ? await sharedCorpusKey(env, pointer) : null;
+  if (!cache || !key) return null;
+  try {
+    const response = await cache.match(key);
+    if (!response) return null;
+    const entry = await response.json() as ReusedCorpusCounts;
+    return reusable(entry, pointer, now) ? entry : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeSharedCorpusCounts(env: Env, corpus: CorpusReleaseStatus | null, at: number): Promise<void> {
+  const cache = sharedCorpusCache();
+  if (!cache || !corpus) return;
+  const pointer = corpusPointerIdentity(corpus);
+  const key = await sharedCorpusKey(env, pointer);
+  if (!key) return;
+  try {
+    if (!corpusReleaseReady(corpus)) {
+      await cache.delete(key);
+      return;
+    }
+    await cache.put(key, new Response(JSON.stringify({ pointer, at, corpus }), {
+      headers: { 'content-type': 'application/json', 'cache-control': `max-age=${CORPUS_COUNT_REUSE_MS / 1000}` },
+    }));
+  } catch {
+    // A failed shared write only costs a recount in another isolate.
+  }
+}
+
 function rememberCorpusCounts(corpus: CorpusReleaseStatus | null, at: number): void {
   reusedCorpusCounts = corpus && corpusReleaseReady(corpus)
     ? { pointer: corpusPointerIdentity(corpus), at, corpus }
@@ -305,16 +372,19 @@ function rememberCorpusCounts(corpus: CorpusReleaseStatus | null, at: number): v
 }
 
 async function corpusForReads(env: Env): Promise<CorpusReleaseStatus | null> {
-  const pointer = await currentCorpusPointer(env);
-  if (!pointer) return null;
+  const row = await currentCorpusPointer(env);
+  if (!row) return null;
+  const pointer = corpusPointerIdentity(row);
   const now = Date.now();
-  const reused = reusedCorpusCounts;
-  if (reused
-    && reused.pointer === corpusPointerIdentity(pointer)
-    && now >= reused.at
-    && now - reused.at < CORPUS_COUNT_REUSE_MS) return reused.corpus;
+  if (reusable(reusedCorpusCounts, pointer, now)) return reusedCorpusCounts.corpus;
+  const shared = await readSharedCorpusCounts(env, pointer, now);
+  if (shared) {
+    reusedCorpusCounts = shared;
+    return shared.corpus;
+  }
   const corpus = await currentCorpusRelease(env);
   rememberCorpusCounts(corpus, now);
+  await writeSharedCorpusCounts(env, corpus, now);
   return corpus;
 }
 
@@ -351,6 +421,7 @@ async function health(env: Env): Promise<Response> {
     currentHistoricalReaderPointer(env),
   ]);
   rememberCorpusCounts(corpus, countedAt);
+  await writeSharedCorpusCounts(env, corpus, countedAt);
   const schemaMeta = new Map(metaRows.results.map((row) => [row.key, row.value]));
   let classifications: { documents: number; classified: number; academic_identity_documents: number; subject_documents: number; assessment_subject_documents: number; display_facets: number; course_documents: number; scope_documents: number; unclassified_documents: number } | null = null;
   try {

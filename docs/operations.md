@@ -185,10 +185,10 @@ records below are history where superseded by this current state.
 
 全语料完整性计数（`currentCorpusRelease()`：当前 release 的段落、FTS、页级发布门、文件与 13 张核心表计数）每次约读 4.5 万行。自 2026-10-26 起：
 
-- 读路由（`requireCorpusReady()` 之后的 meta、documents、search、insights、terms、compare、source-manifest、comments、historical、AI）先做一次只读 release 行的指针查询（`currentCorpusPointer()`：`corpus_import_releases` 经 `site_meta` 的 `current_corpus_release_id`、`corpus_import_state`、`current_corpus_manifest_sha256` 联结）。指针行除 `live_*` 外每一列都参与身份比较；身份不变且同一 isolate 内距上次完整计数不足 1 小时，就复用那次通过的结果，否则重新完整计数。
+- 读路由（`requireCorpusReady()` 之后的 meta、documents、search、insights、terms、compare、source-manifest、comments、historical、AI）先做一次只读 release 行的指针查询（`currentCorpusPointer()`：`corpus_import_releases` 经 `site_meta` 的 `current_corpus_release_id`、`corpus_import_state`、`current_corpus_manifest_sha256` 联结）。指针行除 `live_*` 外每一列都参与身份比较；身份不变且距上次完整计数不足 1 小时，就复用那次通过的结果，否则重新完整计数。复用先查本 isolate 内存，再查本机房 Workers Cache API 条目（键 `SITE_ORIGIN` + `/__corpus-integrity/v1/<指针身份 SHA-256>`，`max-age=3600`；2026-10-26 站长批准），同机房各 isolate 共享；取回的条目须身份一致、未过期、非未来时间、计数通过才用。
 - 只复用通过的结果；任何一次完整计数不通过都会清除复用，下一次读请求重新计数。指针查不到（release、manifest 或 state 不符）直接 503，不看复用。
-- `/api/health` 每次都完整计数，并用结果替换或清除复用；发布验收与漂移排查以 `/api/health` 为准。同一指针下的表数据漂移，读路由最迟 1 小时或下一次 `/api/health` 后看到。
-- 复用只存在 isolate 内存，不新增绑定、KV、Cache API 或 D1 写入。门槛：`tests/corpus-count-reuse.test.mjs`（指针查询与完整计数的 release 列一致、失配即无行、任一 release 列变化即换身份）与 `tests/worker-api-cost-boundary.test.mjs`（复用、health 重算、失败不复用、指针变化与 1 小时过期即重算）。
+- `/api/health` 每次都完整计数，并用结果替换或清除本 isolate 与本机房的复用；发布验收与漂移排查以 `/api/health` 为准。同一指针下的表数据漂移，读路由最迟 1 小时后看到；执行 `/api/health` 的那个 isolate 与其机房立即看到，其他 isolate 的内存复用最迟 1 小时。
+- 不新增绑定、KV 或 D1 写入；Cache API 条目只在本机房、不对访客提供（本 Worker 未启用 Workers Caching）。门槛：`tests/corpus-count-shared-reuse.test.mjs`（跨 isolate 共享、指针变化换键、health 失败删除、失败不共享、过期／未来／错身份／未通过／损坏条目不用、无 Cache API 时退回内存）、`tests/corpus-count-reuse.test.mjs`（指针查询与完整计数的 release 列一致、失配即无行、任一 release 列变化即换身份）与 `tests/worker-api-cost-boundary.test.mjs`（复用、health 重算、失败不复用、指针变化与 1 小时过期即重算）。
 
 # 运维与八点验证标准
 
